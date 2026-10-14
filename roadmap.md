@@ -1,6 +1,7 @@
 # Tasks
+- [x] Refine agents-mock: compact white layout, one font, concise request action, real tenant profiles and repayment percentages, compact calendar; signed-in desktop/phone, filters and tenant-detail opening verified; guards passed and no page errors.
 - [x] Redesign agents-mock with Post Rent Request first, period toggle, plain tenant phone numbers, counts and a clearer calendar; signed-in toggle/calendar/request-form navigation verified, no page errors or phone overflow; all guards passed.
-- [ ] Historical missed-tenant details, tenant-specific repayment percentages and ten-record server fetching for agents-mock — blocked on a verified read-only historical detail contract; current view pages recorded collections locally and does not invent missing details.
+- [ ] Historical missed-tenant details and ten-record server fetching for agents-mock — blocked on a verified read-only historical detail contract; current view pages existing records locally and does not invent missing historical details.
 - [x] Remove the "Collected today" / "Still to collect" tiles from the agents-mock rent card; card now shows only the ring, rent due and tenant count — checked in the browser (both tile labels gone, no page errors), build clean.
 - [x] Swap the Transactions shortcut on agents-mock for Leaderboard that opens /dashboard/agents/leaderboard; click checked in the browser (real rankings load), build clean.
 - [x] Swap the Sub-Agents shortcut on agents-mock for Service Center that opens /agent/service-center; click checked in the browser (lands on the real Service Center page), build clean.
