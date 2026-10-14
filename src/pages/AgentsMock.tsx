@@ -202,7 +202,24 @@ export default function AgentsMock() {
   const [exportingTenants, setExportingTenants] = useState(false);
   const liveTenants = tenantRows.filter(t => t.statuses?.some(status => ['repaying', 'funded', 'disbursed'].includes(status)));
   const payingTenants = liveTenants.filter(t => !t.payment_states?.length || t.payment_states.some(state => state !== 'not_paying'));
-  const paidTenants = payingTenants.filter(t => Number(t.today_paid_amount) > 0);
+  // Payments recorded through the agent's float (agent_collections) do not appear in
+  // repayments, so count today's collections as well.
+  const { data: todayCollections = [] } = useQuery({
+    queryKey: ['agents-mock-today-collections', user?.id, todayKey],
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('agent_collections').select('tenant_id, amount')
+        .eq('agent_id', user?.id ?? '').is('reversed_at', null)
+        .gte('created_at', `${todayKey}T00:00:00+03:00`).limit(5000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const collectedTodayByTenant = new Map<string, number>();
+  todayCollections.forEach(r => collectedTodayByTenant.set(r.tenant_id, (collectedTodayByTenant.get(r.tenant_id) ?? 0) + (Number(r.amount) || 0)));
+  const paidTodayOf = (t: { id: string; today_paid_amount?: number | null }) => Math.max(Number(t.today_paid_amount ?? 0), collectedTodayByTenant.get(t.id) ?? 0);
+  const paidTenants = payingTenants.filter(t => paidTodayOf(t) > 0);
   const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
   const tenantIds = tenantRows.map(t => t.id);
   // A tenant's photo comes from the profile, and falls back to the passport
@@ -341,7 +358,7 @@ export default function AgentsMock() {
             {tenantsLoading ? <p className="py-5 text-sm text-muted-foreground">Loading tenants…</p> : tenantsFailed ? <p className="py-5 text-sm text-destructive">Tenant records could not be loaded.</p> : <>
               <ul className="mt-4 space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
                 const pct = t.total_repayment > 0 ? Math.min(100, Math.round(t.amount_repaid / t.total_repayment * 100)) : null;
-                const paidToday = Number(t.today_paid_amount ?? 0);
+                const paidToday = paidTodayOf(t);
                 const balance = Number(t.balance ?? 0);
                 const unfunded = Number(t.unfunded_balance ?? 0);
                 const state = balance <= 0 && unfunded > 0
