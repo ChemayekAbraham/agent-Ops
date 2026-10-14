@@ -230,6 +230,35 @@ export default function TenantClassificationTab() {
         </div>
       ) : null}
 
+      {/* Smartphone use. One card for the whole population, two for the chosen window. The categories
+          above are a point-in-time snapshot and are not narrowed by the window. */}
+      <div className="space-y-2" data-testid="smartphone-section">
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="smartphone-note">
+            Smartphone use. Recorded at sign-up, settled by a check from an agent or the call centre, and
+            dashboard opens from a phone.
+            {u ? ` The last two cards count ${phrase}.` : ''}
+          </p>
+          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:shrink-0" />
+        </div>
+        {usage.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : usage.isError ? (
+          <p className="text-xs text-destructive" data-testid="smartphone-error">
+            Could not load the smartphone figures: {usage.error instanceof Error ? usage.error.message : 'unknown error'}
+          </p>
+        ) : u ? (
+          <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5" data-testid="smartphone-cards">
+            <KPICard title="Use a smartphone" value={fmtTenants(u.recorded_smartphone)} icon={Smartphone}
+              color="bg-primary/10 text-primary" subtitle={recordedSmartphoneHint(u)} />
+            <KPICard title={`Device checks ${phrase}`} value={fmtTenants(u.checks)} icon={ClipboardCheck}
+              color="bg-success/10 text-success" subtitle={windowChecksHint(u)} />
+            <KPICard title={`Joined ${phrase}`} value={fmtTenants(u.joined)} icon={UserPlus}
+              color="bg-warning/10 text-warning" subtitle={joinedWindowHint(u)} />
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={category ?? ALL} onValueChange={(v) => pickCategory(v === ALL ? null : (v as TenantCategory))}>
           <SelectTrigger className="h-9 w-full sm:w-64" aria-label="Category"><SelectValue /></SelectTrigger>
