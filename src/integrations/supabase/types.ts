@@ -74509,6 +74509,28 @@ export type Database = {
         Args: { _amount_repaid: number; _id: string }
         Returns: boolean
       }
+      rent_request_desk_order: {
+        Args: {
+          p_arrived?: string
+          p_from?: string
+          p_labels?: string[]
+          p_request_ids: string[]
+          p_sort?: string
+          p_to?: string
+        }
+        Returns: {
+          basis: string
+          label: string
+          match_count: number
+          matches: boolean
+          rank: number
+          reason: string
+          request_id: string
+          score: number
+          tenant_id: string
+          total_count: number
+        }[]
+      }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
