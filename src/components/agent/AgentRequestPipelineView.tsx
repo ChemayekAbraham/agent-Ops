@@ -1098,7 +1098,7 @@ export function AgentRequestPipelineView({
                           <Pencil className="h-3.5 w-3.5" />
                           Edit & Resubmit
                         </Button>
-                      </div>
+                      </div>}
                   </CardContent>
                 </Card>
               ))}
