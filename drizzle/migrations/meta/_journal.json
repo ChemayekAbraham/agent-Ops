@@ -3928,6 +3928,13 @@
       "when": 1791970823758,
       "tag": "0560_food_m1_06_20261013120001_guarded",
       "breakpoints": true
+    },
+    {
+      "idx": 561,
+      "version": "7",
+      "when": 1791970918213,
+      "tag": "0561_food_m1_07_20261013125000_guarded",
+      "breakpoints": true
     }
   ]
 }

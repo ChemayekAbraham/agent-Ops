@@ -67166,6 +67166,7 @@ export type Database = {
         Returns: Json
       }
       food_is_canteen_user: { Args: { _user_id: string }; Returns: boolean }
+      food_is_staff: { Args: { _user_id: string }; Returns: boolean }
       food_meal_photo_readable: { Args: { p_name: string }; Returns: boolean }
       food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
       food_pay_order: { Args: { p_order_id: string }; Returns: Json }
