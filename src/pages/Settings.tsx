@@ -587,33 +587,50 @@ export default function Settings() {
                               </p>
                             )}
                             {profile && phone.trim() !== (profile.phone ?? '').trim() && phone.trim() && !phoneInvalid && (
-                              <div className="pt-2">
-                                <OtpVerificationStep
-                                  phone={phone.trim()}
-                                  otpSent={otp.otpSent}
-                                  otpVerified={otp.otpVerified}
-                                  otpLoading={otp.otpLoading}
-                                  otpError={otp.otpError}
-                                  sendStatus={otp.sendStatus}
-                                  cooldownSeconds={otp.cooldownSeconds}
-                                  onSendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
-                                  onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code, { category: 'phone_update' })}
-                                  onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
-                                />
-                                <p className="text-[11px] text-muted-foreground mt-2">We'll send a 6-digit code to confirm this number before it replaces your current login phone.</p>
-                                {/* Logic-only placeholder markup — Gemini to restyle. */}
-                                {otp.otpVerified && (profile.phone ?? '').trim() && (
-                                  <div className="mt-3 space-y-2">
-                                    <p className="text-[11px] text-muted-foreground">For your security, also confirm with a code sent to your <strong>current</strong> number.</p>
-                                    {oldPhoneMasked === null ? (
-                                      <Button type="button" variant="outline" size="sm" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
+                              <div className="mt-2 rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-foreground">Changing your login phone</p>
+                                    <p className="text-[11px] text-muted-foreground">Current: {profile.phone || 'none'}</p>
+                                  </div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs shrink-0" onClick={cancelPhoneChange}>Cancel</Button>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${otp.otpVerified ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>{otp.otpVerified ? <Check className="h-3 w-3" /> : '1'}</span>
+                                    <p className="text-xs font-medium text-foreground">Confirm the new number</p>
+                                  </div>
+                                  {!otp.otpVerified && (
+                                    <OtpVerificationStep
+                                      phone={phone.trim()}
+                                      otpSent={otp.otpSent}
+                                      otpVerified={otp.otpVerified}
+                                      otpLoading={otp.otpLoading}
+                                      otpError={otp.otpError}
+                                      sendStatus={otp.sendStatus}
+                                      cooldownSeconds={otp.cooldownSeconds}
+                                      onSendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
+                                      onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code, { category: 'phone_update' })}
+                                      onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
+                                    />
+                                  )}
+                                </div>
+                                {(profile.phone ?? '').trim() && (
+                                  <div className={`space-y-2 ${otp.otpVerified ? '' : 'opacity-50'}`}>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${/^\d{6}$/.test(oldPhoneCode) ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>{/^\d{6}$/.test(oldPhoneCode) ? <Check className="h-3 w-3" /> : '2'}</span>
+                                      <p className="text-xs font-medium text-foreground">Confirm with your current number</p>
+                                    </div>
+                                    {otp.otpVerified && (oldPhoneMasked === null ? (
+                                      <Button type="button" variant="outline" className="w-full h-11 rounded-xl" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
                                         {requestingOldCode ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Send code to current number
                                       </Button>
                                     ) : (
-                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`6-digit code sent to ${oldPhoneMasked || 'your current number'}`} className="h-11 rounded-xl" />
-                                    )}
+                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`Code sent to ${oldPhoneMasked || 'current number'}`} className="h-11 rounded-xl text-center tracking-[0.3em] font-mono" />
+                                    ))}
                                   </div>
                                 )}
+                                <p className="text-[11px] text-muted-foreground">Codes last 10 minutes. Nothing changes until you tap Save.</p>
                               </div>
                             )}
                           </div>
