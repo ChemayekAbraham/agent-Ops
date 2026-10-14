@@ -6,7 +6,7 @@ import {
   foodErrorMessage, isFoodCheckoutDisabled, canStartPreparing, isFoodMockMode, foodToday,
   FULFILMENT_REQUIRES_PAYMENT,
   FOOD_MEAL_IMAGE_BUCKET, FOOD_MEAL_IMAGE_NAME, FOOD_MEAL_PHOTO_URL_TTL_SECONDS,
-  FOOD_MEAL_PHOTO_URL_REFRESH_MARGIN_MS, foodMealImageProblem, foodMealImagePath,
+  FOOD_MEAL_PHOTO_URL_REFRESH_MARGIN_MS, foodMealImageProblem, foodMealImagePath, foodMealImageContentProblem,
   type FoodPaymentStatus, type FoodPaymentMode, type FoodExceptionKind,
 } from '@/lib/foodService';
 
@@ -563,6 +563,8 @@ export function useSetFoodMealPhoto() {
       if (v.file) {
         const problem = foodMealImageProblem(v.file);
         if (problem) throw new Error(problem);
+        const contentProblem = await foodMealImageContentProblem(v.file);
+        if (contentProblem) throw new Error(contentProblem);
         if (import.meta.env.DEV && isFoodMockMode()) {
           path = URL.createObjectURL(v.file);          // fixture: a local preview only
         } else {

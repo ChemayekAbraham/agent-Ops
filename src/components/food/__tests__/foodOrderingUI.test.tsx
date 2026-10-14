@@ -676,7 +676,7 @@ describe('Meal photos', () => {
 
   type MealRow = { id: string; name: string; image_path: string | null };
   type AuditRow = { entity_id: string; action: string };
-  const png = (bytes = 10) => new File([new Uint8Array(bytes)], 'meal.png', { type: 'image/png' });
+  const png = (bytes = 10) => { const b = new Uint8Array(Math.max(bytes, 8)); b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); return new File([b], 'meal.png', { type: 'image/png' }); };
   const mealNamed = async (name: string) =>
     (await foodMockSelect<MealRow[]>('food_meals')).find((m) => m.name === name);
 
