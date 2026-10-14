@@ -127,7 +127,7 @@ describe('TenantClassificationTab', () => {
     expect(within(cards).getByText('Joined this month')).toBeTruthy();
     expect(within(cards).getByText('156 of 172 who joined recorded as having one')).toBeTruthy();
     const note = await screen.findByTestId('smartphone-note');
-    expect(note.textContent).toContain('The last two cards count this month');
+    expect(note.textContent).toContain('Smartphone use');
   });
 
   it('asks for the smartphone figures of the period picked, and writes it to the URL', async () => {
@@ -142,7 +142,7 @@ describe('TenantClassificationTab', () => {
       expect(last.p_from).toBe(kampalaTodayYmd());
       expect(last.p_to).toBe(kampalaTodayYmd());
     });
-    expect((await screen.findByTestId('smartphone-note')).textContent).toContain('count today');
+    expect((await screen.findByTestId('page-period-bar')).textContent).toContain('Today');
   });
 
   it('opens on the period named in tc_range', async () => {

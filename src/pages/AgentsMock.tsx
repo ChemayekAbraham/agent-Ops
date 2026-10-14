@@ -17,6 +17,7 @@ import type { AppRole } from '@/hooks/auth/types';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { deriveAgentBadges, BADGE_CLASS } from '@/lib/agentBadges';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
 import welileLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
@@ -346,14 +347,16 @@ export default function AgentsMock() {
               const loadingCol = period === 'month' && (collectionsFailed || collectionsLoading);
               const loadingExp = period === 'month' && (historyFailed || historyLoading);
               const pct = collectPct;
+              // Under half of what was expected reads as a shortfall, so the
+              // collected figure, its percentage and the bar all turn red.
+              const low = !collectLoading && Number(expected) > 0 && pct < 50;
               const tenantCount = period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size;
               return <>
                 <div className="mt-4 flex items-end justify-between gap-3">
-                  <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p key={`collected-${loadingCol ? 'loading' : collected}`} className={cn('mt-0.5 break-words text-2xl font-bold leading-tight text-success tabular-nums', !loadingCol && 'mock-bubble-pop')}>{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
-                  <span key={`pct-${pct}`} className={cn('shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold tabular-nums text-success', pct > 0 && 'mock-bubble-pop')}>{pct}%</span>
+                  <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p key={`collected-${loadingCol ? 'loading' : collected}`} className={cn('mt-0.5 break-words text-2xl font-bold leading-tight tabular-nums', low ? 'text-destructive' : 'text-success', !loadingCol && 'mock-bubble-pop')}>{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
                 </div>
-                <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className="relative h-full overflow-hidden rounded-full bg-success transition-[width] duration-700 ease-out" style={{ width: `${fillPct}%` }}>{fillPct > 0 && <span aria-hidden className="mock-progress-bubble" />}</div></div>
-                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span></div>
+                <div className="mt-3 h-3.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className={cn('relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-out', low ? 'bg-destructive' : 'bg-success')} style={{ width: `${fillPct}%` }}>{fillPct > 0 && <><span aria-hidden className="mock-progress-bubble" /><span aria-hidden className="mock-progress-bubble mock-progress-bubble--b" /></>}</div></div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span>{cap && <span className="flex shrink-0 flex-wrap justify-end gap-1.5">{deriveAgentBadges(cap).slice(0, 2).map(b => <span key={b.id} className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</span>}</div>
                 <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{tenantCount}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 font-semibold text-success">{todayPaidCount} paid</span>}</div>
               </>;
             })()}
@@ -379,7 +382,7 @@ export default function AgentsMock() {
                   <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-all hover:bg-card active:scale-[0.97] sm:gap-3">
                     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t.full_name); }} /> : firstLetter(t.full_name)}</span>
                     <span className="min-w-0 flex-1 whitespace-normal text-left"><span className="block truncate text-[13px] font-bold sm:text-sm">{t.full_name}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground sm:text-xs">{t.phone || 'Phone not recorded'}</span></span>
-                    <span className="flex shrink-0 flex-col items-end text-right"><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className={cn('mt-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs', pct !== null && pct < 50 && 'text-destructive')}>{pct === null ? '—' : `${pct}%`}</span></span>
+                    <span className="flex shrink-0 flex-col items-end text-right"><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs">{pct === null ? '—' : `${pct}% of plan`}</span></span>
                   </Button>
                 </li>;
               })}</ul>

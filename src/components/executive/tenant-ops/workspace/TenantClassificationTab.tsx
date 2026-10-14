@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DateRange } from 'react-day-picker';
 import { useSearchParams } from 'react-router-dom';
 import { format, isValid, parseISO } from 'date-fns';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, Smartphone, UserPlus, UserX } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, Smartphone, UserPlus, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -189,6 +189,16 @@ export default function TenantClassificationTab() {
 
   return (
     <div className="space-y-3">
+      {/* Page-level period, at the top of the page. The category counts below are a point-in-time
+          snapshot ("As of …") and are not narrowed by this window; it drives the smartphone figures. */}
+      <div className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2" data-testid="page-period-bar">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <CalendarIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="shrink-0 text-xs font-semibold leading-tight">Period</p>
+          <p className="hidden text-[11px] leading-tight text-muted-foreground sm:block">· applies to the smartphone figures</p>
+        </div>
+        <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="shrink-0" />
+      </div>
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between">
         <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="classification-note">
           Every tenant is in exactly one category. Counted from the day after the landlord was paid.
@@ -231,13 +241,16 @@ export default function TenantClassificationTab() {
       {/* Smartphone use. One card for the whole population, two for the chosen window. The categories
           above are a point-in-time snapshot and are not narrowed by the window. */}
       <div className="space-y-2" data-testid="smartphone-section">
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="smartphone-note">
-            Smartphone use. Recorded at sign-up, settled by a check from an agent or the call centre, and
-            dashboard opens from a phone.
-            {u ? ` The last two cards count ${phrase}.` : ''}
+        <div className="flex min-w-0 items-center gap-2">
+          <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Smartphone className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-0 break-words text-sm font-semibold leading-tight" data-testid="smartphone-note">
+            Smartphone use
+            <span className="ml-1.5 hidden font-normal text-xs text-muted-foreground sm:inline">
+              · recorded at sign-up or by a check
+            </span>
           </p>
-          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:shrink-0" />
         </div>
         {usage.isLoading ? (
           <Skeleton className="h-24 w-full" />

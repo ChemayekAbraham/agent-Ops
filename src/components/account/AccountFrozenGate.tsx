@@ -32,11 +32,11 @@ export function AccountFrozenGate({ children }: { children: React.ReactNode }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_frozen, frozen_reason')
+        .select('is_frozen, frozen_reason, deleted_at')
         .eq('id', user!.id)
         .maybeSingle();
       if (error) throw error;
-      return data as { is_frozen: boolean | null; frozen_reason: string | null } | null;
+      return data as { is_frozen: boolean | null; frozen_reason: string | null; deleted_at: string | null } | null;
     },
     staleTime: 60_000,
     refetchOnWindowFocus: true,
@@ -55,7 +55,18 @@ export function AccountFrozenGate({ children }: { children: React.ReactNode }) {
     refetchOnWindowFocus: true,
   });
 
-  const profileFrozen = !!profileFreeze?.is_frozen;
+  // A deleted account is not "suspended": sign the user out instead of showing the banner.
+  const isDeleted = !!user && !!profileFreeze?.deleted_at;
+  useEffect(() => {
+    if (!isDeleted) return;
+    lt.mark('gate.account_deleted.signout', {}, 'deleted');
+    supabase.auth.signOut().finally(() => {
+      try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ }
+      window.location.replace('/auth?reason=account_deleted');
+    });
+  }, [isDeleted]);
+
+  const profileFrozen = !!profileFreeze?.is_frozen && !isDeleted;
   const listingFrozen = !!listingBlock?.blocked && listingBlock?.freeze_scope === 'all';
   const frozen = !!user && (profileFrozen || listingFrozen);
 
@@ -67,6 +78,7 @@ export function AccountFrozenGate({ children }: { children: React.ReactNode }) {
     }, frozen ? 'frozen' : 'ok');
   }, [user?.id, profileFrozen, listingFrozen, frozen]);
 
+  if (isDeleted) return null;
   if (!frozen) return <>{children}</>;
 
   const reason =

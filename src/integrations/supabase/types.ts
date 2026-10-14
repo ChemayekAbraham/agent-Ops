@@ -43023,6 +43023,10 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          new_daily_repayment: number | null
+          new_duration_days: number | null
+          new_rent_amount: number | null
+          new_total_repayment: number | null
           prev_request_id: string
           tenant_id: string
           verified_at: string | null
@@ -43036,6 +43040,10 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          new_daily_repayment?: number | null
+          new_duration_days?: number | null
+          new_rent_amount?: number | null
+          new_total_repayment?: number | null
           prev_request_id: string
           tenant_id: string
           verified_at?: string | null
@@ -43049,6 +43057,10 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          new_daily_repayment?: number | null
+          new_duration_days?: number | null
+          new_rent_amount?: number | null
+          new_total_repayment?: number | null
           prev_request_id?: string
           tenant_id?: string
           verified_at?: string | null
@@ -43410,6 +43422,114 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_request_review_notes: {
+        Row: {
+          author: string
+          author_role: string
+          created_at: string
+          id: string
+          note: string
+          request_id: string
+          stage: string
+        }
+        Insert: {
+          author: string
+          author_role: string
+          created_at?: string
+          id?: string
+          note: string
+          request_id: string
+          stage: string
+        }
+        Update: {
+          author?: string
+          author_role?: string
+          created_at?: string
+          id?: string
+          note?: string
+          request_id?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       rent_requests: {
         Row: {
           access_fee: number
@@ -43505,6 +43625,14 @@ export type Database = {
           rejected_at: string | null
           rejected_at_stage: string | null
           rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
           rent_amount: number
           reopen_count: number
           reopen_reason: string | null
@@ -43642,6 +43770,14 @@ export type Database = {
           rejected_at?: string | null
           rejected_at_stage?: string | null
           rejected_reason?: string | null
+          renewal_above_by?: number | null
+          renewal_above_suggestion?: boolean | null
+          renewal_advice_snapshot?: Json | null
+          renewal_change_explanation?: string | null
+          renewal_change_reason_code?: string | null
+          renewal_evidence_url?: string | null
+          renewal_previous_days?: number | null
+          renewal_previous_rent?: number | null
           rent_amount: number
           reopen_count?: number
           reopen_reason?: string | null
@@ -43779,6 +43915,14 @@ export type Database = {
           rejected_at?: string | null
           rejected_at_stage?: string | null
           rejected_reason?: string | null
+          renewal_above_by?: number | null
+          renewal_above_suggestion?: boolean | null
+          renewal_advice_snapshot?: Json | null
+          renewal_change_explanation?: string | null
+          renewal_change_reason_code?: string | null
+          renewal_evidence_url?: string | null
+          renewal_previous_days?: number | null
+          renewal_previous_rent?: number | null
           rent_amount?: number
           reopen_count?: number
           reopen_reason?: string | null
@@ -62294,6 +62438,48 @@ export type Database = {
         }
         Returns: Json
       }
+      _renewal_advice_core: {
+        Args: {
+          p_as_at: string
+          p_new_days: number
+          p_prev: Database["public"]["Tables"]["rent_requests"]["Row"]
+        }
+        Returns: Json
+      }
+      _renewal_advice_params: { Args: never; Returns: Json }
+      _renewal_band: {
+        Args: { p_fully_repaid: boolean; p_on_time_pct: number; p_params: Json }
+        Returns: Json
+      }
+      _renewal_max_rent: {
+        Args: {
+          p_cap_daily: number
+          p_cap_total: number
+          p_days: number
+          p_round: number
+        }
+        Returns: number
+      }
+      _renewal_plan_stats: {
+        Args: { p_as_at: string; p_rid: string }
+        Returns: Json
+      }
+      _rent_access_limit_calc: {
+        Args: {
+          p_dec: number
+          p_inc: number
+          p_max: number
+          p_now: string
+          p_payment_times: string[]
+        }
+        Returns: Json
+      }
+      _rent_access_limit_core: {
+        Args: { p_now?: string; p_tenant: string }
+        Returns: Json
+      }
+      _rent_access_limit_params: { Args: never; Returns: Json }
+      _rent_days_allowed: { Args: { p_days: number }; Returns: boolean }
       _rent_fee_refuse_cancelled: {
         Args: {
           p_amount: number
@@ -62504,6 +62690,15 @@ export type Database = {
       acknowledge_finance_anomaly_alert: {
         Args: { p_check_key: string; p_note?: string }
         Returns: Json
+      }
+      add_rent_request_review_note: {
+        Args: {
+          p_note: string
+          p_request_id: string
+          p_role?: string
+          p_stage?: string
+        }
+        Returns: string
       }
       admin_assign_subagent_parent: {
         Args: { _new_parent_id: string; _reason: string; _sub_agent_id: string }
@@ -63382,6 +63577,14 @@ export type Database = {
           rejected_at: string | null
           rejected_at_stage: string | null
           rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
           rent_amount: number
           reopen_count: number
           reopen_reason: string | null
@@ -70575,6 +70778,10 @@ export type Database = {
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
+      get_renewal_advice: {
+        Args: { p_new_days?: number; p_prev_request_id: string }
+        Returns: Json
+      }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -74899,6 +75106,14 @@ export type Database = {
         Args: { p_note_ids: string[] }
         Returns: Json
       }
+      preview_renewal_amount: {
+        Args: {
+          p_new_days?: number
+          p_new_rent: number
+          p_prev_request_id: string
+        }
+        Returns: Json
+      }
       preview_welile_home_enrollment_edit: {
         Args: {
           p_agent_id: string
@@ -76110,12 +76325,19 @@ export type Database = {
       }
       renew_rent_request: {
         Args: {
+          p_change_explanation?: string
+          p_change_reason_code?: string
+          p_evidence_url?: string
           p_latitude?: number
           p_longitude?: number
+          p_new_days?: number
+          p_new_rent_amount?: number
           p_prev_request_id: string
         }
         Returns: string
       }
+      rent_access_limit_server: { Args: { p_tenant: string }; Returns: Json }
+      rent_allowed_days: { Args: never; Returns: number[] }
       rent_apply_collections_to_days: {
         Args: { p_rent_request_id: string }
         Returns: Json
@@ -76255,7 +76477,11 @@ export type Database = {
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_renewal_otp_context: {
-        Args: { p_prev_request_id: string }
+        Args: {
+          p_new_days?: number
+          p_new_rent?: number
+          p_prev_request_id: string
+        }
         Returns: Json
       }
       rent_request_agent_financials_ok: {
