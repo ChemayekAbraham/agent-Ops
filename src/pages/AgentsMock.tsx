@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
+import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -19,7 +20,7 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
   { label: 'Calculator', Icon: Calculator, color: 'text-primary', },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
-  { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
+  { label: 'Invite', Icon: UserPlus, color: 'text-warning' },
 ];
 
 /**
@@ -82,6 +83,7 @@ export default function AgentsMock() {
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
   const kampalaNow = new Date(Date.now() + 3 * 3600_000);
   const [month, setMonth] = useState(new Date(kampalaNow.getUTCFullYear(), kampalaNow.getUTCMonth(), 1));
@@ -221,7 +223,7 @@ export default function AgentsMock() {
             <div className="mt-3 grid grid-cols-2 gap-4"><div><p className="text-xs text-muted-foreground">Collected</p><p className="mt-1 break-words text-xl font-bold text-success tabular-nums">{period === 'month' && (collectionsFailed || collectionsLoading) ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div><div className="border-l border-border pl-4"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{period === 'month' && (historyFailed || historyLoading) ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</p></div></div>
             <div className="mt-3 flex items-center gap-2 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto text-xs text-muted-foreground">{todayPaidCount} paid</span>}</div>
           </section>
-          <section aria-label="Agent shortcuts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Calculator' ? setCalcOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
+          <section aria-label="Agent shortcuts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section aria-labelledby="due-heading" className="min-w-0 border-t border-border pt-4">
             <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{payingTenants.length} repaying</span></div>
@@ -256,6 +258,7 @@ export default function AgentsMock() {
       <nav aria-label="Agent navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-safe"><div className="mx-auto grid max-w-xl grid-cols-5 px-2 py-2">{[{ label: 'Home', Icon: Home }, { label: 'Tenants', Icon: Users }, { label: 'Collect', Icon: Wallet }, { label: 'Post Rent', Icon: FileText }, { label: 'More', Icon: Menu }].map(({ label, Icon }) => <Button key={label} variant="ghost" aria-current={activeNav === label ? 'page' : undefined} onClick={() => { if (label === 'Post Rent') { openRequest(); return; } setActiveNav(label); if (label === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' }); else if (label === 'Tenants') document.getElementById('due-heading')?.scrollIntoView({ behavior: 'smooth' }); else setNotice(label); }} className={cn('h-14 flex-col gap-1 rounded-lg px-0 text-xs', activeNav === label ? 'text-primary' : 'text-muted-foreground')}><Icon className="!h-5 !w-5" strokeWidth={1.8} /><span>{label}</span></Button>)}</div></nav>
       <Dialog open={selectedTenantId !== null} onOpenChange={open => { if (!open) setSelectedTenantId(null); }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>Tenant details</DialogTitle><DialogDescription>Rent Plans and repayment history</DialogDescription></DialogHeader>{selectedTenantId && <TenantProfileView tenantId={selectedTenantId} onBack={() => setSelectedTenantId(null)} />}</DialogContent></Dialog>
       <RentCalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
+      <SubAgentInviteLinkDialog open={inviteOpen} onOpenChange={setInviteOpen} />
       <Dialog open={notice !== null} onOpenChange={open => { if (!open) setNotice(null); }}><DialogContent><DialogHeader><DialogTitle>{notice}</DialogTitle><DialogDescription>{notice?.includes('tenants') || notice === 'Tenants' ? 'Tenant details' : 'Agent dashboard'}</DialogDescription></DialogHeader>{notice === 'Paid tenants' ? <p className="text-sm text-muted-foreground">{todayPaidCount} tenants paid today. Individual paid-tenant details are not available in this view.</p> : notice?.includes('tenants') || notice === 'Tenants' ? <ul className="max-h-80 overflow-y-auto divide-y divide-border">{DUE_LIST.map(t => <li key={t.rent_request_id} className="py-3"><p className="text-sm font-medium">{t.tenant_name || 'Tenant'}</p><p className="text-sm text-muted-foreground">{t.tenant_phone || 'Phone not recorded'}</p></li>)}</ul> : <p className="text-sm text-muted-foreground">No transactions have been made.</p>}</DialogContent></Dialog>
     </div>
   );
