@@ -4,23 +4,22 @@ const PRIMARY: [number, number, number] = [108, 33, 196];
 const STRIPE: [number, number, number] = [243, 238, 252];
 
 export interface RdReportProject {
-  name: string; tagline: string; stage: string; progress: number; objective: string;
-  progressItems: string[]; metrics: { value: string; label: string }[];
-  challenges: string[]; nextSteps: string[];
-  week: { last: string[]; today: string[]; next: string[] };
+  name: string;
   updates: { date: string; text: string }[];
 }
 export interface RdReportData {
-  summary: { value: string; label: string }[];
-  ideas: { name: string; customers: number; cashIn: number; cashOut: number }[];
   projects: RdReportProject[];
-  canvases: { title: string; owner: string; date: string; summary: string; canvas: Record<string, string> }[];
-  canvasTitles: Record<string, string>;
 }
 
-const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
+/** Only explicitly recorded updates may supply report content. */
+export function recordedRdProjects(projects: RdReportProject[]): RdReportProject[] {
+  return projects.map((p) => ({
+    name: p.name,
+    updates: p.updates.filter((u) => u.text.trim()).map((u) => ({ date: u.date, text: u.text })),
+  }));
+}
 
-/** One PDF holding everything shown on the R&D page. */
+/** One PDF holding recorded R&D updates, without preset claims or figures. */
 export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) {
   const { default: jsPDF } = await import('jspdf');
   const m: any = await import('jspdf-autotable');
@@ -50,45 +49,14 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.text(`Generated ${format(at, 'dd MMM yyyy, HH:mm')}`, mg, 20);
 
-  let y = heading('Overall Summary', 36);
-  table(['Measure', 'Value'], d.summary.map((s) => [s.label, s.value]), y);
-
-  y = heading('Business Ideas: Cash Position', lastY() + 10);
-  const t = d.ideas.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
-  table(['Business idea', 'Customers', 'Cash in', 'Cash out', 'Net position'],
-    d.ideas.map((r) => [r.name, r.customers.toLocaleString('en-US'), ugx(r.cashIn), ugx(r.cashOut), ugx(r.cashIn - r.cashOut)]), y,
-    { foot: [['Total', t.c.toLocaleString('en-US'), ugx(t.i), ugx(t.o), ugx(t.i - t.o)]], footStyles: { fillColor: [230, 230, 240], textColor: 20, fontStyle: 'bold' } });
-
-  y = heading('Project Progress', lastY() + 10);
-  table(['Project', 'Stage', 'Progress'], d.projects.map((p) => [p.name, p.stage, `${p.progress}%`]), y);
-
-  for (const p of d.projects) {
-    y = heading(`${p.name} — ${p.tagline}`, lastY() + 10);
-    const list = (a: string[]) => (a.length ? a.map((x) => `• ${x}`).join('\n') : '—');
-    table(['Section', 'Details'], [
-      ['Stage / progress', `${p.stage} · ${p.progress}%`],
-      ['Objective', p.objective],
-      ['Current progress', list(p.progressItems)],
-      ['Key metrics', p.metrics.map((x) => `${x.label}: ${x.value}`).join('\n')],
-      ['Challenges', list(p.challenges)],
-      ['Next steps', list(p.nextSteps)],
-      ['Last 7 days', list(p.week.last)],
-      ['Today', list(p.week.today)],
-      ['Next 7 days', list(p.week.next)],
-      ['Updates', p.updates.filter((u) => u.text.trim()).map((u) => `${u.date}: ${u.text}`).join('\n') || 'No updates recorded'],
-    ], y, { columnStyles: { 0: { cellWidth: 38, fontStyle: 'bold' } } });
-  }
-
-  y = heading('Idea Canvas Board', lastY() + 10);
-  if (!d.canvases.length) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('No saved ideas.', mg, y + 4);
-  }
-  for (const c of d.canvases) {
-    y = heading(c.title, (d.canvases.indexOf(c) === 0 ? y : lastY() + 8) + 3);
-    table(['Field', 'Details'], [
-      ['Owner', c.owner || '—'], ['Date', c.date || '—'], ['Summary', c.summary || '—'],
-      ...Object.entries(d.canvasTitles).map(([k, title]) => [title, c.canvas?.[k] || '—']),
-    ], y, { columnStyles: { 0: { cellWidth: 45, fontStyle: 'bold' } } });
+  let y = 36;
+  for (const p of recordedRdProjects(d.projects)) {
+    y = heading(p.name, y);
+    table(['Date', 'Recorded update'], p.updates.length
+      ? p.updates.map((u) => [u.date || '—', u.text])
+      : [['—', 'No updates recorded']], y,
+      { columnStyles: { 0: { cellWidth: 30 } } });
+    y = lastY() + 10;
   }
 
   const n = (doc as any).internal.getNumberOfPages();

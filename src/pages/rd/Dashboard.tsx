@@ -12,7 +12,6 @@ import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 
 type Metric = { icon: LucideIcon; value: string; label: string };
@@ -309,13 +308,8 @@ export default function RDDashboard() {
   const exportReport = async () => {
     setExporting(true);
     try {
-      const { data } = await supabase.from('rd_ideas').select('*').order('created_at', { ascending: false });
       await downloadRdGeneralReport({
-        summary: summary.map((s) => ({ value: s.value, label: s.label })),
-        ideas: ideaRows,
-        projects: PROJECTS.map((p) => ({ ...p, metrics: p.metrics.map((x) => ({ value: x.value, label: x.label })), updates: loadUpdates(p.name) })),
-        canvases: (data ?? []).map((r: any) => ({ title: r.title, owner: r.owner, date: r.idea_date, summary: r.summary, canvas: r.canvas ?? {} })),
-        canvasTitles: { partners: 'Key Partners', activities: 'Key Activities', resources: 'Key Resources', value: 'Value Proposition', relationships: 'Customer Relationships', channels: 'Channels', segments: 'Customer Segments', costs: 'Cost Structure', revenue: 'Revenue Streams' },
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: loadUpdates(p.name) })),
       });
     } finally { setExporting(false); }
   };
