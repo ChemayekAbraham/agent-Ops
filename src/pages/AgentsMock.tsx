@@ -178,7 +178,7 @@ export default function AgentsMock() {
         <main className="space-y-7 px-5">
           <section aria-labelledby="post-cta-heading" className="border-b border-border pb-6">
             <div className="mb-3 flex items-center justify-between"><h2 id="post-cta-heading" className="text-lg font-semibold">Post a rent request</h2><FileText className="h-5 w-5 text-primary" /></div>
-            <div className="mb-4 grid grid-cols-3 gap-3">{POST_EARNINGS.map(e => <div key={e.when} className="min-w-0"><p className={cn('text-lg font-bold', EARN_TONES[e.tone].text)}>{e.label}</p><p className="mt-1 text-xs leading-4 text-muted-foreground">{e.when}</p></div>)}</div>
+            <div className="mb-4 grid grid-cols-3 gap-3">{POST_EARNINGS.map(e => <div key={e.when} className="min-w-0"><p className={cn('whitespace-nowrap text-base font-bold', EARN_TONES[e.tone].text)}>{e.label}</p><p className="mt-1 text-xs leading-4 text-muted-foreground">{e.when}</p></div>)}</div>
             <Button onClick={openRequest} className="h-12 w-full justify-between rounded-lg px-4 text-sm font-semibold"><span className="flex items-center gap-2"><Plus className="h-5 w-5" />Post Rent Request</span><ArrowRight className="h-5 w-5" /></Button>
           </section>
           <section aria-label="Collection summary" className="rounded-lg border border-border bg-card p-5">
