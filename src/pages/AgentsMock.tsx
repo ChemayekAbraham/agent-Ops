@@ -21,7 +21,7 @@ import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
-  { label: 'Calculator', Icon: Calculator, color: 'text-primary', },
+  { label: 'Rent Calculator', Icon: Calculator, color: 'text-primary', },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Invite', Icon: UserPlus, color: 'text-warning' },
