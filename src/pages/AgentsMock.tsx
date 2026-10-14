@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Phone, Plus, Home, Menu, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Phone, Plus, Home, Menu, Repeat, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
@@ -13,6 +13,9 @@ import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/l
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
+import type { AppRole } from '@/hooks/auth/types';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
+import { roleToSlug } from '@/lib/roleRoutes';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
@@ -29,6 +32,16 @@ const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
   { label: 'Profile', Icon: UserRound, to: '/your-profile' },
   { label: 'Settings', Icon: Settings, to: '/settings' },
 ];
+
+/** Plain names for the roles a signed-in user can hold, shown in the avatar menu. */
+const ROLE_LABELS: Record<string, string> = {
+  tenant: 'Tenant', agent: 'Agent', landlord: 'Landlord', supporter: 'Supporter',
+  manager: 'Manager', ceo: 'CEO', coo: 'COO', cfo: 'CFO', cto: 'CTO', cmo: 'CMO',
+  crm: 'CRM', employee: 'Employee', operations: 'Operations', super_admin: 'Super Admin',
+  hr: 'HR', access_admin: 'Access Admin', rd: 'R&D',
+  financial_ops: 'Financial Ops', agent_ops: 'Agent Ops', landlord_ops: 'Landlord Ops',
+  tenant_ops: 'Tenant Ops', partner_ops: 'Partner Ops',
+};
 
 /**
  * The three moments an agent is paid for a Rent Plan they posted. The two
@@ -49,7 +62,7 @@ const EARN_TONES = {
 
 export default function AgentsMock() {
   const { profile } = useProfile();
-  const { user, signOut } = useAuth();
+  const { user, signOut, role, roles, switchRole } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
@@ -93,6 +106,17 @@ export default function AgentsMock() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  // Same switch the header RoleSwitcher uses: flip the active role, then land
+  // on that role's dashboard. Manager keeps its access-code gate.
+  const pickRole = (next: AppRole) => {
+    setProfileOpen(false);
+    setRolePickerOpen(false);
+    if (next === role) return;
+    if (next === 'manager') { navigate('/manager-login'); return; }
+    switchRole(next);
+    navigate(roleDashboardRoutes[next] || roleToSlug(next));
+  };
   const kampalaNow = new Date(Date.now() + 3 * 3600_000);
   const [month, setMonth] = useState(new Date(kampalaNow.getUTCFullYear(), kampalaNow.getUTCMonth(), 1));
   const [day, setDay] = useState(kampalaNow.getUTCDate());
@@ -219,7 +243,16 @@ export default function AgentsMock() {
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-3 rounded-none border-0 shadow-none bg-[var(--mock-header)] px-4 pb-4 pt-5 text-primary-foreground sm:px-6">
           <div className="min-w-0"><p className="text-xs font-medium text-primary-foreground/80">Welcome back</p><h1 className="truncate text-xl font-semibold text-primary-foreground">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
-          <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')} className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"><Bell className="h-5 w-5" /></Button><Popover open={profileOpen} onOpenChange={setProfileOpen}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Your profile" className="overflow-hidden rounded-full border-primary-foreground/40 bg-primary-foreground/10 text-primary-foreground">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></PopoverTrigger><PopoverContent align="end" sideOffset={10} className="relative w-56 rounded-xl p-1.5"><span aria-hidden className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-border bg-popover" />{PROFILE_MENU.map(({ label, Icon, to }) => <Button key={label} variant="ghost" onClick={() => { setProfileOpen(false); navigate(to); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Icon className="h-4 w-4" /></span>{label}<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>)}<Button variant="ghost" onClick={async () => { setProfileOpen(false); await signOut(); navigate('/auth'); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium text-destructive"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/10"><LogOut className="h-4 w-4" /></span>Log out<ChevronRight className="ml-auto h-4 w-4 text-destructive/60" /></Button></PopoverContent></Popover></div>
+          <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')} className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"><Bell className="h-5 w-5" /></Button><Popover open={profileOpen} onOpenChange={open => { setProfileOpen(open); if (!open) setRolePickerOpen(false); }}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Your profile" className="overflow-hidden rounded-full border-primary-foreground/40 bg-primary-foreground/10 text-primary-foreground">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></PopoverTrigger><PopoverContent align="end" sideOffset={10} className="relative w-56 rounded-xl p-1.5"><span aria-hidden className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-border bg-popover" />
+            {rolePickerOpen ? <>
+              <Button variant="ghost" onClick={() => setRolePickerOpen(false)} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><ChevronLeft className="h-4 w-4" /></span>Switch role</Button>
+              <div className="max-h-64 overflow-y-auto">{roles.map(r => { const label = ROLE_LABELS[r] ?? r; return <Button key={r} variant="ghost" disabled={r === role} onClick={() => pickRole(r)} className={cn('h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium', r === role && 'bg-primary/10 text-primary')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold', r === role ? 'bg-primary/20 text-primary' : 'bg-muted/60')}>{label.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>{label}{r === role && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}</Button>; })}</div>
+            </> : <>
+              {PROFILE_MENU.map(({ label, Icon, to }) => <Button key={label} variant="ghost" onClick={() => { setProfileOpen(false); navigate(to); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Icon className="h-4 w-4" /></span>{label}<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>)}
+              {roles.length > 1 && <Button variant="ghost" onClick={() => setRolePickerOpen(true)} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Repeat className="h-4 w-4" /></span>Switch role<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>}
+              <Button variant="ghost" onClick={async () => { setProfileOpen(false); await signOut(); navigate('/auth'); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium text-destructive"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/10"><LogOut className="h-4 w-4" /></span>Log out<ChevronRight className="ml-auto h-4 w-4 text-destructive/60" /></Button>
+            </>}
+          </PopoverContent></Popover></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
           <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
