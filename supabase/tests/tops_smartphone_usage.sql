@@ -22,6 +22,7 @@ DECLARE
   v_msg text;
   v_all jsonb;
   v_day jsonb;
+  v_over jsonb;
   v_sum jsonb;
   v_before jsonb;
 BEGIN
@@ -53,7 +54,7 @@ BEGIN
     v_ok := false;
     BEGIN
       PERFORM public.tops_smartphone_usage(v_from, v_today);
-    EXCEPTION WHEN insufficient_privilege OR OTHERS THEN
+    EXCEPTION WHEN OTHERS THEN
       v_ok := SQLERRM LIKE '%not authorized%';
     END;
     r := r || jsonb_build_object('step', 'A non-staff user refused', 'pass', v_ok);
@@ -115,12 +116,11 @@ BEGIN
     'detail', (v_all ->> 'confirmed_smartphone') || ' smartphone · ' || (v_all ->> 'confirmed_feature_phone') || ' feature · ' || (v_all ->> 'device_unknown') || ' unknown');
 
   -- the same segmentation the canonical overview function reports
+  v_over := public.get_tenant_smartphone_overview(NULL, NULL);
   r := r || jsonb_build_object(
     'step', 'B matches get_tenant_smartphone_overview',
-    'pass', (v_all ->> 'confirmed_smartphone')::int = ((SELECT (s -> 'device' ->> 'confirmed_smartphone')::int
-              FROM public.get_tenant_smartphone_overview(NULL, NULL) s))
-      AND (v_all ->> 'confirmed_feature_phone')::int = ((SELECT (s -> 'device' ->> 'confirmed_feature_phone')::int
-              FROM public.get_tenant_smartphone_overview(NULL, NULL) s)),
+    'pass', (v_all ->> 'confirmed_smartphone')::int = (v_over -> 'device' ->> 'confirmed_smartphone')::int
+      AND (v_all ->> 'confirmed_feature_phone')::int = (v_over -> 'device' ->> 'confirmed_feature_phone')::int,
     'detail', 'canonical device split vs this read');
 
   -- C: a full-history window covers everybody ---------------------------------------

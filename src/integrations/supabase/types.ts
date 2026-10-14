@@ -79324,6 +79324,10 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      tops_smartphone_usage: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
       tops_snooze_work_item: {
         Args: { p_new_sla_due_at: string; p_work_item_id: string }
