@@ -1,5 +1,6 @@
 # Architecture Decisions
 - R&D report exports accept project names, dated recorded updates and the current editable cash position; cash rows persist on explicit edits rather than mount effects to prevent reloads overwriting saved figures.
+- R&D project cash metrics resolve from editable cash rows by stable row ID, never preset values or editable names, so edits update metrics without stale fallbacks.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
 - Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown, preventing double counting.
 <!-- LOVABLE:BEGIN -->
