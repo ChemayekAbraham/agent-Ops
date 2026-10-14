@@ -18458,6 +18458,7 @@ export type Database = {
           id: string
           kind: string
           order_id: string | null
+          resolution_reason: string | null
           resolved_at: string | null
           resolved_by: string | null
         }
@@ -18467,6 +18468,7 @@ export type Database = {
           id?: string
           kind: string
           order_id?: string | null
+          resolution_reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
         }
@@ -18476,6 +18478,7 @@ export type Database = {
           id?: string
           kind?: string
           order_id?: string | null
+          resolution_reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
         }
@@ -67111,6 +67114,10 @@ export type Database = {
         }[]
       }
       food_require_active_coordinator: { Args: never; Returns: string }
+      food_resolve_exception: {
+        Args: { p_exception_id: string; p_reason: string }
+        Returns: Json
+      }
       food_schedule_meal: {
         Args: {
           p_meal_id: string
