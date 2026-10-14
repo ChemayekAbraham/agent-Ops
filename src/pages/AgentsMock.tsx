@@ -10,6 +10,7 @@ import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkD
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
+import { exportAgentTenantsList } from '@/lib/agentTenantsListExport';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
