@@ -114,4 +114,66 @@ describe('TenantClassificationTab', () => {
     expect(exportXlsx.mock.calls[0][2]).toMatchObject({ filterText: 'All tenants' });
     expect(exportPdf).not.toHaveBeenCalled();
   });
+
+  it('shows how many tenants use a smartphone, and the figures for the window it opened on', async () => {
+    setup();
+    const cards = await screen.findByTestId('smartphone-cards');
+    expect(within(cards).getByText('Use a smartphone')).toBeTruthy();
+    expect(within(cards).getByText('58,841')).toBeTruthy();
+    expect(within(cards).getByText('of 59,042 tenants · 201 recorded without · 491 confirmed feature phone · 11 confirmed smartphone')).toBeTruthy();
+    expect(within(cards).getByText('Device checks this month')).toBeTruthy();
+    expect(within(cards).getByText('22')).toBeTruthy();
+    expect(within(cards).getByText('2 smartphones · 20 feature phones · 3 seen on a phone')).toBeTruthy();
+    expect(within(cards).getByText('Joined this month')).toBeTruthy();
+    expect(within(cards).getByText('156 of 172 who joined recorded as having one')).toBeTruthy();
+    const note = await screen.findByTestId('smartphone-note');
+    expect(note.textContent).toContain('The last two cards count this month');
+  });
+
+  it('asks for the smartphone figures of the period picked, and writes it to the URL', async () => {
+    const user = userEvent.setup();
+    setup();
+    await screen.findByTestId('smartphone-cards');
+    const [today] = screen.getAllByRole('button', { name: 'Today' });
+    await user.click(today);
+    await waitFor(() => {
+      const calls = rpc.mock.calls.filter((c) => c[0] === 'tops_smartphone_usage').map((c) => c[1] as { p_from: string; p_to: string });
+      const last = calls[calls.length - 1];
+      expect(last.p_from).toBe(kampalaTodayYmd());
+      expect(last.p_to).toBe(kampalaTodayYmd());
+    });
+    expect((await screen.findByTestId('smartphone-note')).textContent).toContain('count today');
+    expect(window.location.search).toContain('tc_range=today');
+  });
+
+  it('opens on the period named in tc_range', async () => {
+    rpc.mockImplementation((name: string) => answer(name, [mk()]));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/?tc_range=five']}>
+        <QueryClientProvider client={qc}><TenantClassificationTab /></QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const cards = await screen.findByTestId('smartphone-cards');
+    expect(within(cards).getByText('Device checks in the last 5 days')).toBeTruthy();
+    const call = rpc.mock.calls.find((c) => c[0] === 'tops_smartphone_usage')?.[1] as { p_from: string; p_to: string };
+    expect(call.p_from).toBe(kampalaOffsetYmd(-4));
+    expect(call.p_to).toBe(kampalaTodayYmd());
+  });
+
+  it('says so when the smartphone figures cannot be read, and leaves the categories alone', async () => {
+    rpc.mockImplementation((name: string) =>
+      Promise.resolve(name === 'tops_smartphone_usage'
+        ? { data: null, error: { message: 'not authorized' } }
+        : { data: name === 'tops_tenant_classification_summary' ? summary : [mk()], error: null }));
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <QueryClientProvider client={qc}><TenantClassificationTab /></QueryClientProvider>
+      </MemoryRouter>,
+    );
+    expect((await screen.findByTestId('smartphone-error')).textContent).toContain('not authorized');
+    const cards = await screen.findByTestId('classification-cards');
+    expect(within(cards).getByText('868')).toBeTruthy();
+  });
 });
