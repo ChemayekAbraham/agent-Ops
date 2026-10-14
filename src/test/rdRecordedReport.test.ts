@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { recordedRdProjects, rdCashTotals } from '../lib/rdGeneralReportPdf';
+import { rdReportIdeaRows } from '../lib/rdReportIdeas';
 
 describe('R&D recorded report data', () => {
+  it('includes the saved idea details and all nine recorded canvas fields', () => {
+    const idea = { title: 'Transport idea', owner: 'Gloria', date: '2026-10-14', summary: 'Saved description',
+      canvas: { partners: 'Bank', activities: 'Marketing', resources: 'Office', value: 'Affordable transport',
+        relationships: 'SMS', channels: 'Agents', segments: 'Car owners', costs: 'Maintenance', revenue: 'Registration fees' } };
+    expect(rdReportIdeaRows(idea)).toEqual([
+      ['Idea name', 'Transport idea'], ['Proposed by', 'Gloria'], ['Date', '2026-10-14'], ['Description', 'Saved description'],
+      ['Key Partners', 'Bank'], ['Key Activities', 'Marketing'], ['Key Resources', 'Office'],
+      ['Value Proposition', 'Affordable transport'], ['Customer Relationships', 'SMS'], ['Channels', 'Agents'],
+      ['Customer Segments', 'Car owners'], ['Cost Structure', 'Maintenance'], ['Revenue Streams', 'Registration fees'],
+    ]);
+  });
+  it('marks empty canvas fields as unrecorded without supplying placeholder claims', () => {
+    const rows = rdReportIdeaRows({ title: 'New idea', owner: '', date: '', summary: '', canvas: { partners: '  ', revenue: 123 } });
+    expect(rows.slice(4).map((row) => row[1])).toEqual(Array(9).fill('Not recorded'));
+  });
   it('includes the exact cash position totals supplied in the recorded table', () => {
     const rows = [
       { name: 'Welile Car', customers: 19, cashIn: 21000000, cashOut: 38240000 },
