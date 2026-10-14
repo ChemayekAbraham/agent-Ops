@@ -208,7 +208,7 @@ export function ApprovedRequisitionsPayoutPanel() {
             <p className="py-10 text-center text-sm text-muted-foreground">No approved requisitions for this selection.</p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="[&_th]:px-2 [&_td]:px-2">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-10">#</TableHead>
