@@ -11,6 +11,9 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
+import { Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 
 type Metric = { icon: LucideIcon; value: string; label: string };
 type Project = {
@@ -302,6 +305,20 @@ export default function RDDashboard() {
   const summary = SUMMARY.map((s, i) => ({ ...s, ...(summaryText[i] ?? {}) }));
   const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
     setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
+  const [exporting, setExporting] = useState(false);
+  const exportReport = async () => {
+    setExporting(true);
+    try {
+      const { data } = await supabase.from('rd_ideas').select('*').order('created_at', { ascending: false });
+      await downloadRdGeneralReport({
+        summary: summary.map((s) => ({ value: s.value, label: s.label })),
+        ideas: ideaRows,
+        projects: PROJECTS.map((p) => ({ ...p, metrics: p.metrics.map((x) => ({ value: x.value, label: x.label })), updates: loadUpdates(p.name) })),
+        canvases: (data ?? []).map((r: any) => ({ title: r.title, owner: r.owner, date: r.idea_date, summary: r.summary, canvas: r.canvas ?? {} })),
+        canvasTitles: { partners: 'Key Partners', activities: 'Key Activities', resources: 'Key Resources', value: 'Value Proposition', relationships: 'Customer Relationships', channels: 'Channels', segments: 'Customer Segments', costs: 'Cost Structure', revenue: 'Revenue Streams' },
+      });
+    } finally { setExporting(false); }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -311,7 +328,10 @@ export default function RDDashboard() {
             <ArrowLeft className="h-4 w-4" />
             Back to dashboards
           </Button>
-          <WelileLogo showText={false} size="sm" linkToHome={false} className="ml-auto" />
+          <Button size="sm" className="ml-auto gap-1.5" disabled={exporting} onClick={exportReport}>
+            <Download className="h-4 w-4" />{exporting ? 'Preparing…' : 'General report'}
+          </Button>
+          <WelileLogo showText={false} size="sm" linkToHome={false} />
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-5">
