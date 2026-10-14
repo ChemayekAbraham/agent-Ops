@@ -517,6 +517,12 @@ export function AgentOpsDashboard() {
           </details>
         </div>
       );
+      case 'first7-tracker':
+        return (
+          <div className="space-y-4">
+            <NewTenantFirst7Tracker />
+          </div>
+        );
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
       case 'general-activities': return <AgentOpsOverview onOpenSection={handleOpenSection} />;
       case 'agents-rent': return <AgentCollectionsCommandCenter />;
