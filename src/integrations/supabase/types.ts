@@ -67568,6 +67568,10 @@ export type Database = {
       food_meal_photo_readable: { Args: { p_name: string }; Returns: boolean }
       food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
       food_pay_order: { Args: { p_order_id: string }; Returns: Json }
+      food_payee_block_reason: {
+        Args: { p_employee: string; p_payee: string; p_wallet: string }
+        Returns: string
+      }
       food_payment_key: {
         Args: { p_attempt: number; p_order_id: string }
         Returns: string
@@ -67611,6 +67615,10 @@ export type Database = {
       food_reconcile_payments: { Args: { p_limit?: number }; Returns: Json }
       food_require_active_coordinator: { Args: never; Returns: string }
       food_require_canteen_user: { Args: never; Returns: string }
+      food_resolve_blocked_payment: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: Json
+      }
       food_resolve_exception: {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
