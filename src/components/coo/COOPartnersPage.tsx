@@ -4421,9 +4421,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 }
 
 /* ─── Summary Card ─── */
-function SummaryCard({ icon, label, value, sub, accent, onClick }: {
+function SummaryCard({ icon, label, value, sub, accent, badge, onClick }: {
   icon: React.ReactNode; label: string; value: string | number; sub: string;
   accent: 'primary' | 'emerald' | 'amber' | 'violet';
+  badge?: string;
   onClick?: () => void;
 }) {
   const styles = {
@@ -4445,7 +4446,14 @@ function SummaryCard({ icon, label, value, sub, accent, onClick }: {
         <div className={cn('p-1.5 rounded-lg', s.icon)}>{icon}</div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
       </div>
-      <p className="text-xl font-black tracking-tight tabular-nums">{value}</p>
+      <p className="text-xl font-black tracking-tight tabular-nums">
+        {value}
+        {badge && (
+          <span className="ml-2 align-middle inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+            {badge}
+          </span>
+        )}
+      </p>
       <p className="text-[11px] text-muted-foreground leading-snug">{sub}</p>
     </div>
   );
