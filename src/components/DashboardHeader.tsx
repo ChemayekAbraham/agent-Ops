@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import WelileLogo from '@/components/WelileLogo';
-import InstallAppCard from '@/components/InstallAppCard';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -424,13 +423,6 @@ const DashboardHeader = memo(function DashboardHeader({
           </div>
         </div>
       </header>
-
-      {/* Install prompt sits directly below the top nav so it is fully visible
-          on every screen size instead of floating above the header. */}
-      <InstallAppCard
-        compactMobile={compactInstallPrompt}
-        className={`mx-auto w-full max-w-md ${compactInstallPrompt ? 'px-3 pt-2 sm:px-0 sm:pt-3' : 'px-4 pt-3 sm:px-0'}`}
-      />
 
     </>
   );

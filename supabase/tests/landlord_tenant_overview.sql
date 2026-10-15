@@ -228,3 +228,77 @@ BEGIN
     || ' | detail: ' || COALESCE((SELECT string_agg(e->>'step' || ' ' || (e->'detail')::text, '; ') FROM jsonb_array_elements(r) e WHERE (e->>'step') LIKE 'C the stages%'), '');
 END
 $test$;
+
+-- =====================================================================================================================================
+-- Block 2 (20261015140000): the per-landlord totals, agent and search added to landlord_ops_paid_lists. Membership is unchanged.
+-- =====================================================================================================================================
+DO $test$
+DECLARE
+  r jsonb := '[]'::jsonb; v_U uuid; v_all jsonb; v_exp uuid[]; v_got uuid[]; v_bad int; v_n int; v_e jsonb; v_s text; t text; v_cnt_pr int; v_cnt_c int;
+  v_keys text[] := ARRAY['tenant_count', 'total_rent', 'total_repaid', 'balance_left', 'agent_name', 'agent_phone', 'verified', 'verification_status', 'property_address',
+                         'landlord_id', 'landlord_name', 'landlord_phone', 'plans_total', 'repaying_plans', 'completed_plans', 'active_plans', 'received_amount', 'last_paid_at'];
+BEGIN
+  SELECT p.id INTO v_U FROM public.profiles p WHERE NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.id) ORDER BY md5(p.id::text) LIMIT 1;
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_U, 'landlord_ops'::public.app_role);
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_U, 'role', 'authenticated')::text, true);
+
+  -- membership and counts are what they always were (independent recompute)
+  SELECT array_agg(l.id ORDER BY l.id) INTO v_exp FROM public.landlords l
+   WHERE EXISTS (SELECT 1 FROM public.rent_requests r2 WHERE r2.landlord_id = l.id AND r2.status = 'repaying')
+     AND (EXISTS (SELECT 1 FROM public.landlord_payouts p WHERE p.landlord_id = l.id AND p.status <> 'failed' AND COALESCE(p.finops_disbursed_at, p.disbursed_at) IS NOT NULL)
+          OR EXISTS (SELECT 1 FROM public.agent_landlord_float_allocations a WHERE a.landlord_id = l.id AND a.status <> 'cancelled' AND a.paid_out_amount > 0));
+  v_all := public.landlord_ops_paid_lists('paid_repaying', NULL, 500, 0);
+  WITH RECURSIVE pg(o) AS (SELECT 0 UNION ALL SELECT o + 500 FROM pg WHERE o + 500 < (v_all->>'total')::int)
+  SELECT array_agg((x->>'landlord_id')::uuid ORDER BY (x->>'landlord_id')::uuid) INTO v_got FROM pg, LATERAL jsonb_array_elements(public.landlord_ops_paid_lists('paid_repaying', NULL, 500, pg.o)->'rows') x;
+  v_cnt_pr := cardinality(v_exp);
+  r := r || jsonb_build_object('step', 'F paid_repaying has exactly the same landlords as before', 'pass', v_exp = v_got AND (v_all->>'total')::int = v_cnt_pr AND (v_all->'counts'->>'paid_repaying')::int = v_cnt_pr);
+  SELECT array_agg(l.id ORDER BY l.id) INTO v_exp FROM public.landlords l
+   WHERE EXISTS (SELECT 1 FROM public.rent_requests r2 WHERE r2.landlord_id = l.id AND r2.status = 'completed')
+     AND NOT EXISTS (SELECT 1 FROM public.rent_requests r3 WHERE r3.landlord_id = l.id AND r3.status IN ('funded', 'repaying'));
+  WITH RECURSIVE pg(o) AS (SELECT 0 UNION ALL SELECT o + 500 FROM pg WHERE o + 500 < (v_all->'counts'->>'completed')::int)
+  SELECT array_agg((x->>'landlord_id')::uuid ORDER BY (x->>'landlord_id')::uuid) INTO v_got FROM pg, LATERAL jsonb_array_elements(public.landlord_ops_paid_lists('completed', NULL, 500, pg.o)->'rows') x;
+  v_cnt_c := cardinality(v_exp);
+  r := r || jsonb_build_object('step', 'F completed has exactly the same landlords as before', 'pass', v_exp = v_got AND (v_all->'counts'->>'completed')::int = v_cnt_c);
+
+  -- every row carries all the keys, and its money equals the Tenants section's total line for that landlord
+  FOR t IN SELECT unnest(ARRAY['paid_repaying', 'completed']) LOOP
+    v_bad := 0; v_n := 0;
+    FOR v_e IN SELECT x FROM jsonb_array_elements(public.landlord_ops_paid_lists(t, NULL, 40, 0)->'rows') x LOOP
+      v_n := v_n + 1;
+      IF NOT (v_e ?& v_keys) THEN v_bad := v_bad + 1; CONTINUE; END IF;
+      IF (v_e->>'tenant_count')::int <> (SELECT count(DISTINCT COALESCE(o.tenant_id, o.rent_request_id)) FROM public.landlord_tenant_overview((v_e->>'landlord_id')::uuid) o WHERE o.funding_stage <> 'Rejected/Cancelled')
+         OR (v_e->>'total_rent')::numeric <> (SELECT COALESCE(sum(o.rent_amount), 0) FROM public.landlord_tenant_overview((v_e->>'landlord_id')::uuid) o WHERE o.funding_stage <> 'Rejected/Cancelled')
+         OR (v_e->>'total_repaid')::numeric <> (SELECT COALESCE(sum(o.amount_repaid), 0) FROM public.landlord_tenant_overview((v_e->>'landlord_id')::uuid) o WHERE o.funding_stage <> 'Rejected/Cancelled')
+         OR (v_e->>'balance_left')::numeric <> (SELECT COALESCE(sum(o.balance_left), 0) FROM public.landlord_tenant_overview((v_e->>'landlord_id')::uuid) o WHERE o.funding_stage <> 'Rejected/Cancelled')
+         OR (v_e->>'agent_name') IS DISTINCT FROM (SELECT p.full_name FROM public.landlords l JOIN public.profiles p ON p.id = l.registered_by WHERE l.id = (v_e->>'landlord_id')::uuid)
+         OR (v_e->>'agent_phone') IS DISTINCT FROM (SELECT p.phone FROM public.landlords l JOIN public.profiles p ON p.id = l.registered_by WHERE l.id = (v_e->>'landlord_id')::uuid)
+         OR (v_e->>'verified')::boolean IS DISTINCT FROM (SELECT l.verified FROM public.landlords l WHERE l.id = (v_e->>'landlord_id')::uuid)
+         OR (v_e->>'total_repaid')::numeric + (v_e->>'balance_left')::numeric < 0 THEN
+        v_bad := v_bad + 1;
+      END IF;
+    END LOOP;
+    r := r || jsonb_build_object('step', 'F ' || t || ': the first ' || v_n || ' rows carry every key, and tenant count, total rent, total repaid, balance left equal the Tenants section total; the agent and verified flag match the landlord record', 'pass', v_n > 0 AND v_bad = 0, 'detail', v_bad);
+  END LOOP;
+
+  -- the search now also finds a landlord by their agent and by a tenant
+  SELECT e->>'agent_name' INTO v_s FROM jsonb_array_elements(v_all->'rows') e WHERE length(e->>'agent_name') >= 5 LIMIT 1;
+  r := r || jsonb_build_object('step', 'F search by the agent''s name finds landlords of that agent',
+    'pass', v_s IS NOT NULL AND (public.landlord_ops_paid_lists('paid_repaying', v_s, 50, 0)->>'total')::int >= 1
+        AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(public.landlord_ops_paid_lists('paid_repaying', v_s, 50, 0)->'rows') x WHERE lower(x->>'agent_name') <> lower(v_s)
+                          AND NOT EXISTS (SELECT 1 FROM public.landlord_tenant_overview((x->>'landlord_id')::uuid) o WHERE lower(o.tenant_name) LIKE '%' || lower(v_s) || '%')));
+  SELECT o.tenant_name INTO v_s FROM jsonb_array_elements(v_all->'rows') x, LATERAL public.landlord_tenant_overview((x->>'landlord_id')::uuid) o WHERE length(o.tenant_name) >= 6 AND o.funding_stage = 'Repaying' LIMIT 1;
+  r := r || jsonb_build_object('step', 'F search by a tenant''s name finds the landlord they are repaying to',
+    'pass', v_s IS NOT NULL AND (public.landlord_ops_paid_lists('paid_repaying', v_s, 500, 0)->>'total')::int >= 1
+        AND EXISTS (SELECT 1 FROM jsonb_array_elements(public.landlord_ops_paid_lists('paid_repaying', v_s, 500, 0)->'rows') x, LATERAL public.landlord_tenant_overview((x->>'landlord_id')::uuid) o WHERE o.tenant_name = v_s));
+
+  -- access is exactly as before
+  r := r || jsonb_build_object('step', 'F access is unchanged: authenticated only, not anon or service_role; SECURITY DEFINER, STABLE, search_path = public',
+    'pass', has_function_privilege('authenticated', 'public.landlord_ops_paid_lists(text,text,integer,integer)', 'EXECUTE')
+        AND NOT has_function_privilege('anon', 'public.landlord_ops_paid_lists(text,text,integer,integer)', 'EXECUTE')
+        AND NOT has_function_privilege('service_role', 'public.landlord_ops_paid_lists(text,text,integer,integer)', 'EXECUTE')
+        AND (SELECT p.prosecdef AND p.provolatile = 's' AND p.proconfig @> ARRAY['search_path=public'] FROM pg_proc p WHERE p.oid = 'public.landlord_ops_paid_lists(text,text,integer,integer)'::regprocedure));
+
+  RAISE EXCEPTION 'ROLLED BACK REPORT (block 2): % passed of % | failing: %', (SELECT count(*) FROM jsonb_array_elements(r) e WHERE (e->>'pass') = 'true'), jsonb_array_length(r),
+    COALESCE((SELECT string_agg(e->>'step' || ' ' || COALESCE((e->'detail')::text, ''), '; ') FROM jsonb_array_elements(r) e WHERE (e->>'pass') = 'false'), 'none');
+END
+$test$;

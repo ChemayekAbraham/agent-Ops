@@ -8237,6 +8237,55 @@ export type Database = {
           },
         ]
       }
+      budget_obligation_declines: {
+        Row: {
+          call_id: string
+          created_at: string
+          declined_by: string
+          department_id: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          declined_by: string
+          department_id: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          declined_by?: string
+          department_id?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_obligation_declines_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "budget_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       budget_submission_documents: {
         Row: {
           created_at: string
@@ -8542,6 +8591,175 @@ export type Database = {
             columns: ["submitted_by_position_id"]
             isOneToOne: false
             referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplement_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          storage_path: string
+          supplement_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          storage_path: string
+          supplement_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          storage_path?: string
+          supplement_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplement_documents_supplement_id_fkey"
+            columns: ["supplement_id"]
+            isOneToOne: false
+            referencedRelation: "budget_supplements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplement_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          status_after: string | null
+          status_before: string | null
+          supplement_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          status_after?: string | null
+          status_before?: string | null
+          supplement_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          status_after?: string | null
+          status_before?: string | null
+          supplement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplement_events_supplement_id_fkey"
+            columns: ["supplement_id"]
+            isOneToOne: false
+            referencedRelation: "budget_supplements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplements: {
+        Row: {
+          amount: number
+          approved_amount: number | null
+          cancel_note: string | null
+          cancelled_at: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_decision: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_decision: string | null
+          coo_note: string | null
+          department_id: string
+          financial_year: string
+          id: string
+          justification: string
+          line_id: string
+          reference: string
+          requested_at: string
+          requested_by: string
+          status: string
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_amount?: number | null
+          cancel_note?: string | null
+          cancelled_at?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_decision?: string | null
+          coo_note?: string | null
+          department_id: string
+          financial_year: string
+          id?: string
+          justification: string
+          line_id: string
+          reference?: string
+          requested_at?: string
+          requested_by: string
+          status?: string
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_amount?: number | null
+          cancel_note?: string | null
+          cancelled_at?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_decision?: string | null
+          coo_note?: string | null
+          department_id?: string
+          financial_year?: string
+          id?: string
+          justification?: string
+          line_id?: string
+          reference?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplements_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_supplements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -62404,6 +62622,15 @@ export type Database = {
         }[]
       }
       _am_staff_ok: { Args: never; Returns: boolean }
+      _budget_supplement_log: {
+        Args: {
+          _before: string
+          _event: string
+          _payload: Json
+          _s: Database["public"]["Tables"]["budget_supplements"]["Row"]
+        }
+        Returns: undefined
+      }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -64677,6 +64904,10 @@ export type Database = {
         }
         Returns: Json
       }
+      budget_decline_obligation: {
+        Args: { p_call_id: string; p_department_id: string; p_reason: string }
+        Returns: string
+      }
       budget_department_access_user_ids: {
         Args: { _department_id: string }
         Returns: string[]
@@ -64810,6 +65041,24 @@ export type Database = {
         Args: { p_call_id?: string; p_stage?: string }
         Returns: Json
       }
+      budget_revised_position: {
+        Args: { p_call_id: string }
+        Returns: {
+          account_code: string
+          actual_expenditure: number
+          approved_supplements: number
+          department_id: string
+          department_name: string
+          line_description: string
+          line_id: string
+          original_amount: number
+          pending_supplements: number
+          remaining_balance: number
+          revised_amount: number
+          submission_id: string
+          submission_reference: string
+        }[]
+      }
       budget_save_draft: {
         Args: {
           p_call_id: string
@@ -64836,6 +65085,74 @@ export type Database = {
       budget_submit_submission: {
         Args: { p_submission_id: string }
         Returns: Json
+      }
+      budget_supplement_add_document: {
+        Args: {
+          p_file_name: string
+          p_storage_path: string
+          p_supplement_id: string
+        }
+        Returns: string
+      }
+      budget_supplement_can_read: {
+        Args: { _supplement_id: string; _user_id: string }
+        Returns: boolean
+      }
+      budget_supplement_cancel: {
+        Args: { p_note: string; p_supplement_id: string }
+        Returns: Json
+      }
+      budget_supplement_cfo_decide: {
+        Args: {
+          p_approved_amount?: number
+          p_decision: string
+          p_note: string
+          p_supplement_id: string
+        }
+        Returns: Json
+      }
+      budget_supplement_coo_decide: {
+        Args: { p_decision: string; p_note: string; p_supplement_id: string }
+        Returns: Json
+      }
+      budget_supplement_create: {
+        Args: {
+          p_amount: number
+          p_financial_year?: string
+          p_justification: string
+          p_line_id: string
+        }
+        Returns: Json
+      }
+      budget_supplement_list: {
+        Args: { p_call_id?: string; p_status?: string }
+        Returns: {
+          account_code: string
+          amount: number
+          approved_amount: number
+          call_id: string
+          can_cancel: boolean
+          can_cfo_act: boolean
+          can_coo_act: boolean
+          cfo_note: string
+          coo_note: string
+          department_id: string
+          department_name: string
+          document_count: number
+          financial_year: string
+          id: string
+          justification: string
+          line_description: string
+          line_id: string
+          original_line_amount: number
+          reference: string
+          requested_at: string
+          requested_by: string
+          requester_name: string
+          status: string
+          submission_id: string
+          submission_reference: string
+        }[]
       }
       budget_user_department_ids: {
         Args: { _user_id: string }
@@ -74956,6 +75273,28 @@ export type Database = {
           proxy_status: string
         }[]
       }
+      partner_ops_invite_partners: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          in_pending_queue: boolean
+          partner_email: string
+          partner_name: string
+          partner_phone: string
+          portfolio_id: string
+        }[]
+      }
+      partner_ops_invite_visibility: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          invited: boolean
+          last_send_status: string
+          last_sent_at: string
+          portfolio_id: string
+          sent_count: number
+          token_consumed_at: string
+          token_expires_at: string
+        }[]
+      }
       partner_ops_list_proxy_agent_applications: {
         Args: { p_status?: string }
         Returns: {
@@ -77930,6 +78269,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      staff_requisition_ceo_direct: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       staff_requisition_my_notices: {
         Args: never
         Returns: {
@@ -78395,6 +78738,10 @@ export type Database = {
         }[]
       }
       tenant_payment_score_run: { Args: { p_as_at?: string }; Returns: Json }
+      tenant_plan_due_now: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string

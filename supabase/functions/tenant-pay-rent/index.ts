@@ -209,11 +209,34 @@ Deno.serve(async (req) => {
 
 
     const outstanding = rentRequest.total_repayment - rentRequest.amount_repaid;
-    const payAmount = Math.min(amount, outstanding);
-
-    if (payAmount <= 0) {
+    if (outstanding <= 0) {
       return new Response(
         JSON.stringify({ error: "Rent is already fully paid" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Collect only what is expected to date (payout clock), never more.
+    const { data: dueNow, error: dueErr } = await supabaseAdmin.rpc("tenant_plan_due_now", {
+      p_rent_request_id: rentRequest.id,
+    });
+    if (dueErr) {
+      console.error("[tenant-pay-rent] due lookup failed:", dueErr);
+      return new Response(
+        JSON.stringify({ error: "Could not work out the amount due. Please try again." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Never take more than the wallet can actually release.
+    const { data: available } = await supabaseAdmin.rpc("get_user_available_balance", { p_user_id: tenantId });
+    const payAmount = Math.floor(Math.min(amount, outstanding, Number(dueNow ?? 0), Number(available ?? 0)));
+
+    if (payAmount <= 0) {
+      const msg = Number(dueNow ?? 0) <= 0
+        ? "Nothing is due from this tenant right now."
+        : "The tenant's wallet has no available money to collect.";
+      return new Response(
+        JSON.stringify({ error: msg }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

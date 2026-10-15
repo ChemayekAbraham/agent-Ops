@@ -1,14 +1,19 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Wallet } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { OrderStatusPair } from '@/components/food/FoodStatusBadges';
 import {
   useFoodOrderEvents, useFoodExceptions, useRaiseFoodException, formatUgx,
+  useConfirmFoodReceipt, usePayFoodOrder,
   FOOD_FULFILMENT_LABEL, FOOD_EXCEPTION_KINDS, FOOD_EXCEPTION_KIND_LABEL,
   FOOD_MAX_EXCEPTION_NOTE,
   type FoodOrderDetail, type FoodFulfilmentStatus, type FoodExceptionKind,
@@ -41,6 +46,9 @@ export default function FoodOrderDetailDialog({
   const raise = useRaiseFoodException();
   const [kind, setKind] = useState<FoodExceptionKind | ''>('');
   const [note, setNote] = useState('');
+  const confirmReceipt = useConfirmFoodReceipt();
+  const pay = usePayFoodOrder();
+  const [confirmPay, setConfirmPay] = useState(false);
 
   if (!order) return null;
 
@@ -94,6 +102,69 @@ export default function FoodOrderDetailDialog({
             {order.special_instructions}
           </p>
         )}
+
+        {allowProblemReport && order.fulfilment_status !== 'cancelled' && (() => {
+          const handedOver = ['ready', 'collected', 'delivered'].includes(order.fulfilment_status);
+          const received = !!order.received_at;
+          const canPay = received && order.payment_status === 'pending_payment' && !hasOpenReport;
+          if (order.payment_status === 'paid') return null;
+          return (
+            <section aria-label="Pay for this order" className="space-y-2 rounded-lg border border-border/70 p-3">
+              {!received ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Once you have your food, confirm it to pay from your wallet.
+                  </p>
+                  <Button
+                    size="sm" className="w-full"
+                    disabled={!handedOver || confirmReceipt.isPending}
+                    onClick={() => confirmReceipt.mutate({ orderId: order.id })}
+                  >
+                    {confirmReceipt.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" aria-hidden="true" />}
+                    I received my order
+                  </Button>
+                </>
+              ) : canPay ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {order.payee_name ? `You are paying ${order.payee_name}. ` : ''}
+                    {formatUgx(order.total_ugx)} will be taken from your wallet.
+                  </p>
+                  <Button
+                    size="sm" className="w-full"
+                    disabled={pay.isPending}
+                    onClick={() => setConfirmPay(true)}
+                  >
+                    {pay.isPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" aria-hidden="true" />}
+                    <Wallet className="mr-2 h-4 w-4" aria-hidden="true" />
+                    Pay by wallet
+                  </Button>
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {hasOpenReport ? 'Payment opens once your reported problem is resolved.' : 'This order cannot be paid right now.'}
+                </p>
+              )}
+            </section>
+          );
+        })()}
+
+        <AlertDialog open={confirmPay} onOpenChange={setConfirmPay}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Pay {formatUgx(order.total_ugx)} from your wallet?</AlertDialogTitle>
+              <AlertDialogDescription>
+                For order {order.order_reference}
+                {order.payee_name ? `, paid to ${order.payee_name}` : ''}. If your wallet is short, nothing is charged.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => pay.mutate({ orderId: order.id })}>Pay now</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
 
         <div>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
