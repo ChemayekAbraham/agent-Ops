@@ -165,23 +165,23 @@ export function RequisitionUsageReportGate() {
     const used = Number(amountUsed);
     if (!Number.isFinite(used) || used < 0) { toast.error('Enter how much of the money you used'); return; }
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
-    if (!receipt) { toast.error('Attach a receipt or proof of payment'); return; }
+    if (receipts.length === 0) { toast.error('Attach at least one receipt or proof of payment'); return; }
 
     setSaving(true);
 
-    // Upload the receipt first (existing storage + auth path) so we never save a
+    // Upload each receipt first (existing storage + auth path) so we never save a
     // report that claims an attachment it does not have.
-    let attachmentPaths: string[] | null = null;
-    if (receipt) {
+    const attachmentPaths: string[] = [];
+    for (const receipt of receipts) {
       const form = new FormData();
       form.append('requisition_id', current.id);
       form.append('file', receipt);
       const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
         'staff-requisition-add-attachment',
-        { body: form, errorTitle: 'Could not attach your receipt' },
+        { body: form, errorTitle: `Could not attach "${receipt.name}"` },
       );
       if (upErr || !up?.path) { setSaving(false); return; }
-      attachmentPaths = [up.path];
+      attachmentPaths.push(up.path);
     }
 
     const { error } = await supabase.from('staff_requisition_usage_reports').insert({
