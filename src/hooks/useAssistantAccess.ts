@@ -3,12 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * Whether the agent assistant is enabled for the signed-in user.
+ * Whether the assistant is visible for the signed-in user.
  *
- * The answer comes from the server (rollout allowlist + agent check). The UI must NEVER decide
- * this from an email or role: sign-in is phone-based, so the signed-in email is a synthetic
- * address, and anything computed in the browser can be edited. Show the assistant only when
- * `enabled` is true. It fails closed: while loading, or on any error, `enabled` is false.
+ * The answer comes from the server, never from an email or role in the browser: sign-in is
+ * phone-based, so the signed-in email is a synthetic address, and anything computed in the
+ * browser can be edited. The server says the assistant is visible to anyone signed in; it fails
+ * closed, so while loading, or on any error, `enabled` is false.
+ *
+ * `reason` says whether this account has agent data behind the chat ('ok' vs 'not_an_agent').
+ * It never hides the button — the assistant's own answers and the support route cover both.
  *
  * The same gate is enforced again on the server for every message, so hiding the UI is a
  * convenience, not the protection.
