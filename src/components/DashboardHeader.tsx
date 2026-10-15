@@ -43,6 +43,7 @@ interface DashboardHeaderProps {
   opportunityCount?: number;
   onOpportunityBadgeClick?: () => void;
   headerActions?: React.ReactNode;
+  hideNotifications?: boolean;
   showInstallPrompt?: boolean;
   compactInstallPrompt?: boolean;
   onMenuClick?: () => void;
@@ -86,6 +87,7 @@ const DashboardHeader = memo(function DashboardHeader({
   opportunityCount,
   onOpportunityBadgeClick,
   headerActions,
+  hideNotifications = false,
   onMenuClick,
   compactInstallPrompt = false,
 }: DashboardHeaderProps) {
@@ -271,10 +273,10 @@ const DashboardHeader = memo(function DashboardHeader({
             {/* Right: Notification + Menu */}
             <div className="flex items-center gap-0.5">
               {headerActions}
-              {!headerActions && currentRole === 'agent' && user?.id && (
+              {!headerActions && !hideNotifications && currentRole === 'agent' && user?.id && (
                 <AgentNotificationBell userId={user.id} />
               )}
-              {!headerActions && currentRole === 'tenant' && user?.id && (
+              {!headerActions && !hideNotifications && currentRole === 'tenant' && user?.id && (
                 <TenantInAppNotificationBell tenantId={user.id} />
               )}
 
