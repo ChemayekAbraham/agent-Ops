@@ -78,7 +78,7 @@ export function InvitedPortfoliosPanel() {
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
         .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(1000);
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
@@ -341,7 +341,7 @@ export function InvitedPortfoliosPanel() {
             Invited Portfolios
           </h2>
           <p className="text-xs text-muted-foreground">
-            Portfolios awaiting partner completion or Ops approval. Active portfolios move to the Portfolios tab.
+            Portfolios sent by invite: awaiting the partner, pending Ops approval, or approved and countersigned.
           </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()} disabled={isFetching}>
@@ -433,7 +433,11 @@ export function InvitedPortfoliosPanel() {
                       <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{row.portfolio_code}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      {row.status === 'awaiting_partner_details' ? (
+                      {row.status === 'active' ? (
+                        <Badge variant="outline" className="text-[10px] gap-1 border-success/40 bg-success/10 text-success">
+                          <ShieldCheck className="h-3 w-3" /> Approved
+                        </Badge>
+                      ) : row.status === 'awaiting_partner_details' ? (
                         <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                           <Mail className="h-3 w-3" /> Awaiting partner
                         </Badge>

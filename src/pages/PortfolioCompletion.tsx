@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ScreenLoader from '@/components/common/ScreenLoader';
 
-type Status = 'loading' | 'auth_required' | 'wrong_account' | 'invalid' | 'ready' | 'submitting' | 'done';
+type Status = 'loading' | 'auth_required' | 'wrong_account' | 'invalid' | 'ready' | 'submitting' | 'done' | 'approved';
 
 interface PortfolioSnapshot {
   portfolio_code: string;
