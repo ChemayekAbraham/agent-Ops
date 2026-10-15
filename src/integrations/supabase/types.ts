@@ -64146,6 +64146,57 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      am_new_tenant_first7_payments: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          amount: number
+          collected_at: string
+          collected_day: string
+          collection_channel: string
+          collection_id: string
+          day_number: number
+          payment_method: string
+        }[]
+      }
+      am_new_tenant_first7_summary_v2: {
+        Args: {
+          p_agent_id?: string
+          p_frequency?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      am_new_tenant_first7_v2: {
+        Args: {
+          p_agent_id?: string
+          p_frequency?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          daily_due: number
+          day_due: number[]
+          day_paid: number[]
+          day_state: string[]
+          day1: string
+          expected_to_date: number
+          first_paid_day: number
+          frequency: string
+          landlord_paid_on: string
+          paid_7d: number
+          rent_request_id: string
+          row_status: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
+      }
       am_plan_arrears: {
         Args: { p_as_at?: string; p_rent_request_ids: string[] }
         Returns: {
