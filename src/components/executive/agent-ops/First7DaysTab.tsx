@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Loader2, RefreshCw, Search, Sprout, TrendingDown, Users, X, Hourglass } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2, Clock, Download, FileText, Loader2, RefreshCw, Search, Sprout, TrendingDown, UserRound, Users, X, Hourglass } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,14 +11,19 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton, SkeletonChart, SkeletonMetricCard, SkeletonTable } from '@/components/ui/skeleton';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useToast } from '@/hooks/use-toast';
 import { useNewTenantFirst7 } from '@/hooks/useNewTenantFirst7';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { downloadFirst7Csv, generateFirst7Pdf, type First7ExportInput } from '@/lib/first7Export';
+import { First7TenantSheet } from './First7TenantSheet';
+import { CELL_TONE, DOT_TONE, cellKind, cellText, cellTitle, fmtDay, isDueDay, planLabel } from './first7Cells';
+import { StatusBadge } from './First7StatusBadge';
 import {
   DAY_STATE_LABEL,
   PRESETS,
   STATUS_LABEL,
-  addDays,
+  agentOnTrack,
   clampRange,
   filterFirst7Rows,
   first7ErrorMessage,
@@ -40,64 +44,6 @@ import {
 
 const PAGE = 50;
 const FREQ_LABEL: Record<FrequencyFilter, string> = { all: 'All', daily: 'Daily', weekly: 'Weekly' };
-const fmtDay = (iso: string) => format(parseISO(iso), 'd MMM');
-
-// ---------- how a day looks ----------
-
-type CellKind = DayState;
-
-/** What a day cell shows. The state comes from the server; a day with nothing due is "not due" (weekly days 2 to 7). */
-function cellKind(r: First7Row, i: number): CellKind {
-  const state = r.day_state[i] ?? 'future';
-  const paid = r.day_paid[i] ?? 0;
-  if (paid > 0 && (state === 'paid' || state === 'part')) return state;
-  if ((r.day_due[i] ?? 0) === 0) return 'not_due';
-  return state;
-}
-
-const CELL_TONE: Record<CellKind, string> = {
-  paid: 'bg-success/15 text-success',
-  part: 'bg-warning/15 text-warning',
-  missed: 'bg-destructive/15 text-destructive',
-  future: 'bg-muted/40 text-muted-foreground',
-  not_due: 'border border-dashed border-border bg-transparent text-muted-foreground',
-};
-const DOT_TONE: Record<CellKind, string> = {
-  paid: 'bg-success',
-  part: 'bg-warning',
-  missed: 'bg-destructive',
-  future: 'bg-muted',
-  not_due: 'border border-dashed border-muted-foreground/60 bg-transparent',
-};
-const STATUS_TONE: Record<RowStatus, string> = {
-  on_track: 'border-success/20 bg-success/10 text-success',
-  behind: 'border-destructive/20 bg-destructive/10 text-destructive',
-  not_started: 'border-warning/20 bg-warning/10 text-warning',
-  too_early: 'border-border bg-muted/50 text-muted-foreground',
-};
-
-function cellText(r: First7Row, i: number, kind: CellKind): string {
-  const paid = r.day_paid[i] ?? 0;
-  const due = r.day_due[i] ?? 0;
-  if (kind === 'not_due') return 'not due';
-  if (kind === 'future') return r.frequency === 'weekly' && due > 0 ? `due ${formatUGX(due)}` : '—';
-  if (kind === 'missed') return 'Missed';
-  return formatUGX(paid);
-}
-
-function cellTitle(r: First7Row, i: number, kind: CellKind): string {
-  const paid = r.day_paid[i] ?? 0;
-  const due = r.day_due[i] ?? 0;
-  return [`Day ${i + 1} · ${fmtDay(addDays(r.day1, i))} · ${DAY_STATE_LABEL[kind]}`, due > 0 ? `due ${formatUGX(due)}` : null, paid > 0 ? `paid ${formatUGX(paid)}` : null]
-    .filter(Boolean)
-    .join(' · ');
-}
-
-const isDueDay = (r: First7Row, i: number) => r.frequency === 'weekly' && (r.day_due[i] ?? 0) > 0;
-
-function StatusBadge({ status }: { status: RowStatus }) {
-  return <Badge variant="outline" className={cn('whitespace-nowrap text-[10px]', STATUS_TONE[status])}>{STATUS_LABEL[status]}</Badge>;
-}
 
 // ---------- summary cards ----------
 
@@ -210,6 +156,14 @@ function DayChart({ summary, day, onPick }: { summary: First7Summary; day: numbe
 
 // ---------- the grid (desktop) and the cards (mobile) ----------
 
+type OpenFn = (rentRequestId: string, day: number | null) => void;
+
+/** Enter or Space on the row itself (not on a button inside it) opens the panel. */
+const keyOpen = (open: () => void) => (e: React.KeyboardEvent) => {
+  if (e.target !== e.currentTarget) return;
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+};
+
 function RowIdentity({ r }: { r: First7Row }) {
   return (
     <>
@@ -219,10 +173,21 @@ function RowIdentity({ r }: { r: First7Row }) {
   );
 }
 
-const planLabel = (r: First7Row) =>
-  r.frequency === 'weekly' ? `Weekly · ${formatUGX(r.day_due.find((d) => d > 0) ?? r.daily_due * 7)} / week` : `Daily · ${formatUGX(r.daily_due)} / day`;
+function AgentName({ r, onAgent, className }: { r: First7Row; onAgent: (agentId: string) => void; className?: string }) {
+  if (!r.agent_id) return <span className={className}>{r.agent_name ?? '—'}</span>;
+  return (
+    <button
+      type="button"
+      title="Show only this agent's Rent Plans"
+      onClick={(e) => { e.stopPropagation(); onAgent(r.agent_id as string); }}
+      className={cn('text-left font-medium text-primary hover:underline focus-visible:underline', className)}
+    >
+      {r.agent_name ?? 'Agent'}
+    </button>
+  );
+}
 
-function GridTable({ rows }: { rows: First7Row[] }) {
+function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenFn; onAgent: (agentId: string) => void }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-[11px]">
@@ -238,40 +203,55 @@ function GridTable({ rows }: { rows: First7Row[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.rent_request_id} className="border-t border-border/40">
-              <td className="py-1.5 pr-2"><RowIdentity r={r} /></td>
-              <td className="py-1.5 pr-2">{r.agent_name ?? '—'}</td>
-              <td className="py-1.5 pr-2 whitespace-nowrap">{planLabel(r)}</td>
-              <td className="py-1.5 pr-2 whitespace-nowrap">{fmtDay(r.landlord_paid_on)}</td>
-              {Array.from({ length: 7 }, (_, i) => {
-                const kind = cellKind(r, i);
-                return (
-                  <td key={i} className="px-0.5 py-1">
-                    <div
-                      title={cellTitle(r, i, kind)}
-                      className={cn(
-                        'min-w-[68px] whitespace-nowrap rounded px-1 py-1 text-center font-mono text-[10px]',
-                        CELL_TONE[kind],
-                        isDueDay(r, i) && 'ring-2 ring-primary',
-                      )}
-                    >
-                      {cellText(r, i, kind)}
-                    </div>
-                  </td>
-                );
-              })}
-              <td className="py-1.5 pl-2 text-right font-mono">
-                {formatUGX(r.paid_7d)}
-                <p className="text-muted-foreground">of {formatUGX(r.expected_to_date)} due</p>
-              </td>
-              <td className="py-1.5 pl-2"><StatusBadge status={r.row_status} /></td>
-            </tr>
-          ))}
+          {rows.map((r) => {
+            const open = () => onOpen(r.rent_request_id, null);
+            return (
+              <tr
+                key={r.rent_request_id}
+                data-testid="first7-row"
+                tabIndex={0}
+                aria-haspopup="dialog"
+                title="Open this Rent Plan's 7 days"
+                onClick={open}
+                onDoubleClick={open}
+                onKeyDown={keyOpen(open)}
+                className="cursor-pointer border-t border-border/40 hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              >
+                <td className="py-1.5 pr-2"><RowIdentity r={r} /></td>
+                <td className="py-1.5 pr-2"><AgentName r={r} onAgent={onAgent} /></td>
+                <td className="py-1.5 pr-2 whitespace-nowrap">{planLabel(r)}</td>
+                <td className="py-1.5 pr-2 whitespace-nowrap">{fmtDay(r.landlord_paid_on)}</td>
+                {Array.from({ length: 7 }, (_, i) => {
+                  const kind = cellKind(r, i);
+                  return (
+                    <td key={i} className="px-0.5 py-1">
+                      <button
+                        type="button"
+                        title={cellTitle(r, i, kind)}
+                        onClick={(e) => { e.stopPropagation(); onOpen(r.rent_request_id, i + 1); }}
+                        className={cn(
+                          'block min-w-[68px] whitespace-nowrap rounded px-1 py-1 text-center font-mono text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                          CELL_TONE[kind],
+                          isDueDay(r, i) && 'ring-2 ring-primary',
+                        )}
+                      >
+                        {cellText(r, i, kind)}
+                      </button>
+                    </td>
+                  );
+                })}
+                <td className="py-1.5 pl-2 text-right font-mono">
+                  {formatUGX(r.paid_7d)}
+                  <p className="text-muted-foreground">of {formatUGX(r.expected_to_date)} due</p>
+                </td>
+                <td className="py-1.5 pl-2"><StatusBadge status={r.row_status} /></td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <p className="mt-2 text-[10px] text-muted-foreground">
-        Green: paid in full · Amber: part paid · Red: missed · Grey: day not reached · Dashed: not due (weekly plans pay once a week; the ringed day is the due day). Amounts in UGX.
+        Green: paid in full · Amber: part paid · Red: missed · Grey: day not reached · Dashed: not due (weekly Rent Plans pay once a week; the ringed day is the due day). Amounts in UGX. Open a row, or a day, to see the payments.
       </p>
     </div>
   );
@@ -292,28 +272,39 @@ function DotStrip({ r }: { r: First7Row }) {
   );
 }
 
-function GridCards({ rows }: { rows: First7Row[] }) {
+function GridCards({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenFn; onAgent: (agentId: string) => void }) {
   return (
     <ul className="space-y-2">
-      {rows.map((r) => (
-        <li key={r.rent_request_id} className="space-y-2 rounded-xl border border-border bg-card p-3 text-xs">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0"><RowIdentity r={r} /></div>
-            <StatusBadge status={r.row_status} />
-          </div>
-          <DotStrip r={r} />
-          <div className="flex items-end justify-between gap-2">
-            <div className="min-w-0 text-muted-foreground">
-              <p className="truncate">{r.agent_name ?? '—'}</p>
-              <p className="truncate">{planLabel(r)} · paid out {fmtDay(r.landlord_paid_on)}</p>
+      {rows.map((r) => {
+        const open = () => onOpen(r.rent_request_id, null);
+        return (
+          <li
+            key={r.rent_request_id}
+            data-testid="first7-row"
+            tabIndex={0}
+            aria-haspopup="dialog"
+            onClick={open}
+            onKeyDown={keyOpen(open)}
+            className="cursor-pointer space-y-2 rounded-xl border border-border bg-card p-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0"><RowIdentity r={r} /></div>
+              <StatusBadge status={r.row_status} />
             </div>
-            <p className="shrink-0 text-right font-mono font-semibold text-foreground">
-              {formatUGX(r.paid_7d)}
-              <span className="block text-[10px] font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
-            </p>
-          </div>
-        </li>
-      ))}
+            <DotStrip r={r} />
+            <div className="flex items-end justify-between gap-2">
+              <div className="min-w-0 text-muted-foreground">
+                <p className="truncate"><AgentName r={r} onAgent={onAgent} /></p>
+                <p className="truncate">{planLabel(r)} · paid out {fmtDay(r.landlord_paid_on)}</p>
+              </div>
+              <p className="shrink-0 text-right font-mono font-semibold text-foreground">
+                {formatUGX(r.paid_7d)}
+                <span className="block text-[10px] font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
+              </p>
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -353,8 +344,29 @@ export function First7DaysTab() {
   const { rows, summary, isLoading, isFetching, error, refetch } = useNewTenantFirst7({ from: params.from, to: params.to, freq: params.freq });
 
   const visible = useMemo(() => sortFirst7Rows(filterFirst7Rows(rows, params)), [rows, params]);
-  const filtered = params.q.trim() !== '' || params.card !== 'all' || params.day !== null;
-  const clearFilters = () => update({ q: '', card: 'all', day: null });
+  const filtered = params.q.trim() !== '' || params.card !== 'all' || params.day !== null || params.agent !== null;
+  const clearFilters = () => update({ q: '', card: 'all', day: null, agent: null });
+
+  // one agent's seven days, counted from the server's own row statuses
+  const agentStats = useMemo(() => (params.agent ? agentOnTrack(rows, params.agent) : null), [rows, params.agent]);
+
+  // the side panel: which Rent Plan, and which day (null = all seven)
+  const [open, setOpen] = useState<{ rid: string; day: number | null } | null>(null);
+  const openRow = open ? rows.find((r) => r.rent_request_id === open.rid) ?? null : null;
+  const openStats = openRow?.agent_id ? agentOnTrack(rows, openRow.agent_id) : null;
+  const filterAgent = (agentId: string) => { setOpen(null); update({ agent: agentId }); };
+
+  // exports of the view as it is on screen
+  const { toast } = useToast();
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const exportInput = (): First7ExportInput => ({ rows: visible, totalInRange: rows.length, params, agentName: agentStats?.agent_name ?? null });
+  const exportCsv = () => {
+    try { downloadFirst7Csv(exportInput()); } catch (e) { toast({ title: 'Could not make the CSV', description: first7ErrorMessage(e), variant: 'destructive' }); }
+  };
+  const exportPdf = async () => {
+    setPdfBusy(true);
+    try { await generateFirst7Pdf(exportInput()); } catch (e) { toast({ title: 'Could not make the PDF', description: first7ErrorMessage(e), variant: 'destructive' }); } finally { setPdfBusy(false); }
+  };
 
   const showCustom = customOpen || preset === 'custom';
   const rangeLabel = params.from === params.to ? fmtDay(params.from) : `${fmtDay(params.from)} – ${fmtDay(params.to)}`;
@@ -370,10 +382,18 @@ export function First7DaysTab() {
               <p className="text-[11px] text-muted-foreground">New Rent Plans by the day the landlord was paid. Day 1 is the day after.</p>
             </div>
           </div>
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={refetch} disabled={isFetching}>
-            {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportCsv} disabled={visible.length === 0} title="Download the Rent Plans shown, as a CSV file">
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportPdf} disabled={visible.length === 0 || pdfBusy} title="Download the Rent Plans shown, as a PDF">
+              {pdfBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />} Export PDF
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={refetch} disabled={isFetching}>
+              {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Refresh
+            </Button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -458,6 +478,21 @@ export function First7DaysTab() {
           {summary && summary.plans > 0 && <CollectedStrip summary={summary} />}
           {summary && summary.plans > 0 && <DayChart summary={summary} day={params.day} onPick={(day) => update({ day })} />}
 
+          {params.agent && agentStats && (
+            <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-2.5 text-xs">
+              <p className="flex flex-wrap items-center gap-x-1.5 text-foreground">
+                <UserRound className="h-3.5 w-3.5 text-primary" />
+                <span className="font-semibold">{agentStats.agent_name ?? 'Agent'}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-semibold">{agentStats.pct === null ? 'No Rent Plan has started yet' : `${agentStats.pct}% on track`}</span>
+                {agentStats.pct !== null && <span className="text-muted-foreground">({agentStats.on_track} of {agentStats.started} Rent Plans started)</span>}
+              </p>
+              <Button type="button" size="sm" variant="ghost" className="h-7 gap-1 text-xs" onClick={() => update({ agent: null })}>
+                <X className="h-3.5 w-3.5" /> Show all agents
+              </Button>
+            </div>
+          )}
+
           {rows.length === 0 ? (
             <Card className="flex flex-col items-center gap-2 p-8 text-center">
               <Sprout className="h-8 w-8 text-muted-foreground" />
@@ -482,7 +517,9 @@ export function First7DaysTab() {
                 <p className="py-6 text-center text-xs text-muted-foreground">No plans match these filters.</p>
               ) : (
                 <>
-                  {isMobile ? <GridCards rows={visible.slice(0, shown)} /> : <GridTable rows={visible.slice(0, shown)} />}
+                  {isMobile
+                    ? <GridCards rows={visible.slice(0, shown)} onOpen={(rid, day) => setOpen({ rid, day })} onAgent={filterAgent} />
+                    : <GridTable rows={visible.slice(0, shown)} onOpen={(rid, day) => setOpen({ rid, day })} onAgent={filterAgent} />}
                   {visible.length > shown && (
                     <div className="flex justify-center pt-1">
                       <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShown((n) => n + PAGE)}>
@@ -496,6 +533,15 @@ export function First7DaysTab() {
           )}
         </>
       )}
+
+      <First7TenantSheet
+        row={openRow}
+        day={open?.day ?? null}
+        agentStats={openStats}
+        onDayChange={(day) => setOpen((o) => (o ? { ...o, day } : o))}
+        onClose={() => setOpen(null)}
+        onFilterAgent={filterAgent}
+      />
     </div>
   );
 }

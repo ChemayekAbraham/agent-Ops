@@ -165,13 +165,13 @@ describe('First7DaysTab', () => {
     expect(dayCells[2]).toHaveTextContent('UGX 5,000');
     expect(dayCells[2].className).toContain('bg-warning/15');
     expect(dayCells[3].className).toContain('bg-muted/40');
-    expect(daily.querySelector('.ring-primary')).toBeNull();
+    expect(daily.querySelector('.ring-2.ring-primary')).toBeNull();
 
     const wk = screen.getByText('Bosco Ouma').closest('tr')!;
     const wCells = within(wk).getAllByTitle(/^Day \d/);
-    expect(wCells[0].className).toContain('ring-primary');
+    expect(wCells[0].classList.contains('ring-primary')).toBe(true);
     expect(wCells[0]).toHaveTextContent('UGX 70,000');
-    for (const c of wCells.slice(1)) { expect(c).toHaveTextContent('not due'); expect(c.className).not.toContain('ring-primary'); }
+    for (const c of wCells.slice(1)) { expect(c).toHaveTextContent('not due'); expect(c.classList.contains('ring-primary')).toBe(false); }
     expect(within(wk).getByText(/Weekly · UGX 70,000 \/ week/)).toBeInTheDocument();
   });
 
