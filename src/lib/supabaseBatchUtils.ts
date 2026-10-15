@@ -566,7 +566,7 @@ export async function fetchSupporterSummary(): Promise<{
   const ids = Array.from(ownerIds);
 
   if (ids.length === 0) {
-    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0 };
+    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0, newPartnersToday: 0 };
   }
 
   const todayYmd = kampalaTodayYmd();
