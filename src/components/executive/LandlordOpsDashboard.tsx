@@ -96,6 +96,7 @@ import { EmptyHouseActionDialog } from './landlord-ops/EmptyHouseActionDialog';
 import { AgentListingBlockControl } from './landlord-ops/AgentListingBlockControl';
 import { Trash2, XCircle, Pencil } from 'lucide-react';
 import { EditLandlordDialog } from './landlord-ops/EditLandlordDialog';
+import { LandlordTenantsSection } from './landlord-ops/LandlordTenantsSection';
 import { ReverseVerificationDialog } from './landlord-ops/ReverseVerificationDialog';
 import { EditLC1Dialog } from './landlord-ops/EditLC1Dialog';
 import { BulkImportLC1Dialog } from './landlord-ops/BulkImportLC1Dialog';
@@ -3087,6 +3088,8 @@ export function LandlordOpsDashboard({
                               {landlord.agent_phone && <PhoneLinks phone={landlord.agent_phone} name={landlord.agent_name || 'Agent'} />}
                             </div>
                           )}
+                          {/* This landlord's tenants: read-only, from landlord_tenant_overview */}
+                          <LandlordTenantsSection landlordId={landlord.id} />
                           {/* Service Centre manager's vetting note for this landlord */}
                           <ServiceCentreNoteLoader table="landlords" id={landlord.id} />
                           <InlineModerationActions

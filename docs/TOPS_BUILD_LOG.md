@@ -1273,3 +1273,14 @@ Tests: `src/lib/__tests__/renewalAdvice.test.ts`, `src/components/agent/__tests_
 **Verified live** (one rolled-back transaction, 43 checks, real role switching): grants and function properties; the five allowed roles can read, and tenant ops, agent ops, manager, operations, financial ops, agent, tenant, cto, a role-less user, signed-out and anon are refused; every field of every Rent Plan for 165 landlords across all statuses equals an independent recompute; both lists equal an independent recompute of the whole landlord table (590 `paid_repaying`, 267 `completed` today); paging, ordering, search, clamping and the error codes. Speed: 71 ms for the 590-landlord list, 32 ms for the biggest landlord (3,127 plans).
 
 **Not done here:** no UI reads these yet; the existing Landlord Ops tabs and their counts are untouched.
+
+## 2026-10-15 — Landlord Ops → Landlords: read-only "Tenants" section in the Review panel and the Edit Landlord dialog
+
+No database change; it reads `landlord_tenant_overview` (`20261015100000`) through `useLandlordTenantOverview` (`src/hooks/useLandlordTenantOverview.ts`) and `LandlordTenantsSection` (`src/components/executive/landlord-ops/LandlordTenantsSection.tsx`). Helpers (`UGX 1,234,000` formatting, phone links, the total line, stage colours, the error wording) are in `src/lib/landlordTenants.ts`.
+
+- Each tenant card shows name and phone (call and WhatsApp buttons), rent, daily amount, repaid so far, balance left, the Rent Plan status, the funding stage badge (the six server values, each its own colour) and the agent's name and phone (call and WhatsApp buttons).
+- A total line shows the number of tenants, total rent and total balance. Rejected or cancelled Rent Plans are listed but not counted, and the line says how many were left out. The number of tenants is the number of different tenants.
+- Loading, empty ("This landlord has no tenants on a Rent Plan yet.") and error states (with Try again; a person without access is told why). A landlord with a long list shows 25 at a time with "Show more"; the totals cover all of them.
+- Where: the Review panel (the row that opens with "Review" on a landlord who is not verified yet, so on every tab that has a Review button) and the Edit Landlord dialog (every row, every tab), placed under Save Changes so the form and Save stay where they were. The approve, reject, reverse and edit code is unchanged.
+
+Tests: `src/lib/__tests__/landlordTenants.test.ts`, `src/components/executive/landlord-ops/__tests__/LandlordTenantsSection.test.tsx`, `src/components/executive/landlord-ops/__tests__/EditLandlordDialog.tenants.test.tsx`.

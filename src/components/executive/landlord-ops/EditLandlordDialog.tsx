@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
 import { LandlordAgreementUploader } from '@/components/landlord/agreement/LandlordAgreementUploader';
+import { LandlordTenantsSection } from './LandlordTenantsSection';
 
 interface LandlordData {
   id: string;
@@ -298,6 +299,9 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                 <Save className="h-4 w-4 mr-2" />
                 Save Changes
               </Button>
+
+              {/* This landlord's tenants: read-only, from landlord_tenant_overview. Below Save so the form and Save stay where they were. */}
+              <LandlordTenantsSection landlordId={landlord?.id} enabled={open} className="border-t pt-4" />
             </div>
           )}
 
