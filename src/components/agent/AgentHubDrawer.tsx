@@ -112,7 +112,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
               role="dialog" aria-label="Agent Hub"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto max-h-[70vh] min-h-[320px] bg-muted text-foreground rounded-t-3xl shadow-xl z-[110] flex flex-col overflow-hidden border-t border-border"
+              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto max-h-[88vh] min-h-[420px] bg-muted text-foreground rounded-t-3xl shadow-xl z-[110] flex flex-col overflow-hidden border-t border-border"
             >
               <div className="w-full flex justify-center py-2 shrink-0 cursor-pointer" onClick={onClose}>
                 <div className="w-10 h-1 bg-border rounded-full" />
@@ -130,18 +130,18 @@ export function AgentHubDrawer({ open, onClose }: Props) {
               </div>
 
               <div className="px-4 pb-3 shrink-0">
-                <div className="relative flex items-center w-full bg-card border border-border rounded-2xl h-10 px-3 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
-                  <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <div className="relative flex items-center w-full bg-card border border-border rounded-lg h-12 px-3.5 transition-all focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+                  <Search className="h-5 w-5 text-muted-foreground shrink-0" />
                   <input
                     type="text" value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search actions, forms, settings..."
-                    className="w-full h-full bg-transparent text-xs font-semibold placeholder:text-muted-foreground focus:outline-none pl-2.5"
+                    className="w-full h-full bg-transparent text-sm font-semibold placeholder:text-muted-foreground focus:outline-none pl-3"
                   />
                   {searchQuery && (
                     <button onClick={() => setSearchQuery('')} aria-label="Clear search"
-                      className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted focus:outline-none">
-                      <X className="h-3 w-3" />
+                      className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted focus:outline-none">
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
