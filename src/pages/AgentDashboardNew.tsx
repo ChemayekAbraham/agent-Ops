@@ -8,7 +8,6 @@ import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import AiIdButton from '@/components/ai-id/AiIdButton';
-import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { BadgeCheck } from 'lucide-react';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
@@ -52,7 +51,6 @@ export default function AgentDashboardNew() {
             <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
             <div className="mt-1.5"><AiIdButton variant="compact" /></div>
           </div>
-          {user && <div className="shrink-0"><AgentNotificationBell userId={user.id} /></div>}
         </div>
         <div className="mt-5">
           <SignatureRentRequestCard fullName={profile?.full_name} onPostRequest={() => setRentRequestOpen(true)} />
