@@ -249,6 +249,13 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
           Put a published meal on a service period, with an optional price for the day
           and a serving cap.
         </p>
+        {periodsQ.isSuccess && (periods ?? []).length === 0 && (
+          <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+            No meal times are set up yet, so staff can&rsquo;t see any meals. Add a meal time
+            (for example Lunch, with its ordering hours) in the Service tab, then put your
+            published meal on it here.
+          </div>
+        )}
 
         <div className="mb-3 grid gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-4">
           <Select
