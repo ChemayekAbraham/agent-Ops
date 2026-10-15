@@ -87,14 +87,79 @@ export function InvitedPortfoliosPanel() {
       const partnerIds = Array.from(new Set(portfolios.map(p => p.investor_id).filter(Boolean)));
       const allPortfolioIds = portfolios.map(p => p.id);
 
-      // Self-support portfolios (partner funds specific tenants from their own
-      // wallet) are vetted in the "Pending portfolios" tab, not in the invite
-      // pipeline — drop anything that already sits in the pending queue.
-      const { data: pendingRows } = await (supabase.from('funder_pending_portfolios') as any)
-        .select('portfolio_id')
-        .eq('status', 'pending')
-        .in('portfolio_id', allPortfolioIds);
-      const pendingSet = new Set<string>(((pendingRows || []) as any[]).map(r => r.portfolio_id));
+      // Partner identity and pending-queue membership come from one server-side
+      // RPC. Reading `profiles` / `funder_pending_portfolios` with an `in.()`
+      // filter cannot work at this size: 1,000+ ids make a request URL the API
+      // refuses (HTTP 400 past roughly 600 ids), and the old code ignored that
+      // failure, so every partner name silently rendered as "—".
+      type PartnerInfo = { name: string; phone: string | null; email: string | null };
+      const MISSING: PartnerInfo = { name: '—', phone: null, email: null };
+      const infoMap = new Map<string, PartnerInfo>();
+      const pendingSet = new Set<string>();
+      let partnerRows: any[] = [];
+      try {
+        const { data: roster, error: rosterErr } = await supabase
+          .rpc('partner_ops_invite_partners', { p_portfolio_ids: allPortfolioIds });
+        if (rosterErr) throw rosterErr;
+        partnerRows = (roster || []) as any[];
+      } catch (e) {
+        console.warn('[invited-portfolios] partner roster lookup failed:', e);
+      }
+      if (partnerRows.length > 0) {
+        for (const r of partnerRows) {
+          infoMap.set(r.portfolio_id, {
+            name: r.partner_name || MISSING.name,
+            phone: r.partner_phone || null,
+            email: r.partner_email || null,
+          });
+          if (r.in_pending_queue) pendingSet.add(r.portfolio_id);
+        }
+      } else {
+        // A role without the RPC gate still gets names: read in small batches so
+        // each request stays inside the URL limit, and never swallow an error.
+        const readInBatches = async <T,>(
+          run: (ids: string[]) => Promise<T[]>,
+          ids: string[],
+          size = 200,
+        ): Promise<T[]> => {
+          const out: T[] = [];
+          for (let i = 0; i < ids.length; i += size) out.push(...await run(ids.slice(i, i + size)));
+          return out;
+        };
+        try {
+          const byInvestor = new Map<string, PartnerInfo>();
+          const profiles = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('profiles') as any)
+              .select('id, full_name, phone, email')
+              .in('id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, partnerIds);
+          for (const p of profiles) {
+            byInvestor.set(p.id, {
+              name: p.full_name || p.email || MISSING.name,
+              phone: p.phone || null,
+              email: p.email || null,
+            });
+          }
+          const pendingRows = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('funder_pending_portfolios') as any)
+              .select('portfolio_id')
+              .eq('status', 'pending')
+              .in('portfolio_id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, allPortfolioIds);
+          for (const r of pendingRows) pendingSet.add(r.portfolio_id);
+          for (const p of portfolios) {
+            const found = byInvestor.get(p.investor_id);
+            if (found) infoMap.set(p.id, found);
+          }
+        } catch (e) {
+          console.warn('[invited-portfolios] batched partner fallback failed:', e);
+        }
+      }
+
       // Approved portfolios only belong here if they came through the invite:
       // a completion token exists OR an invite email was actually sent. The
       // server decides from both signals and is the sole source of truth.
@@ -114,12 +179,6 @@ export function InvitedPortfoliosPanel() {
       const invitedSet = new Set<string>(visibilityRows.filter(r => r.invited).map(r => r.portfolio_id));
       const visible = portfolios.filter(p => !pendingSet.has(p.id) && (p.status !== 'active' || invitedSet.has(p.id)));
       if (visible.length === 0) return [];
-
-      const { data: profiles } = await (supabase.from('profiles') as any)
-        .select('id, full_name, phone, email')
-        .in('id', partnerIds);
-
-      const nameMap = new Map<string, any>((profiles || []).map((p: any) => [p.id, p]));
 
       return visible.map((p): Row => {
         const prof = nameMap.get(p.investor_id) || {};
