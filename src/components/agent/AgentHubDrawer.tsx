@@ -162,15 +162,14 @@ export function AgentHubDrawer({ open, onClose }: Props) {
                         <div className="grid grid-cols-2 gap-2.5">
                           {section.items.map((item) => {
                             const Icon = item.icon;
-                            const danger = item.action === 'sign_out';
                             return (
                               <button
                                 key={item.name}
                                 onClick={() => handleItemClick(item)}
                                 className="flex items-center gap-3 p-3 bg-card border border-border rounded-2xl hover:bg-accent active:scale-[0.98] transition-all text-left focus:outline-none focus:ring-1 focus:ring-primary"
                               >
-                                <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${danger ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                                  <Icon className={`h-4 w-4 stroke-[2.2] ${danger ? 'text-destructive' : 'text-primary'}`} />
+                                <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 ${toneClasses[item.tone]}`}>
+                                  <Icon className="h-4 w-4 stroke-[2.2]" />
                                 </div>
                                 <span className="text-[11px] font-bold leading-tight">{item.name}</span>
                               </button>
