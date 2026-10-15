@@ -36,21 +36,20 @@ function AssistantCard() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {createPortal(<Button
+      {createPortal(<button
         type="button"
-        size="icon"
         onClick={() => { hapticTap(); setOpen(true); }}
         aria-label="Chat with Welile Assistant"
         title="Chat with Welile Assistant"
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          'fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 h-14 w-14 rounded-full border-2 border-background gradient-assistant shadow-[0_12px_28px_-10px_hsl(var(--gradient-assistant-end)/0.65)] touch-manipulation fab-shrink-landscape active:scale-[0.96] transition-transform',
+          'gradient-assistant fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-background shadow-lg shadow-primary/40 touch-manipulation fab-shrink-landscape transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2',
           open && 'hidden',
         )}
       >
         <Sparkles className="h-6 w-6" aria-hidden="true" />
-      </Button>, document.body)}
+      </button>, document.body)}
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>
   );
