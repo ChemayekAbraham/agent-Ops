@@ -166,9 +166,8 @@ Deno.serve(async (req) => {
 
     const amount = Number((ver as any).amount ?? 0);
     const message =
-      `Welile cash deposit code: ${code}. ` +
-      `Amount ${fmtUGX(amount)}. Enter this code in the Welile app to confirm your cash deposit. ` +
-      `Valid for 10 minutes. Do not share it with anyone who has not received your cash.`;
+      `Welile cash deposit code: ${code}. ${fmtUGX(amount)}. ` +
+      `Enter it in the app to confirm. Valid 10 min. Do not share unless they received your cash.`;
 
     let smsSent = false;
     let smsError: string | null = null;

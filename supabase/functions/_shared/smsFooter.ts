@@ -52,11 +52,37 @@ function withSignupPrompt(message: string): string {
   if (message.includes(url)) return message;
   const trimmed = message.replace(/\s+$/g, "");
   if (!trimmed) return prompt;
-  return `${trimmed}\n${prompt}`;
+  const withPrompt = `${trimmed}\n${prompt}`;
+  // The join line is the lowest-value text on the message: when it would push
+  // the SMS past one segment it is dropped, never the message or the footer.
+  if (withPrompt.length > SMS_SEGMENT_CHARS) return message;
+  return withPrompt;
+}
+
+export const SMS_SEGMENT_CHARS = 160;
+
+// Characters outside GSM-7 force the whole message into 70-char segments.
+// Swap the common ones for ASCII equivalents (meaning unchanged).
+const GSM_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/[‘’‛]/g, "'"],
+  [/[“”]/g, '"'],
+  [/[–—]/g, "-"],
+  [/…/g, "..."],
+  [/[•·]/g, "*"],
+  [/×/g, "x"],
+  [/→/g, "->"],
+  [/ /g, " "],
+  [/[✓✔]/g, "OK"],
+];
+
+export function toGsmSafe(message: string): string {
+  let out = message;
+  for (const [re, rep] of GSM_REPLACEMENTS) out = out.replace(re, rep);
+  return out;
 }
 
 export function appendSupportFooter(message: string): string {
-  const msg = String(message ?? "");
+  const msg = toGsmSafe(String(message ?? ""));
   const footer = getSupportFooter();
   // Idempotent: any prior support-number mention wins. Matches the short
   // "Help: <number>" footer and the legacy "contact Welile Support on <number>".

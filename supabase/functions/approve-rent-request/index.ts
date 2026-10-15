@@ -327,13 +327,13 @@ Deno.serve(async (req) => {
       // Tenant SMS
       if (tenantPhone) {
         const dailyAmt = dailyRepayment > 0 ? dailyRepayment : Math.ceil(totalRepayment / durationDays);
-        const tenantMsg = `WELILE: Your rent of UGX ${Number(rentRequest.rent_amount).toLocaleString()} has been approved and will be paid to your landlord. Repayment of UGX ${dailyAmt.toLocaleString()}/day starts tomorrow. Ref: ${rent_request_id.slice(0, 8)}`;
+        const tenantMsg = `Rent of UGX ${Number(rentRequest.rent_amount).toLocaleString()} approved; paid to your landlord. Repay UGX ${dailyAmt.toLocaleString()}/day from tomorrow. Ref ${rent_request_id.slice(0, 8)}`;
         smsPromises.push(sendSMS(tenantPhone, tenantMsg));
       }
 
       // Agent SMS
       if (rentRequest.agent_id && agentPhone) {
-        const agentMsg = `WELILE: Rent request for ${tenantName} (UGX ${Number(rentRequest.rent_amount).toLocaleString()}) has been approved.`;
+        const agentMsg = `Rent request for ${tenantName} (UGX ${Number(rentRequest.rent_amount).toLocaleString()}) approved.`;
         smsPromises.push(sendSMS(agentPhone, agentMsg));
       }
 
@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
 
       // Tenant SMS on rejection (fire-and-forget)
       if (tenantPhone) {
-        const rejectMsg = `WELILE: Your rent request for UGX ${Number(rentRequest.rent_amount).toLocaleString()} was not approved. Contact your agent for details.`;
+        const rejectMsg = `Rent request for UGX ${Number(rentRequest.rent_amount).toLocaleString()} not approved. Contact your agent.`;
         sendSMS(tenantPhone, rejectMsg).catch(e => console.error("Rejection SMS error:", e));
       }
 

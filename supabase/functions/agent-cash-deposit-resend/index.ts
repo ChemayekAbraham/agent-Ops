@@ -216,7 +216,7 @@ Deno.serve(async (req) => {
 
     // ── Re-send SMS to the agent ──
     const agentPhoneForSms = normalizePhone(s.agent_phone ?? "");
-    const smsBody = `Welile: ${s.depositor_name ?? "A user"} is collecting UGX ${Number(s.amount).toLocaleString()} cash from your float. NEW confirmation code: ${newPin}. Share it ONLY after handing over the cash. Your float will reduce by this amount.`;
+    const smsBody = `${s.depositor_name ?? "A user"} is collecting UGX ${Number(s.amount).toLocaleString()} cash from your float. NEW code: ${newPin}. Share ONLY after handing over cash. Float reduces.`;
     const smsOutcome = await sendSms(agentPhoneForSms, smsBody);
     await logSmsAttempts(admin, {
       phone: agentPhoneForSms,

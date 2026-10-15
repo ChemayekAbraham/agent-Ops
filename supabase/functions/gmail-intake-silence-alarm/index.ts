@@ -154,8 +154,8 @@ Deno.serve(async (req) => {
       if (!open) return json({ ok: true, silent: false, silent_minutes: silentMinutes });
       await admin.from("deposit_match_alerts").update({ resolved_at: now.toISOString() }).eq("id", existing!.id);
       const smsText =
-        `Welile: deposit emails are flowing again (last one ${silentMinutes} min ago). ` +
-        `Backlog SMS may still arrive: credit by TID only and check before crediting manually.`;
+        `Welile: deposit emails flowing again (last ${silentMinutes} min ago). ` +
+        `Backlog may still arrive: credit by TID only, check first.`;
       const html = `<div style="font:14px system-ui;color:#111;max-width:640px"><h2 style="margin:0 0 6px;color:#15803d">Deposit intake is flowing again</h2>
 <p style="color:#555">The last deposit email was ingested ${esc(silentMinutes)} minutes ago. Backlogged SMS can still arrive in bursts. Credit by TID only, and check whether a TID was already credited before crediting it by hand.</p></div>`;
       const res = await notify(admin, emails, smsEmails, "Deposit intake recovered", html, smsText, `gmail-intake-silence:recovered:${now.toISOString().slice(0, 13)}`);
@@ -200,9 +200,8 @@ Deno.serve(async (req) => {
 
     const hrs = silentMinutes === null ? "unknown" : silentMinutes >= 120 ? `${Math.round(silentMinutes / 60)} hours` : `${silentMinutes} min`;
     const smsText =
-      `Welile ALERT: no MoMo deposit SMS has reached the system for ${hrs}. ` +
-      `Check the forwarding phone (power, network, IFTTT). Agents' float deposits are NOT auto-crediting. ` +
-      `If you credit manually, use the TID.`;
+      `Welile ALERT: no MoMo deposit SMS for ${hrs}. ` +
+      `Check forwarding phone (power/network/IFTTT). Float NOT auto-crediting; credit by TID.`;
     const subject = `ALERT: no deposit emails for ${hrs}`;
     const html = `<div style="font:14px system-ui;color:#111;max-width:640px">
 <h2 style="margin:0 0 6px;color:#b91c1c">No MoMo deposit emails are arriving</h2>

@@ -11,7 +11,7 @@
 // failure never affects the payout itself — staff can resend.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { sendSMS, formatPhoneInternational, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
-import { receiptUrl as publicReceiptUrl, formatReceiptDateTime } from "../_shared/landlordReceipt.ts";
+import { receiptUrl as publicReceiptUrl } from "../_shared/landlordReceipt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,11 +102,9 @@ Deno.serve(async (req) => {
 
     const receiptNo: string = result.receipt_number ?? "";
     const message =
-      `Welile: Dear ${snapshot.landlord_name ?? "Landlord"}, you have received ` +
-      `${formatUGX(snapshot.amount)} as rent for ${snapshot.tenant_name ?? "your tenant"}. ` +
-      `Processed by ${snapshot.processed_by_name ?? "Welile"} on ${formatReceiptDateTime(snapshot.paid_at ?? null)}. ` +
-      (receiptNo ? `Receipt No: ${receiptNo} (Code: ${receiptCode}). ` : "") +
-      `View your receipt: ${receiptUrl}`;
+      `Welile: ${formatUGX(snapshot.amount)} rent received for ${snapshot.tenant_name ?? "your tenant"}. ` +
+      (receiptNo ? `Receipt ${receiptNo}. ` : "") +
+      `${receiptUrl}`;
 
     let sent = false;
     let smsError: string | null = null;

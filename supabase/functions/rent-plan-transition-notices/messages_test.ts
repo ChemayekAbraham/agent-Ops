@@ -1,6 +1,6 @@
-// The messages in this file are the SPEC, copied from section 5 of
-// docs/rent-plan-new-flow-full-report.md. The test asserts that what the
-// function actually renders is identical to it.
+// SMS copy was shortened to fit one 160-char segment (143 chars of body + the
+// central footer), so these expectations are the shortened wording, not the
+// longer text in section 5 of docs/rent-plan-new-flow-full-report.md.
 //
 // This exists because "it matches the document" was asserted twice and was
 // wrong twice — once with the deadline missing from A1 entirely, once with an
@@ -58,13 +58,7 @@ Deno.test('A1 matches the document', () => {
     deadline_time: '16:43', deadline_date: 'Tuesday 29 September', recall_active: true,
   });
 
-  same('A1', actual, `UGX 100,000 landlord float has been sent to your wallet for
-John Kibalama (Aaron Gwokto).
-
-Pay the landlord within 24 hours — by 16:43 on Tuesday 29 September —
-or the float will be returned and the Rent Plan cancelled.
-
-Payouts run 06:00–22:00. Ref 9C078BF7.`);
+  same('A1', actual, `UGX 100,000 float for John Kibalama is in your wallet. Pay by 16:43 on Tuesday 29 September or it is returned and the Rent Plan cancelled.`);
 });
 
 Deno.test('A3 matches the document', () => {
@@ -75,9 +69,7 @@ Deno.test('A3 matches the document', () => {
     ref: '9C078BF7', deadline_time: '16:43',
   });
 
-  same('A3', actual, `Reminder: UGX 100,000 for landlord John Kibalama is still in your
-wallet. You have 6 hours left (16:43). After that the float is
-returned and Aaron Gwokto's Rent Plan is cancelled. Ref 9C078BF7.`);
+  same('A3', actual, `Reminder: UGX 100,000 for John Kibalama still in your wallet. 6 hours left (16:43). Then float is returned and Rent Plan cancelled.`);
 });
 
 Deno.test('A4 matches the document', () => {
@@ -87,9 +79,7 @@ Deno.test('A4 matches the document', () => {
     rent_amount: 100000, ref: '9C078BF7',
   });
 
-  same('A4', actual, `The UGX 100,000 landlord float for John Kibalama was not paid out
-within 24 hours and has been returned. Aaron Gwokto's Rent Plan has been
-cancelled and can be submitted again. Ref 9C078BF7.`);
+  same('A4', actual, `UGX 100,000 float for John Kibalama not paid within 24 hours and returned. Aaron Gwokto's Rent Plan cancelled; resubmit it. Ref 9C078BF7.`);
 });
 
 /* ------------------------------------------------------------------ *
@@ -106,18 +96,7 @@ Deno.test('T1 matches the document', () => {
     agent_phone: '+256778315407', ref: '9C078BF7',
   });
 
-  same('T1', actual, `Welcome to Welile, Aaron.
-
-Your rent of UGX 100,000 has been paid to your landlord
-John Kibalama.
-
-Your repayment starts TOMORROW, Tuesday 29 September:
-  UGX 4,767 per day
-  for 30 days
-  Total to repay: UGX 143,000
-
-Your agent TIMOTHY (+256778315407) will collect from you.
-Ref 9C078BF7.`);
+  same('T1', actual, `Rent of UGX 100,000 paid to John Kibalama. Repay UGX 4,767 per day from TOMORROW (Tue 29 Sept) for 30 days. Total UGX 143,000. Ref 9C078BF7.`);
 });
 
 Deno.test('T2 matches the document', () => {
@@ -127,9 +106,7 @@ Deno.test('T2 matches the document', () => {
     landlord_name: 'John Kibalama', ref: '9C078BF7',
   });
 
-  same('T2', actual, `Aaron, the Rent Plan for your rent of UGX 100,000 could
-not be completed because the landlord payment was not made in time. Nothing
-is owed by you. Your agent can submit the request again. Ref 9C078BF7.`);
+  same('T2', actual, `Aaron, the Rent Plan for UGX 100,000 was not completed: landlord not paid in time. You owe nothing. Your agent can resubmit. Ref 9C078BF7.`);
 });
 
 Deno.test('A2 matches the document', () => {
@@ -140,9 +117,7 @@ Deno.test('A2 matches the document', () => {
     ref: '9C078BF7', deadline_time: '16:43', deadline_date: 'Tuesday 29 September',
   });
 
-  same('A2', actual, `UGX 100,000 landlord float for John Kibalama (Aaron Gwokto) is still
-in your wallet. Pay the landlord by 16:43 on Tuesday 29 September.
-Payouts run 06:00–22:00. Ref 9C078BF7.`);
+  same('A2', actual, `UGX 100,000 float for John Kibalama (Aaron Gwokto) is still in your wallet. Pay the landlord by 16:43 on Tuesday 29 September. Ref 9C078BF7.`);
 });
 
 Deno.test('AP matches the document', () => {
@@ -155,15 +130,7 @@ Deno.test('AP matches the document', () => {
     receipt_number: 'WLR-100336', receipt_code: '5NKSV5RMGB', commission_ugx: 1000,
   });
 
-  same('AP', actual, `UGX 100,000 has been paid to landlord DEMO. Receipt No: WLR-100336 (Code: 5NKSV5RMGB).
-
-SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
-
-You earned UGX 1,000 commission.
-
-View receipt: https://welileapp.com/r/5NKSV5RMGB
-
-Please upload the receipt.`);
+  same('AP', actual, `UGX 100,000 paid to DEMO. Receipt https://welileapp.com/r/5NKSV5RMGB. SSEMANDO repays UGX 4,767 per day from tomorrow. Upload receipt.`);
 });
 
 // The conditional parts, also from the document: built WITHOUT them, not with
@@ -179,11 +146,7 @@ Deno.test('AP drops the receipt lines and the commission when neither exists', (
     receipt_number: null, receipt_code: null, commission_ugx: null,
   });
 
-  same('AP (no receipt, no commission)', actual, `UGX 100,000 has been paid to landlord DEMO.
-
-SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
-
-Please upload the receipt.`);
+  same('AP (no receipt, no commission)', actual, `UGX 100,000 paid to DEMO. SSEMANDO repays UGX 4,767 per day from tomorrow (Wed 30 Sept). Upload receipt.`);
 });
 
 // The number and the code are one receipt. Quoting one without the other would
@@ -199,11 +162,7 @@ Deno.test('AP does not quote a receipt number that has no code', () => {
     receipt_number: 'WLR-100336', receipt_code: null, commission_ugx: null,
   });
 
-  same('AP (number only)', actual, `UGX 100,000 has been paid to landlord DEMO.
-
-SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
-
-Please upload the receipt.`);
+  same('AP (number only)', actual, `UGX 100,000 paid to DEMO. SSEMANDO repays UGX 4,767 per day from tomorrow (Wed 30 Sept). Upload receipt.`);
 });
 
 /* ------------------------------------------------------------------ *

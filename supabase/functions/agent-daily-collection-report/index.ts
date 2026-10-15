@@ -218,7 +218,10 @@ Deno.serve(async (req) => {
         .eq("id", agentId)
         .maybeSingle();
       if (profile?.phone) {
-        const ok = await sendSMS(profile.phone, summary);
+        const smsText =
+          `Daily report ${label}: Collected ${fmtUGX(collected)} (${tenantsCollected} tenants). ` +
+          `Expected ${fmtUGX(expected)} (${rate}%). Owing: ${tenantsOwing}.`;
+        const ok = await sendSMS(profile.phone, smsText);
         if (ok) stats.smsSent++;
       }
     }

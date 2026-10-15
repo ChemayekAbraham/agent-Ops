@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       await logEvent(admin, requisitionId, actor.id, actorName, "rejected", stageKey, comment, { amount: row.amount });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_rejected", comment);
       await setGrowthClaimStatus(admin, requisitionId, "rejected");
-      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} was declined at ${stageLabel(stageKey)} review: ${comment}`);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} was declined at ${stageLabel(stageKey)} review: ${comment}`, smsClip(`Req ${row.requisition_code} declined at ${stageLabel(stageKey)}: `, comment));
       return json({ ok: true, requisition: updated }, 200);
     }
 
@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       if (!updated) return stageMoved();
       await logEvent(admin, requisitionId, actor.id, actorName, "returned", stageKey, comment, {});
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_returned", comment);
-      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} needs more information: ${comment}`);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} needs more information: ${comment}`, smsClip(`Req ${row.requisition_code} needs info: `, comment));
       return json({ ok: true, requisition: updated }, 200);
     }
 
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_stage_approved", comment || `Approved at ${stageKey}`);
       await notifyApprovers(admin, nextStage, updated);
-      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} passed ${stageLabel(stageKey)} review and is now with ${nextStage.toUpperCase()}.`);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} passed ${stageLabel(stageKey)} review and is now with ${nextStage.toUpperCase()}.`, `Req ${row.requisition_code} passed ${stageLabel(stageKey)} review, now with ${nextStage.toUpperCase()}.`);
       return json({ ok: true, requisition: updated }, 200);
     }
 
@@ -370,8 +370,15 @@ async function auditLog(admin: any, actorId: string, requisitionId: string, acti
   }
 }
 
+/** SMS-only: keep prefix + free-text comment within one 160-char segment (after "Welile: " and the support footer). */
+function smsClip(prefix: string, text: string): string {
+  const room = 130 - prefix.length;
+  const t = String(text ?? "").replace(/\s+/g, " ").trim();
+  return prefix + (t.length > room ? t.slice(0, Math.max(0, room - 3)) + "..." : t);
+}
+
 // deno-lint-ignore no-explicit-any
-async function notifyRequester(admin: any, row: any, message: string) {
+async function notifyRequester(admin: any, row: any, message: string, smsMessage: string = message) {
   if (!row?.requester_id) return;
   try {
     await admin.from("notifications").insert({
@@ -388,7 +395,7 @@ async function notifyRequester(admin: any, row: any, message: string) {
       // The requester always gets the in-app notification above; the text
       // message is restricted to senior/finance roles.
       if (!(await maySendRequisitionSms(admin, row.requester_id))) return;
-      await sendSMS(p.phone, `Welile: ${message}`, {
+      await sendSMS(p.phone, `Welile: ${smsMessage}`, {
         admin,
         source: "staff-requisition-decide",
         reference_id: row.id,

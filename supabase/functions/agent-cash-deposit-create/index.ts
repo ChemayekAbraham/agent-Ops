@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
     // exact number so the agent can confirm and release the cash. Float is
     // debited on confirm (agent-cash-deposit-confirm).
     const agentPhoneForSms = normalizePhone(agentProfile.phone ?? agentPhoneRaw);
-    const smsBody = `Welile: ${depositorProfile?.full_name ?? "A user"} is collecting UGX ${amount.toLocaleString()} cash from your float. Confirmation code: ${pin}. Share it ONLY after handing over the cash. Your float will reduce by this amount.`;
+    const smsBody = `${depositorProfile?.full_name ?? "A user"} is collecting UGX ${amount.toLocaleString()} cash from your float. Code: ${pin}. Share ONLY after handing over cash. Float reduces.`;
     const smsOutcome = await sendSms(agentPhoneForSms, smsBody);
     await logSmsAttempts(admin, {
       phone: agentPhoneForSms,

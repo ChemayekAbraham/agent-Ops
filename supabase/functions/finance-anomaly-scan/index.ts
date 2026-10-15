@@ -207,35 +207,34 @@ function buildHtml(
 function buildSms(report: Record<string, unknown>, rollups: CategoryRollup[]): string {
   const byCat = new Map(rollups.map((r) => [r.category, r]));
   const fin = byCat.get("financial_integrity");
-  const lines: string[] = ["WELILE FINANCE ALERT"];
+  // Core first (integrity + action required); optional rollups are appended
+  // only while the whole text stays within 143 chars (one SMS segment with the
+  // central footer).
+  const core = `Finance alert. Integrity: ${
+    !fin || fin.count === 0
+      ? "no incidents"
+      : `${fin.count} ${fin.severity}, ${fmtUGX(fin.exposure)}`
+  }. Action required: ${report.action_required === true ? "YES" : "No"}.`;
 
-  lines.push("Financial Integrity");
-  if (!fin || fin.count === 0) {
-    lines.push("No active financial integrity incidents.");
-  } else {
-    lines.push(
-      `${fin.count} ${fin.severity} finding(s) affecting ${fmtUGX(fin.exposure)}.`,
-    );
-  }
-
+  const extras: string[] = [];
   for (const cat of ["business_rule", "operational"]) {
     const r = byCat.get(cat);
     if (r && r.count > 0) {
-      lines.push(`${CATEGORY_LABEL[cat]}: ${r.count} (${fmtUGX(r.exposure)}).`);
+      extras.push(`${CATEGORY_LABEL[cat]}: ${r.count} (${fmtUGX(r.exposure)}).`);
     }
   }
-
   const monitoring = (byCat.get("comparator")?.count ?? 0) +
     (byCat.get("monitoring")?.count ?? 0) +
     (byCat.get("presentation")?.count ?? 0);
   if (monitoring > 0) {
-    lines.push(`Monitoring Issues: ${monitoring} (no financial exposure).`);
+    extras.push(`Monitoring: ${monitoring}.`);
   }
 
-  lines.push(
-    `Executive action required: ${report.action_required === true ? "YES" : "No"}.`,
-  );
-  return lines.join("\n");
+  let out = core;
+  for (const e of extras) {
+    if (out.length + 1 + e.length <= 143) out += ` ${e}`;
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {

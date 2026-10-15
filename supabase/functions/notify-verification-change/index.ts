@@ -149,10 +149,9 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (optOut) continue;
 
-        let msg = `Hi ${firstName}, ${entityLabel} verification is ${statusWord}.`;
-        if (status === "rejected" && reason) msg += ` Reason: ${reason}.`;
-        else if (status === "verified") msg += ` You can now request a loan in the app.`;
-        msg += ` — Welile`;
+        let msg = `${firstName}, ${entityLabel} verification is ${statusWord}.`;
+        if (status === "rejected" && reason) msg += ` Reason: ${reason.slice(0, 40)}.`;
+        else if (status === "verified") msg += ` You can now request a Rent Plan in the app.`;
         const ok = await sendSMS(b.phone, msg);
         if (ok) smsSent++;
       }

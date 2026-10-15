@@ -72,11 +72,10 @@ Deno.serve(async (req) => {
       if (!tenant?.phone) continue;
 
       const outstanding = Number(sub.outstanding_balance) || 0;
-      const landlord = sub.landlord_name ? ` to ${sub.landlord_name}` : "";
+      const landlord = sub.landlord_name ? ` to ${String(sub.landlord_name).slice(0, 20)}` : "";
       const msg =
-        `WELILE HOMES receipt: ${ugx(amount)} received towards your rent${landlord}. ` +
-        (outstanding > 0 ? `Balance remaining: ${ugx(outstanding)}. ` : `Your rent is fully cleared. `) +
-        `Thank you.`;
+        `Welile Homes: ${ugx(amount)} received for your rent${landlord}. ` +
+        (outstanding > 0 ? `Balance ${ugx(outstanding)}.` : `Rent fully cleared.`);
 
       const ok = await sendSMS(tenant.phone, msg, {
         admin: supabase,
@@ -137,8 +136,8 @@ Deno.serve(async (req) => {
       let msg: string;
       if (via === "wallet") {
         msg =
-          `WELILE HOMES: ${ugx(amount)} rent for ${month} has been paid into your Welile wallet. ` +
-          `Log in to withdraw. Thank you.`;
+          `Welile Homes: ${ugx(amount)} rent for ${month} paid into your Welile wallet. ` +
+          `Log in to withdraw.`;
       } else {
         let agentName = "your Welile agent";
         if (sub.agent_id) {
@@ -150,8 +149,8 @@ Deno.serve(async (req) => {
           if (ag?.full_name) agentName = ag.full_name;
         }
         msg =
-          `WELILE HOMES: ${ugx(amount)} rent for ${month} is ready. ` +
-          `${agentName} will hand it to you. Thank you.`;
+          `Welile Homes: ${ugx(amount)} rent for ${month} is ready. ` +
+          `${agentName.slice(0, 20)} will hand it to you.`;
       }
 
       const ok = await sendSMS(phone, msg, {

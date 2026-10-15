@@ -349,11 +349,9 @@ Deno.serve(async (req) => {
           if (takeHome > 0) {
             const prof = profileMap.get(item.employee_id);
             if (prof?.phone) {
-              const firstName = (prof.full_name || "Team Member").trim().split(/\s+/)[0];
               const smsMsg =
-                `Dear ${firstName}, your salary for ${payrollPeriod} has been successfully processed and credited to your wallet. ` +
-                `Log in to view your updated balance and transaction history. For any discrepancies or questions, contact the Finance Department. ` +
-                `Thank you for your continued commitment. - Welile Finance Department`;
+                `Your ${payrollPeriod} salary has been credited to your wallet. ` +
+                `Log in to view your balance. Questions: contact Finance.`;
               try {
                 const sent = await sendSMS(prof.phone, smsMsg, {
                   recipientUserId: item.employee_id,

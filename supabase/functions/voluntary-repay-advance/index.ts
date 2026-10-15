@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
     // SMS agent.
     const { data: prof } = await admin.from('profiles').select('phone, full_name').eq('id', userId).maybeSingle();
     if (prof?.phone) {
-      const msg = `WELILE: You voluntarily paid ${fmtUGX(amount)} toward your advance today. ${daysAhead > 0 ? `Next ${daysAhead} scheduled daily deduction${daysAhead === 1 ? '' : 's'} will be skipped. ` : ''}Outstanding ${fmtUGX(closing)}.`;
+      const msg = `You paid ${fmtUGX(amount)} toward your advance. ${daysAhead > 0 ? `Next ${daysAhead} daily deduction${daysAhead === 1 ? '' : 's'} skipped. ` : ''}Outstanding ${fmtUGX(closing)}.`;
       try {
         await attemptYoolaPrimary(prof.phone, msg, {
           source: 'advance_voluntary_repayment',

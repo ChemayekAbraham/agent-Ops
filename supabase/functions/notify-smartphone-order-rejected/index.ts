@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     }
 
     if (agent?.phone) {
-      const msg = `Hi ${firstName}, your Welile application for the ${device} was not approved. Reason: ${reason}. No money was taken from your wallet. — Welile`;
+      const msg = `${firstName}, your ${device} application was not approved. Reason: ${reason.slice(0, 40)}. No wallet money taken.`;
       results.sms = await sendSMS(agent.phone, msg, {
         admin,
         source: "notify-smartphone-order-rejected",

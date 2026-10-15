@@ -92,10 +92,12 @@ Deno.serve(async (req) => {
     const amount = Number(setup.cfo_approved_amount || 0);
     const amountText = `UGX ${amount.toLocaleString("en-UG")}`;
     const where = setup.location_name || setup.agent_name || "service centre";
-    const message =
-      `Welile: ${amountText} has been approved for the service centre setup at ${where}. ` +
-      `Recipient: ${setup.payee_name || "you"}.` +
-      (setup.payee_note ? ` Note: ${setup.payee_note}.` : "");
+    const core =
+      `Welile: ${amountText} approved for service centre setup at ${where}. ` +
+      `Recipient: ${setup.payee_name || "you"}.`;
+    // Optional note only if the whole SMS still fits one segment (<=143 before the support footer).
+    const noteText = setup.payee_note ? ` Note: ${setup.payee_note}.` : "";
+    const message = core.length + noteText.length <= 143 ? core + noteText : core;
 
     const meta = {
       source: "service-centre-spend-sms",

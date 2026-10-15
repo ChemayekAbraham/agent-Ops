@@ -78,8 +78,8 @@ Deno.serve(async (req) => {
     if (res.status === "approved" && res.member_phone) {
       const owner = res.owner_name || "the ID holder";
       const message =
-        `Welile: ${owner} has removed your account from National ID ${res.masked_nin ?? ""}. ` +
-        `You are no longer linked to it. Open the Welile app for details.`;
+        `Welile: ${owner} removed your account from National ID ${res.masked_nin ?? ""}. ` +
+        `You are no longer linked. See the app.`;
       try {
         smsSent = await sendSMS(res.member_phone, message, {
           admin: adminClient,

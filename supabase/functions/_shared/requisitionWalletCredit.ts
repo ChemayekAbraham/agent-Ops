@@ -346,7 +346,7 @@ export async function creditRequisitionWallet(
 
   if (profile?.phone && mayNotify) {
     await safe("recipient SMS", () =>
-      sendSMS(profile.phone, `Welile: ${message}`, {
+      sendSMS(profile.phone, `Requisition approved. ${fmtUGX(amount)} credited to your Welile Wallet.`, {
         admin,
         source: "requisition-wallet-credit",
         reference_id: requisitionId,

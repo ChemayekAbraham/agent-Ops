@@ -105,9 +105,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (!optOut) {
         const msg =
-          `Hi ${firstName}, the name on your National ID (${idName}) is now the name on your Welile account` +
-          `${previousName && previousName !== idName ? `, replacing ${previousName}` : ""}. ` +
-          `This was done automatically - you do not need to change anything. - Welile`;
+          `Welile account name now matches your National ID: ${idName}` +
+          `${previousName && previousName !== idName ? ` (was ${previousName})` : ""}. ` +
+          `No action needed.`;
         smsSent = await sendSMS(profile.phone, msg);
       }
     }

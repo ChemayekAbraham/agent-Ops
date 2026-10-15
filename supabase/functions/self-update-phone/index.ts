@@ -154,7 +154,7 @@ serve(async (req) => {
       if (chErr || !ch) return json({ error: "Could not create verification code" }, 500);
       await sendSMS(
         oldPhone,
-        `Welile: code ${code} approves changing your login phone to ***${last9.slice(-3)}. Valid 10 min. Not you? Do not share it and call support.`,
+        `Welile code ${code}: approve login phone change to ***${last9.slice(-3)}. Valid 10 min. Not you? Don't share it, call support.`,
         { admin: adminClient, source: "phone_change_old_number_otp", reference_id: ch.id, recipient_user_id: caller.id },
       );
       await adminClient.from("audit_logs").insert({
@@ -288,7 +288,7 @@ serve(async (req) => {
     if (hasOldPhone && isUgandanPhone(oldPhone)) {
       sendSMS(
         oldPhone,
-        `Welile: your login phone was changed to ***${last9.slice(-3)}. Withdrawals are paused for 24 hours. Not you? Call support now.`,
+        `Welile: login phone changed to ***${last9.slice(-3)}. Withdrawals paused 24h. Not you? Call support now.`,
         { admin: adminClient, source: "phone_change_notice", recipient_user_id: caller.id },
       ).catch((e) => console.error("phone change notice failed", e));
     }

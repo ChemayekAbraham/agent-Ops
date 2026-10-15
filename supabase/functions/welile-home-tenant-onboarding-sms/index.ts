@@ -61,11 +61,10 @@ Deno.serve(async (req) => {
 
     const firstName = (tenant.full_name || "").trim().split(/\s+/)[0] || "there";
     const rentPart = monthlyRent > 0 ? ` for rent of ${ugx(monthlyRent)}/month` : "";
-    const landlordPart = landlordName ? ` to ${landlordName}` : "";
+    const landlordPart = landlordName ? ` to ${landlordName.slice(0, 15)}` : "";
     const msg =
-      `Hi ${firstName}, welcome to Welile Homes. Your agent has enrolled you${rentPart}${landlordPart}. ` +
-      `You'll get an SMS receipt every time your rent is paid. ` +
-      `Confirm your details at welileapp.com. Thank you.`;
+      `Welcome to Welile Homes. Your agent enrolled you${rentPart}${landlordPart}. ` +
+      `SMS receipts follow each payment.`;
 
     // One onboarding SMS per tenant, ever (idempotent).
     const ok = await sendSMS(tenant.phone, msg, {

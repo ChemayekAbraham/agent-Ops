@@ -112,7 +112,7 @@ function formatUgx(amount: number): string {
 
 function trackingLine(trackingUrl: string | null): string {
   // URL on its own line with nothing glued to it, so phones link it cleanly.
-  return trackingUrl ? `Track:\n${trackingUrl}\n` : "";
+  return trackingUrl ? `${trackingUrl}\n` : "";
 }
 
 /**
@@ -123,8 +123,8 @@ function trackingLine(trackingUrl: string | null): string {
  */
 export function buildWithdrawalAssignedSms(amount: number, trackingUrl: string | null): string {
   return (
-    `WELILE: Withdrawal of ${formatUgx(amount)} assigned for processing. ` +
-    `You will be notified once it is paid.\n` +
+    `Withdrawal of ${formatUgx(amount)} assigned for processing. ` +
+    `You will be notified when paid.\n` +
     trackingLine(trackingUrl) +
     `Help: ${WELILE_SUPPORT_PHONE}`
   );
@@ -136,8 +136,8 @@ export function buildWithdrawalAssignedSms(amount: number, trackingUrl: string |
  */
 export function buildWithdrawalReleasedSms(amount: number, trackingUrl: string | null): string {
   return (
-    `WELILE: Withdrawal of ${formatUgx(amount)} not yet paid; being reassigned. ` +
-    `Your funds stay reserved. You will be notified once it is paid.\n` +
+    `${formatUgx(amount)} withdrawal reassigned. ` +
+    `Funds stay reserved. Notified when paid.\n` +
     trackingLine(trackingUrl) +
     `Help: ${WELILE_SUPPORT_PHONE}`
   );

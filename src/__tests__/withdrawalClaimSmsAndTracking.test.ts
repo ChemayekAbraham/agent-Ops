@@ -52,7 +52,7 @@ describe('Defect A: claim SMS is an assignment acknowledgement only', () => {
   it('#1 says "assigned for processing" and promises a later confirmation, never that money was sent', () => {
     const sms = buildWithdrawalAssignedSms(250000, url);
     expect(sms).toContain('Withdrawal of UGX 250,000 assigned for processing.');
-    expect(sms).toContain('You will be notified once it is paid.');
+    expect(sms).toContain('You will be notified when paid.');
     expect(sms).toContain(url);
     expect(sms).toContain('0748747134');
     expect(sms).not.toMatch(PROMISE_OR_SENT);
