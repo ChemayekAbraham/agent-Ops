@@ -10,6 +10,8 @@ interface MenuItem {
   name: string;
   icon: LucideIcon;
   route?: string;
+  /** WhatsApp line to open (digits only, international format). */
+  whatsapp?: string;
   action?: 'sign_out';
   keywords?: string;
   /** Icon tint tone — each item gets its own hue while staying theme-consistent. */
@@ -32,6 +34,10 @@ const toneClasses = {
 } as const;
 
 interface MenuSection { title: string; items: MenuItem[] }
+
+/** Welile support WhatsApp line, opened by "Contact Support". */
+const SUPPORT_WHATSAPP_NUMBER = '256777607640';
+const SUPPORT_WHATSAPP_MESSAGE = 'Hello Welile Support, I need help with my agent account.';
 
 const menuData: MenuSection[] = [
   { title: 'Money', items: [
@@ -89,7 +95,7 @@ const menuData: MenuSection[] = [
   { title: 'Settings', items: [
     { name: 'Profile', icon: User, route: '/settings', tone: 'violet' },
     { name: 'Help', icon: HelpCircle, route: 'https://help.welileapp.com/', tone: 'blue' },
-    { name: 'Contact Support', icon: MessageSquare, tone: 'green' },
+    { name: 'Contact Support', icon: MessageSquare, tone: 'green', whatsapp: SUPPORT_WHATSAPP_NUMBER, keywords: 'help support whatsapp call chat' },
     { name: 'Sign Out', icon: LogOut, action: 'sign_out', tone: 'danger' },
   ]},
 ];
@@ -121,6 +127,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
     onClose();
     setTimeout(() => {
       if (item.action === 'sign_out') signOut();
+      else if (item.whatsapp) window.open(`https://wa.me/${item.whatsapp}?text=${encodeURIComponent(SUPPORT_WHATSAPP_MESSAGE)}`, '_blank', 'noopener,noreferrer');
       else if (item.route?.startsWith('http')) window.open(item.route, '_blank', 'noopener,noreferrer');
       else if (item.route) navigate(item.route);
       else setToastMessage(`"${item.name}" is coming soon`);
