@@ -60,8 +60,6 @@ const menuData: MenuSection[] = [
     { name: 'Register LC', icon: Building, tone: 'blue' },
     { name: 'Register Tenant', icon: UserCheck, tone: 'green' },
     { name: 'Register Partner', icon: Briefcase, tone: 'amber' },
-    { name: 'Promissory Notes', icon: FileCode, tone: 'rose' },
-    { name: 'My Promissory Notes', icon: FileText, tone: 'indigo' },
   ]},
   { title: 'Property', items: [
     { name: 'List House', icon: Home, tone: 'violet' },
