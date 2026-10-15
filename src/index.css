@@ -19,11 +19,9 @@ html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font
 .agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
 
 /* Agents Mock — "bubble" motion. Blocks blow in once on load (mock-bubble-in,
-   staggered by the caller's inline animation-delay), a figure that arrives from
-   a load replays mock-bubble-pop, and the filled collections bar keeps round
-   bubbles of light falling through it from top to bottom (mock-progress-bubble).
-   Deliberately page-scoped, and zeroed by the in-app reduce-motion choice and
-   lite mode. */
+   staggered by the caller's inline animation-delay), and a figure that arrives
+   from a load replays mock-bubble-pop. Deliberately page-scoped, and zeroed by
+   the in-app reduce-motion choice and lite mode. */
 @keyframes mock-bubble-in {
   0% { opacity: 0; transform: translate3d(0, 10px, 0); }
   100% { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -32,43 +30,9 @@ html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font
   0% { opacity: 0; transform: scale(0.85); }
   100% { opacity: 1; transform: scale(1); }
 }
-/* A bubble is sized from the bar's height (aspect-ratio keeps it round) and
-   drops from the bar's top edge to its bottom edge, so it reads as falling
-   through the fill rather than sliding along it. Only transform/opacity are
-   animated, which keeps the motion on the compositor with no per-frame layout
-   or paint while the bar's width is still growing. */
-@keyframes mock-bubble-fall {
-  0% { transform: translate3d(0, -100%, 0); opacity: 0; }
-  18% { opacity: 0.95; }
-  78% { opacity: 0.85; }
-  100% { transform: translate3d(0, 100%, 0); opacity: 0; }
-}
-.mock-progress-bubble {
-  position: absolute;
-  top: 0;
-  left: 12%;
-  height: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 9999px;
-  opacity: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.38) 52%, rgba(255, 255, 255, 0) 74%);
-}
-/* A second, smaller bubble falls a beat later and further along the fill. */
-.mock-progress-bubble--b {
-  top: 16%;
-  left: 62%;
-  height: 68%;
-}
 /* Motion is opt-in: only users who have not asked for reduced motion get it
-   (WCAG 2.3.3 / prefers-reduced-motion). Without the media match the bubbles
-   simply stay hidden and the bar is static.
-   - linear + 8s/10s: constant speed, no acceleration in a 14px bar.
-   - 3 cycles then rest: auto-playing decoration must not run forever
-     (WCAG 2.2.2 Pause, Stop, Hide). `both` fills opacity 0 after the last
-     cycle and holds each bubble hidden through its start delay.
-   - no permanent will-change: transform/opacity animations are promoted to
-     their own layer by the browser only while they run. */
+   (WCAG 2.3.3 / prefers-reduced-motion). Without the media match the blocks
+   simply appear in place, with no fade or scale. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes mock-bubble-in {
     0% { opacity: 0; transform: translate3d(0, 10px, 0); }
@@ -80,20 +44,12 @@ html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font
   }
   .mock-bubble-in { animation: mock-bubble-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
   .mock-bubble-pop { animation: mock-bubble-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
-  .mock-progress-bubble { animation: mock-bubble-fall 8s linear 1.1s 3 both; }
-  .mock-progress-bubble--b { animation-duration: 10s; animation-delay: 2.7s; }
-  /* Touch devices get a gentler cadence, including phones with wide screens. */
-  @media (hover: none) and (pointer: coarse), (max-width: 640px) {
-    .mock-progress-bubble { animation-duration: 12s; }
-    .mock-progress-bubble--b { animation-duration: 14s; }
-  }
 }
 /* Data Saver, slow-refresh displays and the in-app lite mode run it static. */
 html.lite-mode .mock-bubble-in,
-html.lite-mode .mock-bubble-pop,
-html.lite-mode .mock-progress-bubble { animation: none !important; }
+html.lite-mode .mock-bubble-pop { animation: none !important; }
 @media (update: slow) {
-  .mock-bubble-in, .mock-bubble-pop, .mock-progress-bubble { animation: none !important; }
+  .mock-bubble-in, .mock-bubble-pop { animation: none !important; }
 }
 /* Long lists off-screen skip layout/paint until scrolled near. */
 .agents-mock-exact .mock-offscreen { content-visibility: auto; contain-intrinsic-size: auto 480px; }
