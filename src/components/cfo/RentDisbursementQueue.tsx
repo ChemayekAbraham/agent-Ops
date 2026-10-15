@@ -704,8 +704,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Revenue summary for selection or location scope */}
-            {(selected.size > 0 || locationScoped) && (
+            {/* Revenue summary — only while no tenants are ticked for payment */}
+            {locationScoped && selected.size === 0 && (
               <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3 space-y-2">
                 <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                   <TrendingUp className="h-3.5 w-3.5" />
