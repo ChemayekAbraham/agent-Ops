@@ -583,6 +583,38 @@ export function InvitedPortfoliosPanel() {
         </div>
       )}
 
+      {/* Pagination: 15 per page */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+            >
+              Prev
+            </Button>
+            <span className="text-xs text-muted-foreground px-1 whitespace-nowrap">
+              Page {safePage + 1} of {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+              disabled={safePage >= pageCount - 1}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+
       <ReviewSubmissionDialog
         row={reviewRow}
         onClose={() => setReviewRow(null)}
