@@ -123,6 +123,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
@@ -555,6 +556,7 @@ function AppRoutes() {
           <Route path="/dashboard/agent" element={<Dashboard />} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
+          <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
