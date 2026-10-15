@@ -23,7 +23,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
-import { agentCta, firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { agentCta, firstName, loadEvent, renderSmsTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
             run_start_date: r.run_start_date,
             episode_key: r.episode_key,
             outstanding: r.outstanding,
-            message: renderTemplate(event.body_template!, buildVars(r, link)),
+            message: renderSmsTemplate(event.body_template!, buildVars(r, link)),
           })),
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },

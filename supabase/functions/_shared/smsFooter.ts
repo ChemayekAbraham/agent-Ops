@@ -1,5 +1,9 @@
 // Centralized Welile SMS support footer.
 //
+// Both boilerplate lines are deliberately short (~45 chars together incl.
+// newlines): Yoola bills per 160-char segment (70 with unicode), and the old
+// ~97-char boilerplate pushed most messages into a second or third segment.
+//
 // Every outbound SMS platform-wide must end with the standard support-contact
 // footer. The line is composed from `SUPPORT_PHONE` (env var, single source of
 // truth) with a stable default fallback so a missing env var never drops the
@@ -20,7 +24,7 @@ export function getSupportPhone(): string {
 }
 
 export function getSupportFooter(): string {
-  return `For assistance, contact Welile Support on ${getSupportPhone()}.`;
+  return `Help: ${getSupportPhone()}`;
 }
 
 // ── Sign-up prompt ────────────────────────────────────────────────────────
@@ -36,7 +40,7 @@ export function getSignupShortUrl(): string {
 }
 
 export function getSignupPrompt(): string {
-  return `Not on Welile yet? Sign up: ${getSignupShortUrl()}`;
+  return `Join Welile: ${getSignupShortUrl()}`;
 }
 
 function withSignupPrompt(message: string): string {
@@ -54,11 +58,12 @@ function withSignupPrompt(message: string): string {
 export function appendSupportFooter(message: string): string {
   const msg = String(message ?? "");
   const footer = getSupportFooter();
-  // Idempotent: any prior "contact Welile Support on <number>" mention wins.
-  if (/contact\s+Welile\s+Support\s+on\s+\d/i.test(msg)) {
+  // Idempotent: any prior support-number mention wins. Matches the short
+  // "Help: <number>" footer and the legacy "contact Welile Support on <number>".
+  if (/(contact\s+Welile\s+Support\s+on|\bHelp:)\s*\d/i.test(msg)) {
     return withSignupPrompt(msg.trimEnd());
   }
   const trimmed = msg.replace(/\s+$/g, "");
   if (!trimmed) return withSignupPrompt(footer);
-  return withSignupPrompt(`${trimmed}\n\n${footer}`);
+  return withSignupPrompt(`${trimmed}\n${footer}`);
 }

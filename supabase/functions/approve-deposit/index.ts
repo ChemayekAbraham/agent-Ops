@@ -1162,12 +1162,9 @@ Deno.serve(async (req) => {
                 const phoneDigits = String(depProfile.phone).replace(/\D/g, '');
                 const phoneTail = phoneDigits.slice(-4) || '----';
                 const smsMsg =
-                  `Welile: Hi ${firstName}, ${fmtUGX(depositRequest.amount)} from ` +
-                  `${providerLabelShort} (TID ${txRef}) was auto-credited to your ` +
-                  `${bucketLabel} on phone •••${phoneTail}. New ${isFloat ? 'float' : 'wallet'} balance: ` +
-                  `${fmtUGX(newBucketBalance)}.` +
-                  `\n\nAccess your dashboard to view your wallet, transactions, and account details:\n` +
-                  `https://welileapp.com/ZQhyGb`;
+                  `Welile: ${fmtUGX(depositRequest.amount)} from ${providerLabelShort} ` +
+                  `(TID ${txRef}) credited to your ${bucketLabel} (*${phoneTail}). ` +
+                  `Balance ${fmtUGX(newBucketBalance)}. welileapp.com/ZQhyGb`;
                await sendSmsViaAfricasTalking(depProfile.phone, smsMsg, {
                  admin: supabaseAdmin,
                  recipientUserId: depositRequest.user_id,

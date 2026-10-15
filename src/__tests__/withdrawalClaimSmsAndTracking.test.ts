@@ -51,8 +51,8 @@ describe('Defect A: claim SMS is an assignment acknowledgement only', () => {
 
   it('#1 says "assigned for processing" and promises a later confirmation, never that money was sent', () => {
     const sms = buildWithdrawalAssignedSms(250000, url);
-    expect(sms).toContain('Your withdrawal of UGX 250,000 has been assigned for processing.');
-    expect(sms).toContain('You will receive another confirmation once payment has been sent.');
+    expect(sms).toContain('Withdrawal of UGX 250,000 assigned for processing.');
+    expect(sms).toContain('You will be notified once it is paid.');
     expect(sms).toContain(url);
     expect(sms).toContain('0748747134');
     expect(sms).not.toMatch(PROMISE_OR_SENT);
@@ -67,7 +67,7 @@ describe('Defect A: claim SMS is an assignment acknowledgement only', () => {
 
   it('no tracking line at all rather than a shared placeholder when a link is unavailable', () => {
     const sms = buildWithdrawalAssignedSms(1000, null);
-    expect(sms).not.toContain('Track your transaction');
+    expect(sms).not.toContain('Track:');
     expect(sms).not.toContain('welileapp.com');
   });
 

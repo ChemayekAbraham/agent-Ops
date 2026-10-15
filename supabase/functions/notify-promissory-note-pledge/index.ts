@@ -38,12 +38,11 @@ function buildMessage(row: {
 }): string {
   const first = String(row.partner_name || "Partner").split(" ")[0];
   const tenantPart = row.attached_count > 0
-    ? `${row.attached_count} tenant${row.attached_count === 1 ? "" : "s"} reserved for you. `
+    ? `${row.attached_count} tenant${row.attached_count === 1 ? "" : "s"} reserved. `
     : "";
   return (
-    `WELILE: ${first}, your rent funding pledge of ${ugx(row.amount)} is ready. ${tenantPart}` +
-    `You earn ${ugx(row.monthly_return)} monthly (${ugx(row.annual_return)} over 12 months). ` +
-    `Fund it here: ${row.activation_url}`
+    `WELILE: ${first}, your ${ugx(row.amount)} rent funding pledge is ready. ${tenantPart}` +
+    `You earn ${ugx(row.monthly_return)}/month. Fund: ${row.activation_url}`
   );
 }
 

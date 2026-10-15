@@ -537,7 +537,7 @@ Deno.serve(async (req) => {
         if (isFirstAttemptToday) {
           await notifyAgent(
             advance.agent_id,
-            `WELILE: Your ${advFreqLabel} advance repayment could not be collected today (low wallet balance). Outstanding ${fmtUGX(closingBalance)}. We'll try again later today, then auto-recover from your next earnings. Top up to avoid arrears.`,
+            `WELILE: ${advFreqLabel} advance repayment missed (low wallet). Outstanding ${fmtUGX(closingBalance)}. Top up to avoid arrears.`,
             'advance_deduction_missed',
           );
         }
@@ -549,7 +549,7 @@ Deno.serve(async (req) => {
         // Notify the agent where the money went (also visible in transactions).
         await notifyAgent(
           advance.agent_id,
-          `WELILE: ${fmtUGX(amountDeducted)} was deducted from your wallet today towards your ${advFreqLabel} advance installment. Remaining balance ${fmtUGX(closingBalance)}. See your transactions for details.`,
+          `WELILE: ${fmtUGX(amountDeducted)} deducted for your ${advFreqLabel} advance. Balance ${fmtUGX(closingBalance)}.`,
           'advance_deduction_success',
         );
       }

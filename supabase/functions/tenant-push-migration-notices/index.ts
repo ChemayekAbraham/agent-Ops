@@ -24,7 +24,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { errorMessage } from "../_shared/errorMessage.ts";
 import { generateLinkToken, sha256Hex } from "../_shared/deviceClass.ts";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
-import { loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { loadEvent, renderSmsTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
       if (dryRun) {
         if (preview.length < 10) {
-          const message = renderTemplate(event.body_template, {
+          const message = renderSmsTemplate(event.body_template, {
             name: firstName(row.tenant_name),
             dashboard_link: `${origin}/t/<token>`,
           });
