@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
 import { useAuth } from '@/hooks/useAuth';
-import { roleToSlug } from '@/lib/roleSlug';
+import { roleToSlug } from '@/lib/roleRoutes';
 import type { AppRole } from '@/hooks/useAuth';
 
 // Empty shell: top section (header with avatar) + bottom role switcher only.
