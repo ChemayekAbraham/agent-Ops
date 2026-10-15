@@ -67,7 +67,11 @@ export default function FoodMealCard({
         hasDetails && 'cursor-pointer hover:border-primary/40',
       )}
     >
-      <div className="relative aspect-[16/7] w-full overflow-hidden rounded-xl bg-muted">
+      {/* The photo is sized by height, not by width, so it stays about half the
+          card whatever the screen: the text block below it is roughly the same
+          height, which puts the picture at ~50% of the card on phones and on
+          wide desktop columns alike. */}
+      <div className="relative h-64 w-full overflow-hidden rounded-xl bg-muted">
         {showImage ? (
           <img
             src={meal.image_path as string}
@@ -123,7 +127,7 @@ export default function FoodMealCard({
             <p className="text-base font-bold text-primary sm:text-lg">{formatUgx(meal.price_ugx)}</p>
           </div>
 
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <div
               className={cn(
                 'flex h-9 items-center rounded-lg border border-border/80',
