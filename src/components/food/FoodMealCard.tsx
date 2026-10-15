@@ -127,7 +127,7 @@ export default function FoodMealCard({
             <p className="text-base font-bold text-primary sm:text-lg">{formatUgx(meal.price_ugx)}</p>
           </div>
 
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <div
               className={cn(
                 'flex h-9 items-center rounded-lg border border-border/80',
