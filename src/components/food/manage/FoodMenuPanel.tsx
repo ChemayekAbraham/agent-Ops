@@ -16,7 +16,7 @@ import {
 import {
   useFoodMeals, useFoodCategories, useFoodServicePeriods, useFoodMenu,
   useUpsertFoodMeal, useSetFoodMealStatus, useScheduleFoodMeal, useSetFoodSoldOut,
-  useUpsertFoodCategory, useArchiveFoodCategory, useSetFoodMealPhoto, formatUgx, foodToday,
+  useUpsertFoodCategory, useArchiveFoodCategory, useSetFoodMealPhoto, useSetFoodMealDaily, formatUgx, foodToday,
   type FoodMeal,
 } from '@/hooks/useFoodService';
 import { FOOD_MEAL_IMAGE_TYPES, foodMealImageProblem } from '@/lib/foodService';
@@ -58,6 +58,7 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
   const { data: menu } = menuQ;
 
   const upsertMeal = useUpsertFoodMeal();
+  const setDaily = useSetFoodMealDaily();
   const setStatus = useSetFoodMealStatus();
   const schedule = useScheduleFoodMeal();
   const setSoldOut = useSetFoodSoldOut();
