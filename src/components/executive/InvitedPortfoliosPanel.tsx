@@ -71,30 +71,96 @@ export function InvitedPortfoliosPanel() {
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
     queryKey: ['invited-portfolios'],
     queryFn: async () => {
-      // Single round-trip: pull portfolios in the invite pipeline, then batch
-      // the partner profiles + invite visibility (tokens + delivery log) through
-      // one role-gated RPC. The token/send-log tables are RLS-locked to partners
-      // and service role, so Ops must go through `partner_ops_invite_visibility`.
+      // Pull the portfolios in the invite pipeline, then resolve the partner
+      // identity and the invite status through two role-gated RPCs. The profile,
+      // token and send-log tables are RLS-locked or far too large to read by id
+      // from the browser, so Ops goes through `partner_ops_invite_partners` and
+      // `partner_ops_invite_visibility`.
       const { data: portfolios, error } = await supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
         .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(2000);
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
       const partnerIds = Array.from(new Set(portfolios.map(p => p.investor_id).filter(Boolean)));
       const allPortfolioIds = portfolios.map(p => p.id);
 
-      // Self-support portfolios (partner funds specific tenants from their own
-      // wallet) are vetted in the "Pending portfolios" tab, not in the invite
-      // pipeline — drop anything that already sits in the pending queue.
-      const { data: pendingRows } = await (supabase.from('funder_pending_portfolios') as any)
-        .select('portfolio_id')
-        .eq('status', 'pending')
-        .in('portfolio_id', allPortfolioIds);
-      const pendingSet = new Set<string>(((pendingRows || []) as any[]).map(r => r.portfolio_id));
+      // Partner identity and pending-queue membership come from one server-side
+      // RPC. Reading `profiles` / `funder_pending_portfolios` with an `in.()`
+      // filter cannot work at this size: 1,000+ ids make a request URL the API
+      // refuses (HTTP 400 past roughly 600 ids), and the old code ignored that
+      // failure, so every partner name silently rendered as "—".
+      type PartnerInfo = { name: string; phone: string | null; email: string | null };
+      const MISSING: PartnerInfo = { name: '—', phone: null, email: null };
+      const infoMap = new Map<string, PartnerInfo>();
+      const pendingSet = new Set<string>();
+      let partnerRows: any[] = [];
+      try {
+        const { data: roster, error: rosterErr } = await supabase
+          .rpc('partner_ops_invite_partners', { p_portfolio_ids: allPortfolioIds });
+        if (rosterErr) throw rosterErr;
+        partnerRows = (roster || []) as any[];
+      } catch (e) {
+        console.warn('[invited-portfolios] partner roster lookup failed:', e);
+      }
+      if (partnerRows.length > 0) {
+        for (const r of partnerRows) {
+          infoMap.set(r.portfolio_id, {
+            name: r.partner_name || MISSING.name,
+            phone: r.partner_phone || null,
+            email: r.partner_email || null,
+          });
+          if (r.in_pending_queue) pendingSet.add(r.portfolio_id);
+        }
+      } else {
+        // A role without the RPC gate still gets names: read in small batches so
+        // each request stays inside the URL limit, and never swallow an error.
+        const readInBatches = async <T,>(
+          run: (ids: string[]) => Promise<T[]>,
+          ids: string[],
+          size = 200,
+        ): Promise<T[]> => {
+          const out: T[] = [];
+          for (let i = 0; i < ids.length; i += size) out.push(...await run(ids.slice(i, i + size)));
+          return out;
+        };
+        try {
+          const byInvestor = new Map<string, PartnerInfo>();
+          const profiles = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('profiles') as any)
+              .select('id, full_name, phone, email')
+              .in('id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, partnerIds);
+          for (const p of profiles) {
+            byInvestor.set(p.id, {
+              name: p.full_name || p.email || MISSING.name,
+              phone: p.phone || null,
+              email: p.email || null,
+            });
+          }
+          const pendingRows = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('funder_pending_portfolios') as any)
+              .select('portfolio_id')
+              .eq('status', 'pending')
+              .in('portfolio_id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, allPortfolioIds);
+          for (const r of pendingRows) pendingSet.add(r.portfolio_id);
+          for (const p of portfolios) {
+            const found = byInvestor.get(p.investor_id);
+            if (found) infoMap.set(p.id, found);
+          }
+        } catch (e) {
+          console.warn('[invited-portfolios] batched partner fallback failed:', e);
+        }
+      }
+
       // Approved portfolios only belong here if they came through the invite:
       // a completion token exists OR an invite email was actually sent. The
       // server decides from both signals and is the sole source of truth.
@@ -115,14 +181,8 @@ export function InvitedPortfoliosPanel() {
       const visible = portfolios.filter(p => !pendingSet.has(p.id) && (p.status !== 'active' || invitedSet.has(p.id)));
       if (visible.length === 0) return [];
 
-      const { data: profiles } = await (supabase.from('profiles') as any)
-        .select('id, full_name, phone, email')
-        .in('id', partnerIds);
-
-      const nameMap = new Map<string, any>((profiles || []).map((p: any) => [p.id, p]));
-
       return visible.map((p): Row => {
-        const prof = nameMap.get(p.investor_id) || {};
+        const prof = infoMap.get(p.id) || MISSING;
         const vis = visMap.get(p.id) || {};
         return {
           id: p.id,
@@ -134,9 +194,9 @@ export function InvitedPortfoliosPanel() {
           status: p.status as InviteStatus,
           created_at: p.created_at,
           investor_id: p.investor_id,
-          partner_name: prof.full_name || '—',
-          partner_phone: prof.phone || null,
-          partner_email: prof.email || null,
+          partner_name: prof.name,
+          partner_phone: prof.phone,
+          partner_email: prof.email,
           token_expires_at: vis.token_expires_at || null,
           token_consumed_at: vis.token_consumed_at || null,
           sent_count: Number(vis.sent_count) || 0,
@@ -148,7 +208,7 @@ export function InvitedPortfoliosPanel() {
     staleTime: 15000,
   });
 
-  // Client-side search + filter (list is capped at 200 rows on the server).
+  // Client-side search + filter (the server caps the list at 2,000 newest rows).
   const filtered = useMemo(() => {
     const rows = data || [];
     const q = search.trim().toLowerCase();
