@@ -33,3 +33,4 @@
 - Subdirectories have their own `AGENTS.md` to read before changing files there: `supabase/AGENTS.md` carries the payout-clock, tenant-classification, payment-score, desk-ordering and smartphone-usage rules — one named function is the only definition and the client never recomputes it.
 
 - Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
+- Supplementary budgets live only in `budget_supplements` and its `budget_supplement_*` RPCs; the original approved line is never edited, revised = original + CFO-approved supplements via `budget_revised_position`, and supplements never touch disbursements, ledger or wallets (keeps them separate from reallocations and money movement).
