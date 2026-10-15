@@ -48412,6 +48412,33 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_usage_report_events: {
+        Row: {
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+          requester_id: string
+          requisition_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+          requester_id: string
+          requisition_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          requester_id?: string
+          requisition_id?: string
+        }
+        Relationships: []
+      }
       staff_requisition_usage_reports: {
         Row: {
           activities_carried_out: string | null
@@ -70895,6 +70922,24 @@ export type Database = {
           sub_agent_id: string
         }[]
       }
+      get_my_usage_report_notices: {
+        Args: never
+        Returns: {
+          acknowledged: boolean
+          amount: number
+          approved_amount: number
+          category: string
+          cfo_decided_at: string
+          deferral_count: number
+          grace_ends_at: string
+          mandatory: boolean
+          max_deferrals: number
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          title: string
+        }[]
+      }
       get_nearby_cashout_agents: {
         Args: { _lat?: number; _lng?: number }
         Returns: {
@@ -73960,6 +74005,10 @@ export type Database = {
             }
             Returns: string
           }
+      log_usage_report_notice_event: {
+        Args: { p_event: string; p_requisition_id: string }
+        Returns: Json
+      }
       log_verification_selfie_crop: {
         Args: {
           p_avatar_url?: string
