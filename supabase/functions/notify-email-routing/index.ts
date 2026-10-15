@@ -105,20 +105,21 @@ Deno.serve(async (req) => {
 
     const routeLabel = route === "operational_float" ? "Operational Float" : "Personal Deposit";
     const formattedAmount = `UGX ${Number(amount).toLocaleString()}`;
-    const greeting = target_user_name ? `Hi ${String(target_user_name).split(" ")[0]},` : "Hi,";
-    const msgLines = [`WELILE: ${greeting}`];
-    if (reversal) {
-      msgLines.push(
-        `${formattedAmount} previously credited to your ${routeLabel} has been REVERSED and re-routed to the correct user.`,
-      );
-      msgLines.push("If this was unexpected, please contact support immediately.");
-    } else {
-      msgLines.push(`${formattedAmount} has been routed to your wallet as ${routeLabel}.`);
+    // Core first; optional lines (TID, From, Ref) are added only while the
+    // text stays within 143 chars (160 minus the central support footer).
+    const msgLines = [
+      reversal
+        ? `WELILE: ${formattedAmount} credited to your ${routeLabel} was REVERSED and re-routed. Unexpected? Contact support.`
+        : `WELILE: ${formattedAmount} routed to your wallet as ${routeLabel}.`,
+    ];
+    const optional = [
+      transaction_id ? `TID: ${transaction_id}` : "",
+      from_label ? `From: ${from_label}` : "",
+      reference_id ? `Ref: ${reference_id}` : "",
+    ];
+    for (const line of optional) {
+      if (line && [...msgLines, line].join("\n").length <= 143) msgLines.push(line);
     }
-    if (from_label) msgLines.push(`From: ${from_label}`);
-    if (transaction_id) msgLines.push(`TID: ${transaction_id}`);
-    if (reference_id) msgLines.push(`Ref: ${reference_id}`);
-    msgLines.push("Thank you for using WELILE.");
     const message = msgLines.join("\n");
 
     const result = await sendSMS(phone, message);

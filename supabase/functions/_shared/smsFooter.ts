@@ -1,5 +1,9 @@
 // Centralized Welile SMS support footer.
 //
+// Both boilerplate lines are deliberately short (~45 chars together incl.
+// newlines): Yoola bills per 160-char segment (70 with unicode), and the old
+// ~97-char boilerplate pushed most messages into a second or third segment.
+//
 // Every outbound SMS platform-wide must end with the standard support-contact
 // footer. The line is composed from `SUPPORT_PHONE` (env var, single source of
 // truth) with a stable default fallback so a missing env var never drops the
@@ -20,7 +24,7 @@ export function getSupportPhone(): string {
 }
 
 export function getSupportFooter(): string {
-  return `For assistance, contact Welile Support on ${getSupportPhone()}.`;
+  return `Help: ${getSupportPhone()}`;
 }
 
 // ── Sign-up prompt ────────────────────────────────────────────────────────
@@ -36,7 +40,7 @@ export function getSignupShortUrl(): string {
 }
 
 export function getSignupPrompt(): string {
-  return `Not on Welile yet? Sign up: ${getSignupShortUrl()}`;
+  return `Join Welile: ${getSignupShortUrl()}`;
 }
 
 function withSignupPrompt(message: string): string {
@@ -48,17 +52,44 @@ function withSignupPrompt(message: string): string {
   if (message.includes(url)) return message;
   const trimmed = message.replace(/\s+$/g, "");
   if (!trimmed) return prompt;
-  return `${trimmed}\n${prompt}`;
+  const withPrompt = `${trimmed}\n${prompt}`;
+  // The join line is the lowest-value text on the message: when it would push
+  // the SMS past one segment it is dropped, never the message or the footer.
+  if (withPrompt.length > SMS_SEGMENT_CHARS) return message;
+  return withPrompt;
+}
+
+export const SMS_SEGMENT_CHARS = 160;
+
+// Characters outside GSM-7 force the whole message into 70-char segments.
+// Swap the common ones for ASCII equivalents (meaning unchanged).
+const GSM_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/[‘’‛]/g, "'"],
+  [/[“”]/g, '"'],
+  [/[–—]/g, "-"],
+  [/…/g, "..."],
+  [/[•·]/g, "*"],
+  [/×/g, "x"],
+  [/→/g, "->"],
+  [/ /g, " "],
+  [/[✓✔]/g, "OK"],
+];
+
+export function toGsmSafe(message: string): string {
+  let out = message;
+  for (const [re, rep] of GSM_REPLACEMENTS) out = out.replace(re, rep);
+  return out;
 }
 
 export function appendSupportFooter(message: string): string {
-  const msg = String(message ?? "");
+  const msg = toGsmSafe(String(message ?? ""));
   const footer = getSupportFooter();
-  // Idempotent: any prior "contact Welile Support on <number>" mention wins.
-  if (/contact\s+Welile\s+Support\s+on\s+\d/i.test(msg)) {
+  // Idempotent: any prior support-number mention wins. Matches the short
+  // "Help: <number>" footer and the legacy "contact Welile Support on <number>".
+  if (/(contact\s+Welile\s+Support\s+on|\bHelp:)\s*\d/i.test(msg)) {
     return withSignupPrompt(msg.trimEnd());
   }
   const trimmed = msg.replace(/\s+$/g, "");
   if (!trimmed) return withSignupPrompt(footer);
-  return withSignupPrompt(`${trimmed}\n\n${footer}`);
+  return withSignupPrompt(`${trimmed}\n${footer}`);
 }

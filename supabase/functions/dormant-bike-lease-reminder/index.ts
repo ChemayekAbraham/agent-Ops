@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const name = (prof?.full_name || lease.agent_name || "Agent").split(" ")[0];
     const bal = `UGX ${Math.round(Number(lease.amount_outstanding || 0)).toLocaleString("en-US")}`;
-    const autoMessage = `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
+    const autoMessage = `${name}, no bike lease repayment for 7+ days. Outstanding ${bal}. Top up your wallet today for daily repayment.`;
     const message = customMessage || autoMessage;
 
     let sent = await attemptYoolaPrimary(phone, message, { source: "dormant-bike-lease-reminder" });

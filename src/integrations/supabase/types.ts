@@ -8237,6 +8237,55 @@ export type Database = {
           },
         ]
       }
+      budget_obligation_declines: {
+        Row: {
+          call_id: string
+          created_at: string
+          declined_by: string
+          department_id: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          declined_by: string
+          department_id: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          declined_by?: string
+          department_id?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_obligation_declines_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "budget_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       budget_submission_documents: {
         Row: {
           created_at: string
@@ -8542,6 +8591,175 @@ export type Database = {
             columns: ["submitted_by_position_id"]
             isOneToOne: false
             referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplement_documents: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          storage_path: string
+          supplement_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          storage_path: string
+          supplement_id: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          storage_path?: string
+          supplement_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplement_documents_supplement_id_fkey"
+            columns: ["supplement_id"]
+            isOneToOne: false
+            referencedRelation: "budget_supplements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplement_events: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          status_after: string | null
+          status_before: string | null
+          supplement_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          status_after?: string | null
+          status_before?: string | null
+          supplement_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          status_after?: string | null
+          status_before?: string | null
+          supplement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplement_events_supplement_id_fkey"
+            columns: ["supplement_id"]
+            isOneToOne: false
+            referencedRelation: "budget_supplements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      budget_supplements: {
+        Row: {
+          amount: number
+          approved_amount: number | null
+          cancel_note: string | null
+          cancelled_at: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_decision: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_decision: string | null
+          coo_note: string | null
+          department_id: string
+          financial_year: string
+          id: string
+          justification: string
+          line_id: string
+          reference: string
+          requested_at: string
+          requested_by: string
+          status: string
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          approved_amount?: number | null
+          cancel_note?: string | null
+          cancelled_at?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_decision?: string | null
+          coo_note?: string | null
+          department_id: string
+          financial_year: string
+          id?: string
+          justification: string
+          line_id: string
+          reference?: string
+          requested_at?: string
+          requested_by: string
+          status?: string
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_amount?: number | null
+          cancel_note?: string | null
+          cancelled_at?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_decision?: string | null
+          coo_note?: string | null
+          department_id?: string
+          financial_year?: string
+          id?: string
+          justification?: string
+          line_id?: string
+          reference?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_supplements_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_supplements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -48152,15 +48370,134 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_usage_report_deferrals: {
+        Row: {
+          created_at: string
+          deferral_no: number
+          id: string
+          reason: string
+          requester_id: string
+          requisition_id: string
+        }
+        Insert: {
+          created_at?: string
+          deferral_no: number
+          id?: string
+          reason: string
+          requester_id: string
+          requisition_id: string
+        }
+        Update: {
+          created_at?: string
+          deferral_no?: number
+          id?: string
+          reason?: string
+          requester_id?: string
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_usage_report_deferrals_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_usage_report_deferrals_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
+      staff_requisition_usage_report_events: {
+        Row: {
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+          requester_id: string
+          requisition_id: string
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+          requester_id: string
+          requisition_id: string
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+          requester_id?: string
+          requisition_id?: string
+        }
+        Relationships: []
+      }
+      staff_requisition_usage_report_reviews: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          note: string
+          report_id: string
+          requisition_id: string
+          reviewer_id: string
+          verified_receipt_total: number | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          id?: string
+          note: string
+          report_id: string
+          requisition_id: string
+          reviewer_id: string
+          verified_receipt_total?: number | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          note?: string
+          report_id?: string
+          requisition_id?: string
+          reviewer_id?: string
+          verified_receipt_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_usage_report_reviews_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisition_usage_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_requisition_usage_reports: {
         Row: {
           activities_carried_out: string | null
           amount_received: number | null
           amount_used: number
+          approved_amount_snapshot: number | null
           attachment_paths: string[] | null
           created_at: string
+          discrepancy_flag: boolean
+          discrepancy_reasons: string[]
           id: string
+          overspend_explanation: string | null
           places_visited: string | null
+          receipt_mismatch_explanation: string | null
+          receipt_total: number | null
+          refund_evidence_paths: string[]
+          refund_not_required_reason: string | null
+          refund_status: string | null
           requester_id: string
           requisition_id: string
           results_achieved: string | null
@@ -48170,15 +48507,25 @@ export type Database = {
           reviewed_by: string | null
           submitted_at: string
           summary: string
+          unspent_explanation: string | null
         }
         Insert: {
           activities_carried_out?: string | null
           amount_received?: number | null
           amount_used: number
+          approved_amount_snapshot?: number | null
           attachment_paths?: string[] | null
           created_at?: string
+          discrepancy_flag?: boolean
+          discrepancy_reasons?: string[]
           id?: string
+          overspend_explanation?: string | null
           places_visited?: string | null
+          receipt_mismatch_explanation?: string | null
+          receipt_total?: number | null
+          refund_evidence_paths?: string[]
+          refund_not_required_reason?: string | null
+          refund_status?: string | null
           requester_id: string
           requisition_id: string
           results_achieved?: string | null
@@ -48188,15 +48535,25 @@ export type Database = {
           reviewed_by?: string | null
           submitted_at?: string
           summary: string
+          unspent_explanation?: string | null
         }
         Update: {
           activities_carried_out?: string | null
           amount_received?: number | null
           amount_used?: number
+          approved_amount_snapshot?: number | null
           attachment_paths?: string[] | null
           created_at?: string
+          discrepancy_flag?: boolean
+          discrepancy_reasons?: string[]
           id?: string
+          overspend_explanation?: string | null
           places_visited?: string | null
+          receipt_mismatch_explanation?: string | null
+          receipt_total?: number | null
+          refund_evidence_paths?: string[]
+          refund_not_required_reason?: string | null
+          refund_status?: string | null
           requester_id?: string
           requisition_id?: string
           results_achieved?: string | null
@@ -48206,6 +48563,7 @@ export type Database = {
           reviewed_by?: string | null
           submitted_at?: string
           summary?: string
+          unspent_explanation?: string | null
         }
         Relationships: [
           {
@@ -62404,6 +62762,15 @@ export type Database = {
         }[]
       }
       _am_staff_ok: { Args: never; Returns: boolean }
+      _budget_supplement_log: {
+        Args: {
+          _before: string
+          _event: string
+          _payload: Json
+          _s: Database["public"]["Tables"]["budget_supplements"]["Row"]
+        }
+        Returns: undefined
+      }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -62847,6 +63214,20 @@ export type Database = {
       _tps_label: {
         Args: { p_basis: string; p_score: number }
         Returns: string
+      }
+      _usage_report_evaluate: {
+        Args: {
+          p_approved: number
+          p_mismatch: string
+          p_over: string
+          p_receipt: number
+          p_refund: string
+          p_refund_evidence: number
+          p_refund_reason: string
+          p_unspent: string
+          p_used: number
+        }
+        Returns: Json
       }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -63877,6 +64258,57 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      am_new_tenant_first7_payments: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          amount: number
+          collected_at: string
+          collected_day: string
+          collection_channel: string
+          collection_id: string
+          day_number: number
+          payment_method: string
+        }[]
+      }
+      am_new_tenant_first7_summary_v2: {
+        Args: {
+          p_agent_id?: string
+          p_frequency?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: Json
+      }
+      am_new_tenant_first7_v2: {
+        Args: {
+          p_agent_id?: string
+          p_frequency?: string
+          p_from: string
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          daily_due: number
+          day_due: number[]
+          day_paid: number[]
+          day_state: string[]
+          day1: string
+          expected_to_date: number
+          first_paid_day: number
+          frequency: string
+          landlord_paid_on: string
+          paid_7d: number
+          rent_request_id: string
+          row_status: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
+      }
       am_plan_arrears: {
         Args: { p_as_at?: string; p_rent_request_ids: string[] }
         Returns: {
@@ -64677,6 +65109,10 @@ export type Database = {
         }
         Returns: Json
       }
+      budget_decline_obligation: {
+        Args: { p_call_id: string; p_department_id: string; p_reason: string }
+        Returns: string
+      }
       budget_department_access_user_ids: {
         Args: { _department_id: string }
         Returns: string[]
@@ -64810,6 +65246,24 @@ export type Database = {
         Args: { p_call_id?: string; p_stage?: string }
         Returns: Json
       }
+      budget_revised_position: {
+        Args: { p_call_id: string }
+        Returns: {
+          account_code: string
+          actual_expenditure: number
+          approved_supplements: number
+          department_id: string
+          department_name: string
+          line_description: string
+          line_id: string
+          original_amount: number
+          pending_supplements: number
+          remaining_balance: number
+          revised_amount: number
+          submission_id: string
+          submission_reference: string
+        }[]
+      }
       budget_save_draft: {
         Args: {
           p_call_id: string
@@ -64836,6 +65290,74 @@ export type Database = {
       budget_submit_submission: {
         Args: { p_submission_id: string }
         Returns: Json
+      }
+      budget_supplement_add_document: {
+        Args: {
+          p_file_name: string
+          p_storage_path: string
+          p_supplement_id: string
+        }
+        Returns: string
+      }
+      budget_supplement_can_read: {
+        Args: { _supplement_id: string; _user_id: string }
+        Returns: boolean
+      }
+      budget_supplement_cancel: {
+        Args: { p_note: string; p_supplement_id: string }
+        Returns: Json
+      }
+      budget_supplement_cfo_decide: {
+        Args: {
+          p_approved_amount?: number
+          p_decision: string
+          p_note: string
+          p_supplement_id: string
+        }
+        Returns: Json
+      }
+      budget_supplement_coo_decide: {
+        Args: { p_decision: string; p_note: string; p_supplement_id: string }
+        Returns: Json
+      }
+      budget_supplement_create: {
+        Args: {
+          p_amount: number
+          p_financial_year?: string
+          p_justification: string
+          p_line_id: string
+        }
+        Returns: Json
+      }
+      budget_supplement_list: {
+        Args: { p_call_id?: string; p_status?: string }
+        Returns: {
+          account_code: string
+          amount: number
+          approved_amount: number
+          call_id: string
+          can_cancel: boolean
+          can_cfo_act: boolean
+          can_coo_act: boolean
+          cfo_note: string
+          coo_note: string
+          department_id: string
+          department_name: string
+          document_count: number
+          financial_year: string
+          id: string
+          justification: string
+          line_description: string
+          line_id: string
+          original_line_amount: number
+          reference: string
+          requested_at: string
+          requested_by: string
+          requester_name: string
+          status: string
+          submission_id: string
+          submission_reference: string
+        }[]
       }
       budget_user_department_ids: {
         Args: { _user_id: string }
@@ -66894,6 +67416,10 @@ export type Database = {
       defer_email: {
         Args: { delay_seconds?: number; message_id: number; queue_name: string }
         Returns: boolean
+      }
+      defer_requisition_usage_report: {
+        Args: { p_reason: string; p_requisition_id: string }
+        Returns: Json
       }
       delete_agent_product_holdings: {
         Args: {
@@ -70481,6 +71007,24 @@ export type Database = {
           sub_agent_id: string
         }[]
       }
+      get_my_usage_report_notices: {
+        Args: never
+        Returns: {
+          acknowledged: boolean
+          amount: number
+          approved_amount: number
+          category: string
+          cfo_decided_at: string
+          deferral_count: number
+          grace_ends_at: string
+          mandatory: boolean
+          max_deferrals: number
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          title: string
+        }[]
+      }
       get_nearby_cashout_agents: {
         Args: { _lat?: number; _lng?: number }
         Returns: {
@@ -73546,6 +74090,10 @@ export type Database = {
             }
             Returns: string
           }
+      log_usage_report_notice_event: {
+        Args: { p_event: string; p_requisition_id: string }
+        Returns: Json
+      }
       log_verification_selfie_crop: {
         Args: {
           p_avatar_url?: string
@@ -74275,6 +74823,10 @@ export type Database = {
       }
       ops_landlord_funded_stats: {
         Args: { p_date_from?: string; p_date_to?: string; p_search?: string }
+        Returns: Json
+      }
+      ops_landlord_ops_home_range: {
+        Args: { p_end: string; p_start: string }
         Returns: Json
       }
       ops_landlord_ops_weekly_bundle: {
@@ -77174,6 +77726,15 @@ export type Database = {
         Args: { p_decision: string; p_id: string; p_note?: string }
         Returns: Json
       }
+      review_requisition_usage_report: {
+        Args: {
+          p_decision: string
+          p_note: string
+          p_report_id: string
+          p_verified_receipt_total?: number
+        }
+        Returns: Json
+      }
       revoke_agent_registration_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: Json
@@ -77952,6 +78513,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      staff_requisition_ceo_direct: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       staff_requisition_my_notices: {
         Args: never
         Returns: {
@@ -78195,6 +78760,25 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_requisition_usage_report: {
+        Args: {
+          p_activities?: string
+          p_amount_used: number
+          p_attachment_paths: string[]
+          p_mismatch_explanation?: string
+          p_overspend_explanation?: string
+          p_places_visited?: string
+          p_receipt_total: number
+          p_refund_evidence_paths?: string[]
+          p_refund_not_required_reason?: string
+          p_refund_status?: string
+          p_requisition_id: string
+          p_results?: string
+          p_summary: string
+          p_unspent_explanation?: string
+        }
+        Returns: Json
+      }
       submit_service_center_request: {
         Args: {
           p_agent_location: string
@@ -78417,6 +79001,10 @@ export type Database = {
         }[]
       }
       tenant_payment_score_run: { Args: { p_as_at?: string }; Returns: Json }
+      tenant_plan_due_now: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string

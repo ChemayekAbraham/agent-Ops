@@ -17,12 +17,12 @@ const NOTIFY: Cohort[] = ['deducting_but_growing', 'growing_no_deduction', 'flat
 
 function buildMessage(cohort: Cohort, outstanding: number, interest14: number, paid14: number): string {
   if (cohort === 'flat_no_collection') {
-    return `WELILE: Your advance repayment ran daily but collected ${fmtUGX(0)} because you had no withdrawable commission. Outstanding stays ${fmtUGX(outstanding)}. Collect rent or deposit to reduce it.`;
+    return `WELILE: Advance repayment collected ${fmtUGX(0)} (no withdrawable commission). Outstanding ${fmtUGX(outstanding)}. Collect rent or deposit to reduce it.`;
   }
   if (cohort === 'deducting_but_growing') {
-    return `WELILE: Your advance is overdue. In 14 days ${fmtUGX(paid14)} was recovered but ${fmtUGX(interest14)} in late charges accrued, so your balance is still growing. Outstanding ${fmtUGX(outstanding)}. Clear it to stop the daily charge.`;
+    return `WELILE: Advance overdue. 14 days: ${fmtUGX(paid14)} paid, ${fmtUGX(interest14)} late charges added. Outstanding ${fmtUGX(outstanding)}. Clear it to stop charges.`;
   }
-  return `WELILE: Your advance is overdue and a late charge is added every day. ${fmtUGX(interest14)} accrued in the last 14 days with no repayment received. Outstanding ${fmtUGX(outstanding)}. Repay to stop it growing.`;
+  return `WELILE: Advance overdue; daily late charge. ${fmtUGX(interest14)} added in 14 days, no repayment. Outstanding ${fmtUGX(outstanding)}. Repay to stop it growing.`;
 }
 
 Deno.serve(async (req) => {

@@ -17,7 +17,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
-import { firstName, loadEvent, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { firstName, loadEvent, renderSmsTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
       if (dryRun) {
         if (preview.length < 10) {
-          const message = renderTemplate(event.body_template, vars);
+          const message = renderSmsTemplate(event.body_template, vars);
           preview.push({ tenant_id: row.tenant_id, name: row.tenant_name, message });
         }
         continue;

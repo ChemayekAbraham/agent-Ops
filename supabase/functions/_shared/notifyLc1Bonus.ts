@@ -122,8 +122,8 @@ export async function notifyLc1Bonus(
 
     const first = (profile?.full_name || "").trim().split(/\s+/)[0] || "there";
     const smsMessage = stage === "registered"
-      ? `Hi ${first}, LC1 chairperson "${name}" was registered. Your UGX 5,000 reward is credited once Landlord Ops verifies them.`
-      : `Hi ${first}, LC1 chairperson "${name}" has been verified! UGX ${amount.toLocaleString()} has been credited to your Welile withdrawable wallet. Thank you.`;
+      ? `LC1 chairperson "${name.slice(0, 30)}" registered. UGX 5,000 reward is credited once verified.`
+      : `LC1 chairperson "${name.slice(0, 30)}" verified. UGX ${amount.toLocaleString()} credited to your withdrawable wallet.`;
 
     await sendSMS(phone, smsMessage);
   } catch (err) {

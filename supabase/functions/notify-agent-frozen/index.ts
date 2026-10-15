@@ -133,13 +133,12 @@ Deno.serve(async (req) => {
     let sent = false;
     if (phone) {
       const activityLine = scopeAll
-        ? `You cannot list houses or carry out any agent activities until ${untilStr} (about ${daysLeft} day${daysLeft === 1 ? "" : "s"}).`
-        : `You cannot list houses until ${untilStr} (about ${daysLeft} day${daysLeft === 1 ? "" : "s"}).`;
+        ? `No agent activity until ${untilStr}.`
+        : `No house listing until ${untilStr}.`;
       const msg =
-        `WELILE: Hi ${name}, your account has been BLOCKED. ` +
+        `WELILE: Account BLOCKED. ` +
         `${activityLine} ` +
-        `Reason: ${block.reason}. ` +
-        `Need help? Call or WhatsApp: +256777607640`;
+        `Reason: ${block.reason}.`;
       sent = await sendSMS(phone, msg);
     } else {
       console.warn(`[notify-agent-frozen] Agent ${agent_id} has no phone`);

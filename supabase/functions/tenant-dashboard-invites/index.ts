@@ -24,7 +24,7 @@ import "../_shared/noSignupPrompt.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateLinkToken, sha256Hex } from "../_shared/deviceClass.ts";
 import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
-import { firstName, loadEvent, loadTenantStatusAppendices, renderTemplate } from "../_shared/tenantTemplates.ts";
+import { firstName, loadEvent, loadTenantStatusAppendices, renderSmsTemplate } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
             smartphone_status: row.smartphone_status,
             dashboard_activated: row.dashboard_activated,
             // Placeholder token: a dry run must not mint real credentials.
-            message: renderTemplate(event.body_template, {
+            message: renderSmsTemplate(event.body_template, {
               name: firstName(row.tenant_name),
               dashboard_link: `${origin}/t/<token>`,
               status_appendix: statusAppendices.get(row.tenant_id) ?? "",

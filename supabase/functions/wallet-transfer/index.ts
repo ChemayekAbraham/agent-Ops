@@ -547,17 +547,18 @@ Deno.serve(async (req) => {
           .single();
         if (recipientWallet && Number.isFinite(Number(recipientWallet.balance))) {
           recipientBalanceText =
-            ` New balance: UGX ${Number(recipientWallet.balance).toLocaleString('en-US')}.`;
+            ` Balance UGX ${Number(recipientWallet.balance).toLocaleString('en-US')}.`;
         }
       } catch { /* balance is best-effort */ }
 
-      const appLink = 'https://welileapp.com/dashboard';
-      const smsMessage =
-        `WELILE: You have received ${formattedAmount} from ${senderLabel}.` +
-        ` Reason: ${trimmedReason || 'Wallet transfer'}.` +
+      // One-segment budget: core first, Shopping Advance line only if it fits.
+      const smsCore =
+        `Received ${formattedAmount} from ${senderLabel.slice(0, 20)}.` +
+        ` Reason: ${(trimmedReason || 'Wallet transfer').slice(0, 20)}.` +
         recipientBalanceText +
-        advanceLine +
-        ` Ref: ${transferReference}. Open the app: ${appLink}`;
+        ` Ref ${transferReference}.`;
+      const smsAdvance = ` Advance limit +${fmtUgx(advanceIncrease)} to ${fmtUgx(advanceTotal)}.`;
+      const smsMessage = (smsCore + smsAdvance).length <= 143 ? smsCore + smsAdvance : smsCore;
       sendSMS(recipientProfile.phone, smsMessage).catch(() => {});
     }
 
@@ -593,16 +594,15 @@ Deno.serve(async (req) => {
           .single();
         if (senderWallet && Number.isFinite(Number(senderWallet.balance))) {
           senderBalanceText =
-            ` New balance: UGX ${Number(senderWallet.balance).toLocaleString('en-US')}.`;
+            ` Balance UGX ${Number(senderWallet.balance).toLocaleString('en-US')}.`;
         }
       } catch { /* balance is best-effort */ }
 
-      const appLink = 'https://welileapp.com/dashboard';
       const senderSmsMessage =
-        `WELILE: You have sent ${formattedAmount} to ${recipientLabel}.` +
-        ` Reason: ${trimmedReason || 'Wallet transfer'}.` +
+        `Sent ${formattedAmount} to ${recipientLabel.slice(0, 20)}.` +
+        ` Reason: ${(trimmedReason || 'Wallet transfer').slice(0, 20)}.` +
         senderBalanceText +
-        ` Ref: ${transferReference}. View transaction: ${appLink}`;
+        ` Ref ${transferReference}.`;
       sendSMS(senderProfile.phone, senderSmsMessage).catch(() => {});
     }
 

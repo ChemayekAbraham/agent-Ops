@@ -62,7 +62,8 @@ import { AgentListingCampaignPanel } from './AgentListingCampaignPanel';
 import { DailyRentReport } from '@/components/reports/DailyRentReport';
 import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
 import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
-import { NewTenantFirst7Tracker } from '@/components/executive/agent-ops/NewTenantFirst7Tracker';
+import { First7DaysTab } from '@/components/executive/agent-ops/First7DaysTab';
+import { hasFirst7Params } from '@/lib/newTenantFirst7';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
 import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
@@ -308,13 +309,16 @@ const BUSINESS_AREAS: BusinessAreaItem[] = [
   },
 ];
 
-const CATEGORIES: { id: 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'; label: string; count: number }[] = [
+type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7';
+
+const CATEGORIES: { id: CategoryId; label: string; count: number; icon?: typeof Sprout }[] = [
   { id: 'all', label: 'All', count: 14 },
   { id: 'advances', label: 'Advances', count: 4 },
   { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
   { id: 'commerce', label: 'Commerce & Float', count: 3 },
   { id: 'field', label: 'Field & Hubs', count: 4 },
   { id: 'reports', label: 'Ranks & Reports', count: 1 },
+  { id: 'first7', label: 'First 7 Days', count: 1, icon: Sprout },
 ];
 
 export function AgentOpsDashboard() {
@@ -333,7 +337,8 @@ export function AgentOpsDashboard() {
   const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'>('all');
+  // A shared First 7 Days link (?f7from=... and so on) opens straight on that tab.
+  const [activeCategory, setActiveCategory] = useState<CategoryId>(() => (hasFirst7Params(searchParams) ? 'first7' : 'all'));
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
@@ -520,7 +525,7 @@ export function AgentOpsDashboard() {
       case 'first7-tracker':
         return (
           <div className="space-y-4">
-            <NewTenantFirst7Tracker />
+            <First7DaysTab />
           </div>
         );
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
@@ -738,6 +743,8 @@ export function AgentOpsDashboard() {
   }, [searchQuery, filteredBusinessAreas]);
 
   const totalResultsCount = filteredBusinessAreas.length + matchingNavItems.length;
+  // The First 7 Days tab replaces the business-area grid; typing in the search box goes back to search results.
+  const showFirst7Tab = activeCategory === 'first7' && !searchQuery.trim();
 
   // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
@@ -817,6 +824,7 @@ export function AgentOpsDashboard() {
                     : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
                 )}
               >
+                {cat.icon && <cat.icon className="mr-1 inline h-3 w-3 align-[-1px]" aria-hidden="true" />}
                 {cat.label}
                 <span className={cn('ml-1 text-[10px] opacity-75', isSelected ? 'text-primary-foreground' : 'text-muted-foreground')}>
                   {cat.count}
@@ -827,8 +835,9 @@ export function AgentOpsDashboard() {
         </div>
       </div>
 
-      {/* Empty State */}
-      {filteredBusinessAreas.length === 0 && matchingNavItems.length === 0 ? (
+      {showFirst7Tab ? (
+        <First7DaysTab />
+      ) : filteredBusinessAreas.length === 0 && matchingNavItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-border bg-card/60 text-center space-y-3">
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
             <Search className="h-6 w-6" />

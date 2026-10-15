@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
     if (flagErr) console.warn("[cto-issue-temp-password] Failed to set must_change_password:", flagErr.message);
 
     // 7. Deliver via SMS (best effort)
-    const message = `Welile: A temporary password has been set for your account. Temp password: ${tempPassword}\nSign in at ${LOGIN_URL} then set a new password. This is required.`;
+    const message = `Welile temp password: ${tempPassword}\nSign in at ${LOGIN_URL} and set a new password now.`;
     let deliveredVia = "none";
     let deliveryError: string | null = null;
     if (targetPhone) {

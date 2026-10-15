@@ -47,9 +47,8 @@ function buildMessage(row: {
   const first = String(row.agent_name || "Agent").split(" ")[0];
   const tenants = row.tenant_count === 1 ? "1 tenant" : `${row.tenant_count} tenants`;
   return (
-    `WELILE: ${first}, ${ugx(row.amount)} landlord float has been released to you for ` +
-    `${row.landlord_name} (${tenants}). The rent capital has been approved and is now in your ` +
-    `Landlord Payout Float. Pay the landlord now and submit the TID/receipt: ${AGENT_DASHBOARD_URL}`
+    `WELILE: ${ugx(row.amount)} float released for ${row.landlord_name} (${tenants}). ` +
+    `Pay landlord, submit TID: ${AGENT_DASHBOARD_URL.replace("https://", "")}`
   );
 }
 

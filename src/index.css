@@ -345,6 +345,19 @@ section[aria-label*="Notifications" i]:empty {
     background-clip: text;
   }
 
+  /* Assistant action button — brand violet gradient, the same family as the
+     signature rent-request card and the portfolio hero surface. */
+  .gradient-assistant {
+    background-color: hsl(var(--gradient-assistant-mid));
+    background-image: linear-gradient(
+      150deg,
+      hsl(var(--gradient-assistant-start)) 0%,
+      hsl(var(--gradient-assistant-mid)) 52%,
+      hsl(var(--gradient-assistant-end)) 100%
+    );
+    color: hsl(var(--assistant-foreground));
+  }
+
   /* Subtle glow effects */
   .glow-primary {
     box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.25);

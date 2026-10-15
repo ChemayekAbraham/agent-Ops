@@ -122,8 +122,8 @@ export async function notifyAgentBonus(
 
     const first = (profile?.full_name || "").trim().split(/\s+/)[0] || "there";
     const smsMessage = stage === "listed"
-      ? `Hi ${first}, UGX ${amount.toLocaleString()} has been credited to your Welile wallet for listing "${title}". UGX 4,000 more is released once Landlord Ops verifies it.`
-      : `Hi ${first}, "${title}" has been verified! UGX ${amount.toLocaleString()} has been credited to your Welile withdrawable wallet. Thank you for listing on Welile.`;
+      ? `UGX ${amount.toLocaleString()} credited to your wallet for listing "${title.slice(0, 30)}". UGX 4,000 more once verified.`
+      : `"${title.slice(0, 30)}" verified. UGX ${amount.toLocaleString()} credited to your withdrawable wallet.`;
 
     await sendSMS(phone, smsMessage);
   } catch (err) {

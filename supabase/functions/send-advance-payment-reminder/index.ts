@@ -93,10 +93,10 @@ Deno.serve(async (req) => {
       const outstanding = Number(adv.outstanding_balance || 0);
 
       const message = customMessage ?? [
-        `WELILE: Reminder — your advance repayment is pending.`,
-        arrears > 0 ? `Missed/arrears: ${fmtUGX(arrears)}.` : `Today's installment: ${fmtUGX(scheduled)}.`,
-        `Outstanding: ${fmtUGX(outstanding)}.`,
-        `Please keep your wallet funded so we can collect it. Repayments are collected daily at 6pm.`,
+        `Welile: advance repayment pending.`,
+        arrears > 0 ? `Arrears ${fmtUGX(arrears)}.` : `Due today ${fmtUGX(scheduled)}.`,
+        `Outstanding ${fmtUGX(outstanding)}.`,
+        `Keep wallet funded; collected daily 6pm.`,
       ].join(' ');
 
       let ok = false;

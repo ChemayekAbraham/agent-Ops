@@ -18,7 +18,7 @@ import { Banknote, CalendarIcon, CheckCircle, Clock, Download, Loader2, X } from
 /**
  * Read-only list of rent requests that reached the CFO payout stage.
  * Pending = fully approved, money not yet sent to the agent's wallet (float).
- * Paid    = the agent's float was funded (`funded_at` is stamped by
+ * Paid    = Financial Operations disbursed the payout (`landlord_payouts.finops_disbursed_at`; was funded_at,
  *           fund-agent-landlord-float). Status flips live via realtime.
  */
 interface Row {
@@ -33,6 +33,7 @@ interface Row {
   funded_at: string | null;
   created_at: string;
   payout_transaction_reference: string | null;
+  paid_at?: string | null;
 }
 
 type Tab = 'pending' | 'paid';
@@ -72,18 +73,47 @@ export function CFOApprovedRentPayouts() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-approved-rent-payouts', tab, bounds?.[0]?.toISOString() ?? null],
     queryFn: async () => {
+      // Paid = Financial Operations has disbursed the landlord payout
+      // (landlord_payouts.finops_disbursed_at). CFO approval/funding alone stays Pending.
       const cols = 'id, status, rent_amount, tenant_id, agent_id, landlord_id, coo_reviewed_at, cfo_reviewed_at, funded_at, created_at, payout_transaction_reference';
-      let q = supabase.from('rent_requests').select(cols).limit(bounds ? 1000 : 200);
-      if (tab === 'pending') {
-        q = q.eq('status', 'coo_approved').order('coo_reviewed_at', { ascending: false, nullsFirst: false });
-        if (bounds) q = q.gte('coo_reviewed_at', bounds[0].toISOString()).lt('coo_reviewed_at', bounds[1].toISOString());
-      } else {
-        q = q.in('status', PAID_STATUSES).not('funded_at', 'is', null).order('funded_at', { ascending: false });
-        if (bounds) q = q.gte('funded_at', bounds[0].toISOString()).lt('funded_at', bounds[1].toISOString());
+      const a = await supabase.from('rent_requests').select(cols).eq('status', 'coo_approved')
+        .order('coo_reviewed_at', { ascending: false, nullsFirst: false }).limit(1000);
+      if (a.error) throw a.error;
+      // Every CFO-approved (funded) rent request, all time — paged past the 1,000-row cap.
+      const funded: Row[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('rent_requests').select(cols)
+          .in('status', PAID_STATUSES).not('funded_at', 'is', null)
+          .order('funded_at', { ascending: false }).order('id').range(from, from + 999);
+        if (error) throw error;
+        funded.push(...((data || []) as Row[]));
+        if (!data || data.length < 1000) break;
       }
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as Row[];
+      const paidAt = new Map<string, string>();
+      const ids = funded.map(r => r.id);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await supabase.from('landlord_payouts')
+          .select('rent_request_id, finops_disbursed_at')
+          .in('rent_request_id', ids.slice(i, i + 200))
+          .not('finops_disbursed_at', 'is', null);
+        if (error) throw error;
+        (data || []).forEach((p: any) => {
+          const prev = paidAt.get(p.rent_request_id);
+          if (!prev || p.finops_disbursed_at > prev) paidAt.set(p.rent_request_id, p.finops_disbursed_at);
+        });
+      }
+      const inB = (s: string | null) => !bounds || (!!s && new Date(s) >= bounds[0] && new Date(s) < bounds[1]);
+      if (tab === 'paid') {
+        // Approved = all CFO approvals; status shows Paid only after Financial Operations pays out.
+        return funded
+          .map(r => ({ ...r, paid_at: paidAt.get(r.id) ?? null }))
+          .filter(r => inB(r.cfo_reviewed_at || r.funded_at))
+          .sort((x, y) => ((y.cfo_reviewed_at || y.funded_at || '') > (x.cfo_reviewed_at || x.funded_at || '') ? 1 : -1));
+      }
+      const pending = [...((a.data || []) as Row[]), ...funded.filter(r => !paidAt.has(r.id))]
+        .map(r => ({ ...r, paid_at: null }))
+        .filter(r => inB(r.status === 'coo_approved' ? r.coo_reviewed_at : (r.cfo_reviewed_at || r.funded_at)));
+      return pending.sort((x, y) => ((y.coo_reviewed_at || '') > (x.coo_reviewed_at || '') ? 1 : -1));
     },
   });
 
@@ -109,8 +139,10 @@ export function CFOApprovedRentPayouts() {
 
   useEffect(() => {
     const ch = supabase.channel('cfo-approved-rent-payouts-live')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rent_requests' },
-        () => queryClient.invalidateQueries({ queryKey: ['cfo-approved-rent-payouts'] }))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: "rent_requests" },
+        () => queryClient.invalidateQueries({ queryKey: ["cfo-approved-rent-payouts"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "landlord_payouts" },
+        () => queryClient.invalidateQueries({ queryKey: ["cfo-approved-rent-payouts"] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [queryClient]);
@@ -134,7 +166,7 @@ export function CFOApprovedRentPayouts() {
       startY: 70, styles: { fontSize: 8 },
       head: [['#', 'Tenant', 'Agent', 'Landlord', 'Rent amount', 'Approved', 'Paid', 'Reference', 'Status']],
       body: filtered.map((r, i) => [i + 1, latin(nm(r.tenant_id)), latin(nm(r.agent_id)), latin(nm(r.landlord_id)), fmt(r.rent_amount),
-        when(r.coo_reviewed_at), when(r.funded_at), latin(r.payout_transaction_reference || '—'), r.funded_at ? 'Paid' : 'Pending']),
+        when(r.cfo_reviewed_at || r.coo_reviewed_at), when(r.paid_at ?? null), latin(r.payout_transaction_reference || '—'), r.paid_at ? "Paid" : "Pending"]),
       didDrawPage: () => { doc.setFontSize(8); doc.text(`Page ${doc.getNumberOfPages()}`, doc.internal.pageSize.getWidth() - 70, doc.internal.pageSize.getHeight() - 20); },
     });
     doc.save(`approved-rent-payouts-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`);
@@ -192,7 +224,7 @@ export function CFOApprovedRentPayouts() {
                     <TableHead>Landlord</TableHead>
                     <TableHead className="text-right">Rent amount</TableHead>
                     <TableHead>Approved</TableHead>
-                    <TableHead>Paid to agent wallet</TableHead>
+                    <TableHead>Paid by Financial Operations</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -205,11 +237,11 @@ export function CFOApprovedRentPayouts() {
                       <TableCell>{nm(r.agent_id)}</TableCell>
                       <TableCell>{nm(r.landlord_id)}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">{fmt(r.rent_amount)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{when(r.coo_reviewed_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{when(r.funded_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{when(r.cfo_reviewed_at || r.coo_reviewed_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{when(r.paid_at ?? null)}</TableCell>
                       <TableCell className="font-mono text-xs">{r.payout_transaction_reference || '—'}</TableCell>
                       <TableCell>
-                        {r.funded_at
+                        {r.paid_at
                           ? <Badge className="bg-success/15 text-success hover:bg-success/15">Paid</Badge>
                           : <Badge className="bg-warning/15 text-warning hover:bg-warning/15">Pending</Badge>}
                       </TableCell>

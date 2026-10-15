@@ -394,7 +394,7 @@ Deno.serve(async (req) => {
       const phone = normalizePhone(existing.landlord_phone);
       const resent = await sendOtpWithFallback(
         phone,
-        `Welile: You are receiving UGX ${Number(existing.amount).toLocaleString()} as rent. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+        `Welile: UGX ${Number(existing.amount).toLocaleString()} rent for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
       );
       await logSms(admin, phone, "Landlord payout OTP (resend)", resent, existing.landlord_name ?? null, challenge_id);
       await admin.from("landlord_payout_otp_events").insert({
@@ -540,7 +540,7 @@ Deno.serve(async (req) => {
     const phone = normalizePhone(approvedPhone);
     const sent = await sendOtpWithFallback(
       phone,
-      `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+      `Welile: UGX ${amt.toLocaleString()} rent${tenant_name ? ` from ${tenant_name}` : ""} for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
     );
     await logSms(admin, phone, "Landlord payout OTP", sent, landlord_name ?? null, challenge.id);
 

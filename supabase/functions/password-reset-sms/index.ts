@@ -530,7 +530,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const message = `Your Welile password reset code is: ${otp}. It expires in 1 hour. Do not share this code with anyone.`;
+      const message = `Welile reset code: ${otp}. Expires in 1 hour. Never share this code.`;
       const preferBackupRoute = existingCodeUsable && existingReset?.send_status === "accepted";
       if (preferBackupRoute) {
         console.log(`[password-reset-sms] resend for ***${phoneKey.slice(-4)} rotating to backup SMS route first`);

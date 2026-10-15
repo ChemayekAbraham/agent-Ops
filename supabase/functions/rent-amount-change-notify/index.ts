@@ -272,13 +272,38 @@ Deno.serve(async (req) => {
       if (enqErr) console.error("[rent-amount-change-notify] enqueue error", to, enqErr);
     }
 
-    const smsBody = [
-      `WELILE: ${rows.length} rent fee edit${rows.length === 1 ? "" : "s"}.`,
-      ...rows.slice(0, 3).map(
-        (r) => `${nameById.get(r.tenant_id ?? "") ?? "tenant"} — ${changeDetail(r)}`,
-      ),
-      rows.length > 3 ? `+${rows.length - 3} more. Check email report.` : "",
-    ].filter(Boolean).join(" | ").slice(0, 480);
+    // SMS must fit one 160-char segment with the central footer: 143 chars of
+    // body, ASCII only. Rows are added while they fit; the rest point to email.
+    const smsDetail = (r: ChangeRow): string => {
+      const fields = r.changed_fields?.length
+        ? r.changed_fields
+        : ["rent_amount", "total_repayment"];
+      return fields.map((f) => {
+        const label = FIELD_LABELS[f] ?? f;
+        if (f === "duration_days") {
+          return `${label} ${r.old_duration_days ?? "-"}>${r.new_duration_days ?? "-"}`;
+        }
+        const oldV = (r as unknown as Record<string, unknown>)[`old_${f}`];
+        const newV = (r as unknown as Record<string, unknown>)[`new_${f}`];
+        return `${label} ${Math.round(Number(oldV) || 0).toLocaleString("en-US")}>${Math.round(Number(newV) || 0).toLocaleString("en-US")}`;
+      }).join(", ");
+    };
+    const smsHead = `${rows.length} rent fee edit${rows.length === 1 ? "" : "s"}: `;
+    const smsRows = rows.map(
+      (r) => `${(nameById.get(r.tenant_id ?? "") ?? "tenant").slice(0, 20)} ${smsDetail(r)}`,
+    );
+    let smsBody = smsHead + smsRows[0];
+    if (smsBody.length > 143) smsBody = smsBody.slice(0, 143);
+    for (let i = 1; i < smsRows.length; i++) {
+      const more = ` +${smsRows.length - i} more, see email`;
+      const next = `${smsBody}; ${smsRows[i]}`;
+      if (next.length + (i + 1 < smsRows.length ? more.length : 0) <= 143) smsBody = next;
+      else {
+        const tail = ` +${smsRows.length - i} more, see email`;
+        smsBody = smsBody.slice(0, 143 - tail.length) + tail;
+        break;
+      }
+    }
 
     const smsResults: Record<string, string> = {};
     for (const phone of phones) {

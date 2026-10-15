@@ -301,11 +301,11 @@ Deno.serve(async (req) => {
           .maybeSingle();
         const phone = rejProfile?.phone as string | undefined;
         if (phone) {
-          const shortReason = String(reason).slice(0, 120);
+          const shortReason = String(reason).slice(0, 70);
           const smsMsg =
-            `WELILE: Your withdrawal of UGX ${Number(wr.amount).toLocaleString()} ` +
-            `was REJECTED. Reason: ${shortReason}` +
-            (refunded ? '. Funds restored to your balance.' : '.');
+            `Withdrawal of UGX ${Number(wr.amount).toLocaleString()} REJECTED. ` +
+            `Reason: ${shortReason}` +
+            (refunded ? '. Funds restored.' : '.');
           sendSMS(phone, smsMsg).catch((e) =>
             console.error('[reject-withdrawal] rejection SMS failed:', e),
           );

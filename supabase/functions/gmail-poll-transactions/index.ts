@@ -1933,9 +1933,9 @@ async function creditMerchantFloatFromOutboundSms(
     const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString('en-UG')}`;
     if (profile.phone) {
       const msg =
-        `Welile: Hi ${firstName}, ${fmt(parsed.amount!)} from ${provider.toUpperCase()} ` +
-        `(TID ${parsed.transaction_id}) was auto-credited to your Operational Float. ` +
-        `New float balance: ${fmt(newFloat)}.`;
+        `Welile: ${fmt(parsed.amount!)} from ${provider.toUpperCase()} ` +
+        `(TID ${parsed.transaction_id}) auto-credited to your Float. ` +
+        `Balance: ${fmt(newFloat)}.`;
       await sendSmsViaAfricasTalking(profile.phone, msg);
     }
     // Ownership guard: never email a float receipt to an address that is
@@ -2793,9 +2793,9 @@ async function _tryAutoCreditOperationalFloat(
     const firstName = (profile.full_name ?? '').split(' ')[0] || 'there';
     const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString('en-UG')}`;
     const msg =
-      `Welile: Hi ${firstName}, ${fmt(parsed.amount!)} from ${provider.toUpperCase()} ` +
-      `(TID ${parsed.transaction_id}) was auto-credited to your Operational Float. ` +
-      `New float balance: ${fmt(newFloat)}.`;
+      `Welile: ${fmt(parsed.amount!)} from ${provider.toUpperCase()} ` +
+      `(TID ${parsed.transaction_id}) auto-credited to your Float. ` +
+      `Balance: ${fmt(newFloat)}.`;
     await sendSmsViaAfricasTalking(profile.phone, msg);
 
     // Also email the receipt if we have an email on file.
@@ -2942,13 +2942,11 @@ async function tryThankSenderMomoSignupSms(
     .replace(/\{provider\}/gi, providerLabel);
   // Existing users → log in; new senders → sign up.
   const cta = existingUser
-    ? 'Log in to view your wallet, transactions and balance:'
+    ? 'Log in to view your wallet:'
     : tpl.signup_prompt;
   const msg = [
     `WELILE: ${thankYou}`.trim(),
     `${cta} ${tpl.signup_link}`.trim(),
-    tpl.address.trim(),
-    [tpl.support_email, tpl.website].filter(Boolean).join(' | ').trim(),
   ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
 
   const sent = await sendSmsViaAfricasTalking(rawPhone, msg);
@@ -2986,8 +2984,8 @@ type MomoSignupSmsTemplate = {
 
 const DEFAULT_MOMO_SIGNUP_SMS: MomoSignupSmsTemplate = {
   enabled: true,
-  thank_you_text: 'Thank you for sending {amount} via {provider}. Create your free Welile account to manage this money.',
-  signup_prompt: 'Access your dashboard to view your wallet, transactions, and account details:',
+  thank_you_text: 'You sent {amount} via {provider}. Create a free Welile account.',
+  signup_prompt: 'View your wallet:',
   signup_link: 'https://welileapp.com/ZQhyGb',
   address: '',
   website: '',

@@ -62,13 +62,12 @@ Deno.serve(async (req) => {
     const firstName = (tenant.full_name || "").trim().split(/\s+/)[0] || "there";
     const rent = Number(sub.monthly_rent) || 0;
     const outstanding = Number(sub.outstanding_balance) || 0;
-    const modePart = sub.has_smartphone === false ? " Your agent will allocate your rent." : "";
+    const modePart = sub.has_smartphone === false ? " Agent will allocate your rent." : "";
     const outstandingPart = outstanding > 0 ? ` Balance: ${ugx(outstanding)}.` : "";
     const msg =
-      `Hi ${firstName}, your Welile Homes enrollment was updated. ` +
-      `Monthly rent is now ${ugx(rent)}, due by the ${ordinal(Number(sub.payout_day) || 5)} of each month.` +
-      `${outstandingPart}${modePart} ` +
-      `View details at welileapp.com. Thank you.`;
+      `Welile Homes enrollment updated. ` +
+      `Rent ${ugx(rent)}/month, due by the ${ordinal(Number(sub.payout_day) || 5)}.` +
+      `${outstandingPart}${modePart}`;
 
     // Idempotent per edit: caller passes a unique audit_id when available so the
     // same edit never fires twice, otherwise dedupe within the same minute.

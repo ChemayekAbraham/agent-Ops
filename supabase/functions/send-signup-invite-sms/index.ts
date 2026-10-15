@@ -199,9 +199,9 @@ async function logSmsAttempts(
 function buildMessage(role: InviteRole, fullName: string, link: string): string {
   const first = (fullName || "").trim().split(/\s+/)[0] || "there";
   if (role === "landlord") {
-    return `Hi ${first}, you've been added as a landlord on Welile. Create your free account to track rent payouts: ${link}`;
+    return `Hi ${first}, you're added as a landlord on Welile. Track payouts free: ${link}`;
   }
-  return `Hi ${first}, you've been added on Welile. Create your free account to track your rent: ${link}`;
+  return `Hi ${first}, you're added on Welile. Free account to track your rent: ${link}`;
 }
 
 Deno.serve(async (req) => {

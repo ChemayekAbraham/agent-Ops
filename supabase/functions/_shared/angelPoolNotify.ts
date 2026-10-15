@@ -134,9 +134,9 @@ export async function sendAngelPoolSms(
 
   const first = (profile?.full_name || "").trim().split(/\s+/)[0] || "there";
   const message =
-    `Hi ${first}, your Welile Angel Pool purchase is confirmed: ` +
-    `${shares} share(s) for UGX ${amount.toLocaleString()}. ` +
-    `Ref ${referenceId}. Thank you for partnering with Welile.`;
+    `Angel Pool purchase confirmed: ` +
+    `${shares} share(s), UGX ${amount.toLocaleString()}. ` +
+    `Ref ${referenceId}`;
 
   const ok = await sendSMS(phone, message);
   return { sent: ok, reason: ok ? undefined : "send_failed", phone };

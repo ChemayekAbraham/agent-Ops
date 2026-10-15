@@ -96,6 +96,10 @@ import { EmptyHouseActionDialog } from './landlord-ops/EmptyHouseActionDialog';
 import { AgentListingBlockControl } from './landlord-ops/AgentListingBlockControl';
 import { Trash2, XCircle, Pencil } from 'lucide-react';
 import { EditLandlordDialog } from './landlord-ops/EditLandlordDialog';
+import { LandlordTenantsSection } from './landlord-ops/LandlordTenantsSection';
+import { LandlordPaidListPanel } from './landlord-ops/LandlordPaidListPanel';
+import { useLandlordPaidListCounts } from '@/hooks/useLandlordPaidLists';
+import { FUNDED_TAB_NOTE, isPaidListTab, type PaidListRow } from '@/lib/landlordPaidLists';
 import { ReverseVerificationDialog } from './landlord-ops/ReverseVerificationDialog';
 import { EditLC1Dialog } from './landlord-ops/EditLC1Dialog';
 import { BulkImportLC1Dialog } from './landlord-ops/BulkImportLC1Dialog';
@@ -680,14 +684,17 @@ export function LandlordOpsDashboard({
   const landlordDateToIso = landlordDateTo
     ? new Date(new Date(landlordDateTo).getTime() + 24 * 60 * 60 * 1000 - 1).toISOString()
     : null;
+  // "Paid & Repaying" and "Completed" load from landlord_ops_paid_lists instead (see LandlordPaidListPanel); the list below stays off there.
+  const landlordIsPaidTab = isPaidListTab(landlordCategory);
+  const { data: landlordPaidCounts } = useLandlordPaidListCounts({ search: debouncedLandlordSearch, enabled: view === 'landlords' });
   const landlordOpsListParams = {
     search: debouncedLandlordSearch,
     sort: (landlordSort === 'recently_updated' ? 'newest' : landlordSort) as LandlordOpsSort,
-    category: (landlordCategory || 'all') as LandlordOpsCategory,
+    category: (landlordIsPaidTab ? 'all' : (landlordCategory || 'all')) as LandlordOpsCategory,
     pendingFilter: pendingFilter as LandlordOpsPendingFilter,
     page: landlordPage,
     perPage: 20,
-    enabled: view === 'landlords',
+    enabled: view === 'landlords' && !landlordIsPaidTab,
     dateFrom: landlordDateFromIso,
     dateTo: landlordDateToIso,
   };
@@ -2418,6 +2425,7 @@ export function LandlordOpsDashboard({
     refetchLandlords();
     refetchLC1();
     queryClient.invalidateQueries({ queryKey: ['landlord-ops-pending-verification-count'] });
+    queryClient.invalidateQueries({ queryKey: ['landlord-paid-lists'] });
   };
 
   // Shared dialogs renderer — must be present in every sub-view that uses
@@ -2600,7 +2608,7 @@ export function LandlordOpsDashboard({
 
   // ─── LANDLORDS VIEW ───
   if (view === 'landlords') {
-    type LandlordCategory = 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'has_tenants' | 'no_tenants' | 'funded';
+    type LandlordCategory = 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'has_tenants' | 'no_tenants' | 'funded' | 'paid_repaying' | 'completed';
     const LANDLORD_CATEGORIES: { value: LandlordCategory; label: string; color: string }[] = [
       { value: 'all', label: 'All', color: 'bg-muted text-foreground' },
       { value: 'verified', label: 'Verified', color: VERIFICATION_STATUS_META.verified.chipClass },
@@ -2608,6 +2616,8 @@ export function LandlordOpsDashboard({
       { value: 'rejected', label: 'Rejected', color: VERIFICATION_STATUS_META.rejected.chipClass },
       { value: 'resubmitted', label: 'Resubmitted', color: VERIFICATION_STATUS_META.resubmitted.chipClass },
       { value: 'funded', label: 'Funded', color: 'bg-emerald-100 text-emerald-700' },
+      { value: 'paid_repaying', label: 'Paid & Repaying', color: 'bg-sky-100 text-sky-700' },
+      { value: 'completed', label: 'Completed', color: 'bg-slate-200 text-slate-700' },
       { value: 'has_tenants', label: 'Has Tenants', color: 'bg-blue-100 text-blue-700' },
       { value: 'no_tenants', label: 'No Tenants', color: 'bg-orange-100 text-orange-700' },
     ];
@@ -2637,6 +2647,8 @@ export function LandlordOpsDashboard({
       has_tenants: scoped?.has_tenants ?? landlordOpsTotals?.has_tenants,
       no_tenants: scoped?.no_tenants ?? landlordOpsTotals?.no_tenants,
       funded: landlordFundedStats?.summary.landlords_funded,
+      paid_repaying: landlordPaidCounts?.paid_repaying,
+      completed: landlordPaidCounts?.completed,
     };
 
     // Funded register for the period on screen (read-only, no workflow).
@@ -2689,6 +2701,50 @@ export function LandlordOpsDashboard({
       },
     ];
 
+    // What the Review button opens on the Paid & Repaying and Completed tabs: the landlord's contact, the registering agent and the Tenants
+    // section. A landlord who is not verified yet also gets the same note and approve / reject controls as on the other tabs.
+    const renderPaidListReview = (row: PaidListRow) => {
+      const asLandlord = { id: row.landlord_id, name: row.landlord_name, phone: row.landlord_phone, verified: row.verified };
+      return (
+        <div className="space-y-3">
+          <p className="text-xs font-bold flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+            {row.verified ? `Review ${row.landlord_name}` : `Verify ${row.landlord_name}`}
+          </p>
+          <div className="rounded-lg bg-sky-500/5 p-2.5 border border-sky-200/40">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Landlord Contact</p>
+            {row.landlord_phone && <PhoneLinks phone={row.landlord_phone} name={row.landlord_name} />}
+            {row.property_address && (
+              <p className="text-[11px] text-muted-foreground mt-1 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />{row.property_address}
+              </p>
+            )}
+          </div>
+          {(row.agent_name || row.agent_phone) && (
+            <div className="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-500/10 px-2.5 py-2 space-y-1">
+              <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                <Users className="h-3 w-3" /> Registering agent
+              </p>
+              <p className="text-xs font-medium">{row.agent_name || 'Unknown agent'}</p>
+              {row.agent_phone && <PhoneLinks phone={row.agent_phone} name={row.agent_name || 'Agent'} />}
+            </div>
+          )}
+          <LandlordTenantsSection landlordId={row.landlord_id} />
+          {!row.verified && (
+            <>
+              <ServiceCentreNoteLoader table="landlords" id={row.landlord_id} />
+              <InlineModerationActions
+                approveLabel="Review & Approve"
+                rejectLabel="Reject"
+                onApprove={(note) => handleApproveLandlord(asLandlord, note)}
+                onReject={(note) => handleRejectLandlord(asLandlord, note)}
+              />
+            </>
+          )}
+        </div>
+      );
+    };
+
     const landlordFiltersDirty = !!(
       landlordCategory !== 'verified'
       || pendingFilter !== 'all'
@@ -2708,9 +2764,9 @@ export function LandlordOpsDashboard({
               size="sm"
               variant="outline"
               className="h-9 gap-1.5"
-              disabled={exportingLandlordReport}
+              disabled={exportingLandlordReport || landlordIsPaidTab}
               onClick={() => void exportLandlordReportPdf()}
-              title="Export a full PDF report for the filters currently applied"
+              title={landlordIsPaidTab ? 'The PDF report is not available on this tab' : 'Export a full PDF report for the filters currently applied'}
             >
               {exportingLandlordReport
                 ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -2734,7 +2790,7 @@ export function LandlordOpsDashboard({
               <Upload className="h-4 w-4 mr-1.5" /> Bulk Import
             </Button>
             <span className="text-xs text-muted-foreground">
-              {landlordOpsListFetching ? 'Loading…' : `${totalMatched} landlords`}
+              {landlordIsPaidTab ? `${(categoryCounts[categoryFilter] ?? 0).toLocaleString()} landlords` : landlordOpsListFetching ? 'Loading…' : `${totalMatched} landlords`}
             </span>
           </div>
         </div>
@@ -2764,6 +2820,7 @@ export function LandlordOpsDashboard({
           {LANDLORD_CATEGORIES.map((cat) => (
             <button
               key={cat.value}
+              title={cat.value === 'funded' ? FUNDED_TAB_NOTE : undefined}
               onClick={() => { setLandlordCategory(cat.value); setLandlordPage(1); }}
               className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
                 categoryFilter === cat.value
@@ -2796,7 +2853,13 @@ export function LandlordOpsDashboard({
           )}
         </div>
 
-        {/* Date range filter — applied to the STATE date, not blindly to registration */}
+        {/* What "Funded" means */}
+        {categoryFilter === 'funded' && (
+          <p className="text-[11px] text-muted-foreground" data-testid="funded-tab-note">{FUNDED_TAB_NOTE}</p>
+        )}
+
+        {/* Date range filter — applied to the STATE date, not blindly to registration. Not used by the two paid tabs. */}
+        {!landlordIsPaidTab && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-[11px] text-muted-foreground font-medium">
             {categoryFilter === 'funded' ? 'Funded between:'
@@ -2833,6 +2896,7 @@ export function LandlordOpsDashboard({
             <span className="text-[11px] text-muted-foreground">Updating counts…</span>
           )}
         </div>
+        )}
 
         {/* Verified attribution: human decisions vs automatic pipeline flips */}
         {categoryFilter === 'verified' && (
@@ -2872,7 +2936,8 @@ export function LandlordOpsDashboard({
           </div>
         )}
 
-        {/* Sort (all categories) */}
+        {/* Sort (every category except the two paid tabs, which have their own order) */}
+        {!landlordIsPaidTab && (
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground font-medium">Sort:</span>
           <div className="flex gap-1.5">
@@ -2895,9 +2960,19 @@ export function LandlordOpsDashboard({
             ))}
           </div>
         </div>
+        )}
 
-        {/* Funded register — read-only view of money committed in the period */}
-        {categoryFilter === 'funded' ? (
+        {/* Paid & Repaying / Completed: read-only lists from landlord_ops_paid_lists */}
+        {landlordIsPaidTab ? (
+          <LandlordPaidListPanel
+            tab={landlordCategory as 'paid_repaying' | 'completed'}
+            search={debouncedLandlordSearch}
+            page={landlordPage}
+            onPageChange={setLandlordPage}
+            onEdit={(row) => setEditLandlord({ id: row.landlord_id, name: row.landlord_name, phone: row.landlord_phone ?? '', property_address: row.property_address, verified: row.verified })}
+            renderReview={(row) => renderPaidListReview(row)}
+          />
+        ) : /* Funded register — read-only view of money committed in the period */ categoryFilter === 'funded' ? (
           <div className="space-y-2">
             <div className="rounded-xl border border-border bg-card overflow-x-auto">
               <table className="w-full text-sm">
@@ -3087,6 +3162,8 @@ export function LandlordOpsDashboard({
                               {landlord.agent_phone && <PhoneLinks phone={landlord.agent_phone} name={landlord.agent_name || 'Agent'} />}
                             </div>
                           )}
+                          {/* This landlord's tenants: read-only, from landlord_tenant_overview */}
+                          <LandlordTenantsSection landlordId={landlord.id} />
                           {/* Service Centre manager's vetting note for this landlord */}
                           <ServiceCentreNoteLoader table="landlords" id={landlord.id} />
                           <InlineModerationActions
@@ -3108,7 +3185,7 @@ export function LandlordOpsDashboard({
         )}
 
         {/* Pagination controls */}
-        {categoryFilter !== 'funded' && totalMatched > perPage && (
+        {categoryFilter !== 'funded' && !landlordIsPaidTab && totalMatched > perPage && (
           <div className="flex items-center justify-between pt-2">
             <span className="text-xs text-muted-foreground">
               Showing {(safePage - 1) * perPage + 1}–{Math.min(safePage * perPage, totalMatched)} of {totalMatched}

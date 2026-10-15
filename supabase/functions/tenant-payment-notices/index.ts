@@ -44,7 +44,7 @@ import {
   growthSentence,
   loadRentAccessCap,
   careSentence,
-  renderTemplate,
+  renderSmsTemplate,
   type NotificationEvent,
 } from "../_shared/tenantTemplates.ts";
 
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
       }
       if (dryRun) {
         if (preview.length < 10) {
-          const message = renderTemplate(events.get(eventKey)!.body_template!, vars);
+          const message = renderSmsTemplate(events.get(eventKey)!.body_template!, vars);
           preview.push({ tenant_id: tenantId, event: eventKey, episode_key: episodeKey, message });
         }
         return;

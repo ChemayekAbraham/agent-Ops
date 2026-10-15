@@ -415,7 +415,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   );
   const selectAllForPayment = () => {
     if (selectableItems.length === 0) return;
-    setSelected(new Set(selectableItems.map(i => i.id)));
+    // Tenants already ticked: review exactly those — never widen the
+    // selection to every eligible row. Only pick all when nothing is ticked.
+    if (selectedVisibleCount === 0) {
+      setSelected(new Set(selectableItems.map(i => i.id)));
+    }
     setBulkReviewOpen(true);
   };
 
@@ -445,12 +449,20 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       }
 
       const errors: string[] = [];
-      for (const id of stillEligible) {
-        const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-          body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
-        });
-        if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
-      }
+      // Send payments in parallel with a small concurrency cap: sequential calls
+      // made large batches very slow; each request is funded independently server-side.
+      const CONCURRENCY = 5;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < stillEligible.length) {
+          const id = stillEligible[cursor++];
+          const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
+            body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
+          });
+          if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, stillEligible.length) }, worker));
       if (errors.length) throw new Error(`${errors.length} failed: ${errors[0]}`);
     },
     onSuccess: () => {
@@ -692,8 +704,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Revenue summary for selection or location scope */}
-            {(selected.size > 0 || locationScoped) && (
+            {/* Revenue summary — only while no tenants are ticked for payment */}
+            {locationScoped && selected.size === 0 && (
               <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3 space-y-2">
                 <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                   <TrendingUp className="h-3.5 w-3.5" />
@@ -1114,7 +1126,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             </div>
 
-            <TreasuryImpactBanner payoutAmount={totalRent} />
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">

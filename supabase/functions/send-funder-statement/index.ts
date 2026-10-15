@@ -122,23 +122,16 @@ Deno.serve(async (req) => {
 
     // Build SMS message (keep under 160 chars per segment where possible)
     const lines = [
-      `WELILE Investment Statement`,
-      `Dear ${(funder.full_name || "Partner").split(" ")[0]},`,
-      ``,
-      `Wallet: UGX ${walletBalance.toLocaleString()}`,
-      `Total Invested: UGX ${totalInvested.toLocaleString()}`,
-      `Returns Earned: UGX ${totalROI.toLocaleString()}`,
-      `Active Accounts: ${activeCount}`,
+      `Welile statement`,
+      `Wallet UGX ${walletBalance.toLocaleString()}`,
+      `Invested UGX ${totalInvested.toLocaleString()}`,
+      `Returns UGX ${totalROI.toLocaleString()}`,
+      `Active ${activeCount}`,
     ];
 
     if (recentROI && recentROI.length > 0) {
-      lines.push(``);
-      lines.push(`Last Return: UGX ${recentROI[0].amount.toLocaleString()}`);
+      lines.push(`Last return UGX ${recentROI[0].amount.toLocaleString()}`);
     }
-
-    lines.push(``);
-    lines.push(`Your money is safe & working.`);
-    lines.push(`Questions? Call your Welile agent.`);
 
     const message = lines.join("\n");
     const sent = await sendSMS(funder.phone, message);

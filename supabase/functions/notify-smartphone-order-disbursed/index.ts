@@ -148,15 +148,19 @@ Deno.serve(async (req) => {
 
     // 2. SMS
     if (agent?.phone) {
-      const smsParts = [
-        `Hi ${firstName}, UGX ${formatUGX(amount)} ${isIphone ? "down payment " : ""}for your ${device} has been paid to ${supplierName}'s wallet. Your order is in procedure.`,
-        daily > 0 ? `You repay Welile UGX ${formatUGX(daily)} daily${startsOn ? ` from ${startsOn}` : ""}.` : null,
-        isIphone ? "Pay Mo Banja weekly directly." : null,
-        supplierContactLine ? `Track: ${supplierContactLine}` : null,
-        "— Welile",
-      ].filter(Boolean);
+      // Core first; optional tail parts only while they fit one SMS segment.
+      const smsCore = `${firstName}, UGX ${formatUGX(amount)} ${isIphone ? "down payment " : ""}for your ${device} paid to ${supplierName}. Order in procedure.`;
+      const smsOptional = [
+        daily > 0 ? `Repay UGX ${formatUGX(daily)} daily${startsOn ? ` from ${startsOn}` : ""}.` : null,
+        isIphone ? "Pay Mo Banja weekly." : null,
+        supplierPhone ? `Supplier tel ${supplierPhone}` : null,
+      ].filter(Boolean) as string[];
+      let smsText = smsCore;
+      for (const part of smsOptional) {
+        if (smsText.length + 1 + part.length <= 143) smsText += ` ${part}`;
+      }
 
-      results.sms = await sendSMS(agent.phone, smsParts.join(" "), {
+      results.sms = await sendSMS(agent.phone, smsText, {
         admin,
         source: "notify-smartphone-order-disbursed",
         reference_id: sale_id,

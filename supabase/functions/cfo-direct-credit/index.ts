@@ -1082,8 +1082,7 @@ Deno.serve(async (req) => {
     // Notify the user by text whenever the CFO sends money to their wallet.
     if (op === "credit" && targetProfile.phone) {
       const smsMsg =
-        `WELILE: UGX ${amount.toLocaleString()} has been sent to your wallet ` +
-        `by Welile Technologies Finance. Ref: ${refId}. Thank you.`;
+        `UGX ${amount.toLocaleString()} credited to your wallet by Welile Finance. Ref ${refId}.`;
       // IMPORTANT: await the SMS. A fire-and-forget promise gets killed when the
       // edge isolate tears down right after the response is returned, so the
       // text never reaches Africa's Talking. Awaiting guarantees instant delivery.
@@ -1117,10 +1116,8 @@ Deno.serve(async (req) => {
       // One-time nudge: only on the FIRST time this number is linked.
       if (learned.outcome === "linked" && targetProfile.phone) {
         const msg =
-          `Welile: your deposit of UGX ${amount.toLocaleString()} was credited. ` +
-          `It came from a number not on your account - we've linked it so future ` +
-          `deposits from it are recognized automatically. For instant crediting, ` +
-          `prefer your registered number.`;
+          `UGX ${amount.toLocaleString()} deposit credited. Sender number not on your account is now linked. ` +
+          `Use your registered number for instant credit.`;
         try {
           await sendSMS(targetProfile.phone, msg, {
             recipientUserId: target_user_id,

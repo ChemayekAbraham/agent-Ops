@@ -66,16 +66,16 @@ function buildSms(row: {
 
   switch (row.kind) {
     case "funded":
-      return `WELILE: ${first}, thank you. Your funding for ${houses} (${rent}) is submitted for review. Agents will place tenants once approved. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, funding for ${houses} (${rent}) submitted for review. Tenants placed on approval. ${DASHBOARD_URL}`;
     case "reminder":
-      return `WELILE: ${first}, ${houses} (${rent}) you booked are still unfunded. We release them on ${hold} - ${d} day${d === 1 ? "" : "s"} left. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, ${houses} (${rent}) still unfunded. Released ${hold}, ${d} day${d === 1 ? "" : "s"} left. ${DASHBOARD_URL}`;
     case "released":
-      return `WELILE: ${first}, your 7-day hold on ${houses} (${rent}) has ended and they are back on the open empty-house list. Book again anytime: ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, 7-day hold on ${houses} (${rent}) ended; back on open list. Book again: ${DASHBOARD_URL}`;
     case "given_up":
-      return `WELILE: ${first}, you released ${houses} (${rent}). They are back on the open empty-house list. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, you released ${houses} (${rent}); back on open list. ${DASHBOARD_URL}`;
     default:
-      return `WELILE: ${first}, we are holding ${houses} (${rent}) for you until ${hold}${
-        row.promised_funding_date ? `. You promised funding by ${dateLabel(row.promised_funding_date)}` : ""
+      return `WELILE: ${first}, holding ${houses} (${rent}) for you until ${hold}${
+        row.promised_funding_date ? `. Fund by ${dateLabel(row.promised_funding_date)}` : ""
       }. ${DASHBOARD_URL}`;
   }
 }

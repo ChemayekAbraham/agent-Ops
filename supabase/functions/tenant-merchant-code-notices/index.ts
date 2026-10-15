@@ -25,7 +25,7 @@ import {
   loadEvent,
   loadPaymentChannels,
   payChannelsPhrase,
-  renderTemplate,
+  renderSmsTemplate,
 } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
 
       if (dryRun) {
         if (preview.length < 10) {
-          preview.push({ tenant_id: row.tenant_id, message: renderTemplate(event.body_template, vars) });
+          preview.push({ tenant_id: row.tenant_id, message: renderSmsTemplate(event.body_template, vars) });
         }
         continue;
       }

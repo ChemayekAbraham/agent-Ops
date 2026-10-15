@@ -93,9 +93,8 @@ export async function requestPayoutDestinationConsent(admin: any, params: {
     params.bankName ?? null,
     params.bankAccountNumber ?? null,
   );
-  const message = `Welile: ${params.borrowerFullName} wants to receive Welile payouts on a ${destinationLabel} ` +
-    `registered in your name (${params.destinationOwnerName}). If you agree, share this code with them: ${code}. ` +
-    `If you did NOT authorise this, ignore this message.`;
+  const message = `Welile: ${params.borrowerFullName} wants payouts to your ${destinationLabel}. ` +
+    `If you agree, give them code ${code}. Not you? Ignore.`;
 
   const smsSent = await sendSMS(formatPhoneInternational(params.ownerPhone), message, {
     admin,

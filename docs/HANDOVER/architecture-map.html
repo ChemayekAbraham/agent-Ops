@@ -1609,6 +1609,7 @@
               <li><strong>IFTTT:</strong> Forwards the telco payment SMS into that inbox. If IFTTT stops, deposits stop matching.</li>
               <li><strong>MTN MoMo / Airtel Money:</strong> Tills and merchant accounts. There is <strong>no API or webhook integration</strong>; payouts are made by people and evidenced back into the system.</li>
               <li><strong>Yoola SMS:</strong> Primary Ugandan OTP gateway (never force the "WELILE" sender ID)</li>
+              <li><strong>SMS length:</strong> every SMS must fit one 160-char segment (Yoola bills per segment). Central footer <code>Help: phone</code> is always added; the <code>Join Welile</code> line only if it still fits (doc 238).</li>
               <li><strong>Africa's Talking:</strong> Secondary SMS failover</li>
               <li><strong>Resend:</strong> Transactional email</li>
             </ul>
