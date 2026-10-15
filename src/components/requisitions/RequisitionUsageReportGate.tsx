@@ -30,6 +30,9 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
  */
 
 const REMIND_INTERVAL_MS = 5 * 60 * 1000;
+/** Mirrors the limit enforced by `defer_requisition_usage_report`. */
+const MAX_DEFERRALS = 5;
+const MAX_DEFERRALS_MSG = 'Maximum deferrals reached. This accountability report can no longer be deferred.';
 
 /** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
@@ -60,6 +63,11 @@ export function RequisitionUsageReportGate() {
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
   const [receipt, setReceipt] = useState<File | null>(null);
+  const [deferrals, setDeferrals] = useState<Record<string, number>>({});
+  const [showDefer, setShowDefer] = useState(false);
+  const [deferReason, setDeferReason] = useState('');
+  const [deferring, setDeferring] = useState(false);
+  const [deferError, setDeferError] = useState<string | null>(null);
   const loadedOnceRef = useRef(false);
 
   const pickReceipt = (file: File | null) => {
@@ -115,6 +123,13 @@ export function RequisitionUsageReportGate() {
     }
 
     const reported = new Set((reports || []).map((r) => r.requisition_id));
+    const { data: defs } = await supabase
+      .from('staff_requisition_usage_report_deferrals')
+      .select('requisition_id')
+      .in('requisition_id', ids);
+    const counts: Record<string, number> = {};
+    (defs || []).forEach((d) => { counts[d.requisition_id] = (counts[d.requisition_id] || 0) + 1; });
+    setDeferrals(counts);
     setPending((reqs as unknown as PendingReq[]).filter((r) => !reported.has(r.id)));
   }, [user?.id]);
 
@@ -202,11 +217,45 @@ export function RequisitionUsageReportGate() {
     await load();
   };
 
+  const deferCount = current ? deferrals[current.id] || 0 : 0;
+  const limitReached = deferCount >= MAX_DEFERRALS;
+
+  const deferReport = async () => {
+    if (!current) return;
+    if (limitReached) { setDeferError(MAX_DEFERRALS_MSG); return; }
+    if (deferReason.trim().length < 10) { setDeferError('Give a reason of at least 10 characters for deferring.'); return; }
+    setDeferring(true);
+    setDeferError(null);
+    const { data, error } = await (supabase.rpc as any)('defer_requisition_usage_report', {
+      p_requisition_id: current.id,
+      p_reason: deferReason.trim(),
+    });
+    setDeferring(false);
+    if (error) {
+      setDeferError(/maximum deferrals/i.test(error.message || '') ? MAX_DEFERRALS_MSG : error.message);
+      await load();
+      return;
+    }
+    const remaining = Number((data as { remaining?: number } | null)?.remaining ?? 0);
+    toast.success('Report deferred', {
+      description: remaining > 0 ? `${remaining} deferral${remaining === 1 ? '' : 's'} left.` : 'No deferrals left. You must submit the report next time.',
+    });
+    setDeferReason('');
+    setShowDefer(false);
+    setOpen(false);
+    await load();
+  };
+
   if (!current) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setShowForm(false); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) return; setOpen(o); }}>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button.absolute]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5 text-emerald-600" />
@@ -292,6 +341,31 @@ export function RequisitionUsageReportGate() {
             </div>
           )}
 
+          <p className="text-xs text-muted-foreground">
+            Deferred {deferCount} of {MAX_DEFERRALS} times.
+          </p>
+          {limitReached && (
+            <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {MAX_DEFERRALS_MSG} Please submit your usage report now.
+            </p>
+          )}
+
+          {showDefer && !limitReached && !showForm && (
+            <div className="space-y-2">
+              <Label htmlFor="usage-defer-reason">Why are you deferring?</Label>
+              <Textarea
+                id="usage-defer-reason"
+                rows={3}
+                value={deferReason}
+                onChange={(e) => { setDeferReason(e.target.value); setDeferError(null); }}
+                placeholder="At least 10 characters"
+              />
+            </div>
+          )}
+          {deferError && (
+            <p role="alert" className="text-sm text-destructive">{deferError}</p>
+          )}
+
           {pending.length > 1 && (
             <p className="text-xs text-muted-foreground">
               {pending.length - 1} other approved requisition{pending.length - 1 === 1 ? '' : 's'} still needs a report.
@@ -300,16 +374,35 @@ export function RequisitionUsageReportGate() {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-            Later
-          </Button>
+          {!limitReached && !showForm && (
+            showDefer ? (
+              <>
+                <Button variant="ghost" onClick={() => { setShowDefer(false); setDeferError(null); }} disabled={deferring}>
+                  Back
+                </Button>
+                <Button variant="outline" onClick={() => void deferReport()} disabled={deferring}>
+                  {deferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm defer
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => { setShowDefer(true); setDeferError(null); }} disabled={saving}>
+                Later
+              </Button>
+            )
+          )}
+          {showForm && (
+            <Button variant="ghost" onClick={() => setShowForm(false)} disabled={saving}>
+              Back
+            </Button>
+          )}
           {showForm ? (
             <Button onClick={() => void submitReport()} disabled={saving || !receipt}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit report
             </Button>
           ) : (
-            <Button onClick={() => setShowForm(true)}>Submit Usage Report</Button>
+            !showDefer && <Button onClick={() => setShowForm(true)}>Submit Usage Report</Button>
           )}
         </DialogFooter>
       </DialogContent>
