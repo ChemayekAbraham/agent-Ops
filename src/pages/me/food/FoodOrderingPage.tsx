@@ -49,7 +49,7 @@ export default function FoodOrderingPage() {
   const [notes, setNotes] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   // Chosen by the employee, never defaulted: it is recorded on the order.
-  const [paymentMode, setPaymentMode] = useState<FoodPaymentMode | null>(null);
+  const [paymentMode, setPaymentMode] = useState<FoodPaymentMode | null>('wallet');
   // One key per cart CONTENTS. Reused on every retry of an unchanged cart so a
   // double submit cannot create two orders; replaced after the order is
   // accepted and whenever the cart changes, so an edited cart is never answered
@@ -297,7 +297,7 @@ export default function FoodOrderingPage() {
           if (Object.keys(next).length === 0) setActivePeriodId(null);
           renewKey();
         }}
-        paymentModes={menu?.payment_modes ?? FOOD_PAYMENT_MODES}
+        paymentModes={['wallet']}
         paymentMode={paymentMode}
         onPaymentModeChange={setPaymentMode}
         maxInstructions={menu?.max_instructions_length ?? FOOD_MAX_INSTRUCTIONS}
