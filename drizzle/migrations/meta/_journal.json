@@ -4089,6 +4089,13 @@
       "when": 1792065418516,
       "tag": "0583_shorten_tenant_rent_intake_stall_sms",
       "breakpoints": true
+    },
+    {
+      "idx": 584,
+      "version": "7",
+      "when": 1792069135150,
+      "tag": "0584_requisition_usage_report_deferrals",
+      "breakpoints": true
     }
   ]
 }

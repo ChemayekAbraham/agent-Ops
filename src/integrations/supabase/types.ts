@@ -48370,6 +48370,48 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_usage_report_deferrals: {
+        Row: {
+          created_at: string
+          deferral_no: number
+          id: string
+          reason: string
+          requester_id: string
+          requisition_id: string
+        }
+        Insert: {
+          created_at?: string
+          deferral_no: number
+          id?: string
+          reason: string
+          requester_id: string
+          requisition_id: string
+        }
+        Update: {
+          created_at?: string
+          deferral_no?: number
+          id?: string
+          reason?: string
+          requester_id?: string
+          requisition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_usage_report_deferrals_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_usage_report_deferrals_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
       staff_requisition_usage_reports: {
         Row: {
           activities_carried_out: string | null
@@ -67211,6 +67253,10 @@ export type Database = {
       defer_email: {
         Args: { delay_seconds?: number; message_id: number; queue_name: string }
         Returns: boolean
+      }
+      defer_requisition_usage_report: {
+        Args: { p_reason: string; p_requisition_id: string }
+        Returns: Json
       }
       delete_agent_product_holdings: {
         Args: {
