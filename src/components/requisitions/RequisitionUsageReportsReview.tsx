@@ -156,7 +156,7 @@ export function RequisitionUsageReportsReview() {
 
   return (
     <Card className="rounded-2xl">
-      <CardContent className="space-y-4 p-4 sm:p-5">
+      <CardContent className="space-y-5 p-4 sm:p-6 lg:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-sm font-semibold">
@@ -199,19 +199,19 @@ export function RequisitionUsageReportsReview() {
         ) : visible.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">No reports here yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead>
+          <div className="max-h-[80vh] min-h-[480px] overflow-auto rounded-xl border">
+            <table className="w-full min-w-[1000px] text-base">
+              <thead className="sticky top-0 z-10 bg-muted">
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-3 font-medium">Requester</th>
-                  <th className="py-2 pr-3 font-medium">Requisition</th>
-                  <th className="py-2 pr-3 text-right font-medium">Approved</th>
-                  <th className="py-2 pr-3 text-right font-medium">Used</th>
-                  <th className="py-2 pr-3 text-right font-medium">Remaining</th>
-                  <th className="py-2 pr-3 font-medium">Submitted</th>
-                  <th className="py-2 pr-3 font-medium">Receipt</th>
-                  <th className="py-2 pr-3 font-medium">Status</th>
-                  <th className="py-2 font-medium" />
+                  <th className="py-3 pr-4 first:pl-4 font-medium">Requester</th>
+                  <th className="py-3 pr-4 first:pl-4 font-medium">Requisition</th>
+                  <th className="py-3 pr-4 first:pl-4 text-right font-medium">Approved</th>
+                  <th className="py-3 pr-4 first:pl-4 text-right font-medium">Used</th>
+                  <th className="py-3 pr-4 first:pl-4 text-right font-medium">Remaining</th>
+                  <th className="py-3 pr-4 first:pl-4 font-medium">Submitted</th>
+                  <th className="py-3 pr-4 first:pl-4 font-medium">Receipt</th>
+                  <th className="py-3 pr-4 first:pl-4 font-medium">Status</th>
+                  <th className="py-3 pr-4 font-medium" />
                 </tr>
               </thead>
               <tbody>
@@ -220,22 +220,22 @@ export function RequisitionUsageReportsReview() {
                   const remaining = approved - Number(r.amount_used);
                   const receipts = r.attachment_paths?.length ?? 0;
                   return (
-                    <tr key={r.id} className="border-b last:border-0 align-top">
-                      <td className="py-3 pr-3 font-medium">{r.requisition?.requester_name || '—'}</td>
-                      <td className="py-3 pr-3">
+                    <tr key={r.id} className="border-b align-top transition-colors last:border-0 hover:bg-muted/40">
+                      <td className="py-5 pr-4 first:pl-4 font-medium">{r.requisition?.requester_name || '—'}</td>
+                      <td className="py-5 pr-4 first:pl-4">
                         <p className="font-medium">{r.requisition?.title || '—'}</p>
                         <p className="text-xs text-muted-foreground">
                           {r.requisition?.requisition_code}
                           {r.requisition?.category ? ` • ${r.requisition.category}` : ''}
                         </p>
                       </td>
-                      <td className="py-3 pr-3 text-right tabular-nums">{formatUGX(approved)}</td>
-                      <td className="py-3 pr-3 text-right tabular-nums">{formatUGX(Number(r.amount_used))}</td>
-                      <td className={`py-3 pr-3 text-right tabular-nums ${remaining < 0 ? 'text-red-600' : ''}`}>
+                      <td className="py-5 pr-4 first:pl-4 text-right tabular-nums">{formatUGX(approved)}</td>
+                      <td className="py-5 pr-4 first:pl-4 text-right tabular-nums">{formatUGX(Number(r.amount_used))}</td>
+                      <td className={`py-5 pr-4 first:pl-4 text-right tabular-nums ${remaining < 0 ? 'text-red-600' : ''}`}>
                         {formatUGX(remaining)}
                       </td>
-                      <td className="py-3 pr-3 text-xs text-muted-foreground">{fmtDate(r.submitted_at)}</td>
-                      <td className="py-3 pr-3">
+                      <td className="py-5 pr-4 first:pl-4 text-xs text-muted-foreground">{fmtDate(r.submitted_at)}</td>
+                      <td className="py-5 pr-4 first:pl-4">
                         {receipts === 0 ? (
                           <span className="text-xs text-muted-foreground">None</span>
                         ) : (
@@ -251,12 +251,12 @@ export function RequisitionUsageReportsReview() {
                           </Button>
                         )}
                       </td>
-                      <td className="py-3 pr-3">
+                      <td className="py-5 pr-4 first:pl-4">
                         <Badge variant="outline" className={STATUS_META[r.review_status].className}>
                           {STATUS_META[r.review_status].label}
                         </Badge>
                       </td>
-                      <td className="py-3">
+                      <td className="py-5 pr-4">
                         <Button
                           size="sm"
                           variant="secondary"
