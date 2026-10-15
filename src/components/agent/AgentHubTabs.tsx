@@ -9,7 +9,7 @@ import {
   useSlidingIndicator,
 } from '@/components/ui/floating-nav';
 
-export type AgentHubTab = 'home' | 'money' | 'tenants' | 'grow' | 'subagents' | 'league';
+export type AgentHubTab = 'home' | 'money' | 'tenants' | 'grow' | 'subagents' | 'league' | 'portfolio';
 
 interface AgentHubTabsProps {
   active: AgentHubTab;

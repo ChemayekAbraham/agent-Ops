@@ -547,16 +547,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as AgentHubTab | null;
   const initialTab: AgentHubTab =
-    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(tabParam)
-      ? (tabParam as string) === 'more' ? 'grow' : tabParam
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(tabParam)
+      ? (tabParam as string) === 'more' ? 'grow' : (tabParam as string) === 'repayments' ? 'portfolio' : tabParam
       : 'home';
   const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
 
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab') as AgentHubTab | null;
-    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(currentTab)) {
-      const normalized = (currentTab as string) === 'more' ? 'grow' : currentTab;
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(currentTab)) {
+      const normalized = (currentTab as string) === 'more' ? 'grow' : (currentTab as string) === 'repayments' ? 'portfolio' : currentTab;
       if (normalized !== activeTab) {
         setActiveTab(normalized);
       }
@@ -568,7 +568,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
-      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(e.detail)) {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(e.detail)) {
         setActiveTab(e.detail);
         if (e.detail === 'home') {
           setMenuOpen(false);
@@ -648,8 +648,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     } else if (rentPosterOpen) {
       userBehaviourTracker.setSection('agent-rent-poster', 'agent');
     } else {
-      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center, league -> collection-league)
-      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab === 'league' ? 'collection-league' : activeTab;
+      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center, league -> collection-league, portfolio -> repayment-portfolio)
+      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab === 'league' ? 'collection-league' : activeTab === 'portfolio' ? 'repayment-portfolio' : activeTab;
       userBehaviourTracker.setSection(`agent-${tabName}`, 'agent');
     }
   }, [
@@ -740,6 +740,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         grow: 'More',
         subagents: 'Sub Agents',
         league: 'Collection League',
+        portfolio: 'Repayment Portfolio',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -1214,7 +1215,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <span>Back to Home</span>
             </button>
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : 'Agent Hub'}
+              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
             </span>
           </div>
         )}
@@ -1371,8 +1372,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
 
 
-            {/* Active product repayment portfolio (if any) */}
-            {!isMerchant && <MerchandiseRepaymentPortfolio userId={user.id} />}
 
             {/* 3) Urgent: duplicates that need reconciliation */}
             {duplicateCount > 0 && (
@@ -1785,6 +1784,28 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </Button>
             </div>
             <AgentCollectionLeagueCard />
+          </div>
+        )}
+
+        {/* === REPAYMENT PORTFOLIO TAB === Products and merchandise under repayment */}
+        {activeTab === 'portfolio' && !isMerchant && (
+          <div className={cn("space-y-4 pb-24", tabAnimClass)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Repayment Portfolio</h2>
+                <p className="text-xs text-muted-foreground">Products and merchandise you are paying for</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { hapticTap(); navigate('/merchandise'); }}
+                className="h-9 px-3 text-xs font-bold rounded-xl gap-1.5"
+              >
+                <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+                Merchandise
+              </Button>
+            </div>
+            <MerchandiseRepaymentPortfolio userId={user.id} showEmptyState />
           </div>
         )}
 
