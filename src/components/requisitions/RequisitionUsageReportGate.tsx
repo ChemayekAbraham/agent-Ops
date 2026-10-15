@@ -217,7 +217,7 @@ export function RequisitionUsageReportGate() {
     toast.success('Usage report submitted');
     setAmountUsed('');
     setSummary('');
-    setReceipt(null);
+    setReceipts([]);
     setShowForm(false);
     setOpen(false);
     await load();
