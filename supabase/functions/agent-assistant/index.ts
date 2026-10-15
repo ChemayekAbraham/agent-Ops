@@ -219,8 +219,8 @@ Deno.serve(async (req) => {
     if (!parsed.success) return json({ error: MSG.invalidRequest }, 400);
     const request = parsed.data;
 
-    // --- rollout gate: enabled for this user at all? Checked before anything is logged or any
-    // model is called, so a user outside the rollout creates no rows and costs nothing. --------
+    // --- visibility gate: any signed-in user. Checked before anything is logged or any model is
+    // called, so a signed-out request creates no rows and costs nothing. ------------------------
     const { data: hasAccess, error: accessError } = await userClient.rpc("assistant_has_access");
     if (accessError) throw new Error(`access check failed: ${accessError.message}`);
 
@@ -231,7 +231,9 @@ Deno.serve(async (req) => {
         isAgentForUi = data === true;
       }
       return json({
-        enabled: hasAccess === true && isAgentForUi,
+        // The button shows for everyone signed in. `reason` still reports whether this account has
+        // agent data behind it, so nothing is hidden and nothing extra becomes readable.
+        enabled: hasAccess === true,
         reason: hasAccess !== true ? "not_enabled" : isAgentForUi ? "ok" : "not_an_agent",
       });
     }
@@ -249,7 +251,7 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
 
     if (request.action === "escalate") {
-      if (!isAgent) return json({ reply: MSG.notAnAgent, outcome: "not_an_agent", escalation_offered: false });
+      // Anyone signed in can hand a conversation to the support team, agent or not.
       const owned = await getOwnedConversation(user.id, request.conversation_id);
       if (!owned) return json({ error: MSG.invalidRequest }, 404);
       const { created } = await createEscalation(user.id, owned.id, request.note);
@@ -279,7 +281,8 @@ Deno.serve(async (req) => {
 
     let turn: TurnResult;
     if (!isAgent) {
-      turn = { reply: MSG.notAnAgent, outcome: "not_an_agent", toolsCalled: [] };
+      // No agent footprint: no account data to read, but the chat still works as a support route.
+      turn = { reply: MSG.notAnAgent, outcome: "not_an_agent", toolsCalled: [], escalationOffered: true };
     } else {
       try {
         const lastAssistant = [...history].reverse().find((h) => h.role === "assistant")?.content;

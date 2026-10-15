@@ -5,7 +5,8 @@
 export const MSG = {
   notEnabled: "The assistant isn't available on your account yet.",
   notAnAgent:
-    "You don't seem to be an agent. This assistant is only available to agents who have tenants.",
+    "You don't seem to be an agent, so I can't see agent account data here. " +
+    "I can send this conversation to the support team so they can help you.",
   outOfScope:
     "I can only help with your own agent account: your collections, tenants, wallet and advances. " +
     "Try asking about one of those, or send this to the support team.",
@@ -22,4 +23,4 @@ export const MSG = {
 } as const;
 
 /** Outcomes after which we offer the "send to support" action. */
-export const ESCALATION_OFFER_OUTCOMES = new Set(["out_of_scope", "unmatched", "blocked", "error"]);
+export const ESCALATION_OFFER_OUTCOMES = new Set(["out_of_scope", "unmatched", "blocked", "error", "not_an_agent"]);

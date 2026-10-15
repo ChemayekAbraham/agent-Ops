@@ -605,6 +605,20 @@ export function useSetFoodMealStatus() {
   });
 }
 
+/** Daily meals go onto the staff menu automatically every day while published. */
+export function useSetFoodMealDaily() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { mealId: string; daily: boolean }) =>
+      call<void>('food_set_meal_daily', { p_meal_id: v.mealId, p_daily: v.daily }),
+    onSuccess: (_d, v) => {
+      invalidateFood(qc);
+      toast.success(v.daily ? 'Daily meal — it will be on the menu every day' : 'No longer a daily meal');
+    },
+    onError,
+  });
+}
+
 export interface ScheduleMealInput {
   serviceDate: string;
   periodId: string;

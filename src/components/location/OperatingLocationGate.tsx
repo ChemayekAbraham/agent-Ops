@@ -1,19 +1,23 @@
 /**
- * Mandatory operating-location setup for USER dashboards (agents).
+ * Operating-location prompt for USER dashboards (agents).
  *
- * Shown once, right after login, when the signed-in user has no saved
- * district + village. Dismissal is impossible until a location is saved.
+ * Shown after login when the signed-in user has neither a saved district +
+ * village nor a saved GPS fix. It is dismissible: the close button, Esc and an
+ * outside click all snooze it for 24 hours, then it returns on the next load.
+ * Nothing is prefilled - the user searches and picks their own location, or
+ * presses "Use my GPS location". A successful GPS fix is saved to their profile
+ * and the prompt is never shown again.
  *
  * Data discipline:
  *  - District list and village search come from the SAME shared ug_* data
  *    layer used everywhere else (no duplicate query logic, cached forever).
- *  - Saving is ONE atomic RPC round trip (`set_my_operating_location`) that
- *    writes district / region / sub-county / parish / village / ug_village_id
- *    onto the existing `profiles` row — no new tables, no follow-up writes.
+ *  - Saving a picked location is ONE atomic RPC round trip
+ *    (`set_my_operating_location`). A GPS fix updates the user's own
+ *    residence_lat/lng on `profiles`, as ResidenceAddressForm already does.
  */
 import { useMemo, useState } from 'react';
-import { Check, CheckCircle2, Loader2, MapPin, Plus, Search } from 'lucide-react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Check, CheckCircle2, Crosshair, Loader2, MapPin, Plus, Search } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +31,34 @@ type Picked =
   | { source: 'dataset'; village: string; selection: UgLocationSelection }
   | { source: 'custom'; village: string };
 
+const SNOOZE_MS = 24 * 60 * 60 * 1000;
+const snoozeKey = (userId: string) => `welile:operating-location-snooze:${userId}`;
+
+// Storage can be blocked (private windows, site data off); fall back to
+// "not snoozed" / "dismissed for this session only" rather than throwing.
+const isSnoozed = (userId: string) => {
+  try {
+    const until = Number(localStorage.getItem(snoozeKey(userId)));
+    return Number.isFinite(until) && until > Date.now();
+  } catch {
+    return false;
+  }
+};
+const snooze = (userId: string) => {
+  try {
+    localStorage.setItem(snoozeKey(userId), String(Date.now() + SNOOZE_MS));
+  } catch {
+    /* session-only dismissal via component state */
+  }
+};
+
+const gpsErrorMessage = (err: GeolocationPositionError) =>
+  err.code === err.PERMISSION_DENIED
+    ? 'Location access is blocked for this site. Search your area below, or allow location in your browser settings and try again.'
+    : err.code === err.TIMEOUT
+      ? 'Could not get a GPS fix in time. Move to an open area and try again, or search your area below.'
+      : 'GPS is unavailable right now. Search your area below.';
+
 export function OperatingLocationGate() {
   const { profile, loading, refreshProfile } = useProfile();
   const [district, setDistrict] = useState<UgDistrictValue | null>(null);
@@ -34,6 +66,9 @@ export function OperatingLocationGate() {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
   const [saved, setSaved] = useState<{ district: string; village: string; region: string | null } | null>(null);
 
   const { data: hits, isFetching } = useUgVillageSearch(district ? query : '', 12, {
@@ -50,8 +85,15 @@ export function OperatingLocationGate() {
   );
 
   const hasLocation = !!(profile?.district?.trim() && profile?.village?.trim());
-  if (loading || !profile || done) return null;
-  if (hasLocation && !saved) return null;
+  const hasGps = typeof profile?.residence_lat === 'number';
+  if (loading || !profile || done || dismissed) return null;
+  if ((hasLocation || hasGps) && !saved) return null;
+  if (!saved && isSnoozed(profile.id)) return null;
+
+  const dismiss = () => {
+    snooze(profile.id);
+    setDismissed(true);
+  };
 
   const canSave = !!district && !!picked && !saving;
 
@@ -74,14 +116,43 @@ export function OperatingLocationGate() {
     refreshProfile();
   };
 
+  const useGps = () => {
+    if (!('geolocation' in navigator)) {
+      setGpsError('GPS is not available on this device. Search your area below.');
+      return;
+    }
+    setGpsError(null);
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            residence_lat: Number(pos.coords.latitude.toFixed(6)),
+            residence_lng: Number(pos.coords.longitude.toFixed(6)),
+            residence_updated_at: new Date().toISOString(),
+          } as any)
+          .eq('id', profile.id);
+        setGpsLoading(false);
+        if (error) {
+          setGpsError('Could not save your GPS location. Try again or search your area below.');
+          return;
+        }
+        toast.success('Location saved');
+        setDone(true);
+        refreshProfile();
+      },
+      (err) => {
+        setGpsLoading(false);
+        setGpsError(gpsErrorMessage(err));
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
+    );
+  };
+
   return (
-    <Dialog open>
-      <DialogContent
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-        className="sm:max-w-md p-5 gap-0 rounded-2xl [&>button]:hidden"
-      >
+    <Dialog open onOpenChange={(o) => { if (!o) { if (saved) setDone(true); else dismiss(); } }}>
+      <DialogContent className="sm:max-w-md p-5 gap-0 rounded-2xl">
         {saved ? (
           <div className="py-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
@@ -124,8 +195,10 @@ export function OperatingLocationGate() {
           </div>
         ) : (
         <>
-        <h2 className="text-lg font-semibold">Where do you operate?</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Select your main operating location.</p>
+        <DialogTitle className="text-lg font-semibold">Where do you operate?</DialogTitle>
+        <DialogDescription className="mt-1 text-sm text-muted-foreground">
+          Search and select your main operating location. You can also do this later.
+        </DialogDescription>
 
         <div className="mt-5 space-y-4">
           <UgDistrictSelect
@@ -195,6 +268,22 @@ export function OperatingLocationGate() {
           <Button className="w-full h-12 text-base" disabled={!canSave} onClick={save}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save location'}
           </Button>
+
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />or<span className="h-px flex-1 bg-border" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-12 text-base"
+            disabled={gpsLoading || saving}
+            onClick={useGps}
+          >
+            {gpsLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Crosshair className="h-4 w-4 mr-2" />}
+            Use my GPS location
+          </Button>
+          {gpsError && <p role="alert" className="text-xs text-destructive">{gpsError}</p>}
         </div>
         </>
         )}

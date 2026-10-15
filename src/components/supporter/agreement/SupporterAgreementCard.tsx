@@ -1,3 +1,4 @@
+import partnerContractAsset from '@/assets/welile-partner-contract.pdf.asset.json';
 import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -136,7 +137,7 @@ export function SupporterAgreementCard({
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h4 className="font-bold text-foreground text-sm sm:text-base">
-                    Supporter Participation Agreement
+                    Tenant Partnership Agreement
                   </h4>
                   <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                     Required
@@ -201,56 +202,18 @@ export function SupporterAgreementViewModal({ open, onOpenChange, defaultTab = '
   }, [open, defaultTab]);
 
   const handleDownloadPDF = () => {
-    const content = `
-WELILE TENANT SUPPORTER TERMS & CONDITIONS
-(12-Month Supporter Participation Agreement)
-
-Effective Date: ${effectiveDate}
-Agreement Version: v1.0
-
-${FULL_AGREEMENT_CONTENT}
-    `;
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Welile_Supporter_Agreement_v1.0_${format(new Date(), 'yyyy-MM-dd')}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const link = document.createElement('a');
+    link.href = partnerContractAsset.url;
+    link.download = partnerContractAsset.original_filename;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Welile Supporter Agreement</title>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
-              h1 { font-size: 24px; margin-bottom: 10px; }
-              h2 { font-size: 18px; margin-top: 20px; }
-              p { margin: 10px 0; }
-              .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
-              .meta { font-size: 14px; color: #666; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <h1>WELILE TENANT SUPPORTER TERMS & CONDITIONS</h1>
-              <p class="meta">12-Month Supporter Participation Agreement</p>
-              <p class="meta">Effective Date: ${effectiveDate} | Version: v1.0</p>
-            </div>
-            <pre style="white-space: pre-wrap; font-family: Arial, sans-serif;">${FULL_AGREEMENT_CONTENT}</pre>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
+    window.open(partnerContractAsset.url, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -265,7 +228,7 @@ ${FULL_AGREEMENT_CONTENT}
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <DialogTitle className="text-base sm:text-lg font-bold">
-                  Supporter Participation Agreement
+                  Tenant Partnership Agreement
                 </DialogTitle>
                 <Badge className="bg-success/20 text-success border-success/30 text-[10px] px-2">
                   Accepted ✅
@@ -299,7 +262,7 @@ ${FULL_AGREEMENT_CONTENT}
                 <div className="prose prose-sm max-w-none">
                   <div className="text-center mb-6 pb-4 border-b border-border">
                     <h3 className="text-lg font-bold text-foreground mb-1">
-                      WELILE TENANT SUPPORTER AGREEMENT
+                      WELILE TENANT PARTNERSHIP AGREEMENT
                     </h3>
                     <p className="text-sm text-muted-foreground">Quick Summary (12 Months)</p>
                   </div>
@@ -329,10 +292,10 @@ ${FULL_AGREEMENT_CONTENT}
                 <div className="prose prose-sm max-w-none">
                   <div className="text-center mb-6 pb-4 border-b border-border">
                     <h3 className="text-lg font-bold text-foreground mb-1">
-                      WELILE TENANT SUPPORTER TERMS & CONDITIONS
+                      WELILE TENANT PARTNERSHIP AGREEMENT
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      12-Month Supporter Participation Agreement
+                      Tenant Partnership Agreement
                     </p>
                   </div>
                   <div className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed">

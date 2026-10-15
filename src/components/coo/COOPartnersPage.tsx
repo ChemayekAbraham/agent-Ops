@@ -638,7 +638,14 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         p_description_out: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
         p_description_in: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
       } as never);
-      if (ledgerErr) throw ledgerErr;
+      if (ledgerErr) {
+        // Undo the principal/date change so a failed ledger post never leaves the portfolio inflated.
+        await supabase
+          .from('investor_portfolios')
+          .update({ investment_amount: portfolio.investment_amount, next_roi_date: portfolio.next_roi_date })
+          .eq('id', portfolio.id);
+        throw ledgerErr;
+      }
 
       await supabase.from('audit_logs').insert({
         user_id: user.id,

@@ -18619,6 +18619,7 @@ export type Database = {
           description: string | null
           id: string
           image_path: string | null
+          is_daily: boolean
           name: string
           price_ugx: number
           status: string
@@ -18632,6 +18633,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          is_daily?: boolean
           name: string
           price_ugx: number
           status?: string
@@ -18645,6 +18647,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          is_daily?: boolean
           name?: string
           price_ugx?: number
           status?: string
@@ -62520,6 +62523,11 @@ export type Database = {
           lease_id: string
         }[]
       }
+      _food_default_period: { Args: never; Returns: string }
+      _food_list_meal_on_day: {
+        Args: { p_day: string; p_meal_id: string }
+        Returns: undefined
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -62556,6 +62564,10 @@ export type Database = {
           p_rent_request_id?: string
         }
         Returns: string
+      }
+      _ledger_can_post_partner_returns: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       _merch_bike_day: {
         Args: { p_day: string; p_sale_id: string; p_v2: boolean }
@@ -68028,6 +68040,7 @@ export type Database = {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
       }
+      food_roll_daily_menu: { Args: never; Returns: number }
       food_schedule_meal: {
         Args: {
           p_meal_id: string
@@ -68046,6 +68059,10 @@ export type Database = {
       food_set_fulfilment: {
         Args: { p_note?: string; p_order_id: string; p_to_status: string }
         Returns: Json
+      }
+      food_set_meal_daily: {
+        Args: { p_daily: boolean; p_meal_id: string }
+        Returns: undefined
       }
       food_set_meal_image: {
         Args: { p_image_path: string; p_meal_id: string; p_reason?: string }
@@ -72951,6 +72968,15 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_paid_lists: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tab: string
+        }
+        Returns: Json
+      }
       landlord_ops_payout_source_transactions: {
         Args: { p_payout_id: string }
         Returns: Json
@@ -73128,6 +73154,28 @@ export type Database = {
       landlord_pool_return_reverse: {
         Args: { p_caller?: string; p_ref: string }
         Returns: Json
+      }
+      landlord_tenant_overview: {
+        Args: { p_landlord_id: string }
+        Returns: {
+          amount_repaid: number
+          assigned_agent_id: string
+          assigned_agent_name: string
+          assigned_agent_phone: string
+          balance_left: number
+          daily_repayment: number
+          funded_at: string
+          funding_stage: string
+          plan_status: string
+          registering_agent_id: string
+          registering_agent_name: string
+          rent_amount: number
+          rent_request_id: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       ledger_category_allowlist_base: { Args: never; Returns: string[] }
@@ -74908,6 +74956,28 @@ export type Database = {
           proxy_status: string
         }[]
       }
+      partner_ops_invite_partners: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          in_pending_queue: boolean
+          partner_email: string
+          partner_name: string
+          partner_phone: string
+          portfolio_id: string
+        }[]
+      }
+      partner_ops_invite_visibility: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          invited: boolean
+          last_send_status: string
+          last_sent_at: string
+          portfolio_id: string
+          sent_count: number
+          token_consumed_at: string
+          token_expires_at: string
+        }[]
+      }
       partner_ops_list_proxy_agent_applications: {
         Args: { p_status?: string }
         Returns: {
@@ -75331,6 +75401,17 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      post_portfolio_roi_ledger: {
+        Args: {
+          p_amount: number
+          p_description_in: string
+          p_description_out: string
+          p_operation: string
+          p_portfolio_id: string
+          p_reference: string
+        }
+        Returns: string
       }
       post_rent_fee_collection: {
         Args: {

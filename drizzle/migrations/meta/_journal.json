@@ -4005,6 +4005,55 @@
       "when": 1792008883902,
       "tag": "0571_hr_pay_bonus_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 572,
+      "version": "7",
+      "when": 1792046416817,
+      "tag": "0572_assistant_visible_to_everyone",
+      "breakpoints": true
+    },
+    {
+      "idx": 573,
+      "version": "7",
+      "when": 1792049624371,
+      "tag": "0573_hr_pay_bonus_pay_ceo_disburse",
+      "breakpoints": true
+    },
+    {
+      "idx": 574,
+      "version": "7",
+      "when": 1792050066686,
+      "tag": "0574_food_remove_20_portion_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 575,
+      "version": "7",
+      "when": 1792050357771,
+      "tag": "0575_post_portfolio_roi_ledger_boundary",
+      "breakpoints": true
+    },
+    {
+      "idx": 576,
+      "version": "7",
+      "when": 1792052508541,
+      "tag": "0576_food_publish_shows_today_and_daily_meals",
+      "breakpoints": true
+    },
+    {
+      "idx": 577,
+      "version": "7",
+      "when": 1792055026250,
+      "tag": "0577_partner_ops_invite_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 578,
+      "version": "7",
+      "when": 1792055716934,
+      "tag": "0578_partner_ops_invite_partners",
+      "breakpoints": true
     }
   ]
 }

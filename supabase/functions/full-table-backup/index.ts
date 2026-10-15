@@ -33,7 +33,9 @@ const PREFETCH = 2; // pages fetched concurrently
 const PART_MAX_BYTES = 8 * 1024 * 1024; // small parts: low peak memory, cheap to redo after a kill
 const DEADLINE_MS = 70_000; // per invocation, then chain (margin under the hard wall-clock limit)
 const STALE_MS = 180_000; // no state write for this long = the chain is dead; resume is allowed
-const JSON_HEADERS = { ...corsHeaders, "Content-Type": "application/json" };
+const SIGN_BATCH = 300; // files signed per signed-urls call
+const SIGN_MAX_SECONDS = 24 * 60 * 60; // these are bulk personal data: links stay short-lived
+const JSON_HEADERS ={ ...corsHeaders, "Content-Type": "application/json" };
 
 type TableResult = {
   table: string;
@@ -142,6 +144,49 @@ Deno.serve(async (req) => {
         current: saved.cur?.table ?? null,
         ageSeconds: Math.round(ageMs / 1000),
       },
+    });
+  }
+
+  // Time-limited download links for a run's files, so the CSVs can be pulled without bucket access.
+  // Paged (SIGN_BATCH files per call; pass back `next`) so a 2,000-part run never signs in one request.
+  // Part paths come from the run's own manifest (or checkpoint while it is still running), never from
+  // caller input, so a caller can only ever sign files that belong to the named run.
+  if (body?.action === "signed-urls") {
+    const folder = typeof body?.folder === "string" ? body.folder : "";
+    if (!/^full_tables\/\d{4}\/[0-9TZ-]+$/.test(folder)) return json({ error: "bad folder" }, 400);
+    const expiresIn = Math.min(Math.max(Number(body?.expiresIn) || 3600, 60), SIGN_MAX_SECONDS);
+    const cursor = Math.max(Number(body?.cursor) || 0, 0);
+    const only: string[] | null = Array.isArray(body?.tables) ? body.tables : null;
+
+    let results: TableResult[] | null = null;
+    const m = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}/${folder}/manifest.json`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Cache-Control": "no-cache" },
+    });
+    if (m.ok) results = ((await m.json().catch(() => null))?.results ?? null) as TableResult[] | null;
+    else await m.text().catch(() => "");
+    if (!results) results = (await readState(supabaseUrl, serviceKey, folder))?.results ?? null;
+    if (!results) return json({ error: "no manifest or checkpoint for this run" }, 404);
+
+    const paths: string[] = [`${folder}/manifest.json`];
+    for (const r of results) {
+      if (!r.parts || (only && !only.includes(r.table))) continue;
+      for (let p = 1; p <= r.parts; p++) {
+        paths.push(`${folder}/${r.table}/${r.table}_part${String(p).padStart(3, "0")}.csv`);
+      }
+    }
+    const slice = paths.slice(cursor, cursor + SIGN_BATCH);
+    const { data: signed, error: signErr } = await supabase.storage.from(BUCKET).createSignedUrls(slice, expiresIn);
+    if (signErr) return json({ error: `signing failed: ${signErr.message}` }, 500);
+    console.log(`[full-table-backup] signed-urls by ${actor}: ${slice.length} files from ${folder}, ${expiresIn}s`);
+    const next = cursor + slice.length < paths.length ? cursor + slice.length : null;
+    return json({
+      folder,
+      total: paths.length,
+      expiresIn,
+      next,
+      files: (signed ?? []).map((s: { path: string | null; signedUrl: string; error: string | null }) => ({
+        path: s.path, url: s.signedUrl, error: s.error,
+      })),
     });
   }
 

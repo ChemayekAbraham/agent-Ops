@@ -71,6 +71,16 @@ export default function Auth() {
     };
   }, []);
 
+  // The sign-in screen renders in Outfit, the same family the agent dashboard
+  // uses. The class lives on <html> so the dropdowns and dialogs that Radix
+  // attaches to the body are covered too, and it comes off on unmount so no
+  // other route picks it up.
+  useEffect(() => {
+    document.documentElement.classList.add('auth-outfit');
+    return () => document.documentElement.classList.remove('auth-outfit');
+  }, []);
+
+
   const {
     referralId, becomeRole, preSelectedRole,
     isSignUp, setIsSignUp,
