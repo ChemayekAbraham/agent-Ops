@@ -33,7 +33,7 @@ export default function AgentDashboardNew() {
       />
       <main className="min-h-[60vh] px-4 pt-4">
         <div className="flex items-center gap-3">
-          <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} />
+          <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
               <span className="break-words">{profile?.full_name || 'Agent'}</span>
