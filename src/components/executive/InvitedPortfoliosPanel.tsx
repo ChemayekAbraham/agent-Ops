@@ -414,7 +414,7 @@ export function InvitedPortfoliosPanel() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map(row => {
+          {pageRows.map(row => {
             const expired = isExpired(row);
             return (
               <Card key={row.id} className={cn('overflow-hidden', expired && 'border-destructive/40 bg-destructive/[0.02]')}>
