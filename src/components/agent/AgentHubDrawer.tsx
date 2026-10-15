@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X, Search, AlertCircle, ArrowLeftRight, ArrowUpRight, Banknote, BookOpen, Briefcase, Building, Building2, Calculator, Coins, CreditCard, FileCheck, FileCode, FileSignature, FileText, Gift, HandCoins, HelpCircle, History, Home, Key, LogOut, MapPin, MessageSquare, Settings, TrendingUp, User, UserCheck, UserPlus, Users, Wallet, type LucideIcon,
+  X, Search, AlertCircle, ArrowLeftRight, ArrowUpRight, Banknote, BookOpen, Briefcase, Building, Building2, Calculator, Coins, CreditCard, FileCheck, FileSignature, FileText, Gift, HandCoins, HelpCircle, History, Home, Key, LogOut, MapPin, MessageSquare, Settings, TrendingUp, User, UserCheck, UserPlus, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -60,8 +60,6 @@ const menuData: MenuSection[] = [
     { name: 'Register LC', icon: Building, tone: 'blue' },
     { name: 'Register Tenant', icon: UserCheck, tone: 'green' },
     { name: 'Register Partner', icon: Briefcase, tone: 'amber' },
-    { name: 'Promissory Notes', icon: FileCode, tone: 'rose' },
-    { name: 'My Promissory Notes', icon: FileText, tone: 'indigo' },
   ]},
   { title: 'Property', items: [
     { name: 'List House', icon: Home, tone: 'violet' },
