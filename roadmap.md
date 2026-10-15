@@ -27,3 +27,7 @@
 - [x] Agent dashboard preview: removed the "Today's Capacity" card and its now-unused figures/styles; the purple "Today's rent" card, shortcuts, "Collections due today" and calendar remain. Verified signed-in, no overflow, build OK.
 
 - [x] Replace the selected supporter agreement with the approved partner contract; isolated browser review and PDF download target verified, guards and build clean; signed-in dashboard check unavailable because requester has no matching auth account. No acceptance or money movement.
+
+- [x] CFO Approved Rent Requests: Approved tab lists every CFO approval all time; Paid only after Financial Operations payout.
+- [x] Usage report amount matching: popup + CFO review + server rules live; matching rule tests pass. Not yet clicked through signed-in.
+- [x] CFO Approved Rent Requests: date filters (Today etc.) use the CFO approval time; Approved column shows CFO approval time.

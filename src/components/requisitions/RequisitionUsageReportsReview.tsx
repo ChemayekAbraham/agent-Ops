@@ -32,6 +32,15 @@ interface ReportRow {
   review_status: ReviewStatus;
   reviewed_at: string | null;
   review_note: string | null;
+  receipt_total: number | null;
+  discrepancy_flag: boolean;
+  discrepancy_reasons: string[] | null;
+  receipt_mismatch_explanation: string | null;
+  unspent_explanation: string | null;
+  overspend_explanation: string | null;
+  refund_status: 'made' | 'pending' | 'not_required' | null;
+  refund_evidence_paths: string[] | null;
+  refund_not_required_reason: string | null;
   requisition: {
     requisition_code: string;
     title: string;
@@ -56,6 +65,18 @@ function fmtDate(iso: string | null) {
 
 const approvedOf = (r: ReportRow) => Number(r.requisition?.approved_amount ?? r.requisition?.amount ?? 0);
 
+interface ReviewEntry { id: string; decision: string; note: string; verified_receipt_total: number | null; created_at: string }
+const DECISION_LABEL: Record<string, string> = {
+  verify_amount: 'Verified receipt total', accept_discrepancy: 'Accepted discrepancy',
+  request_clarification: 'Requested clarification', require_refund: 'Required refund',
+};
+const REASON_LABEL: Record<string, string> = {
+  receipt_total_unverified: 'Receipt total not entered — verify manually',
+  receipt_vs_used_mismatch: 'Receipts differ from amount used',
+  unspent_balance: 'Unspent balance', overspend: 'Spent above approval',
+};
+const REFUND_LABEL = { made: 'Refund made', pending: 'Refund pending', not_required: 'Not required per policy' } as const;
+
 /**
  * CFO accountability review of requisition usage reports already submitted by
  * requesters. Read + review-state only: this never touches the requisition
@@ -64,6 +85,7 @@ const approvedOf = (r: ReportRow) => Number(r.requisition?.approved_amount ?? r.
 export function RequisitionUsageReportsReview() {
   const { user } = useAuth();
   const [rows, setRows] = useState<ReportRow[]>([]);
+  const [deferCounts, setDeferCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('pending');
   const [search, setSearch] = useState('');
@@ -71,6 +93,8 @@ export function RequisitionUsageReportsReview() {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState<'accept' | 'clarify' | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
+  const [verifiedTotal, setVerifiedTotal] = useState('');
+  const [reviews, setReviews] = useState<ReviewEntry[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,6 +103,8 @@ export function RequisitionUsageReportsReview() {
       .select(`
         id, requisition_id, requester_id, amount_used, summary, submitted_at,
         attachment_paths, review_status, reviewed_at, review_note,
+        receipt_total, discrepancy_flag, discrepancy_reasons, receipt_mismatch_explanation,
+        unspent_explanation, overspend_explanation, refund_status, refund_evidence_paths, refund_not_required_reason,
         requisition:staff_requisitions!staff_requisition_usage_reports_requisition_id_fkey (
           requisition_code, title, category, amount, approved_amount, requester_name, cfo_decided_at
         )
@@ -91,6 +117,16 @@ export function RequisitionUsageReportsReview() {
       return;
     }
     setRows((data ?? []) as unknown as ReportRow[]);
+    const ids = (data ?? []).map((r: any) => r.requisition_id);
+    if (ids.length) {
+      const { data: defs } = await supabase
+        .from('staff_requisition_usage_report_deferrals')
+        .select('requisition_id')
+        .in('requisition_id', ids);
+      const c: Record<string, number> = {};
+      (defs || []).forEach((d) => { c[d.requisition_id] = (c[d.requisition_id] || 0) + 1; });
+      setDeferCounts(c);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -127,32 +163,63 @@ export function RequisitionUsageReportsReview() {
     if (!error && data?.url) window.open(data.url, '_blank');
   };
 
-  const decide = async (mode: 'accept' | 'clarify') => {
+  const recordReview = async (decision: 'verify_amount' | 'accept_discrepancy' | 'request_clarification' | 'require_refund') => {
+    if (!detail) return false;
+    const verified = verifiedTotal === '' ? null : Number(verifiedTotal);
+    const { error } = await (supabase.rpc as any)('review_requisition_usage_report', {
+      p_report_id: detail.id, p_decision: decision, p_note: note.trim(), p_verified_receipt_total: verified,
+    });
+    if (error) { toast.error('Could not record the review', { description: error.message }); return false; }
+    return true;
+  };
+
+  const decide = async (mode: 'accept' | 'clarify' | 'refund' | 'verify') => {
     if (!detail) return;
-    if (mode === 'clarify' && note.trim().length < 10) {
-      toast.error('Please write at least 10 characters explaining what is unclear.');
+    if ((mode !== 'accept' || detail.discrepancy_flag) && note.trim().length < 10) {
+      toast.error('Please write a note of at least 10 characters.');
       return;
     }
-    setSaving(mode);
-    const { error } = await supabase
-      .from('staff_requisition_usage_reports')
-      .update({
-        review_status: mode === 'accept' ? 'accepted' : 'clarification_requested',
-        reviewed_by: user?.id ?? null,
-        reviewed_at: new Date().toISOString(),
-        review_note: note.trim() || null,
-      })
-      .eq('id', detail.id);
+    if (mode === 'verify' && verifiedTotal === '') { toast.error('Enter the verified receipt total.'); return; }
+    setSaving(mode === 'accept' ? 'accept' : 'clarify');
+    if (mode === 'verify') {
+      const ok = await recordReview('verify_amount');
+      setSaving(null);
+      if (ok) { toast.success('Verified receipt total recorded'); setVerifiedTotal(''); void loadReviews(detail.id); }
+      return;
+    }
+    if (detail.discrepancy_flag || mode === 'refund') {
+      const ok = await recordReview(mode === 'accept' ? 'accept_discrepancy' : mode === 'refund' ? 'require_refund' : 'request_clarification');
+      if (!ok) { setSaving(null); return; }
+    }
+    let error: { message: string } | null = null;
+    if (mode === 'accept' || !detail.discrepancy_flag && mode === 'clarify') {
+      ({ error } = await supabase
+        .from('staff_requisition_usage_reports')
+        .update({
+          review_status: mode === 'accept' ? 'accepted' : 'clarification_requested',
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
+          review_note: note.trim() || null,
+        })
+        .eq('id', detail.id));
+    }
     setSaving(null);
     if (error) {
       toast.error('Could not save your decision', { description: error.message });
       return;
     }
-    toast.success(mode === 'accept' ? 'Report accepted' : 'Clarification requested');
+    toast.success(mode === 'accept' ? 'Report accepted' : mode === 'refund' ? 'Refund required — requester asked to follow up' : 'Clarification requested');
     setDetail(null);
     setNote('');
     void load();
   };
+
+  const loadReviews = useCallback(async (reportId: string) => {
+    const { data } = await (supabase.from as any)('staff_requisition_usage_report_reviews')
+      .select('id, decision, note, verified_receipt_total, created_at').eq('report_id', reportId).order('created_at');
+    setReviews((data ?? []) as ReviewEntry[]);
+  }, []);
+  useEffect(() => { if (detail) void loadReviews(detail.id); else setReviews([]); }, [detail, loadReviews]);
 
   return (
     <Card className="rounded-2xl">
@@ -228,6 +295,9 @@ export function RequisitionUsageReportsReview() {
                           {r.requisition?.requisition_code}
                           {r.requisition?.category ? ` • ${r.requisition.category}` : ''}
                         </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Approved {fmtDate(r.requisition?.cfo_decided_at ?? null)} • Due {r.requisition?.cfo_decided_at ? fmtDate(new Date(new Date(r.requisition.cfo_decided_at).getTime() + 36 * 3600 * 1000).toISOString()) : '—'} • Deferred {deferCounts[r.requisition_id] || 0} of 2
+                        </p>
                       </td>
                       <td className="py-5 pr-4 first:pl-4 text-right tabular-nums">{formatUGX(approved)}</td>
                       <td className="py-5 pr-4 first:pl-4 text-right tabular-nums">{formatUGX(Number(r.amount_used))}</td>
@@ -255,6 +325,9 @@ export function RequisitionUsageReportsReview() {
                         <Badge variant="outline" className={STATUS_META[r.review_status].className}>
                           {STATUS_META[r.review_status].label}
                         </Badge>
+                        {r.discrepancy_flag && (
+                          <Badge variant="outline" className="ml-1 border-destructive/30 bg-destructive/10 text-destructive">Needs review</Badge>
+                        )}
                       </td>
                       <td className="py-5 pr-4">
                         <Button
@@ -313,6 +386,54 @@ export function RequisitionUsageReportsReview() {
                   </div>
                 </div>
 
+                {(() => {
+                  const appr = approvedOf(detail);
+                  const rec = detail.receipt_total;
+                  return (
+                    <div className="space-y-2 rounded-xl border p-3 text-sm" aria-label="Amount matching">
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div><p className="text-xs text-muted-foreground">Approved</p><p className="font-semibold">{formatUGX(appr)}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Used</p><p className="font-semibold">{formatUGX(Number(detail.amount_used))}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Receipts</p><p className="font-semibold">{rec == null ? 'Not entered' : formatUGX(Number(rec))}</p></div>
+                      </div>
+                      {rec != null && (
+                        <p className="text-xs text-muted-foreground">
+                          Receipts − used: {formatUGX(Number(rec) - Number(detail.amount_used))} · Approved − receipts: {formatUGX(appr - Number(rec))}
+                        </p>
+                      )}
+                      {detail.discrepancy_flag && (
+                        <div className="flex flex-wrap gap-1">
+                          {(detail.discrepancy_reasons ?? []).map((r) => (
+                            <Badge key={r} variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive">{REASON_LABEL[r] ?? r}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      {detail.receipt_mismatch_explanation && <p><span className="font-medium">Mismatch:</span> {detail.receipt_mismatch_explanation}</p>}
+                      {detail.overspend_explanation && <p><span className="font-medium">Overspend:</span> {detail.overspend_explanation}</p>}
+                      {detail.unspent_explanation && <p><span className="font-medium">Unspent balance:</span> {detail.unspent_explanation}</p>}
+                      {detail.refund_status && <p><span className="font-medium">Refund:</span> {REFUND_LABEL[detail.refund_status]}{detail.refund_not_required_reason ? ` — ${detail.refund_not_required_reason}` : ''}</p>}
+                      {(detail.refund_evidence_paths ?? []).map((p, i) => (
+                        <Button key={p} variant="outline" size="sm" onClick={() => void openReceipt(detail, p)}><Paperclip className="mr-1 h-4 w-4" />Refund proof {i + 1}</Button>
+                      ))}
+                      <div className="flex flex-wrap items-end gap-2 pt-1">
+                        <div className="space-y-1">
+                          <Label htmlFor="verified-total" className="text-xs">Verified receipt total (UGX)</Label>
+                          <Input id="verified-total" inputMode="numeric" className="h-8 w-40" value={verifiedTotal}
+                            onChange={(e) => setVerifiedTotal(e.target.value.replace(/[^0-9.]/g, ''))} />
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => void decide('verify')} disabled={saving !== null}>Record verification</Button>
+                      </div>
+                      {reviews.length > 0 && (
+                        <ul className="space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                          {reviews.map((v) => (
+                            <li key={v.id}>{fmtDate(v.created_at)} · {DECISION_LABEL[v.decision] ?? v.decision}{v.verified_receipt_total != null ? ` (${formatUGX(Number(v.verified_receipt_total))})` : ''} — {v.note}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {(detail.attachment_paths?.length ?? 0) > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {detail.attachment_paths!.map((path, i) => (
@@ -369,11 +490,16 @@ export function RequisitionUsageReportsReview() {
                     : <HelpCircle className="mr-1 h-4 w-4" />}
                   Request clarification
                 </Button>
+                {(detail.discrepancy_flag || (detail.unspent_explanation ?? '') !== '') && (
+                  <Button variant="outline" onClick={() => void decide('refund')} disabled={saving !== null}>
+                    Require refund
+                  </Button>
+                )}
                 <Button onClick={() => void decide('accept')} disabled={saving !== null}>
                   {saving === 'accept'
                     ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                     : <CheckCircle2 className="mr-1 h-4 w-4" />}
-                  Accept report
+                  {detail.discrepancy_flag ? 'Accept discrepancy' : 'Accept report'}
                 </Button>
               </DialogFooter>
             </>

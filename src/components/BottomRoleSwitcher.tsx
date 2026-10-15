@@ -31,8 +31,8 @@ interface BottomRoleSwitcherProps {
 const PUBLIC_ROLES: { role: AppRole; label: string; icon: typeof Home }[] = [
   { role: "tenant", label: "Tenant", icon: Home },
   { role: "agent", label: "Agent", icon: Users },
-  { role: "supporter", label: "Funder", icon: Wallet },
-  { role: "landlord", label: "Owner", icon: Building2 },
+  { role: "supporter", label: "Partner", icon: Wallet },
+  { role: "landlord", label: "Lnadlord", icon: Building2 },
 ];
 
 const GATED_ROLES: AppRole[] = ["tenant", "agent", "landlord"];
