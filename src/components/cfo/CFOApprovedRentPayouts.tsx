@@ -72,18 +72,51 @@ export function CFOApprovedRentPayouts() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-approved-rent-payouts', tab, bounds?.[0]?.toISOString() ?? null],
     queryFn: async () => {
+      // Paid = Financial Operations has disbursed the landlord payout
+      // (landlord_payouts.finops_disbursed_at). CFO approval/funding alone stays Pending.
       const cols = 'id, status, rent_amount, tenant_id, agent_id, landlord_id, coo_reviewed_at, cfo_reviewed_at, funded_at, created_at, payout_transaction_reference';
-      let q = supabase.from('rent_requests').select(cols).limit(bounds ? 1000 : 200);
-      if (tab === 'pending') {
-        q = q.eq('status', 'coo_approved').order('coo_reviewed_at', { ascending: false, nullsFirst: false });
-        if (bounds) q = q.gte('coo_reviewed_at', bounds[0].toISOString()).lt('coo_reviewed_at', bounds[1].toISOString());
-      } else {
-        q = q.in('status', PAID_STATUSES).not('funded_at', 'is', null).order('funded_at', { ascending: false });
-        if (bounds) q = q.gte('funded_at', bounds[0].toISOString()).lt('funded_at', bounds[1].toISOString());
+      const lookbackStart = bounds ? new Date(bounds[0].getTime() - 60 * DAY).toISOString() : null;
+      const queries = [
+        (() => {
+          let q = supabase.from('rent_requests').select(cols).eq('status', 'coo_approved')
+            .order('coo_reviewed_at', { ascending: false, nullsFirst: false }).limit(1000);
+          return q;
+        })(),
+        (() => {
+          let q = supabase.from('rent_requests').select(cols).in('status', PAID_STATUSES).not('funded_at', 'is', null)
+            .order('funded_at', { ascending: false }).limit(bounds ? 1000 : 500);
+          if (lookbackStart) q = q.gte('funded_at', lookbackStart);
+          return q;
+        })(),
+      ];
+      const [a, b] = await Promise.all(queries);
+      if (a.error) throw a.error;
+      if (b.error) throw b.error;
+      const funded = (b.data || []) as Row[];
+      const paidAt = new Map<string, string>();
+      const ids = funded.map(r => r.id);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data, error } = await supabase.from('landlord_payouts')
+          .select('rent_request_id, finops_disbursed_at')
+          .in('rent_request_id', ids.slice(i, i + 200))
+          .not('finops_disbursed_at', 'is', null);
+        if (error) throw error;
+        (data || []).forEach((p: any) => {
+          const prev = paidAt.get(p.rent_request_id);
+          if (!prev || p.finops_disbursed_at > prev) paidAt.set(p.rent_request_id, p.finops_disbursed_at);
+        });
       }
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as Row[];
+      const inB = (s: string | null) => !bounds || (!!s && new Date(s) >= bounds[0] && new Date(s) < bounds[1]);
+      if (tab === 'paid') {
+        return funded.filter(r => paidAt.has(r.id))
+          .map(r => ({ ...r, paid_at: paidAt.get(r.id)! }))
+          .filter(r => inB(r.paid_at))
+          .sort((x, y) => (y.paid_at > x.paid_at ? 1 : -1));
+      }
+      const pending = [...((a.data || []) as Row[]), ...funded.filter(r => !paidAt.has(r.id))]
+        .map(r => ({ ...r, paid_at: null }))
+        .filter(r => inB(r.coo_reviewed_at));
+      return pending.sort((x, y) => ((y.coo_reviewed_at || '') > (x.coo_reviewed_at || '') ? 1 : -1));
     },
   });
 
