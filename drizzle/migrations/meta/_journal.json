@@ -4040,6 +4040,13 @@
       "when": 1792052508541,
       "tag": "0576_food_publish_shows_today_and_daily_meals",
       "breakpoints": true
+    },
+    {
+      "idx": 577,
+      "version": "7",
+      "when": 1792055026250,
+      "tag": "0577_partner_ops_invite_visibility",
+      "breakpoints": true
     }
   ]
 }
