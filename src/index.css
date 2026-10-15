@@ -31,14 +31,8 @@ html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font
   100% { opacity: 1; transform: scale(1); }
 }
 /* Motion is opt-in: only users who have not asked for reduced motion get it
-   (WCAG 2.3.3 / prefers-reduced-motion). Without the media match the bubbles
-   simply stay hidden and the bar is static.
-   - linear + 8s/10s: constant speed, no acceleration in a 14px bar.
-   - 3 cycles then rest: auto-playing decoration must not run forever
-     (WCAG 2.2.2 Pause, Stop, Hide). `both` fills opacity 0 after the last
-     cycle and holds each bubble hidden through its start delay.
-   - no permanent will-change: transform/opacity animations are promoted to
-     their own layer by the browser only while they run. */
+   (WCAG 2.3.3 / prefers-reduced-motion). Without the media match the blocks
+   simply appear in place, with no fade or scale. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes mock-bubble-in {
     0% { opacity: 0; transform: translate3d(0, 10px, 0); }
