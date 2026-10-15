@@ -128,3 +128,80 @@
   .signature-rent-heading { font-size: 30px; }
   .signature-rent-card .signature-rent-post { padding-left: 10px; font-size: 12px; }
 }
+
+/* --- "How do I earn?" dialog: compact, violet-brand, never full width --- */
+
+.signature-earnings {
+  border: 0;
+  box-shadow: 0 24px 60px rgb(40 6 72 / 0.28);
+}
+
+.signature-earnings-hero {
+  background: var(--signature-rent-background);
+  color: hsl(var(--signature-rent-foreground));
+  padding: 22px 24px 20px;
+}
+
+.signature-earnings-eyebrow {
+  color: hsl(var(--signature-rent-accent));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.signature-earnings-list { padding: 8px 14px; }
+
+.signature-earnings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 8px;
+}
+
+.signature-earnings-row + .signature-earnings-row {
+  border-top: 1px solid hsl(var(--border));
+}
+
+.signature-earnings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: hsl(var(--signature-rent-accent) / 0.14);
+  color: hsl(var(--signature-rent-button-text));
+}
+
+.signature-earnings-step {
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.signature-earnings-note {
+  display: flex;
+  gap: 8px;
+  margin: 4px 14px 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* Close X sits over the violet hero — keep it legible there */
+.signature-earnings > button {
+  color: hsl(var(--signature-rent-foreground) / 0.85);
+}
+
+.signature-earnings > button:hover,
+.signature-earnings > button:active {
+  color: hsl(var(--signature-rent-foreground));
+  background: hsl(var(--signature-rent-foreground) / 0.14);
+}
