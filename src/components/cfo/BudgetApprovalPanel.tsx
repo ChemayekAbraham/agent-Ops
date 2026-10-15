@@ -22,11 +22,13 @@ import {
   type BudgetConsolidation,
 } from '@/hooks/useDepartmentBudgets';
 import BudgetReviewQueue from '@/components/budget/BudgetReviewQueue';
+import BudgetDeclinesList from '@/components/cfo/BudgetDeclinesList';
 
-type View = 'queue' | 'consolidation' | 'cycles';
+type View = 'queue' | 'declined' | 'consolidation' | 'cycles';
 
 const VIEWS: { id: View; label: string }[] = [
   { id: 'queue', label: 'Department budgets' },
+  { id: 'declined', label: 'Declined budgets' },
   { id: 'consolidation', label: 'Consolidated budget' },
   { id: 'cycles', label: 'Budget cycles' },
 ];
@@ -84,6 +86,7 @@ export default function BudgetApprovalPanel() {
       )}
 
       {view === 'queue' && <BudgetReviewQueue cycleId={selectedCycleId} stage="cfo" />}
+      {view === 'declined' && <BudgetDeclinesList cycleId={selectedCycleId} />}
 
       {view === 'consolidation' && (
         <div className="space-y-3">
