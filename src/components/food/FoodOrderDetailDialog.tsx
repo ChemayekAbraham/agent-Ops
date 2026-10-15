@@ -1,14 +1,19 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Wallet } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { OrderStatusPair } from '@/components/food/FoodStatusBadges';
 import {
   useFoodOrderEvents, useFoodExceptions, useRaiseFoodException, formatUgx,
+  useConfirmFoodReceipt, usePayFoodOrder,
   FOOD_FULFILMENT_LABEL, FOOD_EXCEPTION_KINDS, FOOD_EXCEPTION_KIND_LABEL,
   FOOD_MAX_EXCEPTION_NOTE,
   type FoodOrderDetail, type FoodFulfilmentStatus, type FoodExceptionKind,
@@ -41,6 +46,9 @@ export default function FoodOrderDetailDialog({
   const raise = useRaiseFoodException();
   const [kind, setKind] = useState<FoodExceptionKind | ''>('');
   const [note, setNote] = useState('');
+  const confirmReceipt = useConfirmFoodReceipt();
+  const pay = usePayFoodOrder();
+  const [confirmPay, setConfirmPay] = useState(false);
 
   if (!order) return null;
 
