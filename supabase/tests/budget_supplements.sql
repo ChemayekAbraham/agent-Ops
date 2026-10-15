@@ -6,7 +6,6 @@ DECLARE
   v_cfo uuid; v_head uuid; v_dept uuid; v_call uuid; v_sub uuid; v_line uuid; v_line2 uuid; v_pending_sub uuid; v_pending_line uuid;
   v_s1 jsonb; v_s2 jsonb; v_s3 jsonb; v_gl_before bigint; v_gl_after bigint; v_w_before text; v_w_after text;
   v_r record; v_fail text := ''; v_ok int := 0; v_err text;
-  PROCEDURE_DUMMY int;
 BEGIN
   SELECT ur.user_id INTO v_cfo FROM user_roles ur
    WHERE ur.role = 'cfo' AND public.is_cfo_approver(ur.user_id) AND public.is_budget_reviewer(ur.user_id) LIMIT 1;
