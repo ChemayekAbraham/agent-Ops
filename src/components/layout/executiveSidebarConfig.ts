@@ -219,7 +219,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Revenue & Expenses', icon: TrendingUp, id: 'revenue-expenses' },
         { label: 'Merchant Requisition Report', icon: FileText, id: 'merchant-requisition-report' },
         { label: 'Approved Requisitions', icon: FileText, id: 'approved-requisitions' },
-        { label: 'Employee Requisition Report', icon: FileText, id: 'employee-requisition-report' },
         { label: 'Expense Report', icon: FileText, id: 'expense-report' },
         { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
         { label: 'Payout Reports', icon: Banknote, id: 'payout-reports' },
