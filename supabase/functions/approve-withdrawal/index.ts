@@ -4029,6 +4029,8 @@ Deno.serve(async (req) => {
         newBalance !== null
           ? ` Balance UGX ${Math.round(newBalance).toLocaleString()}.`
           : "";
+      void paidAtLabel;
+      void customerFirstName;
       void balanceLine;
       void bankLine;
       void merchantLine;

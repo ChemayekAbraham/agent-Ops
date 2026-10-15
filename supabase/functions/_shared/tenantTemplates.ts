@@ -116,11 +116,15 @@ export function renderTemplate(
 }
 
 /**
- * One SMS segment is 160 GSM-7 characters, and Yoola bills per segment. The
- * sender appends the support footer ("\nHelp: <phone>", ~17 chars) after
- * rendering, so the template body gets whatever is left, with slack.
+ * One SMS segment is 160 GSM-7 characters, and Yoola bills per segment. After
+ * rendering, the sender appends "
+Help: <phone>" (17 chars) and the sign-up
+ * line "
+Join Welile: welileapp.com/wjoin" (33 chars), so the template body
+ * gets 160 - 50 = 110, minus a little slack for a longer SUPPORT_PHONE or
+ * SIGNUP_SHORT_URL override.
  */
-export const SMS_BODY_BUDGET = 140;
+export const SMS_BODY_BUDGET = 106;
 
 /**
  * Optional fragments, lowest priority first. When a rendered SMS exceeds the
