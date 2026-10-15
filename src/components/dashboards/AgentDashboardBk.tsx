@@ -1109,16 +1109,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         headerActions={<AgentNotificationBell userId={user.id} />}
       />
 
-      <div className={cn(
-        "agent-dashboard-scroll flex-1 overflow-x-hidden min-h-0",
-        activeTab === 'home'
-          ? "flex flex-col overflow-hidden pb-[calc(76px+env(safe-area-inset-bottom,0px))]"
-          : "overflow-y-auto pb-nav"
-      )}>
+      <div className="agent-dashboard-scroll flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain min-h-0 pb-nav">
         <main className={cn(
           "agent-dashboard-main w-full min-w-0 px-4 max-w-lg mx-auto",
           activeTab === 'home'
-            ? "flex-1 flex flex-col min-h-0 pt-3 pb-1 space-y-2.5"
+            ? "pt-3 pb-16 space-y-2.5"
             : "pt-5 pb-16 space-y-5"
         )}>
         {/* Offline Notice */}
@@ -1242,7 +1237,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         </div>
 
         {/* Swipe surface — left/right gestures navigate adjacent hub tabs */}
-        <div {...swipeHandlers} className={cn("touch-pan-y", activeTab === 'home' && "flex-1 flex flex-col min-h-0")}>
+        <div {...swipeHandlers} className="touch-pan-y">
         {/* === HOME TAB === Most-used actions, at-a-glance */}
         {activeTab === 'home' && isMerchant && isCashoutAgent && (
           <div className={cn("space-y-4", tabAnimClass)}>
@@ -1264,10 +1259,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           </div>
         )}
         {activeTab === 'home' && !isMerchant && (
-          <div className={cn("flex-1 flex flex-col min-h-0 space-y-2.5", tabAnimClass)}>
+          <div className={cn("space-y-2.5", tabAnimClass)}>
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
-              <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex flex-col space-y-2">
                 <LastWeekWinnerOverlay />
                 <WeeklyChampionTeamDialog />
                 <TenantLocationCorrectionPopup agentId={user.id} />
@@ -1276,7 +1271,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 <AgentPostRentRequestCard
                   restricted={isMerchant}
                   onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="flex-1 w-full min-h-0"
+                  className="w-full min-h-[300px] sm:min-h-[360px]"
                 />
                 <p 
                   onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
