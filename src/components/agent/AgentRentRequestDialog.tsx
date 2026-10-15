@@ -2343,7 +2343,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setNoSmartphone(false);
     setGpsLocation(null);
     setGpsLoading(false);
-    housePhotos.forEach(p => URL.revokeObjectURL(p.preview));
+    // Photos can be taken out of slot order, so the array may hold undefined
+    // entries (`[...prev]` turns holes into undefined). Skip them.
+    housePhotos.forEach(p => { if (p) URL.revokeObjectURL(p.preview); });
     setHousePhotos([]);
     setRenewDocs(null);
     setRenewDocsLoading(false);
