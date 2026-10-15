@@ -211,6 +211,25 @@ export function RequisitionUsageReportGate() {
 
   const deferCount = current ? deferrals[current.id] || 0 : 0;
   const limitReached = deferCount >= MAX_DEFERRALS;
+  const isAcked = current ? !!acknowledged[current.id] : false;
+
+  // Record each time a notice is actually shown (server de-duplicates per hour).
+  useEffect(() => {
+    if (!open || !current) return;
+    void (supabase.rpc as any)('log_usage_report_notice_event', { p_requisition_id: current.id, p_event: 'shown' });
+  }, [open, current?.id, deferCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const proceedToForm = async () => {
+    if (!current) return;
+    if (limitReached && !isAcked) {
+      const { error } = await (supabase.rpc as any)('log_usage_report_notice_event', {
+        p_requisition_id: current.id, p_event: 'acknowledged',
+      });
+      if (error) { toast.error('Could not record acknowledgement', { description: error.message }); return; }
+      setAcknowledged((a) => ({ ...a, [current.id]: true }));
+    }
+    setShowForm(true);
+  };
 
   const deferReport = async () => {
     if (!current) return;
@@ -341,6 +360,17 @@ export function RequisitionUsageReportGate() {
               {MAX_DEFERRALS_MSG} Please submit your usage report now.
             </p>
           )}
+          {limitReached && !isAcked && !showForm && (
+            <label className="flex items-start gap-2 rounded-xl border p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={ackChecked}
+                onChange={(e) => setAckChecked(e.target.checked)}
+              />
+              I acknowledge this is my final notice and I will submit the accountability report now.
+            </label>
+          )}
 
           {showDefer && !limitReached && !showForm && (
             <div className="space-y-2">
@@ -394,7 +424,14 @@ export function RequisitionUsageReportGate() {
               Submit report
             </Button>
           ) : (
-            !showDefer && <Button onClick={() => setShowForm(true)}>Submit Usage Report</Button>
+            !showDefer && (
+              <Button
+                disabled={limitReached && !isAcked && !ackChecked}
+                onClick={() => void proceedToForm()}
+              >
+                {limitReached && !isAcked ? 'Acknowledge and continue' : 'Submit Usage Report'}
+              </Button>
+            )
           )}
         </DialogFooter>
       </DialogContent>
