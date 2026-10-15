@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole, useAuth } from '@/hooks/useAuth';
@@ -405,6 +405,24 @@ const DashboardHeader = memo(function DashboardHeader({
                           <TrendingUp className="h-4 w-4" style={{ color: '#7214c9' }} />
                         </div>
                         <span className="truncate">More</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'league' }));
+                        navigate('/dashboard/agent?tab=league');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Trophy className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Collection League</span>
                       </div>
                     </DropdownMenuItem>
                   )}

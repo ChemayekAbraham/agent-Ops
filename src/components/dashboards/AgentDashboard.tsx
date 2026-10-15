@@ -547,7 +547,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as AgentHubTab | null;
   const initialTab: AgentHubTab =
-    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents'].includes(tabParam)
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(tabParam)
       ? (tabParam as string) === 'more' ? 'grow' : tabParam
       : 'home';
   const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
@@ -555,7 +555,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab') as AgentHubTab | null;
-    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents'].includes(currentTab)) {
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(currentTab)) {
       const normalized = (currentTab as string) === 'more' ? 'grow' : currentTab;
       if (normalized !== activeTab) {
         setActiveTab(normalized);
@@ -568,7 +568,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
-      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents'].includes(e.detail)) {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league'].includes(e.detail)) {
         setActiveTab(e.detail);
         if (e.detail === 'home') {
           setMenuOpen(false);
@@ -648,8 +648,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     } else if (rentPosterOpen) {
       userBehaviourTracker.setSection('agent-rent-poster', 'agent');
     } else {
-      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center)
-      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab;
+      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center, league -> collection-league)
+      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab === 'league' ? 'collection-league' : activeTab;
       userBehaviourTracker.setSection(`agent-${tabName}`, 'agent');
     }
   }, [
@@ -739,6 +739,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         tenants: 'Tenants',
         grow: 'More',
         subagents: 'Sub Agents',
+        league: 'Collection League',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -1223,7 +1224,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <span>Back to Home</span>
             </button>
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : 'Agent Hub'}
+              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : 'Agent Hub'}
             </span>
           </div>
         )}
@@ -1257,9 +1258,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         )}
         {activeTab === 'home' && !isMerchant && (
           <div className={cn("flex-1 flex flex-col min-h-0 space-y-2.5", tabAnimClass)}>
-            {/* Collection League — weekly team competition (active agents only) */}
-            {!isMerchant && (repayingTenantLoading || hasRepayingTenant) && <AgentCollectionLeagueCard />}
-
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
               <div className="flex-1 flex flex-col min-h-0">
@@ -1775,6 +1773,28 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <MyParentAgentCard agentId={user.id} />
             <NationalIdGroupCard />
             <SubAgentsPanel agentId={user.id} onInviteSubAgent={handleInviteSubAgent} />
+          </div>
+        )}
+
+        {/* === COLLECTION LEAGUE TAB === Team rankings and weekly performance */}
+        {activeTab === 'league' && !isMerchant && (
+          <div className={cn("space-y-4 pb-24", tabAnimClass)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Collection League</h2>
+                <p className="text-xs text-muted-foreground">Weekly team performance and rankings</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { hapticTap(); navigate('/agent/collection-league'); }}
+                className="h-9 px-3 text-xs font-bold rounded-xl gap-1.5"
+              >
+                <Trophy className="h-3.5 w-3.5 text-primary" />
+                Full Standings
+              </Button>
+            </div>
+            <AgentCollectionLeagueCard />
           </div>
         )}
 
