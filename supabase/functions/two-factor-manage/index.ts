@@ -6,6 +6,7 @@
 //   * Every other device session record is dropped; the client additionally
 //     revokes the other auth sessions with signOut({ scope: 'others' }).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isStaffUser } from "../_shared/staffMfa.ts";
 import { isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
 
 const corsHeaders = {
@@ -111,6 +112,9 @@ Deno.serve(async (req) => {
     }
 
     if (action === "disable") {
+      if (await isStaffUser(admin, user.id)) {
+        return json({ error: "Two-step verification is required for staff accounts and cannot be turned off." }, 403);
+      }
       // Only a trusted device may switch protection off.
       const { data: trusted } = await admin
         .from("user_2fa_trusted_devices")
