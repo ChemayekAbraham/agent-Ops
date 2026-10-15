@@ -48,6 +48,15 @@
     --sidebar-ring: 271 81% 56%;
     --gradient-start: 271 81% 56%;
     --gradient-end: 271 81% 45%;
+    --signature-rent-background: linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%);
+    --signature-rent-foreground: 0 0% 100%;
+    --signature-rent-subtle: 274 100% 95%;
+    --signature-rent-accent: 284 100% 90%;
+    --signature-rent-ring: 271 100% 92%;
+    --signature-rent-button-text: 271 81% 45%;
+    --signature-rent-button-icon: 272 75% 92%;
+    --signature-rent-shadow: 0 12px 32px rgb(66 17 104 / 0.18);
+    --signature-rent-button-shadow: 0 7px 17px rgb(40 6 72 / 0.14);
   }
 
   .dark {

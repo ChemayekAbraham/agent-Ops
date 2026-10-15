@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
@@ -10,12 +10,15 @@ import { UserAvatar } from '@/components/UserAvatar';
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { BadgeCheck } from 'lucide-react';
+import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 
-// Empty shell: top section (header with avatar) + bottom role switcher only.
+const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+
 export default function AgentDashboardNew() {
   const { user, signOut, roles, switchRole } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
+  const [rentRequestOpen, setRentRequestOpen] = useState(false);
 
   const handleRoleChange = useCallback((newRole: AppRole) => {
     if (!roles.includes(newRole)) return;
@@ -44,7 +47,15 @@ export default function AgentDashboardNew() {
           </div>
           {user && <div className="shrink-0"><AgentNotificationBell userId={user.id} /></div>}
         </div>
+        <div className="mt-5">
+          <SignatureRentRequestCard fullName={profile?.full_name} onPostRequest={() => setRentRequestOpen(true)} />
+        </div>
       </main>
+      {rentRequestOpen && (
+        <Suspense fallback={null}>
+          <AgentRentRequestDialog open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+        </Suspense>
+      )}
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />
     </div>
   );
