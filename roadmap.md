@@ -36,3 +36,5 @@
 - [x] Agent dashboard preview: header profile circle now shows the signed-in user's photo, with initials fallback when no photo or the saved photo link is dead; verified signed-in.
 - [x] Agent dashboard preview: "Collections due today" card now lists the real tenants still owing today (name, days behind, amount due) from the same server read the Collect dialog uses; empty state only when genuinely nothing is due. Verified signed-in: SSEMANDO MATHIAS, UGX 4,767, 8 days behind — matches the Tenants figures.
 - [x] Agent dashboard preview: removed the "Today's Capacity" card and its now-unused figures/styles; the purple "Today's rent" card, shortcuts, "Collections due today" and calendar remain. Verified signed-in, no overflow, build OK.
+
+- [ ] Replace the selected supporter agreement with the approved partner contract and verify review/download without accepting or moving money.
