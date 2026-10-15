@@ -21,7 +21,9 @@ const rpcArgs = ({ from, to, freq }: NewTenantFirst7Args) => ({
 });
 
 // The functions are newer than the generated Supabase types, hence the cast. Everything returned is normalised in lib/newTenantFirst7.
-const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+// Called as supabase.rpc(...) so the client stays `this` (a detached reference throws "Cannot read properties of undefined (reading 'rest')").
+const rpc = (fn: string, args: Record<string, unknown>) =>
+  (supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(fn, args);
 
 /**
  * Read-only: the plans first paid to the landlord in the range with their seven days (am_new_tenant_first7_v2), and the same plans

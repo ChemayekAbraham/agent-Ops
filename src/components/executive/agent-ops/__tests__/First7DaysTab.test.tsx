@@ -7,7 +7,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const rpcMock = vi.fn();
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => rpcMock(...a) } }));
+// like the real client, rpc only works when called on the client itself (a detached call has no `this`)
+vi.mock('@/integrations/supabase/client', () => {
+  const client = {
+    rest: {},
+    rpc(this: { rest?: unknown } | undefined, ...a: unknown[]) {
+      if (!this?.rest) throw new TypeError("Cannot read properties of undefined (reading 'rest')");
+      return rpcMock(...a);
+    },
+  };
+  return { supabase: client };
+});
 
 import { First7DaysTab } from '../First7DaysTab';
 import { kampalaToday, addDays } from '@/lib/newTenantFirst7';
