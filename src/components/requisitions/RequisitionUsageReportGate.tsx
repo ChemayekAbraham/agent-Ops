@@ -70,17 +70,23 @@ export function RequisitionUsageReportGate() {
   const [deferError, setDeferError] = useState<string | null>(null);
   const loadedOnceRef = useRef(false);
 
-  const pickReceipt = (file: File | null) => {
-    if (!file) { setReceipt(null); return; }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.error('Attach a PDF or a photo (JPG, PNG or WebP)');
-      return;
+  const pickReceipts = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`"${file.name}" is not a PDF or photo (JPG, PNG or WebP)`);
+        continue;
+      }
+      if (file.size > MAX_BYTES) {
+        toast.error(`"${file.name}" is larger than 10MB`);
+        continue;
+      }
+      setReceipts((prev) => [...prev, file]);
     }
-    if (file.size > MAX_BYTES) {
-      toast.error('That file is larger than 10MB');
-      return;
-    }
-    setReceipt(file);
+  };
+
+  const removeReceipt = (index: number) => {
+    setReceipts((prev) => prev.filter((_, i) => i !== index));
   };
 
   const current = pending[0] ?? null;
