@@ -18,7 +18,7 @@ import { Banknote, CalendarIcon, CheckCircle, Clock, Download, Loader2, X } from
 /**
  * Read-only list of rent requests that reached the CFO payout stage.
  * Pending = fully approved, money not yet sent to the agent's wallet (float).
- * Paid    = the agent's float was funded (`funded_at` is stamped by
+ * Paid    = Financial Operations disbursed the payout (`landlord_payouts.finops_disbursed_at`; was funded_at,
  *           fund-agent-landlord-float). Status flips live via realtime.
  */
 interface Row {
@@ -228,7 +228,7 @@ export function CFOApprovedRentPayouts() {
                     <TableHead>Landlord</TableHead>
                     <TableHead className="text-right">Rent amount</TableHead>
                     <TableHead>Approved</TableHead>
-                    <TableHead>Paid to agent wallet</TableHead>
+                    <TableHead>Paid by Financial Operations</TableHead>
                     <TableHead>Reference</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
