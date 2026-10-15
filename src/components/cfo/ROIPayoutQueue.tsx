@@ -202,6 +202,10 @@ export function ROIPayoutQueue() {
           },
         });
         approved++;
+      };
+      const CONCURRENCY = 5;
+      for (let i = 0; i < ops.length; i += CONCURRENCY) {
+        await Promise.all(ops.slice(i, i + CONCURRENCY).map(processOne));
       }
       return { approved, failed, lastError, total: ops.length };
     },
