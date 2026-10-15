@@ -1126,7 +1126,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             </div>
 
-            <TreasuryImpactBanner payoutAmount={totalRent} />
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
