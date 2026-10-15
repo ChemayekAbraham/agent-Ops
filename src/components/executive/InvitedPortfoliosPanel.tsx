@@ -208,7 +208,7 @@ export function InvitedPortfoliosPanel() {
     staleTime: 15000,
   });
 
-  // Client-side search + filter (list is capped at 200 rows on the server).
+  // Client-side search + filter (the server caps the list at 2,000 newest rows).
   const filtered = useMemo(() => {
     const rows = data || [];
     const q = search.trim().toLowerCase();
