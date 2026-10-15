@@ -18619,6 +18619,7 @@ export type Database = {
           description: string | null
           id: string
           image_path: string | null
+          is_daily: boolean
           name: string
           price_ugx: number
           status: string
@@ -18632,6 +18633,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          is_daily?: boolean
           name: string
           price_ugx: number
           status?: string
@@ -18645,6 +18647,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_path?: string | null
+          is_daily?: boolean
           name?: string
           price_ugx?: number
           status?: string
@@ -62520,6 +62523,11 @@ export type Database = {
           lease_id: string
         }[]
       }
+      _food_default_period: { Args: never; Returns: string }
+      _food_list_meal_on_day: {
+        Args: { p_day: string; p_meal_id: string }
+        Returns: undefined
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -68032,6 +68040,7 @@ export type Database = {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
       }
+      food_roll_daily_menu: { Args: never; Returns: number }
       food_schedule_meal: {
         Args: {
           p_meal_id: string
@@ -68050,6 +68059,10 @@ export type Database = {
       food_set_fulfilment: {
         Args: { p_note?: string; p_order_id: string; p_to_status: string }
         Returns: Json
+      }
+      food_set_meal_daily: {
+        Args: { p_daily: boolean; p_meal_id: string }
+        Returns: undefined
       }
       food_set_meal_image: {
         Args: { p_image_path: string; p_meal_id: string; p_reason?: string }
