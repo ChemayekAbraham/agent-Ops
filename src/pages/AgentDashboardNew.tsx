@@ -20,6 +20,9 @@ export default function AgentDashboardNew() {
   const navigate = useNavigate();
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
 
+  const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'Agent';
+
+
   const handleRoleChange = useCallback((newRole: AppRole) => {
     if (!roles.includes(newRole)) return;
     switchRole(newRole);
