@@ -37,6 +37,7 @@ export default function AgentDashboardNew() {
         availableRoles={roles as AppRole[]}
         onRoleChange={handleRoleChange}
         onSignOut={signOut}
+        hideNotifications
         onMenuClick={() => setHubOpen(true)}
       />
       <AgentHubDrawer open={hubOpen} onClose={() => setHubOpen(false)} />
