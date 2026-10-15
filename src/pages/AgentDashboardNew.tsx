@@ -11,6 +11,7 @@ import AiIdButton from '@/components/ai-id/AiIdButton';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { BadgeCheck } from 'lucide-react';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
 
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
 
@@ -19,6 +20,7 @@ export default function AgentDashboardNew() {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'Agent';
 
@@ -36,7 +38,9 @@ export default function AgentDashboardNew() {
         availableRoles={roles as AppRole[]}
         onRoleChange={handleRoleChange}
         onSignOut={signOut}
+        onMenuClick={() => setHubOpen(true)}
       />
+      <AgentHubDrawer open={hubOpen} onClose={() => setHubOpen(false)} />
       <main className="min-h-[60vh] px-4 pt-4">
         <div className="flex items-center gap-3">
           <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} size="lg" />
