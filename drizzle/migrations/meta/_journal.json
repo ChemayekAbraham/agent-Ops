@@ -4012,6 +4012,13 @@
       "when": 1792046416817,
       "tag": "0572_assistant_visible_to_everyone",
       "breakpoints": true
+    },
+    {
+      "idx": 573,
+      "version": "7",
+      "when": 1792049624371,
+      "tag": "0573_hr_pay_bonus_pay_ceo_disburse",
+      "breakpoints": true
     }
   ]
 }
