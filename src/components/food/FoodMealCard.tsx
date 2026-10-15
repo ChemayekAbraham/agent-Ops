@@ -67,7 +67,11 @@ export default function FoodMealCard({
         hasDetails && 'cursor-pointer hover:border-primary/40',
       )}
     >
-      <div className="relative aspect-[16/7] w-full overflow-hidden rounded-xl bg-muted">
+      {/* The photo is sized by height, not by width, so it stays about half the
+          card whatever the screen: the text block below it is roughly the same
+          height, which puts the picture at ~50% of the card on phones and on
+          wide desktop columns alike. */}
+      <div className="relative h-64 w-full overflow-hidden rounded-xl bg-muted">
         {showImage ? (
           <img
             src={meal.image_path as string}
