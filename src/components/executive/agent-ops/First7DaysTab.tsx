@@ -76,11 +76,11 @@ function SummaryCards({ summary, active, onPick }: { summary: First7Summary; act
             )}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
+              <span className="text-sm font-semibold text-muted-foreground">{label}</span>
               <Icon className={cn('h-4 w-4', tone)} />
             </span>
             <span className="mt-1 block text-2xl font-bold tabular-nums text-foreground">{value(summary).toLocaleString('en-UG')}</span>
-            <span className="block truncate text-[10px] text-muted-foreground">{hint(summary)}</span>
+            <span className="block truncate text-xs text-muted-foreground">{hint(summary)}</span>
           </button>
         );
       })}
@@ -120,13 +120,13 @@ function DayChart({ summary, day, onPick }: { summary: First7Summary; day: numbe
     <Card className="space-y-2 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-bold text-foreground">Who paid on each day</p>
-        <p className="text-[10px] text-muted-foreground">Tap a bar to list the plans that paid that day</p>
+        <p className="text-xs text-muted-foreground">Tap a bar to list the plans that paid that day</p>
       </div>
       <ChartContainer config={chartConfig} className="h-44 w-full">
         <BarChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }} barGap={2}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
-          <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} fontSize={11} />
+          <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+          <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={32} fontSize={12} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="started" fill="var(--color-started)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(d: { day: number }) => toggle(d.day)} />
           <Bar dataKey="payers" fill="var(--color-payers)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(d: { day: number }) => toggle(d.day)}>
@@ -142,7 +142,7 @@ function DayChart({ summary, day, onPick }: { summary: First7Summary; day: numbe
             aria-pressed={day === d.day}
             onClick={() => toggle(d.day)}
             className={cn(
-              'rounded-full border px-2 py-0.5 text-[10px] font-medium tabular-nums transition-colors',
+              'rounded-full border px-2 py-0.5 text-xs font-medium tabular-nums transition-colors',
               day === d.day ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/50 text-muted-foreground hover:text-foreground',
             )}
           >
@@ -190,7 +190,7 @@ function AgentName({ r, onAgent, className }: { r: First7Row; onAgent: (agentId:
 function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenFn; onAgent: (agentId: string) => void }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[11px]">
+      <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-muted-foreground">
             <th className="py-1 pr-2">Tenant</th>
@@ -230,7 +230,7 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
                         title={cellTitle(r, i, kind)}
                         onClick={(e) => { e.stopPropagation(); onOpen(r.rent_request_id, i + 1); }}
                         className={cn(
-                          'block min-w-[68px] whitespace-nowrap rounded px-1 py-1 text-center font-mono text-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                          'block min-w-[68px] whitespace-nowrap rounded px-1 py-1 text-center font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
                           CELL_TONE[kind],
                           isDueDay(r, i) && 'ring-2 ring-primary',
                         )}
@@ -250,7 +250,7 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-[10px] text-muted-foreground">
+      <p className="mt-2 text-xs text-muted-foreground">
         Green: paid in full · Amber: part paid · Red: missed · Grey: day not reached · Dashed: not due (weekly Rent Plans pay once a week; the ringed day is the due day). Amounts in UGX. Open a row, or a day, to see the payments.
       </p>
     </div>
@@ -285,7 +285,7 @@ function GridCards({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
             aria-haspopup="dialog"
             onClick={open}
             onKeyDown={keyOpen(open)}
-            className="cursor-pointer space-y-2 rounded-xl border border-border bg-card p-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            className="cursor-pointer space-y-2 rounded-xl border border-border bg-card p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0"><RowIdentity r={r} /></div>
@@ -299,7 +299,7 @@ function GridCards({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
               </div>
               <p className="shrink-0 text-right font-mono font-semibold text-foreground">
                 {formatUGX(r.paid_7d)}
-                <span className="block text-[10px] font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
+                <span className="block text-xs font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
               </p>
             </div>
           </li>
@@ -379,7 +379,7 @@ export function First7DaysTab() {
             <Sprout className="h-4 w-4 text-primary" />
             <div>
               <p className="text-sm font-bold text-foreground">First 7 Days</p>
-              <p className="text-[11px] text-muted-foreground">New Rent Plans by the day the landlord was paid. Day 1 is the day after.</p>
+              <p className="text-xs text-muted-foreground">New Rent Plans by the day the landlord was paid. Day 1 is the day after.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -444,7 +444,7 @@ export function First7DaysTab() {
         </div>
 
         {showCustom && (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <label className="flex items-center gap-1.5">
               From
               <Input type="date" value={params.from} max={today} onChange={(e) => e.target.value && update(clampRange(e.target.value, params.to, today, 'from'))} className="h-8 w-auto text-xs" />
@@ -456,7 +456,7 @@ export function First7DaysTab() {
             <span>Up to 31 days.</span>
           </div>
         )}
-        <p className="text-[11px] text-muted-foreground">Landlord paid {rangeLabel} · Kampala time</p>
+        <p className="text-xs text-muted-foreground">Landlord paid {rangeLabel} · Kampala time</p>
       </Card>
 
       {isLoading ? (

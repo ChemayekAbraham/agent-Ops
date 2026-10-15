@@ -33,7 +33,7 @@ interface Props {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 text-xs text-foreground">{children}</dd>
     </div>
   );
@@ -81,7 +81,7 @@ export function First7TenantSheet({ row, day, agentStats, onDayChange, onClose, 
                   row.agent_name ?? '—'
                 )}
                 {agentStats && agentStats.pct !== null && (
-                  <span className="block text-[10px] text-muted-foreground">{agentStats.pct}% on track ({agentStats.on_track} of {agentStats.started} Rent Plans)</span>
+                  <span className="block text-xs text-muted-foreground">{agentStats.pct}% on track ({agentStats.on_track} of {agentStats.started} Rent Plans)</span>
                 )}
               </Fact>
               <Fact label="Landlord paid">{fmtDay(row.landlord_paid_on)}</Fact>
@@ -96,7 +96,7 @@ export function First7TenantSheet({ row, day, agentStats, onDayChange, onClose, 
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-xs font-bold text-foreground">7-day timeline</h3>
                 {day !== null && (
-                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[11px]" onClick={() => onDayChange(null)}>
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => onDayChange(null)}>
                     Show all days
                   </Button>
                 )}
@@ -124,7 +124,7 @@ export function First7TenantSheet({ row, day, agentStats, onDayChange, onClose, 
                         <span className="text-right font-mono">
                           {DAY_STATE_LABEL[kind]}
                           {(paid > 0 || due > 0) && (
-                            <span className="block text-[10px] opacity-80">{paid > 0 ? `paid ${formatUGX(paid)}` : ''}{paid > 0 && due > 0 ? ' · ' : ''}{due > 0 ? `due ${formatUGX(due)}` : ''}</span>
+                            <span className="block text-xs opacity-80">{paid > 0 ? `paid ${formatUGX(paid)}` : ''}{paid > 0 && due > 0 ? ' · ' : ''}{due > 0 ? `due ${formatUGX(due)}` : ''}</span>
                           )}
                         </span>
                       </button>
@@ -145,7 +145,7 @@ export function First7TenantSheet({ row, day, agentStats, onDayChange, onClose, 
               ) : error ? (
                 <div role="alert" className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
                   <p className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> {first7ErrorMessage(error)}</p>
-                  <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-[11px]" onClick={refetch}><RefreshCw className="h-3 w-3" /> Try again</Button>
+                  <Button type="button" size="sm" variant="outline" className="h-7 gap-1 text-xs" onClick={refetch}><RefreshCw className="h-3 w-3" /> Try again</Button>
                 </div>
               ) : shown.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
@@ -158,15 +158,15 @@ export function First7TenantSheet({ row, day, agentStats, onDayChange, onClose, 
                       <li key={p.collection_id} className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs">
                         <div className="min-w-0">
                           <p className="font-mono font-semibold text-foreground">{formatUGX(p.amount)}</p>
-                          <p className="truncate text-[10px] text-muted-foreground">
+                          <p className="truncate text-xs text-muted-foreground">
                             {kampalaDateTime(p.collected_at)} · Day {p.day_number}{p.agent_name ? ` · ${p.agent_name}` : ''}
                           </p>
                         </div>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">{paymentMethodLabel(p.payment_method, p.collection_channel)}</Badge>
+                        <Badge variant="outline" className="shrink-0 text-xs">{paymentMethodLabel(p.payment_method, p.collection_channel)}</Badge>
                       </li>
                     ))}
                   </ul>
-                  <p className="text-right text-[11px] text-muted-foreground">
+                  <p className="text-right text-xs text-muted-foreground">
                     {shown.length} {shown.length === 1 ? 'payment' : 'payments'} · {formatUGX(shownTotal)}
                   </p>
                 </>
