@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
+import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
@@ -537,6 +538,7 @@ export async function fetchSupporterSummary(): Promise<{
   totalDeals: number;
   activePartners: number;
   suspendedPartners: number;
+  newPartnersToday: number;
 }> {
   // A partner/funder = ANY user with one or more rows in investor_portfolios.
   // Page through ALL portfolios (no role/status filter) so the count matches DB truth.
@@ -564,15 +566,20 @@ export async function fetchSupporterSummary(): Promise<{
   const ids = Array.from(ownerIds);
 
   if (ids.length === 0) {
-    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0 };
+    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0, newPartnersToday: 0 };
   }
 
-  const [wallets, frozenProfiles] = await Promise.all([
+  const todayYmd = kampalaTodayYmd();
+  const todayStartIso = `${todayYmd}T00:00:00+03:00`;
+  const [wallets, frozenProfiles, joinedTodayProfiles] = await Promise.all([
     batchedQuery<{ user_id: string; balance: number }>(ids, (batch) =>
       supabase.from('wallets').select('user_id, balance').in('user_id', batch)
     ),
     batchedQuery<{ id: string; frozen_at: string | null }>(ids, (batch) =>
       supabase.from('profiles').select('id, frozen_at').in('id', batch).not('frozen_at', 'is', null)
+    ),
+    batchedQuery<{ id: string; created_at: string }>(ids, (batch) =>
+      supabase.from('profiles').select('id, created_at').in('id', batch).gte('created_at', todayStartIso)
     ),
   ]);
 
@@ -580,6 +587,10 @@ export async function fetchSupporterSummary(): Promise<{
   const suspendedPartners = ids.filter(id => frozenIds.has(id)).length;
   const totalWalletBalance = wallets.reduce((s, w) => s + (w.balance || 0), 0);
   const totalFunded = portfolioRows.reduce((s, p) => s + (p.investment_amount || 0), 0);
+  // Partners whose profile was created today, counted on Kampala calendar days.
+  const newPartnersToday = joinedTodayProfiles.filter(
+    p => kampalaYmd(p.created_at) === todayYmd,
+  ).length;
 
   return {
     totalPartners: ownerIds.size,
@@ -588,5 +599,6 @@ export async function fetchSupporterSummary(): Promise<{
     totalDeals: portfolioRows.length,
     activePartners: ownerIds.size - suspendedPartners,
     suspendedPartners,
+    newPartnersToday,
   };
 }

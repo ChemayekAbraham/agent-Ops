@@ -239,6 +239,7 @@ interface SummaryData {
   avgROI: number;
   totalDeals: number;
   topPartnerName: string;
+  newPartnersToday: number;
 }
 
 const PAGE_SIZE = 15;
@@ -869,7 +870,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     if (supporterIds.length === 0) {
       setRows([]);
       if (count === 0) {
-        setSummary({ totalPartners: 0, activePartners: 0, suspendedPartners: 0, totalFunded: 0, totalWalletBalance: 0, avgROI: 0, totalDeals: 0, topPartnerName: '—' });
+        setSummary({ totalPartners: 0, activePartners: 0, suspendedPartners: 0, totalFunded: 0, totalWalletBalance: 0, avgROI: 0, totalDeals: 0, topPartnerName: '—', newPartnersToday: 0 });
       }
       return;
     }
@@ -2295,7 +2296,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       {summary && (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <SummaryCard icon={<Users className="h-4 w-4" />} label="Total Partners" value={summary.totalPartners}
-            sub={`${summary.activePartners} active · ${summary.suspendedPartners} suspended`} accent="primary" />
+            badge={summary.newPartnersToday > 0 ? `+${summary.newPartnersToday}` : undefined}
+            sub={`${summary.newPartnersToday} partner${summary.newPartnersToday === 1 ? '' : 's'} who joined today · ${summary.activePartners} active · ${summary.suspendedPartners} suspended`} accent="primary" />
           <PendingPortfoliosCard onClick={() => setPendingPortfoliosOpen(true)} />
           <SummaryCard icon={<Wallet className="h-4 w-4" />} label="Wallet Balances" value={formatUGX(summary.totalWalletBalance)}
             sub="Across all partner wallets · tap to view" accent="amber"
@@ -4419,9 +4421,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 }
 
 /* ─── Summary Card ─── */
-function SummaryCard({ icon, label, value, sub, accent, onClick }: {
+function SummaryCard({ icon, label, value, sub, accent, badge, onClick }: {
   icon: React.ReactNode; label: string; value: string | number; sub: string;
   accent: 'primary' | 'emerald' | 'amber' | 'violet';
+  badge?: string;
   onClick?: () => void;
 }) {
   const styles = {
@@ -4443,7 +4446,14 @@ function SummaryCard({ icon, label, value, sub, accent, onClick }: {
         <div className={cn('p-1.5 rounded-lg', s.icon)}>{icon}</div>
         <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
       </div>
-      <p className="text-xl font-black tracking-tight tabular-nums">{value}</p>
+      <p className="text-xl font-black tracking-tight tabular-nums">
+        {value}
+        {badge && (
+          <span className="ml-2 align-middle inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
+            {badge}
+          </span>
+        )}
+      </p>
       <p className="text-[11px] text-muted-foreground leading-snug">{sub}</p>
     </div>
   );
