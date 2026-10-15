@@ -8,6 +8,8 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 import { ackNotice, pendingForMe, type BonusPending } from './api';
 
 const SNOOZE_MS = 60 * 60 * 1000;
+/** Re-check for a new bonus prompt while the gate stays mounted (tab switches that never change the path). */
+const POLL_MS = 2 * 60 * 1000;
 const key = (uid: string, pid: string) => `bonus-prompt-snooze:${uid}:${pid}`;
 
 function snoozed(uid: string, pid: string): boolean {
@@ -48,6 +50,21 @@ export function BonusPromptGate() {
   }, []);
 
   useEffect(() => { void load(); }, [location.pathname, load]);
+
+  // Also re-check on a timer and whenever the app comes back to the foreground,
+  // so a pool approved after mount prompts without a reload.
+  useEffect(() => {
+    const timer = window.setInterval(() => { void load(); }, POLL_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    const onFocus = () => { void load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [load]);
 
   if (!item || !uid) return null;
   const isNotice = item.kind === 'notice';
