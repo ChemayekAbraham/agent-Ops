@@ -62,7 +62,7 @@ export function RequisitionUsageReportGate() {
   const [amountUsed, setAmountUsed] = useState('');
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
-  const [receipt, setReceipt] = useState<File | null>(null);
+  const [receipts, setReceipts] = useState<File[]>([]);
   const [deferrals, setDeferrals] = useState<Record<string, number>>({});
   const [showDefer, setShowDefer] = useState(false);
   const [deferReason, setDeferReason] = useState('');
