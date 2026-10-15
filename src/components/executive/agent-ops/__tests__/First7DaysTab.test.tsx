@@ -202,7 +202,7 @@ describe('First7DaysTab', () => {
     renderTab();
     const daily = (await screen.findByText('Amina Nakato')).closest('tr')!;
     expect(within(daily).getByText('UGX 15,000')).toBeInTheDocument();
-    expect(within(daily).getByText('of UGX 30,000 due')).toBeInTheDocument();
+    expect(within(daily).getByText('of UGX 30,000')).toBeInTheDocument();
     expect(within(daily).getByText('Behind')).toBeInTheDocument();
     expect(screen.getByTestId('first7-collected')).toHaveTextContent('Collected UGX 85,000 of UGX 130,000 due so far');
     expect(screen.getByText('65.4%')).toBeInTheDocument();

@@ -209,7 +209,7 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
             <th className="hidden py-1 pr-2 2xl:table-cell">Plan</th>
             <th className="hidden py-1 pr-2 2xl:table-cell">Landlord paid</th>
             {Array.from({ length: 7 }, (_, i) => <th key={i} className="px-1 py-1 text-center">Day {i + 1}</th>)}
-            <th className="py-1 pl-2 text-right">7-day paid</th>
+            <th className="py-1 pl-2 text-right" title="Paid in 7 days, of the amount due so far">7-day paid</th>
             <th className="py-1 pl-2">Status</th>
           </tr>
         </thead>
@@ -254,9 +254,9 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
                     </td>
                   );
                 })}
-                <td className="py-1.5 pl-2 text-right font-mono">
-                  {formatUGX(r.paid_7d)}
-                  <p className="text-muted-foreground">of {formatUGX(r.expected_to_date)} due</p>
+                <td className="whitespace-nowrap py-1.5 pl-2 text-right" title={`Paid in 7 days ${formatUGX(r.paid_7d)}, of ${formatUGX(r.expected_to_date)} due so far`}>
+                  <span className="font-mono">{formatUGX(r.paid_7d)}</span>
+                  <p className="text-xs text-muted-foreground">of {formatUGX(r.expected_to_date)}</p>
                 </td>
                 <td className="py-1.5 pl-2"><StatusBadge status={r.row_status} /></td>
               </tr>
