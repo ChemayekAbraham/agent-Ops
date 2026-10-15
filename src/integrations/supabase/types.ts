@@ -48439,15 +48439,65 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_requisition_usage_report_reviews: {
+        Row: {
+          created_at: string
+          decision: string
+          id: string
+          note: string
+          report_id: string
+          requisition_id: string
+          reviewer_id: string
+          verified_receipt_total: number | null
+        }
+        Insert: {
+          created_at?: string
+          decision: string
+          id?: string
+          note: string
+          report_id: string
+          requisition_id: string
+          reviewer_id: string
+          verified_receipt_total?: number | null
+        }
+        Update: {
+          created_at?: string
+          decision?: string
+          id?: string
+          note?: string
+          report_id?: string
+          requisition_id?: string
+          reviewer_id?: string
+          verified_receipt_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_usage_report_reviews_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisition_usage_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_requisition_usage_reports: {
         Row: {
           activities_carried_out: string | null
           amount_received: number | null
           amount_used: number
+          approved_amount_snapshot: number | null
           attachment_paths: string[] | null
           created_at: string
+          discrepancy_flag: boolean
+          discrepancy_reasons: string[]
           id: string
+          overspend_explanation: string | null
           places_visited: string | null
+          receipt_mismatch_explanation: string | null
+          receipt_total: number | null
+          refund_evidence_paths: string[]
+          refund_not_required_reason: string | null
+          refund_status: string | null
           requester_id: string
           requisition_id: string
           results_achieved: string | null
@@ -48457,15 +48507,25 @@ export type Database = {
           reviewed_by: string | null
           submitted_at: string
           summary: string
+          unspent_explanation: string | null
         }
         Insert: {
           activities_carried_out?: string | null
           amount_received?: number | null
           amount_used: number
+          approved_amount_snapshot?: number | null
           attachment_paths?: string[] | null
           created_at?: string
+          discrepancy_flag?: boolean
+          discrepancy_reasons?: string[]
           id?: string
+          overspend_explanation?: string | null
           places_visited?: string | null
+          receipt_mismatch_explanation?: string | null
+          receipt_total?: number | null
+          refund_evidence_paths?: string[]
+          refund_not_required_reason?: string | null
+          refund_status?: string | null
           requester_id: string
           requisition_id: string
           results_achieved?: string | null
@@ -48475,15 +48535,25 @@ export type Database = {
           reviewed_by?: string | null
           submitted_at?: string
           summary: string
+          unspent_explanation?: string | null
         }
         Update: {
           activities_carried_out?: string | null
           amount_received?: number | null
           amount_used?: number
+          approved_amount_snapshot?: number | null
           attachment_paths?: string[] | null
           created_at?: string
+          discrepancy_flag?: boolean
+          discrepancy_reasons?: string[]
           id?: string
+          overspend_explanation?: string | null
           places_visited?: string | null
+          receipt_mismatch_explanation?: string | null
+          receipt_total?: number | null
+          refund_evidence_paths?: string[]
+          refund_not_required_reason?: string | null
+          refund_status?: string | null
           requester_id?: string
           requisition_id?: string
           results_achieved?: string | null
@@ -48493,6 +48563,7 @@ export type Database = {
           reviewed_by?: string | null
           submitted_at?: string
           summary?: string
+          unspent_explanation?: string | null
         }
         Relationships: [
           {
@@ -63144,6 +63215,20 @@ export type Database = {
         Args: { p_basis: string; p_score: number }
         Returns: string
       }
+      _usage_report_evaluate: {
+        Args: {
+          p_approved: number
+          p_mismatch: string
+          p_over: string
+          p_receipt: number
+          p_refund: string
+          p_refund_evidence: number
+          p_refund_reason: string
+          p_unspent: string
+          p_used: number
+        }
+        Returns: Json
+      }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -77641,6 +77726,15 @@ export type Database = {
         Args: { p_decision: string; p_id: string; p_note?: string }
         Returns: Json
       }
+      review_requisition_usage_report: {
+        Args: {
+          p_decision: string
+          p_note: string
+          p_report_id: string
+          p_verified_receipt_total?: number
+        }
+        Returns: Json
+      }
       revoke_agent_registration_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: Json
@@ -78663,6 +78757,25 @@ export type Database = {
           p_reading?: Json
           p_sex: string
           p_surname: string
+        }
+        Returns: Json
+      }
+      submit_requisition_usage_report: {
+        Args: {
+          p_activities?: string
+          p_amount_used: number
+          p_attachment_paths: string[]
+          p_mismatch_explanation?: string
+          p_overspend_explanation?: string
+          p_places_visited?: string
+          p_receipt_total: number
+          p_refund_evidence_paths?: string[]
+          p_refund_not_required_reason?: string
+          p_refund_status?: string
+          p_requisition_id: string
+          p_results?: string
+          p_summary: string
+          p_unspent_explanation?: string
         }
         Returns: Json
       }
