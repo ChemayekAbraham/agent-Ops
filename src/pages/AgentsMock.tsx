@@ -3,10 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Repeat, Settings, Store, Trophy, UserRound, Users, Wallet, Briefcase, Building2, Crown, Landmark, Megaphone, Cog, ShieldCheck, HandCoins, Headset, Code2, FlaskConical, KeyRound, HeartHandshake, ClipboardList, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Repeat, Settings, UserRound, Users, Wallet, Briefcase, Building2, Crown, Landmark, Megaphone, Cog, ShieldCheck, HandCoins, Headset, Code2, FlaskConical, KeyRound, HeartHandshake, ClipboardList, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
-import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
@@ -21,13 +19,6 @@ import { deriveAgentBadges, BADGE_CLASS } from '@/lib/agentBadges';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
 import welileLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
-
-const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
-  { label: 'Rent Calculator', Icon: Calculator, color: 'text-primary', },
-  { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
-  { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
-  { label: 'Invite', Icon: UserPlus, color: 'text-warning' },
-];
 
 /** Where the avatar menu goes: the two pages that already exist, then sign-out. */
 const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
@@ -121,8 +112,6 @@ export default function AgentsMock() {
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [calcOpen, setCalcOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   // Same switch the header RoleSwitcher uses: flip the active role, then land
@@ -402,8 +391,6 @@ export default function AgentsMock() {
               </>;
             })()}
           </section>
-          <h2 className="mock-bubble-in -mb-2 text-base font-semibold" style={{ animationDelay: '210ms' }}>Quick Actions</h2>
-          <section aria-label="Agent shortcuts" className="mock-bubble-in grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ animationDelay: '240ms' }}>{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
           <div className="mock-bubble-in grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ animationDelay: '310ms' }}>
           <section aria-labelledby="due-heading" className="min-w-0">
             <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{collectingTenants.length} to collect</span></div>
@@ -454,8 +441,6 @@ export default function AgentsMock() {
       </div>
       <nav aria-label="Agent navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-safe"><div className="mx-auto grid max-w-xl grid-cols-5 px-2 py-2">{[{ label: 'Home', Icon: Home }, { label: 'Tenants', Icon: Users }, { label: 'Collect', Icon: Wallet }, { label: 'Post Rent', Icon: FileText }, { label: 'More', Icon: Menu }].map(({ label, Icon }) => <Button key={label} variant="ghost" aria-current={activeNav === label ? 'page' : undefined} onClick={() => { if (label === 'Post Rent') { openRequest(); return; } setActiveNav(label); if (label === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' }); else if (label === 'Tenants') document.getElementById('due-heading')?.scrollIntoView({ behavior: 'smooth' }); else setNotice(label); }} className={cn('h-14 flex-col gap-1 rounded-lg px-0 text-xs', activeNav === label ? 'text-primary' : 'text-muted-foreground')}><Icon className="!h-5 !w-5" strokeWidth={1.8} /><span>{label}</span></Button>)}</div></nav>
       <Dialog open={selectedTenantId !== null} onOpenChange={open => { if (!open) setSelectedTenantId(null); }}><DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto rounded-none p-3 sm:h-auto sm:max-h-[90dvh] sm:max-w-2xl sm:rounded-xl sm:p-5 [&_*]:min-w-0"><DialogHeader><DialogTitle>Tenant details</DialogTitle><DialogDescription>Rent Plans and repayment history</DialogDescription></DialogHeader>{selectedTenantId && <TenantProfileView tenantId={selectedTenantId} onBack={() => setSelectedTenantId(null)} />}</DialogContent></Dialog>
-      <RentCalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
-      <SubAgentInviteLinkDialog open={inviteOpen} onOpenChange={setInviteOpen} />
       <Dialog open={notice !== null} onOpenChange={open => { if (!open) setNotice(null); }}><DialogContent><DialogHeader><DialogTitle>{notice}</DialogTitle><DialogDescription>{notice?.includes('tenants') || notice === 'Tenants' ? 'Tenant details' : 'Agent dashboard'}</DialogDescription></DialogHeader>{notice === 'Paid tenants' ? <p className="text-sm text-muted-foreground">{todayPaidCount} tenants paid today. Individual paid-tenant details are not available in this view.</p> : notice?.includes('tenants') || notice === 'Tenants' ? <ul className="max-h-80 overflow-y-auto divide-y divide-border">{DUE_LIST.map(t => <li key={t.rent_request_id} className="py-3"><p className="text-sm font-medium">{t.tenant_name || 'Tenant'}</p><p className="text-sm text-muted-foreground">{t.tenant_phone || 'Phone not recorded'}</p></li>)}</ul> : <p className="text-sm text-muted-foreground">No transactions have been made.</p>}</DialogContent></Dialog>
     </div>
   );
