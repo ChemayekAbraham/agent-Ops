@@ -54,7 +54,7 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
           <div className="signature-earnings-hero">
             <p className="signature-earnings-eyebrow">Welile agent commissions</p>
             <DialogTitle className="mt-1 text-[22px] font-black leading-tight">How you earn</DialogTitle>
-            <DialogDescription className="mt-1.5 text-xs leading-snug opacity-85">
+            <DialogDescription className="mt-1.5 text-xs leading-snug text-[hsl(var(--signature-rent-foreground))]">
               Eligible earnings at each stage of a Rent Plan.
             </DialogDescription>
           </div>
