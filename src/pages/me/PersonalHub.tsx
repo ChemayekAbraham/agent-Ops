@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
 import { PERSONAL_NAV } from '@/components/layout/personalNav';
-import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import GrowthCommissionCard from '@/components/me/GrowthCommissionCard';
 import MyAdvanceCard from '@/hr/pay/MyAdvanceCard';
 import { getMyStaff } from '@/hr/api';
@@ -129,7 +128,6 @@ const PersonalHub = () => {
   return (
     <PersonalLayout title="My space">
       <div className="space-y-5">
-        <NameCompletionReminder />
         <GrowthCommissionCard />
         {staffRecord && <MyAdvanceCard staffId={staffRecord.id} />}
         <section aria-labelledby="workspace-heading">
