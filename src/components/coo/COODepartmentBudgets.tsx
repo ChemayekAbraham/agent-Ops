@@ -91,6 +91,7 @@ export default function COODepartmentBudgets() {
           />
         </div>
         <BudgetReviewQueue cycleId={effectiveCycleId} stage="coo" />
+        <div className="mt-4"><SupplementaryBudgets mode="coo" cycleId={effectiveCycleId ?? null} /></div>
       </CardContent>
     </Card>
   );
