@@ -74956,6 +74956,28 @@ export type Database = {
           proxy_status: string
         }[]
       }
+      partner_ops_invite_partners: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          in_pending_queue: boolean
+          partner_email: string
+          partner_name: string
+          partner_phone: string
+          portfolio_id: string
+        }[]
+      }
+      partner_ops_invite_visibility: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          invited: boolean
+          last_send_status: string
+          last_sent_at: string
+          portfolio_id: string
+          sent_count: number
+          token_consumed_at: string
+          token_expires_at: string
+        }[]
+      }
       partner_ops_list_proxy_agent_applications: {
         Args: { p_status?: string }
         Returns: {

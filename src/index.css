@@ -2,58 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-.agents-mock-exact { --mock-surface: #F9FBFA; --mock-card: #FFFEFF; --mock-header: #9335EB; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: var(--mock-surface); font-family: 'Outfit', 'DM Sans', sans-serif; }
-/* #F9FBFA / #FFFEFF are not expressible as HSL triplets (they round to #FAFAFA / #FEFEFE),
-   so this page's surface and card colours are literal hex, scoped to the page and light mode only. */
-html:not(.dark) .agents-mock-exact .bg-card { background-color: var(--mock-card); }
-.dark .agents-mock-exact { --mock-surface: hsl(var(--card)); }
-.agents-mock-exact h1, .agents-mock-exact h2, .agents-mock-exact h3, .agents-mock-exact button, .agents-mock-exact input { font-family: inherit; letter-spacing: 0; }
-/* Every word on the agent dashboard reads in Outfit: the page body, all of its
-   descendants (the page wrapper carries Tailwind's font utility, which would
-   otherwise win over inheritance), and the dialogs and popovers that attach
-   outside the page. Gated on the html class the page sets while it is mounted,
-   so no other route is affected. */
-html.agents-mock-font .agents-mock-exact, html.agents-mock-font .agents-mock-exact *,
-html.agents-mock-font [role="dialog"], html.agents-mock-font [role="dialog"] *,
-html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font [data-radix-popper-content-wrapper] * { font-family: 'Outfit', 'DM Sans', sans-serif; }
-.agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
-
-/* Agents Mock — "bubble" motion. Blocks blow in once on load (mock-bubble-in,
-   staggered by the caller's inline animation-delay), and a figure that arrives
-   from a load replays mock-bubble-pop. Deliberately page-scoped, and zeroed by
-   the in-app reduce-motion choice and lite mode. */
-@keyframes mock-bubble-in {
-  0% { opacity: 0; transform: translate3d(0, 10px, 0); }
-  100% { opacity: 1; transform: translate3d(0, 0, 0); }
-}
-@keyframes mock-bubble-pop {
-  0% { opacity: 0; transform: scale(0.85); }
-  100% { opacity: 1; transform: scale(1); }
-}
-/* Motion is opt-in: only users who have not asked for reduced motion get it
-   (WCAG 2.3.3 / prefers-reduced-motion). Without the media match the blocks
-   simply appear in place, with no fade or scale. */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes mock-bubble-in {
-    0% { opacity: 0; transform: translate3d(0, 10px, 0); }
-    100% { opacity: 1; transform: translate3d(0, 0, 0); }
-  }
-  @keyframes mock-bubble-pop {
-    0% { opacity: 0; transform: scale(0.85); }
-    100% { opacity: 1; transform: scale(1); }
-  }
-  .mock-bubble-in { animation: mock-bubble-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
-  .mock-bubble-pop { animation: mock-bubble-pop 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
-}
-/* Data Saver, slow-refresh displays and the in-app lite mode run it static. */
-html.lite-mode .mock-bubble-in,
-html.lite-mode .mock-bubble-pop { animation: none !important; }
-@media (update: slow) {
-  .mock-bubble-in, .mock-bubble-pop { animation: none !important; }
-}
-/* Long lists off-screen skip layout/paint until scrolled near. */
-.agents-mock-exact .mock-offscreen { content-visibility: auto; contain-intrinsic-size: auto 480px; }
-
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */
