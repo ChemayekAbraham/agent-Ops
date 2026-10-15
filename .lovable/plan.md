@@ -1,44 +1,36 @@
-# Requisition Usage Report — receipt matching and accountability
+# Accountability report: 36-hour grace period and two "Later" clicks
 
-## What exists today
-- Requesters submit a usage report (amount used, what it was spent on, one receipt) from the "Your requisition was approved" pop-up.
-- The CFO "Accountability" screen lists reports as Pending / Accepted / Clarification and can accept or ask for clarification.
-- Live counts: 65 pending, 45 accepted, 1 clarification.
-- Gaps: no receipt amount is captured, nothing compares amounts, there is no history of decisions (each decision overwrites the last), and a report sent back for clarification cannot be corrected by the requester.
+## What happens today
+- The accountability popup appears as soon as the CFO approves a requisition. There is no waiting period.
+- The requester can click "Later" up to 5 times, with a reason each time. The server enforces this limit.
+- After a "Later", the popup comes back every 5 minutes.
+- Nothing records when the popup was shown, or when the requester opened or dismissed it. Only deferrals and the final submission are saved.
 
-## What changes for people
+## What will change
+1. **36-hour grace period.** The first notice appears only once 36 hours have passed since the CFO approval time. The server works this out, so changing the device clock or refreshing the page has no effect.
+2. **"Later" only twice.** The first and second notices allow "Later" with a reason. The third notice has no "Later" button. The requester must tick "I acknowledge" and then fill in the report. The server rejects a third deferral with: "Maximum deferrals reached. This accountability report can no longer be deferred."
+3. **Clearer notice.** The popup and the enlarged CFO review queue show the requisition reference, the approval date, the deadline (approval + 36 hours) and the deferral count, for example "Deferred 1 of 2".
+4. **Audit trail.** A new log that can only be added to records each event with the user and the time: notice shown, deferred (with reason), acknowledged, and report submitted. These events are also written to the audit log.
+5. **Older requisitions.** Requisitions that already have 2 to 5 deferrals go straight to the mandatory notice. Nothing that is already recorded gets changed or deleted.
 
-**Requester (pop-up form)**
-- New field: "Amount on the receipt(s)". Allows several receipts, each with its own amount; total is added up.
-- Each receipt can be marked "Receipt unreadable" or the requester can choose "No receipt available" — then no receipt amount is assumed.
-- The difference (approved, used, receipt total) is shown live:
-  - Amounts match: submits as today.
-  - Do not match: a clear warning "Accountability required" appears; the requester must explain the difference (at least 20 characters), say what happened to any unspent balance, and attach supporting evidence where applicable.
-- Missing, unreadable or multiple receipts always go to manual review — never auto-matched.
-- If the reviewer returns the report, the requester sees "Correction needed" with the reviewer's note and can edit and resubmit the same report.
+## Not touched
+Permissions, approval routes, amounts, the ledger, wallets and money movement.
 
-**Reviewer (CFO Accountability screen)**
-- New tabs: Matched, Discrepancy, Needs receipt review, Returned for correction.
-- Each report shows amount used, receipt total, difference, explanation, evidence and its full history.
-- Actions: Approve, or Return for correction (reason of 10+ characters). A report cannot be approved twice.
-
-## Rules enforced by the database (not just the screen)
-- Difference is calculated by the system, never typed.
-- A mismatched or receipt-problem report cannot be marked complete without explanation, balance account and reviewer approval.
-- Every submit, resubmit, approve and return is recorded in an append-only history with who, when, amounts, difference, explanation and decision.
-- Existing 111 reports are kept as they are and labelled "Before receipt matching".
-- No payments, wallet changes, ledger entries or refunds are created. Unspent balance is only recorded, not collected.
-
-## Testing
-- A self-cleaning database test covering: match, over-receipt, under-receipt, missing receipt, unreadable receipt, multiple receipts, return and resubmit, double-approval refusal, and confirming no ledger/wallet rows change.
-- Preview check of the form and review screen.
-
-## Production
-The database change has to be applied to the shared live database (preview and live app share one). I will only apply it after you approve this plan, and I will not publish the app.
+## Tests
+These run inside a transaction that is rolled back afterwards:
+- No notice at 35h59m, notice at 36h.
+- First and second deferrals allowed, third refused.
+- The third notice requires acknowledgement.
+- The audit rows are written.
+I will also check the popup in the preview.
 
 ## Technical details
-- Migration: add nullable columns to `staff_requisition_usage_reports` (`receipt_total`, `amount_difference` generated, `match_status` matched|discrepancy|receipt_review|legacy, `discrepancy_explanation`, `balance_accounting`, `evidence_paths`, `receipt_items jsonb` [{path, amount, unreadable}], `no_receipt_reason`, `resubmitted_at`, `revision`); widen `review_status` to add `returned` (keeps existing values); backfill existing rows `match_status='legacy'`.
-- New append-only `staff_requisition_usage_report_events` with grants + RLS (requester own, reviewers all; no update/delete).
-- SECURITY DEFINER RPCs `usage_report_submit`, `usage_report_resubmit`, `usage_report_review(id, decision, note)` with FOR UPDATE row lock and same reviewer roles as the current policy; validation trigger blocks direct inserts that skip matching fields.
-- Existing `pso_facilitation_report_guard` trigger and facilitation form untouched.
-- UI: `RequisitionUsageReportGate.tsx`, `RequisitionUsageReportsReview.tsx`, small "Correction needed" entry in `src/pages/me/Requisitions.tsx`.
+- New server functions, available to the requester only:
+  - `get_my_usage_report_notices()` returns the visible notices with `grace_ends_at = cfo_decided_at + 36h`, the deferral count, `mandatory` and the deadline.
+  - `log_usage_report_notice_event(req_id, event)` records `shown` and `acknowledged` events.
+- `defer_requisition_usage_report` checks the grace period and the new limit of 2.
+- New append-only table `staff_requisition_usage_report_events`. A trigger on usage-report insert writes the `submitted` event.
+- The popup reads the new function instead of filtering on the client.
+
+## Approval needed
+The database is shared with the live app, so applying the server change makes it live straight away. I will not apply it until you approve this plan.
