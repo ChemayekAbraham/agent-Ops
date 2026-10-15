@@ -246,6 +246,35 @@ describe('Food ordering page', () => {
     expect(screen.getAllByText(/ordering (open|closed)/i).length).toBeGreaterThan(0);
   });
 
+  it('offers a tab for every meal category and filters the menu to it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FoodOrderingPage />);
+    await screen.findByText('Lunch');
+
+    // one tab for each category on today's menu, plus the whole menu
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    for (const label of ['All meals', 'Main Course', 'Sides', 'Drinks']) {
+      expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole('tab', { name: 'Drinks' }));
+    // the soda is on both periods, so both keep their card and nothing else stays
+    expect(screen.getAllByText('Bottled Soda')).toHaveLength(2);
+    expect(screen.queryByText('Chicken Pilau')).not.toBeInTheDocument();
+  });
+
+  it('leaves out a service period with nothing in the chosen category', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FoodOrderingPage />);
+    await screen.findByText('Lunch');
+
+    await user.click(screen.getByRole('tab', { name: 'Sides' }));
+    // Breakfast serves no sides, so its whole panel goes; Lunch keeps only the greens
+    expect(screen.queryByText('Breakfast')).not.toBeInTheDocument();
+    expect(screen.getByText('Steamed Greens')).toBeInTheDocument();
+    expect(screen.queryByText('Posho and Beans')).not.toBeInTheDocument();
+  });
+
   it('shows the collection instructions for the period', async () => {
     renderWithProviders(<FoodOrderingPage />);
     expect(await screen.findByText(/bring your staff card/i)).toBeInTheDocument();
