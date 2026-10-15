@@ -174,6 +174,19 @@ export function InvitedPortfoliosPanel() {
     };
   }, [data]);
 
+  // Paginated display: 15 rows per page with Prev/Next. The full set stays in
+  // memory so search, filter counts and totals remain accurate; only the
+  // visible slice changes as the user pages through.
+  const PAGE_SIZE = 15;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  useEffect(() => { setPage(0); }, [search, filter]);
+
   const handleApprove = async (
     row: Row,
     countersign?: {
