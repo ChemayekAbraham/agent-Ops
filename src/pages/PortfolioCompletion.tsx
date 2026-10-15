@@ -189,6 +189,11 @@ export default function PortfolioCompletion() {
           setStatus('done');
           return;
         }
+        if (portfolioRes.data.status === 'active') {
+          // Approved and countersigned: the link reopens a confirmation, never the form.
+          setStatus('approved');
+          return;
+        }
         setStatus('invalid');
         setErrorMsg('This portfolio has already been processed.');
         return;
@@ -373,6 +378,16 @@ export default function PortfolioCompletion() {
         icon={<ShieldAlert className="h-8 w-8 text-destructive" />}
         title="This invite is no longer valid"
         message={errorMsg || 'Please contact Welile Partner Operations for a fresh link.'}
+      />
+    );
+  }
+
+  if (status === 'approved') {
+    return (
+      <FullScreenNotice
+        icon={<CheckCircle2 className="h-8 w-8 text-primary" />}
+        title="Your portfolio is active"
+        message={`Portfolio ${portfolio?.portfolio_code ?? ''} has been approved and countersigned by Welile. Your signed agreement was sent to you by email. Nothing more is needed from you.`}
       />
     );
   }
