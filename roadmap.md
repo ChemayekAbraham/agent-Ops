@@ -29,5 +29,5 @@
 - [x] Replace the selected supporter agreement with the approved partner contract; isolated browser review and PDF download target verified, guards and build clean; signed-in dashboard check unavailable because requester has no matching auth account. No acceptance or money movement.
 
 - [x] CFO Approved Rent Requests: Approved tab lists every CFO approval all time; Paid only after Financial Operations payout.
-- [ ] Usage report amount matching: matching rules written and 5 tests pass; database change waiting for explicit approval, then screens + review queue.
+- [x] Usage report amount matching: popup + CFO review + server rules live; matching rule tests pass. Not yet clicked through signed-in.
 - [x] CFO Approved Rent Requests: date filters (Today etc.) use the CFO approval time; Approved column shows CFO approval time.
