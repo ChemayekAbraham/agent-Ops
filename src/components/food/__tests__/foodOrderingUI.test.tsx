@@ -258,7 +258,8 @@ describe('Food ordering page', () => {
     }
 
     await user.click(screen.getByRole('tab', { name: 'Drinks' }));
-    expect(screen.getByText('Bottled Soda')).toBeInTheDocument();
+    // the soda is on both periods, so both keep their card and nothing else stays
+    expect(screen.getAllByText('Bottled Soda')).toHaveLength(2);
     expect(screen.queryByText('Chicken Pilau')).not.toBeInTheDocument();
   });
 
