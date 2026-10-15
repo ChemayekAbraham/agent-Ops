@@ -1058,11 +1058,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedHouse?.id, incomeType]);
   
-  // Existing tenants this agent has already registered — used for the
-  // one-tap auto-fill so agents don't re-key phone/National ID/photo.
-  const [existingTenants, setExistingTenants] = useState<{ id: string; full_name: string | null; phone: string | null; national_id: string | null; avatar_url: string | null }[]>([]);
-  const [loadingTenants, setLoadingTenants] = useState(false);
-  const [autofillingTenant, setAutofillingTenant] = useState(false);
   const [guarantorConsent, setGuarantorConsent] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -1543,35 +1538,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       if (prefillRentAmount) setRentAmount(prefillRentAmount);
     }
   }, [open, prefillTenantName, prefillTenantPhone, prefillRentAmount]);
-
-  // Load the agent's existing tenants once the dialog opens so they can be
-  // auto-filled with a single tap (phone, National ID and passport photo).
-  useEffect(() => {
-    if (!open || !user?.id) return;
-    let cancelled = false;
-    (async () => {
-      setLoadingTenants(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, national_id, avatar_url')
-        .or(`referrer_id.eq.${user.id},managing_agent_id.eq.${user.id}`)
-        .order('full_name', { ascending: true })
-        .limit(500);
-      if (cancelled) return;
-      if (!error && data) {
-        // De-dupe by id and keep only tenants with at least a name.
-        const seen = new Set<string>();
-        const list = data.filter((t) => {
-          if (!t.full_name || seen.has(t.id)) return false;
-          seen.add(t.id);
-          return true;
-        });
-        setExistingTenants(list);
-      }
-      setLoadingTenants(false);
-    })();
-    return () => { cancelled = true; };
-  }, [open, user?.id]);
 
   // Hydrate from a previously-saved draft snapshot (full form state).
   useEffect(() => {
@@ -2101,43 +2067,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     });
     setFaceCheck(null);
   }, []);
-
-  // Auto-fill the tenant fields from a previously-registered tenant. Pulls
-  // their name, phone and National ID instantly, and best-effort downloads
-  // their saved passport photo so the agent doesn't have to re-capture it.
-  const applyExistingTenant = useCallback(async (tenantId: string) => {
-    const t = existingTenants.find((x) => x.id === tenantId);
-    if (!t) return;
-    setAutofillingTenant(true);
-    try {
-      if (t.full_name) setTenantName(t.full_name);
-      if (t.phone) setTenantPhone(formatPhoneInput(t.phone));
-      if (t.national_id) setTenantNationalId(cleanNationalIdInput(t.national_id));
-
-      if (t.avatar_url) {
-        try {
-          const res = await fetch(t.avatar_url);
-          if (res.ok) {
-            const blob = await res.blob();
-            const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-            const file = new File([blob], `tenant_passport.${ext}`, { type: blob.type || 'image/jpeg' });
-            setTenantPhoto((prev) => {
-              if (prev) URL.revokeObjectURL(prev.preview);
-              return { file, preview: URL.createObjectURL(file) };
-            });
-            // Their saved photo still has to pass the face check — the gate is
-            // on the photo going onto this request, not on how it arrived.
-            void runFaceCheck(file, t.id);
-          }
-        } catch {
-          // Photo fetch is best-effort — agent can still capture a fresh one.
-        }
-      }
-      toast.success(`Filled in ${t.full_name}'s details`);
-    } finally {
-      setAutofillingTenant(false);
-    }
-  }, [existingTenants, runFaceCheck]);
 
   // When the live phone check reveals an existing user, let the agent re-use
   // that record instead of creating a duplicate (fraud guard).
@@ -4311,34 +4240,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   <User className="h-3 w-3" />
                   Tenant Details
                 </h4>
-
-                {/* One-tap auto-fill from an existing tenant */}
-                {existingTenants.length > 0 && (
-                  <div className="space-y-1 rounded-xl border-2 border-primary/30 bg-primary/5 p-3">
-                    <Label className="flex items-center gap-1 text-primary">
-                      ⚡ Quick fill from a tenant you already registered
-                    </Label>
-                    <Select
-                      value=""
-                      onValueChange={applyExistingTenant}
-                      disabled={autofillingTenant || loadingTenants}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={autofillingTenant ? 'Filling in…' : 'Tap to pick an existing tenant'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {existingTenants.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.full_name}{t.phone ? ` · ${t.phone}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-muted-foreground">
-                      Pulls their phone, National ID and photo automatically. You can still edit anything below.
-                    </p>
-                  </div>
-                )}
 
                 {/* No Smartphone Toggle */}
                 <button
