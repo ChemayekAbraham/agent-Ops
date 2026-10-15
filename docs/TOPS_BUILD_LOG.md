@@ -1294,3 +1294,13 @@ Tests: `src/lib/__tests__/landlordTenants.test.ts`, `src/components/executive/la
 **Left alone**: every existing tab, count, list, date filter, sort, the Funded register and the Funded Report. On the two new tabs the date range and sort are hidden (they do not apply to these lists) and "Export PDF" is switched off with a tooltip, because that report is built for the other tabs' scopes.
 
 Files: `LandlordPaidListPanel.tsx`, `useLandlordPaidLists.ts`, `landlordPaidLists.ts`, the wiring in `LandlordOpsDashboard.tsx`. Tests: `LandlordPaidListPanel.test.tsx`, `landlordPaidLists.test.ts`, and block 2 of `supabase/tests/landlord_tenant_overview.sql`.
+
+## 2026-10-15 — `20261015160000`: `ops_landlord_ops_home_range`, the Landlord Ops home figures for a date range (one new read-only function)
+
+Nothing existing changed: no table, column, function, policy, edge function or UI; no money moves. Modelled on `ops_tenant_ops_home_range` (Kampala days, same range handling), but a missing user is refused first and the gate is landlord_ops, coo, cfo, ceo, manager, super_admin only. Authenticated only (revoked from PUBLIC, anon, service_role).
+
+Returns: total, new, verified in range, pending verification (houses, landlords, LC1), with / without tenants, funded in range (landlords, requests, principal), landlords paid (distinct, not reversed; also payouts and amount), principal recovered, float balance (and agents holding it), missing GPS, missing payout details, duplicate phones (numbers, and landlords sharing them), how many landlords were left out (phone matches a deleted profile), and the window. Every definition is the one the Landlord Ops screens already use; they are written once in `supabase/AGENTS.md`.
+
+Things to know: the pending-verification figures are the CURRENT queues (the same filters as the sidebar badges), not range-based, and "landlords" there is every unverified landlord not with a Service Centre manager (about 41,000 today), exactly what the badge counts. Missing GPS and missing payout details are about 46,000 of 46,700 landlords today. Nobody is excluded for a deleted-profile phone today (0); the test simulates one. About 650 ms for the whole range.
+
+Verified live: 35 checks (grants, every role, range handling, all 22 figures against an independent recompute for three windows, a simulated deleted-profile exclusion and a simulated reversed payout). Rollback: `supabase/rollbacks/20261015160000_ops_landlord_ops_home_range.rollback.sql`.
