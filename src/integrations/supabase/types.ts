@@ -78269,6 +78269,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      staff_requisition_ceo_direct: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       staff_requisition_my_notices: {
         Args: never
         Returns: {
