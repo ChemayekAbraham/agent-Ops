@@ -4019,6 +4019,13 @@
       "when": 1792049624371,
       "tag": "0573_hr_pay_bonus_pay_ceo_disburse",
       "breakpoints": true
+    },
+    {
+      "idx": 574,
+      "version": "7",
+      "when": 1792050066686,
+      "tag": "0574_food_remove_20_portion_limit",
+      "breakpoints": true
     }
   ]
 }
