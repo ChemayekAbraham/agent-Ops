@@ -174,6 +174,19 @@ export function InvitedPortfoliosPanel() {
     };
   }, [data]);
 
+  // Paginated display: 15 rows per page with Prev/Next. The full set stays in
+  // memory so search, filter counts and totals remain accurate; only the
+  // visible slice changes as the user pages through.
+  const PAGE_SIZE = 15;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  useEffect(() => { setPage(0); }, [search, filter]);
+
   const handleApprove = async (
     row: Row,
     countersign?: {
@@ -401,7 +414,7 @@ export function InvitedPortfoliosPanel() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map(row => {
+          {pageRows.map(row => {
             const expired = isExpired(row);
             return (
               <Card key={row.id} className={cn('overflow-hidden', expired && 'border-destructive/40 bg-destructive/[0.02]')}>
@@ -567,6 +580,38 @@ export function InvitedPortfoliosPanel() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination: 15 per page */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+            >
+              Prev
+            </Button>
+            <span className="text-xs text-muted-foreground px-1 whitespace-nowrap">
+              Page {safePage + 1} of {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+              disabled={safePage >= pageCount - 1}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 
