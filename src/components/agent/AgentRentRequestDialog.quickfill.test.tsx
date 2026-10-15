@@ -92,7 +92,7 @@ describe('post rent request — quick-fill block removed', () => {
   });
 
   it('shows Tenant Details with no quick-fill picker', async () => {
-    render(
+    wrap(
       <AgentRentRequestDialog
         open
         onOpenChange={() => {}}
