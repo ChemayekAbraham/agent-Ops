@@ -78,9 +78,9 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (pErr) return json({ error: `Portfolio lookup failed: ${pErr.message}` }, 500);
     if (!portfolio) return json({ error: "Portfolio not found." }, 404);
-    if (portfolio.status !== "awaiting_partner_details" && portfolio.status !== "pending_ops_approval") {
+    if (!["awaiting_partner_details", "pending_ops_approval", "active"].includes(portfolio.status)) {
       return json({
-        error: `This portfolio is at "${portfolio.status}" — it can only be resent while awaiting partner details or pending Ops approval.`,
+        error: `This portfolio is at "${portfolio.status}" — it can only be resent while awaiting partner details, pending Ops approval, or once approved.`,
       }, 400);
     }
 

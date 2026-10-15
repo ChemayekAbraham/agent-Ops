@@ -30,7 +30,7 @@ import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 
-type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval';
+type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval' | 'active';
 
 interface Row {
   id: string;
@@ -76,9 +76,9 @@ export function InvitedPortfoliosPanel() {
       const { data: portfolios, error } = await supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
-        .in('status', ['awaiting_partner_details', 'pending_ops_approval'])
+        .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(1000);
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
@@ -93,7 +93,13 @@ export function InvitedPortfoliosPanel() {
         .eq('status', 'pending')
         .in('portfolio_id', allPortfolioIds);
       const pendingSet = new Set<string>(((pendingRows || []) as any[]).map(r => r.portfolio_id));
-      const visible = portfolios.filter(p => !pendingSet.has(p.id));
+      // Approved portfolios only belong here if they came through the invite
+      // (a completion link exists for them).
+      const { data: invitedActive } = await (supabase.from('portfolio_completion_tokens') as any)
+        .select('portfolio_id')
+        .in('portfolio_id', portfolios.filter(p => p.status === 'active').map(p => p.id));
+      const invitedSet = new Set<string>(((invitedActive || []) as any[]).map(r => r.portfolio_id));
+      const visible = portfolios.filter(p => !pendingSet.has(p.id) && (p.status !== 'active' || invitedSet.has(p.id)));
       if (visible.length === 0) return [];
       const portfolioIds = visible.map(p => p.id);
 
@@ -181,6 +187,7 @@ export function InvitedPortfoliosPanel() {
       all: rows.length,
       awaiting_partner_details: rows.filter(r => r.status === 'awaiting_partner_details').length,
       pending_ops_approval: rows.filter(r => r.status === 'pending_ops_approval').length,
+      active: rows.filter(r => r.status === 'active').length,
     };
   }, [data]);
 
@@ -334,7 +341,7 @@ export function InvitedPortfoliosPanel() {
             Invited Portfolios
           </h2>
           <p className="text-xs text-muted-foreground">
-            Portfolios awaiting partner completion or Ops approval. Active portfolios move to the Portfolios tab.
+            Portfolios sent by invite: awaiting the partner, pending Ops approval, or approved and countersigned.
           </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()} disabled={isFetching}>
@@ -358,6 +365,7 @@ export function InvitedPortfoliosPanel() {
             { key: 'all', label: 'All' },
             { key: 'awaiting_partner_details', label: 'Awaiting partner' },
             { key: 'pending_ops_approval', label: 'Pending approval' },
+            { key: 'active', label: 'Approved' },
           ] as { key: Filter; label: string }[]).map(({ key, label }) => {
             const count = counts[key];
             const active = filter === key;
@@ -425,7 +433,11 @@ export function InvitedPortfoliosPanel() {
                       <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{row.portfolio_code}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      {row.status === 'awaiting_partner_details' ? (
+                      {row.status === 'active' ? (
+                        <Badge variant="outline" className="text-[10px] gap-1 border-success/40 bg-success/10 text-success">
+                          <ShieldCheck className="h-3 w-3" /> Approved
+                        </Badge>
+                      ) : row.status === 'awaiting_partner_details' ? (
                         <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                           <Mail className="h-3 w-3" /> Awaiting partner
                         </Badge>
@@ -504,7 +516,7 @@ export function InvitedPortfoliosPanel() {
                   )}
 
                   <div className="flex flex-wrap justify-end items-center gap-2 pt-1 border-t">
-                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval') && !row.portfolio_code?.startsWith('WSR') && (
+                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval' || row.status === 'active') && !row.portfolio_code?.startsWith('WSR') && (
                       <Button
                         size="sm"
                         variant={expired ? 'default' : 'ghost'}
