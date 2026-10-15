@@ -771,7 +771,7 @@ export function AgentCashPayoutsTab() {
 
   const blockingUrgentLandlord = landlordPriorityEnforced && !landlordPayoutsBlocked ? blockingUrgentLandlordRow : null;
 
-  const { data: availableTotal = 0 } = useQuery({
+  const { data: availableSummary = { count: 0, amount: 0 } } = useQuery({
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, agentConfig, frozenUserIds, landlordPayoutsBlocked],
     queryFn: async () => {
       // Same shared fence as the list and the tab badges, so a row FinOps has
@@ -783,7 +783,7 @@ export function AgentCashPayoutsTab() {
       const q = applyMerchantQueueFence(
         supabase
           .from('withdrawal_requests')
-          .select('id, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name, landlord_block_exempt_at'),
+          .select('id, amount, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name, landlord_block_exempt_at'),
       ).is('assigned_cashout_agent_id', null).limit(QUEUE_CANDIDATE_CAP);
       const { data, error } = await q;
       if (error) throw error;
@@ -792,7 +792,11 @@ export function AgentCashPayoutsTab() {
         minAmount: null, maxAmount: null, fromIso: null, toIso: null,
         searchUserIds: null, searchTerm: '', frozenUserIds, landlordPayoutsBlocked,
       };
-      return (data || []).filter((r: any) => isQueueRowClientEligible(r, opts, agentConfig)).length;
+      const eligible = (data || []).filter((r: any) => isQueueRowClientEligible(r, opts, agentConfig));
+      return {
+        count: eligible.length,
+        amount: eligible.reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0),
+      };
     },
     enabled: !!isCashoutAgent,
     staleTime: 30_000,
@@ -1482,7 +1486,14 @@ export function AgentCashPayoutsTab() {
       : actionableRows;
   const pageCount = queuePage?.count ?? 0;
   const channelCounts = queueCounts ?? { all: 0, momo: 0, cash: 0, bank: 0 };
-  const totalPending = availableTotal;
+  const totalPending = availableSummary.count;
+  // Everything still to be paid out: the unclaimed queue you are eligible for
+  // (waiting + approved statuses) plus what you have already claimed but not
+  // yet confirmed. Claimed rows are assigned to you so they are not in the queue.
+  const pendingPayoutAmount =
+    availableSummary.amount +
+    myActiveClaims.reduce((sum: number, w: any) => sum + Number(w.amount || 0), 0);
+  const pendingPayoutCount = totalPending + myActiveClaims.length;
   const filteredPending = channelCounts.all;
 
   // A merchant agent may only hold ONE claim at a time. While a claim is open the
@@ -1523,6 +1534,24 @@ export function AgentCashPayoutsTab() {
       {/* Online/Offline availability — only Online agents receive real-time
           withdrawal dispatches. */}
       <MerchantOnlineToggle />
+
+      {/* Header summary: total value still waiting to be paid out. */}
+      <Card className="rounded-2xl border border-primary/20 bg-primary/5">
+        <CardContent className="flex items-center justify-between gap-3 p-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Wallet className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pending payout</p>
+              <p className="text-xl font-bold leading-tight truncate">{formatUGX(pendingPayoutAmount)}</p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">
+            {pendingPayoutCount} request{pendingPayoutCount !== 1 ? 's' : ''}
+          </span>
+        </CardContent>
+      </Card>
 
       {/* My Active Claims — pinned to the very top so a request YOU claimed is
           always clearly separated from the rest of the queue and can't be missed. */}
@@ -1867,7 +1896,7 @@ export function AgentCashPayoutsTab() {
                   const phone = getRecipientPhone(h);
                   const earned = Number(h.commission || 0) + Number(h.reimbursed || 0);
                   const commission = Number(h.commission || 0) || getCashoutCommission(Number(h.amount || 0));
-                  const sendCharge = getTelecomSendingCharge(Number(h.amount || 0));
+                  const sendCharge = getTelecomSendingCharge(Number(h.amount || 0), channel === 'bank' ? 'bank_transfer' : method);
                   return (
                     <div key={h.id} className="rounded-xl border border-border bg-muted/30 px-3 py-2.5">
                       <div className="flex items-start justify-between gap-3">
