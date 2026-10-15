@@ -403,7 +403,7 @@ export function RequisitionUsageReportGate() {
             </Button>
           )}
           {showForm ? (
-            <Button onClick={() => void submitReport()} disabled={saving || !receipt}>
+            <Button onClick={() => void submitReport()} disabled={saving || receipts.length === 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit report
             </Button>
