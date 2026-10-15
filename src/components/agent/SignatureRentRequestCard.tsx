@@ -42,25 +42,39 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
         </div>
       </section>
       <Dialog open={earningsOpen} onOpenChange={setEarningsOpen}>
-        <DialogContent className="max-w-[420px]">
-          <DialogHeader>
-            <p className="text-xs font-bold uppercase text-primary">Welile agent commissions</p>
-            <DialogTitle>How you earn</DialogTitle>
-            <DialogDescription>Eligible earnings at each stage of a Rent Plan.</DialogDescription>
-          </DialogHeader>
-          <div className="divide-y divide-border">
+        <DialogContent className="signature-earnings w-[min(340px,calc(100vw-2rem))] max-w-none gap-0 overflow-hidden rounded-[22px] p-0 sm:rounded-[22px]">
+          <div className="signature-earnings-hero">
+            <p className="signature-earnings-eyebrow">Welile agent commissions</p>
+            <DialogTitle className="mt-1 text-[22px] font-black leading-tight">How you earn</DialogTitle>
+            <DialogDescription className="mt-1.5 text-xs leading-snug opacity-85">
+              Eligible earnings at each stage of a Rent Plan.
+            </DialogDescription>
+          </div>
+          <div className="signature-earnings-list">
             {[
-              [formatUGX(5000), 'For an eligible posted rent request'],
-              ['1%', 'Of a qualifying landlord payout'],
-              ['10%', 'On qualifying rent repayments'],
-            ].map(([amount, description], index) => (
-              <div key={amount} className="flex items-center justify-between gap-3 py-4">
-                <div><p className="text-xl font-extrabold text-primary">{amount}</p><p className="mt-1 text-xs text-muted-foreground">{description}</p></div>
-                <span className="text-xs font-bold text-muted-foreground">0{index + 1}</span>
+              [Wallet, formatUGX(5000), 'For an eligible posted rent request'],
+              [Percent, '1%', 'Of a qualifying landlord payout'],
+              [CalendarCheck2, '10%', 'On qualifying rent repayments'],
+            ].map(([Icon, amount, description], index) => (
+              <div key={amount} className="signature-earnings-row">
+                <span className="signature-earnings-icon" aria-hidden="true">
+                  <Icon className="!h-[18px] !w-[18px]" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-extrabold leading-tight">{amount}</p>
+                  <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{description}</p>
+                </div>
+                <span className="signature-earnings-step">0{index + 1}</span>
               </div>
             ))}
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">* {formatUGX(40000)} is an illustrative promotional estimate, not a verified maximum or a guarantee. Actual earnings vary with the Rent Plan and commission rules.</p>
+          <div className="signature-earnings-note">
+            <Asterisk className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+            <p>
+              {formatUGX(40000)} is an illustrative promotional estimate, not a verified maximum or a guarantee.
+              Actual earnings vary with the Rent Plan and commission rules.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </>
