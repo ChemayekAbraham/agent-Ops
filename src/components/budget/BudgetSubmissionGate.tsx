@@ -4,6 +4,9 @@ import { ClipboardList, AlertTriangle, ArrowRight } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { Button } from '@/components/ui/button';
 import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
+import { useState } from 'react';
+import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Full-screen required-action gate for an open budget cycle the signed-in user
@@ -20,9 +23,32 @@ import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
  */
 export function BudgetSubmissionGate({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
-  const { obligation, shouldPrompt, skip } = useBudgetSubmissionGate();
+  const { obligation, shouldPrompt, skip, refresh } = useBudgetSubmissionGate();
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!shouldPrompt || !obligation) return <>{children}</>;
+
+  /** Declines this cycle for the department server-side; the obligation then clears on refresh. */
+  const confirmReject = async () => {
+    setBusy(true);
+    setError(null);
+    const { error: rpcError } = await supabase.rpc('budget_decline_obligation' as any, {
+      p_call_id: obligation.call_id,
+      p_department_id: obligation.department_id,
+      p_reason: reason.trim(),
+    });
+    setBusy(false);
+    if (rpcError) {
+      setError(rpcError.message || 'Could not reject this budget. Please try again.');
+      return;
+    }
+    setRejecting(false);
+    setReason('');
+    refresh();
+  };
 
   const deadline = obligation.deadline ? new Date(obligation.deadline) : null;
   const overdue = obligation.is_overdue;
@@ -122,6 +148,34 @@ export function BudgetSubmissionGate({ children }: { children: React.ReactNode }
             Complete Budget Submission
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
+          {rejecting ? (
+            <div className="space-y-2 rounded-lg border border-destructive/40 p-3">
+              <Textarea
+                value={reason}
+                onChange={e => setReason(e.target.value)}
+                placeholder="Why is your department declining this budget? (at least 10 characters)"
+                rows={3}
+              />
+              {error && <p className="text-xs text-destructive">{error}</p>}
+              <div className="flex gap-2">
+                <Button variant="ghost" className="flex-1" disabled={busy} onClick={() => { setRejecting(false); setError(null); }}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={busy || reason.trim().length < 10}
+                  onClick={confirmReject}
+                >
+                  {busy ? 'Rejecting…' : 'Confirm Reject'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="destructive" className="w-full" onClick={() => setRejecting(true)}>
+              Reject
+            </Button>
+          )}
           <Button variant="ghost" className="w-full" onClick={skip}>
             Skip for Now
           </Button>
