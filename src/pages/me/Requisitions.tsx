@@ -437,7 +437,7 @@ const MyRequisitions = () => {
               <p className="text-sm text-muted-foreground">
                 {routeLine
                   ? `Your requests are reviewed in this order: ${routeLine}.`
-                  : 'Your request is reviewed by your department head, then the COO, then the CFO.'}
+                  : 'Your request is reviewed by the COO, then the CEO, then the CFO.'}
               </p>
               <p className="text-xs text-muted-foreground">
                 On final approval the amount is credited straight to your wallet.
