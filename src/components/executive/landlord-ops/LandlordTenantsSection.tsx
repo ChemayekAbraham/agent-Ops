@@ -133,7 +133,7 @@ function Figure({ label, value, strong }: { label: string; value: string; strong
 }
 
 /** The number with a call button and a WhatsApp button. */
-function CallButtons({ phone, name }: { phone: string; name: string }) {
+export function CallButtons({ phone, name }: { phone: string; name: string }) {
   const intl = toInternationalPhone(phone);
   return (
     <div className="flex items-center gap-1.5">
