@@ -449,12 +449,20 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       }
 
       const errors: string[] = [];
-      for (const id of stillEligible) {
-        const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-          body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
-        });
-        if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
-      }
+      // Send payments in parallel with a small concurrency cap: sequential calls
+      // made large batches very slow; each request is funded independently server-side.
+      const CONCURRENCY = 5;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < stillEligible.length) {
+          const id = stillEligible[cursor++];
+          const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
+            body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
+          });
+          if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, stillEligible.length) }, worker));
       if (errors.length) throw new Error(`${errors.length} failed: ${errors[0]}`);
     },
     onSuccess: () => {
