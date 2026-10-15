@@ -135,6 +135,38 @@ describe('FoodMealCard', () => {
     expect(screen.getByText('Steamed green bananas')).toBeInTheDocument();
   });
 
+  it('opens the description when the card is tapped', () => {
+    card({});
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByText('Matoke with Beef Stew'));
+    expect(screen.getByRole('button', { name: /hide details/i }))
+      .toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('closes the description again from its own button', () => {
+    card({});
+    fireEvent.click(screen.getByRole('button', { name: /meal details/i }));
+    fireEvent.click(screen.getByRole('button', { name: /hide details/i }));
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('adding to the order never opens or closes the description', () => {
+    const onChange = card({});
+    fireEvent.click(screen.getByRole('button', { name: /add to order/i }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('a meal with no description shows no details button and is not clickable', () => {
+    card({ description: null });
+    expect(screen.queryByRole('button', { name: /meal details|hide details/i })).toBeNull();
+    fireEvent.click(screen.getByText('Matoke with Beef Stew'));
+    expect(screen.queryByRole('button', { name: /meal details|hide details/i })).toBeNull();
+  });
+
   it('says sold out and refuses to add', () => {
     card({ sold_out: true });
     const button = screen.getByRole('button', { name: /sold out/i });
