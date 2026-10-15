@@ -64,6 +64,7 @@ const approvedOf = (r: ReportRow) => Number(r.requisition?.approved_amount ?? r.
 export function RequisitionUsageReportsReview() {
   const { user } = useAuth();
   const [rows, setRows] = useState<ReportRow[]>([]);
+  const [deferCounts, setDeferCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>('pending');
   const [search, setSearch] = useState('');
@@ -91,6 +92,16 @@ export function RequisitionUsageReportsReview() {
       return;
     }
     setRows((data ?? []) as unknown as ReportRow[]);
+    const ids = (data ?? []).map((r: any) => r.requisition_id);
+    if (ids.length) {
+      const { data: defs } = await supabase
+        .from('staff_requisition_usage_report_deferrals')
+        .select('requisition_id')
+        .in('requisition_id', ids);
+      const c: Record<string, number> = {};
+      (defs || []).forEach((d) => { c[d.requisition_id] = (c[d.requisition_id] || 0) + 1; });
+      setDeferCounts(c);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -227,6 +238,9 @@ export function RequisitionUsageReportsReview() {
                         <p className="text-xs text-muted-foreground">
                           {r.requisition?.requisition_code}
                           {r.requisition?.category ? ` • ${r.requisition.category}` : ''}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Approved {fmtDate(r.requisition?.cfo_decided_at ?? null)} • Due {r.requisition?.cfo_decided_at ? fmtDate(new Date(new Date(r.requisition.cfo_decided_at).getTime() + 36 * 3600 * 1000).toISOString()) : '—'} • Deferred {deferCounts[r.requisition_id] || 0} of 2
                         </p>
                       </td>
                       <td className="py-5 pr-4 first:pl-4 text-right tabular-nums">{formatUGX(approved)}</td>
