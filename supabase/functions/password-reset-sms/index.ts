@@ -26,6 +26,36 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
+const ADMIN_ACTION_ROLES = ["manager", "super_admin", "cto"];
+
+// Admin actions need a real signed-in caller holding an enabled privileged
+// role. verify_jwt is off for this function, so we validate the token here.
+// Returns an error Response, or null when the caller is authorised.
+async function requireAdminCaller(
+  // deno-lint-ignore no-explicit-any
+  adminClient: any,
+  req: Request,
+): Promise<Response | null> {
+  const deny = (status: number, error: string) =>
+    new Response(JSON.stringify({ error }), {
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return deny(401, "Unauthorized");
+  const { data: authData, error: authError } = await adminClient.auth.getUser(token);
+  const caller = authData?.user;
+  if (authError || !caller) return deny(401, "Unauthorized");
+  const { data: roleRows, error: roleError } = await adminClient
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", caller.id)
+    .eq("enabled", true)
+    .in("role", ADMIN_ACTION_ROLES);
+  if (roleError) return deny(500, "Authorisation check failed");
+  if (!roleRows || roleRows.length === 0) return deny(403, "Forbidden");
+  return null;
+}
+
 function generateOTP(): string {
   let otp = "";
   for (let i = 0; i < 6; i++) {
@@ -377,18 +407,13 @@ Deno.serve(async (req) => {
     if (action === "admin_reset") {
       const userId = (body.user_id as string || "").trim();
       const newPassword = (body.new_password as string || "").trim();
-      const authHeader = req.headers.get("authorization") || "";
+
+      const denied = await requireAdminCaller(adminClient, req);
+      if (denied) return denied;
 
       if (!userId || !newPassword || newPassword.length < 6) {
         return new Response(JSON.stringify({ error: "user_id and new_password (min 6 chars) required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Verify caller is a manager
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
@@ -414,7 +439,10 @@ Deno.serve(async (req) => {
       const userId = (body.user_id as string || "").trim();
       const newPassword = (body.new_password as string || "").trim();
 
-      if (!userId || !newPassword) {
+      const denied = await requireAdminCaller(adminClient, req);
+      if (denied) return denied;
+
+      if (!userId || !newPassword || newPassword.length < 6) {
         return new Response(JSON.stringify({ error: "user_id and new_password required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -439,16 +467,13 @@ Deno.serve(async (req) => {
 
     if (action === "admin_delete_user") {
       const userId = (body.user_id as string || "").trim();
-      const authHeader = req.headers.get("authorization") || "";
+
+      const denied = await requireAdminCaller(adminClient, req);
+      if (denied) return denied;
 
       if (!userId) {
         return new Response(JSON.stringify({ error: "user_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
