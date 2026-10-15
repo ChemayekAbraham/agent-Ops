@@ -24,6 +24,7 @@ interface Profile {
   country?: string | null;
   region?: string | null;
   district?: string | null;
+  residence_lat?: number | null;
   city?: string | null;
   town?: string | null;
   sub_county?: string | null;
@@ -35,7 +36,7 @@ interface Profile {
 
 // Single source of truth for the columns we hydrate everywhere.
 const PROFILE_COLUMNS =
-  'id, full_name, email, phone, avatar_url, verified, is_frozen, frozen_reason, territory, is_seller, seller_application_status, address_complete, continent, country, region, district, city, town, sub_county, parish, village, primary_persona, occupation';
+  'id, full_name, email, phone, avatar_url, verified, is_frozen, frozen_reason, territory, is_seller, seller_application_status, address_complete, continent, country, region, district, residence_lat, city, town, sub_county, parish, village, primary_persona, occupation';
 // Module-level cache to deduplicate across component instances
 let profileCache: { data: Profile; userId: string; timestamp: number } | null = null;
 const PROFILE_CACHE_TTL = 60_000; // 1 minute
