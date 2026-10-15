@@ -2298,7 +2298,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <SummaryCard icon={<Users className="h-4 w-4" />} label="Total Partners" value={summary.totalPartners}
             badge={summary.newPartnersToday > 0 ? `+${summary.newPartnersToday}` : undefined}
-            sub={`${summary.newPartnersToday} partner${summary.newPartnersToday === 1 ? '' : 's'} who joined today · ${summary.activePartners} active · ${summary.pendingPortfolios} pending portfolio${summary.pendingPortfolios === 1 ? '' : 's'} awaiting counter-sign`} accent="primary" />
+            sub={`${summary.newPartnersToday} partner${summary.newPartnersToday === 1 ? '' : 's'} who joined today · ${summary.activePartners} active · ${summary.pendingPortfolios} pending self-registered funder portfolio${summary.pendingPortfolios === 1 ? '' : 's'}`} accent="primary" />
           <PendingPortfoliosCard onClick={() => setPendingPortfoliosOpen(true)} />
           <SummaryCard icon={<Wallet className="h-4 w-4" />} label="Wallet Balances" value={formatUGX(summary.totalWalletBalance)}
             sub="Across all partner wallets · tap to view" accent="amber"

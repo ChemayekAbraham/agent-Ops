@@ -570,10 +570,11 @@ export async function fetchSupporterSummary(): Promise<{
     return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0, newPartnersToday: 0, pendingPortfolios: 0 };
   }
 
+  // Self-registered funders (funder-onboarding) awaiting approval — not portfolio invites.
   const { count: pendingCount } = await supabase
-    .from('investor_portfolios')
+    .from('funder_pending_portfolios')
     .select('id', { count: 'exact', head: true })
-    .in('status', ['awaiting_partner_details', 'pending_ops_approval']);
+    .eq('status', 'pending');
   const pendingPortfolios = pendingCount || 0;
 
   const todayYmd = kampalaTodayYmd();
