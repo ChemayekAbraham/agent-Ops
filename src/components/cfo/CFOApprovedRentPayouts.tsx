@@ -76,24 +76,19 @@ export function CFOApprovedRentPayouts() {
       // Paid = Financial Operations has disbursed the landlord payout
       // (landlord_payouts.finops_disbursed_at). CFO approval/funding alone stays Pending.
       const cols = 'id, status, rent_amount, tenant_id, agent_id, landlord_id, coo_reviewed_at, cfo_reviewed_at, funded_at, created_at, payout_transaction_reference';
-      const lookbackStart = bounds ? new Date(bounds[0].getTime() - 60 * DAY).toISOString() : null;
-      const queries = [
-        (() => {
-          let q = supabase.from('rent_requests').select(cols).eq('status', 'coo_approved')
-            .order('coo_reviewed_at', { ascending: false, nullsFirst: false }).limit(1000);
-          return q;
-        })(),
-        (() => {
-          let q = supabase.from('rent_requests').select(cols).in('status', PAID_STATUSES).not('funded_at', 'is', null)
-            .order('funded_at', { ascending: false }).limit(bounds ? 1000 : 500);
-          if (lookbackStart) q = q.gte('funded_at', lookbackStart);
-          return q;
-        })(),
-      ];
-      const [a, b] = await Promise.all(queries);
+      const a = await supabase.from('rent_requests').select(cols).eq('status', 'coo_approved')
+        .order('coo_reviewed_at', { ascending: false, nullsFirst: false }).limit(1000);
       if (a.error) throw a.error;
-      if (b.error) throw b.error;
-      const funded = (b.data || []) as Row[];
+      // Every CFO-approved (funded) rent request, all time — paged past the 1,000-row cap.
+      const funded: Row[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('rent_requests').select(cols)
+          .in('status', PAID_STATUSES).not('funded_at', 'is', null)
+          .order('funded_at', { ascending: false }).order('id').range(from, from + 999);
+        if (error) throw error;
+        funded.push(...((data || []) as Row[]));
+        if (!data || data.length < 1000) break;
+      }
       const paidAt = new Map<string, string>();
       const ids = funded.map(r => r.id);
       for (let i = 0; i < ids.length; i += 200) {
@@ -109,10 +104,10 @@ export function CFOApprovedRentPayouts() {
       }
       const inB = (s: string | null) => !bounds || (!!s && new Date(s) >= bounds[0] && new Date(s) < bounds[1]);
       if (tab === 'paid') {
-        return funded.filter(r => paidAt.has(r.id))
-          .map(r => ({ ...r, paid_at: paidAt.get(r.id)! }))
-          .filter(r => inB(r.paid_at))
-          .sort((x, y) => (y.paid_at > x.paid_at ? 1 : -1));
+        // Approved = all CFO approvals; status shows Paid only after Financial Operations pays out.
+        return funded
+          .map(r => ({ ...r, paid_at: paidAt.get(r.id) ?? null }))
+          .filter(r => inB(r.cfo_reviewed_at || r.funded_at));
       }
       const pending = [...((a.data || []) as Row[]), ...funded.filter(r => !paidAt.has(r.id))]
         .map(r => ({ ...r, paid_at: null }))
