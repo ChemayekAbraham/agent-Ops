@@ -2,9 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  X, Search, AlertCircle, Wallet, ArrowDownToLine, ArrowUpFromLine, Send, Users, UserPlus, Home,
-  FileText, Calculator, MapPin, Trophy, BarChart3, HelpCircle, Settings, User, LogOut, Monitor,
-  Building2, Receipt, type LucideIcon,
+  X, Search, AlertCircle, ArrowLeftRight, ArrowUpRight, Banknote, BookOpen, Briefcase, Building, Building2, Calculator, Coins, CreditCard, FileCheck, FileCode, FileSignature, FileText, Gift, HandCoins, HelpCircle, History, Home, Key, LogOut, MapPin, MessageSquare, Settings, TrendingUp, User, UserCheck, UserPlus, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -12,7 +10,7 @@ interface MenuItem {
   name: string;
   icon: LucideIcon;
   route?: string;
-  action?: 'sign_out' | 'desktop';
+  action?: 'sign_out';
   keywords?: string;
   /** Icon tint tone — each item gets its own hue while staying theme-consistent. */
   tone: keyof typeof toneClasses;
@@ -28,6 +26,7 @@ const toneClasses = {
   indigo: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   orange: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
   teal: 'bg-teal-500/10 text-teal-600 dark:text-teal-400',
+  pink: 'bg-pink-500/10 text-pink-600 dark:text-pink-400',
   slate: 'bg-slate-500/10 text-slate-600 dark:text-slate-400',
   danger: 'bg-destructive/10 text-destructive',
 } as const;
@@ -36,33 +35,62 @@ interface MenuSection { title: string; items: MenuItem[] }
 
 const menuData: MenuSection[] = [
   { title: 'Money', items: [
-    { name: 'Wallet', icon: Wallet, keywords: 'balance float', tone: 'violet' },
-    { name: 'Deposit', icon: ArrowDownToLine, keywords: 'top up', tone: 'blue' },
-    { name: 'Withdraw', icon: ArrowUpFromLine, keywords: 'cash out', tone: 'amber' },
-    { name: 'Send Money', icon: Send, keywords: 'transfer', tone: 'rose' },
+    { name: 'Pay Rent', icon: Banknote, tone: 'violet' },
+    { name: 'Issue Receipt', icon: FileText, tone: 'green' },
+    { name: 'Merchant Agent', icon: Users, tone: 'amber' },
+    { name: 'Request Advance', icon: HandCoins, tone: 'rose' },
+  ]},
+  { title: 'Share', items: [
+    { name: 'Leaderboard', icon: TrendingUp, route: '/dashboard/agent', tone: 'violet' },
+    { name: 'Invite Tenant', icon: UserPlus, tone: 'blue' },
+    { name: 'Invite Landlord', icon: UserPlus, tone: 'green' },
+    { name: 'Invite Partner', icon: UserPlus, tone: 'amber' },
+    { name: 'Invite Sub Agent', icon: UserPlus, tone: 'rose' },
+    { name: 'Invite Person', icon: UserPlus, tone: 'indigo' },
+    { name: 'Referrals', icon: Gift, tone: 'teal' },
+  ]},
+  { title: 'Register', items: [
+    { name: 'Register Landlord', icon: Building2, tone: 'violet' },
+    { name: 'Register LC', icon: Building, tone: 'blue' },
+    { name: 'Register Tenant', icon: UserCheck, tone: 'green' },
+    { name: 'Register Partner', icon: Briefcase, tone: 'amber' },
+    { name: 'Promissory Notes', icon: FileCode, tone: 'rose' },
+    { name: 'My Promissory Notes', icon: FileText, tone: 'indigo' },
+  ]},
+  { title: 'Property', items: [
+    { name: 'List House', icon: Home, tone: 'violet' },
+    { name: 'My Listings', icon: Key, tone: 'blue' },
+    { name: 'Post Rent', icon: ArrowUpRight, tone: 'green' },
+    { name: 'Find Rentals', icon: Search, route: '/find-a-house', tone: 'amber' },
+    { name: 'Managed Properties', icon: Building2, tone: 'rose' },
+    { name: 'Manage Property', icon: Settings, tone: 'indigo' },
+    { name: 'Landlords', icon: Users, tone: 'teal' },
+    { name: 'LCs', icon: MapPin, tone: 'pink' },
+  ]},
+  { title: 'Documents', items: [
+    { name: 'Landlord Form', icon: FileSignature, tone: 'violet' },
+    { name: 'Tenant Form', icon: FileSignature, tone: 'blue' },
+    { name: 'Landlord Contract', icon: FileCheck, tone: 'green' },
+    { name: 'Tenant Contract', icon: FileCheck, tone: 'amber' },
+    { name: 'Agreement', icon: FileText, tone: 'rose' },
+  ]},
+  { title: 'Wallet', items: [
+    { name: 'Advance', icon: Wallet, tone: 'violet' },
+    { name: 'Receipts', icon: History, tone: 'blue' },
+    { name: 'Transactions', icon: ArrowLeftRight, tone: 'green' },
+    { name: 'Statements', icon: BookOpen, tone: 'amber' },
+    { name: 'My Loans', icon: CreditCard, tone: 'rose' },
+    { name: 'Calculator', icon: Calculator, tone: 'indigo' },
   ]},
   { title: 'Tenants', items: [
-    { name: 'My Tenants', icon: Users, tone: 'blue' },
-    { name: 'Register Tenant', icon: UserPlus, keywords: 'onboard new', tone: 'green' },
-    { name: 'Rent Requests', icon: FileText, keywords: 'rent plan', tone: 'violet' },
-    { name: 'Collections', icon: Receipt, keywords: 'payments', tone: 'teal' },
+    { name: 'My Tenants', icon: Users, tone: 'violet' },
+    { name: 'Collect Rent', icon: Coins, tone: 'blue' },
   ]},
-  { title: 'Properties', items: [
-    { name: 'Find Rentals', icon: Home, route: '/find-a-house', keywords: 'house listing', tone: 'orange' },
-    { name: 'Landlords', icon: Building2, tone: 'cyan' },
-    { name: 'Map View', icon: MapPin, keywords: 'location', tone: 'indigo' },
-  ]},
-  { title: 'Tools', items: [
-    { name: 'Calculator', icon: Calculator, keywords: 'rent', tone: 'blue' },
-    { name: 'Leaderboard', icon: Trophy, route: '/dashboard/agent', keywords: 'rank', tone: 'green' },
-    { name: 'Reports', icon: BarChart3, tone: 'violet' },
-  ]},
-  { title: 'Account', items: [
-    { name: 'Profile', icon: User, route: '/settings', tone: 'blue' },
-    { name: 'Settings', icon: Settings, route: '/settings', tone: 'slate' },
-    { name: 'Help', icon: HelpCircle, route: '/settings', keywords: 'support', tone: 'amber' },
-    { name: 'Use Desktop Version', icon: Monitor, action: 'desktop', route: '/dashboard/agent', tone: 'indigo' },
-    { name: 'Sign Out', icon: LogOut, action: 'sign_out', keywords: 'logout', tone: 'danger' },
+  { title: 'Settings', items: [
+    { name: 'Profile', icon: User, route: '/settings', tone: 'violet' },
+    { name: 'Help', icon: HelpCircle, route: 'https://help.welileapp.com/', tone: 'blue' },
+    { name: 'Contact Support', icon: MessageSquare, tone: 'green' },
+    { name: 'Sign Out', icon: LogOut, action: 'sign_out', tone: 'danger' },
   ]},
 ];
 
@@ -93,6 +121,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
     onClose();
     setTimeout(() => {
       if (item.action === 'sign_out') signOut();
+      else if (item.route?.startsWith('http')) window.open(item.route, '_blank', 'noopener,noreferrer');
       else if (item.route) navigate(item.route);
       else setToastMessage(`"${item.name}" is coming soon`);
     }, 200);
