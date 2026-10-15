@@ -204,7 +204,7 @@ export function RequisitionUsageReportGate() {
         toast.success('This requisition already has a submitted report.');
         setAmountUsed('');
         setSummary('');
-        setReceipt(null);
+        setReceipts([]);
         setShowForm(false);
         setOpen(false);
         await load();
