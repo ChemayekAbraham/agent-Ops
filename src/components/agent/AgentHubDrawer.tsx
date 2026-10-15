@@ -60,7 +60,7 @@ const menuData: MenuSection[] = [
   { title: 'Account', items: [
     { name: 'Profile', icon: User, route: '/settings', tone: 'blue' },
     { name: 'Settings', icon: Settings, route: '/settings', tone: 'slate' },
-    { name: 'Help', icon: HelpCircle, route: '/settings', keywords: 'support', tone: 'amber' },
+    { name: 'Help', icon: HelpCircle, route: 'https://help.welileapp.com/', keywords: 'support', tone: 'amber' },
     { name: 'Use Desktop Version', icon: Monitor, action: 'desktop', route: '/dashboard/agent', tone: 'indigo' },
     { name: 'Sign Out', icon: LogOut, action: 'sign_out', keywords: 'logout', tone: 'danger' },
   ]},
@@ -93,6 +93,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
     onClose();
     setTimeout(() => {
       if (item.action === 'sign_out') signOut();
+      else if (item.route?.startsWith('http')) window.open(item.route, '_blank', 'noopener,noreferrer');
       else if (item.route) navigate(item.route);
       else setToastMessage(`"${item.name}" is coming soon`);
     }, 200);
