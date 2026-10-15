@@ -31,6 +31,7 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
           <div className="signature-rent-earnings">
             <p className="signature-rent-subtle text-xs font-bold">Earn up to</p>
             <p className="mt-0.5 text-[28px] font-black leading-tight">{formatUGX(40000)}<sup className="ml-0.5 text-sm">*</sup></p>
+            <p className="signature-rent-subtle mt-0.5 text-[11px] font-semibold leading-snug">in commissions</p>
             <Button variant="link" className="signature-rent-how" onClick={() => setEarningsOpen(true)}>
               How do I earn? <ArrowUpRight className="!h-3 !w-3" aria-hidden="true" />
             </Button>
