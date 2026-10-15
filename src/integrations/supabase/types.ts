@@ -8237,6 +8237,55 @@ export type Database = {
           },
         ]
       }
+      budget_obligation_declines: {
+        Row: {
+          call_id: string
+          created_at: string
+          declined_by: string
+          department_id: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          created_at?: string
+          declined_by: string
+          department_id: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          created_at?: string
+          declined_by?: string
+          department_id?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_obligation_declines_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "budget_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       budget_submission_documents: {
         Row: {
           created_at: string
@@ -64676,6 +64725,10 @@ export type Database = {
           p_note: string
         }
         Returns: Json
+      }
+      budget_decline_obligation: {
+        Args: { p_call_id: string; p_department_id: string; p_reason: string }
+        Returns: string
       }
       budget_department_access_user_ids: {
         Args: { _department_id: string }
