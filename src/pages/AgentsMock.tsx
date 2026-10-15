@@ -93,6 +93,12 @@ export default function AgentsMock() {
   const firstLetter = (name?: string | null) => (name || 'T').trim().charAt(0).toUpperCase() || 'T';
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
+  // The page and everything it opens (dialogs, the profile popover) read in Outfit.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('agents-mock-font');
+    return () => root.classList.remove('agents-mock-font');
+  }, []);
   // The photos folder is private, so the saved "public" link 404s. Turn the
   // saved link into a short-lived signed link for the same file instead.
   const avatarPath = useMemo(() => {

@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-.agents-mock-exact { --mock-surface: #F9FBFA; --mock-card: #FFFEFF; --mock-header: #9335EB; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: var(--mock-surface); font-family: 'DM Sans', sans-serif; }
+.agents-mock-exact { --mock-surface: #F9FBFA; --mock-card: #FFFEFF; --mock-header: #9335EB; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: var(--mock-surface); font-family: 'Outfit', 'DM Sans', sans-serif; }
 /* #F9FBFA / #FFFEFF are not expressible as HSL triplets (they round to #FAFAFA / #FEFEFE),
    so this page's surface and card colours are literal hex, scoped to the page and light mode only. */
 html:not(.dark) .agents-mock-exact .bg-card { background-color: var(--mock-card); }
