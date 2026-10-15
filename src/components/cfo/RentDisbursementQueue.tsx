@@ -415,7 +415,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   );
   const selectAllForPayment = () => {
     if (selectableItems.length === 0) return;
-    setSelected(new Set(selectableItems.map(i => i.id)));
+    // Tenants already ticked: review exactly those — never widen the
+    // selection to every eligible row. Only pick all when nothing is ticked.
+    if (selectedVisibleCount === 0) {
+      setSelected(new Set(selectableItems.map(i => i.id)));
+    }
     setBulkReviewOpen(true);
   };
 
