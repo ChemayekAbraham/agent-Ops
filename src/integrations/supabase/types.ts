@@ -78738,6 +78738,10 @@ export type Database = {
         }[]
       }
       tenant_payment_score_run: { Args: { p_as_at?: string }; Returns: Json }
+      tenant_plan_due_now: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string

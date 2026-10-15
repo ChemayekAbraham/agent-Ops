@@ -4075,6 +4075,13 @@
       "when": 1792062777116,
       "tag": "0581_rd_head_requisition_ceo_direct",
       "breakpoints": true
+    },
+    {
+      "idx": 582,
+      "version": "7",
+      "when": 1792063856617,
+      "tag": "0582_tenant_plan_due_now",
+      "breakpoints": true
     }
   ]
 }
