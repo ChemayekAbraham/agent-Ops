@@ -71,16 +71,17 @@ export function InvitedPortfoliosPanel() {
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
     queryKey: ['invited-portfolios'],
     queryFn: async () => {
-      // Single round-trip: pull portfolios in the invite pipeline, then batch
-      // the partner profiles + invite visibility (tokens + delivery log) through
-      // one role-gated RPC. The token/send-log tables are RLS-locked to partners
-      // and service role, so Ops must go through `partner_ops_invite_visibility`.
+      // Pull the portfolios in the invite pipeline, then resolve the partner
+      // identity and the invite status through two role-gated RPCs. The profile,
+      // token and send-log tables are RLS-locked or far too large to read by id
+      // from the browser, so Ops goes through `partner_ops_invite_partners` and
+      // `partner_ops_invite_visibility`.
       const { data: portfolios, error } = await supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
         .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(2000);
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
@@ -181,7 +182,7 @@ export function InvitedPortfoliosPanel() {
       if (visible.length === 0) return [];
 
       return visible.map((p): Row => {
-        const prof = nameMap.get(p.investor_id) || {};
+        const prof = infoMap.get(p.id) || MISSING;
         const vis = visMap.get(p.id) || {};
         return {
           id: p.id,
@@ -193,9 +194,9 @@ export function InvitedPortfoliosPanel() {
           status: p.status as InviteStatus,
           created_at: p.created_at,
           investor_id: p.investor_id,
-          partner_name: prof.full_name || '—',
-          partner_phone: prof.phone || null,
-          partner_email: prof.email || null,
+          partner_name: prof.name,
+          partner_phone: prof.phone,
+          partner_email: prof.email,
           token_expires_at: vis.token_expires_at || null,
           token_consumed_at: vis.token_consumed_at || null,
           sent_count: Number(vis.sent_count) || 0,
