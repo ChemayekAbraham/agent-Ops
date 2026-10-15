@@ -62,3 +62,9 @@ export const isDueDay = (r: First7Row, i: number) => r.frequency === 'weekly' &&
 
 export const planLabel = (r: First7Row) =>
   r.frequency === 'weekly' ? `Weekly · ${formatUGX(r.day_due.find((d) => d > 0) ?? r.daily_due * 7)} / week` : `Daily · ${formatUGX(r.daily_due)} / day`;
+
+/** The same plan line in two parts, for a narrow column: "Weekly" and "UGX 780,500 / week". */
+export const planParts = (r: First7Row) =>
+  r.frequency === 'weekly'
+    ? { kind: 'Weekly', amount: `${formatUGX(r.day_due.find((d) => d > 0) ?? r.daily_due * 7)} / week` }
+    : { kind: 'Daily', amount: `${formatUGX(r.daily_due)} / day` };

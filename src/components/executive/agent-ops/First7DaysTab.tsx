@@ -17,7 +17,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { downloadFirst7Csv, generateFirst7Pdf, type First7ExportInput } from '@/lib/first7Export';
 import { First7TenantSheet } from './First7TenantSheet';
-import { CELL_TONE, DOT_TONE, cellKind, cellText, cellTitle, fmtDay, isDueDay, planLabel } from './first7Cells';
+import { CELL_TONE, DOT_TONE, cellKind, cellText, cellTitle, fmtDay, isDueDay, planLabel, planParts } from './first7Cells';
 import { StatusBadge } from './First7StatusBadge';
 import {
   DAY_STATE_LABEL,
@@ -61,7 +61,7 @@ const CARDS: { id: CardFilter; label: string; icon: typeof Users; tone: string; 
 
 function SummaryCards({ summary, active, onPick }: { summary: First7Summary; active: CardFilter; onPick: (c: CardFilter) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+    <div className="grid grid-cols-2 gap-2 md:grid-cols-3 2xl:grid-cols-6">
       {CARDS.map(({ id, label, icon: Icon, tone, value, hint }) => {
         const on = active === id;
         return (
@@ -93,8 +93,9 @@ function CollectedStrip({ summary }: { summary: First7Summary }) {
   return (
     <Card className="space-y-1.5 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <p className="text-xs font-semibold text-foreground">
-          Collected {formatUGX(summary.collected)} <span className="font-normal text-muted-foreground">of {formatUGX(summary.expected)} due so far</span>
+        <p className="flex flex-wrap gap-x-1.5 text-xs text-foreground" data-testid="first7-collected">
+          <span className="whitespace-nowrap font-semibold">Collected {formatUGX(summary.collected)}</span>{' '}
+          <span className="whitespace-nowrap text-muted-foreground">of {formatUGX(summary.expected)} due so far</span>
         </p>
         <p className="text-xs font-bold tabular-nums text-foreground">{pct === null ? 'Nothing due yet' : `${pct}%`}</p>
       </div>
@@ -173,6 +174,16 @@ function RowIdentity({ r }: { r: First7Row }) {
   );
 }
 
+function PlanLines({ r }: { r: First7Row }) {
+  const { kind, amount } = planParts(r);
+  return (
+    <>
+      <p className="font-medium text-foreground">{kind}</p>
+      <p className="text-xs text-muted-foreground">{amount}</p>
+    </>
+  );
+}
+
 function AgentName({ r, onAgent, className }: { r: First7Row; onAgent: (agentId: string) => void; className?: string }) {
   if (!r.agent_id) return <span className={className}>{r.agent_name ?? '—'}</span>;
   return (
@@ -195,8 +206,8 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
           <tr className="text-left text-muted-foreground">
             <th className="py-1 pr-2">Tenant</th>
             <th className="py-1 pr-2">Agent</th>
-            <th className="py-1 pr-2">Plan</th>
-            <th className="py-1 pr-2">Landlord paid</th>
+            <th className="hidden py-1 pr-2 2xl:table-cell">Plan</th>
+            <th className="hidden py-1 pr-2 2xl:table-cell">Landlord paid</th>
             {Array.from({ length: 7 }, (_, i) => <th key={i} className="px-1 py-1 text-center">Day {i + 1}</th>)}
             <th className="py-1 pl-2 text-right">7-day paid</th>
             <th className="py-1 pl-2">Status</th>
@@ -218,9 +229,12 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
                 className="cursor-pointer border-t border-border/40 hover:bg-muted/40 focus-visible:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               >
                 <td className="py-1.5 pr-2"><RowIdentity r={r} /></td>
-                <td className="py-1.5 pr-2"><AgentName r={r} onAgent={onAgent} /></td>
-                <td className="py-1.5 pr-2 whitespace-nowrap">{planLabel(r)}</td>
-                <td className="py-1.5 pr-2 whitespace-nowrap">{fmtDay(r.landlord_paid_on)}</td>
+                <td className="py-1.5 pr-2">
+                  <AgentName r={r} onAgent={onAgent} />
+                  <p className="text-muted-foreground 2xl:hidden" title={planLabel(r)}>{planParts(r).kind}</p>
+                </td>
+                <td className="hidden py-1.5 pr-2 whitespace-nowrap 2xl:table-cell"><PlanLines r={r} /></td>
+                <td className="hidden py-1.5 pr-2 whitespace-nowrap 2xl:table-cell">{fmtDay(r.landlord_paid_on)}</td>
                 {Array.from({ length: 7 }, (_, i) => {
                   const kind = cellKind(r, i);
                   return (
@@ -230,7 +244,7 @@ function GridTable({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
                         title={cellTitle(r, i, kind)}
                         onClick={(e) => { e.stopPropagation(); onOpen(r.rent_request_id, i + 1); }}
                         className={cn(
-                          'block min-w-[68px] whitespace-nowrap rounded px-1 py-1 text-center font-mono text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
+                          'block min-w-[72px] whitespace-nowrap rounded px-1 py-1 text-center text-xs tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
                           CELL_TONE[kind],
                           isDueDay(r, i) && 'ring-2 ring-primary',
                         )}
@@ -292,16 +306,15 @@ function GridCards({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
               <StatusBadge status={r.row_status} />
             </div>
             <DotStrip r={r} />
-            <div className="flex items-end justify-between gap-2">
-              <div className="min-w-0 text-muted-foreground">
-                <p className="truncate"><AgentName r={r} onAgent={onAgent} /></p>
-                <p className="truncate">{planLabel(r)} · paid out {fmtDay(r.landlord_paid_on)}</p>
-              </div>
-              <p className="shrink-0 text-right font-mono font-semibold text-foreground">
-                {formatUGX(r.paid_7d)}
-                <span className="block text-xs font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
-              </p>
+            <div className="min-w-0 space-y-0.5 text-muted-foreground">
+              <p className="truncate"><AgentName r={r} onAgent={onAgent} /></p>
+              <p className="truncate">{planLabel(r)}</p>
+              <p className="truncate">Landlord paid {fmtDay(r.landlord_paid_on)}</p>
             </div>
+            <p className="flex items-baseline justify-between gap-2 border-t border-border/40 pt-2 font-mono">
+              <span className="whitespace-nowrap font-semibold text-foreground">{formatUGX(r.paid_7d)}</span>
+              <span className="whitespace-nowrap text-xs font-normal text-muted-foreground">of {formatUGX(r.expected_to_date)} due</span>
+            </p>
           </li>
         );
       })}
@@ -314,7 +327,7 @@ function GridCards({ rows, onOpen, onAgent }: { rows: First7Row[]; onOpen: OpenF
 function LoadingState() {
   return (
     <div className="space-y-3" aria-busy="true" aria-label="Loading First 7 Days">
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 2xl:grid-cols-6">
         {Array.from({ length: 6 }, (_, i) => <SkeletonMetricCard key={i} className="p-3" />)}
       </div>
       <Skeleton className="h-14 w-full" />
