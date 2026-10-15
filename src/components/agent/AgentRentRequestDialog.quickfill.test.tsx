@@ -76,9 +76,15 @@ vi.mock('@/components/agent/ExistingTenantPhoneNotice', () => ({ ExistingTenantP
 vi.mock('@/components/executive/EntityDetailSheet', () => ({ EntityDetailSheet: () => null }));
 vi.mock('@/components/shared/DailyRatingThresholdPopover', () => ({ DailyRatingThresholdPopover: () => null }));
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AgentRentRequestDialog from './AgentRentRequestDialog';
 
 const SEARCH_PLACEHOLDER = 'Landlord name, phone, region, or description';
+
+function wrap(ui: React.ReactElement) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>);
+}
 
 describe('post rent request — quick-fill block removed', () => {
   beforeEach(() => {
