@@ -95,7 +95,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
               role="dialog" aria-label="Agent Hub"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-[92vh] bg-muted text-foreground rounded-t-3xl shadow-xl z-50 flex flex-col overflow-hidden border-t border-border"
+              className="fixed bottom-0 left-0 right-0 max-w-md mx-auto max-h-[70vh] min-h-[320px] bg-muted text-foreground rounded-t-3xl shadow-xl z-[110] flex flex-col overflow-hidden border-t border-border"
             >
               <div className="w-full flex justify-center py-2 shrink-0 cursor-pointer" onClick={onClose}>
                 <div className="w-10 h-1 bg-border rounded-full" />
