@@ -89,7 +89,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={onClose}
-              className="fixed inset-0 bg-foreground/45 z-40 cursor-pointer"
+              className="fixed inset-0 bg-foreground/45 z-[105] cursor-pointer"
             />
             <motion.div
               role="dialog" aria-label="Agent Hub"
