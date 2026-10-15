@@ -15,7 +15,7 @@ import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
 
 export default function AgentDashboardNew() {
-  const { user, signOut, roles, switchRole } = useAuth();
+  const { signOut, roles, switchRole } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
