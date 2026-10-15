@@ -538,6 +538,7 @@ export async function fetchSupporterSummary(): Promise<{
   totalDeals: number;
   activePartners: number;
   suspendedPartners: number;
+  newPartnersToday: number;
 }> {
   // A partner/funder = ANY user with one or more rows in investor_portfolios.
   // Page through ALL portfolios (no role/status filter) so the count matches DB truth.
