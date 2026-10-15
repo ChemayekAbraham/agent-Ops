@@ -31,3 +31,5 @@
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
 - Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
 - Subdirectories have their own `AGENTS.md` to read before changing files there: `supabase/AGENTS.md` carries the payout-clock, tenant-classification, payment-score, desk-ordering and smartphone-usage rules — one named function is the only definition and the client never recomputes it.
+
+- Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
