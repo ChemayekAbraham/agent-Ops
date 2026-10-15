@@ -42,7 +42,7 @@ export default function AgentDashboardNew() {
           <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} size="lg" />
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
-              <span className="break-words">{profile?.full_name || 'Agent'}</span>
+              <span className="break-words">{firstName}</span>
               {profile?.verified && <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />}
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
