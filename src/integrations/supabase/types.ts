@@ -62557,6 +62557,10 @@ export type Database = {
         }
         Returns: string
       }
+      _ledger_can_post_partner_returns: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       _merch_bike_day: {
         Args: { p_day: string; p_sale_id: string; p_v2: boolean }
         Returns: {
@@ -75331,6 +75335,17 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      post_portfolio_roi_ledger: {
+        Args: {
+          p_amount: number
+          p_description_in: string
+          p_description_out: string
+          p_operation: string
+          p_portfolio_id: string
+          p_reference: string
+        }
+        Returns: string
       }
       post_rent_fee_collection: {
         Args: {

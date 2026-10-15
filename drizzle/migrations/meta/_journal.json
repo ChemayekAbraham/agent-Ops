@@ -4026,6 +4026,13 @@
       "when": 1792050066686,
       "tag": "0574_food_remove_20_portion_limit",
       "breakpoints": true
+    },
+    {
+      "idx": 575,
+      "version": "7",
+      "when": 1792050357771,
+      "tag": "0575_post_portfolio_roi_ledger_boundary",
+      "breakpoints": true
     }
   ]
 }
