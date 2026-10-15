@@ -62,7 +62,7 @@ export function RequisitionUsageReportGate() {
   const [amountUsed, setAmountUsed] = useState('');
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
-  const [receipt, setReceipt] = useState<File | null>(null);
+  const [receipts, setReceipts] = useState<File[]>([]);
   const [deferrals, setDeferrals] = useState<Record<string, number>>({});
   const [showDefer, setShowDefer] = useState(false);
   const [deferReason, setDeferReason] = useState('');
@@ -70,17 +70,23 @@ export function RequisitionUsageReportGate() {
   const [deferError, setDeferError] = useState<string | null>(null);
   const loadedOnceRef = useRef(false);
 
-  const pickReceipt = (file: File | null) => {
-    if (!file) { setReceipt(null); return; }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.error('Attach a PDF or a photo (JPG, PNG or WebP)');
-      return;
+  const pickReceipts = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`"${file.name}" is not a PDF or photo (JPG, PNG or WebP)`);
+        continue;
+      }
+      if (file.size > MAX_BYTES) {
+        toast.error(`"${file.name}" is larger than 10MB`);
+        continue;
+      }
+      setReceipts((prev) => [...prev, file]);
     }
-    if (file.size > MAX_BYTES) {
-      toast.error('That file is larger than 10MB');
-      return;
-    }
-    setReceipt(file);
+  };
+
+  const removeReceipt = (index: number) => {
+    setReceipts((prev) => prev.filter((_, i) => i !== index));
   };
 
   const current = pending[0] ?? null;
@@ -159,23 +165,23 @@ export function RequisitionUsageReportGate() {
     const used = Number(amountUsed);
     if (!Number.isFinite(used) || used < 0) { toast.error('Enter how much of the money you used'); return; }
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
-    if (!receipt) { toast.error('Attach a receipt or proof of payment'); return; }
+    if (receipts.length === 0) { toast.error('Attach at least one receipt or proof of payment'); return; }
 
     setSaving(true);
 
-    // Upload the receipt first (existing storage + auth path) so we never save a
+    // Upload each receipt first (existing storage + auth path) so we never save a
     // report that claims an attachment it does not have.
-    let attachmentPaths: string[] | null = null;
-    if (receipt) {
+    const attachmentPaths: string[] = [];
+    for (const receipt of receipts) {
       const form = new FormData();
       form.append('requisition_id', current.id);
       form.append('file', receipt);
       const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
         'staff-requisition-add-attachment',
-        { body: form, errorTitle: 'Could not attach your receipt' },
+        { body: form, errorTitle: `Could not attach "${receipt.name}"` },
       );
       if (upErr || !up?.path) { setSaving(false); return; }
-      attachmentPaths = [up.path];
+      attachmentPaths.push(up.path);
     }
 
     const { error } = await supabase.from('staff_requisition_usage_reports').insert({
@@ -198,7 +204,7 @@ export function RequisitionUsageReportGate() {
         toast.success('This requisition already has a submitted report.');
         setAmountUsed('');
         setSummary('');
-        setReceipt(null);
+        setReceipts([]);
         setShowForm(false);
         setOpen(false);
         await load();
@@ -211,7 +217,7 @@ export function RequisitionUsageReportGate() {
     toast.success('Usage report submitted');
     setAmountUsed('');
     setSummary('');
-    setReceipt(null);
+    setReceipts([]);
     setShowForm(false);
     setOpen(false);
     await load();
@@ -309,10 +315,10 @@ export function RequisitionUsageReportGate() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="usage-receipt">
-                  Receipt or proof of payment <span className="text-destructive">*</span>
+                  Receipts or proof of payment <span className="text-destructive">*</span>
                 </Label>
-                {receipt ? (
-                  <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                {receipts.map((receipt, i) => (
+                  <div key={`${receipt.name}-${i}`} className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
                     <span className="flex min-w-0 items-center gap-2 text-sm">
                       <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{receipt.name}</span>
@@ -322,21 +328,21 @@ export function RequisitionUsageReportGate() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 shrink-0"
-                      onClick={() => setReceipt(null)}
+                      onClick={() => removeReceipt(i)}
                       disabled={saving}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : (
-                  <Input
-                    id="usage-receipt"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">Required. Photo or PDF, up to 10MB.</p>
+                ))}
+                <Input
+                  id="usage-receipt"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={(e) => { pickReceipts(e.target.files); e.target.value = ''; }}
+                />
+                <p className="text-xs text-muted-foreground">At least one required. You can attach several — photos or PDFs, up to 10MB each.</p>
               </div>
             </div>
           )}
@@ -397,7 +403,7 @@ export function RequisitionUsageReportGate() {
             </Button>
           )}
           {showForm ? (
-            <Button onClick={() => void submitReport()} disabled={saving || !receipt}>
+            <Button onClick={() => void submitReport()} disabled={saving || receipts.length === 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit report
             </Button>
