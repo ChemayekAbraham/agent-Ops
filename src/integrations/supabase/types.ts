@@ -72968,6 +72968,15 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_paid_lists: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tab: string
+        }
+        Returns: Json
+      }
       landlord_ops_payout_source_transactions: {
         Args: { p_payout_id: string }
         Returns: Json
@@ -73145,6 +73154,28 @@ export type Database = {
       landlord_pool_return_reverse: {
         Args: { p_caller?: string; p_ref: string }
         Returns: Json
+      }
+      landlord_tenant_overview: {
+        Args: { p_landlord_id: string }
+        Returns: {
+          amount_repaid: number
+          assigned_agent_id: string
+          assigned_agent_name: string
+          assigned_agent_phone: string
+          balance_left: number
+          daily_repayment: number
+          funded_at: string
+          funding_stage: string
+          plan_status: string
+          registering_agent_id: string
+          registering_agent_name: string
+          rent_amount: number
+          rent_request_id: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       ledger_category_allowlist_base: { Args: never; Returns: string[] }
