@@ -4082,6 +4082,13 @@
       "when": 1792063856617,
       "tag": "0582_tenant_plan_due_now",
       "breakpoints": true
+    },
+    {
+      "idx": 583,
+      "version": "7",
+      "when": 1792065418516,
+      "tag": "0583_shorten_tenant_rent_intake_stall_sms",
+      "breakpoints": true
     }
   ]
 }
