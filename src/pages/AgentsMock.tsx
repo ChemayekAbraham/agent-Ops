@@ -304,15 +304,15 @@ export default function AgentsMock() {
   const monthlyCollected = (monthRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
   const expected = period === 'today' ? EXPECTED_TODAY : monthlyExpected;
   const collected = period === 'today' ? cap?.paid_today ?? 0 : monthlyCollected;
-  // The collections figure the card's bubble motion keys on: the bar grows from
-  // zero to this percentage every time a period is opened or reloaded, and the
+  // The collections figure the card's motion keys on: the bar grows from zero
+  // to this percentage every time a period is opened or reloaded, and the
   // figure itself pops in when it stops loading.
   const collectLoading = period === 'month' && (collectionsFailed || collectionsLoading || historyFailed || historyLoading);
   const collectPct = !collectLoading && Number(expected) > 0 ? Math.min(100, Math.round(Number(collected) / Number(expected) * 100)) : 0;
   const [fillPct, setFillPct] = useState(0);
   // Grow from zero only when a period is opened. Later figure updates (phones
   // refetch on every app switch) glide to the new width instead of snapping
-  // back to zero, which read as the bar and its bubbles bouncing.
+  // back to zero, which read as the bar bouncing.
   const grownPeriod = useRef<string | null>(null);
   useEffect(() => {
     if (grownPeriod.current === period) { setFillPct(collectPct); return; }
