@@ -24,10 +24,14 @@ export function AgentPostRentRequestCard({
       aria-label="Post a rent request here"
       title="Post a rent request here"
       className={cn(
-        "flex w-full flex-col justify-between rounded-3xl border border-primary/30 bg-gradient-to-br from-primary via-primary to-purple-900 p-5 sm:p-6 text-center text-primary-foreground shadow-xl transition-all active:scale-[0.98] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 relative overflow-hidden group select-none min-h-[220px]",
+        "agent-post-rent-request-card flex w-full flex-col justify-between rounded-3xl border border-primary/30 bg-[#7214c9] p-5 sm:p-6 text-center text-white shadow-xl transition-all active:scale-[0.98] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 relative overflow-hidden group select-none min-h-[220px]",
         className
       )}
-      style={{ WebkitTapHighlightColor: 'transparent' }}
+      style={{
+        background: 'linear-gradient(135deg, #8b28f7 0%, #6d1bbd 50%, #4c1285 100%)',
+        backgroundColor: '#7214c9',
+        WebkitTapHighlightColor: 'transparent',
+      }}
     >
       {/* Subtle ambient lighting */}
       <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
