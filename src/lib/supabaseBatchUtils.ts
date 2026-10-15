@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
+import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
