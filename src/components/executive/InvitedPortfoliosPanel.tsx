@@ -72,7 +72,9 @@ export function InvitedPortfoliosPanel() {
     queryKey: ['invited-portfolios'],
     queryFn: async () => {
       // Single round-trip: pull portfolios in the invite pipeline, then batch
-      // the partner profiles + latest token per portfolio.
+      // the partner profiles + invite visibility (tokens + delivery log) through
+      // one role-gated RPC. The token/send-log tables are RLS-locked to partners
+      // and service role, so Ops must go through `partner_ops_invite_visibility`.
       const { data: portfolios, error } = await supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
@@ -93,54 +95,35 @@ export function InvitedPortfoliosPanel() {
         .eq('status', 'pending')
         .in('portfolio_id', allPortfolioIds);
       const pendingSet = new Set<string>(((pendingRows || []) as any[]).map(r => r.portfolio_id));
-      // Approved portfolios only belong here if they came through the invite
-      // (a completion link exists for them).
-      const { data: invitedActive } = await (supabase.from('portfolio_completion_tokens') as any)
-        .select('portfolio_id')
-        .in('portfolio_id', portfolios.filter(p => p.status === 'active').map(p => p.id));
-      const invitedSet = new Set<string>(((invitedActive || []) as any[]).map(r => r.portfolio_id));
+      // Approved portfolios only belong here if they came through the invite:
+      // a completion token exists OR an invite email was actually sent. The
+      // server decides from both signals and is the sole source of truth.
+      const activeIds = portfolios.filter(p => p.status === 'active').map(p => p.id);
+      let visibilityRows: any[] = [];
+      try {
+        const { data: vis, error: visErr } = await supabase
+          .rpc('partner_ops_invite_visibility', { p_portfolio_ids: activeIds });
+        if (visErr) throw visErr;
+        visibilityRows = (vis || []) as any[];
+      } catch (e) {
+        // Without visibility (e.g. a role without the gate) only the non-active
+        // pipeline rows are shown; never pretend an approved portfolio is unseen.
+        console.warn('[invited-portfolios] invite visibility lookup failed:', e);
+      }
+      const visMap = new Map<string, any>(visibilityRows.map(r => [r.portfolio_id, r]));
+      const invitedSet = new Set<string>(visibilityRows.filter(r => r.invited).map(r => r.portfolio_id));
       const visible = portfolios.filter(p => !pendingSet.has(p.id) && (p.status !== 'active' || invitedSet.has(p.id)));
       if (visible.length === 0) return [];
-      const portfolioIds = visible.map(p => p.id);
 
-      const codes = visible.map(p => p.portfolio_code).filter(Boolean);
-
-      const [{ data: profiles }, { data: tokens }, { data: sendLog }] = await Promise.all([
-        (supabase.from('profiles') as any)
-          .select('id, full_name, phone, email')
-          .in('id', partnerIds),
-        (supabase.from('portfolio_completion_tokens') as any)
-          .select('portfolio_id, expires_at, consumed_at')
-          .in('portfolio_id', portfolioIds),
-        // Delivery history for the invite email so Ops can see which invites
-        // actually went out, how many times, and when the last one was sent.
-        (supabase.from('email_send_log') as any)
-          .select('recipient_email, status, created_at, metadata')
-          .eq('template_name', 'partner-portfolio-invite')
-          .order('created_at', { ascending: false })
-          .limit(1000),
-      ]);
+      const { data: profiles } = await (supabase.from('profiles') as any)
+        .select('id, full_name, phone, email')
+        .in('id', partnerIds);
 
       const nameMap = new Map<string, any>((profiles || []).map((p: any) => [p.id, p]));
-      const tokenMap = new Map<string, any>((tokens || []).map((t: any) => [t.portfolio_id, t]));
-
-      // Group send-log rows by portfolio code (kept in metadata.template_data).
-      const sendMap = new Map<string, { count: number; last_at: string; last_status: string }>();
-      for (const log of (sendLog || []) as any[]) {
-        const code = log?.metadata?.template_data?.portfolio_code;
-        if (!code || !codes.includes(code)) continue;
-        const existing = sendMap.get(code);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          sendMap.set(code, { count: 1, last_at: log.created_at, last_status: log.status });
-        }
-      }
 
       return visible.map((p): Row => {
         const prof = nameMap.get(p.investor_id) || {};
-        const tok = tokenMap.get(p.id) || {};
-        const send = sendMap.get(p.portfolio_code);
+        const vis = visMap.get(p.id) || {};
         return {
           id: p.id,
           portfolio_code: p.portfolio_code,
@@ -154,11 +137,11 @@ export function InvitedPortfoliosPanel() {
           partner_name: prof.full_name || '—',
           partner_phone: prof.phone || null,
           partner_email: prof.email || null,
-          token_expires_at: tok.expires_at || null,
-          token_consumed_at: tok.consumed_at || null,
-          sent_count: send?.count || 0,
-          last_sent_at: send?.last_at || null,
-          last_send_status: send?.last_status || null,
+          token_expires_at: vis.token_expires_at || null,
+          token_consumed_at: vis.token_consumed_at || null,
+          sent_count: Number(vis.sent_count) || 0,
+          last_sent_at: vis.last_sent_at || null,
+          last_send_status: vis.last_send_status || null,
         };
       });
     },
