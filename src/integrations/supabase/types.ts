@@ -69254,6 +69254,10 @@ export type Database = {
       get_agent_ops_monthly_kpis:
         | { Args: never; Returns: Json }
         | { Args: { _month?: string }; Returns: Json }
+      get_agent_ops_network_overview: {
+        Args: { p_end: string; p_min_expected?: number; p_start: string }
+        Returns: Json
+      }
       get_agent_ops_overview: {
         Args: { p_range_end?: string; p_range_start: string }
         Returns: Json
