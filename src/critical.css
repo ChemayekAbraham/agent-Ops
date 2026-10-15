@@ -48,6 +48,10 @@
     --sidebar-ring: 271 81% 56%;
     --gradient-start: 271 81% 56%;
     --gradient-end: 271 81% 45%;
+    --gradient-assistant-start: 271 85% 62%;
+    --gradient-assistant-mid: 271 81% 48%;
+    --gradient-assistant-end: 258 72% 34%;
+    --assistant-foreground: 0 0% 100%;
     --signature-rent-background: linear-gradient(137deg, #9234ea 0%, #7616d0 54%, #4a1da5 100%);
     --signature-rent-foreground: 0 0% 100%;
     --signature-rent-subtle: 274 100% 95%;
@@ -105,6 +109,10 @@
     --sidebar-ring: 271 81% 65%;
     --gradient-start: 271 81% 65%;
     --gradient-end: 271 81% 50%;
+    --gradient-assistant-start: 271 88% 68%;
+    --gradient-assistant-mid: 271 82% 55%;
+    --gradient-assistant-end: 258 70% 40%;
+    --assistant-foreground: 0 0% 100%;
   }
 
   * {
