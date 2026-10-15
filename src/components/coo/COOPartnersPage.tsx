@@ -240,6 +240,7 @@ interface SummaryData {
   totalDeals: number;
   topPartnerName: string;
   newPartnersToday: number;
+  pendingPortfolios: number;
 }
 
 const PAGE_SIZE = 15;
@@ -870,7 +871,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     if (supporterIds.length === 0) {
       setRows([]);
       if (count === 0) {
-        setSummary({ totalPartners: 0, activePartners: 0, suspendedPartners: 0, totalFunded: 0, totalWalletBalance: 0, avgROI: 0, totalDeals: 0, topPartnerName: '—', newPartnersToday: 0 });
+        setSummary({ totalPartners: 0, activePartners: 0, suspendedPartners: 0, totalFunded: 0, totalWalletBalance: 0, avgROI: 0, totalDeals: 0, topPartnerName: '—', newPartnersToday: 0, pendingPortfolios: 0 });
       }
       return;
     }
@@ -2297,7 +2298,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           <SummaryCard icon={<Users className="h-4 w-4" />} label="Total Partners" value={summary.totalPartners}
             badge={summary.newPartnersToday > 0 ? `+${summary.newPartnersToday}` : undefined}
-            sub={`${summary.newPartnersToday} partner${summary.newPartnersToday === 1 ? '' : 's'} who joined today · ${summary.activePartners} active · ${summary.suspendedPartners} suspended`} accent="primary" />
+            sub={`${summary.newPartnersToday} partner${summary.newPartnersToday === 1 ? '' : 's'} who joined today · ${summary.activePartners} active · ${summary.pendingPortfolios} pending portfolio${summary.pendingPortfolios === 1 ? '' : 's'} awaiting counter-sign`} accent="primary" />
           <PendingPortfoliosCard onClick={() => setPendingPortfoliosOpen(true)} />
           <SummaryCard icon={<Wallet className="h-4 w-4" />} label="Wallet Balances" value={formatUGX(summary.totalWalletBalance)}
             sub="Across all partner wallets · tap to view" accent="amber"

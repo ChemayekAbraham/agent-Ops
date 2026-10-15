@@ -566,8 +566,14 @@ export async function fetchSupporterSummary(): Promise<{
   const ids = Array.from(ownerIds);
 
   if (ids.length === 0) {
-    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0, newPartnersToday: 0 };
+    return { totalPartners: 0, totalFunded: 0, totalWalletBalance: 0, totalDeals: 0, activePartners: 0, suspendedPartners: 0, newPartnersToday: 0, pendingPortfolios: 0 };
   }
+
+  const { count: pendingCount } = await supabase
+    .from('investor_portfolios')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['awaiting_partner_details', 'pending_ops_approval']);
+  const pendingPortfolios = pendingCount || 0;
 
   const todayYmd = kampalaTodayYmd();
   const todayStartIso = `${todayYmd}T00:00:00+03:00`;
@@ -600,5 +606,6 @@ export async function fetchSupporterSummary(): Promise<{
     activePartners: ownerIds.size - suspendedPartners,
     suspendedPartners,
     newPartnersToday,
+    pendingPortfolios,
   };
 }
