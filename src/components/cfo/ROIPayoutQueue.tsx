@@ -178,14 +178,14 @@ export function ROIPayoutQueue() {
       let approved = 0;
       let failed = 0;
       let lastError = '';
-      for (const op of ops) {
+      const processOne = async (op: typeof ops[number]) => {
         const { error: fnError } = await supabase.functions.invoke('approve-wallet-operation', {
           body: { operation_id: op.id, action: 'approve' },
         });
         if (fnError) {
           failed++;
           lastError = fnError.message;
-          continue;
+          return;
         }
         await supabase.from('audit_logs').insert({
           user_id: user?.id,
