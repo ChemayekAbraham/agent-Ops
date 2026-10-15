@@ -293,6 +293,7 @@ export function RequisitionUsageReportGate() {
               <Wallet className="h-4 w-4 text-emerald-600" /> {formatUGX(approvedAmount)}
             </p>
             <p className="text-xs text-muted-foreground">Approved {fmtDate(current.cfo_decided_at)}</p>
+            <p className="text-xs text-muted-foreground">Report due {fmtDate(current.grace_ends_at)} · Deferred {deferCount} of {MAX_DEFERRALS}</p>
             <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{current.reason}</p>
           </div>
 
