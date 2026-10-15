@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, Check, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy } from 'lucide-react';
+import { Check, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy, Sparkles } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,21 +36,20 @@ function AssistantCard() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      {createPortal(<Button
+      {createPortal(<button
         type="button"
-        size="icon"
         onClick={() => { hapticTap(); setOpen(true); }}
         aria-label="Chat with Welile Assistant"
         title="Chat with Welile Assistant"
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          'fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 h-14 w-14 rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg shadow-primary/30 touch-manipulation fab-shrink-landscape active:scale-[0.96] transition-transform',
+          'gradient-assistant fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-background shadow-lg shadow-primary/40 touch-manipulation fab-shrink-landscape transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2',
           open && 'hidden',
         )}
       >
-        <Bot className="h-6 w-6" aria-hidden="true" />
-      </Button>, document.body)}
+        <Sparkles className="h-6 w-6" aria-hidden="true" />
+      </button>, document.body)}
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>
   );
@@ -98,7 +97,7 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
       >
         <SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border/60 px-4 py-3 pr-12 text-left">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Bot className="h-5 w-5" />
+            <Sparkles className="h-5 w-5" />
           </span>
           <div className="flex-1 min-w-0">
             <SheetTitle className="text-base">Welile Assistant</SheetTitle>
@@ -221,7 +220,7 @@ function AssistantAvatar() {
       aria-hidden="true"
       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
     >
-      <Bot className="h-4 w-4" />
+      <Sparkles className="h-4 w-4" />
     </span>
   );
 }

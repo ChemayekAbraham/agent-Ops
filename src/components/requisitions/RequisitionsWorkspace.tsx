@@ -6,7 +6,6 @@ import { ChevronDown, ChevronUp, Archive, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
-import { RequisitionOfficesCard } from './RequisitionOfficesCard';
 
 const ManualRequisitionQueuePanel = lazyNamed(() => import('@/components/financial-ops/ManualRequisitionQueuePanel'), 'ManualRequisitionQueuePanel');
 const RequisitionUsageReportsReview = lazyNamed(() => import('./RequisitionUsageReportsReview'), 'RequisitionUsageReportsReview');
@@ -30,7 +29,6 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
           </Link>
         </Button>
       </div>
-      <RequisitionOfficesCard />
       <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
         <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>

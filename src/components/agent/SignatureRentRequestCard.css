@@ -1,0 +1,232 @@
+.signature-rent-card {
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 420px;
+  min-height: 450px;
+  overflow: hidden;
+  border-radius: 21px;
+  background: var(--signature-rent-background);
+  color: hsl(var(--signature-rent-foreground));
+  box-shadow: var(--signature-rent-shadow);
+  transition: transform 160ms ease;
+}
+
+.signature-rent-card:has(.signature-rent-open:hover) {
+  transform: translateY(-2px);
+}
+
+.signature-rent-card::before,
+.signature-rent-card::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.signature-rent-card::before {
+  right: -151px;
+  top: 136px;
+  width: 375px;
+  height: 375px;
+  border: 53px solid hsl(var(--signature-rent-ring) / 0.25);
+}
+
+.signature-rent-card::after {
+  right: -61px;
+  top: -122px;
+  width: 240px;
+  height: 240px;
+  border: 2px solid hsl(var(--signature-rent-foreground) / 0.27);
+}
+
+.signature-rent-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.signature-rent-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 450px;
+  flex-direction: column;
+  padding: 24px 27px 23px;
+  pointer-events: none;
+}
+
+/* Only the real controls inside the card take clicks; everything else
+   falls through to the card-wide open-request target. */
+.signature-rent-content .signature-rent-how,
+.signature-rent-content .signature-rent-post {
+  pointer-events: auto;
+}
+
+.signature-rent-greeting {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: hsl(var(--signature-rent-subtle));
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.signature-rent-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: hsl(var(--signature-rent-accent));
+  box-shadow: 0 0 0 3px hsl(var(--signature-rent-accent) / 0.24);
+}
+
+.signature-rent-heading {
+  margin-top: 25px;
+  font-size: 48px;
+  font-weight: 900;
+  line-height: 1.24;
+  letter-spacing: 0;
+}
+
+.signature-rent-heading > span { display: block; white-space: nowrap; }
+.signature-rent-accent { color: hsl(var(--signature-rent-accent)); }
+.signature-rent-earnings { margin-top: auto; padding-top: 22px; }
+.signature-rent-subtle { color: hsl(var(--signature-rent-subtle)); }
+
+.signature-rent-card .signature-rent-how {
+  height: auto;
+  min-height: 24px;
+  justify-content: flex-start;
+  padding: 4px 0 0;
+  border-radius: 0;
+  color: hsl(var(--signature-rent-subtle));
+  font-size: 11px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.signature-rent-card .signature-rent-post {
+  height: 52px;
+  min-height: 52px;
+  width: 100%;
+  margin-top: 16px;
+  justify-content: space-between;
+  border-radius: 13px;
+  background: hsl(var(--signature-rent-foreground));
+  color: hsl(var(--signature-rent-button-text));
+  padding: 0 11px 0 17px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: var(--signature-rent-button-shadow);
+}
+
+.signature-rent-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: hsl(var(--signature-rent-button-icon));
+}
+
+@container (max-width: 380px) {
+  .signature-rent-content { padding-inline: 22px; }
+  .signature-rent-heading { font-size: 42px; }
+}
+
+@container (max-width: 320px) {
+  .signature-rent-content { padding-inline: 20px; }
+  .signature-rent-heading { font-size: 36px; }
+}
+
+@container (max-width: 275px) {
+  .signature-rent-heading { font-size: 30px; }
+  .signature-rent-card .signature-rent-post { padding-left: 10px; font-size: 12px; }
+}
+
+/* --- "How do I earn?" dialog: compact, violet-brand, never full width --- */
+
+.signature-earnings {
+  border: 0;
+  box-shadow: 0 24px 60px rgb(40 6 72 / 0.28);
+}
+
+.signature-earnings-hero {
+  background: var(--signature-rent-background);
+  color: hsl(var(--signature-rent-foreground));
+  padding: 22px 24px 20px;
+}
+
+.signature-earnings-eyebrow {
+  color: hsl(var(--signature-rent-accent));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.signature-earnings-list { padding: 8px 14px; }
+
+.signature-earnings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 8px;
+}
+
+.signature-earnings-row + .signature-earnings-row {
+  border-top: 1px solid hsl(var(--border));
+}
+
+.signature-earnings-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: hsl(var(--signature-rent-accent) / 0.14);
+  color: hsl(var(--signature-rent-button-text));
+}
+
+.signature-earnings-step {
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.signature-earnings-note {
+  display: flex;
+  gap: 8px;
+  margin: 4px 14px 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* Close X sits over the violet hero — keep it legible there */
+.signature-earnings > button {
+  color: hsl(var(--signature-rent-foreground) / 0.85);
+}
+
+.signature-earnings > button:hover,
+.signature-earnings > button:active {
+  color: hsl(var(--signature-rent-foreground));
+  background: hsl(var(--signature-rent-foreground) / 0.14);
+}
