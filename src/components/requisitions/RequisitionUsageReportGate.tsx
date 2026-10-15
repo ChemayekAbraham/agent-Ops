@@ -31,7 +31,7 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 
 const REMIND_INTERVAL_MS = 5 * 60 * 1000;
 /** Mirrors the limit enforced by `defer_requisition_usage_report`. */
-const MAX_DEFERRALS = 5;
+const MAX_DEFERRALS = 2;
 const MAX_DEFERRALS_MSG = 'Maximum deferrals reached. This accountability report can no longer be deferred.';
 
 /** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
@@ -47,6 +47,7 @@ interface PendingReq {
   reason: string;
   cfo_decided_at: string | null;
   category: string | null;
+  grace_ends_at: string | null;
 }
 
 function fmtDate(iso: string | null) {
@@ -64,6 +65,8 @@ export function RequisitionUsageReportGate() {
   const [saving, setSaving] = useState(false);
   const [receipts, setReceipts] = useState<File[]>([]);
   const [deferrals, setDeferrals] = useState<Record<string, number>>({});
+  const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({});
+  const [ackChecked, setAckChecked] = useState(false);
   const [showDefer, setShowDefer] = useState(false);
   const [deferReason, setDeferReason] = useState('');
   const [deferring, setDeferring] = useState(false);
@@ -97,46 +100,29 @@ export function RequisitionUsageReportGate() {
 
   const load = useCallback(async () => {
     if (!user?.id) { setPending([]); return; }
-
-    const { data: reqs, error } = await supabase
-      .from('staff_requisitions')
-      .select('id, requisition_code, title, amount, approved_amount, reason, cfo_decided_at, category')
-      .eq('requester_id', user.id)
-      .eq('stage', 'approved')
-      // Facilitations have their own accountability form (extra required
-      // fields), so they must not be nagged by this generic report popup.
-      .or('request_kind.is.null,request_kind.neq.facilitation')
-      .not('cfo_decided_at', 'is', null)
-      .order('cfo_decided_at', { ascending: true })
-      .limit(50);
-
-    if (error || !reqs?.length) { setPending([]); return; }
-
-    const ids = reqs.map((r) => r.id);
-    const { data: reports, error: reportsError } = await supabase
-      .from('staff_requisition_usage_reports')
-      .select('requisition_id')
-      .in('requisition_id', ids);
-
-    if (reportsError) {
-      // Cannot tell which requisitions already have a report — do NOT fall
-      // through and show every approved requisition as pending (that would
-      // re-nag for ones already reported, and the resulting resubmit fails
-      // on staff_requisition_usage_reports_req_uniq). Leave `pending` as-is
-      // and retry on the next poll/realtime tick instead.
-      console.warn('[RequisitionUsageReportGate] could not check existing reports', reportsError);
+    // The server decides visibility (36h after CFO approval, no report yet),
+    // the deferral count and whether the notice is mandatory.
+    const { data, error } = await (supabase.rpc as any)('get_my_usage_report_notices');
+    if (error) {
+      console.warn('[RequisitionUsageReportGate] could not load notices', error);
       return;
     }
-
-    const reported = new Set((reports || []).map((r) => r.requisition_id));
-    const { data: defs } = await supabase
-      .from('staff_requisition_usage_report_deferrals')
-      .select('requisition_id')
-      .in('requisition_id', ids);
+    const rows = (data || []) as Array<{
+      requisition_id: string; requisition_code: string; title: string; amount: number;
+      approved_amount: number | null; reason: string; category: string | null;
+      cfo_decided_at: string | null; grace_ends_at: string | null; deferral_count: number;
+      mandatory: boolean; acknowledged: boolean;
+    }>;
     const counts: Record<string, number> = {};
-    (defs || []).forEach((d) => { counts[d.requisition_id] = (counts[d.requisition_id] || 0) + 1; });
+    const acks: Record<string, boolean> = {};
+    rows.forEach((r) => { counts[r.requisition_id] = r.deferral_count; acks[r.requisition_id] = r.acknowledged; });
     setDeferrals(counts);
-    setPending((reqs as unknown as PendingReq[]).filter((r) => !reported.has(r.id)));
+    setAcknowledged(acks);
+    setPending(rows.map((r) => ({
+      id: r.requisition_id, requisition_code: r.requisition_code, title: r.title, amount: r.amount,
+      approved_amount: r.approved_amount, reason: r.reason, cfo_decided_at: r.cfo_decided_at,
+      category: r.category, grace_ends_at: r.grace_ends_at,
+    })));
   }, [user?.id]);
 
   // Initial load + refresh every 60s (+ on focus) so a newly-paid requisition
