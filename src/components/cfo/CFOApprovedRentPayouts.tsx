@@ -33,6 +33,7 @@ interface Row {
   funded_at: string | null;
   created_at: string;
   payout_transaction_reference: string | null;
+  paid_at?: string | null;
 }
 
 type Tab = 'pending' | 'paid';
@@ -142,8 +143,10 @@ export function CFOApprovedRentPayouts() {
 
   useEffect(() => {
     const ch = supabase.channel('cfo-approved-rent-payouts-live')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rent_requests' },
-        () => queryClient.invalidateQueries({ queryKey: ['cfo-approved-rent-payouts'] }))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: "rent_requests" },
+        () => queryClient.invalidateQueries({ queryKey: ["cfo-approved-rent-payouts"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "landlord_payouts" },
+        () => queryClient.invalidateQueries({ queryKey: ["cfo-approved-rent-payouts"] }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [queryClient]);
@@ -167,7 +170,7 @@ export function CFOApprovedRentPayouts() {
       startY: 70, styles: { fontSize: 8 },
       head: [['#', 'Tenant', 'Agent', 'Landlord', 'Rent amount', 'Approved', 'Paid', 'Reference', 'Status']],
       body: filtered.map((r, i) => [i + 1, latin(nm(r.tenant_id)), latin(nm(r.agent_id)), latin(nm(r.landlord_id)), fmt(r.rent_amount),
-        when(r.coo_reviewed_at), when(r.funded_at), latin(r.payout_transaction_reference || '—'), r.funded_at ? 'Paid' : 'Pending']),
+        when(r.coo_reviewed_at), when(r.paid_at ?? null), latin(r.payout_transaction_reference || '—'), r.paid_at ? "Paid" : "Pending"]),
       didDrawPage: () => { doc.setFontSize(8); doc.text(`Page ${doc.getNumberOfPages()}`, doc.internal.pageSize.getWidth() - 70, doc.internal.pageSize.getHeight() - 20); },
     });
     doc.save(`approved-rent-payouts-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`);
@@ -239,10 +242,10 @@ export function CFOApprovedRentPayouts() {
                       <TableCell>{nm(r.landlord_id)}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">{fmt(r.rent_amount)}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{when(r.coo_reviewed_at)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{when(r.funded_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{when(r.paid_at ?? null)}</TableCell>
                       <TableCell className="font-mono text-xs">{r.payout_transaction_reference || '—'}</TableCell>
                       <TableCell>
-                        {r.funded_at
+                        {r.paid_at
                           ? <Badge className="bg-success/15 text-success hover:bg-success/15">Paid</Badge>
                           : <Badge className="bg-warning/15 text-warning hover:bg-warning/15">Pending</Badge>}
                       </TableCell>
