@@ -359,7 +359,10 @@ export default function PartnerAgreementSignOff({
         if (error) throw new Error(await extractFromErrorObject(error, 'Could not counter-sign.'));
         const prep = (res as any)?.prepared;
         const created = prep?.portfolio_code
-          ? ` Portfolio ${prep.portfolio_code} (${ugx(prep.needed)}) created and activated.`
+          ? ` Portfolio ${prep.portfolio_code} (${ugx(prep.needed)}) created and activated.` +
+            (prep.payout_attached === false
+              ? ' Payout details could not be attached — add them on the portfolio.'
+              : ' Payout details attached.')
           : prep?.support_mode === 'self_support'
             ? ' Self-support: no portfolio created — the partner chooses tenants or houses.'
             : '';
