@@ -30,7 +30,7 @@ export default function AgentDashboardNew() {
   }, [roles, switchRole, navigate]);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="bg-background pb-6">
       <DashboardHeader
         currentRole={'agent' as AppRole}
         availableRoles={roles as AppRole[]}
