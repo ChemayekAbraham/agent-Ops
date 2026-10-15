@@ -39,6 +39,7 @@ import {
 
 interface Props {
   userId?: string;
+  showEmptyState?: boolean;
 }
 
 const safeDate = (value: string | null) => {
@@ -54,7 +55,7 @@ const safeDate = (value: string | null) => {
  * Payments go through `agent_pay_merchandise_plan` (SECURITY DEFINER); this
  * component never touches wallet or ledger rows itself.
  */
-export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
+export default function MerchandiseRepaymentPortfolio({ userId, showEmptyState = false }: Props) {
   const { user } = useAuth();
   const effectiveUserId = userId || user?.id;
 
@@ -108,7 +109,24 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
     [plans, rejectedIds],
   );
 
-  if (activePlans.length === 0 && completed.length === 0 && rejected.length === 0) return null;
+  if (activePlans.length === 0 && completed.length === 0 && rejected.length === 0) {
+    if (!showEmptyState) return null;
+    return (
+      <Card className="border-dashed border-border/80 bg-card/50">
+        <CardContent className="p-8 text-center space-y-3">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <Package className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-foreground">No active repayments</h3>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+              You do not have any merchandise or products under repayment.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const openPay = (plan: MerchandiseRepaymentPlan) => {
     const outstanding = Number(plan.outstanding_balance || 0);
