@@ -5,10 +5,16 @@ import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import type { AppRole } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { UserAvatar } from '@/components/UserAvatar';
+import AiIdButton from '@/components/ai-id/AiIdButton';
+import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
+import { BadgeCheck } from 'lucide-react';
 
 // Empty shell: top section (header with avatar) + bottom role switcher only.
 export default function AgentDashboardNew() {
-  const { signOut, roles, switchRole } = useAuth();
+  const { user, signOut, roles, switchRole } = useAuth();
+  const { profile } = useProfile();
   const navigate = useNavigate();
 
   const handleRoleChange = useCallback((newRole: AppRole) => {
@@ -25,7 +31,20 @@ export default function AgentDashboardNew() {
         onRoleChange={handleRoleChange}
         onSignOut={signOut}
       />
-      <main className="min-h-[60vh]" />
+      <main className="min-h-[60vh] px-4 pt-4">
+        <div className="flex items-center gap-3">
+          <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} />
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
+              <span className="break-words">{profile?.full_name || 'Agent'}</span>
+              {profile?.verified && <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />}
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
+            <div className="mt-1.5"><AiIdButton variant="compact" /></div>
+          </div>
+          {user && <div className="shrink-0"><AgentNotificationBell userId={user.id} /></div>}
+        </div>
+      </main>
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />
     </div>
   );
