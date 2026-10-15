@@ -8,6 +8,7 @@
  * remains authoritative: these rules exist so the UI can disable a control
  * rather than let someone click into a guaranteed error.
  */
+import { safeUUID } from './safeUUID';
 
 export interface FoodMenuMeal {
   menu_item_id: string;
@@ -465,7 +466,7 @@ export function foodMealImageProblem(file: { type: string; size: number }): stri
 }
 
 /** The server-shaped object name for a new upload: meals/<uuid>.<ext>. */
-export function foodMealImagePath(type: string, id: string = crypto.randomUUID()): string {
+export function foodMealImagePath(type: string, id: string = safeUUID()): string {
   const ext = FOOD_MEAL_IMAGE_TYPES[type];
   if (!ext) throw new Error('Use a JPEG, PNG or WebP image.');
   return `meals/${id}.${ext}`;

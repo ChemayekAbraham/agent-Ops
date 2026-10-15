@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import FoodMealCard from '@/components/food/FoodMealCard';
 import FoodCartSheet, { type CartLine } from '@/components/food/FoodCartSheet';
 import { isFoodAllDayWindow } from '@/lib/foodService';
+import { safeUUID } from '@/lib/safeUUID';
 import {
   useFoodMenu, useFoodSession, usePlaceFoodOrder, useMyFoodOrders,
   formatUgx, FOOD_PAYMENT_MODES, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
@@ -53,8 +54,8 @@ export default function FoodOrderingPage() {
   // double submit cannot create two orders; replaced after the order is
   // accepted and whenever the cart changes, so an edited cart is never answered
   // with a replay of an earlier one.
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const renewKey = () => setIdempotencyKey(crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(() => safeUUID());
+  const renewKey = () => setIdempotencyKey(safeUUID());
 
   const periods = useMemo(() => menu?.periods ?? [], [menu?.periods]);
   const activePeriod = periods.find((p) => p.period_id === activePeriodId) ?? null;

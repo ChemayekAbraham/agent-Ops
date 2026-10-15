@@ -50,6 +50,10 @@ const PROBES: PolyfillProbe[] = [
     test: () => typeof (String.prototype as any).at === 'function',
     load: () => import('./polyfills/at') },
 
+  { name: 'crypto.randomUUID', chunk: 'crypto-randomuuid',
+    test: () => typeof (globalThis as any).crypto === 'undefined' || typeof (globalThis as any).crypto.randomUUID === 'function',
+    load: () => import('./polyfills/crypto-randomuuid') },
+
   { name: 'Object.hasOwn', chunk: 'object-hasown',
     test: () => typeof (Object as any).hasOwn === 'function',
     load: () => import('./polyfills/object-hasown') },
