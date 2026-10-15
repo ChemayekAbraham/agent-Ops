@@ -4061,6 +4061,13 @@
       "when": 1792058803952,
       "tag": "0579_budget_obligation_declines",
       "breakpoints": true
+    },
+    {
+      "idx": 580,
+      "version": "7",
+      "when": 1792060916680,
+      "tag": "0580_budget_supplements",
+      "breakpoints": true
     }
   ]
 }
