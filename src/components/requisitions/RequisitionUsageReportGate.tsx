@@ -315,10 +315,10 @@ export function RequisitionUsageReportGate() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="usage-receipt">
-                  Receipt or proof of payment <span className="text-destructive">*</span>
+                  Receipts or proof of payment <span className="text-destructive">*</span>
                 </Label>
-                {receipt ? (
-                  <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                {receipts.map((receipt, i) => (
+                  <div key={`${receipt.name}-${i}`} className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
                     <span className="flex min-w-0 items-center gap-2 text-sm">
                       <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{receipt.name}</span>
@@ -328,21 +328,21 @@ export function RequisitionUsageReportGate() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 shrink-0"
-                      onClick={() => setReceipt(null)}
+                      onClick={() => removeReceipt(i)}
                       disabled={saving}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : (
-                  <Input
-                    id="usage-receipt"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">Required. Photo or PDF, up to 10MB.</p>
+                ))}
+                <Input
+                  id="usage-receipt"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={(e) => { pickReceipts(e.target.files); e.target.value = ''; }}
+                />
+                <p className="text-xs text-muted-foreground">At least one required. You can attach several — photos or PDFs, up to 10MB each.</p>
               </div>
             </div>
           )}
