@@ -1344,3 +1344,21 @@ Nothing in the database changed. `AgentOpsOverview.tsx` had no tab bar (`Tabs` w
 Shows exactly what the server returned, in UGX via `formatUGX`, with no sums, rates, sorting or re-derivation in the client: eight KPI cards (Agents, With service centres, With bikes, With smartphone plan, Tenants on smartphones, With sub-agents, Posted rent requests, Approved agents), an Approved card (agents, requests, amount approved, receivables outstanding) and three ranked tables (Biggest portfolios, Best collection rate, Default rate lowest first) with a tap-to-call phone. Skeleton, error with Try again, an empty state per section; the tables scroll sideways on a phone. Two card names follow the brief but their figures are agent counts, so each card says so underneath: "Tenants on smartphones" is agents with tenants on smartphones, "Posted rent requests" is agents who posted a Rent Plan request.
 
 Verified in the browser against the live function output for 1 to 15 Oct (8 cards, the 4 Approved figures and 30 table rows = 43 values) at 1280 and 390 wide: 0 mismatches. Tests: `agentNetwork.test.ts`, `useAgentOpsNetworkOverview.test.tsx`, `AgentNetworkTab.test.tsx` and `e2e/agent-ops-network-tab.spec.ts`.
+
+## 2026-10-15 — Agent Network: home-page chip, bikes, smartphones, minimum, CSV and the "how counted" note (UI only)
+
+Nothing in the database changed (`get_agent_ops_network_overview`, migrations, wallets, ledger, the Overview tab content and every First 7 Days file are untouched). `AgentOpsDashboard.tsx` got only the `CategoryId` value, one `CATEGORIES` entry ("Agent Network", Network icon, right after First 7 Days), the `activeCategory` initial value (`hasNetworkParams`, next to `hasFirst7Params`) and the content switch beside `showFirst7Tab` (`showNetworkTab`; typing in the search box returns to results). The chip shows `AgentNetworkStandalone`: its own presets (Today, Last 7 days, Last 30 days, This month, Custom; Kampala days, default Last 30 days, the end never after today) and the minimum, kept in the URL as `?tab=agent-ops&net=1&netfrom=&netto=` (+ `netmin` when not 50,000); the parameters are removed again when another chip is chosen and no `f7*` parameter is touched. The in-Overview tab uses the same component and now prints its range with `kampalaLabel`.
+
+Also: the KPI cards sit under "Today's network (all time)" and the Approved card and the collection-rate table carry an "In the chosen dates" badge; "With bikes" reads "<leases> leases · UGX x still owed" (the returned `bikes` object); "With service centres" reads "linked agents · few centres are set up yet"; a "Tenant smartphones (Tenant Ops figures)" card (labelled platform-wide) shows the returned `smartphone_usage` totals as they come (its real keys: as_of, from_day, to_day, tenants, recorded_smartphone, recorded_without, confirmed_smartphone, confirmed_feature_phone, device_unknown, joined, joined_recorded_smartphone, checks, checks_smartphone, checks_feature_phone, seen_on_phone); a minimum select (UGX 0 / 50,000 / 100,000 / 500,000, default 50,000) is sent as `p_min_expected` and is part of the query key; each ranked table has "Download CSV" through `downloadCsvWithPreamble` (title, Kampala range, minimum, generated time; values and order as returned, phone as text); "How these are counted" gives one plain line per card.
+
+Real-data check, last 30 Kampala days (2026-09-16 to 2026-10-15), the function (called as an operations user) against direct read-only SQL over `rent_requests` with the same definitions (agent = `COALESCE(assigned_agent_id, agent_id)` never the tenant, inside the qualifying agent set less deleted accounts; approved = funded / repaying / completed dated `COALESCE(cfo_reviewed_at, funded_at)`):
+
+| figure | function | direct SQL |
+|---|---|---|
+| counts.posted_requests (agents who posted) | 254 | 254 |
+| counts.approved_agents (approved ever) | 124 | 124 |
+| approved.agents | 73 | 73 |
+| approved.requests | 348 | 348 |
+| approved.amount | UGX 197,940,001 | UGX 197,940,001 |
+
+No writes to any table. Tests: `agentNetwork.test.ts`, `useAgentOpsNetworkOverview.test.tsx`, `AgentNetworkTab.test.tsx` and `e2e/agent-ops-network-tab.spec.ts` (chip after First 7 Days, shows the tab, a link with net parameters opens on it, typing in search leaves it, the new badges and CSV button).

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -16,7 +17,17 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { AgentNetworkTab } from '../AgentNetworkTab';
+const csvMock = vi.fn();
+vi.mock('@/lib/csvExport', () => ({ downloadCsvWithPreamble: (...a: unknown[]) => csvMock(...a) }));
+
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { AgentNetworkStandalone, AgentNetworkTab } from '../AgentNetworkTab';
+import { kampalaOffsetYmd, kampalaTodayYmd } from '@/lib/kampalaDays';
+
+// Radix Select needs these in jsdom
+Object.assign(window.HTMLElement.prototype, {
+  hasPointerCapture: () => false, setPointerCapture: () => {}, releasePointerCapture: () => {}, scrollIntoView: () => {},
+});
 
 const day = (s: string) => new Date(`${s}T00:00:00`);
 
@@ -24,6 +35,8 @@ const populated = {
   range: { start: '2026-09-16', end: '2026-10-15', min_expected: 50000 },
   counts: { agents: 770, with_service_centres: 53, with_bikes: 2, with_smartphone_plan: 34, with_smartphone_tenants: 240, with_subagents: 166, posted_requests: 254, approved_agents: 124 },
   approved: { agents: 73, requests: 348, amount: 197940001, receivables_outstanding: 232937315 },
+  bikes: { agents: 2, leases: 3, amount_outstanding: 2820000 },
+  smartphone_usage: { as_of: '2026-10-15', from_day: '2026-09-16', to_day: '2026-10-15', tenants: 59117, recorded_smartphone: 58908, recorded_without: 209, confirmed_smartphone: 12, confirmed_feature_phone: 496, device_unknown: 58609, joined: 701, joined_recorded_smartphone: 642, checks: 105, checks_smartphone: 11, checks_feature_phone: 94, seen_on_phone: 6 },
   top_portfolios: [
     { agent_id: 'a-1', name: 'IAN MUHWEZI', phone: '+256787725122', portfolio: 49482312, plans: 19 },
     { agent_id: 'a-2', name: 'JAMES KATONGOLE', phone: '+256779007902', portfolio: 17221812, plans: 7 },
@@ -36,6 +49,8 @@ const zero = {
   range: { start: '2026-10-15', end: '2026-10-15', min_expected: 50000 },
   counts: { agents: 0, with_service_centres: 0, with_bikes: 0, with_smartphone_plan: 0, with_smartphone_tenants: 0, with_subagents: 0, posted_requests: 0, approved_agents: 0 },
   approved: { agents: 0, requests: 0, amount: 0, receivables_outstanding: 0 },
+  bikes: { agents: 0, leases: 0, amount_outstanding: 0 },
+  smartphone_usage: { as_of: '2026-10-15', from_day: '2026-10-15', to_day: '2026-10-15', tenants: 0, recorded_smartphone: 0, recorded_without: 0, confirmed_smartphone: 0, confirmed_feature_phone: 0, device_unknown: 0, joined: 0, joined_recorded_smartphone: 0, checks: 0, checks_smartphone: 0, checks_feature_phone: 0, seen_on_phone: 0 },
   top_portfolios: [], top_collection_rate: [], default_rate_ascending: [],
 };
 
@@ -46,14 +61,14 @@ const renderTab = (start = '2026-09-16', end = '2026-10-15') => render(
 );
 const kpi = (title: string) => screen.getAllByTestId('network-kpi').find((c) => within(c).queryByText(title)) as HTMLElement;
 
-beforeEach(() => { rpcMock.mockReset(); });
+beforeEach(() => { rpcMock.mockReset(); csvMock.mockReset(); });
 
 describe('AgentNetworkTab', () => {
   it('asks the server for the Kampala days of the range and shows the eight KPI cards exactly as returned', async () => {
     rpcMock.mockResolvedValue({ data: populated, error: null });
     renderTab();
     await screen.findAllByTestId('network-kpi');
-    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-09-16', p_end: '2026-10-15' });
+    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-09-16', p_end: '2026-10-15', p_min_expected: 50000 });
     const expected: [string, string][] = [
       ['Agents', '770'], ['With service centres', '53'], ['With bikes', '2'], ['With smartphone plan', '34'], ['Tenants on smartphones', '240'],
       ['With sub-agents', '166'], ['Posted rent requests', '254'], ['Approved agents', '124'],
@@ -161,6 +176,95 @@ describe('AgentNetworkTab', () => {
     expect(args.p_start <= args.p_end).toBe(true);
   });
 
+  it('splits the all-time cards under their own heading and badges what follows the chosen dates', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    expect(await screen.findByRole('region', { name: "Today's network (all time)" })).toHaveTextContent("Today's network (all time)");
+    expect(within(screen.getByRole('region', { name: "Today's network (all time)" })).getAllByTestId('network-kpi')).toHaveLength(8);
+    expect(within(screen.getByTestId('network-approved')).getByTestId('in-range-badge')).toHaveTextContent('In the chosen dates');
+    expect(within(screen.getByTestId('network-collection-rate')).getByTestId('in-range-badge')).toBeInTheDocument();
+    expect(within(screen.getByTestId('network-portfolios')).queryByTestId('in-range-badge')).toBeNull();
+    expect(within(screen.getByTestId('network-default-rate')).queryByTestId('in-range-badge')).toBeNull();
+  });
+
+  it('shows the bikes leases and what is still owed, and the service-centre hint', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    await screen.findAllByTestId('network-kpi');
+    expect(kpi('With bikes')).toHaveTextContent('3 leases · UGX 2,820,000 still owed');
+    expect(kpi('With bikes')).toHaveTextContent('2');
+    expect(kpi('With service centres')).toHaveTextContent('linked agents · few centres are set up yet');
+  });
+
+  it('shows the Tenant Ops smartphone figures as returned, labelled platform-wide, under the Approved card', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    const card = within(await screen.findByTestId('network-smartphones'));
+    expect(card.getByText('Tenant smartphones (Tenant Ops figures)')).toBeInTheDocument();
+    expect(card.getByText('Platform-wide')).toBeInTheDocument();
+    expect(card.getByText('Tenants').nextElementSibling).toHaveTextContent('59,117');
+    expect(card.getByText('Recorded with a smartphone').nextElementSibling).toHaveTextContent('58,908');
+    expect(card.getByText('Confirmed smartphone').nextElementSibling).toHaveTextContent('12');
+    expect(card.getByText('Confirmed feature phone').nextElementSibling).toHaveTextContent('496');
+    expect(card.getByText('Seen on a phone in the dates').nextElementSibling).toHaveTextContent('6');
+    const order = screen.getAllByTestId(/network-(approved|smartphones|portfolios)/).map((e) => e.getAttribute('data-testid'));
+    expect(order).toEqual(['network-approved', 'network-smartphones', 'network-portfolios']);
+  });
+
+  it('a minimum of 0 / 50,000 / 100,000 / 500,000 is offered, 50,000 is chosen first, and changing it asks again with p_min_expected', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    await screen.findAllByTestId('network-kpi');
+    const select = screen.getByRole('combobox', { name: 'Minimum size for the rankings' });
+    expect(select).toHaveTextContent('UGX 50,000');
+    await userEvent.click(select);
+    const options = (await screen.findAllByRole('option')).map((o) => (o.textContent ?? '').replace(/\u00a0/g, ' '));
+    expect(options).toEqual(['UGX 0', 'UGX 50,000', 'UGX 100,000', 'UGX 500,000']);
+    await userEvent.click(screen.getAllByRole('option')[3]);
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-09-16', p_end: '2026-10-15', p_min_expected: 500000 }));
+  });
+
+  it('Download CSV on each ranked table hands the rows as returned, with the preamble, to downloadCsvWithPreamble', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    await screen.findByTestId('network-portfolios');
+    await userEvent.click(screen.getByRole('button', { name: 'Download CSV: Biggest portfolios' }));
+    expect(csvMock).toHaveBeenCalledTimes(1);
+    const [file, pre, head, rows] = csvMock.mock.calls[0];
+    expect(file).toBe('agent-network-portfolios-2026-09-16_2026-10-15.csv');
+    expect(pre[0]).toEqual(['Agent Network: Biggest portfolios']);
+    expect(pre[1]).toEqual(['Kampala days', '2026-09-16 to 2026-10-15']);
+    expect(pre[2]).toEqual(['Minimum (UGX)', '50000']);
+    expect(pre[3][0]).toBe('Generated (Kampala time)');
+    expect(head).toEqual(['Rank', 'Agent', 'Phone', 'Rent Plans', 'Portfolio (UGX)']);
+    expect(rows).toEqual([[1, 'IAN MUHWEZI', '+256787725122', 19, 49482312], [2, 'JAMES KATONGOLE', '+256779007902', 7, 17221812]]);
+    await userEvent.click(screen.getByRole('button', { name: 'Download CSV: Best collection rate' }));
+    expect(csvMock.mock.calls[1][3]).toEqual([[1, 'Thomas hawahka', '+256744846540', 11189195, 3545467, 315.6]]);
+    await userEvent.click(screen.getByRole('button', { name: 'Download CSV: Default rate (lowest first)' }));
+    expect(csvMock.mock.calls[2][3]).toEqual([[1, 'Akampurira Onesmus', '+256743657091', 29, 9919721, 0, 0]]);
+  });
+
+  it('the CSV buttons are off for an empty table', async () => {
+    rpcMock.mockResolvedValue({ data: zero, error: null });
+    renderTab('2026-10-15', '2026-10-15');
+    await screen.findByTestId('network-portfolios');
+    for (const t of ['Biggest portfolios', 'Best collection rate', 'Default rate (lowest first)']) expect(screen.getByRole('button', { name: `Download CSV: ${t}` })).toBeDisabled();
+  });
+
+  it('"How these are counted" lists one plain line per card, from the migration definitions', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderTab();
+    await screen.findAllByTestId('network-kpi');
+    await userEvent.click(screen.getByRole('button', { name: /How these are counted/ }));
+    const pop = within(await screen.findByTestId('how-counted'));
+    for (const t of ['Agents', 'With service centres', 'With bikes', 'With smartphone plan', 'Tenants on smartphones', 'With sub-agents', 'Posted rent requests', 'Approved agents', 'Approved (chosen dates)', 'Portfolio', 'Collection rate', 'Default rate']) {
+      expect(pop.getByText(`${t}.`)).toBeInTheDocument();
+    }
+    expect(pop.getByText(/working sub-agent/)).toBeInTheDocument();
+    expect(pop.getByText(/payout clock/)).toBeInTheDocument();
+    expect(pop.getByText(/CFO approval time/)).toBeInTheDocument();
+  });
+
   it('uses only design tokens, the Rent Plan wording, formatUGX, no sums in the client and no writes', () => {
     for (const f of ['components/executive/agent-ops-v2/AgentNetworkTab.tsx', 'hooks/useAgentOpsNetworkOverview.ts', 'lib/agentNetwork.ts']) {
       const src = fs.readFileSync(path.resolve(process.cwd(), 'src', f), 'utf8');
@@ -172,5 +276,72 @@ describe('AgentNetworkTab', () => {
       expect(src).not.toMatch(/text-\[\d+px\]/);
     }
     expect(fs.readFileSync(path.resolve(process.cwd(), 'src/components/executive/agent-ops-v2/AgentNetworkTab.tsx'), 'utf8')).toContain("formatUGX");
+  });
+});
+
+function Where() { const l = useLocation(); return <p data-testid="where">{l.search}</p>; }
+const renderStandalone = (url = '/executive-hub?tab=agent-ops') => render(
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter initialEntries={[url]}><AgentNetworkStandalone /><Where /></MemoryRouter>
+  </QueryClientProvider>,
+);
+
+describe('AgentNetworkStandalone (the Agent Network chip)', () => {
+  const today = kampalaTodayYmd();
+  it('defaults to Last 30 days in Kampala days, ending today, with the link in the URL', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderStandalone();
+    await screen.findAllByTestId('network-kpi');
+    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: kampalaOffsetYmd(-29), p_end: today, p_min_expected: 50000 });
+    expect(screen.getByRole('button', { name: 'Last 30 days' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toContain('net=1'));
+    const w = screen.getByTestId('where').textContent as string;
+    expect(w).toContain(`netfrom=${kampalaOffsetYmd(-29)}`);
+    expect(w).toContain(`netto=${today}`);
+    expect(w).toContain('tab=agent-ops');
+    expect(w).not.toContain('netmin');
+  });
+  it('has Today, Last 7 days, Last 30 days, This month and Custom; a preset asks again and updates the link', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderStandalone();
+    await screen.findAllByTestId('network-kpi');
+    for (const l of ['Today', 'Last 7 days', 'Last 30 days', 'This month', 'Custom']) expect(screen.getByRole('button', { name: l })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Last 7 days' }));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: kampalaOffsetYmd(-6), p_end: today, p_min_expected: 50000 }));
+    expect(screen.getByTestId('where').textContent).toContain(`netfrom=${kampalaOffsetYmd(-6)}`);
+  });
+  it('opens on the dates and minimum of a shared link', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderStandalone('/executive-hub?tab=agent-ops&net=1&netfrom=2026-10-01&netto=2026-10-10&netmin=100000');
+    await screen.findAllByTestId('network-kpi');
+    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-01', p_end: '2026-10-10', p_min_expected: 100000 });
+    expect(screen.getByRole('combobox', { name: 'Minimum size for the rankings' })).toHaveTextContent('UGX 100,000');
+    expect(screen.getByRole('button', { name: 'Custom' })).toHaveAttribute('aria-pressed', 'true');
+  });
+  it('never asks for a day after today, even from a link, and leaves the f7* parameters alone', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    renderStandalone('/executive-hub?tab=agent-ops&f7from=2026-10-01&f7freq=weekly&net=1&netfrom=2026-10-01&netto=2099-01-01');
+    await screen.findAllByTestId('network-kpi');
+    expect((rpcMock.mock.calls[0][1] as { p_end: string }).p_end).toBe(today);
+    expect(screen.getByTestId('where').textContent).toContain('f7from=2026-10-01');
+    expect(screen.getByTestId('where').textContent).toContain('f7freq=weekly');
+  });
+  it('takes its parameters out of the link again when another chip is chosen (it closes)', async () => {
+    rpcMock.mockResolvedValue({ data: populated, error: null });
+    function Host() {
+      const [open, setOpen] = useState(true);
+      return <><button type="button" onClick={() => setOpen(false)}>Close</button>{open && <AgentNetworkStandalone />}<Where /></>;
+    }
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter initialEntries={['/executive-hub?tab=agent-ops&f7from=2026-10-01']}><Host /></MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findAllByTestId('network-kpi');
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toContain('net=1'));
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).not.toContain('net'));
+    expect(screen.getByTestId('where').textContent).toContain('tab=agent-ops');
+    expect(screen.getByTestId('where').textContent).toContain('f7from=2026-10-01');
   });
 });

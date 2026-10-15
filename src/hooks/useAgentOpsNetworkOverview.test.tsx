@@ -35,7 +35,7 @@ describe('useAgentOpsNetworkOverview', () => {
     rpcMock.mockResolvedValue({ data: payload, error: null });
     const { result } = renderHook(() => useAgentOpsNetworkOverview('2026-10-01', '2026-10-15'), { wrapper: wrapperFor(client()) });
     await waitFor(() => expect(result.current.data).not.toBeNull());
-    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-01', p_end: '2026-10-15' });
+    expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-01', p_end: '2026-10-15', p_min_expected: 50000 });
     expect(result.current.data?.counts.agents).toBe(770);
     expect(result.current.data?.approved.amount).toBe(197940001);
     expect(result.current.data?.top_portfolios[0]).toMatchObject({ agent_id: 'a-1', portfolio: 49482312 });
@@ -57,11 +57,22 @@ describe('useAgentOpsNetworkOverview', () => {
     await waitFor(() => expect(result.current.data).not.toBeNull());
     expect(rpcMock).toHaveBeenCalledTimes(1);
     rerender({ s: '2026-10-10', e: '2026-10-15' });
-    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-10', p_end: '2026-10-15' }));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-10', p_end: '2026-10-15', p_min_expected: 50000 }));
     expect(rpcMock).toHaveBeenCalledTimes(2);
     rerender({ s: '2026-10-01', e: '2026-10-15' });
     await waitFor(() => expect(result.current.data).not.toBeNull());
     expect(rpcMock).toHaveBeenCalledTimes(2); // fresh for 60 seconds, so the first range is served from the cache
+  });
+
+  it('sends the minimum and keys the cache by it: a new minimum asks again with p_min_expected', async () => {
+    rpcMock.mockResolvedValue({ data: payload, error: null });
+    const qc = client();
+    const { result, rerender } = renderHook((p: { m: number }) => useAgentOpsNetworkOverview('2026-10-01', '2026-10-15', p.m), { wrapper: wrapperFor(qc), initialProps: { m: 50000 } });
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+    rerender({ m: 500000 });
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('get_agent_ops_network_overview', { p_start: '2026-10-01', p_end: '2026-10-15', p_min_expected: 500000 }));
+    expect(rpcMock).toHaveBeenCalledTimes(2);
+    expect(qc.getQueryCache().find({ queryKey: ['agent-ops-network-overview', '2026-10-01', '2026-10-15', 500000] })).toBeDefined();
   });
 
   it('is fresh for 60 seconds', async () => {
@@ -69,7 +80,7 @@ describe('useAgentOpsNetworkOverview', () => {
     const qc = client();
     const { result } = renderHook(() => useAgentOpsNetworkOverview('2026-10-01', '2026-10-15'), { wrapper: wrapperFor(qc) });
     await waitFor(() => expect(result.current.data).not.toBeNull());
-    const q = qc.getQueryCache().find({ queryKey: ['agent-ops-network-overview', '2026-10-01', '2026-10-15'] });
+    const q = qc.getQueryCache().find({ queryKey: ['agent-ops-network-overview', '2026-10-01', '2026-10-15', 50000] });
     expect((q?.options as { staleTime?: number }).staleTime).toBe(60_000);
   });
 
@@ -77,7 +88,7 @@ describe('useAgentOpsNetworkOverview', () => {
     const { result } = renderHook(() => useAgentOpsNetworkOverview('', '2026-10-15'), { wrapper: wrapperFor(client()) });
     expect(result.current.data).toBeNull();
     expect(rpcMock).not.toHaveBeenCalled();
-    renderHook(() => useAgentOpsNetworkOverview('2026-10-01', '2026-10-15', false), { wrapper: wrapperFor(client()) });
+    renderHook(() => useAgentOpsNetworkOverview('2026-10-01', '2026-10-15', 50000, false), { wrapper: wrapperFor(client()) });
     expect(rpcMock).not.toHaveBeenCalled();
   });
 

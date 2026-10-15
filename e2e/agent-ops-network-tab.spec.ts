@@ -13,6 +13,8 @@ const PAYLOAD = {
   range: { start: '2026-10-01', end: '2026-10-15', min_expected: 50000 },
   counts: { agents: 31, with_service_centres: 7, with_bikes: 2, with_smartphone_plan: 5, with_smartphone_tenants: 19, with_subagents: 4, posted_requests: 23, approved_agents: 11 },
   approved: { agents: 9, requests: 41, amount: 12345678, receivables_outstanding: 8765432 },
+  bikes: { agents: 2, leases: 3, amount_outstanding: 2820000 },
+  smartphone_usage: { as_of: '2026-10-15', from_day: '2026-10-01', to_day: '2026-10-15', tenants: 5000, recorded_smartphone: 4900, recorded_without: 100, confirmed_smartphone: 12, confirmed_feature_phone: 40, device_unknown: 4948, joined: 70, joined_recorded_smartphone: 60, checks: 10, checks_smartphone: 2, checks_feature_phone: 8, seen_on_phone: 6 },
   // the rate is deliberately not collected / expected: the tab must show the server's figure
   top_portfolios: [{ agent_id: 'a1', name: 'Test Agent One', phone: '+256700000001', portfolio: 5000000, plans: 6 }, { agent_id: 'a2', name: 'Test Agent Two', phone: '+256700000002', portfolio: 3000000, plans: 2 }],
   top_collection_rate: [{ agent_id: 'a1', name: 'Test Agent One', phone: '+256700000001', collected: 900000, expected: 400000, rate_pct: 77.7 }],
@@ -72,6 +74,14 @@ test('Agent Network tab: after Overview, asks for the Kampala days, shows the se
   await expect(approved).toContainText('41');
   await expect(approved).toContainText('UGX 12,345,678');
   await expect(approved).toContainText('UGX 8,765,432');
+  await expect(approved.getByTestId('in-range-badge')).toHaveText('In the chosen dates');
+  await expect(page.getByTestId('network-collection-rate').getByTestId('in-range-badge')).toBeVisible();
+  await expect(page.getByRole('region', { name: "Today's network (all time)" })).toBeVisible();
+  await expect(kpi('With bikes')).toContainText('3 leases');
+  await expect(kpi('With bikes')).toContainText('still owed');
+  await expect(page.getByTestId('network-smartphones')).toContainText('Platform-wide');
+  await expect(page.getByTestId('network-smartphones')).toContainText('5,000');
+  await expect(page.getByRole('button', { name: 'Download CSV: Biggest portfolios' })).toBeVisible();
 
   const portfolios = page.getByTestId('network-portfolios');
   await expect(portfolios.locator('tbody tr')).toHaveCount(2);
@@ -84,4 +94,66 @@ test('Agent Network tab: after Overview, asks for the Kampala days, shows the se
   // back to Overview: the page's own content is still there
   await tabs.nth(0).click();
   await expect(page.getByText('Agent Operations Overview')).toBeVisible();
+});
+
+/** The "Agent Network" chip on the Agent Ops home page. */
+test('Agent Network chip: after First 7 Days, shows the tab, opens from a link, and typing in search leaves it', async ({ page }) => {
+  test.setTimeout(240_000);
+  const calls: Record<string, unknown>[] = [];
+  await seed(page, calls);
+  await page.goto('/executive-hub?tab=agent-ops');
+  for (let i = 0; i < 3; i++) {
+    const notNow = page.getByRole('button', { name: 'Not now' });
+    if (await notNow.isVisible({ timeout: 1_500 }).catch(() => false)) await notNow.click();
+    else break;
+  }
+  const first7 = page.getByRole('button', { name: /^First 7 Days\s*\d*$/ });
+  const chip = page.getByRole('button', { name: /^Agent Network\s*\d*$/ });
+  await expect(first7).toBeVisible({ timeout: 150_000 });
+  await expect(chip).toBeVisible();
+  // the chip comes right after First 7 Days
+  const labels = await page.locator('button:has-text("Reports"), button:has-text("First 7 Days"), button:has-text("Agent Network")').allInnerTexts();
+  expect(labels.findIndex((t) => /^First 7 Days/.test(t.trim()))).toBe(labels.findIndex((t) => /^Agent Network/.test(t.trim())) - 1);
+
+  await chip.click();
+  await expect(page.getByTestId('agent-network-standalone')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Last 30 days' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('network-kpi')).toHaveCount(8);
+  expect(calls.some((c) => c.p_min_expected === 50000)).toBe(true);
+  await expect(page).toHaveURL(/net=1/);
+  await expect(page).toHaveURL(/netfrom=\d{4}-\d{2}-\d{2}/);
+  await expect(page).toHaveURL(/netto=\d{4}-\d{2}-\d{2}/);
+
+  // the minimum is passed to the function and kept in the link
+  await page.getByRole('combobox', { name: 'Minimum size for the rankings' }).click();
+  await page.getByRole('option').nth(3).click();
+  await expect.poll(() => calls.some((c) => c.p_min_expected === 500000)).toBe(true);
+  await expect(page).toHaveURL(/netmin=500000/);
+
+  // typing in the search box returns to search results
+  await page.getByPlaceholder(/Search all 14 business areas/).fill('bikes');
+  await expect(page.getByTestId('agent-network-standalone')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Agents Bikes', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear search' }).click();
+
+  // First 7 Days is untouched by the new chip
+  await first7.click();
+  await expect(page.getByRole('button', { name: /Export CSV/ })).toBeVisible();
+  await expect(page.getByTestId('agent-network-standalone')).toHaveCount(0);
+});
+
+test('a link with net parameters opens on the Agent Network chip', async ({ page }) => {
+  test.setTimeout(240_000);
+  const calls: Record<string, unknown>[] = [];
+  await seed(page, calls);
+  await page.goto('/executive-hub?tab=agent-ops&net=1&netfrom=2026-10-01&netto=2026-10-10&netmin=100000');
+  for (let i = 0; i < 3; i++) {
+    const notNow = page.getByRole('button', { name: 'Not now' });
+    if (await notNow.isVisible({ timeout: 1_500 }).catch(() => false)) await notNow.click();
+    else break;
+  }
+  await expect(page.getByTestId('agent-network-standalone')).toBeVisible({ timeout: 150_000 });
+  await expect(page.getByTestId('network-kpi')).toHaveCount(8);
+  expect(calls.some((c) => c.p_start === '2026-10-01' && c.p_end === '2026-10-10' && c.p_min_expected === 100000)).toBe(true);
+  await expect(page.getByRole('combobox', { name: 'Minimum size for the rankings' })).toContainText('100,000');
 });

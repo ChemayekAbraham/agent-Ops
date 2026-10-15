@@ -25,6 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
 import { ActiveAgentsBreakdownDialog } from './ActiveAgentsBreakdownDialog';
 import { AgentNetworkTab } from './AgentNetworkTab';
+import { kampalaLabel } from '@/lib/kampalaDays';
+import { networkRangeParams } from '@/lib/agentNetwork';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 
@@ -128,6 +130,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const [tab, setTab] = useState<'overview' | 'network'>('overview');
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const networkRange = useMemo(() => networkRangeParams(start, end), [start, end]);
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
@@ -517,7 +520,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           <div>
             <h2 className="text-base font-bold text-foreground">Agent Network</h2>
             <p className="text-xs text-muted-foreground">
-              {format(start, 'dd MMM yyyy')} → {format(end, 'dd MMM yyyy')} · the network of agents, their portfolios and collections.
+              {kampalaLabel(networkRange.p_start)} → {kampalaLabel(networkRange.p_end)} · the network of agents, their portfolios and collections.
             </p>
           </div>
           <OpsDateRangeFilter
