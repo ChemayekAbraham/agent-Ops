@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import {
   approvePool, cancelPool, listPools, payPool, pendingForMe, poolDetail, returnPool, savePool,
@@ -22,7 +23,7 @@ interface Row { staff_id: string; staff_ref: string | null; full_name: string | 
 const DEFAULT_DEPT = 'Engineering & Product';
 const fmtTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
-type Confirm = null | 'approve' | 'pay' | 'return' | 'decline' | 'cancel';
+type Confirm = null | 'approve' | 'approve_pay' | 'pay' | 'return' | 'decline' | 'cancel';
 
 export default function BonusEditor({ id }: { id: string }) {
   const isNew = id === 'new';
@@ -44,6 +45,7 @@ export default function BonusEditor({ id }: { id: string }) {
   const [search, setSearch] = useState('');
   const [dept, setDept] = useState<string | null>(DEFAULT_DEPT);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  const [isApprover, setIsApprover] = useState(false);
   const [returnNote, setReturnNote] = useState('');
 
   const status = pool?.status ?? 'draft';
@@ -64,6 +66,13 @@ export default function BonusEditor({ id }: { id: string }) {
   }, []);
 
   useEffect(() => { if (poolId) void load(poolId); }, [poolId, load]);
+  useEffect(() => {
+    let live = true;
+    supabase.rpc('hr_pay_is_approver' as never).then(({ data, error: e }) => {
+      if (live) setIsApprover(!e && data === true);
+    }, () => { if (live) setIsApprover(false); });
+    return () => { live = false; };
+  }, []);
   useEffect(() => {
     if (editable && options === null) staffOptions().then(setOptions).catch((e: Error) => { setError(e.message); setOptions([]); });
   }, [editable, options]);
@@ -138,7 +147,17 @@ export default function BonusEditor({ id }: { id: string }) {
       if (confirm === 'cancel') { await cancelPool(poolId); toast.success('Bonus pool cancelled'); }
       if (confirm === 'pay') {
         const r = await payPool(poolId);
-        toast.success(`Paid — ${formatUGX(Number(r.amount))} credited to ${r.people} wallets.`);
+        toast.success(`Disbursed — ${formatUGX(Number(r.amount))} credited to ${r.people} wallets.`);
+      }
+      if (confirm === 'approve_pay') {
+        await approvePool(poolId);
+        try {
+          const r = await payPool(poolId);
+          toast.success(`Disbursed — ${formatUGX(Number(r.amount))} credited to ${r.people} wallets.`);
+        } catch (pe) {
+          toast.error((pe as Error).message);
+          toast('Approved — disbursement failed, the CFO can still pay it');
+        }
       }
       setConfirm(null); setReturnNote('');
       void load(poolId);
@@ -265,12 +284,13 @@ export default function BonusEditor({ id }: { id: string }) {
               <>
                 <Button variant="outline" disabled={busy} onClick={() => setConfirm('return')}>Return with note</Button>
                 <Button disabled={busy} onClick={() => setConfirm('approve')}>Approve</Button>
+                <Button disabled={busy} onClick={() => setConfirm('approve_pay')}>Approve &amp; disburse</Button>
               </>
             )}
-            {status === 'approved' && kinds.includes('pay') && (
+            {status === 'approved' && (kinds.includes('pay') || isApprover) && (
               <>
-                <Button variant="outline" disabled={busy} onClick={() => setConfirm('decline')}>Decline with note</Button>
-                <Button disabled={busy} onClick={() => setConfirm('pay')}>Pay bonuses</Button>
+                {kinds.includes('pay') && <Button variant="outline" disabled={busy} onClick={() => setConfirm('decline')}>Decline with note</Button>}
+                <Button disabled={busy} onClick={() => setConfirm('pay')}>{kinds.includes('pay') ? 'Pay bonuses' : 'Disburse'}</Button>
               </>
             )}
           </div>
@@ -282,13 +302,15 @@ export default function BonusEditor({ id }: { id: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirm === 'approve' && 'Approve this bonus pool?'}
-              {confirm === 'pay' && 'Pay bonuses'}
+              {confirm === 'approve_pay' && 'Approve & disburse'}
+              {confirm === 'pay' && (isApprover && !kinds.includes('pay') ? 'Disburse' : 'Pay bonuses')}
               {confirm === 'return' && 'Return with note'}
               {confirm === 'decline' && 'Decline with note'}
               {confirm === 'cancel' && 'Cancel this bonus pool?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === 'approve' && `${formatUGX(Number(pool?.allocated ?? 0))} to ${people} people.`}
+              {confirm === 'approve_pay' && `Approve and credit ${formatUGX(Number(pool?.allocated ?? 0))} to ${people} staff wallets now?`}
               {confirm === 'pay' && `Credit ${formatUGX(Number(pool?.allocated ?? 0))} to ${people} staff wallets?`}
               {(confirm === 'return' || confirm === 'decline') && 'Say what HR should change.'}
               {confirm === 'cancel' && 'A cancelled pool cannot be reopened.'}
