@@ -10,6 +10,11 @@
   background: var(--signature-rent-background);
   color: hsl(var(--signature-rent-foreground));
   box-shadow: var(--signature-rent-shadow);
+  transition: transform 160ms ease;
+}
+
+.signature-rent-card:has(.signature-rent-open:hover) {
+  transform: translateY(-2px);
 }
 
 .signature-rent-card::before,
@@ -37,11 +42,31 @@
   border: 2px solid hsl(var(--signature-rent-foreground) / 0.27);
 }
 
+.signature-rent-open {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
 .signature-rent-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   min-height: 450px;
   flex-direction: column;
   padding: 24px 27px 23px;
+  pointer-events: none;
+}
+
+/* Only the real controls inside the card take clicks; everything else
+   falls through to the card-wide open-request target. */
+.signature-rent-content .signature-rent-how,
+.signature-rent-content .signature-rent-post {
+  pointer-events: auto;
 }
 
 .signature-rent-greeting {
