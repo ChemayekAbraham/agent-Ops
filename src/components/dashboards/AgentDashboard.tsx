@@ -1094,17 +1094,22 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         headerActions={<AgentNotificationBell userId={user.id} />}
       />
 
+      {/* Merchant home is long (float, payouts, earnings cards), so it must
+          scroll like the other tabs; only the standard agent home is a
+          fixed-fit, non-scrolling layout. */}
       <div className={cn(
         "agent-dashboard-scroll flex-1 overflow-x-hidden min-h-0",
-        activeTab === 'home'
+        activeTab === 'home' && !(isMerchant && isCashoutAgent)
           ? "flex flex-col overflow-hidden pb-[calc(76px+env(safe-area-inset-bottom,0px))]"
-          : "overflow-y-auto pb-nav"
+          : "overflow-y-auto overscroll-y-contain pb-nav"
       )}>
         <main className={cn(
           "agent-dashboard-main w-full min-w-0 px-4 max-w-lg mx-auto",
-          activeTab === 'home'
+          activeTab === 'home' && !(isMerchant && isCashoutAgent)
             ? "flex-1 flex flex-col min-h-0 pt-3 pb-1 space-y-2.5"
-            : "pt-5 pb-16 space-y-5"
+            : activeTab === 'home'
+              ? "pt-3 pb-16 space-y-2.5"
+              : "pt-5 pb-16 space-y-5"
         )}>
         {/* Offline Notice */}
         {!isOnline && (
