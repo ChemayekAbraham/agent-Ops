@@ -40,3 +40,11 @@ supabase/.temp
 
 # Office temp lock files
 ~$*
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local auto-commit daemon script
+comm.py
+auto_commit_push.py
