@@ -8,6 +8,14 @@
 html:not(.dark) .agents-mock-exact .bg-card { background-color: var(--mock-card); }
 .dark .agents-mock-exact { --mock-surface: hsl(var(--card)); }
 .agents-mock-exact h1, .agents-mock-exact h2, .agents-mock-exact h3, .agents-mock-exact button, .agents-mock-exact input { font-family: inherit; letter-spacing: 0; }
+/* Every word on the agent dashboard reads in Outfit: the page body, all of its
+   descendants (the page wrapper carries Tailwind's font utility, which would
+   otherwise win over inheritance), and the dialogs and popovers that attach
+   outside the page. Gated on the html class the page sets while it is mounted,
+   so no other route is affected. */
+html.agents-mock-font .agents-mock-exact, html.agents-mock-font .agents-mock-exact *,
+html.agents-mock-font [role="dialog"], html.agents-mock-font [role="dialog"] *,
+html.agents-mock-font [data-radix-popper-content-wrapper], html.agents-mock-font [data-radix-popper-content-wrapper] * { font-family: 'Outfit', 'DM Sans', sans-serif; }
 .agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
 
 /* Agents Mock — "bubble" motion. Blocks blow in once on load (mock-bubble-in,
