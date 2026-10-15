@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import DepartmentBudgetSubmission from '@/components/budget/DepartmentBudgetSubmission';
+import SupplementaryBudgets from '@/components/budget/SupplementaryBudgets';
 
 export default function DepartmentBudgets() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export default function DepartmentBudgets() {
         initialDepartmentId={initialDepartmentId}
         initialSubmissionId={initialSubmissionId}
       />
+      <SupplementaryBudgets mode="department" />
     </main>
   );
 }
