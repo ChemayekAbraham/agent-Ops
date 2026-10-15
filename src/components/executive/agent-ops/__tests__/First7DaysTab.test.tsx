@@ -165,14 +165,36 @@ describe('First7DaysTab', () => {
     expect(dayCells[2]).toHaveTextContent('UGX 5,000');
     expect(dayCells[2].className).toContain('bg-warning/15');
     expect(dayCells[3].className).toContain('bg-muted/40');
-    expect(daily.querySelector('.ring-primary')).toBeNull();
+    expect(daily.querySelector('.ring-2.ring-primary')).toBeNull();
 
     const wk = screen.getByText('Bosco Ouma').closest('tr')!;
     const wCells = within(wk).getAllByTitle(/^Day \d/);
-    expect(wCells[0].className).toContain('ring-primary');
+    expect(wCells[0].classList.contains('ring-primary')).toBe(true);
     expect(wCells[0]).toHaveTextContent('UGX 70,000');
-    for (const c of wCells.slice(1)) { expect(c).toHaveTextContent('not due'); expect(c.className).not.toContain('ring-primary'); }
-    expect(within(wk).getByText(/Weekly · UGX 70,000 \/ week/)).toBeInTheDocument();
+    for (const c of wCells.slice(1)) { expect(c).toHaveTextContent('not due'); expect(c.classList.contains('ring-primary')).toBe(false); }
+    expect(within(wk).getAllByText('Weekly')).toHaveLength(2); // under the agent (until 2xl) and in the Plan column (from 2xl)
+    expect(within(wk).getByText('UGX 70,000 / week')).toBeInTheDocument();
+  });
+
+  it('keeps the table narrow: Plan and Landlord paid columns only from 2xl up (the plan type sits under the agent until then), summary cards three across until 2xl', async () => {
+    answer();
+    renderTab();
+    await screen.findByText('Amina Nakato');
+    const headers = screen.getAllByRole('columnheader');
+    for (const name of ['Plan', 'Landlord paid']) {
+      const h = headers.find((x) => x.textContent === name) as HTMLElement;
+      expect(h.className).toMatch(/\bhidden\b/);
+      expect(h.className).toContain('2xl:table-cell');
+    }
+    const row = (await screen.findByText('Amina Nakato')).closest('tr') as HTMLElement;
+    const agentCell = within(row).getByRole('button', { name: 'Joy Namukasa' }).closest('td') as HTMLElement;
+    expect(within(agentCell).getByText('Daily').className).toContain('2xl:hidden');
+    expect(within(agentCell).getByText('Daily').getAttribute('title')?.replace(/\u00a0/g, ' ')).toBe('Daily · UGX 10,000 / day');
+    expect(within(row).getByText('UGX 10,000 / day').closest('td')?.className).toContain('2xl:table-cell');
+    const cards = screen.getByRole('button', { name: /^New Rent Plans/ }).parentElement as HTMLElement;
+    expect(cards.className).toContain('md:grid-cols-3');
+    expect(cards.className).toContain('2xl:grid-cols-6');
+    expect(cards.className).not.toMatch(/(^|\s)xl:grid-cols-6/);
   });
 
   it('shows every amount as UGX with the server\'s paid and due so far, and the collected strip', async () => {
@@ -180,9 +202,9 @@ describe('First7DaysTab', () => {
     renderTab();
     const daily = (await screen.findByText('Amina Nakato')).closest('tr')!;
     expect(within(daily).getByText('UGX 15,000')).toBeInTheDocument();
-    expect(within(daily).getByText('of UGX 30,000 due')).toBeInTheDocument();
+    expect(within(daily).getByText('of UGX 30,000')).toBeInTheDocument();
     expect(within(daily).getByText('Behind')).toBeInTheDocument();
-    expect(screen.getByText(/Collected UGX 85,000/)).toHaveTextContent('of UGX 130,000 due so far');
+    expect(screen.getByTestId('first7-collected')).toHaveTextContent('Collected UGX 85,000 of UGX 130,000 due so far');
     expect(screen.getByText('65.4%')).toBeInTheDocument();
   });
 
@@ -195,6 +217,10 @@ describe('First7DaysTab', () => {
     const strip = screen.getAllByRole('img', { name: /Day 1 paid, Day 2 missed, Day 3 part paid/ })[0];
     expect(strip.querySelectorAll('span')).toHaveLength(7);
     expect(within(screen.getByRole('list')).getAllByText('Behind')).toHaveLength(1);
+    const card = screen.getAllByTestId('first7-row')[0];
+    expect(within(card).getByText(/^Daily · UGX 10,000 \/ day$/)).toBeInTheDocument();
+    expect(within(card).getByText(/^Landlord paid \d{1,2} [A-Z][a-z]{2}$/)).toBeInTheDocument();
+    expect(within(card).getByText('UGX 15,000').parentElement).toHaveTextContent('of UGX 30,000 due');
   });
 
   it('shows skeletons while loading', async () => {

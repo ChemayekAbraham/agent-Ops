@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  agentOnTrack,
   clampRange,
   daysBetween,
   filterFirst7Rows,
   first7ErrorMessage,
   hasFirst7Params,
+  kampalaDateTime,
+  kampalaStamp,
   kampalaToday,
+  normalizePayment,
   normalizeRow,
   normalizeSummary,
+  paymentMethodLabel,
   presetOf,
   presetRange,
   readFirst7Params,
@@ -18,6 +23,7 @@ import {
 } from '../newTenantFirst7';
 
 const TODAY = '2026-10-15';
+const AGENT = '3f2c9a4e-1b7d-4c55-9a0e-6d1f2b8c7e10';
 
 const row = (over: Partial<First7Row> = {}): First7Row => ({
   rent_request_id: 'rr-1', tenant_id: 't-1', tenant_name: 'Amina', tenant_phone: '0772000111', agent_id: 'a-1', agent_name: 'Joy',
@@ -60,17 +66,17 @@ describe('Kampala dates and presets', () => {
 
 describe('the URL (?f7from=&f7to=&f7freq=)', () => {
   it('defaults to yesterday, all frequencies, no filters', () => {
-    expect(readFirst7Params(new URLSearchParams(), TODAY)).toEqual({ from: '2026-10-14', to: '2026-10-14', freq: 'all', q: '', card: 'all', day: null });
+    expect(readFirst7Params(new URLSearchParams(), TODAY)).toEqual({ from: '2026-10-14', to: '2026-10-14', freq: 'all', q: '', card: 'all', day: null, agent: null });
   });
   it('reads every control back', () => {
-    const sp = new URLSearchParams('f7from=2026-10-01&f7to=2026-10-07&f7freq=weekly&f7q=joy&f7card=behind&f7day=3');
-    expect(readFirst7Params(sp, TODAY)).toEqual({ from: '2026-10-01', to: '2026-10-07', freq: 'weekly', q: 'joy', card: 'behind', day: 3 });
+    const sp = new URLSearchParams(`f7from=2026-10-01&f7to=2026-10-07&f7freq=weekly&f7q=joy&f7card=behind&f7day=3&f7agent=${AGENT}`);
+    expect(readFirst7Params(sp, TODAY)).toEqual({ from: '2026-10-01', to: '2026-10-07', freq: 'weekly', q: 'joy', card: 'behind', day: 3, agent: AGENT });
   });
   it('falls back to yesterday for a bad, reversed, future or over-31-day range, and ignores unknown values', () => {
     for (const q of ['f7from=nope&f7to=2026-10-02', 'f7from=2026-10-05&f7to=2026-10-02', 'f7from=2026-10-10&f7to=2026-10-30', 'f7from=2026-08-01&f7to=2026-10-14', 'f7from=2026-02-30&f7to=2026-03-02']) {
       expect(readFirst7Params(new URLSearchParams(q), TODAY)).toMatchObject({ from: '2026-10-14', to: '2026-10-14' });
     }
-    expect(readFirst7Params(new URLSearchParams('f7freq=monthly&f7card=zzz&f7day=9'), TODAY)).toMatchObject({ freq: 'all', card: 'all', day: null });
+    expect(readFirst7Params(new URLSearchParams('f7freq=monthly&f7card=zzz&f7day=9&f7agent=not-a-uuid'), TODAY)).toMatchObject({ freq: 'all', card: 'all', day: null, agent: null });
   });
   it('accepts exactly 31 days', () => {
     expect(readFirst7Params(new URLSearchParams('f7from=2026-09-15&f7to=2026-10-15'), TODAY)).toMatchObject({ from: '2026-09-15', to: TODAY });
@@ -79,7 +85,7 @@ describe('the URL (?f7from=&f7to=&f7freq=)', () => {
     const base = new URLSearchParams('section=first7-tracker');
     const def = readFirst7Params(new URLSearchParams(), TODAY);
     expect(writeFirst7Params(base, def, TODAY).toString()).toBe('section=first7-tracker');
-    const p = { ...def, from: '2026-10-09', to: TODAY, freq: 'daily' as const, q: 'joy', card: 'behind' as const, day: 2 };
+    const p = { ...def, from: '2026-10-09', to: TODAY, freq: 'daily' as const, q: 'joy', card: 'behind' as const, day: 2, agent: AGENT };
     const out = writeFirst7Params(base, p, TODAY);
     expect(out.get('section')).toBe('first7-tracker');
     expect(readFirst7Params(out, TODAY)).toEqual(p);
@@ -146,5 +152,43 @@ describe('ordering and filtering the rows the server classified', () => {
     expect(filterFirst7Rows(rows, { q: 'JOY', card: 'all', day: null })).toHaveLength(5);
     expect(filterFirst7Rows(rows, { q: '0772', card: 'all', day: null })).toHaveLength(5);
     expect(filterFirst7Rows(rows, { q: 'zzz', card: 'all', day: null })).toEqual([]);
+  });
+});
+
+describe('one agent and the payments behind a plan', () => {
+  const rows = [
+    row({ rent_request_id: 'a', agent_id: AGENT, agent_name: 'Joy', row_status: 'on_track' }),
+    row({ rent_request_id: 'b', agent_id: AGENT, agent_name: 'Joy', row_status: 'behind' }),
+    row({ rent_request_id: 'c', agent_id: AGENT, agent_name: 'Joy', row_status: 'on_track' }),
+    row({ rent_request_id: 'd', agent_id: AGENT, agent_name: 'Joy', row_status: 'too_early' }),
+    row({ rent_request_id: 'e', agent_id: 'other', agent_name: 'Peter', row_status: 'on_track' }),
+  ];
+  it('counts the agent\'s on-track share from the server statuses, leaving out plans whose day 1 has not come', () => {
+    expect(agentOnTrack(rows, AGENT)).toEqual({ agent_id: AGENT, agent_name: 'Joy', started: 3, on_track: 2, pct: 67 });
+    expect(agentOnTrack(rows, 'other')).toMatchObject({ started: 1, on_track: 1, pct: 100 });
+    expect(agentOnTrack([row({ agent_id: 'x', row_status: 'too_early' })], 'x').pct).toBeNull();
+    expect(agentOnTrack(rows, 'nobody')).toMatchObject({ started: 0, pct: null, agent_name: null });
+  });
+  it('the agent filter keeps only that agent\'s Rent Plans', () => {
+    expect(filterFirst7Rows(rows, { q: '', card: 'all', day: null, agent: AGENT }).map((r) => r.rent_request_id)).toEqual(['a', 'b', 'c', 'd']);
+    expect(filterFirst7Rows(rows, { q: '', card: 'on_track', day: null, agent: AGENT }).map((r) => r.rent_request_id)).toEqual(['a', 'c']);
+  });
+  it('names the payment method: self-pay by channel, then cash or wallet', () => {
+    expect(paymentMethodLabel('in_app_wallet', 'tenant_deposit_auto')).toBe('Self-pay');
+    expect(paymentMethodLabel('cash', 'agent_float')).toBe('Cash');
+    expect(paymentMethodLabel('in_app_wallet', 'agent_float')).toBe('Wallet');
+    expect(paymentMethodLabel('in_app_wallet', 'agent_liability_settlement')).toBe('Wallet');
+    expect(paymentMethodLabel('mobile_money', null)).toBe('Mobile money');
+    expect(paymentMethodLabel(null, null)).toBe('—');
+  });
+  it('turns a payment row into numbers and keeps the nulls', () => {
+    expect(normalizePayment({ collection_id: 'c1', collected_at: '2026-10-12T07:15:00Z', collected_day: '2026-10-12', day_number: '1', amount: '10000.00', payment_method: 'cash', collection_channel: 'agent_float', agent_id: null, agent_name: null }))
+      .toEqual({ collection_id: 'c1', collected_at: '2026-10-12T07:15:00Z', collected_day: '2026-10-12', day_number: 1, amount: 10000, payment_method: 'cash', collection_channel: 'agent_float', agent_id: null, agent_name: null });
+  });
+  it('writes Kampala time for the screen and the exports', () => {
+    expect(kampalaStamp(new Date('2026-10-15T11:32:00Z'))).toBe('15 Oct 2026, 14:32 EAT');
+    expect(kampalaStamp(new Date('2026-10-14T21:05:00Z'))).toBe('15 Oct 2026, 00:05 EAT');
+    expect(kampalaDateTime('2026-10-12T07:15:00Z')).toBe('12 Oct, 10:15');
+    expect(kampalaDateTime('nope')).toBe('');
   });
 });

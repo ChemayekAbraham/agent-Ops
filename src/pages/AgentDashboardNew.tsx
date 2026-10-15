@@ -8,17 +8,18 @@ import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import AiIdButton from '@/components/ai-id/AiIdButton';
-import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 import { BadgeCheck } from 'lucide-react';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
 
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
 
 export default function AgentDashboardNew() {
-  const { user, signOut, roles, switchRole } = useAuth();
+  const { signOut, roles, switchRole } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
+  const [hubOpen, setHubOpen] = useState(false);
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'Agent';
 
@@ -36,7 +37,10 @@ export default function AgentDashboardNew() {
         availableRoles={roles as AppRole[]}
         onRoleChange={handleRoleChange}
         onSignOut={signOut}
+        hideNotifications
+        onMenuClick={() => setHubOpen(true)}
       />
+      <AgentHubDrawer open={hubOpen} onClose={() => setHubOpen(false)} />
       <main className="min-h-[60vh] px-4 pt-4">
         <div className="flex items-center gap-3">
           <UserAvatar avatarUrl={profile?.avatar_url} fullName={profile?.full_name} size="lg" />
@@ -48,7 +52,6 @@ export default function AgentDashboardNew() {
             <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
             <div className="mt-1.5"><AiIdButton variant="compact" /></div>
           </div>
-          {user && <div className="shrink-0"><AgentNotificationBell userId={user.id} /></div>}
         </div>
         <div className="mt-5">
           <SignatureRentRequestCard fullName={profile?.full_name} onPostRequest={() => setRentRequestOpen(true)} />

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  normalizePayment,
   normalizeRow,
   normalizeSummary,
+  type First7Payment,
   type First7Row,
   type First7Summary,
   type FrequencyFilter,
@@ -61,5 +63,28 @@ export function useNewTenantFirst7(args: NewTenantFirst7Args) {
     isFetching: rows.isFetching || summary.isFetching,
     error: rows.error ?? summary.error ?? null,
     refetch: () => { void rows.refetch(); void summary.refetch(); },
+  };
+}
+
+/**
+ * Read-only: every collection (time, amount, method, agent) in one Rent Plan's seven days (am_new_tenant_first7_payments).
+ * Only asked for while a plan's side panel is open.
+ */
+export function useNewTenantFirst7Payments(rentRequestId: string | null) {
+  const q = useQuery({
+    queryKey: ['am-new-tenant-first7-v2', 'payments', rentRequestId],
+    enabled: !!rentRequestId,
+    queryFn: async (): Promise<First7Payment[]> => {
+      const { data, error } = await rpc('am_new_tenant_first7_payments', { p_rent_request_id: rentRequestId });
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map(normalizePayment);
+    },
+    staleTime: 60_000,
+  });
+  return {
+    payments: q.data ?? [],
+    isLoading: q.isLoading && !!rentRequestId,
+    error: q.error ?? null,
+    refetch: () => { void q.refetch(); },
   };
 }

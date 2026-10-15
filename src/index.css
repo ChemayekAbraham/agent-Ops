@@ -950,9 +950,9 @@ input, textarea, select, button {
   transition-duration: 0.01ms !important;
 }
 
-.save-data .bg-gradient-to-r,
-.save-data .bg-gradient-to-br,
-.save-data .bg-gradient-to-b {
+.save-data .bg-gradient-to-r:not(.text-white):not(.text-primary-foreground):not(.agent-post-rent-request-card),
+.save-data .bg-gradient-to-br:not(.text-white):not(.text-primary-foreground):not(.agent-post-rent-request-card),
+.save-data .bg-gradient-to-b:not(.text-white):not(.text-primary-foreground):not(.agent-post-rent-request-card) {
   background: hsl(var(--background)) !important;
 }
 

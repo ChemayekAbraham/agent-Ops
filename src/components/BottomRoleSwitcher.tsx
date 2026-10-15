@@ -32,7 +32,7 @@ const PUBLIC_ROLES: { role: AppRole; label: string; icon: typeof Home }[] = [
   { role: "tenant", label: "Tenant", icon: Home },
   { role: "agent", label: "Agent", icon: Users },
   { role: "supporter", label: "Partner", icon: Wallet },
-  { role: "landlord", label: "Lnadlord", icon: Building2 },
+  { role: "landlord", label: "Landlord", icon: Building2 },
 ];
 
 const GATED_ROLES: AppRole[] = ["tenant", "agent", "landlord"];
@@ -78,7 +78,14 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
   };
 
   const handleSwitch = (role: AppRole) => {
-    if (role === currentRole) return;
+    if (role === currentRole) {
+      if (role === 'agent') {
+        hapticTap();
+        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'home' }));
+        navigate(roleToSlug('agent'));
+      }
+      return;
+    }
     hapticTap();
 
     // Warm the chunk as early as possible in case idle preloading hasn't run.
@@ -98,6 +105,10 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
     onRoleChange(role);
     // Sync URL with the new persona — URL is the source of truth.
     navigate(roleToSlug(role));
+
+    if (role === 'agent') {
+      window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'home' }));
+    }
   };
 
   const handleStaffNav = () => {

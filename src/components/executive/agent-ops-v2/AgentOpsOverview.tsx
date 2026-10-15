@@ -24,6 +24,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
 import { ActiveAgentsBreakdownDialog } from './ActiveAgentsBreakdownDialog';
+import { AgentNetworkTab } from './AgentNetworkTab';
+import { kampalaLabel } from '@/lib/kampalaDays';
+import { networkRangeParams } from '@/lib/agentNetwork';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 
@@ -124,8 +127,10 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const qc = useQueryClient();
   const [preset, setPreset] = useState<PresetKey>('today');
   const [activeBreakdownOpen, setActiveBreakdownOpen] = useState(false);
+  const [tab, setTab] = useState<'overview' | 'network'>('overview');
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const networkRange = useMemo(() => networkRangeParams(start, end), [start, end]);
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
@@ -262,6 +267,13 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   });
 
   return (
+    <Tabs value={tab} onValueChange={(v) => setTab(v as 'overview' | 'network')} className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="network">Agent Network</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview" className="mt-0">
     <div className="space-y-4">
       {/* Prominent Rent Requests action — first thing an ops manager sees */}
       <button
@@ -501,6 +513,26 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       <ActiveAgentsBreakdownDialog open={activeBreakdownOpen} onOpenChange={setActiveBreakdownOpen} />
 
     </div>
+      </TabsContent>
+
+      <TabsContent value="network" className="mt-0 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-foreground">Agent Network</h2>
+            <p className="text-xs text-muted-foreground">
+              {kampalaLabel(networkRange.p_start)} → {kampalaLabel(networkRange.p_end)} · the network of agents, their portfolios and collections.
+            </p>
+          </div>
+          <OpsDateRangeFilter
+            preset={preset}
+            custom={custom}
+            onPresetChange={setPreset}
+            onCustomChange={setCustom}
+          />
+        </div>
+        <AgentNetworkTab start={start} end={end} />
+      </TabsContent>
+    </Tabs>
   );
 }
 

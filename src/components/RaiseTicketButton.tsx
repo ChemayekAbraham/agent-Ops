@@ -49,6 +49,7 @@ export default function RaiseTicketButton() {
   }, [open]);
 
   if (!staff) return null;
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard/agent-new')) return null;
 
   return (
     <>

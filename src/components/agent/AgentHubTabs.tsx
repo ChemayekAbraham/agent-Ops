@@ -9,7 +9,7 @@ import {
   useSlidingIndicator,
 } from '@/components/ui/floating-nav';
 
-export type AgentHubTab = 'home' | 'money' | 'tenants' | 'grow' | 'subagents';
+export type AgentHubTab = 'home' | 'money' | 'tenants' | 'grow' | 'subagents' | 'league';
 
 interface AgentHubTabsProps {
   active: AgentHubTab;
@@ -24,65 +24,17 @@ interface AgentHubTabsProps {
 
 const tabs: { id: AgentHubTab; icon: typeof Home; label: string }[] = [
   { id: 'home', icon: Home, label: 'Home' },
-  { id: 'subagents', icon: Store, label: 'Service Center' },
 ];
 
 export function AgentHubTabs({ active, onChange, restricted = false, onProxyAgentsClick, onMenuClick }: AgentHubTabsProps) {
   // Merchant Agents are locked to the Home tab only — all operational tabs are hidden.
-  const visibleTabs = restricted ? tabs.filter((t) => t.id === 'home') : tabs;
-  const mainTabs = visibleTabs.filter((t) => t.id !== 'subagents');
-  const serviceCenterTab = visibleTabs.find((t) => t.id === 'subagents');
+  const mainTabs = restricted ? tabs.filter((t) => t.id === 'home') : tabs;
   const activeIndex = mainTabs.findIndex((t) => t.id === active);
   const { containerRef, setItemRef, indicatorStyle } = useSlidingIndicator(activeIndex, [
     mainTabs.length,
   ]);
   return (
     <>
-      {serviceCenterTab && (
-        <div className="-mx-4 px-3 pb-2 flex justify-end">
-          <button
-            key={serviceCenterTab.id}
-            role="tab"
-            aria-selected={active === serviceCenterTab.id}
-            aria-label={serviceCenterTab.label}
-            onClick={() => { hapticTap(); onChange(serviceCenterTab.id); }}
-            className={cn(
-              FLOATING_NAV_ITEM,
-              'min-w-[5.5rem] px-3',
-              'border border-purple-300/80 bg-purple-50/60 shadow-sm',
-              'dark:border-purple-500/60 dark:bg-purple-950/30',
-              active === serviceCenterTab.id ? 'text-primary font-bold' : 'text-purple-900/80 dark:text-purple-100/80'
-            )}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <serviceCenterTab.icon className={cn('h-5 w-5', active === serviceCenterTab.id && 'scale-110')} strokeWidth={active === serviceCenterTab.id ? 2.5 : 2} />
-            <span className={cn(FLOATING_NAV_LABEL, 'text-xs font-bold')}>{serviceCenterTab.label}</span>
-            <span className="absolute -top-2 -right-2 inline-flex items-center rounded-full bg-gradient-to-r from-red-500 to-rose-500 px-2 py-0.5 text-[10px] font-extrabold tracking-wide text-white shadow-md ring-2 ring-background dark:ring-background">
-              New
-              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-yellow-300 ring-1 ring-white" />
-            </span>
-          </button>
-        </div>
-      )}
-      {serviceCenterTab && onProxyAgentsClick && (
-        <div className="-mx-4 px-3 pb-2 flex justify-end">
-          <button
-            onClick={() => { hapticTap(); onProxyAgentsClick(); }}
-            aria-label="Proxy Agents"
-            className={cn(
-              FLOATING_NAV_ITEM,
-              'min-w-[5.5rem] px-3',
-              'border border-purple-300/80 bg-purple-50/60 shadow-sm',
-              'dark:border-purple-500/60 dark:bg-purple-950/30',
-              'text-purple-900/80 dark:text-purple-100/80'
-            )}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <Sparkles className="h-5 w-5" strokeWidth={2} />
-            <span className={cn(FLOATING_NAV_LABEL, 'text-xs font-bold')}>Proxy Agents</span>
-          </button>
-        </div>
-      )}
       <div
         className="sticky z-20 -mx-4 px-3 pb-2"
         style={{ top: 0, paddingTop: 'calc(0.5rem + env(safe-area-inset-top, 0px))' }}

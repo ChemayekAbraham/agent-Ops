@@ -16,14 +16,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, GraduationCap, Briefcase, UserRound, Bell, Star } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
-import IOSInstallGuide from '@/components/IOSInstallGuide';
 import { cn } from '@/lib/utils';
 import { TenantInAppNotificationBell } from '@/components/tenant/TenantInAppNotificationBell';
+import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
 
 interface MenuItemConfig {
   icon: React.ComponentType<{ className?: string }>;
@@ -43,6 +43,7 @@ interface DashboardHeaderProps {
   opportunityCount?: number;
   onOpportunityBadgeClick?: () => void;
   headerActions?: React.ReactNode;
+  hideNotifications?: boolean;
   showInstallPrompt?: boolean;
   compactInstallPrompt?: boolean;
   onMenuClick?: () => void;
@@ -86,6 +87,7 @@ const DashboardHeader = memo(function DashboardHeader({
   opportunityCount,
   onOpportunityBadgeClick,
   headerActions,
+  hideNotifications = false,
   onMenuClick,
   compactInstallPrompt = false,
 }: DashboardHeaderProps) {
@@ -271,7 +273,10 @@ const DashboardHeader = memo(function DashboardHeader({
             {/* Right: Notification + Menu */}
             <div className="flex items-center gap-0.5">
               {headerActions}
-              {!headerActions && currentRole === 'tenant' && user?.id && (
+              {!headerActions && !hideNotifications && currentRole === 'agent' && user?.id && (
+                <AgentNotificationBell userId={user.id} />
+              )}
+              {!headerActions && !hideNotifications && currentRole === 'tenant' && user?.id && (
                 <TenantInAppNotificationBell tenantId={user.id} />
               )}
 
@@ -309,15 +314,35 @@ const DashboardHeader = memo(function DashboardHeader({
                     </div>
                     Your Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => navigate('/notifications')}
-                    className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
-                  >
-                    <div className="p-1.5 rounded-lg bg-primary/10">
-                      <Bell className="h-4 w-4 text-primary" />
-                    </div>
-                    Notifications
-                  </DropdownMenuItem>
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => { hapticTap(); navigate('/agent/service-center'); }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <Store className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="truncate">Service Center</span>
+                      </div>
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xs">
+                        New
+                      </span>
+                    </DropdownMenuItem>
+                  )}
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => { hapticTap(); navigate('/dashboard/agent/proxy'); }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="truncate">Proxy Agents</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
                   {showInstallButton && (
                     <DropdownMenuItem
                       onClick={handleInstallClick}
@@ -329,6 +354,192 @@ const DashboardHeader = memo(function DashboardHeader({
                       Install App
                     </DropdownMenuItem>
                   )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'money' }));
+                        navigate('/dashboard/agent?tab=money');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Wallet className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Money</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'tenants' }));
+                        navigate('/dashboard/agent?tab=tenants');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Users className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Tenants</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'grow' }));
+                        navigate('/dashboard/agent?tab=grow');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <TrendingUp className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">More</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'league' }));
+                        navigate('/dashboard/agent?tab=league');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Trophy className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Collection League</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-list-house'));
+                        navigate('/dashboard/agent?action=list-house');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Building2 className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">List House</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-my-listings'));
+                        navigate('/dashboard/agent?action=my-listings');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Building2 className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">My listed houses</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-collect-from-receipt'));
+                        navigate('/dashboard/agent?action=collect-from-receipt');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <FileText className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Collect from a receipt</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-field-collections'));
+                        navigate('/dashboard/agent?action=field-collections');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <CalendarDays className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Field Collections</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-rating'));
+                        navigate('/dashboard/agent?action=rating');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Gauge className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Your Rating</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-open-free-service-center'));
+                        navigate('/dashboard/agent?action=free-service-center');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Award className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Free Service Centre</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+
+
+
+
+
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => navigate('/agent-commission-benefits')}
@@ -341,30 +552,7 @@ const DashboardHeader = memo(function DashboardHeader({
                     </DropdownMenuItem>
                   )}
 
-                  {currentRole === 'agent' && (
-                    <DropdownMenuItem
-                      onClick={() => navigate('/internship')}
-                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
-                    >
-                      <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
-                        <GraduationCap className="h-4 w-4" style={{ color: '#7214c9' }} />
-                      </div>
-                      Internship Program
-                    </DropdownMenuItem>
-                  )}
 
-                  <DropdownMenuItem
-                    onClick={() => navigate('/careers')}
-                    className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
-                  >
-                    <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                      <Briefcase className="h-4 w-4" style={{ color: '#10b981' }} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span>We're Hiring</span>
-                      <span className="text-[11px] font-normal text-muted-foreground">Explore & apply for open roles</span>
-                    </div>
-                  </DropdownMenuItem>
 
                   {menuItems.length > 0 && <DropdownMenuSeparator />}
                   
