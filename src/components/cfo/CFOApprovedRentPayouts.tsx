@@ -107,11 +107,12 @@ export function CFOApprovedRentPayouts() {
         // Approved = all CFO approvals; status shows Paid only after Financial Operations pays out.
         return funded
           .map(r => ({ ...r, paid_at: paidAt.get(r.id) ?? null }))
-          .filter(r => inB(r.cfo_reviewed_at || r.funded_at));
+          .filter(r => inB(r.cfo_reviewed_at || r.funded_at))
+          .sort((x, y) => ((y.cfo_reviewed_at || y.funded_at || '') > (x.cfo_reviewed_at || x.funded_at || '') ? 1 : -1));
       }
       const pending = [...((a.data || []) as Row[]), ...funded.filter(r => !paidAt.has(r.id))]
         .map(r => ({ ...r, paid_at: null }))
-        .filter(r => inB(r.coo_reviewed_at));
+        .filter(r => inB(r.status === 'coo_approved' ? r.coo_reviewed_at : (r.cfo_reviewed_at || r.funded_at)));
       return pending.sort((x, y) => ((y.coo_reviewed_at || '') > (x.coo_reviewed_at || '') ? 1 : -1));
     },
   });
@@ -165,7 +166,7 @@ export function CFOApprovedRentPayouts() {
       startY: 70, styles: { fontSize: 8 },
       head: [['#', 'Tenant', 'Agent', 'Landlord', 'Rent amount', 'Approved', 'Paid', 'Reference', 'Status']],
       body: filtered.map((r, i) => [i + 1, latin(nm(r.tenant_id)), latin(nm(r.agent_id)), latin(nm(r.landlord_id)), fmt(r.rent_amount),
-        when(r.coo_reviewed_at), when(r.paid_at ?? null), latin(r.payout_transaction_reference || '—'), r.paid_at ? "Paid" : "Pending"]),
+        when(r.cfo_reviewed_at || r.coo_reviewed_at), when(r.paid_at ?? null), latin(r.payout_transaction_reference || '—'), r.paid_at ? "Paid" : "Pending"]),
       didDrawPage: () => { doc.setFontSize(8); doc.text(`Page ${doc.getNumberOfPages()}`, doc.internal.pageSize.getWidth() - 70, doc.internal.pageSize.getHeight() - 20); },
     });
     doc.save(`approved-rent-payouts-${format(new Date(), 'yyyyMMdd-HHmm')}.pdf`);
@@ -236,7 +237,7 @@ export function CFOApprovedRentPayouts() {
                       <TableCell>{nm(r.agent_id)}</TableCell>
                       <TableCell>{nm(r.landlord_id)}</TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">{fmt(r.rent_amount)}</TableCell>
-                      <TableCell className="whitespace-nowrap text-xs">{when(r.coo_reviewed_at)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{when(r.cfo_reviewed_at || r.coo_reviewed_at)}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{when(r.paid_at ?? null)}</TableCell>
                       <TableCell className="font-mono text-xs">{r.payout_transaction_reference || '—'}</TableCell>
                       <TableCell>
