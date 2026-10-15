@@ -29,7 +29,13 @@ const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string 
   advance_arrears: { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-500/10' },
 };
 
-export function AgentNotificationBell({ userId }: { userId: string }) {
+export function AgentNotificationBell({
+  userId,
+  className,
+}: {
+  userId: string;
+  className?: string;
+}) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -97,11 +103,12 @@ export function AgentNotificationBell({ userId }: { userId: string }) {
           size="icon"
           aria-label="Notifications"
           className={cn(
-            "h-10 w-10 min-w-[40px] min-h-[40px] rounded-xl relative shrink-0",
+            "h-10 w-10 min-w-[44px] min-h-[44px] rounded-xl relative shrink-0 text-white/90 hover:text-white hover:bg-white/10 touch-manipulation transition-colors",
             isPulsing && "animate-bell-glow",
+            className,
           )}
         >
-          <Bell className={cn("h-5 w-5 text-foreground", isPulsing && "animate-bell-ring origin-top")} />
+          <Bell className={cn("h-5 w-5 text-current", isPulsing && "animate-bell-ring origin-top")} />
           {unreadCount > 0 && (
             <span className={cn(
               "absolute top-0 right-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full px-1",

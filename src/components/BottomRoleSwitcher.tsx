@@ -78,7 +78,14 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
   };
 
   const handleSwitch = (role: AppRole) => {
-    if (role === currentRole) return;
+    if (role === currentRole) {
+      if (role === 'agent') {
+        hapticTap();
+        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'home' }));
+        navigate(roleToSlug('agent'));
+      }
+      return;
+    }
     hapticTap();
 
     // Warm the chunk as early as possible in case idle preloading hasn't run.
@@ -98,6 +105,10 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
     onRoleChange(role);
     // Sync URL with the new persona — URL is the source of truth.
     navigate(roleToSlug(role));
+
+    if (role === 'agent') {
+      window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'home' }));
+    }
   };
 
   const handleStaffNav = () => {
