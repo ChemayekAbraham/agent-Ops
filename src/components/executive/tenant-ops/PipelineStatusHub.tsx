@@ -17,6 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -1284,6 +1285,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
           {detail && (
             <div className="mt-3 space-y-3 text-xs">
               <Badge variant="secondary">{STATUS_LABELS[detail.status] || detail.status}</Badge>
+              <RenewalReviewPanel request={{ ...detail, duration_days: detail.duration_days ?? 0 }} />
               <div className="grid grid-cols-2 gap-2">
                 {[
                   ['Phone', detail.tenant_phone],

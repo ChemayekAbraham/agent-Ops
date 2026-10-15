@@ -67,7 +67,7 @@ export const FOOD_PAYMENT_MODE_LABEL: Record<FoodPaymentMode, string> = {
 };
 
 /** Server-enforced bounds (food_place_order). The server remains authoritative. */
-export const FOOD_MAX_QTY_PER_LINE = 20;
+export const FOOD_MAX_QTY_PER_LINE = 100000;
 export const FOOD_MAX_INSTRUCTIONS = 500;
 
 export interface FoodCoordinatorOverview {

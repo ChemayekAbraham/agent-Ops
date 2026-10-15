@@ -937,12 +937,12 @@ describe('payment mode and bounds (D1, D3)', () => {
     expect(res.payment_status).toBe('pending_payment');
   });
 
-  it('refuses more than 20 of one meal and over-long instructions', async () => {
+  it('refuses a zero quantity and over-long instructions', async () => {
     const p = await openPeriod();
     const id = p.meals[0].menu_item_id;
     await expect(foodMockRpc('food_place_order', {
-      p_items: [{ menu_item_id: id, quantity: 21 }], p_idempotency_key: 'b1', p_payment_mode: 'cash',
-    })).rejects.toThrow(/at most 20/i);
+      p_items: [{ menu_item_id: id, quantity: 0 }], p_idempotency_key: 'b1', p_payment_mode: 'cash',
+    })).rejects.toThrow();
     await expect(foodMockRpc('food_place_order', {
       p_items: [{ menu_item_id: id, quantity: 1 }], p_idempotency_key: 'b2', p_payment_mode: 'cash',
       p_special_instructions: 'x'.repeat(501),

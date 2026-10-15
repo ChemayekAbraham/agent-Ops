@@ -18,7 +18,7 @@ import { Settings } from 'lucide-react';
 import { PropertyMapView } from './PropertyMapView';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
-import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
+import { formatUGX } from '@/lib/rentCalculations';
 import { getEffectiveRentRequestAmounts } from '@/lib/rentRequestAmounts';
 import { generateWelileAiId, getRiskTierLabel } from '@/lib/welileAiId';
 import { format, startOfDay, formatDistanceToNowStrict } from 'date-fns';
@@ -32,7 +32,9 @@ import AgentRentRequestDialog from './AgentRentRequestDialog';
 import { AgentTenantCollectDialog } from './AgentTenantCollectDialog';
 import { TenantBehaviorCard } from './TenantBehaviorCard';
 import { TenantProfileView } from './TenantProfileView';
-import { useRenewalOtp } from './RenewalOtpDialog';
+import { useRenewalFlow } from '@/components/agent/RenewalDialog';
+import { renewRpcArgs, renewalErrorMessage } from '@/lib/renewalAdvice';
+import { captureGps, isGpsRequiredError } from '@/lib/captureGps';
 import { TenantFieldCollectDialog } from './TenantFieldCollectDialog';
 import { AgentRequestPipelineView } from './AgentRequestPipelineView';
 import { MarkNotFundedDialog } from './MarkNotFundedDialog';
@@ -299,7 +301,7 @@ function Highlight({ text, query }: { text?: string | null; query: string }) {
 
 export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipelineTab, initialHighlightId, initialProfileTenantId }: AgentTenantsSheetProps) {
   const { user } = useAuth();
-  const renewalOtp = useRenewalOtp();
+  const renewalFlow = useRenewalFlow();
   const { toast } = useToast();
   const [view, setView] = useState<'tenants' | 'pipeline'>(initialView ?? 'tenants');
   // When the sheet is (re)opened with a requested initial view (e.g. straight
@@ -1078,29 +1080,26 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       toast({ title: 'Cannot renew', description: 'Landlord info missing on prior request.', variant: 'destructive' });
       return;
     }
-    const consented = await renewalOtp.requestConsent(req.id, tenant.full_name || 'the tenant');
-    if (!consented) return;
+    // The agent picks the rent and days (advice and daily payment come from the server), then the tenant
+    // confirms exactly those figures with the code texted to them.
+    const choice = await renewalFlow.start({
+      prevId: req.id,
+      tenantName: tenant.full_name || 'the tenant',
+      currentRent: req.rent_amount,
+      currentDays: req.duration_days,
+    });
+    if (!choice) return;
     setRenewingReqId(req.id);
     try {
-      const fees = calculateRentRepayment(req.rent_amount, req.duration_days);
-      const { error } = await supabase.from('rent_requests').insert({
-        tenant_id: tenant.id,
-        agent_id: user.id,
-        landlord_id: req.landlord_id,
-        lc1_id: req.lc1_id ?? null,
-        rent_amount: fees.rentAmount,
-        duration_days: fees.durationDays,
-        access_fee: fees.accessFee,
-        request_fee: fees.requestFee,
-        total_repayment: fees.totalRepayment,
-        daily_repayment: fees.dailyRepayment,
-        status: 'pending',
-        registration_type: 'renewal',
-        house_category: req.house_category ?? req.landlord?.house_category ?? null,
-        tenant_no_smartphone: req.tenant_no_smartphone ?? false,
-        request_latitude: req.request_latitude ?? req.landlord?.latitude ?? null,
-        request_longitude: req.request_longitude ?? req.landlord?.longitude ?? null,
-      } as any);
+      // One atomic server call: the server re-posts the prior plan, prices the new rent and days, and keeps the previous plan as it was.
+      const post = (gps?: { latitude: number; longitude: number }) => supabase.rpc('renew_rent_request', renewRpcArgs(req.id, choice, gps));
+      let { error } = await post();
+      // No property GPS on record anywhere: capture it here at the house and retry once.
+      if (error && isGpsRequiredError(error.message)) {
+        toast({ title: 'Capturing the property GPS at the house…' });
+        const gps = await captureGps();
+        ({ error } = await post(gps));
+      }
       if (error) throw error;
       toast({ title: 'Rent request renewed ✅', description: `Posted for ${tenant.full_name}` });
       // Force-refresh this tenant's requests
@@ -1113,7 +1112,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       fetchTenants();
     } catch (err: any) {
       console.error('Renew failed:', err);
-      toast({ title: 'Renew failed', description: err?.message || 'Try again', variant: 'destructive' });
+      toast({ title: 'Renew failed', description: renewalErrorMessage(err), variant: 'destructive' });
     } finally {
       setRenewingReqId(null);
     }
@@ -1220,7 +1219,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
 
   return (
     <>
-    {renewalOtp.dialog}
+    {renewalFlow.dialogs}
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"

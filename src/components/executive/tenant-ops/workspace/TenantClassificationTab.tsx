@@ -5,7 +5,10 @@
  * Nothing here recomputes a start date or an amount.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, UserX } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
+import { useSearchParams } from 'react-router-dom';
+import { format, isValid, parseISO } from 'date-fns';
+import { AlertTriangle, CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, Smartphone, UserPlus, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,10 +42,32 @@ import {
   exportTenantClassificationXlsx,
   generateTenantClassificationPdf,
 } from '@/lib/tenantOpsClassificationReport';
+import {
+  OpsDateRangeFilter, PRESETS, rangePhrase, resolveRange, type PresetKey,
+} from '@/components/executive/shared/OpsDateRangeFilter';
+import { useTenantSmartphoneUsage } from '@/hooks/useTenantSmartphoneUsage';
+import { fmtTenants, joinedWindowHint, kampalaWindow, recordedSmartphoneHint, windowChecksHint } from '@/lib/tenantSmartphoneUsage';
 
 const ALL = 'all';
 
 const fmtDay = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
+
+// The window travels in the URL (tc_range, plus tc_from / tc_to for a custom range) the same way the
+// Payment Behaviour and Collection Shortfall tabs carry theirs, so a link can open this tab on a period.
+const RANGE_PARAMS = ['tc_range', 'tc_from', 'tc_to'] as const;
+
+function readRange(params: URLSearchParams): { preset: PresetKey; custom?: DateRange } {
+  const range = params.get('tc_range');
+  if (range === 'custom') {
+    const fromRaw = params.get('tc_from');
+    const toRaw = params.get('tc_to');
+    const from = fromRaw ? parseISO(fromRaw) : null;
+    const to = toRaw ? parseISO(toRaw) : null;
+    if (from && isValid(from)) return { preset: 'custom', custom: { from, to: to && isValid(to) ? to : from } };
+  }
+  if (range && PRESETS.some((p) => p.key === range && p.key !== 'custom')) return { preset: range as PresetKey };
+  return { preset: 'month' };
+}
 
 export default function TenantClassificationTab() {
   const [category, setCategory] = useState<TenantCategory | null>(null);
@@ -52,6 +77,30 @@ export default function TenantClassificationTab() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
+
+  // The smartphone window: the same presets Tenant Ops Home and Payment Behaviour use, kept in the URL.
+  const [params, setParams] = useSearchParams();
+  const [initialRange] = useState(() => readRange(params));
+  const [preset, setPreset] = useState<PresetKey>(initialRange.preset);
+  const [custom, setCustom] = useState<DateRange | undefined>(initialRange.custom);
+  const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
+  const { fromDay, toDay } = useMemo(() => kampalaWindow(start, end), [start, end]);
+
+  const writeRange = (nextPreset: PresetKey, nextCustom: DateRange | undefined) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      RANGE_PARAMS.forEach((k) => next.delete(k));
+      next.set('tc_range', nextPreset);
+      if (nextPreset === 'custom' && nextCustom?.from) {
+        next.set('tc_from', format(nextCustom.from, 'yyyy-MM-dd'));
+        next.set('tc_to', format(nextCustom.to ?? nextCustom.from, 'yyyy-MM-dd'));
+      }
+      return next;
+    }, { replace: true });
+  };
+  const changePreset = (p: PresetKey) => { setPreset(p); writeRange(p, custom); };
+  const changeCustom = (c: DateRange | undefined) => { setCustom(c); writeRange(preset, c); };
 
   // The search box waits for a pause in typing before it asks the server.
   useEffect(() => {
@@ -65,6 +114,7 @@ export default function TenantClassificationTab() {
   );
   const summary = useTenantClassificationSummary();
   const list = useTenantClassificationList(filters, page);
+  const usage = useTenantSmartphoneUsage(fromDay, toDay);
 
   const pickCategory = (next: TenantCategory | null) => {
     setCategory(next);
@@ -77,6 +127,7 @@ export default function TenantClassificationTab() {
   const totalPages = Math.max(1, Math.ceil(total / CLASSIFICATION_PAGE_SIZE));
   const subOptions = category ? SUB_LABELS_BY_CATEGORY[category] : [];
   const s = summary.data;
+  const u = usage.data;
   const fmtCount = (n: number | undefined) => (n == null ? '' : n.toLocaleString('en-US'));
 
   const runExport = async (kind: 'pdf' | 'xlsx') => {
@@ -138,6 +189,16 @@ export default function TenantClassificationTab() {
 
   return (
     <div className="space-y-3">
+      {/* Page-level period, at the top of the page. The category counts below are a point-in-time
+          snapshot ("As of …") and are not narrowed by this window; it drives the smartphone figures. */}
+      <div className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2" data-testid="page-period-bar">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
+          <CalendarIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <p className="shrink-0 text-xs font-semibold leading-tight">Period</p>
+          <p className="hidden text-[11px] leading-tight text-muted-foreground sm:block">· applies to the smartphone figures</p>
+        </div>
+        <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="shrink-0" />
+      </div>
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between">
         <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="classification-note">
           Every tenant is in exactly one category. Counted from the day after the landlord was paid.
@@ -176,6 +237,38 @@ export default function TenantClassificationTab() {
             subtitle="Plan status and amounts do not agree" onClick={() => { setNeedsReview((v) => !v); setPage(0); }} />
         </div>
       ) : null}
+
+      {/* Smartphone use. One card for the whole population, two for the chosen window. The categories
+          above are a point-in-time snapshot and are not narrowed by the window. */}
+      <div className="space-y-2" data-testid="smartphone-section">
+        <div className="flex min-w-0 items-center gap-2">
+          <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Smartphone className="h-3.5 w-3.5" />
+          </span>
+          <p className="min-w-0 break-words text-sm font-semibold leading-tight" data-testid="smartphone-note">
+            Smartphone use
+            <span className="ml-1.5 hidden font-normal text-xs text-muted-foreground sm:inline">
+              · recorded at sign-up or by a check
+            </span>
+          </p>
+        </div>
+        {usage.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : usage.isError ? (
+          <p className="text-xs text-destructive" data-testid="smartphone-error">
+            Could not load the smartphone figures: {usage.error instanceof Error ? usage.error.message : 'unknown error'}
+          </p>
+        ) : u ? (
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-3" data-testid="smartphone-cards">
+            <KPICard title="Use a smartphone" value={fmtTenants(u.recorded_smartphone)} icon={Smartphone}
+              color="bg-primary/10 text-primary" subtitle={recordedSmartphoneHint(u)} />
+            <KPICard title={`Device checks ${phrase}`} value={fmtTenants(u.checks)} icon={ClipboardCheck}
+              color="bg-success/10 text-success" subtitle={windowChecksHint(u)} />
+            <KPICard title={`Joined ${phrase}`} value={fmtTenants(u.joined)} icon={UserPlus}
+              color="bg-warning/10 text-warning" subtitle={joinedWindowHint(u)} />
+          </div>
+        ) : null}
+      </div>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <Select value={category ?? ALL} onValueChange={(v) => pickCategory(v === ALL ? null : (v as TenantCategory))}>

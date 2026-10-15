@@ -1,10 +1,12 @@
 import "../_shared/noSignupPrompt.ts";
 // Tenant consent code for renewing a completed Rent Plan.
-// action "send": texts a 6-digit code to the tenant (one SMS part, max 160 GSM-7 chars).
-// action "verify": checks the code; the rent_requests trigger then allows one renewal.
+// action "send": texts a 6-digit code to the tenant (one SMS part, max 160 GSM-7 chars). The SMS states the NEW rent, the NEW number of days
+//   and the NEW daily payment, and the code is bound to that rent AND those days (new_rent_amount / new_days in the body; omitted = unchanged).
+// action "verify": checks the code against the same rent and days; the rent_requests trigger then allows one renewal at exactly those figures.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS, toGsm7, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { appendSupportFooter } from "../_shared/smsFooter.ts";
+import { buildRenewalSms, renewalCodeHash } from "../_shared/renewalOtp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,26 +23,11 @@ const RESEND_COOLDOWN_S = 45;
 const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-async function sha256(s: string) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 function genCode() {
   const a = new Uint32Array(1); crypto.getRandomValues(a);
   return String(a[0] % 1_000_000).padStart(6, "0");
 }
 
-/** Build the SMS so the final transmitted body (incl. support footer) is one part. */
-export function buildRenewalSms(agentName: string, code: string): string {
-  const name = toGsm7((agentName || "Your agent").trim()).replace(/\s+/g, " ");
-  for (let n = Math.min(name.length, 30); n >= 0; n--) {
-    const who = n === 0 ? "Your agent" : `Agent ${name.slice(0, n).trim()}`;
-    const body = `Welile: ${who} is renewing your Rent Plan. Code ${code}. Share only if you agree. Help: contact Welile Support on `;
-    const msg = toGsm7(appendSupportFooter(body + (Deno.env.get("SUPPORT_PHONE")?.trim() || "0748747134")));
-    if (msg.length <= 160) return body + (Deno.env.get("SUPPORT_PHONE")?.trim() || "0748747134");
-  }
-  throw new Error("SMS_TOO_LONG");
-}
 const mask = (p: string) => p.replace(/\D/g, "").replace(/^(\d{3})\d+(\d{3})$/, "$1******$2");
 
 Deno.serve(async (req) => {
@@ -56,8 +43,17 @@ Deno.serve(async (req) => {
     if (!/^[0-9a-f-]{36}$/i.test(prevId) || !["send", "verify"].includes(action)) {
       return json({ error: "Invalid request" }, 400);
     }
+    // The rent and days this code is for. Absent = the current rent and days (an unchanged renewal).
+    const num = (v: unknown) => (v === undefined || v === null || v === "" ? null : Number(v));
+    const newRent = num(body?.new_rent_amount);
+    const newDays = num(body?.new_days);
+    if ((newRent !== null && !Number.isFinite(newRent)) || (newDays !== null && !Number.isInteger(newDays))) {
+      return json({ error: "Invalid request" }, 400);
+    }
     const userClient = createClient(URL_, ANON, { global: { headers: { Authorization: `Bearer ${token}` } } });
-    const { data: ctx, error: ctxErr } = await userClient.rpc("rent_renewal_otp_context", { p_prev_request_id: prevId });
+    const { data: ctx, error: ctxErr } = await userClient.rpc("rent_renewal_otp_context", {
+      p_prev_request_id: prevId, p_new_rent: newRent, p_new_days: newDays,
+    });
     if (ctxErr) return json({ error: ctxErr.message }, 403);
     const c = ctx as any;
 
@@ -70,11 +66,16 @@ Deno.serve(async (req) => {
         return json({ error: `Please wait ${RESEND_COOLDOWN_S} seconds before sending another code.` }, 429);
       }
       const code = genCode();
-      const message = buildRenewalSms(c.agent_name, code);
+      const message = buildRenewalSms({
+        agentName: c.agent_name, code, rent: Number(c.new_rent_amount), days: Number(c.new_days), daily: Number(c.new_daily_repayment),
+        supportPhone: Deno.env.get("SUPPORT_PHONE")?.trim() || "0748747134",
+      }, { toGsm7, appendSupportFooter });
       const { data: row, error: insErr } = await admin.from("rent_renewal_otps").insert({
         prev_request_id: prevId, tenant_id: c.tenant_id, agent_id: c.agent_id,
-        code_hash: await sha256(`${prevId}:${code}`),
+        code_hash: await renewalCodeHash(prevId, c.new_rent_amount, c.new_days, code),
         expires_at: new Date(Date.now() + TTL_MIN * 60_000).toISOString(),
+        new_rent_amount: c.new_rent_amount, new_duration_days: c.new_days,
+        new_daily_repayment: c.new_daily_repayment, new_total_repayment: c.new_total_repayment,
       }).select("id").single();
       if (insErr) throw insErr;
       const ok = await sendSMS(phone, message, {
@@ -93,7 +94,13 @@ Deno.serve(async (req) => {
     if (!otp) return json({ error: "No code found. Send a new code." }, 400);
     if (new Date(otp.expires_at) < new Date()) return json({ error: "The code expired. Send a new code." }, 400);
     if (otp.attempts >= MAX_ATTEMPTS) return json({ error: "Too many wrong tries. Send a new code." }, 429);
-    if ((await sha256(`${prevId}:${code}`)) !== otp.code_hash) {
+    // A code confirms one renewal: it must have been issued for the rent and days being confirmed now.
+    if (otp.new_rent_amount === null || otp.new_duration_days === null
+        || Number(otp.new_rent_amount) !== Number(c.new_rent_amount) || Number(otp.new_duration_days) !== Number(c.new_days)) {
+      await admin.from("rent_renewal_otps").update({ attempts: otp.attempts + 1 }).eq("id", otp.id);
+      return json({ error: "This code was sent for a different rent or number of days. Send a new code for this renewal." }, 400);
+    }
+    if ((await renewalCodeHash(prevId, c.new_rent_amount, c.new_days, code)) !== otp.code_hash) {
       await admin.from("rent_renewal_otps").update({ attempts: otp.attempts + 1 }).eq("id", otp.id);
       return json({ error: "Wrong code. Check with the tenant and try again." }, 400);
     }

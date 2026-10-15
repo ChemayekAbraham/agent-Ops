@@ -60,6 +60,8 @@ export interface AgentRejectedRequest {
    * went back to the pool, so the agent can simply submit it again.
    */
   returned_by_recall?: boolean;
+  /** True when the agent cancelled this Rent Plan themselves. */
+  cancelled_by_agent?: boolean;
 }
 
 export const STAGE_LABEL: Record<string, string> = {
@@ -119,7 +121,7 @@ export function useAgentRejectedRequests() {
         // 'rejected', so it used to appear on no queue at all and the tenant
         // was stranded. Pull cancelled rows too, then keep only the ones the
         // recall produced — an ops cancellation is not the agent's to retry.
-        .in('status', ['rejected', 'cancelled'])
+        .in('status', ['rejected', 'cancelled', 'deleted_by_agent'])
         .order('rejected_at', { ascending: false, nullsFirst: false })
         .limit(100);
 
@@ -166,8 +168,11 @@ export function useAgentRejectedRequests() {
       const lmap = new Map((landlords ?? []).map((l: any) => [l.id, l]));
 
       return rows.map((r) => {
+        const cancelledByAgent = r.status === 'deleted_by_agent';
         const returnedByRecall = r.status === 'cancelled';
-        const reviewer = returnedByRecall
+        const reviewer = cancelledByAgent
+          ? { id: null, at: null, label: 'Cancelled by you' }
+          : returnedByRecall
           ? { id: null, at: null, label: 'Landlord float returned' }
           : reviewerForStage(r);
         const reviewerProfile = reviewer.id ? pmap.get(reviewer.id) : null;
@@ -179,14 +184,19 @@ export function useAgentRejectedRequests() {
           tenant_phone: tenantProfile?.phone ?? '',
           landlord_name: landlord?.name ?? 'Unknown landlord',
           landlord_address: landlord?.property_address ?? '',
-          reviewer_name: returnedByRecall
+          cancelled_by_agent: cancelledByAgent,
+          reviewer_name: cancelledByAgent
+            ? 'You'
+            : returnedByRecall
             ? 'Automatic recall'
             : (reviewerProfile?.full_name ?? 'Reviewer'),
           reviewer_at: reviewer.at,
           stage_label: reviewer.label,
           returned_by_recall: returnedByRecall,
           // The recall writes its explanation here, not to rejected_reason.
-          rejected_reason: returnedByRecall
+          rejected_reason: cancelledByAgent
+            ? 'You cancelled this Rent Plan.'
+            : returnedByRecall
             ? (r.agent_payment_status_reason ??
                'The landlord was not paid within 24 hours, so the float was returned and this Rent Plan was cancelled. You can submit it again.')
             : r.rejected_reason,

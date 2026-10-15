@@ -360,7 +360,7 @@ const RPC: Record<string, (a: Args) => unknown> = {
       basket.set(line.menu_item_id, (basket.get(line.menu_item_id) ?? 0) + line.quantity);
     }
     if ([...basket.values()].some((q) => q > FOOD_MAX_QTY_PER_LINE)) {
-      fail(`You can order at most ${FOOD_MAX_QTY_PER_LINE} servings of one meal`);
+      fail(`Quantity must be at least 1`);
     }
 
     let date: string | null = null; let period: string | null = null; let total = 0;

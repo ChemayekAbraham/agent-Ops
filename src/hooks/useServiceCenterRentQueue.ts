@@ -34,6 +34,16 @@ export interface ServiceCenterQueueRequest {
   agent_avatar_url: string | null;
   landlord_name: string | null;
   landlord_phone: string | null;
+  /** Renewals: what changed and why (rent_requests.renewal_*), returned by get_service_center_rent_queue. */
+  registration_type?: string | null;
+  renewal_previous_rent?: number | null;
+  renewal_previous_days?: number | null;
+  renewal_advice_snapshot?: unknown;
+  renewal_above_suggestion?: boolean | null;
+  renewal_above_by?: number | null;
+  renewal_change_reason_code?: string | null;
+  renewal_change_explanation?: string | null;
+  renewal_evidence_url?: string | null;
 }
 
 /** A pending request once the server's order and the tenant's payment score are joined in. */

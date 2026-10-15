@@ -1,6 +1,6 @@
 /* /auth sign-in screen — ported from the Welile onboarding design (styles.css, screen 9).
    Everything is scoped under .welile-auth so nothing leaks into the rest of the app. */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 .welile-auth {
   --welile-purple: #7a38e8;
@@ -14,7 +14,7 @@
   --color-text-light: #6b7280;
   --color-border: #e2e8f0;
   --color-border-subtle: #f1f5f9;
-  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
@@ -44,6 +44,15 @@
   -webkit-font-smoothing: antialiased;
 }
 .welile-auth *, .welile-auth *::before, .welile-auth *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Every word on this screen reads in Outfit, matching the agent dashboard: the
+   page body, all of its descendants (a Tailwind font utility on any of them
+   would otherwise win over inheritance), and the country-code dropdown and any
+   dialog, which Radix attaches outside the page. Gated on the html class the
+   page sets while it is mounted, so no other route is affected. */
+html.auth-outfit .welile-auth,
+html.auth-outfit .welile-auth *,
+html.auth-outfit [data-radix-popper-content-wrapper],
+html.auth-outfit [data-radix-popper-content-wrapper] * { font-family: 'Outfit', 'DM Sans', sans-serif; }
 
 .welile-auth .app-container {
   position: relative;

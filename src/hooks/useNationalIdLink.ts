@@ -76,6 +76,23 @@ export function useRequestNationalIdLink() {
   });
 }
 
+/**
+ * Texts the one-time code to the person who registered the ID first, so they
+ * know someone has asked to be added under it. Best effort: the submission has
+ * already been saved, and the asker can resend from the link screen.
+ */
+export async function notifyNationalIdHolder(requestId: string | null | undefined): Promise<boolean> {
+  if (!requestId) return false;
+  try {
+    const { data, error } = await supabase.functions.invoke('national-id-link-otp', {
+      body: { action: 'send', request_id: requestId },
+    });
+    return !error && !!(data as { success?: boolean } | null)?.success;
+  } catch {
+    return false;
+  }
+}
+
 /** The requester closes their own open request so they can start again. */
 export function useCancelNationalIdLink() {
   const qc = useQueryClient();

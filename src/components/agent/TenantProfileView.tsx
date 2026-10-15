@@ -44,7 +44,8 @@ import { Sparkles, ChevronRight } from 'lucide-react';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 import { RenewalAgreementDialog } from './RenewalAgreementDialog';
-import { useRenewalOtp } from './RenewalOtpDialog';
+import { useRenewalFlow } from './RenewalDialog';
+import { renewRpcArgs, renewalErrorMessage } from '@/lib/renewalAdvice';
 import { TenantDocumentsSection } from './TenantDocumentsSection';
 import { TenantPropertyCard } from './TenantPropertyCard';
 
@@ -269,7 +270,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const [rentLimitOpen, setRentLimitOpen] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [renewalAgreementOpen, setRenewalAgreementOpen] = useState(false);
-  const renewalOtp = useRenewalOtp();
+  const renewalFlow = useRenewalFlow();
   const [historyRange, setHistoryRange] = useState<'all' | '7d' | '30d' | 'month' | 'custom'>('all');
   const [historyFrom, setHistoryFrom] = useState<string>('');
   const [historyTo, setHistoryTo] = useState<string>('');
@@ -849,9 +850,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       setRenewalAgreementOpen(true);
       return;
     }
-    // Tenant must confirm the renewal with the code texted to them (enforced server-side too).
-    const consented = await renewalOtp.requestConsent(req.id, profile.full_name || 'the tenant');
-    if (!consented) return;
+    // The agent picks the rent and days (advice and daily payment come from the server), then the tenant
+    // confirms exactly those figures with the code texted to them (enforced server-side too).
+    const choice = await renewalFlow.start({
+      prevId: req.id,
+      tenantName: profile.full_name || 'the tenant',
+      currentRent: req.rent_amount,
+      currentDays: req.duration_days,
+    });
+    if (!choice) return;
 
     setRenewing(true);
     try {
@@ -868,10 +875,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       // Never let the request hang forever — a stuck spinner reads as a broken
       // button. Time it out and tell the user what happened.
       const postRenewal = (gps?: { latitude: number; longitude: number }) => Promise.race([
-        supabase.rpc('renew_rent_request' as any, {
-          p_prev_request_id: req.id,
-          ...(gps ? { p_latitude: gps.latitude, p_longitude: gps.longitude } : {}),
-        }),
+        supabase.rpc('renew_rent_request', renewRpcArgs(req.id, choice, gps)),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('The renewal request timed out. Check your connection and try again — the plan may still have been posted.')), 25000),
         ),
@@ -893,9 +897,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       console.error('Renew failed:', err);
       const raw = err?.message || err?.error_description || err?.details || err?.hint || '';
       // Translate the most common backend guard into plain language.
-      const friendly = raw.includes('DAILY_ELIGIBILITY_BLOCKED')
-        ? 'Collect from your existing tenants first — you must reach 50% of your daily target before posting a new rent request.'
-        : (raw || 'Something went wrong. Please try again.');
+      const friendly = renewalErrorMessage(raw);
       toast({ title: 'Renew failed', description: friendly, variant: 'destructive' });
       sonnerToast.error(friendly);
     } finally {
@@ -2897,7 +2899,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         }}
       />
 
-      {renewalOtp.dialog}
+      {renewalFlow.dialogs}
       {profile && lastCompletedRequest && lastCompletedRequest.landlord_id && (
         <RenewalAgreementDialog
           open={renewalAgreementOpen}

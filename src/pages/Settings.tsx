@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility, CheckCircle2, XCircle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
@@ -238,6 +239,14 @@ export default function Settings() {
   const [requestingOldCode, setRequestingOldCode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [resultDialog, setResultDialog] = useState<{ ok: boolean; title: string; message: string } | null>(null);
+  const cancelPhoneChange = () => {
+    setPhone((profile?.phone ?? '').trim());
+    otp.resetOtp();
+    setOldPhoneCode('');
+    setOldPhoneMasked(null);
+  };
+
   const requestOldPhoneCode = async () => {
     setRequestingOldCode(true);
     const { data, error } = await invokeEdgeFunction<{ masked_phone?: string; not_required?: boolean }>(
@@ -245,9 +254,9 @@ export default function Settings() {
       { body: { action: 'request_old_phone_code', phone: phone.trim() }, silent: true, fallbackMessage: 'Could not send code to your current number' },
     );
     setRequestingOldCode(false);
-    if (error) { toast.error(error.message || 'Could not send code to your current number'); return; }
+    if (error) { setResultDialog({ ok: false, title: 'Code not sent', message: error.message || 'Could not send code to your current number' }); return; }
     setOldPhoneMasked(data?.not_required ? '' : (data?.masked_phone ?? ''));
-    if (!data?.not_required) toast.success(`Code sent to your current number ${data?.masked_phone ?? ''}`);
+    if (!data?.not_required) setResultDialog({ ok: true, title: 'Code sent', message: `We texted a 6-digit code to your current number ${data?.masked_phone ?? ''}. Enter it, then tap Save.` });
   };
 
   /** Mirrors the edge-function + DB normalizer exactly for client-side preview.
@@ -376,11 +385,12 @@ export default function Settings() {
 
   const handleSave = async () => {
     if (!user || !profile) return;
+    const fail = (message: string) => setResultDialog({ ok: false, title: "Couldn't save", message });
     const nameCheck = validatePersonNameParts(nameParts);
-    if (!nameCheck.valid) { toast.error(nameCheck.error || 'Full name is required'); return; }
-    if (!phone.trim()) { toast.error('Phone number is required'); return; }
+    if (!nameCheck.valid) { fail(nameCheck.error || 'Full name is required'); return; }
+    if (!phone.trim()) { fail('Phone number is required'); return; }
     if (normalizeE164OrNull(phone) === null) {
-      toast.error('Please enter a valid phone number (e.g. 0771234567 or +256771234567)');
+      fail('Please enter a valid phone number (e.g. 0771234567 or +256771234567)');
       return;
     }
     setSaving(true);
@@ -388,23 +398,24 @@ export default function Settings() {
     const trimmedPhone = phone.trim();
     const phoneChanged = trimmedPhone !== (profile.phone ?? '').trim();
     if (phoneChanged && !otp.otpVerified) {
-      toast.error('Please verify the new phone number with the SMS code first');
+      fail('Please verify the new phone number with the SMS code first');
       setSaving(false);
       return;
     }
     if (phoneChanged && (profile.phone ?? '').trim() && !/^\d{6}$/.test(oldPhoneCode.trim())) {
-      toast.error('Enter the 6-digit code sent to your current phone number');
+      fail('Enter the 6-digit code sent to your current phone number');
       setSaving(false);
       return;
     }
+    let nameSaved = false;
     try {
-      // Always update full_name via profiles
       if (trimmedName !== (profile.full_name ?? '').trim()) {
         const { error } = await supabase.from('profiles').update({ full_name: trimmedName }).eq('id', user.id);
         if (error) throw error;
+        nameSaved = true;
+        setProfile(p => p ? { ...p, full_name: trimmedName } : p);
       }
-      // Phone changes go through edge function to keep auth.users + profiles in sync
-      let savedPhone = trimmedPhone;
+      let savedPhone = (profile.phone ?? '').trim();
       if (phoneChanged) {
         const { data, error } = await invokeEdgeFunction<{ phone?: string; error?: string }>(
           'self-update-phone',
@@ -416,12 +427,22 @@ export default function Settings() {
         setOldPhoneCode('');
         setOldPhoneMasked(null);
       }
-      toast.success('Profile updated successfully');
-      setProfile({ ...profile, full_name: trimmedName, phone: savedPhone });
+      setProfile(p => p ? { ...p, full_name: trimmedName, phone: savedPhone } : p);
       setPhone(savedPhone);
       queryClient.invalidateQueries({ queryKey: ['name-completion-status'] });
+      queryClient.invalidateQueries({ queryKey: ['your-profile'] });
+      setResultDialog({
+        ok: true,
+        title: phoneChanged ? 'Phone number changed' : 'Profile saved',
+        message: phoneChanged
+          ? `Your login phone is now ${savedPhone}. Use it the next time you sign in.`
+          : 'Your changes have been saved.',
+      });
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to update profile');
+      // Put the number on file back so the screen matches what is saved.
+      if (phoneChanged) cancelPhoneChange();
+      if (nameSaved) queryClient.invalidateQueries({ queryKey: ['your-profile'] });
+      fail(`${phoneChanged ? 'Your phone number was not changed. ' : ''}${e?.message || 'Failed to update profile'}`);
     } finally {
       setSaving(false);
     }
@@ -451,6 +472,20 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background">
       <GooeyFilter />
+      <AlertDialog open={!!resultDialog} onOpenChange={(o) => { if (!o) setResultDialog(null); }}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader className="items-center text-center">
+            <div className={`mx-auto mb-1 flex h-12 w-12 items-center justify-center rounded-full ${resultDialog?.ok ? 'bg-success/15 text-success' : 'bg-destructive/15 text-destructive'}`}>
+              {resultDialog?.ok ? <CheckCircle2 className="h-6 w-6" /> : <XCircle className="h-6 w-6" />}
+            </div>
+            <AlertDialogTitle className="text-center">{resultDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription className="text-center">{resultDialog?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction className="w-full h-11 rounded-xl">OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Helmet>
         <title>Account Settings | Welile</title>
         <meta
@@ -587,33 +622,50 @@ export default function Settings() {
                               </p>
                             )}
                             {profile && phone.trim() !== (profile.phone ?? '').trim() && phone.trim() && !phoneInvalid && (
-                              <div className="pt-2">
-                                <OtpVerificationStep
-                                  phone={phone.trim()}
-                                  otpSent={otp.otpSent}
-                                  otpVerified={otp.otpVerified}
-                                  otpLoading={otp.otpLoading}
-                                  otpError={otp.otpError}
-                                  sendStatus={otp.sendStatus}
-                                  cooldownSeconds={otp.cooldownSeconds}
-                                  onSendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
-                                  onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code, { category: 'phone_update' })}
-                                  onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
-                                />
-                                <p className="text-[11px] text-muted-foreground mt-2">We'll send a 6-digit code to confirm this number before it replaces your current login phone.</p>
-                                {/* Logic-only placeholder markup — Gemini to restyle. */}
-                                {otp.otpVerified && (profile.phone ?? '').trim() && (
-                                  <div className="mt-3 space-y-2">
-                                    <p className="text-[11px] text-muted-foreground">For your security, also confirm with a code sent to your <strong>current</strong> number.</p>
-                                    {oldPhoneMasked === null ? (
-                                      <Button type="button" variant="outline" size="sm" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
+                              <div className="mt-2 rounded-xl border border-border bg-muted/30 p-3 space-y-3">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-foreground">Changing your login phone</p>
+                                    <p className="text-[11px] text-muted-foreground">Current: {profile.phone || 'none'}</p>
+                                  </div>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs shrink-0" onClick={cancelPhoneChange}>Cancel</Button>
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${otp.otpVerified ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>{otp.otpVerified ? <Check className="h-3 w-3" /> : '1'}</span>
+                                    <p className="text-xs font-medium text-foreground">Confirm the new number</p>
+                                  </div>
+                                  {!otp.otpVerified && (
+                                    <OtpVerificationStep
+                                      phone={phone.trim()}
+                                      otpSent={otp.otpSent}
+                                      otpVerified={otp.otpVerified}
+                                      otpLoading={otp.otpLoading}
+                                      otpError={otp.otpError}
+                                      sendStatus={otp.sendStatus}
+                                      cooldownSeconds={otp.cooldownSeconds}
+                                      onSendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
+                                      onVerifyOtp={(code) => otp.verifyOtp(phone.trim(), code, { category: 'phone_update' })}
+                                      onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
+                                    />
+                                  )}
+                                </div>
+                                {(profile.phone ?? '').trim() && (
+                                  <div className={`space-y-2 ${otp.otpVerified ? '' : 'opacity-50'}`}>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${/^\d{6}$/.test(oldPhoneCode) ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>{/^\d{6}$/.test(oldPhoneCode) ? <Check className="h-3 w-3" /> : '2'}</span>
+                                      <p className="text-xs font-medium text-foreground">Confirm with your current number</p>
+                                    </div>
+                                    {otp.otpVerified && (oldPhoneMasked === null ? (
+                                      <Button type="button" variant="outline" className="w-full h-11 rounded-xl" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
                                         {requestingOldCode ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Send code to current number
                                       </Button>
                                     ) : (
-                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`6-digit code sent to ${oldPhoneMasked || 'your current number'}`} className="h-11 rounded-xl" />
-                                    )}
+                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`Code sent to ${oldPhoneMasked || 'current number'}`} className="h-11 rounded-xl text-center tracking-[0.3em] font-mono" />
+                                    ))}
                                   </div>
                                 )}
+                                <p className="text-[11px] text-muted-foreground">Codes last 10 minutes. Nothing changes until you tap Save.</p>
                               </div>
                             )}
                           </div>

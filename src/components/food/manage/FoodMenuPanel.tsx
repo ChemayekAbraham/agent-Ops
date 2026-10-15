@@ -212,7 +212,24 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
                   {m.status !== 'published' && m.status !== 'archived' && (
                     <Button
                       size="sm" variant="outline" disabled={!canAuthor}
-                      onClick={() => setStatus.mutate({ mealId: m.id, status: 'published' })}
+                      onClick={() => setStatus.mutate(
+                        { mealId: m.id, status: 'published' },
+                        {
+                          // Publishing alone never reaches staff: only meals on a
+                          // meal time for the day are shown. With a single active
+                          // meal time, put the meal straight onto today's menu.
+                          onSuccess: () => {
+                            const active = (periods ?? []).filter((p) => (p as { active?: boolean }).active !== false);
+                            const onToday = todaysItems.some((i) => (i as { meal_id?: string }).meal_id === m.id);
+                            if (active.length === 1 && !onToday) {
+                              schedule.mutate({
+                                serviceDate: foodToday(), periodId: active[0].id, mealId: m.id,
+                                servingsTotal: null, priceUgx: null, publish: true,
+                              });
+                            }
+                          },
+                        },
+                      )}
                     >
                       Publish
                     </Button>
@@ -249,6 +266,13 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
           Put a published meal on a service period, with an optional price for the day
           and a serving cap.
         </p>
+        {periodsQ.isSuccess && (periods ?? []).length === 0 && (
+          <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
+            No meal times are set up yet, so staff can&rsquo;t see any meals. Add a meal time
+            (for example Lunch, with its ordering hours) in the Service tab, then put your
+            published meal on it here.
+          </div>
+        )}
 
         <div className="mb-3 grid gap-2 rounded-xl border border-border/70 bg-card p-3 sm:grid-cols-4">
           <Select

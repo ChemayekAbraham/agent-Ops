@@ -1,205 +1,183 @@
 export const QUICK_SUMMARY_CONTENT = `
-WELILE TENANT SUPPORTER AGREEMENT — QUICK SUMMARY (12 MONTHS)
+WELILE TENANT PARTNERSHIP AGREEMENT — QUICK SUMMARY
 
-This is a short summary for easier reading. The Full Agreement below is the official binding document.
+1) Parties and Role
 
-1) Who Welile Is
+Welile Technologies Limited facilitates rent access through Tenant Partners who contribute funds for tenant rent payments. Welile is not a deposit-taking institution or an insurance company.
 
-Welile Technologies Limited is a technology company operating welile.com that connects Tenants, Verified Landlords, Agents, Managers and Tenant Supporters. Welile is not a bank, not a deposit-taking institution, and not an investment fund. Welile provides verification, monitoring, enforcement and tenant replacement coordination.
+2) Company Responsibilities
 
-2) Contract Duration
+Welile conducts tenant and landlord due diligence, manages rent transactions, guarantees the full contribution and expected Returns, and absorbs tenant defaults, losses and delays. Individual financial reports are available on request.
 
-This Supporter participation contract lasts 12 months from the date you accept it.
+3) Returns and Payouts
 
-3) How Support Works
+The contract specifies monthly Returns of 15% on the partnership amount, paid to the Partner’s bank account or mobile money details at month-end. Earnings are available only on the agreed payout date.
 
-You choose an approved tenant request on your dashboard. The request includes landlord details, house verification, agent verification, manager approval, repayment period and your projected supporter outcome. Rent is paid upfront for 30, 60 or 90 days based on the request.
+4) Duration and Withdrawal
 
-4) Money Handling & Custody
+The agreement lasts one year. Renewal notice is given three months before expiry. Withdrawal requires at least 90 days’ written notice; no monthly Returns accrue during the 90-day recovery period.
 
-Your supported funds are used to pay rent to verified landlords. Where applicable, rent payments and repayments may be processed and/or held by regulated payment partners. Welile coordinates the process and enforcement.
+5) Disputes and Amendments
 
-5) Tenant Rights & Enforcement
+Parties have 14 days to settle a default before legal action. Disputes go through arbitration, then Ugandan courts if unresolved. Amendments must be written and signed by all Parties; preparation legal fees are borne by Welile.
 
-Tenants accept transfer of tenant rights to Welile when they apply for rent. When rent is paid, Welile becomes the holder of tenant rights for the paid rent period and the physical tenant becomes a house user under Welile tenancy rights. This allows Welile to coordinate lawful enforcement and tenant replacement in collaboration with landlords and local leadership structures where required.
+6) Payment Channels and Signatures
 
-6) Repayments
-
-Tenants repay in small daily instalments through approved payment channels. Repayments include principal rent amount, access fees and registration fees (as disclosed to tenants).
-
-7) Principal & Outcome Assurance Framework
-
-Welile provides a Principal and Outcome Assurance Framework designed to protect supporters from losses through: two-layer verification, structured repayments, field enforcement, and tenant replacement. This assurance is achieved operationally (replacement + continuity controls) and is not presented as a deposit, savings, or regulated security.
-
-8) 90-Day Withdrawal Notice
-
-If you want to withdraw supported capital, notify Welile at least 90 days in advance. During the notice period, Welile coordinates collection from active tenant repayment streams and prioritises settlement. At the end, Welile arranges lump-sum settlement based on collected amounts and recovery activities.
-
-9) Non-Circumvention
-
-Do not bypass the platform to make direct deals with tenants or landlords. Circumvention may lead to suspension and loss of platform protections.
-
-10) Acceptance
-
-To support tenants you must read and accept the Full Agreement.
+Use only the approved payment channels listed in the full contract and confirm details with Welile before transferring funds. The contract contains Company, Partner and next-of-kin signature fields.
 `;
 
 export const FULL_AGREEMENT_CONTENT = `
-WELILE TENANT SUPPORTER TERMS & CONDITIONS
+THE REPUBLIC OF UGANDA
+
+
+                    THE CONTRACTS ACT
+
+               TENANT PARTNERSHIP AGREEMENT
+
+                         BETWEEN
+
+                WELILE TECHNOLOGIES LIMITED
+
+
+
+                           AND
+
+
+
+
+
+
+THIS AGREEMENT is made this ____ day of ____________________, 2026 BETWEEN
+Welile Technologies Limited, a limited liability company incorporated in Uganda, with its Head
+Quarters office in Hosanna Estate, Palm Road, Kabale–Entebbe, P.O. Box 167564, Kampala –
+Uganda Tel: 0793750331, 0748747134 (hereinafter referred to as “the Company”, which
+expression shall, where the context so admits, include its Nominees, Agents, Successors in Title
+and Assignees) of the one part;
+AND
+________________________________________, holder of National ID/Passport No.
+__________________________, residing at____________________________ (hereinafter
+referred to as “the Partner”, which expression shall, where the context so admits, include his/her
+Nominees, Agents, Successors in Title and Assignees) of the other part; The Company and the
+Partner shall individually be referred to as “the Party” and collectively as “the Parties.”
+BACKGROUND
+WHEREAS, the Company operates as a technology platform that facilitates rent access for tenants
+by connecting them with Tenant Partners, who are financial contributors that provide the funds for
+rent payments in exchange for a return on their contribution;
+AGREEMENT
 
-(12-Month Supporter Participation Agreement — Accept Before Supporting Tenants)
+The Parties agree to the following terms and conditions:
+1. Platform Overview and Nature of Business
+The Company operates a digital platform that connects tenants seeking rent with individuals willing
+to support them in exchange for returns.
+The Company is not a deposit-taking institution or an insurance company. It is a technology
+platform that manages and facilitates all transactions between the Parties.
+ 2. Partner's Role
+The Partner agrees to contribute a total partnership amount of
+UGX______________________
+(__________________________________________________________________Only).
+The Partner will receive access to periodic reports or a dashboard to monitor the performance of
+their contribution.
+The Partner agrees to comply with all platform terms, policies, and partner guidelines.
+3. Company's Responsibilities and Assurances
+  The Company commits to:
+        Conduct full due diligence on all tenants and landlords.
+        Facilitate and manage all rent payment transactions.
+        Guarantee the repayment of the full principal amount and expected returns.
+        Absorb any losses, delays, or defaults from tenants.
+     Provide a detailed Individual financial report to the Partner upon request.
+4. Returns and Payouts
+        The Partner will earn a monthly return of 15% on the principal partnership amount.
+        The monthly returns will be paid to the Partner's provided bank account or mobile money
+         details at the end of each month
+
+
+
+
+
+        The Partner’s earnings are not available for early withdrawal and can only be accessed on
+         the agreed payout date."
+5. Withdrawal of Principal
+        This agreement is in force for a period of one (1) year. A notice for renewal shall be given
+         three (3) months before the expiration of this agreement by either Party.
+        To withdraw the principal amount, the Partner must notify the Company in writing at least
+         ninety (90) days prior to the intended withdrawal date.
+        Upon receipt of a withdrawal request, the Company shall have a principal recovery period
+         of ninety (90) days. During this period, no monthly interest shall accrue or be payable to the
+         Partner, as the funds will no longer be in active use.
+
+
+6. Risk and Liability
+        The Company bears full liability for tenant defaults, delays, or losses.
+        The Partner's principal and expected returns are fully guaranteed by the Company.
+        The Company shall promptly communicate any payout delays caused by external factors
+         and ensures all such issues are resolved within two to three business days.
+7. Default and Termination
+       Default: If a Party fails to make a payment or comply with the terms of this agreement, the
+        other Party reserves the right to take legal action for breach of contract. Both Parties have a
+        right to settle any default within a period of two weeks (14) days before the other Party takes
+        action.
+Termination: This Agreement may be terminated by the Partner with a ninety (90)-day
+written withdrawal notice, or by the Company in case of any breach, fraud, or misuse.
+8. Dispute Resolution
+       The Parties shall resolve the matter through arbitration in accordance with the laws of
+        Uganda. In cases where the Parties have failed to agree under arbitration, the matter can be
+        referred to the courts of Uganda with competent jurisdiction.
+9. Entire Agreement
+       This document contains the full agreement between the Parties. There are no agreements
+        collateral hereto, and no oral promises override this agreement.
+10. Amendments
+       All amendments to this agreement shall be in writing and all Parties must sign.
+11. Legal Fees
+       The legal fees for preparing this agreement shall be borne by the Company
+IN WITNESS WHEREOF, the Parties have executed these presents the day and year first above
+written.
+12. Approved Company Payment Channels
+       All partner contributions to the Company shall be made only through the approved payment
+        channels listed below. The Partner should confirm payment details with the Company before
+        making any transfer.
 
-Contract Duration: Twelve (12) Months
-Platform: welile.com
-Company: Welile Technologies Limited ("Welile", "we", "our", "us")
-Supporter: [Supporter Name / Account] ("Tenant Supporter", "Supporter", "you")
 
 
-1. Purpose of This Agreement
 
-This Agreement governs your participation as a Tenant Supporter on welile.com, where you support verified tenant rent requests by funding rent for verified landlords and houses through Welile's platform processes.
+Channel              Instruction                    Details
 
-By clicking "I Agree", you confirm that you have read and accepted these Terms.
+Airtel Money         Dial *185*9#                   Merchant ID: 4380664
 
+MTN MoMo             Use MoMo App or dial *165*3#   MoMo Code: 090777
 
-2. Welile's Nature and Role
+Bank Transfer        Equity Bank                    Account Name: Welile Technologies
+                                                    Limited Account Number:
+                                                    1046203375259 SWIFT Code:
+                                                    EQBLUGKA
 
-2.1 Welile Technologies Limited is a technology company operating a platform (welile.com) that connects:
-• tenants seeking rent access,
-• verified landlords and houses,
-• tenant supporters who facilitate upfront rent payment, and
-• Welile agents and managers who verify and enforce repayment.
 
-2.2 Welile is not a bank, not a deposit-taking institution, and not an investment fund. Welile operates as a verification, monitoring, enforcement, and tenant replacement coordination platform.
 
 
-3. Contract Duration (12 Months)
+IN WITNESS WHEREOF, the Parties have executed these presents the day and year first above
+written.
+SIGNED for and on behalf of WELILE TECHNOLOGIES LIMITED
+Name: _______________________________
+Position: ____________________________
+Contact: ____________________________
+Signature: ____________________________
+Date: ________________________________
 
-3.1 This Agreement runs for twelve (12) months from the Effective Date ("Contract Term").
 
-3.2 During the Contract Term, the Supporter may participate in multiple tenant support transactions through the platform.
-
-3.3 Unless renewed, this Agreement automatically expires at the end of 12 months.
-
-
-4. Supporter Participation
-
-4.1 As a Supporter, you may select approved tenant rent requests displayed on your Supporter Dashboard.
-
-4.2 Each request includes landlord details, house verification, agent verification, manager approval, repayment period, and projected supporter outcome.
-
-4.3 Once you accept a request, rent is paid upfront for the tenant for a period of 30, 60, or 90 days (as selected in the request).
-
-
-5. Payment Flow and Custody of Funds
-
-5.1 Your support funds are used for the purpose of paying rent to verified landlords.
-
-5.2 Where applicable, rent payments and repayments may be processed and/or held by approved regulated payment partners. Welile's role is platform coordination, monitoring, and enforcement.
-
-
-6. Tenant Rights Transfer and Welile Enforcement Authority
-
-6.1 You acknowledge that Welile's enforcement power is based on a contractual Tenant Rights Assignment mechanism.
-
-6.2 The tenant accepts the transfer of tenant rights to Welile at the time they apply for rent through the platform.
-
-6.3 When rent is paid to the landlord, Welile becomes the holder of tenant rights for the paid rent period, and the physical tenant becomes a house user under Welile's tenancy rights.
-
-6.4 This enables Welile to coordinate lawful enforcement, tenant replacement, and repayment continuity in collaboration with landlords and local leadership structures where required.
-
-
-7. Repayment Structure
-
-7.1 Tenants repay through small daily instalments using the platform's approved payment channels.
-
-7.2 Tenant repayment includes principal rent amount, access fees (as disclosed to the tenant), registration fees (as disclosed to the tenant), and any other approved charges shown in the system.
-
-7.3 Repayments are monitored and enforced through Welile's agent network.
-
-
-8. Supporter Outcome, Principal Protection & Operational Assurance
-
-8.1 Welile provides a Principal and Outcome Assurance Framework designed to protect supporters against losses arising from tenant default, supported by two-layer verification (agent + manager), structured daily repayments, field enforcement, and tenant replacement mechanisms.
-
-8.2 This assurance is operationally achieved through replacement of non-paying tenants, cooperation with landlords and relevant local leaders (including Chairperson/LC structures where applicable), and repayment continuity controls.
-
-8.3 For clarity:
-• Supporter participation is not presented as a deposit, savings product, or regulated security.
-• Welile does not offer an interest-bearing account.
-• Welile provides platform-based repayment continuity and loss resolution through enforcement and replacement.
-
-8.4 Based on the above framework, Welile commits to ensuring that:
-• the supported principal is recovered; and
-• the agreed supporter outcome (ROI/earnings projection) is achieved through operational recovery mechanisms, replacement, and repayment continuity.
-
-
-9. Withdrawal of Support Capital (90-Day Notice Policy)
-
-9.1 The Supporter may request withdrawal of supported capital by giving at least ninety (90) days written notice to Welile through official platform channels ("Withdrawal Notice").
-
-9.2 During the 90-day notice period, Welile coordinates collection of amounts due from active tenant repayment streams and repayment streams may be adjusted or prioritised for orderly settlement.
-
-9.3 At the end of the notice period, Welile will arrange payment to the Supporter as a lump-sum settlement, based on amounts collected during the period and enforcement, recovery, and replacement activities.
-
-9.4 Where a Supporter provides withdrawal notice within the last 90 days of the Contract Term, Welile may treat the Withdrawal Notice as a Contract Term settlement request, and settlement shall occur at Contract end or earlier where collection permits.
-
-
-10. End of Contract (12-Month Settlement)
-
-10.1 At the end of the 12-month Contract Term, the Supporter may renew participation or request settlement of outstanding supported capital and outcomes.
-
-10.2 Settlement at contract end is subject to completion of current tenant repayment cycles and reconciliation through the platform's records.
-
-
-11. Supporter Responsibilities
-
-Supporters agree to:
-• use the platform honestly and lawfully;
-• avoid direct confrontation, harassment, or independent enforcement against tenants;
-• follow dispute channels through Welile; and
-• comply with KYC/verification procedures if requested.
-
-
-12. Non-Circumvention
-
-12.1 You agree not to bypass the platform by making direct arrangements with tenants or landlords outside Welile systems.
-
-12.2 Circumvention may lead to suspension and forfeiture of platform protections.
-
-
-13. Fraud, Misuse, and Suspensions
-
-Welile may suspend or terminate supporter participation in cases of:
-• fraud,
-• identity misrepresentation,
-• abuse of tenants,
-• platform circumvention, or
-• regulatory risk.
-
-
-14. Dispute Resolution
-
-Parties agree to attempt resolution through Welile internal channels first. Unresolved disputes may be referred to mediation and thereafter Ugandan courts of competent jurisdiction.
-
-
-15. Limitation of Liability
-
-Welile is not liable for delays caused by:
-• legal restrictions,
-• court orders,
-• government enforcement moratoriums,
-• force majeure events, or
-• regulated payment partner downtime.
-
-
-16. Acceptance
-
-By clicking "I Agree", you confirm that:
-• this Agreement lasts 12 months,
-• you accept the 90-day withdrawal notice policy,
-• you accept the Principal and Outcome Assurance Framework, and
-• you agree to comply with these Terms.
+SIGNED by the said
+TENANT PARTNER
+Name: _______________________________
+Residence: ___________________________
+Contact (Telephone): __________________
+Email: ________________________________
+Bank Name: ___________________________
+Account Name: ________________________
+Account No: __________________________
+Signature: ____________________________
+Date: ________________________________
+Next of kin Name: ________________________
+Contact: _________________________________
+Signature: _______________________________
+Date: ________________________________
 `;
 
 export const AGREEMENT_SECTIONS = [

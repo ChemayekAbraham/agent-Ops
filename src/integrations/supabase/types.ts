@@ -18069,6 +18069,1537 @@ export type Database = {
           },
         ]
       }
+      food_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_val: Json | null
+          before_val: Json | null
+          created_at: string
+          entity: string
+          entity_id: string | null
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_val?: Json | null
+          before_val?: Json | null
+          created_at?: string
+          entity: string
+          entity_id?: string | null
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_val?: Json | null
+          before_val?: Json | null
+          created_at?: string
+          entity?: string
+          entity_id?: string | null
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_categories: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_coordinator_assignments: {
+        Row: {
+          access_level: string
+          assigned_at: string
+          assigned_by: string | null
+          coordinator_id: string
+          handover_mode: string | null
+          id: string
+          reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          access_level?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          coordinator_id: string
+          handover_mode?: string | null
+          id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          access_level?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          coordinator_id?: string
+          handover_mode?: string | null
+          id?: string
+          reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_coordinator_id_fkey"
+            columns: ["coordinator_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_coordinator_assignments_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_exceptions: {
+        Row: {
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          order_id: string | null
+          raised_by: string | null
+          raised_via: string | null
+          resolution_reason: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          order_id?: string | null
+          raised_by?: string | null
+          raised_via?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          order_id?: string | null
+          raised_by?: string | null
+          raised_via?: string | null
+          resolution_reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_exceptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "food_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_meals: {
+        Row: {
+          archived_at: string | null
+          category_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          image_path: string | null
+          name: string
+          price_ugx: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          name: string
+          price_ugx: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          image_path?: string | null
+          name?: string
+          price_ugx?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_meals_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "food_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_menu_items: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          meal_id: string
+          period_id: string
+          price_ugx: number
+          published_at: string | null
+          service_date: string
+          servings_reserved: number
+          servings_total: number | null
+          sold_out: boolean
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          meal_id: string
+          period_id: string
+          price_ugx: number
+          published_at?: string | null
+          service_date: string
+          servings_reserved?: number
+          servings_total?: number | null
+          sold_out?: boolean
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          meal_id?: string
+          period_id?: string
+          price_ugx?: number
+          published_at?: string | null
+          service_date?: string
+          servings_reserved?: number
+          servings_total?: number | null
+          sold_out?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "food_meals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_menu_items_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "food_service_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_order_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          from_status: string | null
+          id: string
+          note: string | null
+          order_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          order_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_order_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "food_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_order_items: {
+        Row: {
+          id: string
+          line_total_ugx: number
+          meal_description: string | null
+          meal_id: string
+          meal_name: string
+          menu_item_id: string
+          order_id: string
+          quantity: number
+          unit_price_ugx: number
+        }
+        Insert: {
+          id?: string
+          line_total_ugx: number
+          meal_description?: string | null
+          meal_id: string
+          meal_name: string
+          menu_item_id: string
+          order_id: string
+          quantity: number
+          unit_price_ugx: number
+        }
+        Update: {
+          id?: string
+          line_total_ugx?: number
+          meal_description?: string | null
+          meal_id?: string
+          meal_name?: string
+          menu_item_id?: string
+          order_id?: string
+          quantity?: number
+          unit_price_ugx?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_order_items_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "food_meals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_order_items_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "food_menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "food_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_orders: {
+        Row: {
+          cancelled_at: string | null
+          employee_id: string
+          fulfilment_status: string
+          id: string
+          idempotency_key: string
+          order_reference: string
+          paid_at: string | null
+          payee_id: string | null
+          payee_name: string | null
+          payee_wallet_id: string | null
+          payment_attempt: number
+          payment_mode: string | null
+          payment_resolution_reason: string | null
+          payment_resolution_required: boolean
+          payment_status: string
+          payment_verified_at: string | null
+          period_id: string
+          placed_at: string
+          received_at: string | null
+          received_by: string | null
+          service_date: string
+          special_instructions: string | null
+          stock_released: boolean
+          total_ugx: number
+          transaction_group_id: string | null
+        }
+        Insert: {
+          cancelled_at?: string | null
+          employee_id: string
+          fulfilment_status?: string
+          id?: string
+          idempotency_key: string
+          order_reference: string
+          paid_at?: string | null
+          payee_id?: string | null
+          payee_name?: string | null
+          payee_wallet_id?: string | null
+          payment_attempt?: number
+          payment_mode?: string | null
+          payment_resolution_reason?: string | null
+          payment_resolution_required?: boolean
+          payment_status?: string
+          payment_verified_at?: string | null
+          period_id: string
+          placed_at?: string
+          received_at?: string | null
+          received_by?: string | null
+          service_date: string
+          special_instructions?: string | null
+          stock_released?: boolean
+          total_ugx: number
+          transaction_group_id?: string | null
+        }
+        Update: {
+          cancelled_at?: string | null
+          employee_id?: string
+          fulfilment_status?: string
+          id?: string
+          idempotency_key?: string
+          order_reference?: string
+          paid_at?: string | null
+          payee_id?: string | null
+          payee_name?: string | null
+          payee_wallet_id?: string | null
+          payment_attempt?: number
+          payment_mode?: string | null
+          payment_resolution_reason?: string | null
+          payment_resolution_required?: boolean
+          payment_status?: string
+          payment_verified_at?: string | null
+          period_id?: string
+          placed_at?: string
+          received_at?: string | null
+          received_by?: string | null
+          service_date?: string
+          special_instructions?: string | null
+          stock_released?: boolean
+          total_ugx?: number
+          transaction_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_orders_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "food_service_periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_orders_received_by_fkey"
+            columns: ["received_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_payment_attempts: {
+        Row: {
+          amount: number
+          attempt_no: number
+          authorised_by: string | null
+          authorised_reason: string | null
+          id: string
+          idempotency_key: string
+          order_id: string
+          paid_at: string
+          payee_id: string
+          payee_name: string | null
+          payee_wallet_id: string
+          payer_id: string
+          payer_wallet_id: string
+          problem_detected_at: string | null
+          reference: string
+          reversal_posted_at: string | null
+          reversal_reference: string | null
+          reversed_amount: number | null
+          state: string
+          transaction_group_id: string
+        }
+        Insert: {
+          amount: number
+          attempt_no: number
+          authorised_by?: string | null
+          authorised_reason?: string | null
+          id?: string
+          idempotency_key: string
+          order_id: string
+          paid_at: string
+          payee_id: string
+          payee_name?: string | null
+          payee_wallet_id: string
+          payer_id: string
+          payer_wallet_id: string
+          problem_detected_at?: string | null
+          reference: string
+          reversal_posted_at?: string | null
+          reversal_reference?: string | null
+          reversed_amount?: number | null
+          state?: string
+          transaction_group_id: string
+        }
+        Update: {
+          amount?: number
+          attempt_no?: number
+          authorised_by?: string | null
+          authorised_reason?: string | null
+          id?: string
+          idempotency_key?: string
+          order_id?: string
+          paid_at?: string
+          payee_id?: string
+          payee_name?: string | null
+          payee_wallet_id?: string
+          payer_id?: string
+          payer_wallet_id?: string
+          problem_detected_at?: string | null
+          reference?: string
+          reversal_posted_at?: string | null
+          reversal_reference?: string | null
+          reversed_amount?: number | null
+          state?: string
+          transaction_group_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_authorised_by_fkey"
+            columns: ["authorised_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "food_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payee_id_fkey"
+            columns: ["payee_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_payment_attempts_payer_id_fkey"
+            columns: ["payer_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_service_closures: {
+        Row: {
+          closure_date: string
+          created_at: string
+          created_by: string
+          reason: string
+        }
+        Insert: {
+          closure_date: string
+          created_at?: string
+          created_by: string
+          reason: string
+        }
+        Update: {
+          closure_date?: string
+          created_at?: string
+          created_by?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_service_closures_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      food_service_periods: {
+        Row: {
+          active: boolean
+          collection_instructions: string | null
+          created_at: string
+          id: string
+          max_qty_per_employee: number | null
+          name: string
+          ordering_closes_at: string
+          ordering_opens_at: string
+        }
+        Insert: {
+          active?: boolean
+          collection_instructions?: string | null
+          created_at?: string
+          id?: string
+          max_qty_per_employee?: number | null
+          name: string
+          ordering_closes_at: string
+          ordering_opens_at: string
+        }
+        Update: {
+          active?: boolean
+          collection_instructions?: string | null
+          created_at?: string
+          id?: string
+          max_qty_per_employee?: number | null
+          name?: string
+          ordering_closes_at?: string
+          ordering_opens_at?: string
+        }
+        Relationships: []
+      }
       fraud_identity_blocks: {
         Row: {
           blocked_at: string
@@ -20572,6 +22103,176 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      hr_pay_bonus_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          ledger_group_id: string | null
+          paid_at: string | null
+          percentage: number
+          pool_id: string
+          staff_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string | null
+          paid_at?: string | null
+          percentage: number
+          pool_id: string
+          staff_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string | null
+          paid_at?: string | null
+          percentage?: number
+          pool_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_bonus_pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      hr_pay_bonus_notices: {
+        Row: {
+          acknowledged_at: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          pool_id: string
+          recipient_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          pool_id: string
+          recipient_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          pool_id?: string
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_bonus_notices_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_bonus_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hr_pay_bonus_pools: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          pool_amount: number
+          prepared_by: string
+          return_note: string | null
+          returned_at: string | null
+          returned_by: string | null
+          status: string
+          submitted_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          pool_amount: number
+          prepared_by: string
+          return_note?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          pool_amount?: number
+          prepared_by?: string
+          return_note?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       hr_pay_compensation: {
         Row: {
@@ -41492,6 +43193,10 @@ export type Database = {
           created_at: string
           expires_at: string
           id: string
+          new_daily_repayment: number | null
+          new_duration_days: number | null
+          new_rent_amount: number | null
+          new_total_repayment: number | null
           prev_request_id: string
           tenant_id: string
           verified_at: string | null
@@ -41505,6 +43210,10 @@ export type Database = {
           created_at?: string
           expires_at: string
           id?: string
+          new_daily_repayment?: number | null
+          new_duration_days?: number | null
+          new_rent_amount?: number | null
+          new_total_repayment?: number | null
           prev_request_id: string
           tenant_id: string
           verified_at?: string | null
@@ -41518,6 +43227,10 @@ export type Database = {
           created_at?: string
           expires_at?: string
           id?: string
+          new_daily_repayment?: number | null
+          new_duration_days?: number | null
+          new_rent_amount?: number | null
+          new_total_repayment?: number | null
           prev_request_id?: string
           tenant_id?: string
           verified_at?: string | null
@@ -41879,6 +43592,114 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_request_review_notes: {
+        Row: {
+          author: string
+          author_role: string
+          created_at: string
+          id: string
+          note: string
+          request_id: string
+          stage: string
+        }
+        Insert: {
+          author: string
+          author_role: string
+          created_at?: string
+          id?: string
+          note: string
+          request_id: string
+          stage: string
+        }
+        Update: {
+          author?: string
+          author_role?: string
+          created_at?: string
+          id?: string
+          note?: string
+          request_id?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_request_review_notes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       rent_requests: {
         Row: {
           access_fee: number
@@ -41974,6 +43795,14 @@ export type Database = {
           rejected_at: string | null
           rejected_at_stage: string | null
           rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
           rent_amount: number
           reopen_count: number
           reopen_reason: string | null
@@ -42111,6 +43940,14 @@ export type Database = {
           rejected_at?: string | null
           rejected_at_stage?: string | null
           rejected_reason?: string | null
+          renewal_above_by?: number | null
+          renewal_above_suggestion?: boolean | null
+          renewal_advice_snapshot?: Json | null
+          renewal_change_explanation?: string | null
+          renewal_change_reason_code?: string | null
+          renewal_evidence_url?: string | null
+          renewal_previous_days?: number | null
+          renewal_previous_rent?: number | null
           rent_amount: number
           reopen_count?: number
           reopen_reason?: string | null
@@ -42248,6 +44085,14 @@ export type Database = {
           rejected_at?: string | null
           rejected_at_stage?: string | null
           rejected_reason?: string | null
+          renewal_above_by?: number | null
+          renewal_above_suggestion?: boolean | null
+          renewal_advice_snapshot?: Json | null
+          renewal_change_explanation?: string | null
+          renewal_change_reason_code?: string | null
+          renewal_evidence_url?: string | null
+          renewal_previous_days?: number | null
+          renewal_previous_rent?: number | null
           rent_amount?: number
           reopen_count?: number
           reopen_reason?: string | null
@@ -42789,6 +44634,10 @@ export type Database = {
           metadata: Json
           requisition_code: string | null
           requisition_id: string
+          reversal_reason: string | null
+          reversal_reference: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           source_table: string
           status: string
           updated_at: string
@@ -42810,6 +44659,10 @@ export type Database = {
           metadata?: Json
           requisition_code?: string | null
           requisition_id: string
+          reversal_reason?: string | null
+          reversal_reference?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           source_table: string
           status?: string
           updated_at?: string
@@ -42831,6 +44684,10 @@ export type Database = {
           metadata?: Json
           requisition_code?: string | null
           requisition_id?: string
+          reversal_reason?: string | null
+          reversal_reference?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           source_table?: string
           status?: string
           updated_at?: string
@@ -60685,6 +62542,7 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -60698,6 +62556,10 @@ export type Database = {
           p_rent_request_id?: string
         }
         Returns: string
+      }
+      _ledger_can_post_partner_returns: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       _merch_bike_day: {
         Args: { p_day: string; p_sale_id: string; p_v2: boolean }
@@ -60751,6 +62613,48 @@ export type Database = {
         }
         Returns: Json
       }
+      _renewal_advice_core: {
+        Args: {
+          p_as_at: string
+          p_new_days: number
+          p_prev: Database["public"]["Tables"]["rent_requests"]["Row"]
+        }
+        Returns: Json
+      }
+      _renewal_advice_params: { Args: never; Returns: Json }
+      _renewal_band: {
+        Args: { p_fully_repaid: boolean; p_on_time_pct: number; p_params: Json }
+        Returns: Json
+      }
+      _renewal_max_rent: {
+        Args: {
+          p_cap_daily: number
+          p_cap_total: number
+          p_days: number
+          p_round: number
+        }
+        Returns: number
+      }
+      _renewal_plan_stats: {
+        Args: { p_as_at: string; p_rid: string }
+        Returns: Json
+      }
+      _rent_access_limit_calc: {
+        Args: {
+          p_dec: number
+          p_inc: number
+          p_max: number
+          p_now: string
+          p_payment_times: string[]
+        }
+        Returns: Json
+      }
+      _rent_access_limit_core: {
+        Args: { p_now?: string; p_tenant: string }
+        Returns: Json
+      }
+      _rent_access_limit_params: { Args: never; Returns: Json }
+      _rent_days_allowed: { Args: { p_days: number }; Returns: boolean }
       _rent_fee_refuse_cancelled: {
         Args: {
           p_amount: number
@@ -60961,6 +62865,15 @@ export type Database = {
       acknowledge_finance_anomaly_alert: {
         Args: { p_check_key: string; p_note?: string }
         Returns: Json
+      }
+      add_rent_request_review_note: {
+        Args: {
+          p_note: string
+          p_request_id: string
+          p_role?: string
+          p_stage?: string
+        }
+        Returns: string
       }
       admin_assign_subagent_parent: {
         Args: { _new_parent_id: string; _reason: string; _sub_agent_id: string }
@@ -61839,6 +63752,14 @@ export type Database = {
           rejected_at: string | null
           rejected_at_stage: string | null
           rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
           rent_amount: number
           reopen_count: number
           reopen_reason: string | null
@@ -61933,6 +63854,21 @@ export type Database = {
         }[]
       }
       am_detect_clock_drift: { Args: { p_as_at?: string }; Returns: Json }
+      am_new_tenant_first7: {
+        Args: { p_paid_on?: string }
+        Returns: {
+          agent_name: string
+          clock_start: string
+          daily_due: number
+          day_paid: number[]
+          landlord_paid_on: string
+          paid_7d: number
+          rent_request_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
+      }
       am_plan_arrears: {
         Args: { p_as_at?: string; p_rent_request_ids: string[] }
         Returns: {
@@ -62561,6 +64497,7 @@ export type Database = {
           treatment: string
         }[]
       }
+      bank_sending_charge: { Args: { p_amount: number }; Returns: number }
       begin_ledger_maintenance: {
         Args: { p_minutes?: number; p_reason?: string }
         Returns: string
@@ -63472,6 +65409,25 @@ export type Database = {
       cfo_approve_redemption: {
         Args: { p_id: string; p_reason: string }
         Returns: Json
+      }
+      cfo_approved_requisitions: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          approved_at: string
+          credited_at: string
+          error_message: string
+          payout_status: string
+          receiver_id: string
+          receiver_name: string
+          requisition_code: string
+          requisition_id: string
+          reversal_reason: string
+          reversed_at: string
+          source_table: string
+          title: string
+          wallet_transaction_id: string
+        }[]
       }
       cfo_bucket_a_post: {
         Args: {
@@ -65966,6 +67922,186 @@ export type Database = {
               user_id: string
             }[]
           }
+      food_archive_category: {
+        Args: { p_category_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      food_audit_write: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_after: Json
+          p_before: Json
+          p_entity: string
+          p_entity_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      food_authorize_payment_retry: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: Json
+      }
+      food_bootstrap_coordinator: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      food_can_use_canteen: { Args: never; Returns: boolean }
+      food_cancel_my_order: {
+        Args: { p_order_id: string; p_reason?: string }
+        Returns: Json
+      }
+      food_confirm_receipt: { Args: { p_order_id: string }; Returns: Json }
+      food_coordinator_candidates: {
+        Args: never
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
+      food_coordinator_overview: {
+        Args: { p_service_date?: string }
+        Returns: Json
+      }
+      food_is_canteen_user: { Args: { _user_id: string }; Returns: boolean }
+      food_is_staff: { Args: { _user_id: string }; Returns: boolean }
+      food_mark_payment_reversed: {
+        Args: {
+          p_actor: string
+          p_group: string
+          p_order_id: string
+          p_problem: Json
+        }
+        Returns: boolean
+      }
+      food_meal_photo_readable: { Args: { p_name: string }; Returns: boolean }
+      food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
+      food_pay_order: { Args: { p_order_id: string }; Returns: Json }
+      food_payee_block_reason: {
+        Args: { p_employee: string; p_payee: string; p_wallet: string }
+        Returns: string
+      }
+      food_payment_key: {
+        Args: { p_attempt: number; p_order_id: string }
+        Returns: string
+      }
+      food_payment_problem: {
+        Args: { p_order: Database["public"]["Tables"]["food_orders"]["Row"] }
+        Returns: Json
+      }
+      food_payment_reference: {
+        Args: { p_attempt: number; p_order_reference: string }
+        Returns: string
+      }
+      food_people_names: {
+        Args: { p_ids: string[] }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
+      food_place_order: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_payment_mode: string
+          p_special_instructions?: string
+        }
+        Returns: Json
+      }
+      food_preparation_list: {
+        Args: { p_period_id?: string; p_service_date?: string }
+        Returns: {
+          meal_name: string
+          order_count: number
+          total_quantity: number
+        }[]
+      }
+      food_raise_exception: {
+        Args: { p_kind: string; p_note: string; p_order_id?: string }
+        Returns: Json
+      }
+      food_reconcile_payments: { Args: { p_limit?: number }; Returns: Json }
+      food_require_active_coordinator: { Args: never; Returns: string }
+      food_require_canteen_user: { Args: never; Returns: string }
+      food_resolve_blocked_payment: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: Json
+      }
+      food_resolve_exception: {
+        Args: { p_exception_id: string; p_reason: string }
+        Returns: Json
+      }
+      food_schedule_meal: {
+        Args: {
+          p_meal_id: string
+          p_period_id: string
+          p_price_ugx?: number
+          p_publish?: boolean
+          p_service_date: string
+          p_servings_total?: number
+        }
+        Returns: string
+      }
+      food_set_closure: {
+        Args: { p_closed: boolean; p_closure_date: string; p_reason?: string }
+        Returns: undefined
+      }
+      food_set_fulfilment: {
+        Args: { p_note?: string; p_order_id: string; p_to_status: string }
+        Returns: Json
+      }
+      food_set_meal_image: {
+        Args: { p_image_path: string; p_meal_id: string; p_reason?: string }
+        Returns: Json
+      }
+      food_set_meal_status: {
+        Args: { p_meal_id: string; p_reason?: string; p_status: string }
+        Returns: undefined
+      }
+      food_set_sold_out: {
+        Args: { p_menu_item_id: string; p_reason?: string; p_sold_out: boolean }
+        Returns: undefined
+      }
+      food_transfer_coordinator: {
+        Args: { p_mode: string; p_reason: string; p_to_user_id: string }
+        Returns: Json
+      }
+      food_upsert_category: {
+        Args: {
+          p_category_id: string
+          p_name: string
+          p_reason?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      food_upsert_meal: {
+        Args: {
+          p_category_id: string
+          p_description: string
+          p_image_path?: string
+          p_meal_id: string
+          p_name: string
+          p_price_ugx: number
+          p_reason?: string
+        }
+        Returns: string
+      }
+      food_upsert_service_period: {
+        Args: {
+          p_active?: boolean
+          p_closes_at: string
+          p_collection_instructions?: string
+          p_max_qty_per_employee?: number
+          p_name: string
+          p_opens_at: string
+          p_period_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
+      food_verify_payment: { Args: { p_order_id: string }; Returns: Json }
       force_approve_rejected_rent_request: {
         Args: { p_payout_ref?: string; p_reason: string; p_request_id: string }
         Returns: string
@@ -68817,6 +70953,10 @@ export type Database = {
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
+      get_renewal_advice: {
+        Args: { p_new_days?: number; p_prev_request_id: string }
+        Returns: Json
+      }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -70121,6 +72261,86 @@ export type Database = {
         }[]
       }
       hr_pay_authority_user_ids: { Args: { _fn: string }; Returns: string[] }
+      hr_pay_bonus_ack: { Args: { _notice_id: string }; Returns: undefined }
+      hr_pay_bonus_approve: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_cancel: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_detail: {
+        Args: { _pool_id: string }
+        Returns: {
+          amount: number
+          department: string
+          full_name: string
+          paid_at: string
+          percentage: number
+          position: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
+      hr_pay_bonus_list: {
+        Args: never
+        Returns: {
+          allocated: number
+          approved_at: string
+          approved_by_name: string
+          notes: string
+          paid_at: string
+          paid_by_name: string
+          people: number
+          pool_amount: number
+          pool_id: string
+          prepared_by_name: string
+          return_note: string
+          status: string
+          submitted_at: string
+          title: string
+          total_pct: number
+        }[]
+      }
+      hr_pay_bonus_pay: { Args: { _pool_id: string }; Returns: Json }
+      hr_pay_bonus_pending_for_me: {
+        Args: never
+        Returns: {
+          actor_name: string
+          allocated: number
+          kind: string
+          notice_id: string
+          notice_kind: string
+          people: number
+          pool_amount: number
+          pool_id: string
+          prepared_by_name: string
+          raised_at: string
+          return_note: string
+          title: string
+        }[]
+      }
+      hr_pay_bonus_recompute: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_return: {
+        Args: { _note: string; _pool_id: string }
+        Returns: undefined
+      }
+      hr_pay_bonus_save: {
+        Args: {
+          _allocations: Json
+          _notes: string
+          _pool_amount: number
+          _pool_id: string
+          _title: string
+        }
+        Returns: string
+      }
+      hr_pay_bonus_staff_options: {
+        Args: never
+        Returns: {
+          department: string
+          full_name: string
+          position: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
+      hr_pay_bonus_submit: { Args: { _pool_id: string }; Returns: undefined }
       hr_pay_correct_compensation: {
         Args: {
           _amount: number
@@ -70484,6 +72704,10 @@ export type Database = {
       invoke_engrep_harvest_commits: { Args: never; Returns: undefined }
       invoke_hr_careers_acknowledge: { Args: never; Returns: undefined }
       is_active_cashout_agent: { Args: { _user_id: string }; Returns: boolean }
+      is_active_food_coordinator: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       is_agent_frozen: { Args: { p_agent_id: string }; Returns: boolean }
       is_agent_in_service_center_team: {
         Args: { p_agent_id: string; p_manager_id: string; p_max_depth?: number }
@@ -70532,6 +72756,7 @@ export type Database = {
         Returns: boolean
       }
       is_financial_ops_staff: { Args: { p_user: string }; Returns: boolean }
+      is_food_coordinator: { Args: { _user_id: string }; Returns: boolean }
       is_four_part_waterfall_eligible: {
         Args: { p_rent_request_id: string }
         Returns: boolean
@@ -73111,6 +75336,17 @@ export type Database = {
         }
         Returns: Json
       }
+      post_portfolio_roi_ledger: {
+        Args: {
+          p_amount: number
+          p_description_in: string
+          p_description_out: string
+          p_operation: string
+          p_portfolio_id: string
+          p_reference: string
+        }
+        Returns: string
+      }
       post_rent_fee_collection: {
         Args: {
           p_payment_amount: number
@@ -73134,6 +75370,14 @@ export type Database = {
       }
       preview_promissory_note_approvals: {
         Args: { p_note_ids: string[] }
+        Returns: Json
+      }
+      preview_renewal_amount: {
+        Args: {
+          p_new_days?: number
+          p_new_rent: number
+          p_prev_request_id: string
+        }
         Returns: Json
       }
       preview_welile_home_enrollment_edit: {
@@ -74347,12 +76591,19 @@ export type Database = {
       }
       renew_rent_request: {
         Args: {
+          p_change_explanation?: string
+          p_change_reason_code?: string
+          p_evidence_url?: string
           p_latitude?: number
           p_longitude?: number
+          p_new_days?: number
+          p_new_rent_amount?: number
           p_prev_request_id: string
         }
         Returns: string
       }
+      rent_access_limit_server: { Args: { p_tenant: string }; Returns: Json }
+      rent_allowed_days: { Args: never; Returns: number[] }
       rent_apply_collections_to_days: {
         Args: { p_rent_request_id: string }
         Returns: Json
@@ -74492,7 +76743,11 @@ export type Database = {
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_renewal_otp_context: {
-        Args: { p_prev_request_id: string }
+        Args: {
+          p_new_days?: number
+          p_new_rent?: number
+          p_prev_request_id: string
+        }
         Returns: Json
       }
       rent_request_agent_financials_ok: {
@@ -77591,6 +79846,10 @@ export type Database = {
           short_ugx: number
           tenant_id: string
         }[]
+      }
+      tops_smartphone_usage: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
       }
       tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
       tops_snooze_work_item: {
