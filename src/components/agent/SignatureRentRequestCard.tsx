@@ -17,6 +17,13 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
   return (
     <>
       <section className="signature-rent-card" aria-labelledby="signature-rent-title">
+        <button
+          type="button"
+          className="signature-rent-open"
+          aria-label="Open rent request form"
+          tabIndex={-1}
+          onClick={onPostRequest}
+        />
         <div className="signature-rent-content">
           <p className="signature-rent-greeting">
             <span className="signature-rent-dot" aria-hidden="true" />

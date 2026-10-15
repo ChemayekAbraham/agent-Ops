@@ -13,6 +13,20 @@ describe('SignatureRentRequestCard', () => {
     expect(onPostRequest).toHaveBeenCalledOnce();
   });
 
+  it('opens the request form when the card itself is clicked', () => {
+    const onPostRequest = vi.fn();
+    render(<SignatureRentRequestCard fullName="PIUS LUBEGA" onPostRequest={onPostRequest} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open rent request form' }));
+    expect(onPostRequest).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the earnings link separate from the request action', () => {
+    const onPostRequest = vi.fn();
+    render(<SignatureRentRequestCard onPostRequest={onPostRequest} />);
+    fireEvent.click(screen.getByRole('button', { name: /How do I earn/ }));
+    expect(onPostRequest).not.toHaveBeenCalled();
+  });
+
   it('explains all three milestones and labels the estimate as non-guaranteed', () => {
     render(<SignatureRentRequestCard onPostRequest={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /How do I earn/ }));
