@@ -142,6 +142,32 @@ Deno.serve(async (req) => {
       prepared = prep as Record<string, unknown>;
       const { data: fresh } = await admin.from('partner_agreements').select('*').eq('id', row.id).maybeSingle();
       if (fresh) row = fresh;
+
+      // Attach the contract's payout details to the portfolio created on this
+      // countersign so Returns go to the account the partner signed for.
+      const newPortfolioId = (prepared as any)?.portfolio_id;
+      if (newPortfolioId) {
+        const isMomo = row.payout_mode === 'momo';
+        const payoutPatch = isMomo
+          ? {
+              mobile_money_number: row.momo_number || null,
+              mobile_network: row.momo_provider || null,
+              account_name: row.momo_name || row.full_name || null,
+            }
+          : {
+              bank_name: row.bank_name || null,
+              account_number: row.bank_account_number || null,
+              bank_account_name: row.bank_account_name || row.full_name || null,
+              account_name: row.bank_account_name || row.full_name || null,
+            };
+        const { error: payoutErr } = await admin
+          .from('investor_portfolios').update(payoutPatch).eq('id', newPortfolioId);
+        (prepared as any).payout_attached = !payoutErr;
+        if (payoutErr) {
+          console.error('attach payout details failed:', payoutErr);
+          (prepared as any).payout_error = payoutErr.message;
+        }
+      }
     }
 
     // ── Decode + store the client-rendered PDF privately (only when supplied) ──
