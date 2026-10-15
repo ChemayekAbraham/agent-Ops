@@ -839,6 +839,7 @@ function ReviewSubmissionDialog({
   const [repPosition, setRepPosition] = useState('');
   const [repContact, setRepContact] = useState('');
   const [sigDataUrl, setSigDataUrl] = useState<string | undefined>();
+  const [sendingContract, setSendingContract] = useState(false);
   // Stamp / execution date shown on the Welile stamp and DATE field.
   const [stampDate, setStampDate] = useState('');
   // Monthly return percentage printed in the contract returns clause.
@@ -1215,6 +1216,38 @@ function ReviewSubmissionDialog({
                       : approvalBlocked
                         ? <><ShieldCheck className="h-4 w-4" /> Cannot approve yet</>
                         : <><ShieldCheck className="h-4 w-4" /> Approve &amp; send final agreement</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="gap-1.5"
+                    disabled={approving || sendingContract || !previewData}
+                    title="Email the contract to the partner without approving or creating a portfolio"
+                    onClick={async () => {
+                      if (!previewData) return;
+                      setSendingContract(true);
+                      try {
+                        const pdfBase64 = await renderAgreementPdfBase64(buildAgreementHtml(previewData));
+                        // countersign:false → no portfolio is created, approved or funded.
+                        // The function only stores the PDF and emails the download link.
+                        const { data: res, error } = await supabase.functions.invoke('generate-partner-agreement', {
+                          body: { partnerId: row.investor_id, countersign: false, pdfBase64, sendEmail: true },
+                        });
+                        if (error) throw new Error(await extractFromErrorObject(error, 'Could not send the contract.'));
+                        if ((res as any)?.error) throw new Error((res as any).error);
+                        toast.success('Contract email sent', {
+                          description: `Sent to ${row.partner_name}. No portfolio was created or approved.`,
+                        });
+                      } catch (e: any) {
+                        toast.error('Contract not sent', { description: e?.message || 'Please try again.' });
+                      } finally {
+                        setSendingContract(false);
+                      }
+                    }}
+                  >
+                    {sendingContract
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending contract…</>
+                      : <><Send className="h-4 w-4" /> Send contract only</>}
                   </Button>
                   <Button variant="outline" size="sm" onClick={onClose} disabled={approving}>Close</Button>
                   <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
