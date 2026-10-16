@@ -1,0 +1,376 @@
+{
+  "$comment": "Agent dashboard nudges. Copy only: numbers come from AgentNudgeStats (see index.ts). A nudge is eligible when every `when` rule holds AND every {placeholder} in its title/body has a value. Money placeholders render with the viewer's currency already attached (e.g. 'UGX 12,000'), so never write a currency before them. Rules: gt, gte, lt, lte, eq, ne take numbers; exists takes true/false. `hour` is the Kampala hour (0-23). Ranks are among agents with an agent_collections row today, ordered by amount collected today. Terminology: Rent Plan (never loan), Supporter (never lender), Returns (never interest/ROI).",
+  "nudges": [
+    {
+      "id": "morning-due-today",
+      "category": "morning",
+      "tone": "info",
+      "weight": 2,
+      "when": { "hour": { "gte": 5, "lt": 11 }, "due_today_count": { "gte": 1 }, "collected_today_count": { "eq": 0 } },
+      "title": "Good morning {first_name} ☀️",
+      "body": "{due_today_count} tenants are due today. That's {expected_today} waiting for you. The first collection sets the pace 🏃🏾",
+      "cta": "collect"
+    },
+    {
+      "id": "morning-biggest-first",
+      "category": "morning",
+      "tone": "info",
+      "weight": 2,
+      "when": { "hour": { "gte": 5, "lt": 11 } },
+      "title": "Hi 👋 {first_name}",
+      "body": "Start with {top_tenant_name} today, {top_tenant_amount} is due. Biggest one first, Boss 😎",
+      "cta": "collect"
+    },
+    {
+      "id": "morning-empty-board",
+      "category": "rank",
+      "tone": "info",
+      "weight": 3,
+      "when": { "hour": { "gte": 5, "lt": 11 }, "active_agents_today": { "eq": 0 }, "due_today_count": { "gte": 1 } },
+      "title": "The board is empty 👀",
+      "body": "No agent has collected yet today. Collect first and you're #1 🥇, as simple as that.",
+      "cta": "collect"
+    },
+    {
+      "id": "morning-others-started",
+      "category": "rank",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "hour": { "lt": 12 }, "rank_today": { "exists": false }, "active_agents_today": { "gte": 1 }, "due_today_count": { "gte": 1 } },
+      "title": "{active_agents_today} agents are already on the board 🏁",
+      "body": "They've started collecting, {first_name}. Your tenants are waiting. Get on the board today 💪",
+      "cta": "collect"
+    },
+
+    {
+      "id": "collect-not-collected",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "uncollected_count": { "gte": 2 } },
+      "title": "Hi 👋 {first_name}",
+      "body": "I see you haven't collected for {uncollected_count} tenants today. Let's go! 🚶🏾💨",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-missed-commission-boss",
+      "category": "commission",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "missed_commission": { "gte": 1 } },
+      "title": "Hi 👋 Boss",
+      "body": "You're missing out on {missed_commission} in commission. Collect for your tenants, Boss 😎",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-one-left",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "uncollected_count": { "eq": 1 } },
+      "title": "Just one left! ☝🏾",
+      "body": "Only {top_tenant_name} is left for today. Close it out and clear your board 🧹",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-halfway",
+      "category": "collect",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "coverage_pct": { "gte": 50, "lt": 100 }, "uncollected_count": { "gte": 2 } },
+      "title": "Halfway there, {first_name} 🙌",
+      "body": "You've collected for {collected_today_count} of {due_today_count} tenants. {uncollected_count} more and today is done ✅",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-none-after-noon",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "hour": { "gte": 12, "lt": 17 }, "collected_today_count": { "eq": 0 }, "due_today_count": { "gte": 1 } },
+      "title": "{first_name}, the day is moving ⏰",
+      "body": "It's past noon and you haven't collected yet. {due_today_count} tenants, {expected_today}. There's still time to win today.",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-amount-out-there",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 1,
+      "when": { "uncollected_amount": { "gte": 1 } },
+      "title": "{uncollected_amount} still out there 💰",
+      "body": "That's what your tenants still owe today. Every visit counts, {first_name}.",
+      "cta": "collect"
+    },
+    {
+      "id": "commission-earned-and-waiting",
+      "category": "commission",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "earned_commission_today": { "gte": 1 }, "missed_commission": { "gte": 1 } },
+      "title": "You've earned {earned_commission_today} today 🤑",
+      "body": "Another {missed_commission} is waiting with {uncollected_count} tenants. Go get it, Boss.",
+      "cta": "collect"
+    },
+    {
+      "id": "collect-biggest-waiting",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "hour": { "gte": 11, "lt": 18 }, "uncollected_count": { "gte": 2 } },
+      "title": "{top_tenant_name} is waiting 🏠",
+      "body": "{top_tenant_amount} is due today, your biggest one. A quick visit could move you up the board 📈",
+      "cta": "collect"
+    },
+    {
+      "id": "evening-last-call",
+      "category": "collect",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "hour": { "gte": 17, "lt": 21 }, "uncollected_count": { "gte": 1 } },
+      "title": "Last call, {first_name} 🌇",
+      "body": "{uncollected_count} tenants still haven't been collected for today. A couple of quick visits before dark? 🔦",
+      "cta": "collect"
+    },
+    {
+      "id": "evening-commission-slipping",
+      "category": "commission",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "hour": { "gte": 17, "lt": 21 }, "missed_commission": { "gte": 1 } },
+      "title": "Don't leave money on the table 🍽️",
+      "body": "{missed_commission} in commission is about to slip away today. Finish strong, Boss 💪",
+      "cta": "collect"
+    },
+
+    {
+      "id": "rank-did-you-know",
+      "category": "rank",
+      "tone": "info",
+      "weight": 3,
+      "when": { "active_agents_today": { "gte": 2 } },
+      "title": "Did you know? 🤔",
+      "body": "Today you are {rank_ordinal} of {active_agents_today} agents who've collected {rank_emoji}",
+      "cta": "leaderboard"
+    },
+    {
+      "id": "rank-number-one",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "rank_today": { "eq": 1 }, "active_agents_today": { "gte": 2 } },
+      "title": "You're #1 today! 🥇👑",
+      "body": "Top of {active_agents_today} agents, {first_name}. Everyone is chasing you now. Keep collecting to hold the crown.",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-second",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "rank_today": { "eq": 2 } },
+      "title": "So close to the top 🥈",
+      "body": "You're 2nd today. Just {gap_to_next_rank} more and the #1 spot is yours 👑",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-third",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "rank_today": { "eq": 3 } },
+      "title": "You're on the podium! 🥉",
+      "body": "3rd of {active_agents_today} agents today. {gap_to_next_rank} more moves you to 2nd 🥈",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-top-ten",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "rank_today": { "gte": 4, "lte": 10 } },
+      "title": "Top 10, {first_name}! 🔥",
+      "body": "You're {rank_ordinal} today. {gap_to_next_rank} more takes you to {next_rank_ordinal}. One more tenant could do it.",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-gap-ahead",
+      "category": "rank",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "rank_today": { "gte": 4 } },
+      "title": "{agents_ahead} agents are ahead of you 👀",
+      "body": "Only {gap_to_next_rank} separates you from {next_rank_ordinal} place. Who's your next collection?",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-top-percent",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "rank_today": { "gte": 11 }, "top_percent": { "lte": 25 } },
+      "title": "Top {top_percent}% today 🚀",
+      "body": "Out of {active_agents_today} agents collecting today, you're in the top {top_percent}%. Keep going, {first_name}!",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-climbed",
+      "category": "rank",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "rank_climb": { "gte": 1 } },
+      "title": "You climbed {rank_climb} places! 📈",
+      "body": "{rank_yesterday_ordinal} yesterday, {rank_ordinal} today. Look at you go, {first_name} 🙌",
+      "cta": "leaderboard"
+    },
+    {
+      "id": "rank-slipped",
+      "category": "rank",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "rank_climb": { "lte": -1 }, "uncollected_count": { "gte": 1 } },
+      "title": "You've slipped to {rank_ordinal} 📉",
+      "body": "You were {rank_yesterday_ordinal} yesterday. {uncollected_count} tenants left today. Win it back 💪",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-bottom-half",
+      "category": "rank",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "rank_today": { "gte": 4 }, "top_percent": { "gt": 50 }, "uncollected_count": { "gte": 1 } },
+      "title": "{rank_ordinal} of {active_agents_today} {rank_emoji}",
+      "body": "Other agents are pulling ahead today. You have {uncollected_count} tenants left, and each one moves you up.",
+      "cta": "collect"
+    },
+    {
+      "id": "rank-not-on-board",
+      "category": "rank",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "hour": { "gte": 12 }, "rank_today": { "exists": false }, "active_agents_today": { "gte": 1 }, "due_today_count": { "gte": 1 } },
+      "title": "You're not on today's board yet 😶",
+      "body": "{active_agents_today} agents have collected today. One collection puts you on it, {first_name}.",
+      "cta": "collect"
+    },
+
+    {
+      "id": "streak-on-the-line",
+      "category": "streak",
+      "tone": "nudge",
+      "weight": 4,
+      "when": { "streak_days": { "gte": 2 }, "collected_today_count": { "eq": 0 } },
+      "title": "Your {streak_days}-day streak is on the line 🔥",
+      "body": "Collect at least once today to keep it alive, {first_name}.",
+      "cta": "collect"
+    },
+    {
+      "id": "streak-going",
+      "category": "streak",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "streak_days": { "gte": 3, "lt": 7 }, "collected_today_count": { "gte": 1 } },
+      "title": "{streak_days}-day streak 🔥",
+      "body": "You've collected {streak_days} days in a row. Don't break the chain!"
+    },
+    {
+      "id": "streak-week-plus",
+      "category": "streak",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "streak_days": { "gte": 7 }, "collected_today_count": { "gte": 1 } },
+      "title": "{streak_days} days straight 🏆",
+      "body": "That's what top agents are made of, {first_name}. Keep the fire burning 🔥"
+    },
+
+    {
+      "id": "grow-no-new-tenant",
+      "category": "new_tenant",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "days_since_new_tenant": { "gte": 7 } },
+      "title": "Grow your book, {first_name} 🌱",
+      "body": "It's been {days_since_new_tenant} days since you added a tenant. More tenants means more commission every day 💰",
+      "cta": "add_tenant"
+    },
+    {
+      "id": "grow-added-this-week",
+      "category": "new_tenant",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "new_tenants_7d": { "gte": 1 } },
+      "title": "{new_tenants_7d} new tenants this week 👏",
+      "body": "Your book is growing. Who else on your street needs a Rent Plan? 🏘️",
+      "cta": "add_tenant"
+    },
+    {
+      "id": "grow-small-book",
+      "category": "new_tenant",
+      "tone": "info",
+      "weight": 1,
+      "when": { "tenants_total": { "gte": 1, "lte": 5 } },
+      "title": "Every tenant is daily commission 📅",
+      "body": "You manage {tenants_total} tenants right now. Add a few more and watch your earnings grow 📈",
+      "cta": "add_tenant"
+    },
+    {
+      "id": "grow-after-clearing",
+      "category": "new_tenant",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "uncollected_count": { "eq": 0 }, "collected_today_count": { "gte": 1 }, "hour": { "lt": 18 } },
+      "title": "All collected, now grow 🌱",
+      "body": "Today's board is clear. Use the extra time to sign up a new tenant on a Rent Plan.",
+      "cta": "add_tenant"
+    },
+    {
+      "id": "grow-to-reach-podium",
+      "category": "new_tenant",
+      "tone": "nudge",
+      "weight": 2,
+      "when": { "rank_today": { "gte": 4 }, "tenants_total": { "lte": 10 } },
+      "title": "Want to reach the top 3? 🥉",
+      "body": "Top agents manage more tenants. Add a tenant today and grow your daily collections, {first_name}.",
+      "cta": "add_tenant"
+    },
+    {
+      "id": "grow-first-tenant",
+      "category": "new_tenant",
+      "tone": "info",
+      "weight": 3,
+      "when": { "tenants_total": { "eq": 0 } },
+      "title": "Let's get your first tenant 🎯",
+      "body": "Sign up a tenant on a Rent Plan and start earning commission on every collection, {first_name}.",
+      "cta": "add_tenant"
+    },
+
+    {
+      "id": "win-board-cleared",
+      "category": "celebrate",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "uncollected_count": { "eq": 0 }, "collected_today_count": { "gte": 1 } },
+      "title": "Board cleared! ✅🎉",
+      "body": "You collected for all {collected_today_count} tenants today. Webale nnyo, {first_name} 🙏🏾"
+    },
+    {
+      "id": "win-big-commission-day",
+      "category": "celebrate",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "earned_commission_today": { "gte": 10000 } },
+      "title": "{earned_commission_today} earned today 🤑",
+      "body": "Big day, Boss. Keep it rolling 😎"
+    },
+    {
+      "id": "win-first-collection",
+      "category": "celebrate",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "collected_today_count": { "eq": 1 }, "uncollected_count": { "gte": 1 } },
+      "title": "And you're off! 🏁",
+      "body": "First collection of the day done. {uncollected_count} to go, {first_name}.",
+      "cta": "collect"
+    }
+  ]
+}

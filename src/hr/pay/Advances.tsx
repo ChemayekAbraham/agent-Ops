@@ -1,3 +1,4 @@
+import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -86,7 +87,24 @@ function isActionable(status: string): boolean {
   return status === 'requested' || status === 'hr_approved' || status === 'ceo_approved';
 }
 
-export default function Advances() {
+function EmbeddedShell({ heading, subtitle, children }: { heading: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-foreground">{heading}</h1>
+        {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function AdvancesPanel() {
+  return <Advances embedded />;
+}
+
+export default function Advances({ embedded = false }: { embedded?: boolean } = {}) {
+  const Shell = embedded ? EmbeddedShell : HRPlaceholderPage;
   const [rows, setRows] = useState<AdvanceRow[]>([]);
   const [staff, setStaff] = useState<PayrollStaffOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,7 +298,7 @@ export default function Advances() {
   }
 
   return (
-    <HRPlaceholderPage
+    <Shell
       heading="Salary advances"
       subtitle="Requested by staff or raised by HR, approved by HR then the CEO, paid out by the CFO and recorded here, then recovered automatically from payroll. Recording a disbursement sends no money."
     >
@@ -634,6 +652,6 @@ export default function Advances() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </HRPlaceholderPage>
+    </Shell>
   );
 }

@@ -363,6 +363,7 @@ const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
+const MyTutorialsPage = lazy(() => import('./pages/me/Tutorials'));
 const FoodOrderingPage = lazy(() => import('./pages/me/food/FoodOrderingPage'));
 const MyFoodOrdersPage = lazy(() => import('./pages/me/food/MyFoodOrdersPage'));
 const FoodManagementPage = lazy(() => import('./pages/me/food/FoodManagementPage'));
@@ -487,9 +488,12 @@ function GlobalOnboardingGates() {
 
 function AppRoutes() {
   const location = useLocation();
-  // Financial Ops is added here because a stray pull-to-refresh inside a long
-  // panel (e.g. Merchant Agents) reloads the whole app mid-task.
-  const PTR_DISABLED_PREFIXES = ['/', '/index', '/auth', '/welcome', '/funder-onboarding', '/executive-hub', '/admin/financial-ops', '/landlord-ops'];
+  // Financial Ops and My Space are added here because a stray pull-to-refresh
+  // inside a long panel (e.g. Merchant Agents or Canteen/Food Management) reloads the whole app mid-task.
+  const PTR_DISABLED_PREFIXES = [
+    '/', '/index', '/auth', '/welcome', '/funder-onboarding',
+    '/executive-hub', '/admin/financial-ops', '/landlord-ops', '/me',
+  ];
   const disablePullToRefresh = PTR_DISABLED_PREFIXES.some(
     (p) => location.pathname === p || location.pathname.startsWith(p + '/'),
   );
@@ -771,6 +775,7 @@ function AppRoutes() {
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
           <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
+          <Route path="/me/tutorials" element={<HRSignedInRoute><MyTutorialsPage /></HRSignedInRoute>} />
           {/* Canteen. Food Management is gated inside the page by the
               coordinator assignment, and is deliberately NOT in CFO navigation. */}
           <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />

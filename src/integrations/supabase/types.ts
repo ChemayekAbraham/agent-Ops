@@ -63513,6 +63513,10 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_nudge_stats: {
+        Args: { p_agent_id: string; p_day: string }
+        Returns: Json
+      }
       _agent_products_authorized: { Args: never; Returns: boolean }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
@@ -64593,7 +64597,12 @@ export type Database = {
         }[]
       }
       agent_ops_metrics_listing_quality: {
-        Args: { p_end: string; p_limit?: number; p_offset?: number; p_start: string }
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
         Returns: Json
       }
       agent_ops_metrics_locations: {
@@ -64648,7 +64657,12 @@ export type Database = {
         }[]
       }
       agent_ops_metrics_risk: {
-        Args: { p_end: string; p_limit?: number; p_offset?: number; p_start: string }
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
         Returns: Json
       }
       agent_ops_metrics_totals: {
@@ -70228,6 +70242,7 @@ export type Database = {
         }[]
       }
       get_agent_network_summary: { Args: { p_agent_id: string }; Returns: Json }
+      get_agent_nudge_stats: { Args: never; Returns: Json }
       get_agent_operational_population: {
         Args: { p_as_of?: string; p_from?: string }
         Returns: Json

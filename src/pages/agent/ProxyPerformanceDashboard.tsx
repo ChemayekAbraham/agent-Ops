@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FilePlus2, Share2 } from 'lucide-react';
+import { FilePlus2, Share2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -9,22 +9,26 @@ import { createShortLink } from '@/lib/createShortLink';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProxyPerformanceDashboard, type ProxyRange } from '@/hooks/useProxyPerformanceDashboard';
-import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
-import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
-import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import { lazyNamed } from '@/lib/lazyWithRetry';
+import type { SupportMode } from '@/components/agent/SupportModeChooserDialog';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import {
   ProxyKpiGrid, ProxyTodayCard, ProxyTargetCard, ProxyPerformanceChart, ProxyEarningsSnapshot,
   ProxyRecentNotes, ProxyDashboardSkeleton, SectionError,
 } from '@/components/proxy-dashboard/ProxyDashboardParts';
 import { ProxyHouseOpportunities } from '@/components/proxy-dashboard/ProxyHouseOpportunities';
-import { ProxyHowItWorksDialog } from '@/components/proxy-dashboard/ProxyHowItWorksDialog';
 import { ProxyMobileNav, ProxySidebar, sectionPath, type ProxySection } from '@/components/proxy-dashboard/ProxyWorkspaceNav';
-import { ProxyNotesSection } from '@/components/proxy-dashboard/ProxyNotesSection';
-import { ProxyPartnersSection } from '@/components/proxy-dashboard/ProxyPartnersSection';
-import { ProxyEarningsSection } from '@/components/proxy-dashboard/ProxyEarningsSection';
-import { ProxyInviteSection } from '@/components/proxy-dashboard/ProxyInviteSection';
-import { ProxyReportsSection } from '@/components/proxy-dashboard/ProxyReportsSection';
+
+// Code-split heavy modal dialogs and secondary tabs so the initial dashboard route loads instantly
+const PromissoryNoteDialog = lazyNamed(() => import('@/components/agent/PromissoryNoteDialog'), 'PromissoryNoteDialog');
+const SupportModeChooserDialog = lazyNamed(() => import('@/components/agent/SupportModeChooserDialog'), 'SupportModeChooserDialog');
+const EmptyHouseOpportunitiesSheet = lazyNamed(() => import('@/components/agent/EmptyHouseOpportunitiesSheet'), 'EmptyHouseOpportunitiesSheet');
+const ProxyHowItWorksDialog = lazyNamed(() => import('@/components/proxy-dashboard/ProxyHowItWorksDialog'), 'ProxyHowItWorksDialog');
+const ProxyNotesSection = lazyNamed(() => import('@/components/proxy-dashboard/ProxyNotesSection'), 'ProxyNotesSection');
+const ProxyPartnersSection = lazyNamed(() => import('@/components/proxy-dashboard/ProxyPartnersSection'), 'ProxyPartnersSection');
+const ProxyEarningsSection = lazyNamed(() => import('@/components/proxy-dashboard/ProxyEarningsSection'), 'ProxyEarningsSection');
+const ProxyInviteSection = lazyNamed(() => import('@/components/proxy-dashboard/ProxyInviteSection'), 'ProxyInviteSection');
+const ProxyReportsSection = lazyNamed(() => import('@/components/proxy-dashboard/ProxyReportsSection'), 'ProxyReportsSection');
 
 const SECTIONS: ProxySection[] = ['home', 'notes', 'partners', 'earnings', 'invite', 'reports', 'houses'];
 
@@ -50,36 +54,42 @@ export default function ProxyPerformanceDashboard() {
   const go = (s: ProxySection) => navigate(sectionPath(s));
   const startNote = () => setSupportModeOpen(true);
 
-  // Funder-onboarding invite link (same attributed flow as the Invite tab).
+  // Funder-onboarding invite link (created on-demand when user clicks Share, avoiding network/DB traffic on page mount).
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const inviteStarted = useRef(false);
-  const buildInvite = async () => {
-    if (!user?.id) return;
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const buildInvite = async (): Promise<string | null> => {
+    if (!user?.id) return null;
+    if (inviteUrl) return inviteUrl;
     try {
+      setInviteLoading(true);
       const { data, error } = await supabase.rpc('log_proxy_partner_invite', { p_channel: 'link', p_invitee_name: null, p_invitee_phone: null });
       if (error) throw error;
       const payload = data as unknown as { path: string };
       const long = `${getPublicOrigin()}${payload.path}`;
+      let finalUrl = long;
       try {
         const parsed = new URL(long);
         const params: Record<string, string> = {};
         parsed.searchParams.forEach((v, k) => { params[k] = v; });
-        setInviteUrl(await createShortLink(user.id, parsed.pathname, params));
-      } catch { setInviteUrl(long); }
+        finalUrl = await createShortLink(user.id, parsed.pathname, params);
+      } catch { /* fallback to long url */ }
+      setInviteUrl(finalUrl);
+      return finalUrl;
     } catch {
       toast.error('Could not create your invite link');
+      return null;
+    } finally {
+      setInviteLoading(false);
     }
   };
-  useEffect(() => {
-    if (user?.id && !inviteStarted.current) { inviteStarted.current = true; void buildInvite(); }
-  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shareInvite = async () => {
-    if (!inviteUrl) { void buildInvite(); return; }
-    const message = `Join me in supporting tenants on Welile and earn monthly returns: ${inviteUrl}`;
+    const url = inviteUrl || (await buildInvite());
+    if (!url) return;
+    const message = `Join me in supporting tenants on Welile and earn monthly returns: ${url}`;
     try {
-      if (navigator.share) await navigator.share({ title: 'Join Welile', text: message, url: inviteUrl });
-      else { await navigator.clipboard.writeText(inviteUrl); toast.success('Invite link copied'); }
+      if (navigator.share) await navigator.share({ title: 'Join Welile', text: message, url });
+      else { await navigator.clipboard.writeText(url); toast.success('Invite link copied'); }
     } catch { /* share cancelled */ }
   };
   const startHouseNote = (house: HouseOpportunity) => {
@@ -101,11 +111,38 @@ export default function ProxyPerformanceDashboard() {
           <p className="text-xs text-muted-foreground">{todayLabel}</p>
         </div>
         <div className="flex w-full flex-row items-center gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
-          <Button variant="outline" size="sm" className="hidden h-9 md:inline-flex" onClick={() => setHowOpen(true)}>How it works</Button>
-          <Button variant="outline" size="sm" className="h-9 w-[20%] shrink-0 px-0 sm:w-auto" onClick={shareInvite} aria-label="Share invite link">
-            <Share2 className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden h-9 md:inline-flex"
+            onClick={() => setHowOpen(true)}
+            onPointerEnter={() => void import('@/components/proxy-dashboard/ProxyHowItWorksDialog')}
+          >
+            How it works
           </Button>
-          <Button size="sm" className="h-9 w-[80%] sm:w-auto" onClick={startNote}><FilePlus2 className="mr-1 h-4 w-4" /><span className="md:hidden">Create Note</span><span className="hidden md:inline">Create Promissory Note</span></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-[20%] shrink-0 px-0 sm:w-auto"
+            onClick={shareInvite}
+            disabled={inviteLoading}
+            aria-label="Share invite link"
+          >
+            {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+          </Button>
+          <Button
+            size="sm"
+            className="h-9 w-[80%] sm:w-auto"
+            onClick={startNote}
+            onPointerEnter={() => {
+              void import('@/components/agent/SupportModeChooserDialog');
+              void import('@/components/agent/PromissoryNoteDialog');
+            }}
+          >
+            <FilePlus2 className="mr-1 h-4 w-4" />
+            <span className="md:hidden">Create Note</span>
+            <span className="hidden md:inline">Create Promissory Note</span>
+          </Button>
         </div>
       </div>
 
@@ -139,53 +176,71 @@ export default function ProxyPerformanceDashboard() {
       <main className="min-w-0 flex-1 px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 md:px-6 md:pb-8 md:pt-6">
         <div className="mx-auto w-full max-w-6xl">
           {section === 'home' && home}
-          {section === 'notes' && <ProxyNotesSection agentId={user?.id} summary={d} onCreate={startNote} />}
-          {section === 'partners' && <ProxyPartnersSection agentId={user?.id} onInvite={() => go('invite')} />}
-          {section === 'earnings' && <ProxyEarningsSection userId={user?.id} summary={d} />}
-          {section === 'invite' && <ProxyInviteSection agentId={user?.id} />}
-          {section === 'reports' && <ProxyReportsSection userId={user?.id} />}
-          {section === 'houses' && <ProxyHouseOpportunities onCreateNote={startHouseNote} />}
+          <Suspense fallback={<ProxyDashboardSkeleton />}>
+            {section === 'notes' && <ProxyNotesSection agentId={user?.id} summary={d} onCreate={startNote} />}
+            {section === 'partners' && <ProxyPartnersSection agentId={user?.id} onInvite={() => go('invite')} />}
+            {section === 'earnings' && <ProxyEarningsSection userId={user?.id} summary={d} />}
+            {section === 'invite' && <ProxyInviteSection agentId={user?.id} />}
+            {section === 'reports' && <ProxyReportsSection userId={user?.id} />}
+            {section === 'houses' && <ProxyHouseOpportunities onCreateNote={startHouseNote} />}
+          </Suspense>
         </div>
       </main>
       <ProxyMobileNav active={section} onHowItWorks={() => setHowOpen(true)} />
 
-      <ProxyHowItWorksDialog hideTrigger open={howOpen} onOpenChange={setHowOpen}
-        noteRate={d?.commission.note_rate} initialSupportPct={d?.commission.initial_support_pct} topUpPct={d?.commission.top_up_pct} />
-      <SupportModeChooserDialog
-        open={supportModeOpen}
-        onOpenChange={setSupportModeOpen}
-        onSelect={(mode) => {
-          setSupportMode(mode);
-          setSupportModeOpen(false);
-          if (mode === 'self') setHouseOppsOpen(true);
-          else setNoteOpen(true);
-        }}
-      />
-      <EmptyHouseOpportunitiesSheet
-        open={houseOppsOpen}
-        onOpenChange={(open) => {
-          setHouseOppsOpen(open);
-          if (!open) {
-            qc.invalidateQueries({ queryKey: ['proxy-performance-dashboard'] });
-            qc.invalidateQueries({ queryKey: ['proxy-dash-houses'] });
-          }
-        }}
-      />
-      <PromissoryNoteDialog
-        supportMode={supportMode}
-        open={noteOpen || !!noteHouse}
-        initialHouse={noteHouse}
-        initialAmount={noteHouse?.monthly_rent}
-        onOpenChange={(o) => {
-          if (!o) {
-            setNoteOpen(false);
-            setNoteHouse(null);
-            qc.invalidateQueries({ queryKey: ['proxy-performance-dashboard'] });
-            qc.invalidateQueries({ queryKey: ['proxy-dash-houses'] });
-            qc.invalidateQueries({ queryKey: ['proxy-cc-notes'] });
-          }
-        }}
-      />
+      <Suspense fallback={null}>
+        {howOpen && (
+          <ProxyHowItWorksDialog
+            hideTrigger
+            open={howOpen}
+            onOpenChange={setHowOpen}
+            noteRate={d?.commission.note_rate}
+            initialSupportPct={d?.commission.initial_support_pct}
+            topUpPct={d?.commission.top_up_pct}
+          />
+        )}
+        {supportModeOpen && (
+          <SupportModeChooserDialog
+            open={supportModeOpen}
+            onOpenChange={setSupportModeOpen}
+            onSelect={(mode) => {
+              setSupportMode(mode);
+              setSupportModeOpen(false);
+              if (mode === 'self') setHouseOppsOpen(true);
+              else setNoteOpen(true);
+            }}
+          />
+        )}
+        {houseOppsOpen && (
+          <EmptyHouseOpportunitiesSheet
+            open={houseOppsOpen}
+            onOpenChange={(open) => {
+              setHouseOppsOpen(open);
+              if (!open) {
+                qc.invalidateQueries({ queryKey: ['proxy-performance-dashboard'] });
+                qc.invalidateQueries({ queryKey: ['proxy-dash-houses'] });
+              }
+            }}
+          />
+        )}
+        {(noteOpen || !!noteHouse) && (
+          <PromissoryNoteDialog
+            supportMode={supportMode}
+            open={noteOpen || !!noteHouse}
+            initialHouse={noteHouse}
+            initialAmount={noteHouse?.monthly_rent}
+            onOpenChange={(o) => {
+              if (!o) {
+                setNoteOpen(false);
+                setNoteHouse(null);
+                qc.invalidateQueries({ queryKey: ['proxy-performance-dashboard'] });
+                qc.invalidateQueries({ queryKey: ['proxy-dash-houses'] });
+                qc.invalidateQueries({ queryKey: ['proxy-cc-notes'] });
+              }
+            }}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

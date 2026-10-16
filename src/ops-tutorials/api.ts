@@ -79,6 +79,14 @@ export async function listMyLiveClaimVideoIds(): Promise<string[]> {
   const data = await rows<{ video_id: string }>(db.from('ops_tutorial_claim_lines').select('video_id').is('released_at', null));
   return data.map((r) => r.video_id);
 }
+export async function myReviewProgress(videoId: string): Promise<number> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return 0;
+  const r = await rows<{ max_position_seconds: number }>(db.from('ops_tutorial_view_events').select('max_position_seconds')
+    .eq('video_id', videoId).eq('viewer_id', u.user.id).eq('context', 'review'));
+  return r.reduce((m, x) => Math.max(m, Number(x.max_position_seconds) || 0), 0);
+}
+
 export async function signedUrl(storagePath: string): Promise<string> {
   const { data, error } = await supabase.storage.from('ops-tutorials').createSignedUrl(storagePath, 3600);
   if (error) throw new Error(error.message);

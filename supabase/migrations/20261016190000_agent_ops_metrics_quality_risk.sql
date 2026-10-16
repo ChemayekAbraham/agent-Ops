@@ -31,7 +31,7 @@
 --   inactive_listers  agents who have listed before but listed nothing in the last 30 Kampala days (today and the 29 days before it); not range-bound.
 --   never_listed_subagents  verified sub-agents (agent_subagents.status = 'verified') with no house_listings row at all; not range-bound.
 --   main_agents_by_advance  main agents (verified parents) ranked by the advance outstanding of their team, from _aom_rows(..., 'linked').
--- Rollback: supabase/rollbacks/20261016180000_agent_ops_metrics_quality_risk.rollback.sql
+-- Rollback: supabase/rollbacks/20261016190000_agent_ops_metrics_quality_risk.rollback.sql
 
 CREATE OR REPLACE FUNCTION public.agent_ops_metrics_listing_quality(p_start date, p_end date, p_limit integer DEFAULT 50, p_offset integer DEFAULT 0)
 RETURNS jsonb
