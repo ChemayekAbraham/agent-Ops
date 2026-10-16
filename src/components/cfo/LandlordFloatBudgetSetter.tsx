@@ -22,12 +22,12 @@ function PeriodBudgetForm({ periodType, status }: { periodType: 'daily' | 'weekl
   const [serverRequiresReason, setServerRequiresReason] = useState(false);
   const [error, setError] = useState('');
   const { setBudget } = useLandlordFloatBudgetActions();
-  const numericAmount = Number(amount.replaceAll(',', ''));
+  const numericAmount = Number(amount.replace(/,/g, ''));
   const mismatch = amount.trim() !== '' && (daily
     ? status.weekly.amount !== null && numericAmount > Number(status.weekly.amount)
     : status.daily.amount !== null && numericAmount < Number(status.daily.amount));
   const requiresReason = mismatch || serverRequiresReason;
-  const validAmount = amount.trim() !== '' && /^\d+(?:\.\d{1,2})?$/.test(amount.replaceAll(',', '')) && Number.isFinite(numericAmount) && numericAmount >= 0;
+  const validAmount = amount.trim() !== '' && /^\d+(?:\.\d{1,2})?$/.test(amount.replace(/,/g, '')) && Number.isFinite(numericAmount) && numericAmount >= 0;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
