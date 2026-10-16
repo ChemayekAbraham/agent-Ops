@@ -18,7 +18,7 @@ import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckC
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
-import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
+import { AgentOpsApprovedRequestsPanel, APPROVED_STATUSES } from './AgentOpsApprovedRequestsPanel';
 import { AgentOpsRejectedRequestsPanel } from './AgentOpsRejectedRequestsPanel';
 import { RejectedRequestsQueue } from './RejectedRequestsQueue';
 import { AgentOpsExpiredRequestsPanel } from './AgentOpsExpiredRequestsPanel';
@@ -211,7 +211,7 @@ export function AgentOpsPipelineHub() {
         supabase
           .from('rent_requests')
           .select('id', { count: 'exact', head: true })
-          .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
+          .in('status', APPROVED_STATUSES)
           .neq('status', 'rejected')
           .neq('status', 'cancelled'),
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
