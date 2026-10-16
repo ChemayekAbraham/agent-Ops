@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2, Clock, XCircle,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2, Clock, XCircle, Sparkles, ArrowRight, ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchMyBikeLeases, type BikeLeaseRecord } from '@/hooks/useBikeLeases';
@@ -652,32 +652,111 @@ export default function MerchandiseStore() {
 
         {activeMainTab === 'store' ? (
           <>
-            {/* Order a Welile Smartphone */}
-            <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="p-4 flex items-center gap-3">
-                <img
-                  src={smartphonePromoAsset.url}
-                  alt="Welile Smartphone"
-                  loading="lazy"
-                  className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-tight">Order a Welile Smartphone</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
-                  </p>
+            {/* Redesigned Welile Smartphone Equipment Advance Card */}
+            <div
+              className={cn(
+                'group relative overflow-hidden rounded-2xl border transition-all duration-300',
+                smartphoneRepaying
+                  ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-card to-background shadow-xs'
+                  : 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-background shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer'
+              )}
+              onClick={() => {
+                if (!smartphoneRepaying) setPhoneOpen(true);
+              }}
+            >
+              {/* Decorative radiant ambient glow */}
+              <div
+                className={cn(
+                  'pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full blur-3xl transition-opacity',
+                  smartphoneRepaying ? 'bg-amber-500/15 opacity-60' : 'bg-primary/20 opacity-70 group-hover:opacity-100'
+                )}
+              />
+              <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+
+              <div className="relative p-4 sm:p-5 space-y-3.5">
+                {/* Top badges bar */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <Sparkles className="h-3 w-3 text-primary animate-pulse" />
+                    <span>Agent Equipment Advance</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <ShieldCheck className="h-3 w-3 text-emerald-500" />
+                    0% Cash Down
+                  </span>
                 </div>
-                <Button
-                  size="sm"
-                  className="h-8 text-xs gap-1 shrink-0"
-                  disabled={smartphoneRepaying}
-                  title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
-                  onClick={() => setPhoneOpen(true)}
-                >
-                  {smartphoneRepaying ? 'In repayment' : 'Order'}
-                </Button>
-              </CardContent>
-            </Card>
+
+                {/* Hero Showcase: Media + Details */}
+                <div className="flex items-start gap-3.5 sm:gap-4">
+                  {/* Smartphone Image Showcase */}
+                  <div className="relative shrink-0">
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl overflow-hidden border border-primary/25 bg-background shadow-md shadow-primary/5 flex items-center justify-center p-0.5">
+                      <img
+                        src={smartphonePromoAsset.url}
+                        alt="Welile Smartphone"
+                        loading="lazy"
+                        className="h-full w-full object-cover rounded-[14px] transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-background/95 backdrop-blur rounded-full p-1 border border-border shadow-xs">
+                      <Smartphone className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                  </div>
+
+                  {/* Info Column */}
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h3 className="text-base font-bold text-foreground leading-tight tracking-tight flex items-center gap-1.5">
+                      Welile Smartphone
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Upgrade your field operations with a company-issued smartphone on credit. Automatic wallet deductions with zero cash deposit.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Value Propositions / Key Features */}
+                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
+                    <Smartphone className="h-3 w-3 text-primary shrink-0" />
+                    <span className="truncate">iOS & Android</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
+                    <Wallet className="h-3 w-3 text-primary shrink-0" />
+                    <span className="truncate">Pay via Wallet</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
+                    <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />
+                    <span className="truncate">0% Upfront</span>
+                  </div>
+                </div>
+
+                {/* Bottom CTA / Status */}
+                {smartphoneRepaying ? (
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300">
+                    <div className="flex items-center gap-2 font-medium">
+                      <Clock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <span>Active smartphone advance in repayment</span>
+                    </div>
+                    <Badge variant="outline" className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider shrink-0">
+                      In Repayment
+                    </Badge>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    className="w-full h-10 font-bold text-xs gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 transition-all cursor-pointer group/btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhoneOpen(true);
+                    }}
+                  >
+                    <Smartphone className="h-4 w-4" />
+                    <span>Order Welile Smartphone</span>
+                    <ArrowRight className="h-4 w-4 ml-auto transition-transform group-hover/btn:translate-x-0.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
 
             {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
             <Card className="border-primary/30 bg-primary/5">
