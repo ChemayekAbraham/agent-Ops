@@ -57,19 +57,18 @@ function tenantMessage(rows: ArrearsRow[]): string {
   const worst = Math.max(...rows.map((r) => Number(r.days_behind || 0)));
   const plans = rows.length > 1 ? `${rows.length} Rent Plans are` : "Your Rent Plan is";
   return `Welile: ${plans} behind by ${ugx(total)} (${worst} day${worst === 1 ? "" : "s"}). ` +
-    `Please pay today from your Welile wallet or through your agent. ` +
-    `Staying behind lowers your Welile Trust Score and your future rent limit.`;
+    `Pay today to protect your Trust Score and rent limit.`;
 }
 
 function agentMessage(rows: ArrearsRow[], nameOf: (id: string | null) => string): string {
   const total = rows.reduce((s, r) => s + Number(r.arrears_ugx || 0), 0);
   const worst = rows.reduce((a, b) => (Number(a.days_behind) >= Number(b.days_behind) ? a : b));
   if (rows.length === 1) {
-    return `Welile: ${nameOf(worst.tenant_id)} is ${worst.days_behind} days behind on their Rent Plan, ` +
-      `${ugx(total)} outstanding. Please collect today and record the payment.`;
+    return `Welile: ${nameOf(worst.tenant_id)} is ${worst.days_behind} days behind, ` +
+      `${ugx(total)} due. Collect and record payment today.`;
   }
-  return `Welile: ${rows.length} of your tenants are 3+ days behind, ${ugx(total)} outstanding. ` +
-    `Worst is ${nameOf(worst.tenant_id)} at ${worst.days_behind} days. Please collect and record today.`;
+  return `Welile: ${rows.length} tenants 3+ days behind, ${ugx(total)} due. ` +
+    `Worst: ${nameOf(worst.tenant_id)}, ${worst.days_behind} days. Collect today.`;
 }
 
 Deno.serve(async (req) => {

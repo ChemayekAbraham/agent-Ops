@@ -1,16 +1,14 @@
 # Tasks
+- [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
+- [x] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
+- [x] Run budget UI tests, project guards and desktop/phone checks; no live budget amounts saved.
+- [ ] Set today's and this week's landlord float budgets — waiting for the designated CFO to enter the approved amounts.
+- [x] Make CRM Broadcast visible; tests and guards pass.
+- [ ] Verify Broadcast publishing and acknowledgement end to end — blocked: the signed-in preview account lacks CRM publishing permission.
+- [x] Add protected CRM communications publishing, scheduling, versioning and audience checks; live RLS and revoked direct-write/TRUNCATE privileges verified.
+- [x] Add CRM editor/preview and shared recipient dialogs with cross-device acknowledgement; 25 tests, phone/desktop preview, mandatory-dialog queue and guards pass.
+- [ ] Verify CRM publish → recipient acknowledgement → cross-device readback with authorised accounts — blocked: injected account has neither CRM nor super-admin; own-account session mint failed. No messages published or money moved.
 - [x] Make the R&D weekly report editable using shared recorded updates; signed-in add/edit/reload and PDF download verified, ten R&D tests and all guards pass.
-- [x] Refine agents-mock: compact white layout, one font, concise request action, real tenant profiles and repayment percentages, compact calendar; signed-in desktop/phone, filters and tenant-detail opening verified; guards passed and no page errors.
-- [x] Redesign agents-mock with Post Rent Request first, period toggle, plain tenant phone numbers, counts and a clearer calendar; signed-in toggle/calendar/request-form navigation verified, no page errors or phone overflow; all guards passed.
-- [ ] Historical missed-tenant details and ten-record server fetching for agents-mock — blocked on a verified read-only historical detail contract; current view pages existing records locally and does not invent missing historical details.
-- [x] Remove the "Collected today" / "Still to collect" tiles from the agents-mock rent card; card now shows only the ring, rent due and tenant count — checked in the browser (both tile labels gone, no page errors), build clean.
-- [x] Swap the Transactions shortcut on agents-mock for Leaderboard that opens /dashboard/agents/leaderboard; click checked in the browser (real rankings load), build clean.
-- [x] Swap the Sub-Agents shortcut on agents-mock for Service Center that opens /agent/service-center; click checked in the browser (lands on the real Service Center page), build clean.
-- [x] Show "Today's Capacity" (collected of expected today, progress, tenants completed) in place of Today's Collections on agents-mock; card text, progress value and phone layout checked in the browser, build clean.
-- [x] Remove the Deposit/Withdraw/Transfer row from agents-mock; shortcuts, collections, calendar and bottom nav checked in the browser, balances hide/show correctly, no side scroll, build clean.
-- [x] Match agents-mock to the latest screenshot, including wallet, shortcuts, empty collections and calendar; wallet visibility, calendar navigation, safe action dialogs and phone-width overflow checked; build clean.
-- [x] Restyle agents-mock using the latest compact reference: purple collection card, earnings inside rent-request CTA, compact tenant rows and slim bottom navigation; browser verified 10/20/24 sample loading, buttons, filtering and phone layout without page errors.
-- [x] Create and verify design-only /dashboard/agents-mock with ten-at-a-time sample tenants; existing agent dashboard and payment rules unchanged. Browser checked loading 10/20/24, detail, post preview and mobile filtering; build clean.
 - [x] Diagnose and fix Service Centre tenant-request Claim failures; four tests pass and signed-in location/server errors verified without claiming real requests or moving money.
 - [x] Update Landlord Ops principal recovery with disbursed-float comparison, three KPIs, fee breakdown dialog and table; verified signed-in live figures, Today/All time, dialog, phone-width graph, guards and three accounting tests; no money moved.
 - [x] Add and verify repayment progress and today's expected-versus-collected rent in the selected Agent Ops product profile; checked Joel's live figures and charts without moving money.
@@ -38,3 +36,7 @@
 - [x] Agent dashboard preview: removed the "Today's Capacity" card and its now-unused figures/styles; the purple "Today's rent" card, shortcuts, "Collections due today" and calendar remain. Verified signed-in, no overflow, build OK.
 
 - [x] Replace the selected supporter agreement with the approved partner contract; isolated browser review and PDF download target verified, guards and build clean; signed-in dashboard check unavailable because requester has no matching auth account. No acceptance or money movement.
+
+- [x] CFO Approved Rent Requests: Approved tab lists every CFO approval all time; Paid only after Financial Operations payout.
+- [x] Usage report amount matching: popup + CFO review + server rules live; matching rule tests pass. Not yet clicked through signed-in.
+- [x] CFO Approved Rent Requests: date filters (Today etc.) use the CFO approval time; Approved column shows CFO approval time.

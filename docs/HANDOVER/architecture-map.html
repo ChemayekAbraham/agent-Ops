@@ -1609,6 +1609,7 @@
               <li><strong>IFTTT:</strong> Forwards the telco payment SMS into that inbox. If IFTTT stops, deposits stop matching.</li>
               <li><strong>MTN MoMo / Airtel Money:</strong> Tills and merchant accounts. There is <strong>no API or webhook integration</strong>; payouts are made by people and evidenced back into the system.</li>
               <li><strong>Yoola SMS:</strong> Primary Ugandan OTP gateway (never force the "WELILE" sender ID)</li>
+              <li><strong>SMS length:</strong> every SMS must fit one 160-char segment (Yoola bills per segment). Central footer <code>Help: phone</code> is always added; the <code>Join Welile</code> line only if it still fits (doc 238).</li>
               <li><strong>Africa's Talking:</strong> Secondary SMS failover</li>
               <li><strong>Resend:</strong> Transactional email</li>
             </ul>
@@ -2081,6 +2082,12 @@ Transaction Groups: 297,457
               <strong>maintenance_mode:</strong> UI lock screen + 32 edge functions. Does <strong>not</strong> block DB writes, crons or other edge functions.<br/>
               <strong>advance_withdrawals_paused = true:</strong> Load-bearing. Deducts advance obligations from available balances.<br/>
               <strong>landlord_payouts_blocked = true:</strong> Set 2026-09-25. First thing to check for "landlord not paid".
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Landlord float budget cap (doc 239, branch <code>dev/landlord-float-cap</code>, migration not yet applied)</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              The CFO sets a daily and weekly landlord float budget (<code>landlord_float_budgets</code>). The COO step (<code>partner_ops_approved → coo_approved</code>) only passes through <code>coo_approve_rent_requests</code>, inside the room left; a trigger refuses direct writes. With no budget for today, COO approvals stop. Over-cap requests need a CFO-approved miscellaneous ask. A CFO reject returns the request to the COO. Budget control only: no ledger postings.
             </p>
           </div>
           <div class="detail-card">

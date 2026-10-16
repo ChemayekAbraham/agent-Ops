@@ -87,10 +87,10 @@ Deno.serve(async (req) => {
     let sent = false;
     if (phone) {
       const msg =
-        `Hi ${name}, you are unblocked. ` +
-        `Today you collected UGX ${formatUGX(paid_today)} of UGX ${formatUGX(expected_daily)} ` +
-        `(${Math.round(ratio_pct)}%) across ${active_count} active rents. ` +
-        `You can now post new rent requests. — Welile`;
+        `You are unblocked. ` +
+        `Collected UGX ${formatUGX(paid_today)} of UGX ${formatUGX(expected_daily)} ` +
+        `(${Math.round(ratio_pct)}%) today. ` +
+        `You can post new rent requests.`;
       sent = await sendSMS(phone, msg);
     } else {
       console.warn(`[notify-agent-unblocked] Agent ${agent_id} has no phone`);

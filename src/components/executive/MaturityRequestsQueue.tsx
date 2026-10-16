@@ -194,6 +194,17 @@ export function MaturityRequestsQueue() {
         return;
       }
       const mode = (data as any)?.mode;
+      if (mode === 'awaiting_final_payout') {
+        toast({
+          title: 'Renewal waiting for final Returns',
+          description: `${req.portfolio_code} — will renew automatically once the final Returns payout${
+            (data as any)?.cycle_date ? ` (${format(new Date((data as any).cycle_date), 'd MMM yyyy')})` : ''
+          } is approved.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['maturity-requests-queue'] });
+        queryClient.invalidateQueries({ queryKey: ['scheduled-portfolio-renewals'] });
+        return;
+      }
       toast({
         title: mode === 'renewed_now' ? 'Portfolio renewed' : 'Renewal scheduled',
         description:

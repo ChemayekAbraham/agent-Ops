@@ -3870,9 +3870,9 @@ Deno.serve(async (req) => {
             const customerName = (profile?.full_name || "the customer").toString().trim();
             const merchantTid = reference.trim().toUpperCase();
             const commMsg =
-              `WELILE: Payout Completed. You have successfully paid UGX ${amount.toLocaleString()} to ${customerName}.\n` +
-              `Commission Earned: UGX ${cashoutCommission.toLocaleString()} (0.5%), added to your withdrawable wallet.\n` +
-              `Transaction ID: ${merchantTid}\n` +
+              `WELILE: Paid UGX ${amount.toLocaleString()} to ${customerName}. ` +
+              `Commission UGX ${cashoutCommission.toLocaleString()} added to your wallet.\n` +
+              `TID ${merchantTid}\n` +
               `Receipt: ${receiptUrl}`;
             sendSMS(agentProfile.phone, commMsg, {
               admin,
@@ -4027,21 +4027,20 @@ Deno.serve(async (req) => {
       const customerFirstName = (profile?.full_name || "").toString().trim().split(/\s+/)[0] || "Customer";
       const walletBalanceLine =
         newBalance !== null
-          ? `\nNew Wallet Balance: UGX ${Math.round(newBalance).toLocaleString()}`
+          ? ` Balance UGX ${Math.round(newBalance).toLocaleString()}.`
           : "";
+      void paidAtLabel;
+      void customerFirstName;
       void balanceLine;
       void bankLine;
       void merchantLine;
       // Customer-facing SMS: no merchant agent name, phone or ID.
       const smsMsg =
-        `WELILE: Payment Received.\n` +
-        `Dear ${customerFirstName}, your payout of UGX ${amount.toLocaleString()} has been confirmed and delivered successfully.\n` +
-        `Transaction ID: ${refUpper}` +
-        `${recipientLine}` +
-        `\nDate: ${paidAtLabel}` +
+        `WELILE: Payout of UGX ${amount.toLocaleString()} delivered. ` +
+        `Ref ${refUpper}` +
+        `${recipientLine ? `, to ${recipientName}` : ""}.` +
         `${walletBalanceLine}` +
-        `\n\nYour digital receipt (no sign-in required):\n${receiptUrl}` +
-        `\n\nThank you for using Welile.`;
+        `\nReceipt: ${receiptUrl}`;
 
       // In-app notification center entry so the user sees the approval update
       // (amount + remaining wallet balance) without relying on SMS. Merchant

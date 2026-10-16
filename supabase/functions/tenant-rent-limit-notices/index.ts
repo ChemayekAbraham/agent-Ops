@@ -25,7 +25,7 @@ import {
   formatUGX,
   loadEvent,
   loadTenantStatusAppendices,
-  renderTemplate,
+  renderSmsTemplate,
 } from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
               old_limit: row.old_total_limit,
               new_limit: row.new_total_limit,
               delta: row.delta,
-              message: renderTemplate(event.body_template, vars),
+              message: renderSmsTemplate(event.body_template, vars),
             });
           }
           continue;
@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
 
         if (dryRun) {
           if (preview.length < 10) {
-            preview.push({ tenant_id: row.tenant_id, message: renderTemplate(event.body_template, vars) });
+            preview.push({ tenant_id: row.tenant_id, message: renderSmsTemplate(event.body_template, vars) });
           }
           continue;
         }

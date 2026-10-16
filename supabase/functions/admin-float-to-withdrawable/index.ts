@@ -332,8 +332,8 @@ Deno.serve(async (req) => {
 
       if (smsGate.has_tenant && smsGate.has_repayment && targetProfile?.phone) {
         const smsMsg =
-          `WELILE: UGX ${amount.toLocaleString()} of your float is now withdrawable. ` +
-          `Withdrawable balance: UGX ${withdrawableAfter.toLocaleString()}. Ref: ${refId}.`;
+          `UGX ${amount.toLocaleString()} of your float is now withdrawable. ` +
+          `Withdrawable balance: UGX ${withdrawableAfter.toLocaleString()}. Ref: ${refId}`;
         // Awaited on purpose: a fire-and-forget promise dies with the isolate.
         smsGate.sent = await sendSMS(targetProfile.phone, smsMsg, {
           admin: adminClient,

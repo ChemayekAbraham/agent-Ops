@@ -16,12 +16,14 @@
 // readable by someone who could not already see their own.
 
 import { Suspense } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { useAuth, type AppRole } from '@/hooks/useAuth';
 import AddRoleDialog from '@/components/AddRoleDialog';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { DashboardErrorBoundary } from '@/components/dashboards/DashboardErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
+import { roleToSlug } from '@/lib/roleRoutes';
 
 const SupporterDashboardBackup = lazyWithRetry(
   () => import('@/components/dashboards/SupporterDashboard.backup'),
@@ -29,6 +31,13 @@ const SupporterDashboardBackup = lazyWithRetry(
 
 export default function FunderDashboardBackup() {
   const { user, roles, role, loading, signOut, switchRole, addRole } = useAuth();
+  const navigate = useNavigate();
+
+  const handleRoleChange = (newRole: AppRole) => {
+    switchRole(newRole);
+    const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+    navigate(targetRoute);
+  };
 
   if (loading) return <ScreenLoader label="Loading backup…" />;
   if (!user) return <Navigate to="/auth" replace />;
@@ -56,7 +65,7 @@ export default function FunderDashboardBackup() {
           signOut={signOut}
           currentRole={role ?? 'supporter'}
           availableRoles={roles}
-          onRoleChange={switchRole}
+          onRoleChange={handleRoleChange}
           addRoleComponent={<AddRoleDialog availableRoles={roles} onAddRole={addRole} />}
         />
       </DashboardErrorBoundary>

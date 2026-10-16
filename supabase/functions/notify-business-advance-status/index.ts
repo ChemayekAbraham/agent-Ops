@@ -50,6 +50,32 @@ function copyForStatus(status: Status, businessName: string, principalUgx: numbe
   }
 }
 
+// SMS-only copy: ASCII, one 160-char segment together with the track link
+// (~72 chars) and the central support footer. Push/email keep copyForStatus.
+function smsTextForStatus(status: Status, principalUgx: number, rejectionReason?: string | null): string {
+  const amt = `UGX ${Math.round(principalUgx).toLocaleString()}`;
+  switch (status) {
+    case "pending":
+      return `Business Advance ${amt} submitted, in review.`;
+    case "agent_ops_approved":
+      return "Business Advance step 1/5 done. Tenant Ops reviewing.";
+    case "tenant_ops_approved":
+      return "Business Advance step 2/5 done. Landlord Ops verifying.";
+    case "landlord_ops_approved":
+      return "Business Advance step 3/5 done. Awaiting COO sign-off.";
+    case "coo_approved":
+      return `Business Advance step 4/5 done. CFO to disburse ${amt}.`;
+    case "active":
+      return `Business Advance ${amt} disbursed to you.`;
+    case "rejected": {
+      const r = rejectionReason?.trim().slice(0, 32);
+      return r ? `Advance not approved: ${r}. Ask your agent.` : "Advance not approved. Ask your agent to re-apply.";
+    }
+    case "completed":
+      return "Business Advance fully repaid. Higher limit unlocked.";
+  }
+}
+
 function formatPhone(phone: string): string {
   const d = phone.replace(/[^0-9]/g, "");
   if (d.startsWith("256")) return `+${d}`;
@@ -246,7 +272,7 @@ Deno.serve(async (req) => {
     let smsResult: { ok: boolean; status: number; raw?: string } | null = null;
     const smsOptIn = (tenant as any)?.business_advance_notify_sms !== false;
     if (tenant?.phone && smsOptIn) {
-      const text = `${copy.title}\n${copy.body}\nTrack: ${trackUrl}`;
+      const text = `${smsTextForStatus(new_status, Number(adv.principal), adv.rejection_reason)}\n${trackUrl}`;
       smsResult = await sendSMS(tenant.phone, text);
       console.log("[notify-business-advance-status] SMS result", smsResult);
       await logAttempt({

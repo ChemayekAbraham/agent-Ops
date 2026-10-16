@@ -60,11 +60,11 @@ function buildSms(row: {
 
   switch (row.kind) {
     case "tenant_placed":
-      return `WELILE: ${first}, a tenant has moved into ${house}${where}. Welile now collects the rent and your Returns follow as the tenant pays. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, tenant placed in ${house}${where}. Returns follow as rent is paid. ${DASHBOARD_URL}`;
     case "earning_started":
-      return `WELILE: ${first}, your Returns have started. You now earn about ${ugx(row.monthly_return)} a month, paid into your Welile wallet. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, your Returns started: about ${ugx(row.monthly_return)}/month to your wallet. ${DASHBOARD_URL}`;
     default:
-      return `WELILE: ${first}, ${row.agent_name || "a Welile agent"} is now assigned to ${house}${where} and is placing a tenant within 7 days. ${DASHBOARD_URL}`;
+      return `WELILE: ${first}, ${row.agent_name || "an agent"} assigned to ${house}${where}; tenant within 7 days. ${DASHBOARD_URL}`;
   }
 }
 

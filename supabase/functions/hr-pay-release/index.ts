@@ -442,9 +442,8 @@ Deno.serve(async (req) => {
           const firstName =
             (prof?.full_name ?? '').toString().trim().split(/\s+/)[0] || 'Team Member';
           const smsMsg =
-            `Dear ${firstName}, your salary for ${periodCode} has been processed and credited to your wallet. ` +
-            `Log in to view your balance and payslip. For any questions, contact the Finance Department. ` +
-            `- Welile Finance Department`;
+            `Welile Finance: ${firstName}, your ${periodCode} salary is credited to your wallet. ` +
+            `Log in to view balance and payslip.`;
           const sent = await sendSMS(phone, smsMsg, {
             recipientUserId: employeeUserId,
             recipientName: (prof?.full_name ?? null) as string | null,

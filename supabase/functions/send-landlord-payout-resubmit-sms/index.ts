@@ -22,12 +22,11 @@ function json(body: unknown, status = 200) {
 }
 
 const CLOSED =
-  "Welile: Your landlord payout request for {who} was closed by mistake and cannot be reopened. " +
-  "Please open Landlord Ops and submit the withdrawal again now so a merchant agent can pay it. " +
-  "Your float was not deducted.";
+  "Welile: Landlord payout for {who} was closed by mistake. " +
+  "Submit the withdrawal again in Landlord Ops. Float not deducted.";
 const APPROVED =
-  "Welile: Your landlord payout for {who} is approved to be paid by a merchant agent. " +
-  "Please open Landlord Ops and submit the withdrawal now.";
+  "Welile: Landlord payout for {who} is approved. " +
+  "Submit the withdrawal in Landlord Ops.";
 
 const RECIPIENTS: { agent_id: string; name: string; template: string; who: string }[] = [
   { agent_id: "5295252d-f477-42a9-92f5-af56e503e33d", name: "Janehephzibar Gimono", template: CLOSED, who: "Kulubya Simon (UGX 270,000)" },

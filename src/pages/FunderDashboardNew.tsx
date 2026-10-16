@@ -7,6 +7,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import { UserAvatar } from '@/components/UserAvatar';
 import { NotificationBell } from '@/components/supporter/NotificationBell';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,8 @@ export default function FunderDashboardNew() {
   const handleRoleSwitch = (newRole: AppRole) => {
     if (!roles.includes(newRole)) return;
     switchRole(newRole);
-    navigate(roleToSlug(newRole), { replace: true });
+    const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+    navigate(targetRoute, { replace: true });
   };
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();

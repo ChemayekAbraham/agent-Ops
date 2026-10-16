@@ -25,6 +25,7 @@ import {
   Download,
 } from 'lucide-react';
 
+import { BikeLeaseSupplierAssign } from './BikeLeaseSupplierAssign';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -124,7 +125,7 @@ export function BikeLeaseDetailDialog({
       }
     },
     className: cn(
-      'rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden cursor-pointer transition-all hover:bg-muted/60 hover:border-primary/40 hover:shadow-sm',
+      'rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden cursor-pointer transition-all hover:bg-muted/60 hover:border-primary/40 hover:shadow-sm',
       drill === key && 'border-primary/60 bg-muted/60',
     ),
   });
@@ -395,6 +396,11 @@ export function BikeLeaseDetailDialog({
   const isAwaitingCoo = order.order_status === 'ops_approved';
   const isAwaitingCfo = order.order_status === 'coo_approved';
   const isOpen = isPending || isAwaitingCoo || isAwaitingCfo;
+  const isApprovedLease =
+    order.order_status === 'approved' ||
+    order.order_status === 'completed' ||
+    !!order.cfo_disbursed_at ||
+    !!order.lease_activated_at;
 
   const canAct =
     stage === 'ops'
@@ -420,7 +426,7 @@ export function BikeLeaseDetailDialog({
           'pointer-events-auto',
           'sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!right-auto',
           'sm:!translate-x-[-50%] sm:!translate-y-[-50%]',
-          'sm:!max-w-lg sm:!w-full',
+          'sm:!max-w-2xl md:!max-w-3xl sm:!w-full',
           'sm:!rounded-2xl',
           'sm:h-auto sm:max-h-[90dvh]'
         )}
@@ -493,8 +499,8 @@ export function BikeLeaseDetailDialog({
             {/* Key KPI grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div {...cardProps('subagents')}>
-                <p className="text-[10px] font-medium text-muted-foreground truncate">Active Sub-Agents</p>
-                <p className="text-xs sm:text-sm font-bold text-indigo-600 truncate flex items-center gap-1">
+                <p className="text-[10px] font-medium text-muted-foreground leading-tight whitespace-nowrap">Active Sub-Agents</p>
+                <p className="text-xs sm:text-sm font-bold text-indigo-600 flex items-center gap-1 tabular-nums whitespace-nowrap">
                   {subAgentsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
@@ -509,8 +515,8 @@ export function BikeLeaseDetailDialog({
               </div>
 
               <div {...cardProps('tenants')}>
-                <p className="text-[10px] font-medium text-muted-foreground truncate">Active Tenants</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                <p className="text-[10px] font-medium text-muted-foreground leading-tight whitespace-nowrap">Active Tenants</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums">
                   {tenantsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
@@ -519,9 +525,9 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[10px] font-medium text-muted-foreground truncate">Agent Rank</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground leading-tight whitespace-nowrap">Agent Rank</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums">
                   {metricsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
@@ -531,8 +537,11 @@ export function BikeLeaseDetailDialog({
               </div>
 
               <div {...cardProps('collections')}>
-                <p className="text-[10px] font-medium text-muted-foreground truncate">30d Collections</p>
-                <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
+                <p className="text-[10px] font-medium text-muted-foreground leading-tight whitespace-nowrap">30d Collections</p>
+                <p
+                  className="text-xs sm:text-sm font-bold text-emerald-600 tabular-nums tracking-tight whitespace-nowrap"
+                  title={formatUGX(applicantMetrics?.collected_30d ?? 0)}
+                >
                   {metricsLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
@@ -706,65 +715,74 @@ export function BikeLeaseDetailDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Bike Model</p>
                 <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                   {order.model_type || 'Spiro bike'}
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">
                   {isOps ? 'Bike Cost Price' : 'Valuation Amount'}
                 </p>
-                <p className="text-xs sm:text-sm font-bold text-primary truncate">
+                <p className="text-xs sm:text-sm font-bold text-primary tabular-nums tracking-tight truncate">
                   {formatUGX(valuationNum)}
                 </p>
               </div>
 
               {isOps && (
-                <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                   <p className="text-[11px] font-medium text-muted-foreground truncate">Avg. Daily Pay</p>
-                  <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">
                     {formatUGX(dailyPay)}/day
                   </p>
                 </div>
               )}
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Lease Term</p>
                 <p className="text-xs sm:text-sm font-bold text-foreground truncate">{termNum} Months</p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Avg. Monthly Pay</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">{formatUGX(monthly)}/mo</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">{formatUGX(monthly)}/mo</p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Total Access Fee</p>
-                <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
+                <p className="text-xs sm:text-sm font-bold text-primary tabular-nums tracking-tight truncate">{feePct}%</p>
               </div>
 
-              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate">Our Profit</p>
-                <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate">
+                <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular-nums tracking-tight truncate">
                   {profit == null ? 'Not in catalog' : formatUGX(profit)}
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Amount Paid</p>
-                <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">{formatUGX(paid)}</p>
+                <p className="text-xs sm:text-sm font-bold text-emerald-600 tabular-nums tracking-tight truncate">{formatUGX(paid)}</p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Outstanding</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">{formatUGX(outstanding)}</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">{formatUGX(outstanding)}</p>
               </div>
             </div>
           </div>
+
+          {/* COMPANY SUPPLIER (Approved leases are historical and never prompted for a supplier; Ops assigns for pending; CFO views locked; COO omitted) */}
+          {isApprovedLease ? (
+            <BikeLeaseSupplierAssign saleId={order.id} locked isApproved />
+          ) : isOps ? (
+            <BikeLeaseSupplierAssign saleId={order.id} />
+          ) : stage === 'cfo' ? (
+            <BikeLeaseSupplierAssign saleId={order.id} locked />
+          ) : null}
 
           {/* SECTION 2: REPAYMENT BREAKDOWN */}
           <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs overflow-hidden">
@@ -782,28 +800,28 @@ export function BikeLeaseDetailDialog({
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Total charge</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">
                   {formatUGX(schedule.accessFee)}
                 </p>
               </div>
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Total repayable</p>
-                <p className="text-xs sm:text-sm font-bold text-primary truncate">
+                <p className="text-xs sm:text-sm font-bold text-primary tabular-nums tracking-tight truncate">
                   {formatUGX(schedule.total)}
                 </p>
               </div>
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">First → last month</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">
                   {formatUGX(schedule.firstMonthly)} → {formatUGX(schedule.lastMonthly)}
                 </p>
               </div>
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div className="rounded-lg border bg-muted/30 p-2 sm:p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">First → last daily</p>
-                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                <p className="text-xs sm:text-sm font-bold text-foreground tabular-nums tracking-tight truncate">
                   {formatUGX(schedule.firstDaily)} → {formatUGX(schedule.lastDaily)}
                 </p>
               </div>

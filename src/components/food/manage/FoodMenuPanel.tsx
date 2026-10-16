@@ -16,7 +16,7 @@ import {
 import {
   useFoodMeals, useFoodCategories, useFoodServicePeriods, useFoodMenu,
   useUpsertFoodMeal, useSetFoodMealStatus, useScheduleFoodMeal, useSetFoodSoldOut,
-  useUpsertFoodCategory, useArchiveFoodCategory, useSetFoodMealPhoto, formatUgx, foodToday,
+  useUpsertFoodCategory, useArchiveFoodCategory, useSetFoodMealPhoto, useSetFoodMealDaily, formatUgx, foodToday,
   type FoodMeal,
 } from '@/hooks/useFoodService';
 import { FOOD_MEAL_IMAGE_TYPES, foodMealImageProblem } from '@/lib/foodService';
@@ -58,6 +58,7 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
   const { data: menu } = menuQ;
 
   const upsertMeal = useUpsertFoodMeal();
+  const setDaily = useSetFoodMealDaily();
   const setStatus = useSetFoodMealStatus();
   const schedule = useScheduleFoodMeal();
   const setSoldOut = useSetFoodSoldOut();
@@ -193,6 +194,18 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium">{m.name}</p>
                     <Badge variant="outline" className={STATUS_TONE[m.status]}>{m.status}</Badge>
+                    {m.status !== 'archived' && (
+                      <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 accent-primary"
+                          checked={Boolean((m as { is_daily?: boolean }).is_daily)}
+                          disabled={!canAuthor || setDaily.isPending}
+                          onChange={(e) => setDaily.mutate({ mealId: m.id, daily: e.target.checked })}
+                        />
+                        Daily meal
+                      </label>
+                    )}
                   </div>
                   {m.description && (
                     <p className="truncate text-xs text-muted-foreground">{m.description}</p>
@@ -212,24 +225,8 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
                   {m.status !== 'published' && m.status !== 'archived' && (
                     <Button
                       size="sm" variant="outline" disabled={!canAuthor}
-                      onClick={() => setStatus.mutate(
-                        { mealId: m.id, status: 'published' },
-                        {
-                          // Publishing alone never reaches staff: only meals on a
-                          // meal time for the day are shown. With a single active
-                          // meal time, put the meal straight onto today's menu.
-                          onSuccess: () => {
-                            const active = (periods ?? []).filter((p) => (p as { active?: boolean }).active !== false);
-                            const onToday = todaysItems.some((i) => (i as { meal_id?: string }).meal_id === m.id);
-                            if (active.length === 1 && !onToday) {
-                              schedule.mutate({
-                                serviceDate: foodToday(), periodId: active[0].id, mealId: m.id,
-                                servingsTotal: null, priceUgx: null, publish: true,
-                              });
-                            }
-                          },
-                        },
-                      )}
+                      // The server puts a published meal straight onto today's menu.
+                      onClick={() => setStatus.mutate({ mealId: m.id, status: 'published' })}
                     >
                       Publish
                     </Button>

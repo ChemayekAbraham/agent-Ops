@@ -66,8 +66,8 @@ Deno.serve(async (req) => {
       if (claimErr) { skipped++; continue; }
       const who = agentName.get(l.lender_agent_id) || "your Welile agent";
       const msg = kind === "due_today"
-        ? `Welile: Your payment of ${ugx(amount)} to ${who} is due TODAY. Keep it in your Welile wallet or pay at welileapp.com/repay to stay on time.`
-        : `Welile: Reminder - your payment of ${ugx(amount)} to ${who} is due TOMORROW. Keep it in your Welile wallet or pay at welileapp.com/repay.`;
+        ? `Welile: ${ugx(amount)} to ${who} is due TODAY. Keep it in your wallet or pay at welileapp.com/repay.`
+        : `Welile: ${ugx(amount)} to ${who} is due TOMORROW. Keep it in your wallet or pay at welileapp.com/repay.`;
       const r = await sendSms(l.borrower_phone, msg);
       await admin.from("lending_payment_reminders").update({ sent: r.ok, provider_reason: r.reason ?? null })
         .eq("loan_id", l.id).eq("due_date", date).eq("kind", kind);

@@ -125,47 +125,6 @@ export function MerchantDashboardHome({
 
   return (
     <div className="space-y-5">
-      {/* Quick actions */}
-      <section>
-        <h2 className="mb-2 px-1 text-sm font-bold text-foreground">What do you want to do?</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <QuickAction
-            icon={<ArrowDownToLine className="h-5 w-5" />}
-            label="Add money"
-            hint="Put money into your wallet"
-            onClick={onDeposit}
-          />
-          <QuickAction
-            icon={<ArrowUpFromLine className="h-5 w-5" />}
-            label="Take out money"
-            hint="Send your money to you"
-            onClick={onWithdraw}
-          />
-          <QuickAction
-            icon={<ArrowLeftRight className="h-5 w-5" />}
-            label="Send money"
-            hint="Move it to someone else"
-            onClick={onTransfer}
-          />
-          <QuickAction
-            icon={<Landmark className="h-5 w-5" />}
-            label="See my records"
-            hint="Money in and money out"
-            onClick={onViewStatement ?? onViewWallet}
-          />
-          <QuickAction
-            icon={<Sparkles className="h-5 w-5" />}
-            label="Invite & earn"
-            hint="Share your link, earn UGX 10,000"
-            onClick={() => navigate('/merchant-agent-referrals')}
-          />
-        </div>
-      </section>
-
-
-      {/* Shared payout float + this merchant's settlement position */}
-      <MerchantFloatAvailableCard />
-
       {/* Merchant Payouts CTA */}
       <motion.button
         onClick={() => {
@@ -209,6 +168,47 @@ export function MerchantDashboardHome({
           </div>
         </div>
       </motion.button>
+
+      {/* Quick actions */}
+      <section>
+        <h2 className="mb-2 px-1 text-sm font-bold text-foreground">What do you want to do?</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <QuickAction
+            icon={<ArrowDownToLine className="h-5 w-5" />}
+            label="Add money"
+            hint="Put money into your wallet"
+            onClick={onDeposit}
+          />
+          <QuickAction
+            icon={<ArrowUpFromLine className="h-5 w-5" />}
+            label="Take out money"
+            hint="Send your money to you"
+            onClick={onWithdraw}
+          />
+          <QuickAction
+            icon={<ArrowLeftRight className="h-5 w-5" />}
+            label="Send money"
+            hint="Move it to someone else"
+            onClick={onTransfer}
+          />
+          <QuickAction
+            icon={<Landmark className="h-5 w-5" />}
+            label="See my records"
+            hint="Money in and money out"
+            onClick={onViewStatement ?? onViewWallet}
+          />
+          <QuickAction
+            icon={<Sparkles className="h-5 w-5" />}
+            label="Invite & earn"
+            hint="Share your link, earn UGX 10,000"
+            onClick={() => navigate('/merchant-agent-referrals')}
+          />
+        </div>
+      </section>
+
+
+      {/* Shared payout float + this merchant's settlement position */}
+      <MerchantFloatAvailableCard />
 
       {/* Quick Insights */}
       <section className="rounded-3xl border border-border/60 bg-card p-5">

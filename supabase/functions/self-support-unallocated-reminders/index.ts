@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         try {
           const ok = await sendSMS(
             d.phone,
-            `Dear ${name}, ${ugx(left)} of your Welile partnership is waiting for you to choose tenants or houses to support. Open your dashboard to choose.`,
+            `Welile: ${ugx(left)} of your partnership is waiting. Open your dashboard to choose tenants or houses to support.`,
             {
               admin,
               source: "self_support_unallocated_reminder",

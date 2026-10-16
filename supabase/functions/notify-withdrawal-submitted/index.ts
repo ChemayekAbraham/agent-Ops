@@ -99,9 +99,8 @@ Deno.serve(async (req) => {
 
     const reference = `REQ-${String(w.id).replace(/-/g, "").slice(0, 12).toUpperCase()}`;
     const message =
-      `WELILE: Withdrawal Processing. Your withdrawal request of UGX ${amount.toLocaleString()} ` +
-      `(${reference}) has been received and is being processed. ` +
-      `You'll be notified once the payment provider confirms delivery.`;
+      `Withdrawal of UGX ${amount.toLocaleString()} (${reference}) received and processing. ` +
+      `You will be notified on delivery.`;
 
     const sent = await sendSMS(recipient, message, {
       admin,
@@ -128,9 +127,8 @@ Deno.serve(async (req) => {
         const partnerPhoneRaw = ((partnerProfile as any)?.phone || "").trim();
         if (isUgandanPhone(partnerPhoneRaw)) {
           const partnerMsg =
-            `WELILE: Withdrawal Processing. A payout of UGX ${amount.toLocaleString()} ` +
-            `(${reference}) has been initiated on your behalf by your authorized Welile agent. ` +
-            `You'll get a final confirmation once the payment provider confirms delivery.`;
+            `Payout of UGX ${amount.toLocaleString()} (${reference}) started by your Welile agent. ` +
+            `Confirmation follows on delivery.`;
           partnerSent = await sendSMS(formatPhoneInternational(partnerPhoneRaw), partnerMsg, {
             admin,
             source: "withdrawal_submitted_partner",

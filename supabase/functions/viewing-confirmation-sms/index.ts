@@ -27,6 +27,9 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Keep free-text fields short so each SMS fits one 160-char segment.
+    const clip = (s: unknown, n: number) => String(s ?? "").slice(0, n);
+
     const formatPhone = (phone: string) => {
       const clean = phone.replace(/\s/g, '');
       if (clean.startsWith('+')) return clean;
@@ -62,17 +65,14 @@ Deno.serve(async (req) => {
 
       // Notify tenant
       await sendSms(tenant_phone,
-        `Hi ${tenant_name}, a property viewing has been scheduled for you!\n\n` +
-        `🏠 ${house_title}\n📍 ${house_address}\n📅 ${viewing_date} at ${viewing_time}\n\n` +
-        `Your agent ${agent_name} will meet you there. Reply YES to confirm. - Welile`
+        `Viewing: ${clip(house_title, 20)}, ${clip(house_address, 25)}, ${viewing_date} ${viewing_time}. ` +
+        `Agent ${clip(agent_name, 15)} will meet you. Reply YES to confirm.`
       );
 
       // Notify agent
       await sendSms(agent_phone,
-        `Hi ${agent_name}, you've been assigned a property viewing!\n\n` +
-        `🏠 ${house_title}\n📍 ${house_address}\n📅 ${viewing_date} at ${viewing_time}\n` +
-        `👤 Tenant: ${tenant_name}\n\n` +
-        `Please check in at the property location when you arrive. Reply YES to confirm. - Welile`
+        `Viewing: ${clip(house_title, 20)}, ${clip(house_address, 25)}, ${viewing_date} ${viewing_time}. ` +
+        `Tenant: ${clip(tenant_name, 15)}. Check in on arrival. Reply YES to confirm.`
       );
 
       console.log(`[viewing-sms] Scheduled viewing notifications sent for ${house_title}`);
@@ -82,11 +82,11 @@ Deno.serve(async (req) => {
       const { viewing_id, tenant_name, tenant_phone, agent_name, agent_phone, house_title } = body;
 
       await sendSms(tenant_phone,
-        `Hi ${tenant_name}, did you visit ${house_title} today? Reply YES to confirm the viewing happened, NO if it didn't. - Welile`
+        `Did you visit ${clip(house_title, 30)} today? Reply YES if the viewing happened, NO if not.`
       );
 
       await sendSms(agent_phone,
-        `Hi ${agent_name}, did the viewing of ${house_title} happen? Reply YES to confirm, NO if not. - Welile`
+        `Did the viewing of ${clip(house_title, 30)} happen? Reply YES to confirm, NO if not.`
       );
 
       // Mark confirmation SMS as sent

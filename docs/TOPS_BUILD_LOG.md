@@ -1,5 +1,10 @@
 # Tenant Ops Workspace — build log
 
+## 2026-10-16 — CRM in-app communications
+
+Added `drizzle/migrations/0589_crm_in_app_communications.sql`: dedicated versioned communications, sparse acknowledgements and immutable lifecycle history; enabled CRM/super-admin publishing and enabled-role inbox functions, all with explicit grants/RLS. Existing notifications, financial functions and Tenant Ops clocks remain unchanged. Acknowledgement emits an idempotent event and refreshes the canonical trust cache, without inventing a score increment.
+Live privilege inspection found inherited authenticated TRUNCATE/write grants; `0590_crm_communications_restrict_direct_writes.sql` explicitly revoked them on these three new tables. RLS alone does not protect TRUNCATE.
+
 ## 2026-09-26 — `20260926160000_tops_plan_clock_and_instalments.sql`
 
 **Objects added** (all new; nothing existing touched — confirmed via `git diff --stat`, no file outside `supabase/migrations/**`/`docs/**` changed):
@@ -1260,3 +1265,154 @@ No database change. Everything reads or calls the functions from `20261014200000
 **Reviewer side.** `RenewalReviewPanel` (`src/components/rent/RenewalReviewPanel.tsx`) shows the change badge (old -> new rent with % change, old -> new days), the saved advice snapshot with its reasons, the "Above suggestion by UGX X" tag, the agent's reason and explanation, the evidence thumbnail, a link to the previous plan (from the snapshot's `prev_request_id`) and the append-only notes thread (`useRentRequestReviewNotes`, add through `add_rent_request_review_note`, 10+ characters). It is in the shared request drawer (`RentRequestDetailDrawer`), `RentPipelineQueue` (Agent Ops, Tenant Ops, Landlord Ops and COO stages), the CFO payout desk (`RentDisbursementQueue`), the Service Center queue, and the Tenant Ops Pipeline Status Hub. List rows carry the tags (`RenewalListTags`); the pipeline lists and the CFO desk have an "Above suggestion" filter (`?above_suggestion=1`) that narrows by the stored `renewal_above_suggestion` flag.
 
 Tests: `src/lib/__tests__/renewalAdvice.test.ts`, `src/components/agent/__tests__/RenewalChoiceDialog.test.tsx`, `src/components/rent/__tests__/RenewalReviewPanel.test.tsx`.
+
+## 2026-10-15 — `20261015100000`: landlord Rent Plan overview and the Landlord Ops paid lists (two new read-only functions)
+
+**Objects added** (nothing existing changed; no tab count, table, column, policy or function touched; no money moves):
+
+- `public.landlord_tenant_overview(p_landlord_id uuid)` returns one row per Rent Plan on that landlord: tenant name and phone, rent, daily repayment, total repayment, amount repaid, balance left (0 for rejected / cancelled), plan status, funded date, the agent who manages the tenant now (the assigned agent, or the registering agent when none was assigned) with name and phone, the registering agent (`rent_requests.agent_id`) and `funding_stage`.
+- `funding_stage` is one of exactly "In review", "Funded – money with agent", "Landlord paid", "Repaying", "Completed", "Rejected/Cancelled". It comes from the plan status; only status `funded` is split by the Landlord Float allocation records (`agent_landlord_float_allocations`, cancelled ones ignored): a fully paid allocation = "Landlord paid", otherwise "Funded – money with agent". On live data the allocation records and the landlord payout records agree on every funded plan.
+- `public.landlord_ops_paid_lists(p_tab text, p_search text, p_limit int, p_offset int)` returns `{tab, search, limit, offset, total, counts:{paid_repaying, completed}, rows[]}`. `paid_repaying` = landlords who received money (a disbursed, non-failed `landlord_payouts` row, or a Landlord Float allocation with money paid out) and have at least one repaying plan. `completed` = landlords with a completed plan and no funded or repaying plan. The search is a literal, case-insensitive match on name, phone, mobile money number, district, village and address. The limit is clamped to 1..500.
+- Both are SECURITY DEFINER, STABLE, `search_path = public`; EXECUTE for `authenticated` only (revoked from PUBLIC, anon and service_role). Allowed: Landlord Ops, COO, CFO, CEO, super admin (checked with `has_role`); everyone else gets `NOT_AUTHORISED` (42501).
+
+**Verified live** (one rolled-back transaction, 43 checks, real role switching): grants and function properties; the five allowed roles can read, and tenant ops, agent ops, manager, operations, financial ops, agent, tenant, cto, a role-less user, signed-out and anon are refused; every field of every Rent Plan for 165 landlords across all statuses equals an independent recompute; both lists equal an independent recompute of the whole landlord table (590 `paid_repaying`, 267 `completed` today); paging, ordering, search, clamping and the error codes. Speed: 71 ms for the 590-landlord list, 32 ms for the biggest landlord (3,127 plans).
+
+**Not done here:** no UI reads these yet; the existing Landlord Ops tabs and their counts are untouched.
+
+## 2026-10-15 — Landlord Ops → Landlords: read-only "Tenants" section in the Review panel and the Edit Landlord dialog
+
+No database change; it reads `landlord_tenant_overview` (`20261015100000`) through `useLandlordTenantOverview` (`src/hooks/useLandlordTenantOverview.ts`) and `LandlordTenantsSection` (`src/components/executive/landlord-ops/LandlordTenantsSection.tsx`). Helpers (`UGX 1,234,000` formatting, phone links, the total line, stage colours, the error wording) are in `src/lib/landlordTenants.ts`.
+
+- Each tenant card shows name and phone (call and WhatsApp buttons), rent, daily amount, repaid so far, balance left, the Rent Plan status, the funding stage badge (the six server values, each its own colour) and the agent's name and phone (call and WhatsApp buttons).
+- A total line shows the number of tenants, total rent and total balance. Rejected or cancelled Rent Plans are listed but not counted, and the line says how many were left out. The number of tenants is the number of different tenants.
+- Loading, empty ("This landlord has no tenants on a Rent Plan yet.") and error states (with Try again; a person without access is told why). A landlord with a long list shows 25 at a time with "Show more"; the totals cover all of them.
+- Where: the Review panel (the row that opens with "Review" on a landlord who is not verified yet, so on every tab that has a Review button) and the Edit Landlord dialog (every row, every tab), placed under Save Changes so the form and Save stay where they were. The approve, reject, reverse and edit code is unchanged.
+
+Tests: `src/lib/__tests__/landlordTenants.test.ts`, `src/components/executive/landlord-ops/__tests__/LandlordTenantsSection.test.tsx`, `src/components/executive/landlord-ops/__tests__/EditLandlordDialog.tenants.test.tsx`.
+
+## 2026-10-15 — Landlord Ops → Landlords: "Paid & Repaying" and "Completed" tabs, and a note under "Funded"
+
+**Database** (`20261015140000_landlord_paid_lists_row_totals.sql`): `landlord_ops_paid_lists` keeps its signature, access rules and exactly the same landlords in each tab (590 `paid_repaying` and 267 `completed` today); every row now also carries `tenant_count`, `total_rent`, `total_repaid`, `balance_left`, `agent_name`, `agent_phone`, `verified`, `verification_status` and `property_address`. The money covers every Rent Plan except rejected, cancelled and deleted ones, so a row equals the total line of the Tenants section. The agent is the one who registered the landlord (the agent the other tabs show). Search now also matches the agent and the tenants' names and phones. `balance_left` used to cover repaying plans only; nothing read it. Rollback: `supabase/rollbacks/20261015140000_landlord_paid_lists_row_totals.rollback.sql`.
+
+**Page**: two tabs right after "Funded", each with its count (read for the search on screen, so the count and the list always agree), the page's own search box and 20-per-page paging. Each row shows the landlord (phone with call and WhatsApp buttons, verified flag, place), tenant count, total rent, total repaid, balance left and the agent (call and WhatsApp), with Review and Edit. Review opens the landlord's contact, registering agent and the Tenants section; a landlord who is not verified yet also gets the vetting note and the approve / reject controls, exactly as on the other tabs. Edit is the existing Edit Landlord dialog (so the Tenants section is there too). The note "Money is with the agent, not yet paid to the landlord" shows under the tabs when Funded is open (and as the tab's tooltip).
+
+**Left alone**: every existing tab, count, list, date filter, sort, the Funded register and the Funded Report. On the two new tabs the date range and sort are hidden (they do not apply to these lists) and "Export PDF" is switched off with a tooltip, because that report is built for the other tabs' scopes.
+
+Files: `LandlordPaidListPanel.tsx`, `useLandlordPaidLists.ts`, `landlordPaidLists.ts`, the wiring in `LandlordOpsDashboard.tsx`. Tests: `LandlordPaidListPanel.test.tsx`, `landlordPaidLists.test.ts`, and block 2 of `supabase/tests/landlord_tenant_overview.sql`.
+
+## 2026-10-15 — `20261015160000`: `ops_landlord_ops_home_range`, the Landlord Ops home figures for a date range (one new read-only function)
+
+Nothing existing changed: no table, column, function, policy, edge function or UI; no money moves. Modelled on `ops_tenant_ops_home_range` (Kampala days, same range handling), but a missing user is refused first and the gate is landlord_ops, coo, cfo, ceo, manager, super_admin only. Authenticated only (revoked from PUBLIC, anon, service_role).
+
+Returns: total, new, verified in range, pending verification (houses, landlords, LC1), with / without tenants, funded in range (landlords, requests, principal), landlords paid (distinct, not reversed; also payouts and amount), principal recovered, float balance (and agents holding it), missing GPS, missing payout details, duplicate phones (numbers, and landlords sharing them), how many landlords were left out (phone matches a deleted profile), and the window. Every definition is the one the Landlord Ops screens already use; they are written once in `supabase/AGENTS.md`.
+
+Things to know: the pending-verification figures are the CURRENT queues (the same filters as the sidebar badges), not range-based, and "landlords" there is every unverified landlord not with a Service Centre manager (about 41,000 today), exactly what the badge counts. Missing GPS and missing payout details are about 46,000 of 46,700 landlords today. Nobody is excluded for a deleted-profile phone today (0); the test simulates one. About 650 ms for the whole range.
+
+Verified live: 35 checks (grants, every role, range handling, all 22 figures against an independent recompute for three windows, a simulated deleted-profile exclusion and a simulated reversed payout). Rollback: `supabase/rollbacks/20261015160000_ops_landlord_ops_home_range.rollback.sql`.
+
+## 2026-10-15 — `20261015180000`: `am_new_tenant_first7_v2`, `am_new_tenant_first7_summary_v2`, `am_new_tenant_first7_payments` (three new read-only functions)
+
+Nothing existing changed: `am_new_tenant_first7` and every other function, table, policy and edge function are untouched; no money moves. SECURITY DEFINER, STABLE, `search_path = public`, granted to `authenticated` only (revoked from PUBLIC, anon, service_role). Gate: `auth.uid()` and `_am_staff_ok()` else 42501, before any argument is checked.
+
+`am_new_tenant_first7_v2(p_from, p_to, p_frequency, p_agent_id)`: one row per Rent Plan first paid to the landlord (Kampala day) in the range (at most 31 days). Day 1 = that day + 1. Per day 1 to 7: paid, due and state (paid / part / missed / not_due / future), plus tenant, phone, agent, frequency, paid_7d, expected_to_date, first_paid_day and a row status (on_track / behind / not_started / too_early). Frequency is `rent_requests.repayment_frequency`; a weekly plan owes 7 x daily on day 1 only. The summary function returns headline counts, day-1 payers and %, per-day payer counts and collected vs expected from those same rows. `am_new_tenant_first7_payments(p_rent_request_id)` lists each non-reversed collection (time, amount, method, agent) in the window.
+
+Verified live: 49 checks (properties and grants, all ten staff roles in and four non-staff roles, no-role, signed-out and anon out, argument errors, and every figure for four windows against an independent recompute from landlord_payouts, rent_requests and agent_collections, covering daily and weekly plans, part payments, reversed collections and days still to come; the summary equals the rows added up; payments equal the day grid). Rollback: `supabase/rollbacks/20261015180000_am_new_tenant_first7_v2.rollback.sql`.
+
+## 2026-10-15 — Agent Ops "First 7 Days" tab (UI over the v2 functions)
+
+Nothing in the database changed. A 7th category tab "First 7 Days" (Sprout icon) after "Ranks & Reports" on the Agent Ops Overview (`AgentOpsDashboard.tsx`) shows `First7DaysTab` in place of the business-area grid; the other six tabs and the search are unchanged (typing in the search box goes back to search results). The sidebar "First 7 Days Tracker" now opens the same component (the old `NewTenantFirst7Tracker.tsx` is no longer referenced and still reads `am_new_tenant_first7`, which is untouched).
+
+Data: `useNewTenantFirst7` (React Query) calls `am_new_tenant_first7_v2` and `am_new_tenant_first7_summary_v2` with the same arguments; `lib/newTenantFirst7.ts` holds the Kampala date presets, URL reading/writing, normalising, ordering and filtering. The client never computes a day state or a row status. Controls (all in the URL): presets Yesterday (default) / Last 7 days / Last 30 days / Custom (up to 31 days) as `?f7from=&f7to=`, All / Daily / Weekly as `f7freq`, agent or tenant search `f7q`, and the card and day filters `f7card`, `f7day`. A shared link with any `f7` parameter opens on this tab.
+
+Six clickable cards (New Rent Plans, Paid on day 1, On track, Behind, Not started, Too early) filter the grid; a Day 1 to 7 recharts bar chart (and day chips under it) filters to plans that paid that day; a strip shows collected vs expected so far. Grid: behind and not-started first (largest gap first); daily rows have 7 coloured cells, weekly rows ring the due day and show the other days as "not due"; amounts via `formatUGX`; semantic tokens only. On a phone the grid becomes cards with a 7-dot strip. Skeletons, empty and error states (with Try again). Tests: `lib/__tests__/newTenantFirst7.test.ts` (16) and `First7DaysTab.test.tsx` (14).
+
+## 2026-10-15 — First 7 Days drill-down, agent filter and exports (UI over `am_new_tenant_first7_payments`)
+
+Nothing in the database changed; read-only. In `First7DaysTab`: clicking, double-clicking or pressing Enter on a Rent Plan row opens a side panel (`First7TenantSheet`) with the 7-day timeline, the payments from `am_new_tenant_first7_payments` (time in Kampala, amount, method Cash / Wallet / Self-pay, agent), the agent, a tap-to-call phone link, the landlord paid date and the Rent Plan totals; Esc closes it. Clicking a day cell opens that day's payments only. Clicking an agent name filters to that agent (`?f7agent=`) and shows their on-track % (the server's on-track Rent Plans over those whose day 1 has begun). Method: a payment with `collection_channel = tenant_deposit_auto` is Self-pay, otherwise `payment_method` cash or in_app_wallet.
+
+Export CSV and Export PDF (`lib/first7Export.ts`) hand over the Rent Plans left after the filters, with the filters and the generated time in Kampala (EAT) above the data, "Rent Plan" wording, amounts in UGX. Like every other export in the app they write one `audit_logs` entry (`csv_exported` / `pdf_report_exported`); `downloadCsvWithPreamble` was added to `csvExport.ts`, `downloadCsv` is unchanged.
+
+Tests: hook (`useNewTenantFirst7.test.tsx`), component (`First7Drilldown.test.tsx`, including weekly not-due cells never red and future days grey), helpers and export, and a Playwright spec signed in as an agent_ops user (`e2e/agent-ops-first7-days.spec.ts`) that opens the tab, switches Daily / Weekly, opens a Rent Plan panel, and checks the six existing tabs, the search and the sidebar "First 7 Days Tracker". Found by that spec: the hook kept `supabase.rpc` in a variable and so lost the client (`this`); fixed in the tab's own commit.
+
+## 2026-10-15 — `20261015200000`: `get_agent_ops_network_overview` (one new read-only function)
+
+Nothing existing changed: no table, column, function, policy, edge function or UI; no wallet, ledger or First 7 Days file touched; the function writes nothing (it reads `agent_expected_day_plans` pins, it never creates them). `get_agent_ops_network_overview(p_start, p_end, p_min_expected default 50000)` returns, for Kampala days p_start..p_end: `counts` (agents, with_service_centres, with_bikes, with_smartphone_plan, with_smartphone_tenants, with_subagents, posted_requests, approved_agents), `approved` {agents, requests, amount, receivables_outstanding}, `top_portfolios`, `top_collection_rate` and `default_rate_ascending` (ten each), plus `live_book`, `bikes`, `smartphone_usage` (the unchanged `tops_smartphone_usage` answer) and `range`. Same role check as `get_agent_ops_overview`; authenticated only.
+
+Where the brief and the data differed: (1) `tops_smartphone_usage` returns platform-wide TENANT totals only, no agent-level figure, so `with_smartphone_tenants` counts agents with a tenant in its "recorded smartphone" group (nearly every tenant: 58,908 of 59,117) and the function's own answer is returned untouched. (2) The brief's sanity values 126 approved-ever / 119 live only come out if the two agents whose only approved requests are self-requests (agent = tenant) are kept; with the brief's own exclusion they are 124 and 118 (254 posted matches). (3) "Defaulted" is not a field of the tenant classification, so it is the plan's payout-clock arrears (`_am_plan_arrears_core`, the clock the classification is built on), never above its outstanding. (4) Collection rates can exceed 100%: collections include arrears catch-up, expected is the pinned bill. (5) The copied role check does not admit the `agent_ops` role by itself.
+
+Verified live: 49 checks (grants, all seven admitted roles and seven refused, range errors, every count and total against an independent recompute for the 30-day and 7-day windows, the three ranked lists in order, the minimum, deleted accounts left out). Rollback: `supabase/rollbacks/20261015200000_agent_ops_network_overview.rollback.sql`. Types: a 4-line `get_agent_ops_network_overview` entry was added by hand in the generator's format (the platform regenerates the file on publish); the schema-types fingerprint was already stale and was not changed.
+
+## 2026-10-15 — Agent Ops Overview: "Agent Network" tab (UI over `get_agent_ops_network_overview`)
+
+Nothing in the database changed. `AgentOpsOverview.tsx` had no tab bar (`Tabs` was imported but unused), so the page is now wrapped in one: "Overview" (the existing content, untouched) and "Agent Network" after it. The new tab (`agent-ops-v2/AgentNetworkTab.tsx`, hook `useAgentOpsNetworkOverview`, helpers in `lib/agentNetwork.ts`) uses the page's own range picker (`OpsDateRangeFilter`, same preset state); the range is sent as Kampala days (`networkRangeParams`: the end is never later than Kampala today, the server refuses a future day). It only asks the server once the tab is opened.
+
+Shows exactly what the server returned, in UGX via `formatUGX`, with no sums, rates, sorting or re-derivation in the client: eight KPI cards (Agents, With service centres, With bikes, With smartphone plan, Tenants on smartphones, With sub-agents, Posted rent requests, Approved agents), an Approved card (agents, requests, amount approved, receivables outstanding) and three ranked tables (Biggest portfolios, Best collection rate, Default rate lowest first) with a tap-to-call phone. Skeleton, error with Try again, an empty state per section; the tables scroll sideways on a phone. Two card names follow the brief but their figures are agent counts, so each card says so underneath: "Tenants on smartphones" is agents with tenants on smartphones, "Posted rent requests" is agents who posted a Rent Plan request.
+
+Verified in the browser against the live function output for 1 to 15 Oct (8 cards, the 4 Approved figures and 30 table rows = 43 values) at 1280 and 390 wide: 0 mismatches. Tests: `agentNetwork.test.ts`, `useAgentOpsNetworkOverview.test.tsx`, `AgentNetworkTab.test.tsx` and `e2e/agent-ops-network-tab.spec.ts`.
+
+## 2026-10-15 — Agent Network: home-page chip, bikes, smartphones, minimum, CSV and the "how counted" note (UI only)
+
+Nothing in the database changed (`get_agent_ops_network_overview`, migrations, wallets, ledger, the Overview tab content and every First 7 Days file are untouched). `AgentOpsDashboard.tsx` got only the `CategoryId` value, one `CATEGORIES` entry ("Agent Network", Network icon, right after First 7 Days), the `activeCategory` initial value (`hasNetworkParams`, next to `hasFirst7Params`) and the content switch beside `showFirst7Tab` (`showNetworkTab`; typing in the search box returns to results). The chip shows `AgentNetworkStandalone`: its own presets (Today, Last 7 days, Last 30 days, This month, Custom; Kampala days, default Last 30 days, the end never after today) and the minimum, kept in the URL as `?tab=agent-ops&net=1&netfrom=&netto=` (+ `netmin` when not 50,000); the parameters are removed again when another chip is chosen and no `f7*` parameter is touched. The in-Overview tab uses the same component and now prints its range with `kampalaLabel`.
+
+Also: the KPI cards sit under "Today's network (all time)" and the Approved card and the collection-rate table carry an "In the chosen dates" badge; "With bikes" reads "<leases> leases · UGX x still owed" (the returned `bikes` object); "With service centres" reads "linked agents · few centres are set up yet"; a "Tenant smartphones (Tenant Ops figures)" card (labelled platform-wide) shows the returned `smartphone_usage` totals as they come (its real keys: as_of, from_day, to_day, tenants, recorded_smartphone, recorded_without, confirmed_smartphone, confirmed_feature_phone, device_unknown, joined, joined_recorded_smartphone, checks, checks_smartphone, checks_feature_phone, seen_on_phone); a minimum select (UGX 0 / 50,000 / 100,000 / 500,000, default 50,000) is sent as `p_min_expected` and is part of the query key; each ranked table has "Download CSV" through `downloadCsvWithPreamble` (title, Kampala range, minimum, generated time; values and order as returned, phone as text); "How these are counted" gives one plain line per card.
+
+Real-data check, last 30 Kampala days (2026-09-16 to 2026-10-15), the function (called as an operations user) against direct read-only SQL over `rent_requests` with the same definitions (agent = `COALESCE(assigned_agent_id, agent_id)` never the tenant, inside the qualifying agent set less deleted accounts; approved = funded / repaying / completed dated `COALESCE(cfo_reviewed_at, funded_at)`):
+
+| figure | function | direct SQL |
+|---|---|---|
+| counts.posted_requests (agents who posted) | 254 | 254 |
+| counts.approved_agents (approved ever) | 124 | 124 |
+| approved.agents | 73 | 73 |
+| approved.requests | 348 | 348 |
+| approved.amount | UGX 197,940,001 | UGX 197,940,001 |
+
+No writes to any table. Tests: `agentNetwork.test.ts`, `useAgentOpsNetworkOverview.test.tsx`, `AgentNetworkTab.test.tsx` and `e2e/agent-ops-network-tab.spec.ts` (chip after First 7 Days, shows the tab, a link with net parameters opens on it, typing in search leaves it, the new badges and CSV button).
+
+## 2026-10-16: Agent Ops metrics functions (totals, agents, locations, pins, main agents)
+
+Migration `20261016100000_agent_ops_metrics.sql` adds five read-only SECURITY DEFINER functions (`agent_ops_metrics_totals`, `_agents`, `_locations`, `_pins`, `_main_agents`) and three owner-only helpers (`_aom_allowed`, `_aom_scope`, `_aom_rows`). Nothing existing was altered, no table or index was added. Test: `supabase/tests/agent_ops_metrics.sql` (role gate for 6 allowed and 8 refused roles, a disabled role, no role, signed out, anon; argument errors; every figure recomputed straight from `house_listings`, `agent_listing_rejections`, `general_ledger`, `agent_advances`, `agent_subagents`; reconciliation of totals with every agent row, the three location levels and the teams; soft-deleted agents dropped). It reported all checks passing against the live database, rolled back.
+
+Real-data reconciliation, 2026-09-17 to 2026-10-16 (Kampala days), called as an agent_ops user:
+
+| figure | totals | sum of agent rows (scope all, paged by 200) | location sums (region / district / sub_county) | direct SQL |
+|---|---|---|---|---|
+| houses listed | 292 | 292 | 292 / 292 / 292 | 292 |
+| houses verified | 220 | 220 | 220 | 220 |
+| houses pending | 69 | 69 | 69 | 69 |
+| houses rejected (rejection rows in range) | 36 | 36 | n/a | 36 |
+| houses with GPS | 292 | n/a | 292 | 292 |
+| listers in range | 29 | n/a | n/a | 29 |
+| listing earned | UGX 1,752,000 | equal | n/a | equal (ledger) |
+| listing clawed back | UGX 64,000 | equal | n/a | equal (ledger) |
+| advances given | 5, UGX 9,300,000 | UGX 9,300,000 | n/a | equal |
+| advances outstanding / overdue (today) | UGX 59,086,791 / 282 advances, UGX 36,177,592 | n/a | n/a | equal |
+
+Location rows: 4 regions, 21 districts, 30 sub-counties. Agents: 770 qualifying, 456 have ever listed, 3,125 linked sub-agents, 59,160 users with the agent role.
+
+Things to know when reading the numbers:
+- Listed (292) is more than verified + pending (220 + 69 = 289): the 3 others are listings whose status is `rejected`. A listing is pending only when it is neither verified nor rejected. Rejected (36) counts rejection events in the range from `agent_listing_rejections`, which are not the same rows as listings created in the range.
+- The listing money is UGX 1.75m in the range from the ledger. The "about UGX 33.75m" quoted in the request does not match any ledger definition (all time, `agent_commission` from `house_listings` is UGX 69.8m and `agent_commission_earned` from `listing_bonus_approvals` is UGX 19.68m); it was not used.
+- Main agents: the first 200 teams (the page limit) hold 2,494 sub-agents, 254 of the 292 houses and UGX 1,620,000 of the earnings; the rest are on later pages.
+
+Slow-query recommendations (not applied, per the rules; indexing existing tables is for a separate, reviewed change): `house_listings (created_at)` and `house_listings (agent_id, created_at)` for the range scans; `general_ledger (category, source_table, created_at)` where the ledger is large; `agent_listing_rejections (rejected_at)`; `agent_advances (issued_at)`. At today's volumes the five functions ran in 96 to 1,378 ms (the totals and the all-scope list are the slowest).
+
+## 2026-10-16: Agent Ops Metrics tab, tests and live reconciliation
+
+Tab: Agent Ops home, "Metrics" chip after "Agent Network" (`src/components/executive/agent-ops-v2/metrics/`, `src/hooks/useAgentOpsMetrics.ts`, `src/lib/agentMetrics.ts`). A "How these are counted" popover on the page explains the figures in plain words.
+
+Tests added or extended: `src/lib/agentMetrics.test.ts` (URL params, order save / restore / reset, unknown card ids dropped, new cards appended, move and drop), `src/hooks/useAgentOpsMetrics.test.tsx` (mocked RPCs that fail a detached `supabase.rpc`, 300 ms search debounce, 50 per page), `AgentMetricsTab.test.tsx` (reorder buttons, collapse, loading / empty / error with retry, agent sheet with tap-to-call, per-card CSV, popover, wording) and `e2e/agent-ops-metrics-tab.spec.ts` (chip after Agent Network, opens from a link with `mfrom` / `mto` / `mscope` / `msort`, 380px and 1280px with the sidebar open, no horizontal page scroll, 44px move buttons, error with retry). 30 unit and component tests and 3 e2e specs pass; `npm run guard:all` passes; eslint is clean on the new files.
+
+Live reconciliation, 2026-09-17 to 2026-10-16 (Kampala days), called as an agent_ops user, read-only (rolled back):
+
+| check | result |
+|---|---|
+| houses verified + pending + currently rejected = houses listed | 227 + 64 + 3 = 294; totals say 294 listed. Holds. "Currently rejected" is listings whose status is `rejected`; the totals function does not return it, so the page's Rejected figure (rejection events in the dates, 36 earlier) is a different number by design and the popover says so. |
+| sum of per-agent listing earnings = totals listing earnings | 3,484 agent rows (scope all, paged by 200, each person once) sum to UGX 1,808,000 = totals. Clawed back UGX 64,000 = totals. Houses listed 295 = 295 (a listing arrived between runs). Holds. |
+| advances outstanding = the Advance Repayment Monitor | Does NOT match. Overdue matches exactly (282 advances, UGX 36,176,292.28). Active: the monitor shows 40 advances, UGX 12,703,186.70; the metrics totals also count 3 active advances, UGX 10,206,012.00, whose `recovery_source` is `roi` (repaid from Returns rather than the wallet), which `get_agent_advance_repayment_monitor` excludes. Monitor total UGX 48,879,478.98, metrics UGX 59,085,490.98; the difference is exactly those 3. Left as is: the metrics figure is the full outstanding book, and the popover and the Advances card basis say it can be higher than the monitor. Aligning one to the other is a decision for Agent Ops / Finance and would need a new function version. |
+
+Not verified:
+- The map with a real Google Maps key and real pins: the e2e runs mock the key, so only the map area and its fallback message were seen. The pins-in-view count, marker colours and pan / zoom reloading were not seen on a real map.
+- Drag-and-drop reordering with a mouse (the up / down buttons are tested; the desktop drag handle is only checked to be present).
+- A physical phone and the Lovable preview: only Chromium at 380px and 1280px against the local dev server.
+- `tsc`: one error, in `RentApprovalMoneyCounter.tsx` (`rent_amount`, from commit c07e9fd5b7 or the one before it), not in the Metrics files.
+- Full `vitest run`: failures in files that do not import any Metrics code (payoutCardAggregatedTotals, subAgentCommissionCopy, RoleGating, AgentRentRequestDialog.undo, PromissoryNoteName, walletMovementSummary.readonly, fleetCollected, ExecutiveDashboardLayout.nesting, SendMoneyDialog, useAuthFormLoginPerf, and others); they fail the same way run alone, and were left alone as unrelated.

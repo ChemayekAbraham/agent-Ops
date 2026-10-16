@@ -135,6 +135,38 @@ describe('FoodMealCard', () => {
     expect(screen.getByText('Steamed green bananas')).toBeInTheDocument();
   });
 
+  it('opens the description when the card is tapped', () => {
+    card({});
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(screen.getByText('Matoke with Beef Stew'));
+    expect(screen.getByRole('button', { name: /hide details/i }))
+      .toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('closes the description again from its own button', () => {
+    card({});
+    fireEvent.click(screen.getByRole('button', { name: /meal details/i }));
+    fireEvent.click(screen.getByRole('button', { name: /hide details/i }));
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('adding to the order never opens or closes the description', () => {
+    const onChange = card({});
+    fireEvent.click(screen.getByRole('button', { name: /add to order/i }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /meal details/i }))
+      .toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('a meal with no description shows no details button and is not clickable', () => {
+    card({ description: null });
+    expect(screen.queryByRole('button', { name: /meal details|hide details/i })).toBeNull();
+    fireEvent.click(screen.getByText('Matoke with Beef Stew'));
+    expect(screen.queryByRole('button', { name: /meal details|hide details/i })).toBeNull();
+  });
+
   it('says sold out and refuses to add', () => {
     card({ sold_out: true });
     const button = screen.getByRole('button', { name: /sold out/i });
@@ -214,6 +246,35 @@ describe('Food ordering page', () => {
     expect(screen.getAllByText(/ordering (open|closed)/i).length).toBeGreaterThan(0);
   });
 
+  it('offers a tab for every meal category and filters the menu to it', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FoodOrderingPage />);
+    await screen.findByText('Lunch');
+
+    // one tab for each category on today's menu, plus the whole menu
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    for (const label of ['All meals', 'Main Course', 'Sides', 'Drinks']) {
+      expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole('tab', { name: 'Drinks' }));
+    // the soda is on both periods, so both keep their card and nothing else stays
+    expect(screen.getAllByText('Bottled Soda')).toHaveLength(2);
+    expect(screen.queryByText('Chicken Pilau')).not.toBeInTheDocument();
+  });
+
+  it('leaves out a service period with nothing in the chosen category', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FoodOrderingPage />);
+    await screen.findByText('Lunch');
+
+    await user.click(screen.getByRole('tab', { name: 'Sides' }));
+    // Breakfast serves no sides, so its whole panel goes; Lunch keeps only the greens
+    expect(screen.queryByText('Breakfast')).not.toBeInTheDocument();
+    expect(screen.getByText('Steamed Greens')).toBeInTheDocument();
+    expect(screen.queryByText('Posho and Beans')).not.toBeInTheDocument();
+  });
+
   it('shows the collection instructions for the period', async () => {
     renderWithProviders(<FoodOrderingPage />);
     expect(await screen.findByText(/bring your staff card/i)).toBeInTheDocument();
@@ -240,9 +301,7 @@ describe('Food ordering page', () => {
     const place = screen.getByRole('button', { name: /place order/i });
     expect(screen.queryByRole('button', { name: /^pay$/i })).not.toBeInTheDocument();
 
-    // a payment mode is required and never pre-selected (D1)
-    expect(place).toBeDisabled();
-    await user.click(screen.getByRole('radio', { name: /mobile money/i }));
+    // wallet is the only payment mode, so there is nothing to choose first
     expect(place).toBeEnabled();
 
     await user.click(place);
@@ -308,7 +367,6 @@ describe('My orders page', () => {
     const posho = screen.getByText('Posho and Beans').closest('article')!;
     await user.click(within(posho).getByRole('button', { name: /add to order/i }));
     await user.click(await screen.findByRole('button', { name: /review order/i }));
-    await user.click(screen.getByRole('radio', { name: /^cash$/i }));
     await user.click(screen.getByRole('button', { name: /place order/i }));
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /review order/i })).not.toBeInTheDocument());
@@ -850,7 +908,7 @@ describe('Exception pickers offer the nine approved kinds', () => {
 });
 
 describe('Keyboard use (UI acceptance)', () => {
-  it('chooses a payment mode and places an order with the keyboard only', async () => {
+  it('places an order with the keyboard only', async () => {
     const user = userEvent.setup();
     renderWithProviders(<FoodOrderingPage />);
     await screen.findByText('Lunch');
@@ -860,10 +918,7 @@ describe('Keyboard use (UI acceptance)', () => {
     const review = await screen.findByRole('button', { name: /review order/i });
     review.focus();
     await user.keyboard('{Enter}');
-    const cash = await screen.findByRole('radio', { name: /^cash$/i });
-    cash.focus();
-    await user.keyboard(' ');
-    expect(cash).toBeChecked();
+    // wallet is the only payment mode, so nothing has to be chosen first
     const place = screen.getByRole('button', { name: /place order/i });
     expect(place).toBeEnabled();
     place.focus();

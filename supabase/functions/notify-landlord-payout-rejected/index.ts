@@ -86,11 +86,10 @@ Deno.serve(async (req) => {
       return json({ ok: true, sms_sent: false, sms_skipped: "no_valid_phone" });
     }
 
-    const shortReason = String(reason).trim().slice(0, 140);
+    const shortReason = String(reason).trim().slice(0, 35);
     const message =
-      `Welile: Your landlord payout of ${formatUGX(payout.amount)} to ${payout.landlord_name ?? "the landlord"} ` +
-      `was REJECTED by Financial Ops. Reason: ${shortReason}. Your Landlord Payout Float has been ` +
-      `returned — you can withdraw again.`;
+      `Payout ${formatUGX(payout.amount)} to ${payout.landlord_name ?? "landlord"} REJECTED. ` +
+      `Reason: ${shortReason}. Float returned; withdraw again.`;
 
     let sent = false;
     let smsError: string | null = null;

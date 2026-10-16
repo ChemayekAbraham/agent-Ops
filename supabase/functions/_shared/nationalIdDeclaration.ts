@@ -115,10 +115,10 @@ export async function requestDeclarationConsent(admin: any, params: {
     declarationId = inserted.id;
   }
 
-  const message = `Welile: ${params.borrowerFullName} is registering a Welile account using your National ID` +
+  const message = `Welile: ${params.borrowerFullName} is using your National ID to register` +
     (params.nationalIdName ? ` (${params.nationalIdName})` : "") +
-    `. If you gave them permission to use it, share this code with them: ${code}. ` +
-    `If you did NOT authorise this, ignore this message.`;
+    `. If you agree, give them code ${code}. ` +
+    `Not you? Ignore.`;
 
   const smsSent = await sendSMS(params.idOwnerPhone, message, {
     admin,

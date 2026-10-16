@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/creditFeeCalculations';
+import { evaluateUsageMatching, type RefundStatus } from '@/lib/usageReportMatching';
 
 /**
  * RequisitionUsageReportGate — mandatory accountability popup.
@@ -30,6 +31,9 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
  */
 
 const REMIND_INTERVAL_MS = 5 * 60 * 1000;
+/** Mirrors the limit enforced by `defer_requisition_usage_report`. */
+const MAX_DEFERRALS = 2;
+const MAX_DEFERRALS_MSG = 'Maximum deferrals reached. This accountability report can no longer be deferred.';
 
 /** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
@@ -44,6 +48,7 @@ interface PendingReq {
   reason: string;
   cfo_decided_at: string | null;
   category: string | null;
+  grace_ends_at: string | null;
 }
 
 function fmtDate(iso: string | null) {
@@ -59,20 +64,40 @@ export function RequisitionUsageReportGate() {
   const [amountUsed, setAmountUsed] = useState('');
   const [summary, setSummary] = useState('');
   const [saving, setSaving] = useState(false);
-  const [receipt, setReceipt] = useState<File | null>(null);
+  const [receipts, setReceipts] = useState<File[]>([]);
+  const [deferrals, setDeferrals] = useState<Record<string, number>>({});
+  const [acknowledged, setAcknowledged] = useState<Record<string, boolean>>({});
+  const [ackChecked, setAckChecked] = useState(false);
+  const [showDefer, setShowDefer] = useState(false);
+  const [deferReason, setDeferReason] = useState('');
+  const [deferring, setDeferring] = useState(false);
+  const [deferError, setDeferError] = useState<string | null>(null);
   const loadedOnceRef = useRef(false);
+  const [receiptTotal, setReceiptTotal] = useState('');
+  const [mismatchExplanation, setMismatchExplanation] = useState('');
+  const [unspentExplanation, setUnspentExplanation] = useState('');
+  const [overspendExplanation, setOverspendExplanation] = useState('');
+  const [refundStatus, setRefundStatus] = useState<RefundStatus | ''>('');
+  const [refundEvidence, setRefundEvidence] = useState<File[]>([]);
+  const [refundReason, setRefundReason] = useState('');
 
-  const pickReceipt = (file: File | null) => {
-    if (!file) { setReceipt(null); return; }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.error('Attach a PDF or a photo (JPG, PNG or WebP)');
-      return;
+  const pickReceipts = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    for (const file of Array.from(files)) {
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`"${file.name}" is not a PDF or photo (JPG, PNG or WebP)`);
+        continue;
+      }
+      if (file.size > MAX_BYTES) {
+        toast.error(`"${file.name}" is larger than 10MB`);
+        continue;
+      }
+      setReceipts((prev) => [...prev, file]);
     }
-    if (file.size > MAX_BYTES) {
-      toast.error('That file is larger than 10MB');
-      return;
-    }
-    setReceipt(file);
+  };
+
+  const removeReceipt = (index: number) => {
+    setReceipts((prev) => prev.filter((_, i) => i !== index));
   };
 
   const current = pending[0] ?? null;
@@ -80,42 +105,45 @@ export function RequisitionUsageReportGate() {
     () => (current ? Number(current.approved_amount ?? current.amount) : 0),
     [current],
   );
+  const matching = useMemo(() => evaluateUsageMatching({
+    approved: approvedAmount,
+    used: amountUsed === '' ? null : Number(amountUsed),
+    receiptTotal: receiptTotal === '' ? null : Number(receiptTotal),
+    mismatchExplanation, unspentExplanation, overspendExplanation,
+    refundStatus: refundStatus || null,
+    refundEvidenceCount: refundEvidence.length,
+    refundNotRequiredReason: refundReason,
+  }), [approvedAmount, amountUsed, receiptTotal, mismatchExplanation, unspentExplanation, overspendExplanation, refundStatus, refundEvidence.length, refundReason]);
+  const resetMatching = () => {
+    setReceiptTotal(''); setMismatchExplanation(''); setUnspentExplanation(''); setOverspendExplanation('');
+    setRefundStatus(''); setRefundEvidence([]); setRefundReason('');
+  };
 
   const load = useCallback(async () => {
     if (!user?.id) { setPending([]); return; }
-
-    const { data: reqs, error } = await supabase
-      .from('staff_requisitions')
-      .select('id, requisition_code, title, amount, approved_amount, reason, cfo_decided_at, category')
-      .eq('requester_id', user.id)
-      .eq('stage', 'approved')
-      // Facilitations have their own accountability form (extra required
-      // fields), so they must not be nagged by this generic report popup.
-      .or('request_kind.is.null,request_kind.neq.facilitation')
-      .not('cfo_decided_at', 'is', null)
-      .order('cfo_decided_at', { ascending: true })
-      .limit(50);
-
-    if (error || !reqs?.length) { setPending([]); return; }
-
-    const ids = reqs.map((r) => r.id);
-    const { data: reports, error: reportsError } = await supabase
-      .from('staff_requisition_usage_reports')
-      .select('requisition_id')
-      .in('requisition_id', ids);
-
-    if (reportsError) {
-      // Cannot tell which requisitions already have a report — do NOT fall
-      // through and show every approved requisition as pending (that would
-      // re-nag for ones already reported, and the resulting resubmit fails
-      // on staff_requisition_usage_reports_req_uniq). Leave `pending` as-is
-      // and retry on the next poll/realtime tick instead.
-      console.warn('[RequisitionUsageReportGate] could not check existing reports', reportsError);
+    // The server decides visibility (36h after CFO approval, no report yet),
+    // the deferral count and whether the notice is mandatory.
+    const { data, error } = await (supabase.rpc as any)('get_my_usage_report_notices');
+    if (error) {
+      console.warn('[RequisitionUsageReportGate] could not load notices', error);
       return;
     }
-
-    const reported = new Set((reports || []).map((r) => r.requisition_id));
-    setPending((reqs as unknown as PendingReq[]).filter((r) => !reported.has(r.id)));
+    const rows = (data || []) as Array<{
+      requisition_id: string; requisition_code: string; title: string; amount: number;
+      approved_amount: number | null; reason: string; category: string | null;
+      cfo_decided_at: string | null; grace_ends_at: string | null; deferral_count: number;
+      mandatory: boolean; acknowledged: boolean;
+    }>;
+    const counts: Record<string, number> = {};
+    const acks: Record<string, boolean> = {};
+    rows.forEach((r) => { counts[r.requisition_id] = r.deferral_count; acks[r.requisition_id] = r.acknowledged; });
+    setDeferrals(counts);
+    setAcknowledged(acks);
+    setPending(rows.map((r) => ({
+      id: r.requisition_id, requisition_code: r.requisition_code, title: r.title, amount: r.amount,
+      approved_amount: r.approved_amount, reason: r.reason, cfo_decided_at: r.cfo_decided_at,
+      category: r.category, grace_ends_at: r.grace_ends_at,
+    })));
   }, [user?.id]);
 
   // Initial load + refresh every 60s (+ on focus) so a newly-paid requisition
@@ -144,46 +172,58 @@ export function RequisitionUsageReportGate() {
     const used = Number(amountUsed);
     if (!Number.isFinite(used) || used < 0) { toast.error('Enter how much of the money you used'); return; }
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
-    if (!receipt) { toast.error('Attach a receipt or proof of payment'); return; }
+    if (receipts.length === 0) { toast.error('Attach at least one receipt or proof of payment'); return; }
+    if (matching.problems.length > 0) { toast.error(matching.problems[0]); return; }
 
     setSaving(true);
 
-    // Upload the receipt first (existing storage + auth path) so we never save a
+    // Upload files first (existing storage + auth path) so we never save a
     // report that claims an attachment it does not have.
-    let attachmentPaths: string[] | null = null;
-    if (receipt) {
-      const form = new FormData();
-      form.append('requisition_id', current.id);
-      form.append('file', receipt);
-      const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
-        'staff-requisition-add-attachment',
-        { body: form, errorTitle: 'Could not attach your receipt' },
-      );
-      if (upErr || !up?.path) { setSaving(false); return; }
-      attachmentPaths = [up.path];
-    }
+    const upload = async (files: File[]) => {
+      const paths: string[] = [];
+      for (const file of files) {
+        const form = new FormData();
+        form.append('requisition_id', current.id);
+        form.append('file', file);
+        const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
+          'staff-requisition-add-attachment',
+          { body: form, errorTitle: `Could not attach "${file.name}"` },
+        );
+        if (upErr || !up?.path) return null;
+        paths.push(up.path);
+      }
+      return paths;
+    };
+    const attachmentPaths = await upload(receipts);
+    if (!attachmentPaths) { setSaving(false); return; }
+    const refundPaths = matching.hasUnspent && refundStatus === 'made' ? await upload(refundEvidence) : [];
+    if (!refundPaths) { setSaving(false); return; }
 
-    const { error } = await supabase.from('staff_requisition_usage_reports').insert({
-      requisition_id: current.id,
-      requester_id: user.id,
-      amount_used: used,
-      summary: summary.trim(),
-      attachment_paths: attachmentPaths,
+    // Server re-checks every matching rule and writes the audit trail.
+    const { data: res, error } = await (supabase.rpc as any)('submit_requisition_usage_report', {
+      p_requisition_id: current.id,
+      p_amount_used: used,
+      p_receipt_total: Number(receiptTotal),
+      p_summary: summary.trim(),
+      p_attachment_paths: attachmentPaths,
+      p_mismatch_explanation: matching.mismatch ? mismatchExplanation.trim() : null,
+      p_unspent_explanation: matching.hasUnspent ? unspentExplanation.trim() : null,
+      p_overspend_explanation: matching.hasOverspend ? overspendExplanation.trim() : null,
+      p_refund_status: matching.hasUnspent ? refundStatus : null,
+      p_refund_evidence_paths: refundPaths,
+      p_refund_not_required_reason: matching.hasUnspent && refundStatus === 'not_required' ? refundReason.trim() : null,
     });
     setSaving(false);
 
     if (error) {
       // A report for this requisition already exists (staff_requisition_usage_reports_req_uniq).
-      // This happens when an earlier submit actually succeeded but this popup's
-      // local `pending` list was never refreshed (e.g. no staff_requisitions
-      // change fired the realtime reload) — resync from the DB instead of
-      // leaving a stale, already-done requisition stuck reappearing forever.
       const alreadyReported = error.code === '23505' || /duplicate key/i.test(error.message || '');
       if (alreadyReported) {
         toast.success('This requisition already has a submitted report.');
         setAmountUsed('');
         setSummary('');
-        setReceipt(null);
+        setReceipts([]);
+        resetMatching();
         setShowForm(false);
         setOpen(false);
         await load();
@@ -193,11 +233,63 @@ export function RequisitionUsageReportGate() {
       return;
     }
 
-    toast.success('Usage report submitted');
+    toast.success('Usage report submitted', {
+      description: (res as { discrepancy_flag?: boolean } | null)?.discrepancy_flag
+        ? 'Amount differences were flagged for CFO review.' : undefined,
+    });
     setAmountUsed('');
     setSummary('');
-    setReceipt(null);
+    setReceipts([]);
+    resetMatching();
     setShowForm(false);
+    setOpen(false);
+    await load();
+  };
+
+  const deferCount = current ? deferrals[current.id] || 0 : 0;
+  const limitReached = deferCount >= MAX_DEFERRALS;
+  const isAcked = current ? !!acknowledged[current.id] : false;
+
+  // Record each time a notice is actually shown (server de-duplicates per hour).
+  useEffect(() => {
+    if (!open || !current) return;
+    void (supabase.rpc as any)('log_usage_report_notice_event', { p_requisition_id: current.id, p_event: 'shown' });
+  }, [open, current?.id, deferCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const proceedToForm = async () => {
+    if (!current) return;
+    if (limitReached && !isAcked) {
+      const { error } = await (supabase.rpc as any)('log_usage_report_notice_event', {
+        p_requisition_id: current.id, p_event: 'acknowledged',
+      });
+      if (error) { toast.error('Could not record acknowledgement', { description: error.message }); return; }
+      setAcknowledged((a) => ({ ...a, [current.id]: true }));
+    }
+    setShowForm(true);
+  };
+
+  const deferReport = async () => {
+    if (!current) return;
+    if (limitReached) { setDeferError(MAX_DEFERRALS_MSG); return; }
+    if (deferReason.trim().length < 10) { setDeferError('Give a reason of at least 10 characters for deferring.'); return; }
+    setDeferring(true);
+    setDeferError(null);
+    const { data, error } = await (supabase.rpc as any)('defer_requisition_usage_report', {
+      p_requisition_id: current.id,
+      p_reason: deferReason.trim(),
+    });
+    setDeferring(false);
+    if (error) {
+      setDeferError(/maximum deferrals/i.test(error.message || '') ? MAX_DEFERRALS_MSG : error.message);
+      await load();
+      return;
+    }
+    const remaining = Number((data as { remaining?: number } | null)?.remaining ?? 0);
+    toast.success('Report deferred', {
+      description: remaining > 0 ? `${remaining} deferral${remaining === 1 ? '' : 's'} left.` : 'No deferrals left. You must submit the report next time.',
+    });
+    setDeferReason('');
+    setShowDefer(false);
     setOpen(false);
     await load();
   };
@@ -205,8 +297,13 @@ export function RequisitionUsageReportGate() {
   if (!current) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setShowForm(false); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) return; setOpen(o); }}>
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button.absolute]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ClipboardCheck className="h-5 w-5 text-emerald-600" />
@@ -233,6 +330,7 @@ export function RequisitionUsageReportGate() {
               <Wallet className="h-4 w-4 text-emerald-600" /> {formatUGX(approvedAmount)}
             </p>
             <p className="text-xs text-muted-foreground">Approved {fmtDate(current.cfo_decided_at)}</p>
+            <p className="text-xs text-muted-foreground">Report due {fmtDate(current.grace_ends_at)} · Deferred {deferCount} of {MAX_DEFERRALS}</p>
             <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{current.reason}</p>
           </div>
 
@@ -249,6 +347,81 @@ export function RequisitionUsageReportGate() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="usage-receipt-total">Total shown on your receipts (UGX)</Label>
+                <Input
+                  id="usage-receipt-total"
+                  inputMode="numeric"
+                  value={receiptTotal}
+                  onChange={(e) => setReceiptTotal(e.target.value.replace(/[^0-9.]/g, ''))}
+                  placeholder="Add up the amounts on your receipts"
+                />
+                <p className="text-xs text-muted-foreground">Type it yourself — the receipts are checked by hand, not read automatically.</p>
+              </div>
+              {matching.receiptVsUsed !== null && (
+                <div className="rounded-xl border bg-muted/30 p-3 text-sm" aria-label="Amount matching">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div><p className="text-xs text-muted-foreground">Approved</p><p className="font-semibold">{formatUGX(approvedAmount)}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Used</p><p className="font-semibold">{formatUGX(Number(amountUsed))}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Receipts</p><p className="font-semibold">{formatUGX(Number(receiptTotal))}</p></div>
+                  </div>
+                  <p className={`mt-2 ${matching.mismatch ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
+                    {matching.mismatch
+                      ? `Discrepancy: receipts are ${formatUGX(Math.abs(matching.receiptVsUsed))} ${matching.receiptVsUsed > 0 ? 'more' : 'less'} than the amount used.`
+                      : 'Receipts match the amount used.'}
+                  </p>
+                  {matching.hasUnspent && <p className="font-semibold text-warning">Unspent balance: {formatUGX(matching.unspent ?? 0)}</p>}
+                  {matching.hasOverspend && <p className="font-semibold text-destructive">Spent above approval: {formatUGX(matching.overspend ?? 0)}</p>}
+                </div>
+              )}
+              {matching.mismatch && (
+                <div className="space-y-2">
+                  <Label htmlFor="usage-mismatch">Why do the receipts differ from the amount used?</Label>
+                  <Textarea id="usage-mismatch" rows={2} value={mismatchExplanation} onChange={(e) => setMismatchExplanation(e.target.value)} placeholder="At least 10 characters" />
+                </div>
+              )}
+              {matching.hasOverspend && (
+                <div className="space-y-2">
+                  <Label htmlFor="usage-overspend">Explain the amount spent above the approval</Label>
+                  <Textarea id="usage-overspend" rows={2} value={overspendExplanation} onChange={(e) => setOverspendExplanation(e.target.value)} placeholder="At least 10 characters" />
+                </div>
+              )}
+              {matching.hasUnspent && (
+                <div className="space-y-2 rounded-xl border p-3">
+                  <Label htmlFor="usage-unspent">Account for the unspent balance</Label>
+                  <Textarea id="usage-unspent" rows={2} value={unspentExplanation} onChange={(e) => setUnspentExplanation(e.target.value)} placeholder="What happened to the remaining money (at least 10 characters)" />
+                  <Label>Refund status</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {([['made', 'Refund made'], ['pending', 'Refund pending'], ['not_required', 'Not required per policy']] as const).map(([v, l]) => (
+                      <Button key={v} type="button" size="sm" variant={refundStatus === v ? 'default' : 'outline'} onClick={() => setRefundStatus(v)}>{l}</Button>
+                    ))}
+                  </div>
+                  {refundStatus === 'made' && (
+                    <div className="space-y-1">
+                      <Label htmlFor="usage-refund-proof">Proof of refund</Label>
+                      {refundEvidence.map((f, i) => (
+                        <div key={`${f.name}-${i}`} className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1 text-xs">
+                          <span className="truncate">{f.name}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setRefundEvidence((p) => p.filter((_, j) => j !== i))}><X className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
+                      <Input id="usage-refund-proof" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files ?? []).filter((f) => ALLOWED_TYPES.includes(f.type) && f.size <= MAX_BYTES);
+                          setRefundEvidence((p) => [...p, ...files]); e.target.value = '';
+                        }} />
+                    </div>
+                  )}
+                  {refundStatus === 'not_required' && (
+                    <Textarea rows={2} value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="Why no refund is required under policy (at least 10 characters)" aria-label="Why no refund is required" />
+                  )}
+                </div>
+              )}
+              {matching.problems.length > 0 && amountUsed !== '' && receiptTotal !== '' && (
+                <ul className="list-disc space-y-0.5 pl-5 text-xs text-destructive" role="alert">
+                  {matching.problems.map((p) => <li key={p}>{p}</li>)}
+                </ul>
+              )}
+              <div className="space-y-2">
                 <Label htmlFor="usage-summary">What was it spent on</Label>
                 <Textarea
                   id="usage-summary"
@@ -260,10 +433,10 @@ export function RequisitionUsageReportGate() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="usage-receipt">
-                  Receipt or proof of payment <span className="text-destructive">*</span>
+                  Receipts or proof of payment <span className="text-destructive">*</span>
                 </Label>
-                {receipt ? (
-                  <div className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
+                {receipts.map((receipt, i) => (
+                  <div key={`${receipt.name}-${i}`} className="flex items-center justify-between gap-2 rounded-xl border bg-muted/30 px-3 py-2">
                     <span className="flex min-w-0 items-center gap-2 text-sm">
                       <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{receipt.name}</span>
@@ -273,23 +446,59 @@ export function RequisitionUsageReportGate() {
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 shrink-0"
-                      onClick={() => setReceipt(null)}
+                      onClick={() => removeReceipt(i)}
                       disabled={saving}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-                ) : (
-                  <Input
-                    id="usage-receipt"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(e) => { pickReceipt(e.target.files?.[0] ?? null); e.target.value = ''; }}
-                  />
-                )}
-                <p className="text-xs text-muted-foreground">Required. Photo or PDF, up to 10MB.</p>
+                ))}
+                <Input
+                  id="usage-receipt"
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={(e) => { pickReceipts(e.target.files); e.target.value = ''; }}
+                />
+                <p className="text-xs text-muted-foreground">At least one required. You can attach several — photos or PDFs, up to 10MB each.</p>
               </div>
             </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            Deferred {deferCount} of {MAX_DEFERRALS} times.
+          </p>
+          {limitReached && (
+            <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {MAX_DEFERRALS_MSG} Please submit your usage report now.
+            </p>
+          )}
+          {limitReached && !isAcked && !showForm && (
+            <label className="flex items-start gap-2 rounded-xl border p-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={ackChecked}
+                onChange={(e) => setAckChecked(e.target.checked)}
+              />
+              I acknowledge this is my final notice and I will submit the accountability report now.
+            </label>
+          )}
+
+          {showDefer && !limitReached && !showForm && (
+            <div className="space-y-2">
+              <Label htmlFor="usage-defer-reason">Why are you deferring?</Label>
+              <Textarea
+                id="usage-defer-reason"
+                rows={3}
+                value={deferReason}
+                onChange={(e) => { setDeferReason(e.target.value); setDeferError(null); }}
+                placeholder="At least 10 characters"
+              />
+            </div>
+          )}
+          {deferError && (
+            <p role="alert" className="text-sm text-destructive">{deferError}</p>
           )}
 
           {pending.length > 1 && (
@@ -300,16 +509,42 @@ export function RequisitionUsageReportGate() {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-            Later
-          </Button>
+          {!limitReached && !showForm && (
+            showDefer ? (
+              <>
+                <Button variant="ghost" onClick={() => { setShowDefer(false); setDeferError(null); }} disabled={deferring}>
+                  Back
+                </Button>
+                <Button variant="outline" onClick={() => void deferReport()} disabled={deferring}>
+                  {deferring && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm defer
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" onClick={() => { setShowDefer(true); setDeferError(null); }} disabled={saving}>
+                Later
+              </Button>
+            )
+          )}
+          {showForm && (
+            <Button variant="ghost" onClick={() => setShowForm(false)} disabled={saving}>
+              Back
+            </Button>
+          )}
           {showForm ? (
-            <Button onClick={() => void submitReport()} disabled={saving || !receipt}>
+            <Button onClick={() => void submitReport()} disabled={saving || receipts.length === 0 || matching.problems.length > 0}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit report
             </Button>
           ) : (
-            <Button onClick={() => setShowForm(true)}>Submit Usage Report</Button>
+            !showDefer && (
+              <Button
+                disabled={limitReached && !isAcked && !ackChecked}
+                onClick={() => void proceedToForm()}
+              >
+                {limitReached && !isAcked ? 'Acknowledge and continue' : 'Submit Usage Report'}
+              </Button>
+            )
           )}
         </DialogFooter>
       </DialogContent>

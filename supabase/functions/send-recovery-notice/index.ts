@@ -21,8 +21,7 @@ Deno.serve(async (req) => {
     for (const r of rows) {
       const firstName = (r.name || '').split(/\s+/)[0] || 'Agent';
       const msg =
-        `Hi ${firstName}, your float deposit of ${formatUGX(r.amount)} (TID ${r.tid}) has been recovered and credited to your Welile wallet. ` +
-        `Sorry for the delay — it was caused by an SMS-to-email bridge gap. Your float balance is now up to date.`;
+        `Welile: ${firstName}, float deposit ${formatUGX(r.amount)} (TID ${r.tid}) recovered and credited to your wallet. Sorry for the delay.`;
       const ok = await sendSMS(r.phone, msg, {
         user_id: null,
         category: 'recovery_notice',

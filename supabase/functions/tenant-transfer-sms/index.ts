@@ -49,12 +49,12 @@ Deno.serve(async (req) => {
     }
 
     const message =
-      `WELILE: Tenant ${tenant?.full_name || "a tenant"}` +
+      `Tenant ${tenant?.full_name || "a tenant"}` +
       (tenant?.phone ? ` (${tenant.phone})` : "") +
-      ` has been transferred to you` +
+      ` transferred to you` +
       (fromAgent?.full_name ? ` from ${fromAgent.full_name}` : "") +
-      `. Reason: ${(reason || "").toString().trim() || "not stated"}.` +
-      ` Please open your dashboard to start collections.`;
+      `. Reason: ${((reason || "").toString().trim() || "not stated").slice(0, 25)}.` +
+      ` Open dashboard to collect.`;
 
     const sent = await attemptYoolaPrimary(toAgent.phone, message, { source: "tenant-transfer-sms" });
     console.log(`[tenant-transfer-sms] tenant=${tenant_id} to=${to_agent_id} source=${source} sent=${sent}`);

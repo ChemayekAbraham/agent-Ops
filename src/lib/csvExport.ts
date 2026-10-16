@@ -77,3 +77,32 @@ export function csvTimestamp(iso: string | null | undefined): string {
     return '';
   }
 }
+
+/**
+ * Like downloadCsv, with a few lines above the header row (a title, the filters, when it was generated). Same quoting,
+ * BOM and export audit entry as downloadCsv; downloadCsv itself is unchanged.
+ */
+export function downloadCsvWithPreamble(
+  filename: string,
+  preamble: (string | number | null | undefined)[][],
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+) {
+  const lines = [
+    ...preamble.map((r) => r.map(csvCell).join(',')),
+    ...(preamble.length ? [''] : []),
+    headers.map(csvCell).join(','),
+    ...rows.map((r) => r.map(csvCell).join(',')),
+  ];
+  const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  void logCsvExport(filename, rows.length);
+}

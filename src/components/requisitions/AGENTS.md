@@ -1,0 +1,4 @@
+# Requisition usage reports
+- Usage-report notice visibility (grace period after `cfo_decided_at`), deferral limit and mandatory flag are decided only by `get_my_usage_report_notices` / `defer_requisition_usage_report`; events are logged append-only in `staff_requisition_usage_report_events` + `audit_logs`; the client only displays them, so refreshes can't bypass the rules.
+- Usage-report amount matching (receipt vs used vs approved, unspent refund accountability) is decided only by `_usage_report_evaluate` via `submit_requisition_usage_report` and the insert trigger; amounts freeze after submission and CFO decisions go append-only through `review_requisition_usage_report`, so the client only displays the rules.
+- A reversed requisition payment is recognised only by `requisition_wallet_credits.status = 'reversed'` (written by `requisition-reverse`), never by ledger description text; `get_my_usage_report_notices` skips those requisitions.

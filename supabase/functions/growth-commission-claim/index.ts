@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
           if (!p.phone) continue;
           await sendSMS(
             p.phone,
-            `Welile: Requisition ${requisition.requisition_code} — ${fmtUGX(amount)} growth commission (${userCount} new users) awaits your review.`,
+            `Welile: Requisition ${requisition.requisition_code} - ${fmtUGX(amount)} growth commission (${userCount} new users) awaits your review.`,
             {
               admin,
               source: "growth-commission-claim",

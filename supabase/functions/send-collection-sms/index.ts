@@ -106,16 +106,8 @@ Deno.serve(async (req) => {
     const formattedAmount = `UGX ${Number(amount).toLocaleString()}`;
     const modeLabel = payment_mode === "mobile_money" ? "Mobile Money" : payment_mode === "cash" ? "Cash" : "Agent Wallet";
 
-    const message = [
-      "WELILE Payment Confirmation",
-      `Tenant: ${tenant_name || "N/A"}`,
-      `Amount: ${formattedAmount}`,
-      `Mode: ${modeLabel}`,
-      `Agent: ${agent_name || "N/A"}`,
-      `Date: ${date || new Date().toLocaleDateString()}`,
-      `Ref: ${tracking_id}`,
-      "Thank you for using WELILE.",
-    ].join("\n");
+    const message =
+      `Welile: ${tenant_name || "Tenant"} paid ${formattedAmount} (${modeLabel}) on ${date || new Date().toLocaleDateString()}. Ref ${tracking_id}.`;
 
     // Honour CTO-managed SMS exceptions (skip blocked phones for this type).
     const exAdmin = createClient(
@@ -167,9 +159,9 @@ Deno.serve(async (req) => {
     }
 
     const tenantMessage = [
-      `WELILE: Hi ${tenantFirstName}, we received ${formattedAmount} today from ${agent_name || "your agent"}.`,
-      remainingText ? `Rent balance: ${remainingText}.` : null,
-      `Ref: ${tracking_id}. Thank you.`,
+      `Welile: ${tenantFirstName}, received ${formattedAmount} from ${agent_name || "your agent"}.`,
+      remainingText ? `Rent balance ${remainingText}.` : null,
+      `Ref ${tracking_id}.`,
     ]
       .filter(Boolean)
       .join(" ");

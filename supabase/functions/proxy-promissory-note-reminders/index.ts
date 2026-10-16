@@ -70,20 +70,19 @@ function daysOld(iso: string): number {
 function shortName(name: string | null): string {
   const n = (name ?? "").trim();
   if (!n) return "your partner";
-  return n.length <= 28 ? n : `${n.slice(0, 27)}…`;
+  return n.length <= 15 ? n : `${n.slice(0, 14)}.`;
 }
 
 function buildMessage(notes: Note[]): string {
   if (notes.length === 1) {
     const n = notes[0];
-    return `Welile: ${shortName(n.partner_name)}'s promissory note of ` +
-      `${ugx(Number(n.amount ?? 0))} is still pending. Please follow up with them today.`;
+    return `${shortName(n.partner_name)}'s promissory note of ` +
+      `${ugx(Number(n.amount ?? 0))} is pending. Follow up today.`;
   }
   const total = notes.reduce((s, n) => s + Number(n.amount ?? 0), 0);
   const oldest = notes.reduce((a, b) => (a.created_at <= b.created_at ? a : b));
-  return `Welile: You have ${notes.length} promissory notes still pending, ` +
-    `${ugx(total)} in total. Oldest: ${shortName(oldest.partner_name)}, ` +
-    `${daysOld(oldest.created_at)} days. Please follow them up.`;
+  return `${notes.length} promissory notes pending, ${ugx(total)} total. ` +
+    `Oldest: ${shortName(oldest.partner_name)}, ${daysOld(oldest.created_at)} days. Follow up.`;
 }
 
 Deno.serve(async (req) => {

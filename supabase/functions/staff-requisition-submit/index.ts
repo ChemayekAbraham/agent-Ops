@@ -361,7 +361,7 @@ async function notifyApprovers(admin: any, approverRole: string, row: any, reque
     for (const p of profiles || []) {
       if (p.phone && smsAllowed.has(p.id)) {
         try {
-          await sendSMS(p.phone, `Welile: Requisition ${row.requisition_code} (${fmtUGX(Number(row.amount))}) from ${requesterName} awaits your review.`, {
+          await sendSMS(p.phone, `Welile: Requisition ${row.requisition_code} (${fmtUGX(Number(row.amount))}) from ${requesterName} awaits review.`, {
             admin,
             source: "staff-requisition-submit",
             reference_id: row.id,

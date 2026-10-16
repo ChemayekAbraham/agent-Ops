@@ -56,10 +56,10 @@ Deno.serve(async (req) => {
       timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
     });
     const message = mode === 'deduction'
-      ? `WELILE: ${fmtUGX(amount)} was deducted from your wallet on ${kampalaTime} toward your Agent Advance. ${totalLeft > 0 ? `Remaining balance ${fmtUGX(totalLeft)}.` : 'Your advance is now fully repaid.'}`
+      ? `WELILE: ${fmtUGX(amount)} deducted for Agent Advance, ${kampalaTime}. ${totalLeft > 0 ? `Balance ${fmtUGX(totalLeft)}.` : 'Advance fully repaid.'}`
       : mode === 'daily_summary'
-      ? `WELILE: ${fmtUGX(amount)} was deducted from your wallet in ${n} payment${n === 1 ? '' : 's'} in the last 24 hours toward your Agent Advance. ${left > 0 ? `Remaining balance ${fmtUGX(left)}.` : 'Your advance is now fully repaid.'} See your app for each deduction.`
-      : `WELILE: ${fmtUGX(amount)} was auto-recovered from your wallet toward your advance today. Outstanding ${fmtUGX(outstanding)}.`;
+      ? `WELILE: ${fmtUGX(amount)} deducted in ${n} payment${n === 1 ? '' : 's'} (24h) for Agent Advance. ${left > 0 ? `Balance ${fmtUGX(left)}.` : 'Advance fully repaid.'}`
+      : `WELILE: ${fmtUGX(amount)} auto-recovered from wallet for advance today. Balance ${fmtUGX(outstanding)}.`;
     // Yoola first, then Africa's Talking, then Lana. This used to be a bare
     // Yoola attempt with its result discarded, so while Yoola was out of credit
     // (402 insufficient_fund, from 2026-10-09) every per-deduction alert was

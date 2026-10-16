@@ -11,14 +11,19 @@
 //
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { lazyWithRetry as lazy, lazyNamed } from '@/lib/lazyWithRetry';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/cashoutAgentConfig';
 
+// The legacy "Post a rent request here" card and its "earn UGX 5000" line are
+// hidden for now (2026-10-16): the signature rent-request card is the single
+// entry point on this dashboard. Flip to true to bring them back.
+const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+
+
 import AiIdButton from '@/components/ai-id/AiIdButton';
-import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
 import TenantLocationCorrectionPopup from '@/components/agent/TenantLocationCorrectionPopup';
@@ -45,6 +50,7 @@ import {
   FileText,
   Users,
   Sparkles,
+  ArrowLeft,
   ArrowDownLeft,
   ArrowUpRight,
   Building2,
@@ -65,7 +71,7 @@ import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
-import { ShoppingBag, Smartphone, Bike, Store, Package } from 'lucide-react';
+import { ShoppingBag, Smartphone, Bike, Package } from 'lucide-react';
 import { useMyOrdersCount } from '@/hooks/useMyOrdersCount';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
@@ -107,7 +113,7 @@ import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
 import { useRecruiterOverrideToast } from '@/hooks/useRecruiterOverrideToast';
 import { useAgentEarnings } from '@/hooks/useAgentEarnings';
 import { AgentDashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
-import { WalletHeroSkeleton, MetricRowSkeleton, ListSectionSkeleton } from '@/components/skeletons/SectionSkeletons';
+import { MetricRowSkeleton, ListSectionSkeleton } from '@/components/skeletons/SectionSkeletons';
 
 
 import { hapticTap } from '@/lib/haptics';
@@ -131,7 +137,7 @@ import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
 import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
 import { useAgentDashboardRealtime } from '@/hooks/useAgentDashboardRealtime';
-import { AgentHubTabs, type AgentHubTab } from '@/components/agent-bk/AgentHubTabs';
+import { type AgentHubTab } from '@/components/agent-bk/AgentHubTabs';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
@@ -171,7 +177,8 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
-import { AgentPriorityGrid } from '@/components/agent-bk/AgentPriorityGrid';
+import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
+import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -512,6 +519,9 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const guardListingHours = useListingDaytimeGuard();
   const [myListingsOpen, setMyListingsOpen] = useState(false);
   const [myListingsVacantOnly, setMyListingsVacantOnly] = useState(false);
+  const [freeServiceCenterOpen, setFreeServiceCenterOpen] = useState(false);
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [fieldCollectionsOpen, setFieldCollectionsOpen] = useState(false);
 
   // Phase 1: Agent Operations dialogs
   const [visitDialogOpen, setVisitDialogOpen] = useState(false);
@@ -555,7 +565,48 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const [shareLandlordOpen, setShareLandlordOpen] = useState(false);
   const [lendingAgentOpen, setLendingAgentOpen] = useState(false);
   const [borrowOpen, setBorrowOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<AgentHubTab>('home');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as AgentHubTab | null;
+  const initialTab: AgentHubTab =
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(tabParam)
+      ? (tabParam as string) === 'more' ? 'grow' : (tabParam as string) === 'repayments' ? 'portfolio' : tabParam
+      : 'home';
+  const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
+
+  // Sync activeTab when query param ?tab changes
+  useEffect(() => {
+    const currentTab = searchParams.get('tab') as AgentHubTab | null;
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(currentTab)) {
+      const normalized = (currentTab as string) === 'more' ? 'grow' : (currentTab as string) === 'repayments' ? 'portfolio' : currentTab;
+      if (normalized !== activeTab) {
+        setActiveTab(normalized);
+      }
+    } else if (!currentTab && activeTab !== 'home') {
+      setActiveTab('home');
+    }
+  }, [searchParams, activeTab]);
+
+  // Sync activeTab when top-right menu triggers tab switch event
+  useEffect(() => {
+    const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(e.detail)) {
+        setActiveTab(e.detail);
+        if (e.detail === 'home') {
+          setMenuOpen(false);
+          setRentRequestOpen(false);
+          setFieldCollectionsOpen(false);
+          setListHouseOpen(false);
+          setTenantsSheetOpen(false);
+          setManagedPropertiesSheetOpen(false);
+          setMyRentRequestsOpen(false);
+          setShowWallet(false);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }
+    };
+    window.addEventListener('agent-hub-tab-change', handleTabEvent as EventListener);
+    return () => window.removeEventListener('agent-hub-tab-change', handleTabEvent as EventListener);
+  }, []);
 
   // Dynamic telemetry tracking across agent tabs, sheets, and drawers
   useEffect(() => {
@@ -618,8 +669,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     } else if (rentPosterOpen) {
       userBehaviourTracker.setSection('agent-rent-poster', 'agent');
     } else {
-      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center)
-      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab;
+      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center, league -> collection-league, portfolio -> repayment-portfolio)
+      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab === 'league' ? 'collection-league' : activeTab === 'portfolio' ? 'repayment-portfolio' : activeTab;
       userBehaviourTracker.setSection(`agent-${tabName}`, 'agent');
     }
   }, [
@@ -709,6 +760,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         tenants: 'Tenants',
         grow: 'More',
         subagents: 'Sub Agents',
+        league: 'Collection League',
+        portfolio: 'Repayment Portfolio',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -847,6 +900,75 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     }
   }, [isMerchant, activeTab]);
 
+  // Menu and URL action triggers (List House, My Listings, Collect from Receipt, Rating, Free Service Center)
+  useEffect(() => {
+    const handleOpenListHouse = () => {
+      if (guardMerchant()) return;
+      if (!guardListingHours()) return;
+      hapticTap();
+      setListHouseFromPromo(false);
+      setListHouseOpen(true);
+    };
+
+    const handleOpenMyListings = () => {
+      hapticTap();
+      setMyListingsVacantOnly(false);
+      setMyListingsOpen(true);
+    };
+
+    const handleOpenCollectFromReceipt = () => {
+      hapticTap();
+      setCollectFromRefOpen(true);
+    };
+
+    const handleOpenRating = () => {
+      hapticTap();
+      setRatingDialogOpen(true);
+    };
+
+    const handleOpenFreeServiceCenter = () => {
+      hapticTap();
+      setFreeServiceCenterOpen(true);
+    };
+
+    const handleOpenFieldCollections = () => {
+      hapticTap();
+      setFieldCollectionsOpen(true);
+    };
+
+    const action = searchParams.get('action');
+    if (action === 'list-house') handleOpenListHouse();
+    else if (action === 'my-listings') handleOpenMyListings();
+    else if (action === 'collect-from-receipt') handleOpenCollectFromReceipt();
+    else if (action === 'field-collections') handleOpenFieldCollections();
+    else if (action === 'rating') handleOpenRating();
+    else if (action === 'free-service-center') handleOpenFreeServiceCenter();
+
+    if (action) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('action');
+        return next;
+      }, { replace: true });
+    }
+
+    window.addEventListener('agent-open-list-house', handleOpenListHouse);
+    window.addEventListener('agent-open-my-listings', handleOpenMyListings);
+    window.addEventListener('agent-open-collect-from-receipt', handleOpenCollectFromReceipt);
+    window.addEventListener('agent-open-field-collections', handleOpenFieldCollections);
+    window.addEventListener('agent-open-rating', handleOpenRating);
+    window.addEventListener('agent-open-free-service-center', handleOpenFreeServiceCenter);
+
+    return () => {
+      window.removeEventListener('agent-open-list-house', handleOpenListHouse);
+      window.removeEventListener('agent-open-my-listings', handleOpenMyListings);
+      window.removeEventListener('agent-open-collect-from-receipt', handleOpenCollectFromReceipt);
+      window.removeEventListener('agent-open-field-collections', handleOpenFieldCollections);
+      window.removeEventListener('agent-open-rating', handleOpenRating);
+      window.removeEventListener('agent-open-free-service-center', handleOpenFreeServiceCenter);
+    };
+  }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
+
   // Live "updated …" indicator for the Merchant Payouts earnings total.
   // Re-render every 15s so the relative timestamp stays fresh.
   const [nowTick, setNowTick] = useState(Date.now());
@@ -963,7 +1085,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
 
   const menuItems = [
-    { icon: Store, label: 'Service Center', onClick: () => { hapticTap(); navigate('/agent/service-center'); } },
     { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
     {
       icon: Package,
@@ -993,10 +1114,16 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         onRoleChange={onRoleChange}
         onSignOut={signOut}
         menuItems={menuItems}
+        headerActions={<AgentNotificationBell userId={user.id} />}
       />
 
-      <div className="agent-dashboard-scroll flex-1 overflow-y-auto overflow-x-hidden pb-nav">
-        <main className="agent-dashboard-main w-full min-w-0 px-4 pt-5 pb-16 space-y-5 max-w-lg mx-auto">
+      <div className="agent-dashboard-scroll flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain min-h-0 pb-nav">
+        <main className={cn(
+          "agent-dashboard-main w-full min-w-0 px-4 max-w-lg mx-auto",
+          activeTab === 'home'
+            ? "pt-3 pb-16 space-y-2.5"
+            : "pt-5 pb-16 space-y-5"
+        )}>
         {/* Offline Notice */}
         {!isOnline && (
           <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
@@ -1022,50 +1149,46 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         {/* Profile + Name + AI ID */}
         {profileLoading && !profile ? (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-11 w-11 rounded-full shrink-0" />
-              <div className="flex-1 min-w-0 space-y-2">
-                <Skeleton className="h-5 w-40" />
-                <Skeleton className="h-3 w-24" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Skeleton className="h-11 w-11 rounded-full shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
               </div>
-              <div className="hidden sm:flex items-center gap-2">
-                <Skeleton className="h-8 w-8 rounded-lg" />
-                <Skeleton className="h-8 w-8 rounded-lg" />
-              </div>
-            </div>
-            <div className="flex sm:hidden justify-end gap-2">
-              <Skeleton className="h-8 w-8 rounded-lg" />
-              <Skeleton className="h-8 w-8 rounded-lg" />
+              <Skeleton className="h-8 w-20 rounded-full shrink-0" />
             </div>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <ProfileSummaryPopover
-                avatarUrl={profile?.avatar_url}
-                fullName={profile?.full_name}
-                phone={(profile as any)?.phone}
-                email={(profile as any)?.email}
-                location={(profile as any)?.territory ?? (profile as any)?.location}
-                verified={profile?.verified}
-                roleLabel="Welile Agent"
-                triggerSize="lg"
-                eliteTier={myEliteRank?.tier_name}
-              />
-              <div className="flex-1 min-w-0">
-                <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
-                  <span className="break-words">{profile?.full_name || 'Agent'}</span>
-                  {profile?.verified && (
-                    <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
-                  )}
-                </h1>
-                <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
-                <div className="mt-1.5">
-                  <AiIdButton variant="compact" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <ProfileSummaryPopover
+                  avatarUrl={profile?.avatar_url}
+                  fullName={profile?.full_name}
+                  phone={(profile as any)?.phone}
+                  email={(profile as any)?.email}
+                  location={(profile as any)?.territory ?? (profile as any)?.location}
+                  verified={profile?.verified}
+                  roleLabel="Welile Agent"
+                  triggerSize="lg"
+                  eliteTier={myEliteRank?.tier_name}
+                />
+                <div className="flex-1 min-w-0">
+                  <h1 className="font-bold text-xl leading-tight">
+                    <span className="break-words">
+                      {profile?.full_name || 'Agent'}
+                      {profile?.verified && (
+                        <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
+                      )}
+                    </span>
+                  </h1>
+                  <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <AgentNotificationBell userId={user.id} />
+              <div className="shrink-0 self-center">
+                <AiIdButton variant="compact" />
               </div>
             </div>
           </div>
@@ -1088,130 +1211,33 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <DeviceSessionIndicator userId={user.id} />
         </div>
 
-        {/* Wallet Hero Card — always visible */}
-        {wallet ? (
-          <UnifiedWalletHeroCard
-          balance={
-            isMerchant
-              ? realWithdrawableBalance
-              : Math.max(0, visibleAgentFloatBalance - merchantReservedFloat) +
-                realWithdrawableBalance
-          }
-          role="agent"
-          // Merchant Agents never see the generic operational-float box here —
-          // it's company custody money, not theirs to Deposit/Withdraw/Transfer
-          // via this card's action buttons, and MerchantFloatAvailableCard
-          // (rendered on their Home tab) is the single, correctly-guardrailed
-          // place that explains and displays it ("Company cash in your hands").
-          // Showing it in both places invited exactly that confusion.
-          floatBalance={isMerchant ? undefined : visibleAgentFloatBalance}
-          floatReserved={isMerchant ? undefined : merchantReservedFloat}
-          floatCaption={undefined}
-          commissionBalance={commissionBalance}
-          withdrawableBalance={realWithdrawableBalance}
-          otherBalance={otherBalance}
-          onOpenWallet={() => setShowWallet(true)}
-          onViewStatement={() => { setWalletScrollTarget('statement'); setShowWallet(true); }}
-          quickActions={
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border min-h-[44px] ${payoutsUiEnabled ? 'border-white/20 hover:bg-white/10 active:scale-95 transition-all' : 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          }
-          />
-        ) : (
-          // Wallet still loading — show the skeleton AND a tappable Deposit
-          // strip so the agent never feels like the dashboard is "frozen".
-          // Without this, the hero Deposit button doesn't exist for the
-          // first ~1–3s after the dashboard mounts and taps appear to do
-          // nothing, which is the most common "deposit button is broken"
-          // complaint.
-          <div className="space-y-3">
-            <WalletHeroSkeleton />
-            <div className="flex items-center gap-2.5 px-1">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border min-h-[44px] ${payoutsUiEnabled ? 'bg-muted/40 hover:bg-muted active:scale-95 transition-all' : 'bg-muted/40 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
 
-        {/* Tab Navigation — scrolls with the dashboard so the Service Center / Proxy Agents buttons never float */}
-        <div className="-mx-4 px-4 py-2 bg-background border-b border-border/40 overflow-x-auto overflow-y-hidden scrollbar-hide">
-          <AgentHubTabs
-            active={activeTab}
-            restricted={isMerchant}
-            onChange={(tab) => {
-              // Merchant Agents are locked to Home only.
-              if (isMerchant && tab !== 'home') { guardMerchant(); return; }
-              // Tapping the "Service Center" icon opens the Agent Service Center page.
-              if (tab === 'subagents') { navigate('/agent/service-center'); return; }
-              setSlideDirection(null);
-              setActiveTab(tab);
-            }}
-            onProxyAgentsClick={isApprovedProxyAgent ? () => navigate('/dashboard/agent/proxy') : undefined}
-          />
-        </div>
+        {/* Sub-screen Navigation Header (When Money / Tenants / More tab is active) */}
+        {activeTab !== 'home' && (
+          <div className="flex items-center justify-between pb-1 pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                hapticTap();
+                setActiveTab('home');
+                setSearchParams((prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.delete('tab');
+                  return next;
+                }, { replace: true });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/80 hover:bg-muted text-xs font-semibold text-foreground transition-colors touch-manipulation shadow-xs"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Back to Home</span>
+            </button>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
+            </span>
+          </div>
+        )}
 
         {/* Screen-reader live region announces the active hub tab after a swipe gesture */}
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
@@ -1241,19 +1267,38 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           </div>
         )}
         {activeTab === 'home' && !isMerchant && (
-          <div className={cn("space-y-4", tabAnimClass)}>
-            {/* Collection League — weekly team competition (active agents only) */}
-            {!isMerchant && (repayingTenantLoading || hasRepayingTenant) && <AgentCollectionLeagueCard />}
-
+          <div className={cn("space-y-2.5", tabAnimClass)}>
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
-              <>
-              <LastWeekWinnerOverlay />
-              <WeeklyChampionTeamDialog />
-              <TenantLocationCorrectionPopup agentId={user.id} />
-              <WeeklyStreakDialog />
-              <ServiceCenterQualificationCard agentId={user.id} />
-              </>
+              <div className="flex flex-col space-y-2">
+                <LastWeekWinnerOverlay />
+                <WeeklyChampionTeamDialog />
+                <TenantLocationCorrectionPopup agentId={user.id} />
+                <WeeklyStreakDialog />
+                {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
+                <SignatureRentRequestCard
+                  fullName={profile?.full_name}
+                  onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                />
+                {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
+                    (2026-10-16). The signature card above is the entry point. */}
+                {SHOW_LEGACY_RENT_REQUEST_CARD && (
+                  <>
+                    <AgentPostRentRequestCard
+                      restricted={isMerchant}
+                      onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="w-full min-h-[300px] sm:min-h-[360px]"
+                    />
+                    <p
+                      onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+                    >
+                      and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
+                    </p>
+                  </>
+                )}
+
+              </div>
             )}
 
             {/* Merchant Agent invites moved to CTO dashboard → "Merchant Invites" tab */}
@@ -1326,21 +1371,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             </button>
             )}
 
-
-            {/* 1) Priorities first — Collect Rent · Add Tenant · List House */}
-            <AgentPriorityGrid
-              agentId={user.id}
-              restricted={isMerchant}
-              onOpenNewTenant={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-              onOpenListHouse={() => {
-                if (guardMerchant()) return;
-                if (!guardListingHours()) return;
-                hapticTap();
-                setListHouseFromPromo(false);
-                setListHouseOpen(true);
-              }}
-            />
-
             {isFinancialAgent && (
               <Card className="border-primary/30 bg-primary/5 shadow-sm">
                 <CardContent className="flex items-center gap-3 p-4 sm:p-5">
@@ -1370,121 +1400,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             )}
 
 
-            {/* 2) Today's collected total — single most useful at-a-glance number */}
-            {!isMerchant && <FieldCollectDailyTotals live />}
-
-            {/* 4) Live rating — today vs target + 7-day capacity tier */}
-            {!isMerchant && <AgentRatingCard agentId={user.id} />}
-
-            {/* 2b) Earnings summary — available rewards + lifetime total */}
-            {!isMerchant && (
-              <>
-                <EarningsSummaryCard />
-                <RankEarningsCard />
-
-                {/* Products being repaid — plan + pay button per product */}
-                <MerchandiseRepaymentPortfolio userId={user.id} />
 
 
-                {/* Merchandise store shortcuts */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { hapticTap(); navigate('/merchandise'); }}
-                    className="flex items-center justify-between gap-2.5 p-3 rounded-2xl border border-primary/25 bg-primary/5 hover:bg-primary/10 transition-colors text-left touch-manipulation min-h-[56px]"
-                    style={{ WebkitTapHighlightColor: 'transparent' }}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <ShoppingBag className="h-5 w-5 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">Buy Merchandise</div>
-                        <div className="text-[10px] text-muted-foreground truncate">Shop gear</div>
-                      </div>
-                    </div>
-                  </button>
 
-                  <button
-                    type="button"
-                    onClick={() => { hapticTap(); navigate('/merchandise?tab=orders'); }}
-                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-border/80 bg-card hover:bg-muted/40 transition-colors text-left touch-manipulation min-h-[56px]"
-                    style={{ WebkitTapHighlightColor: 'transparent' }}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Package className="h-5 w-5 text-foreground shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">My Orders</div>
-                        <div className="text-[10px] text-muted-foreground truncate">
-                          {myOrdersCount > 0 ? `${myOrdersCount} recorded` : 'View orders'}
-                        </div>
-                      </div>
-                    </div>
-                    {myOrdersCount > 0 && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/15 text-primary shrink-0">
-                        {myOrdersCount}
-                      </span>
-                    )}
-                  </button>
-                </div>
 
-                {/* Order a Welile Smartphone */}
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <img
-                      src={smartphonePromoAsset.url}
-                      alt="Welile Smartphone"
-                      loading="lazy"
-                      className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold leading-tight">Order a Welile Smartphone</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Get a company smartphone on credit. Choose how much can be deducted from your wallet.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs gap-1 shrink-0"
-                      disabled={smartphoneRepaying}
-                      title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
-                      onClick={() => setPhoneOpen(true)}
-                    >
-                      {smartphoneRepaying ? 'In repayment' : 'Order'}
-                    </Button>
-
-                  </CardContent>
-                </Card>
-
-                {/* Smartphone order status */}
-                <SmartphoneOrderStatus userId={user.id} onRequestNewOrder={() => setPhoneOpen(true)} />
-
-                {/* Order a Welile Spiro Bike */}
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <img
-                      src={spiroBikeAsset.url}
-                      alt="Welile Spiro electric bike"
-                      loading="lazy"
-                      className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold leading-tight">Order a Welile Spiro Bike</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Ride green, earn faster — get your Spiro Electric Bike with flexible daily payments!
-                      </p>
-                    </div>
-                    <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setBikeAmount(''); setBikeOpen(true); }}>
-                      Order
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                {/* Spiro bike lease status */}
-                <BikeLeaseStatus
-                  userId={user.id}
-                  onRequestNewOrder={() => { setBikeAmount(''); setBikeOpen(true); }}
-                />
-              </>
-            )}
 
             {/* 3) Urgent: duplicates that need reconciliation */}
             {duplicateCount > 0 && (
@@ -1509,42 +1428,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               </button>
             )}
 
-            {/* 5) Secondary shortcuts — collected receipt helper + my listed houses */}
-            {!isMerchant && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => { hapticTap(); setMyListingsVacantOnly(false); setMyListingsOpen(true); }}
-                  aria-label="View my listed houses"
-                  title="View my listed houses"
-                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-border/60 bg-card hover:bg-accent/40 active:scale-[0.99] transition-all text-left touch-manipulation min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <Home className="h-4 w-4 text-muted-foreground" />
-                    My listed houses
-                  </span>
-                  <span className="text-xs font-medium text-primary">View →</span>
-                </button>
-
-                {/*
-                 * Collect from a receipt / reference: paste a MoMo TID or bank ref
-                 * captured in the field and we auto-build the per-tenant breakdown.
-                 */}
-                <button
-                  type="button"
-                  onClick={() => { hapticTap(); setCollectFromRefOpen(true); }}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-border/60 bg-card hover:bg-accent/40 active:scale-[0.99] transition-all text-left touch-manipulation min-h-[44px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    Collect from a receipt
-                  </span>
-                  <span className="text-xs font-medium text-primary">Open →</span>
-                </button>
-              </>
-            )}
 
           </div>
         )}
@@ -1877,6 +1760,50 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             <MyParentAgentCard agentId={user.id} />
             <NationalIdGroupCard />
             <SubAgentsPanel agentId={user.id} onInviteSubAgent={handleInviteSubAgent} />
+          </div>
+        )}
+
+        {/* === COLLECTION LEAGUE TAB === Team rankings and weekly performance */}
+        {activeTab === 'league' && !isMerchant && (
+          <div className={cn("space-y-4 pb-24", tabAnimClass)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Collection League</h2>
+                <p className="text-xs text-muted-foreground">Weekly team performance and rankings</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { hapticTap(); navigate('/agent/collection-league'); }}
+                className="h-9 px-3 text-xs font-bold rounded-xl gap-1.5"
+              >
+                <Trophy className="h-3.5 w-3.5 text-primary" />
+                Full Standings
+              </Button>
+            </div>
+            <AgentCollectionLeagueCard />
+          </div>
+        )}
+
+        {/* === REPAYMENT PORTFOLIO TAB === Products and merchandise under repayment */}
+        {activeTab === 'portfolio' && !isMerchant && (
+          <div className={cn("space-y-4 pb-24", tabAnimClass)}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-foreground">Repayment Portfolio</h2>
+                <p className="text-xs text-muted-foreground">Products and merchandise you are paying for</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { hapticTap(); navigate('/merchandise'); }}
+                className="h-9 px-3 text-xs font-bold rounded-xl gap-1.5"
+              >
+                <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+                Merchandise
+              </Button>
+            </div>
+            <MerchandiseRepaymentPortfolio userId={user.id} showEmptyState />
           </div>
         )}
 
@@ -2244,6 +2171,36 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         }}
       />
       </LazyModal>
+
+      {/* Free Service Center qualification dialog */}
+      <Dialog open={freeServiceCenterOpen} onOpenChange={setFreeServiceCenterOpen}>
+        <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Free Service Center Qualification</DialogTitle>
+          </DialogHeader>
+          <ServiceCenterQualificationCard agentId={user.id} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Your Rating dialog */}
+      <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
+        <DialogContent className="max-w-md p-4 sm:p-6 bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Your Performance Rating</DialogTitle>
+          </DialogHeader>
+          <AgentRatingCard agentId={user.id} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Field Collections daily totals dialog */}
+      <Dialog open={fieldCollectionsOpen} onOpenChange={setFieldCollectionsOpen}>
+        <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Field Collections</DialogTitle>
+          </DialogHeader>
+          <FieldCollectDailyTotals live />
+        </DialogContent>
+      </Dialog>
 
       {/* Phase 1: Agent Operations Dialogs */}
       <LazyModal when={visitDialogOpen}>

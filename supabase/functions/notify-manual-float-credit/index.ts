@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
     }
 
     const msg =
-      `Hi ${name}, UGX ${formatUGX(Number(amount))} has been credited to your ` +
-      `Welile float wallet (MoMo TID ${tid}). — Welile`;
+      `UGX ${formatUGX(Number(amount))} credited to your float wallet. ` +
+      `MoMo TID ${tid}.`;
 
     const sent = await sendSMS(phone, msg, {
       admin,

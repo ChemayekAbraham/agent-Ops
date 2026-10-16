@@ -191,82 +191,84 @@ interface TenantNotice {
 }
 
 /**
- * A1 — spec section 5, verbatim.
- *
- * The deadline paragraph is omitted only for plans funded before the recall
- * went live, because the timer does not govern them. That is a suppression,
- * not a rewording.
+ * SMS copy. Every message must fit ONE 160-character segment once the central
+ * sender appends its "Help:" footer (17 chars), so the text budget is 143.
+ * Optional parts (tenant name, ref, extras) are tried richest-first and the
+ * first variant that fits is sent; the core facts are always present.
  */
+const SMS_ROOM = 143;
+const pickFit = (variants: string[]): string =>
+  variants.find((v) => v.length <= SMS_ROOM) ?? variants[variants.length - 1];
+
+/** "Tue 29 Sep" - short, so a repayment date does not cost a second segment. */
+const dayShort = (iso: unknown) => {
+  if (!iso) return '';
+  const d = new Date(String(iso));
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d
+    .toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })
+    .replace(',', '');
+};
+
+/** A1: float sent to the agent; pay the landlord by the deadline. */
 export function agentMessage(n: AgentNotice): string {
+  const ll = n.landlord_name || 'the landlord';
+  const head = (t: string) => `${ugx(n.rent_amount)} float for ${ll}${t} is in your wallet. `;
+  const tail = `Pay by ${n.deadline_time} on ${n.deadline_date} or it is returned and the Rent Plan cancelled.`;
   const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
-  return (
-    `${ugx(n.rent_amount)} landlord float has been sent to your wallet for ` +
-    `${n.landlord_name || 'the landlord'}${tenant}.
-
-` +
-    `Pay the landlord within 24 hours — by ${n.deadline_time} on ${n.deadline_date} — ` +
-    `or the float will be returned and the Rent Plan cancelled.
-
-` +
-    `Payouts run 06:00–22:00. Ref ${n.ref}.`
-  );
+  const ref = n.ref ? ` Ref ${n.ref}.` : '';
+  return pickFit([
+    head(tenant) + tail + ref,
+    head(tenant) + tail,
+    head('') + tail + ref,
+    head('') + tail,
+  ]);
 }
 
+/** T1: rent paid; repayment starts tomorrow. */
 export function tenantMessage(n: TenantNotice): string {
-  const name = n.tenant_first_name ? `, ${n.tenant_first_name}` : '';
   const landlord = (n.landlord_name || '').trim();
-  const paidTo = landlord ? `your landlord ${landlord}` : 'your landlord';
-  const term = n.duration_days ? `\n  for ${n.duration_days} days` : '';
+  const core = `Rent of ${ugx(n.rent_amount)} paid to ${landlord || 'your landlord'}. ` +
+    `Repay ${ugx(n.instalment)} ${n.period_label}`;
+  const start = ` from TOMORROW (${dayShort(n.repayment_starts_on)})`;
+  const days = n.duration_days ? ` for ${n.duration_days} days` : '';
+  const total = `. Total ${ugx(n.total_repayment)}.`;
   const agent = n.agent_name
-    ? `\n\nYour agent ${n.agent_name}${n.agent_phone ? ` (${n.agent_phone})` : ''} will collect from you.`
+    ? ` Agent ${n.agent_name}${n.agent_phone ? ` ${n.agent_phone}` : ''}.`
     : '';
-
-  return [
-    `Welcome to Welile${name}.`,
-    '',
-    `Your rent of ${ugx(n.rent_amount)} has been paid to ${paidTo}.`,
-    '',
-    `Your repayment starts TOMORROW, ${dayLabel(n.repayment_starts_on)}:`,
-    `  ${ugx(n.instalment)} ${n.period_label}${term}`,
-    `  Total to repay: ${ugx(n.total_repayment)}`,
-  ].join('\n') + agent + (n.ref ? `
-Ref ${n.ref}.` : '');
+  const ref = n.ref ? ` Ref ${n.ref}.` : '';
+  return pickFit([
+    core + start + days + total + agent + ref,
+    core + start + days + total + agent,
+    core + start + days + total + ref,
+    core + start + days + total,
+    core + start + total,
+  ]);
 }
 
+/** AP: landlord paid; receipt link; upload the receipt. */
 export function agentPaidMessage(n: AgentPaidNotice): string {
-  const tenant = n.tenant_first_name || 'your tenant';
+  const tenant = n.tenant_first_name || 'Tenant';
   // The number and the code are one receipt: both or neither. A number with no
   // code is something the agent cannot look up, and 'Receipt No: .' must never
-  // reach a live SMS. Written like the landlord's own SMS so the two can read
-  // the same identifiers to each other.
+  // reach a live SMS.
   const hasReceipt = Boolean(n.receipt_number && n.receipt_code);
-  const receipt = hasReceipt
-    ? ` Receipt No: ${n.receipt_number} (Code: ${n.receipt_code}).`
-    : '';
-  const viewReceipt = hasReceipt
-    ? `
-
-View receipt: ${receiptUrl(n.receipt_code as string)}`
-    : '';
+  const paid = `${ugx(n.rent_amount)} paid to ${n.landlord_name || 'landlord'}.`;
+  const link = hasReceipt ? ` Receipt ${receiptUrl(n.receipt_code as string)}` : '';
+  const num = hasReceipt ? ` (${n.receipt_number}).` : '';
+  const end = hasReceipt ? '.' : '';
+  const repay = ` ${tenant} repays ${ugx(n.instalment)} ${n.period_label} from tomorrow`;
+  const day = ` (${dayShort(n.repayment_starts_on)})`;
+  const upload = ' Upload receipt.';
   // Only claim the commission when the ledger leg is really there.
-  const commission = n.commission_ugx
-    ? `
-
-You earned ${ugx(n.commission_ugx)} commission.`
-    : '';
-  return (
-    `${ugx(n.rent_amount)} has been paid to landlord ${n.landlord_name || ''}`.trimEnd() +
-    `.${receipt}
-
-` +
-    `${tenant} starts repaying TOMORROW, ${dayLabel(n.repayment_starts_on)}: ` +
-    `${ugx(n.instalment)} ${n.period_label}.` +
-    commission +
-    viewReceipt +
-    `
-
-Please upload the receipt.`
-  );
+  const comm = n.commission_ugx ? ` Commission ${ugx(n.commission_ugx)}.` : '';
+  return pickFit([
+    paid + link + num + repay + day + '.' + comm + upload,
+    paid + link + end + repay + day + '.' + comm + upload,
+    paid + link + end + repay + day + '.' + upload,
+    paid + link + end + repay + '.' + upload,
+    paid + link + end + upload,
+  ]);
 }
 
 /**
@@ -305,50 +307,53 @@ export function agentNudgeMessage(n: AgentNudgeNotice): string {
   const ref = n.ref ? ` Ref ${n.ref}.` : '';
 
   if (n.severity === 'warning') {
-    // A3 - spec section 5, verbatim. The spec says "6 hours left" because A3
-    // fires at 18h of a 24h clock; the deadline time is quoted alongside it.
-    return (
-      `Reminder: ${ugx(n.amount)} for landlord ${who} is still in your ` +
-      `wallet. You have 6 hours left${n.deadline_time ? ` (${n.deadline_time})` : ''}. ` +
-      `After that the float is returned and ${tenantName}'s Rent Plan is cancelled.${ref}`
-    );
+    // A3: fires at 18h of a 24h clock, hence "6 hours left"; deadline time quoted.
+    const left = `6 hours left${n.deadline_time ? ` (${n.deadline_time})` : ''}`;
+    const base = `Reminder: ${ugx(n.amount)} for ${who} still in your wallet. ${left}. `;
+    return pickFit([
+      `${base}Then float is returned and ${tenantName}'s Rent Plan cancelled.${ref}`,
+      `${base}Then float is returned and ${tenantName}'s Rent Plan cancelled.`,
+      `${base}Then float is returned and Rent Plan cancelled.${ref}`,
+      `${base}Then float is returned and Rent Plan cancelled.`,
+    ]);
   }
 
-  // A2 - spec section 5, verbatim. It nudges without threatening: the recall
-  // consequence belongs to A3, twelve hours later.
+  // A2: nudges without threatening; the recall consequence belongs to A3.
   const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
-  return (
-    `${ugx(n.amount)} landlord float for ${who}${tenant} is still ` +
-    `in your wallet. Pay the landlord by ${n.deadline_time} on ${n.deadline_date}.
-` +
-    `Payouts run 06:00–22:00.${ref}`
-  );
+  const head = (t: string) => `${ugx(n.amount)} float for ${who}${t} is still in your wallet. `;
+  const pay = `Pay the landlord by ${n.deadline_time} on ${n.deadline_date}.`;
+  const hours = ' Payouts run 06:00-22:00.';
+  return pickFit([
+    head(tenant) + pay + hours + ref,
+    head(tenant) + pay + ref,
+    head(tenant) + pay,
+    head('') + pay + ref,
+    head('') + pay,
+  ]);
 }
 
-/** T2 - spec section 5, verbatim. */
+/** T2: the landlord was not paid in time; nothing owed. */
 export function tenantCancelledMessage(n: TenantCancelledNotice): string {
-  const name = n.tenant_first_name ? `${n.tenant_first_name}, ` : '';
-  return (
-    `${name}the Rent Plan for your rent of ${ugx(n.rent_amount)} could ` +
-    `not be completed because the landlord payment was not made in time. Nothing ` +
-    `is owed by you. Your agent can submit the request again.` +
-    (n.ref ? ` Ref ${n.ref}.` : '')
-  );
+  const name = n.tenant_first_name ? `${n.tenant_first_name}, the` : 'The';
+  const ref = n.ref ? ` Ref ${n.ref}.` : '';
+  const core = `${name} Rent Plan for ${ugx(n.rent_amount)} was not completed: landlord not paid in time. You owe nothing.`;
+  return pickFit([
+    `${core} Your agent can resubmit.${ref}`,
+    `${core} Your agent can resubmit.`,
+    core,
+  ]);
 }
 
-/**
- * A4 - spec section 5, verbatim. The agent was never told their float had been
- * taken back; only the tenant was. This is the message the spec has always
- * required and the system never sent.
- */
+/** A4: the agent's float was taken back after 24 hours. */
 export function agentCancelledMessage(n: AgentCancelledNotice): string {
   const tenant = n.tenant_name || 'The tenant';
-  return (
-    `The ${ugx(n.rent_amount)} landlord float for ${n.landlord_name || 'the landlord'} ` +
-    `was not paid out within 24 hours and has been returned. ${tenant}'s Rent Plan ` +
-    `has been cancelled and can be submitted again.` +
-    (n.ref ? ` Ref ${n.ref}.` : '')
-  );
+  const ref = n.ref ? ` Ref ${n.ref}.` : '';
+  const ll = n.landlord_name || 'the landlord';
+  return pickFit([
+    `${ugx(n.rent_amount)} float for ${ll} not paid within 24 hours and returned. ${tenant}'s Rent Plan cancelled; resubmit it.${ref}`,
+    `${ugx(n.rent_amount)} float for ${ll} not paid within 24 hours and returned. ${tenant}'s Rent Plan cancelled; resubmit it.`,
+    `${ugx(n.rent_amount)} float for ${ll} not paid in 24 hours and returned. Rent Plan cancelled; resubmit it.`,
+  ]);
 }
 
 Deno.serve(async (req) => {

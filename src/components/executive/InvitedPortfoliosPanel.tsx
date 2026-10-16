@@ -30,7 +30,7 @@ import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 
-type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval';
+type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval' | 'active';
 
 interface Row {
   id: string;
@@ -71,70 +71,119 @@ export function InvitedPortfoliosPanel() {
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
     queryKey: ['invited-portfolios'],
     queryFn: async () => {
-      // Single round-trip: pull portfolios in the invite pipeline, then batch
-      // the partner profiles + latest token per portfolio.
+      // Pull the portfolios in the invite pipeline, then resolve the partner
+      // identity and the invite status through two role-gated RPCs. The profile,
+      // token and send-log tables are RLS-locked or far too large to read by id
+      // from the browser, so Ops goes through `partner_ops_invite_partners` and
+      // `partner_ops_invite_visibility`.
       const { data: portfolios, error } = await supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
-        .in('status', ['awaiting_partner_details', 'pending_ops_approval'])
+        .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(200);
+        .limit(2000);
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
       const partnerIds = Array.from(new Set(portfolios.map(p => p.investor_id).filter(Boolean)));
       const allPortfolioIds = portfolios.map(p => p.id);
 
-      // Self-support portfolios (partner funds specific tenants from their own
-      // wallet) are vetted in the "Pending portfolios" tab, not in the invite
-      // pipeline — drop anything that already sits in the pending queue.
-      const { data: pendingRows } = await (supabase.from('funder_pending_portfolios') as any)
-        .select('portfolio_id')
-        .eq('status', 'pending')
-        .in('portfolio_id', allPortfolioIds);
-      const pendingSet = new Set<string>(((pendingRows || []) as any[]).map(r => r.portfolio_id));
-      const visible = portfolios.filter(p => !pendingSet.has(p.id));
-      if (visible.length === 0) return [];
-      const portfolioIds = visible.map(p => p.id);
-
-      const codes = visible.map(p => p.portfolio_code).filter(Boolean);
-
-      const [{ data: profiles }, { data: tokens }, { data: sendLog }] = await Promise.all([
-        (supabase.from('profiles') as any)
-          .select('id, full_name, phone, email')
-          .in('id', partnerIds),
-        (supabase.from('portfolio_completion_tokens') as any)
-          .select('portfolio_id, expires_at, consumed_at')
-          .in('portfolio_id', portfolioIds),
-        // Delivery history for the invite email so Ops can see which invites
-        // actually went out, how many times, and when the last one was sent.
-        (supabase.from('email_send_log') as any)
-          .select('recipient_email, status, created_at, metadata')
-          .eq('template_name', 'partner-portfolio-invite')
-          .order('created_at', { ascending: false })
-          .limit(1000),
-      ]);
-
-      const nameMap = new Map<string, any>((profiles || []).map((p: any) => [p.id, p]));
-      const tokenMap = new Map<string, any>((tokens || []).map((t: any) => [t.portfolio_id, t]));
-
-      // Group send-log rows by portfolio code (kept in metadata.template_data).
-      const sendMap = new Map<string, { count: number; last_at: string; last_status: string }>();
-      for (const log of (sendLog || []) as any[]) {
-        const code = log?.metadata?.template_data?.portfolio_code;
-        if (!code || !codes.includes(code)) continue;
-        const existing = sendMap.get(code);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          sendMap.set(code, { count: 1, last_at: log.created_at, last_status: log.status });
+      // Partner identity and pending-queue membership come from one server-side
+      // RPC. Reading `profiles` / `funder_pending_portfolios` with an `in.()`
+      // filter cannot work at this size: 1,000+ ids make a request URL the API
+      // refuses (HTTP 400 past roughly 600 ids), and the old code ignored that
+      // failure, so every partner name silently rendered as "—".
+      type PartnerInfo = { name: string; phone: string | null; email: string | null };
+      const MISSING: PartnerInfo = { name: '—', phone: null, email: null };
+      const infoMap = new Map<string, PartnerInfo>();
+      const pendingSet = new Set<string>();
+      let partnerRows: any[] = [];
+      try {
+        const { data: roster, error: rosterErr } = await supabase
+          .rpc('partner_ops_invite_partners', { p_portfolio_ids: allPortfolioIds });
+        if (rosterErr) throw rosterErr;
+        partnerRows = (roster || []) as any[];
+      } catch (e) {
+        console.warn('[invited-portfolios] partner roster lookup failed:', e);
+      }
+      if (partnerRows.length > 0) {
+        for (const r of partnerRows) {
+          infoMap.set(r.portfolio_id, {
+            name: r.partner_name || MISSING.name,
+            phone: r.partner_phone || null,
+            email: r.partner_email || null,
+          });
+          if (r.in_pending_queue) pendingSet.add(r.portfolio_id);
+        }
+      } else {
+        // A role without the RPC gate still gets names: read in small batches so
+        // each request stays inside the URL limit, and never swallow an error.
+        const readInBatches = async <T,>(
+          run: (ids: string[]) => Promise<T[]>,
+          ids: string[],
+          size = 200,
+        ): Promise<T[]> => {
+          const out: T[] = [];
+          for (let i = 0; i < ids.length; i += size) out.push(...await run(ids.slice(i, i + size)));
+          return out;
+        };
+        try {
+          const byInvestor = new Map<string, PartnerInfo>();
+          const profiles = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('profiles') as any)
+              .select('id, full_name, phone, email')
+              .in('id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, partnerIds);
+          for (const p of profiles) {
+            byInvestor.set(p.id, {
+              name: p.full_name || p.email || MISSING.name,
+              phone: p.phone || null,
+              email: p.email || null,
+            });
+          }
+          const pendingRows = await readInBatches(async (ids) => {
+            const { data, error } = await (supabase.from('funder_pending_portfolios') as any)
+              .select('portfolio_id')
+              .eq('status', 'pending')
+              .in('portfolio_id', ids);
+            if (error) throw error;
+            return (data || []) as any[];
+          }, allPortfolioIds);
+          for (const r of pendingRows) pendingSet.add(r.portfolio_id);
+          for (const p of portfolios) {
+            const found = byInvestor.get(p.investor_id);
+            if (found) infoMap.set(p.id, found);
+          }
+        } catch (e) {
+          console.warn('[invited-portfolios] batched partner fallback failed:', e);
         }
       }
 
+      // Approved portfolios only belong here if they came through the invite:
+      // a completion token exists OR an invite email was actually sent. The
+      // server decides from both signals and is the sole source of truth.
+      const activeIds = portfolios.filter(p => p.status === 'active').map(p => p.id);
+      let visibilityRows: any[] = [];
+      try {
+        const { data: vis, error: visErr } = await supabase
+          .rpc('partner_ops_invite_visibility', { p_portfolio_ids: activeIds });
+        if (visErr) throw visErr;
+        visibilityRows = (vis || []) as any[];
+      } catch (e) {
+        // Without visibility (e.g. a role without the gate) only the non-active
+        // pipeline rows are shown; never pretend an approved portfolio is unseen.
+        console.warn('[invited-portfolios] invite visibility lookup failed:', e);
+      }
+      const visMap = new Map<string, any>(visibilityRows.map(r => [r.portfolio_id, r]));
+      const invitedSet = new Set<string>(visibilityRows.filter(r => r.invited).map(r => r.portfolio_id));
+      const visible = portfolios.filter(p => !pendingSet.has(p.id) && (p.status !== 'active' || invitedSet.has(p.id)));
+      if (visible.length === 0) return [];
+
       return visible.map((p): Row => {
-        const prof = nameMap.get(p.investor_id) || {};
-        const tok = tokenMap.get(p.id) || {};
-        const send = sendMap.get(p.portfolio_code);
+        const prof = infoMap.get(p.id) || MISSING;
+        const vis = visMap.get(p.id) || {};
         return {
           id: p.id,
           portfolio_code: p.portfolio_code,
@@ -145,21 +194,21 @@ export function InvitedPortfoliosPanel() {
           status: p.status as InviteStatus,
           created_at: p.created_at,
           investor_id: p.investor_id,
-          partner_name: prof.full_name || '—',
-          partner_phone: prof.phone || null,
-          partner_email: prof.email || null,
-          token_expires_at: tok.expires_at || null,
-          token_consumed_at: tok.consumed_at || null,
-          sent_count: send?.count || 0,
-          last_sent_at: send?.last_at || null,
-          last_send_status: send?.last_status || null,
+          partner_name: prof.name,
+          partner_phone: prof.phone,
+          partner_email: prof.email,
+          token_expires_at: vis.token_expires_at || null,
+          token_consumed_at: vis.token_consumed_at || null,
+          sent_count: Number(vis.sent_count) || 0,
+          last_sent_at: vis.last_sent_at || null,
+          last_send_status: vis.last_send_status || null,
         };
       });
     },
     staleTime: 15000,
   });
 
-  // Client-side search + filter (list is capped at 200 rows on the server).
+  // Client-side search + filter (the server caps the list at 2,000 newest rows).
   const filtered = useMemo(() => {
     const rows = data || [];
     const q = search.trim().toLowerCase();
@@ -181,8 +230,22 @@ export function InvitedPortfoliosPanel() {
       all: rows.length,
       awaiting_partner_details: rows.filter(r => r.status === 'awaiting_partner_details').length,
       pending_ops_approval: rows.filter(r => r.status === 'pending_ops_approval').length,
+      active: rows.filter(r => r.status === 'active').length,
     };
   }, [data]);
+
+  // Paginated display: 15 rows per page with Prev/Next. The full set stays in
+  // memory so search, filter counts and totals remain accurate; only the
+  // visible slice changes as the user pages through.
+  const PAGE_SIZE = 15;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageRows = useMemo(
+    () => filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [filtered, safePage],
+  );
+  useEffect(() => { setPage(0); }, [search, filter]);
 
   const handleApprove = async (
     row: Row,
@@ -334,7 +397,7 @@ export function InvitedPortfoliosPanel() {
             Invited Portfolios
           </h2>
           <p className="text-xs text-muted-foreground">
-            Portfolios awaiting partner completion or Ops approval. Active portfolios move to the Portfolios tab.
+            Portfolios sent by invite: awaiting the partner, pending Ops approval, or approved and countersigned.
           </p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()} disabled={isFetching}>
@@ -358,6 +421,7 @@ export function InvitedPortfoliosPanel() {
             { key: 'all', label: 'All' },
             { key: 'awaiting_partner_details', label: 'Awaiting partner' },
             { key: 'pending_ops_approval', label: 'Pending approval' },
+            { key: 'active', label: 'Approved' },
           ] as { key: Filter; label: string }[]).map(({ key, label }) => {
             const count = counts[key];
             const active = filter === key;
@@ -410,7 +474,7 @@ export function InvitedPortfoliosPanel() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map(row => {
+          {pageRows.map(row => {
             const expired = isExpired(row);
             return (
               <Card key={row.id} className={cn('overflow-hidden', expired && 'border-destructive/40 bg-destructive/[0.02]')}>
@@ -425,7 +489,11 @@ export function InvitedPortfoliosPanel() {
                       <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{row.portfolio_code}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      {row.status === 'awaiting_partner_details' ? (
+                      {row.status === 'active' ? (
+                        <Badge variant="outline" className="text-[10px] gap-1 border-success/40 bg-success/10 text-success">
+                          <ShieldCheck className="h-3 w-3" /> Approved
+                        </Badge>
+                      ) : row.status === 'awaiting_partner_details' ? (
                         <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
                           <Mail className="h-3 w-3" /> Awaiting partner
                         </Badge>
@@ -504,7 +572,7 @@ export function InvitedPortfoliosPanel() {
                   )}
 
                   <div className="flex flex-wrap justify-end items-center gap-2 pt-1 border-t">
-                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval') && !row.portfolio_code?.startsWith('WSR') && (
+                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval' || row.status === 'active') && !row.portfolio_code?.startsWith('WSR') && (
                       <Button
                         size="sm"
                         variant={expired ? 'default' : 'ghost'}
@@ -572,6 +640,38 @@ export function InvitedPortfoliosPanel() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination: 15 per page */}
+      {!isLoading && filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <p className="text-xs text-muted-foreground">
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+            >
+              Prev
+            </Button>
+            <span className="text-xs text-muted-foreground px-1 whitespace-nowrap">
+              Page {safePage + 1} of {pageCount}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setPage(p => Math.min(pageCount - 1, p + 1))}
+              disabled={safePage >= pageCount - 1}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
 
@@ -739,6 +839,7 @@ function ReviewSubmissionDialog({
   const [repPosition, setRepPosition] = useState('');
   const [repContact, setRepContact] = useState('');
   const [sigDataUrl, setSigDataUrl] = useState<string | undefined>();
+  const [sendingContract, setSendingContract] = useState(false);
   // Stamp / execution date shown on the Welile stamp and DATE field.
   const [stampDate, setStampDate] = useState('');
   // Monthly return percentage printed in the contract returns clause.
@@ -1115,6 +1216,38 @@ function ReviewSubmissionDialog({
                       : approvalBlocked
                         ? <><ShieldCheck className="h-4 w-4" /> Cannot approve yet</>
                         : <><ShieldCheck className="h-4 w-4" /> Approve &amp; send final agreement</>}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="gap-1.5"
+                    disabled={approving || sendingContract || !previewData}
+                    title="Email the contract to the partner without approving or creating a portfolio"
+                    onClick={async () => {
+                      if (!previewData) return;
+                      setSendingContract(true);
+                      try {
+                        const pdfBase64 = await renderAgreementPdfBase64(buildAgreementHtml(previewData));
+                        // countersign:false → no portfolio is created, approved or funded.
+                        // The function only stores the PDF and emails the download link.
+                        const { data: res, error } = await supabase.functions.invoke('generate-partner-agreement', {
+                          body: { partnerId: row.investor_id, countersign: false, pdfBase64, sendEmail: true },
+                        });
+                        if (error) throw new Error(await extractFromErrorObject(error, 'Could not send the contract.'));
+                        if ((res as any)?.error) throw new Error((res as any).error);
+                        toast.success('Contract email sent', {
+                          description: `Sent to ${row.partner_name}. No portfolio was created or approved.`,
+                        });
+                      } catch (e: any) {
+                        toast.error('Contract not sent', { description: e?.message || 'Please try again.' });
+                      } finally {
+                        setSendingContract(false);
+                      }
+                    }}
+                  >
+                    {sendingContract
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending contract…</>
+                      : <><Send className="h-4 w-4" /> Send contract only</>}
                   </Button>
                   <Button variant="outline" size="sm" onClick={onClose} disabled={approving}>Close</Button>
                   <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1">

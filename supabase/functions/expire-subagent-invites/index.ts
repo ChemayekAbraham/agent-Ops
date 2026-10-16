@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
       if (profile?.phone) {
         const sent = await sendSMS(
           profile.phone,
-          `Hi ${firstName}, ${count} sub-agent ${plural} you sent on Welile expired before being accepted. Open Welile to resend and keep earning from your team. — Welile`,
+          `${firstName}, ${count} sub-agent ${plural} expired unaccepted. Open Welile to resend and keep earning from your team.`,
         );
         if (sent) leadsNudged++;
       }

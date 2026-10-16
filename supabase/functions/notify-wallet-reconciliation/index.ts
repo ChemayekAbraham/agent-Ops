@@ -75,27 +75,23 @@ Deno.serve(async (req) => {
       let msg: string;
       if (dw === 0 && df === 0) {
         msg =
-          `Hi ${firstName}, we ran a routine accuracy check on your Welile wallet. ` +
-          `Your balance was verified against our transaction records and is unchanged: ` +
-          `${ugx(total)}. Nothing was added or removed and no action is needed. - Welile`;
+          `${firstName}, routine Welile wallet check done. Balance unchanged: ` +
+          `${ugx(total)}. No action needed.`;
       } else {
         const parts: string[] = [];
         if (dw !== 0) {
           parts.push(
-            `${dw > 0 ? "increased" : "reduced"} your withdrawable balance by ${ugx(Math.abs(dw))}`,
+            `withdrawable ${dw > 0 ? "+" : "-"}${ugx(Math.abs(dw))}`,
           );
         }
         if (df !== 0) {
           parts.push(
-            `${df > 0 ? "increased" : "reduced"} your float balance by ${ugx(Math.abs(df))}`,
+            `float ${df > 0 ? "+" : "-"}${ugx(Math.abs(df))}`,
           );
         }
         msg =
-          `Hi ${firstName}, we ran a routine accuracy check on your Welile wallet and ` +
-          `${parts.join(" and ")} so it matches your transaction records exactly. ` +
-          `Your balance is now ${ugx(total)}. This was a records correction only - ` +
-          `no money left or entered your account, and the figure has been verified. ` +
-          `Questions? Reply or contact Welile support. - Welile`;
+          `${firstName}, Welile wallet corrected to match records: ${parts.join(", ")}. ` +
+          `Balance ${ugx(total)}. No money moved.`;
       }
 
       if (!profile?.phone) {

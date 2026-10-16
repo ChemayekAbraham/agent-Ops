@@ -17,7 +17,7 @@
 // the same logical event id notifyTenant (or, when SMS is skipped by
 // routing, record_tenant_notification directly) returns.
 import { notifyTenant } from "./tenantNotify.ts";
-import { loadEvent, renderTemplate, type NotificationEvent } from "./tenantTemplates.ts";
+import { loadEvent, renderTemplate, renderSmsTemplate, type NotificationEvent } from "./tenantTemplates.ts";
 import { sendPushToSubscription, cleanupGoneSubscription, type PushPayload } from "./webPushSend.ts";
 
 export interface RouteNotificationArgs {
@@ -257,7 +257,7 @@ export async function routeTenantNotification(
   }
 
   if (willAttemptSms) {
-    const message = renderTemplate(event.body_template!, vars);
+    const message = renderSmsTemplate(event.body_template!, vars);
     const outcome = await notifyTenant({
       admin, tenantId, eventKey, episodeKey, phone: phone!, tenantName, message, payload,
     });
@@ -337,7 +337,7 @@ export async function routeTenantNotification(
   // async delivery-failure callback, so failure is already known here.
   if (!smsSent && !wantSmsInitially && policy.sms_fallback
       && pushAttempted > 0 && pushSent === 0 && phone) {
-    const message = renderTemplate(event.body_template!, vars);
+    const message = renderSmsTemplate(event.body_template!, vars);
     const fallbackOutcome = await notifyTenant({
       admin, tenantId, eventKey, episodeKey: episodeKey ? `${episodeKey}:push_fallback` : "push_fallback",
       phone, tenantName, message, payload: { ...payload, fallback_reason: "all_push_devices_failed" },

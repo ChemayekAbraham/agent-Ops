@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
       // SMS (WhatsApp-shareable text fallback)
       const smsOptIn = (tenant as any).business_advance_notify_sms !== false;
       if (tenant.phone && smsOptIn) {
-        const text = `${title}\n${body}\nTrack: ${trackUrl}`;
+        const text = `Business Advance ${amt} still at ${rule.stageLabel} (${Math.round(elapsed)}h). Track: ${trackUrl}`;
         const r = await sendSMS(tenant.phone, text);
         await logAttempt({
           channel: 'sms',

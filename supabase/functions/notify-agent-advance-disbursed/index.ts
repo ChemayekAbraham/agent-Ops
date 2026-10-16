@@ -52,8 +52,8 @@ Deno.serve(async (req) => {
     }
 
     const msg =
-      `Hi ${name}, your Welile agent advance of UGX ${formatUGX(Number(amount))} ` +
-      `has been disbursed to your wallet. Daily deductions will apply per your plan. — Welile`;
+      `Agent advance UGX ${formatUGX(Number(amount))} disbursed to your wallet. ` +
+      `Daily deductions apply per your plan.`;
 
     const sent = await sendSMS(phone, msg, {
       admin,

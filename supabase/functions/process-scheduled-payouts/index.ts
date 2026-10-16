@@ -247,9 +247,8 @@ Deno.serve(async (req) => {
         try {
           const profile = recipientProfile;
           if (profile?.phone) {
-            const firstName = (profile.full_name || "there").split(" ")[0];
             const amountStr = Number(payout.amount).toLocaleString();
-            const msg = `Hi ${firstName}, UGX ${amountStr} has landed in your WELILE wallet (${payout.reason}). Log in to view & cash out: welileapp.com`;
+            const msg = `UGX ${amountStr} added to your Welile wallet (${String(payout.reason ?? "").slice(0, 40)}). Log in to cash out: welileapp.com`;
             await sendSMS(profile.phone, msg);
           }
         } catch (smsErr) {

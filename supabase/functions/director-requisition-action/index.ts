@@ -18,6 +18,15 @@ const ACTION_MAP: Record<string, { status: string; event: string; label: string 
   request_info: { status: "more_info", event: "more_info_requested", label: "More Information Required" },
 };
 
+// Keep the SMS in one 160-char segment (central footer adds ~17): append the
+// director's comment only as far as it fits in 143 chars total.
+function smsFit(core: string, comment: string): string {
+  const room = 143 - core.length - 1;
+  if (room < 12) return core;
+  const c = comment.replace(/\s+/g, " ").trim();
+  return `${core} ${c.length <= room ? c : c.slice(0, room - 3).trimEnd() + "..."}`;
+}
+
 function fmtUGX(n: number) {
   return `UGX ${Math.round(n).toLocaleString("en-US")}`;
 }
@@ -137,7 +146,7 @@ Deno.serve(async (req) => {
       if (requesterProfile.phone && await maySendRequisitionSms(admin, requesterProfile.id)) {
         await sendSMS(
           requesterProfile.phone,
-          `Welile: Your requisition ${reqRow.requisition_code} (${fmtUGX(Number(reqRow.amount))}) is now ${mapped.label}. ${comment}`,
+          smsFit(`Requisition ${reqRow.requisition_code} (${fmtUGX(Number(reqRow.amount))}) is now ${mapped.label}.`, comment),
           { admin, source: "director-requisition-action", reference_id: requisitionId, recipient_user_id: requesterProfile.id, recipient_name: requesterProfile.full_name, idempotencyKey: `req-status-${requisitionId}-${mapped.status}` },
         ).catch((e) => console.error("SMS failed", e));
       }

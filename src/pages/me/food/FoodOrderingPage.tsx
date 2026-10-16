@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import FoodMealCard from '@/components/food/FoodMealCard';
 import FoodCartSheet, { type CartLine } from '@/components/food/FoodCartSheet';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isFoodAllDayWindow } from '@/lib/foodService';
 import { safeUUID } from '@/lib/safeUUID';
 import {
   useFoodMenu, useFoodSession, usePlaceFoodOrder, useMyFoodOrders,
-  formatUgx, FOOD_PAYMENT_MODES, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
+  formatUgx, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
   type FoodMenuMeal, type FoodMenuPeriod, type FoodPaymentMode,
 } from '@/hooks/useFoodService';
 
@@ -46,10 +47,12 @@ export default function FoodOrderingPage() {
   // menuItemId -> quantity, scoped to one service period at a time
   const [cart, setCart] = useState<Record<string, number>>({});
   const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
+  // which meal category the menu is filtered to; 'all' shows everything
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [notes, setNotes] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   // Chosen by the employee, never defaulted: it is recorded on the order.
-  const [paymentMode, setPaymentMode] = useState<FoodPaymentMode | null>(null);
+  const [paymentMode, setPaymentMode] = useState<FoodPaymentMode | null>('wallet');
   // One key per cart CONTENTS. Reused on every retry of an unchanged cart so a
   // double submit cannot create two orders; replaced after the order is
   // accepted and whenever the cart changes, so an edited cart is never answered
@@ -59,6 +62,32 @@ export default function FoodOrderingPage() {
 
   const periods = useMemo(() => menu?.periods ?? [], [menu?.periods]);
   const activePeriod = periods.find((p) => p.period_id === activePeriodId) ?? null;
+
+  /**
+   * Meal categories on today's menu, in the order they first appear and each
+   * listed once whatever case the coordinator typed them in. A category only
+   * exists because meals are filed under it, so nothing here is hardcoded: a
+   * category added in the kitchen appears as a tab the next time the menu
+   * loads, and one with no meals left on today's menu has no tab.
+   */
+  const categories = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const p of periods) {
+      for (const meal of p.meals) {
+        const label = meal.category?.trim();
+        if (!label) continue;
+        const key = label.toLowerCase();
+        if (!seen.has(key)) seen.set(key, label);
+      }
+    }
+    return [...seen.entries()].map(([key, label]) => ({ key, label }));
+  }, [periods]);
+
+  // a menu refresh can retire the category being viewed; fall back to everything
+  const category = categories.some((c) => c.key === activeCategory) ? activeCategory : 'all';
+  const inCategory = (meal: FoodMenuMeal) =>
+    category === 'all' || (meal.category?.trim().toLowerCase() ?? '') === category;
+  const shownCount = periods.reduce((t, p) => t + p.meals.filter(inCategory).length, 0);
 
   const mealsById = useMemo(() => {
     const m = new Map<string, FoodMenuMeal>();
@@ -123,7 +152,7 @@ export default function FoodOrderingPage() {
           setCart({});
           setActivePeriodId(null);
           setNotes('');
-          setPaymentMode(null);
+          setPaymentMode('wallet');
           setCartOpen(false);
           renewKey();
         },
@@ -155,6 +184,31 @@ export default function FoodOrderingPage() {
             </Link>
           </Button>
         </header>
+
+        {/* category tabs: one per category on today's menu, plus everything */}
+        {!isLoading && !isError && !menu?.closed && categories.length > 0 && (
+          <Tabs value={category} onValueChange={setActiveCategory}>
+            <TabsList
+              variant="pills"
+              aria-label="Filter the menu by meal category"
+              className="h-auto w-full flex-wrap items-start justify-start"
+            >
+              <TabsTrigger variant="pills" value="all" className="px-3 py-1.5 text-xs sm:text-sm">
+                All meals
+              </TabsTrigger>
+              {categories.map((c) => (
+                <TabsTrigger
+                  key={c.key}
+                  variant="pills"
+                  value={c.key}
+                  className="px-3 py-1.5 text-xs sm:text-sm"
+                >
+                  {c.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
 
         {isLoading && (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -203,6 +257,9 @@ export default function FoodOrderingPage() {
         )}
 
         {!menu?.closed && periods.map((period) => {
+          const shown = period.meals.filter(inCategory);
+          // while one category is open, a period with nothing in it is left out
+          if (category !== 'all' && shown.length === 0) return null;
           return (
             <section key={period.period_id} className="space-y-4">
               {/* service-period panel: icon, name, status, window and limit, collection note */}
@@ -240,13 +297,13 @@ export default function FoodOrderingPage() {
                 )}
               </div>
 
-              {period.meals.length === 0 ? (
+              {shown.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
                   Nothing on the menu for {period.name.toLowerCase()} today.
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {period.meals.map((meal) => (
+                  {shown.map((meal) => (
                     <FoodMealCard
                       key={meal.menu_item_id}
                       meal={meal}
@@ -261,6 +318,12 @@ export default function FoodOrderingPage() {
             </section>
           );
         })}
+
+        {!isLoading && !isError && !menu?.closed && category !== 'all' && shownCount === 0 && (
+          <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
+            Nothing on the menu under {categories.find((c) => c.key === category)?.label ?? category} today.
+          </p>
+        )}
       </div>
 
       {cartCount > 0 && (
@@ -297,7 +360,7 @@ export default function FoodOrderingPage() {
           if (Object.keys(next).length === 0) setActivePeriodId(null);
           renewKey();
         }}
-        paymentModes={menu?.payment_modes ?? FOOD_PAYMENT_MODES}
+        paymentModes={['wallet']}
         paymentMode={paymentMode}
         onPaymentModeChange={setPaymentMode}
         maxInstructions={menu?.max_instructions_length ?? FOOD_MAX_INSTRUCTIONS}

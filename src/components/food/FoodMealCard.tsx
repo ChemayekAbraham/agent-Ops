@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CupSoda, Minus, Plus, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { useId, useState } from 'react';
+import { ChevronDown, CupSoda, Minus, Plus, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUgx, forgetFoodMealPhotoUrl, type FoodMenuMeal } from '@/hooks/useFoodService';
@@ -34,6 +34,13 @@ export default function FoodMealCard({
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showImage = Boolean(meal.image_path) && meal.image_path !== failedUrl;
 
+  // Tapping anywhere on the card opens the meal's description. The quantity
+  // stepper and "Add to order" stop the tap so they never open or close it.
+  const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
+  const description = meal.description?.trim() ?? '';
+  const hasDetails = description.length > 0;
+
   const left = meal.servings_remaining;
   const unavailable = meal.sold_out || !orderingOpen;
 
@@ -53,12 +60,18 @@ export default function FoodMealCard({
 
   return (
     <article
+      onClick={hasDetails ? () => setExpanded((v) => !v) : undefined}
       className={cn(
         'flex flex-col rounded-2xl border border-border/70 bg-card p-2.5 shadow-sm transition-colors',
         unavailable && 'opacity-60',
+        hasDetails && 'cursor-pointer hover:border-primary/40',
       )}
     >
-      <div className="relative aspect-[16/7] w-full overflow-hidden rounded-xl bg-muted">
+      {/* The photo is sized by height, not by width, so it stays about half the
+          card whatever the screen: the text block below it is roughly the same
+          height, which puts the picture at ~50% of the card on phones and on
+          wide desktop columns alike. */}
+      <div className="relative h-64 w-full overflow-hidden rounded-xl bg-muted">
         {showImage ? (
           <img
             src={meal.image_path as string}
@@ -108,14 +121,13 @@ export default function FoodMealCard({
 
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-base font-bold leading-snug text-card-foreground sm:text-lg" title={meal.description ?? undefined}>
+            <h3 className="text-base font-bold leading-snug text-card-foreground sm:text-lg">
               {meal.name}
             </h3>
-            {meal.description && <p className="sr-only">{meal.description}</p>}
             <p className="text-base font-bold text-primary sm:text-lg">{formatUgx(meal.price_ugx)}</p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <div
               className={cn(
                 'flex h-9 items-center rounded-lg border border-border/80',
@@ -160,6 +172,47 @@ export default function FoodMealCard({
             </Button>
           </div>
         </div>
+
+        {hasDetails && (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-controls={detailsId}
+            onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 transition-transform duration-300 motion-reduce:transition-none',
+                expanded && 'rotate-180',
+              )}
+              aria-hidden="true"
+            />
+            {expanded ? 'Hide details' : 'Meal details'}
+          </button>
+        )}
+
+        {/* The panel stays mounted so the description is never lost to a screen
+            reader or a search; only its height and opacity animate. */}
+        {hasDetails && (
+          <div
+            id={detailsId}
+            aria-hidden={!expanded}
+            className={cn(
+              'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
+              expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="mt-1 rounded-xl border border-border/70 bg-muted/50 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  About this meal
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-card-foreground">{description}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {quantity > 0 && atAllowance && (
           <p className="text-[11px] text-muted-foreground">

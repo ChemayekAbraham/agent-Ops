@@ -22,8 +22,7 @@ const corsHeaders = {
 const BATCH_SIZE = 100;
 
 const MESSAGE =
-  "Welile: To withdraw your funds you need to verify your identity first. " +
-  "Open the Welile app, go to Withdraw, and submit a clear photo of your National ID and a selfie. It only takes a minute.";
+  "Verify your identity to withdraw: in the Welile app go to Withdraw and submit a clear National ID photo and a selfie.";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });

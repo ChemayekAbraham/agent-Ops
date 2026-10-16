@@ -150,8 +150,8 @@ Deno.serve(async (req) => {
     let sent = 0; let failed = 0;
     for (const t of finalList) {
       const msg = t.issue === 'one_name'
-        ? 'Welile: Your profile only has one name. Please open the app and add your full legal name (first and last) so your receipts and payouts are correct.'
-        : 'Welile: Your profile name looks incomplete. Please open the app and enter your full legal name (first and last) so we can verify your payouts and rent records.';
+        ? 'Your profile has only one name. Add your full legal name (first and last) in the app for correct receipts and payouts.'
+        : 'Your profile name looks incomplete. Enter your full legal name (first and last) in the app to verify payouts and rent records.';
       const res = await sendSMS(t.phone, msg);
       if (res.accepted) sent++; else failed++;
       // Small pacing to be nice to the provider.

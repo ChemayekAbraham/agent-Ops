@@ -540,10 +540,8 @@ Deno.serve(async (req) => {
       if (phone) {
         const balanceLine = newBalance != null ? ` New balance ${fmtUGX(newBalance)}.` : "";
         const smsBody =
-          `Welile: Cash deposit confirmed. ${fmtUGX(ver.amount)} credited to your Welile Wallet ` +
-          `(receipt code ${enteredCode}).${balanceLine}` +
-          `\n\nAccess your dashboard to view your wallet, transactions, and account details:\n` +
-          `https://welileapp.com/ZQhyGb`;
+          `Cash deposit confirmed: ${fmtUGX(ver.amount)} credited to your wallet ` +
+          `(code ${enteredCode}).${balanceLine}`;
         const sent = await sendSMS(phone, smsBody);
         await logSmsAttempts(admin, {
           phone,

@@ -47,8 +47,8 @@ function buildMessage(row: {
   const d = row.days_left;
   return (
     `WELILE: ${first}, ${row.booked_count} tenant${row.booked_count === 1 ? "" : "s"} (${ugx(row.booked_amount)}) ` +
-    `are still held for your pledge. We release them on ${dateLabel(row.release_at)} - ${d} day${d === 1 ? "" : "s"} left. ` +
-    `Complete your funding: ${row.activation_url}`
+    `held for your pledge, released ${dateLabel(row.release_at)} (${d}d left). ` +
+    `Fund now: ${row.activation_url.replace("https://", "")}`
   );
 }
 

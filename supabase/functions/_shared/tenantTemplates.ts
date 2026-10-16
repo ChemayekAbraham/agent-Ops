@@ -115,6 +115,58 @@ export function renderTemplate(
   return out;
 }
 
+/**
+ * One SMS segment is 160 GSM-7 characters, and Yoola bills per segment. After
+ * rendering, the sender appends "
+Help: <phone>" (17 chars) and the sign-up
+ * line "
+Join Welile: welileapp.com/wjoin" (33 chars), so the template body
+ * gets 160 - 50 = 110, minus a little slack for a longer SUPPORT_PHONE or
+ * SIGNUP_SHORT_URL override.
+ */
+export const SMS_BODY_BUDGET = 106;
+
+/**
+ * Optional fragments, lowest priority first. When a rendered SMS exceeds the
+ * budget they are dropped in this order until it fits, so the core sentence
+ * (what happened, the amount, the balance) always survives and marketing
+ * extras go first. `pay_direct` goes last because for a missed payment it is
+ * the instruction the tenant needs.
+ */
+export const SMS_DROP_ORDER = [
+  "growth_note",
+  "care_note",
+  "cycle_timing",
+  "plan_progress",
+  "access_now",
+  "next_level",
+  "status_appendix",
+  "dashboard_suffix",
+  "agent_cta",
+  "pay_direct",
+];
+
+/**
+ * renderTemplate for SMS: drops optional fragments (SMS_DROP_ORDER) one at a
+ * time until the message fits `budget` characters. A template with none of
+ * those placeholders renders exactly as renderTemplate does.
+ */
+export function renderSmsTemplate(
+  template: string,
+  vars: Record<string, string | number | null | undefined>,
+  budget: number = SMS_BODY_BUDGET,
+): string {
+  const working = { ...vars };
+  let out = renderTemplate(template, working);
+  for (const key of SMS_DROP_ORDER) {
+    if (out.length <= budget) break;
+    if (!working[key]) continue;
+    working[key] = "";
+    out = renderTemplate(template, working);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Atomic optional fragments.
 //

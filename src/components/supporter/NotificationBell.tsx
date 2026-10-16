@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
+import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
 import { cn } from '@/lib/utils';
 import { NotificationsModal } from './NotificationsModal';
 import { useNotificationPulse } from '@/hooks/useNotificationPulse';
@@ -67,6 +68,8 @@ export function NotificationBell({ userId }: { userId: string }) {
   }, [userId]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const { unread: commUnread } = useBellCommunications();
+  const badgeCount = unreadCount + commUnread;
   const latest5 = notifications.slice(0, 5);
 
   const markAsRead = async (id: string) => {
@@ -109,12 +112,12 @@ export function NotificationBell({ userId }: { userId: string }) {
             aria-label="Notifications"
           >
             <Bell className={cn("h-5 w-5", isPulsing && "animate-bell-ring origin-top")} />
-            {unreadCount > 0 && (
+            {badgeCount > 0 && (
               <span className={cn(
                 "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full px-1",
                 isPulsing && "animate-pulse",
               )}>
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {badgeCount > 9 ? '9+' : badgeCount}
               </span>
             )}
           </Button>
@@ -134,6 +137,7 @@ export function NotificationBell({ userId }: { userId: string }) {
             )}
           </div>
 
+          <CommunicationsBellSection onSelect={() => setPopoverOpen(false)} />
           <div className="max-h-[320px] overflow-y-auto px-2 pb-2 space-y-1">
             {latest5.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No notifications yet</p>

@@ -43,6 +43,9 @@ import { groupPayoutRows } from '@/lib/payoutDeskGrouping';
 import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
 import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
+import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
+import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
+import { LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -415,7 +418,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   );
   const selectAllForPayment = () => {
     if (selectableItems.length === 0) return;
-    setSelected(new Set(selectableItems.map(i => i.id)));
+    // Tenants already ticked: review exactly those — never widen the
+    // selection to every eligible row. Only pick all when nothing is ticked.
+    if (selectedVisibleCount === 0) {
+      setSelected(new Set(selectableItems.map(i => i.id)));
+    }
     setBulkReviewOpen(true);
   };
 
@@ -445,12 +452,20 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       }
 
       const errors: string[] = [];
-      for (const id of stillEligible) {
-        const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
-          body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
-        });
-        if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
-      }
+      // Send payments in parallel with a small concurrency cap: sequential calls
+      // made large batches very slow; each request is funded independently server-side.
+      const CONCURRENCY = 5;
+      let cursor = 0;
+      const worker = async () => {
+        while (cursor < stillEligible.length) {
+          const id = stillEligible[cursor++];
+          const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
+            body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
+          });
+          if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, stillEligible.length) }, worker));
       if (errors.length) throw new Error(`${errors.length} failed: ${errors[0]}`);
     },
     onSuccess: () => {
@@ -484,37 +499,30 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     onError: (e: any) => toast.error(e.message || 'Disbursement failed'),
   });
 
+  // Landlord float budget cap: a CFO rejection here returns the request to the COO step (not the agent) and gives
+  // its amount back to the budget. landlordFloatOver.any drives the "exceeds budget by UGX X" banner (UI: Gemini).
+  const landlordFloatBudget = useLandlordFloatBudgetStatus();
+  const landlordFloatOver = landlordFloatExcess(landlordFloatBudget.data);
+  const { returnToCoo } = useLandlordFloatBudgetActions();
+
   const rejectMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       if (!user) throw new Error('Not authenticated');
       if (reason.trim().length < 10) throw new Error('Reason must be at least 10 characters');
-
-      const { error } = await supabase.rpc('return_rent_request_for_correction', {
-        p_request_id: id,
-        p_stage: 'coo_approved',
-        p_reason: reason.trim(),
-      });
-      if (error) throw error;
-
-      // Stamp CFO reviewer + comment for audit trail (mirrors RentPipelineQueue)
-      await supabase
-        .from('rent_requests')
-        .update({
-          cfo_reviewed_by: user.id,
-          cfo_reviewed_at: new Date().toISOString(),
-          approval_comment: reason.trim(),
-        })
-        .eq('id', id);
+      // One RPC: status back to the COO step, CFO reviewer + comment stamped, budget allocation released.
+      const res = await returnToCoo.mutateAsync({ requestIds: [id], reason });
+      if (res.returned.length === 0) {
+        throw new Error(res.skipped[0]?.message || 'This rent request could not be returned to the COO');
+      }
     },
     onSuccess: () => {
-      toast.success('Rent request returned to agent with your comment.');
+      toast.success('Returned to the COO with your comment. Its amount is back in the landlord float budget.');
       setRejectTarget(null);
       setRejectReason('');
       qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
       qc.invalidateQueries({ queryKey: ['rent-pipeline'] });
-      qc.invalidateQueries({ queryKey: ['agent-rejected-rent-requests'] });
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to reject'),
+    onError: (e: any) => toast.error(landlordFloatErrorText(e)),
   });
 
   // Summary totals for the currently filtered queue.
@@ -527,6 +535,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   return (
     <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
       <CardHeader className="pb-0 space-y-0 p-0">
+        {landlordFloatOver.any && <div className="p-4"><LandlordFloatExcessBanner daily={landlordFloatOver.daily} weekly={landlordFloatOver.weekly} /></div>}
         {filteredItems.length > 0 && (
           <div className="flex items-center justify-end gap-3 px-5 pt-5 pb-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400">
@@ -692,8 +701,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
         ) : (
           <div className="space-y-3">
-            {/* Revenue summary for selection or location scope */}
-            {(selected.size > 0 || locationScoped) && (
+            {/* Revenue summary — only while no tenants are ticked for payment */}
+            {locationScoped && selected.size === 0 && (
               <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3 space-y-2">
                 <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                   <TrendingUp className="h-3.5 w-3.5" />
@@ -1114,7 +1123,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             </div>
 
-            <TreasuryImpactBanner payoutAmount={totalRent} />
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
@@ -1298,7 +1306,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   }}
                 >
                   <XCircle className="h-3.5 w-3.5 mr-1" />
-                  Reject
+                  Return to COO
                 </Button>
               </div>
               </CfoApprovalGate>
@@ -1323,14 +1331,13 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject rent request</DialogTitle>
+            <DialogTitle>Return to COO</DialogTitle>
             <DialogDescription>
               {rejectTarget && (
                 <>
                   Returning <b>{fmt(rejectTarget.rent_amount)}</b> for{' '}
                   <b>{rejectTarget.tenant_name}</b> → <b>{rejectTarget.landlord_name}</b> back to{' '}
-                  <b>{rejectTarget.agent_name}</b>. Your comment will appear in the agent's
-                  Rejected submissions.
+                  <b>the COO</b> for review. This releases the request's allocation back into the landlord float budget.
                 </>
               )}
             </DialogDescription>
@@ -1368,7 +1375,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               ) : (
                 <XCircle className="h-3.5 w-3.5 mr-1" />
               )}
-              Reject & return to agent
+              Return to COO
             </Button>
             </CfoApprovalGate>
           </DialogFooter>

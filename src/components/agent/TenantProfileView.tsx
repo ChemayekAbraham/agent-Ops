@@ -729,7 +729,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       if ((data as any)?.duplicate) {
         toast({ title: 'Already collected', description: 'This payment was already recorded.' });
       } else {
-        toast({ title: `✅ Auto-collected ${formatUGX(collectAmount)}`, description: 'From tenant wallet' });
+        toast({ title: `✅ Auto-collected ${formatUGX(Number((data as any)?.amount_paid) || 0)}`, description: 'From tenant wallet (amount due to date)' });
       }
       loadFullProfile();
     } catch (err: any) {

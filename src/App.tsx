@@ -65,6 +65,7 @@ const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/T
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
+const CommunicationGate = optionalLazyWithRetry(() => import("@/components/communications/CommunicationGate"), "CommunicationGate");
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
@@ -123,7 +124,7 @@ const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const AgentsMock = lazy(() => import("./pages/AgentsMock"));
+const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
@@ -362,6 +363,7 @@ const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
+const MyTutorialsPage = lazy(() => import('./pages/me/Tutorials'));
 const FoodOrderingPage = lazy(() => import('./pages/me/food/FoodOrderingPage'));
 const MyFoodOrdersPage = lazy(() => import('./pages/me/food/MyFoodOrdersPage'));
 const FoodManagementPage = lazy(() => import('./pages/me/food/FoodManagementPage'));
@@ -437,7 +439,6 @@ PageLoader.displayName = 'PageLoader';
 // receipt from an SMS/QR link see a clean, distraction-free page.
 function GlobalFloatingWidgets() {
   const location = useLocation();
-  if (location.pathname === '/dashboard/agents-mock') return null;
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -555,9 +556,9 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
-          <Route path="/dashboard/agents-mock" element={<AgentsMock />} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
+          <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
@@ -771,6 +772,7 @@ function AppRoutes() {
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
           <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
+          <Route path="/me/tutorials" element={<HRSignedInRoute><MyTutorialsPage /></HRSignedInRoute>} />
           {/* Canteen. Food Management is gated inside the page by the
               coordinator assignment, and is deliberately NOT in CFO navigation. */}
           <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />
@@ -1065,6 +1067,7 @@ const App = () => {
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
+                          <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />
                           <HRBirthdayNoticeDialog />
                           <CreditLoadingDebugPanel />

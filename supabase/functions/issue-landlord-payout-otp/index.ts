@@ -4,6 +4,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Validates float, creates an OTP challenge, sends SMS to landlord.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
+import { resolveOtpRecipient, toLocalUgPhone } from "./resolveOtpRecipient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -391,10 +392,15 @@ Deno.serve(async (req) => {
         .in("event_type", ["sent", "resent"]);
       const attemptNumber = (priorSends ?? 0) + 1;
 
-      const phone = normalizePhone(existing.landlord_phone);
+      // Resend goes to the same recipient as the original send: the landlord's
+      // own contact phone recorded on the challenge (older challenges predate
+      // the column and fall back to the payout number they were sent to).
+      const resendRecipient = toLocalUgPhone(existing.otp_recipient_phone) ?? toLocalUgPhone(existing.landlord_phone);
+      if (!resendRecipient) return json({ error: "No usable phone number on this challenge" }, 400);
+      const phone = normalizePhone(resendRecipient);
       const resent = await sendOtpWithFallback(
         phone,
-        `Welile: You are receiving UGX ${Number(existing.amount).toLocaleString()} as rent. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+        `Welile: UGX ${Number(existing.amount).toLocaleString()} rent for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
       );
       await logSms(admin, phone, "Landlord payout OTP (resend)", resent, existing.landlord_name ?? null, challenge_id);
       await admin.from("landlord_payout_otp_events").insert({
@@ -423,6 +429,7 @@ Deno.serve(async (req) => {
           primary_provider: resent.primaryProvider ?? null,
           primary_reason: resent.primaryReason ?? null,
           delivery_status: resent.ok ? "submitted" : "failed",
+          otp_recipient_phone: resendRecipient,
         },
       });
       return json({ success: true, challenge_id, expires_at: otp_expires_at, attempt_number: attemptNumber, sms_sent: resent.ok, sms_reason: resent.reason ?? null });
@@ -501,6 +508,14 @@ Deno.serve(async (req) => {
       return json({ error: reason, details: e }, 400);
     }
 
+    // STRICT RULE: the OTP goes to the landlord's own registered phone
+    // (landlords.phone), never the mobile money number — most landlords do not
+    // hold the MoMo line themselves. The payout number below stays the
+    // verified mobile money number; only the SMS recipient changes. If the
+    // landlord has no usable contact phone, fall back to the payout number and
+    // record that in the audit metadata.
+    const otpRecipient = resolveOtpRecipient(landlordRow?.phone, approvedPhone);
+
     // Generate OTP and persist challenge
     const otp = generateOtp();
     const otp_hash = await sha256(otp);
@@ -519,6 +534,7 @@ Deno.serve(async (req) => {
         // value and enforce_landlord_payout_eligibility() requires it to equal
         // verified_mobile_money_number exactly (doc 120).
         landlord_phone: approvedPhone,
+        otp_recipient_phone: otpRecipient.recipient,
         tenant_name: tenant_name ?? null,
         tenant_phone: tenant_phone ?? null,
         mobile_money_provider,
@@ -537,10 +553,10 @@ Deno.serve(async (req) => {
       return json({ error: insErr?.message ?? "Could not create challenge" }, 500);
     }
 
-    const phone = normalizePhone(approvedPhone);
+    const phone = normalizePhone(otpRecipient.recipient);
     const sent = await sendOtpWithFallback(
       phone,
-      `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
+      `Welile: UGX ${amt.toLocaleString()} rent${tenant_name ? ` from ${tenant_name}` : ""} for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
     );
     await logSms(admin, phone, "Landlord payout OTP", sent, landlord_name ?? null, challenge.id);
 
@@ -578,6 +594,9 @@ Deno.serve(async (req) => {
         delivery_status: sent.ok ? "submitted" : "failed",
         tenant_name: tenant_name ?? null,
         trigger_source: normalizedTrigger,
+        otp_recipient_phone: otpRecipient.recipient,
+        otp_recipient_source: otpRecipient.source,
+        payout_phone: approvedPhone,
       },
     });
 

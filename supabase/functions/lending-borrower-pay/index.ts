@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
       await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: isFloatSrc ? "float_loan" : "withdrawable_loan" } }).then(() => {}, () => {});
       const totalOwedUgx = Math.round(principal * (1 + rate / 100));
       if (bp.phone) {
-        const msg = `Welile: UGX ${principal.toLocaleString("en-US")} has been sent to your Welile wallet by ${lenderLabel}. Total to repay: UGX ${totalOwedUgx.toLocaleString("en-US")} by ${due}. Ref ${ref}.`;
+        const msg = `Welile: UGX ${principal.toLocaleString("en-US")} from ${lenderLabel} in your wallet. Repay UGX ${totalOwedUgx.toLocaleString("en-US")} by ${due}. Ref ${ref}.`;
         await sendSMS(bp.phone, msg).catch((e) => console.error("[lending-borrower-pay] disburse sms", e));
       }
       return json({ ok: true, loan_id: loanId, reference: ref, total_owed_ugx: totalOwedUgx });

@@ -5,6 +5,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import BudgetReviewQueue from '@/components/budget/BudgetReviewQueue';
+import SupplementaryBudgets from '@/components/budget/SupplementaryBudgets';
 import { fetchBudgetReviewQueue, useBudgetCycles, type BudgetQueueRow } from '@/hooks/useDepartmentBudgets';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 
@@ -91,6 +92,7 @@ export default function COODepartmentBudgets() {
           />
         </div>
         <BudgetReviewQueue cycleId={effectiveCycleId} stage="coo" />
+        <div className="mt-4"><SupplementaryBudgets mode="coo" cycleId={effectiveCycleId ?? null} /></div>
       </CardContent>
     </Card>
   );

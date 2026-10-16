@@ -4033,6 +4033,195 @@
       "when": 1792050357771,
       "tag": "0575_post_portfolio_roi_ledger_boundary",
       "breakpoints": true
+    },
+    {
+      "idx": 576,
+      "version": "7",
+      "when": 1792052508541,
+      "tag": "0576_food_publish_shows_today_and_daily_meals",
+      "breakpoints": true
+    },
+    {
+      "idx": 577,
+      "version": "7",
+      "when": 1792055026250,
+      "tag": "0577_partner_ops_invite_visibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 578,
+      "version": "7",
+      "when": 1792055716934,
+      "tag": "0578_partner_ops_invite_partners",
+      "breakpoints": true
+    },
+    {
+      "idx": 579,
+      "version": "7",
+      "when": 1792058803952,
+      "tag": "0579_budget_obligation_declines",
+      "breakpoints": true
+    },
+    {
+      "idx": 580,
+      "version": "7",
+      "when": 1792060916680,
+      "tag": "0580_budget_supplements",
+      "breakpoints": true
+    },
+    {
+      "idx": 581,
+      "version": "7",
+      "when": 1792062777116,
+      "tag": "0581_rd_head_requisition_ceo_direct",
+      "breakpoints": true
+    },
+    {
+      "idx": 582,
+      "version": "7",
+      "when": 1792063856617,
+      "tag": "0582_tenant_plan_due_now",
+      "breakpoints": true
+    },
+    {
+      "idx": 583,
+      "version": "7",
+      "when": 1792065418516,
+      "tag": "0583_shorten_tenant_rent_intake_stall_sms",
+      "breakpoints": true
+    },
+    {
+      "idx": 584,
+      "version": "7",
+      "when": 1792069135150,
+      "tag": "0584_requisition_usage_report_deferrals",
+      "breakpoints": true
+    },
+    {
+      "idx": 585,
+      "version": "7",
+      "when": 1792071893712,
+      "tag": "0585_usage_report_grace_and_two_deferrals",
+      "breakpoints": true
+    },
+    {
+      "idx": 586,
+      "version": "7",
+      "when": 1792073565283,
+      "tag": "0586_usage_report_amount_matching",
+      "breakpoints": true
+    },
+    {
+      "idx": 587,
+      "version": "7",
+      "when": 1792073856025,
+      "tag": "0587_usage_report_matching_array_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 588,
+      "version": "7",
+      "when": 1792137074188,
+      "tag": "0588_landlord_payout_otp_recipient_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 589,
+      "version": "7",
+      "when": 1792140535573,
+      "tag": "0589_crm_in_app_communications",
+      "breakpoints": true
+    },
+    {
+      "idx": 590,
+      "version": "7",
+      "when": 1792140882632,
+      "tag": "0590_crm_communications_restrict_direct_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 591,
+      "version": "7",
+      "when": 1792141514089,
+      "tag": "0591_enable_bike_lease_recovery_cron",
+      "breakpoints": true
+    },
+    {
+      "idx": 592,
+      "version": "7",
+      "when": 1792141974107,
+      "tag": "0592_ops_tutorial_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 593,
+      "version": "7",
+      "when": 1792143859453,
+      "tag": "0593_renewal_waits_for_final_payout",
+      "breakpoints": true
+    },
+    {
+      "idx": 594,
+      "version": "7",
+      "when": 1792144973789,
+      "tag": "0594_landlord_float_budget_cap",
+      "breakpoints": true
+    },
+    {
+      "idx": 595,
+      "version": "7",
+      "when": 1792146917725,
+      "tag": "0595_usage_report_skip_reversed_requisitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 596,
+      "version": "7",
+      "when": 1792147245876,
+      "tag": "0596_ops_tutorial_access_helpers",
+      "breakpoints": true
+    },
+    {
+      "idx": 597,
+      "version": "7",
+      "when": 1792147681792,
+      "tag": "0597_usage_report_reversal_structured",
+      "breakpoints": true
+    },
+    {
+      "idx": 598,
+      "version": "7",
+      "when": 1792147857118,
+      "tag": "0598_ops_tutorials_storage_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 599,
+      "version": "7",
+      "when": 1792147982974,
+      "tag": "0599_ops_tutorial_creator_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 600,
+      "version": "7",
+      "when": 1792148166246,
+      "tag": "0600_ops_tutorial_tighten_privileges_mp4",
+      "breakpoints": true
+    },
+    {
+      "idx": 601,
+      "version": "7",
+      "when": 1792148771992,
+      "tag": "0601_ops_tutorial_reviewer_hr_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 602,
+      "version": "7",
+      "when": 1792149063237,
+      "tag": "0602_ops_tutorial_claim_functions",
+      "breakpoints": true
     }
   ]
 }

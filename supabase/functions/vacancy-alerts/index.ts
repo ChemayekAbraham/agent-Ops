@@ -15,6 +15,9 @@ function formatPhoneInternational(phone: string): string {
   return `+${digits}`;
 }
 
+// Keep free-text fields short so the SMS fits one 160-char segment.
+const clip = (s: unknown, n: number) => String(s ?? "").slice(0, n);
+
 async function sendSMS(phone: string, message: string): Promise<boolean> {
   if (await attemptYoolaPrimary(phone, message, { source: "vacancy-alerts" })) return true;
   const apiKey = Deno.env.get("AFRICASTALKING_API_KEY");
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
 
       // Send SMS to agent
       if (agent?.phone) {
-        const agentMsg = `🏚️ VACANCY ALERT: "${house.title}" in ${house.region} has been empty for ${daysEmpty} days. Monthly rent: UGX ${house.monthly_rent.toLocaleString()}. Consider reducing rent or promoting this listing to attract tenants. - Welile`;
+        const agentMsg = `Vacancy: "${clip(house.title, 25)}" in ${clip(house.region, 15)} empty ${daysEmpty} days. Rent UGX ${house.monthly_rent.toLocaleString()}. Cut rent or promote it.`;
         const sent = await sendSMS(agent.phone, agentMsg);
         if (sent) smsSent++;
         results.push({ type: "agent", phone: agent.phone, sent, house: house.title });
@@ -121,7 +124,7 @@ Deno.serve(async (req) => {
 
       // Send SMS to landlord
       if (landlord?.phone) {
-        const landlordMsg = `Dear ${landlord.name}, your property "${house.title}" in ${house.region} has been vacant for ${daysEmpty} days. Your agent is working to find a tenant. Contact Welile for assistance. - Welile`;
+        const landlordMsg = `Your property "${clip(house.title, 25)}" in ${clip(house.region, 15)} has been vacant ${daysEmpty} days. Your agent is finding a tenant.`;
         const sent = await sendSMS(landlord.phone, landlordMsg);
         if (sent) smsSent++;
         results.push({ type: "landlord", phone: landlord.phone, sent, house: house.title });

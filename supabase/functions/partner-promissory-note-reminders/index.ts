@@ -63,14 +63,13 @@ function buildMessage(notes: Note[]): string {
   if (notes.length === 1) {
     const n = notes[0];
     const due = n.fulfilment_due_on ? ` due ${n.fulfilment_due_on}` : "";
-    return `Welile: Your funding promise of ${ugx(Number(n.amount ?? 0))}${due} is still unfulfilled. ` +
-      `Please fund it from your Welile dashboard, or contact your agent to update the date.`;
+    return `Funding promise of ${ugx(Number(n.amount ?? 0))}${due} is unfulfilled. ` +
+      `Fund it in your Welile dashboard or ask your agent to change the date.`;
   }
   const total = notes.reduce((s, n) => s + Number(n.amount ?? 0), 0);
   const oldest = notes.reduce((a, b) => (a.created_at <= b.created_at ? a : b));
-  return `Welile: You have ${notes.length} funding promises still unfulfilled, ` +
-    `${ugx(total)} in total. Oldest is ${daysOld(oldest.created_at)} days old. ` +
-    `Please fund them from your Welile dashboard.`;
+  return `${notes.length} funding promises unfulfilled, ${ugx(total)} total. ` +
+    `Oldest ${daysOld(oldest.created_at)} days. Fund them in your Welile dashboard.`;
 }
 
 Deno.serve(async (req) => {

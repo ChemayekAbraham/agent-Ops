@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ScreenLoader from '@/components/common/ScreenLoader';
 
-type Status = 'loading' | 'auth_required' | 'wrong_account' | 'invalid' | 'ready' | 'submitting' | 'done';
+type Status = 'loading' | 'auth_required' | 'wrong_account' | 'invalid' | 'ready' | 'submitting' | 'done' | 'approved';
 
 interface PortfolioSnapshot {
   portfolio_code: string;
@@ -187,6 +187,11 @@ export default function PortfolioCompletion() {
       if (portfolioRes.data.status !== 'awaiting_partner_details') {
         if (portfolioRes.data.status === 'pending_ops_approval') {
           setStatus('done');
+          return;
+        }
+        if (portfolioRes.data.status === 'active') {
+          // Approved and countersigned: the link reopens a confirmation, never the form.
+          setStatus('approved');
           return;
         }
         setStatus('invalid');
@@ -373,6 +378,16 @@ export default function PortfolioCompletion() {
         icon={<ShieldAlert className="h-8 w-8 text-destructive" />}
         title="This invite is no longer valid"
         message={errorMsg || 'Please contact Welile Partner Operations for a fresh link.'}
+      />
+    );
+  }
+
+  if (status === 'approved') {
+    return (
+      <FullScreenNotice
+        icon={<CheckCircle2 className="h-8 w-8 text-primary" />}
+        title="Your portfolio is active"
+        message={`Portfolio ${portfolio?.portfolio_code ?? ''} has been approved and countersigned by Welile. Your signed agreement was sent to you by email. Nothing more is needed from you.`}
       />
     );
   }

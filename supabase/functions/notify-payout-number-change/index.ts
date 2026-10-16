@@ -121,11 +121,10 @@ Deno.serve(async (req) => {
     const reason = (reqRow.decision_reason ?? "").trim();
     const message =
       reqRow.status === "approved"
-        ? `Welile: Your withdrawal number has been changed to the number ending ${tail}. ` +
-          `Your payouts will now be sent there. If you did not ask for this, call Welile Support on 0748747134 immediately.`
-        : `Welile: Your request to change your withdrawal number to the one ending ${tail} was not approved. ` +
-          `${reason ? `Reason: ${reason}. ` : ""}Your current withdrawal number stays the same. ` +
-          `For help, call Welile Support on 0748747134.`;
+        ? `Welile: Withdrawal number changed to ending ${tail}. Payouts now go there. ` +
+          `Not you? Call 0748747134 now.`
+        : `Welile: Withdrawal number change to ending ${tail} not approved. ` +
+          `${reason ? `Reason: ${reason.slice(0, 30)}. ` : ""}Current number unchanged.`;
 
     const sent = await sendSMS(phone, message);
     return json({ success: sent, status: reqRow.status });

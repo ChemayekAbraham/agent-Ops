@@ -39,7 +39,7 @@ const firstName = (name: string | null | undefined, fallback: string) => {
 /** A long name would push the message into a second SMS segment. */
 const shortName = (name: string | null | undefined, fallback: string) => {
   const n = String(name || "").trim() || fallback;
-  return n.length <= 28 ? n : `${n.slice(0, 27)}…`;
+  return n.length <= 28 ? n : `${n.slice(0, 27)}.`;
 };
 
 interface Notice {
@@ -61,14 +61,13 @@ function buildMessage(n: Notice): string {
   const amount = ugx(Number(n.outstanding ?? n.amount ?? 0));
   if (n.recipient_role === "agent") {
     return (
-      `Welile: Today is the fulfilment day for ${shortName(n.partner_name, "your partner")}'s ` +
-      `promissory note of ${amount}. Please follow up with them today.`
+      `Welile: Today is fulfilment day for ${shortName(n.partner_name, "your partner")}'s ` +
+      `note of ${amount}. Follow up today.`
     );
   }
   return (
-    `Welile: ${firstName(n.recipient_name ?? n.partner_name, "Hello")}, today is the fulfilment ` +
-    `day for your rent funding pledge of ${amount}. ` +
-    `${shortName(n.agent_name, "Your Welile agent")} will follow up with you.`
+    `Welile: ${firstName(n.recipient_name ?? n.partner_name, "Hello")}, today is fulfilment day ` +
+    `for your pledge of ${amount}. ${shortName(n.agent_name, "Your agent")} will follow up.`
   );
 }
 

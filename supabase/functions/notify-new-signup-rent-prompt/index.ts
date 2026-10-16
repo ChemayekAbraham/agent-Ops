@@ -35,7 +35,7 @@ function firstName(full?: string | null): string {
 function buildMessage(fullName?: string | null): string {
   const name = firstName(fullName);
   const greeting = name ? `Hi ${name}, ` : "Hi, ";
-  return `${greeting}you can now request rent from Welile and pay it back in small daily amounts. Request your Rent Plan: ${RENT_LINK}`;
+  return `${greeting}request rent from Welile and repay in small daily amounts. Get your Rent Plan: ${RENT_LINK}`;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
