@@ -1,7 +1,9 @@
 # 241 - Partner account blocked at withdrawal: duplicate National ID with the owner's agent account (KALULE SHARIF, 2026-10-16)
 
-**Status:** exception applied LIVE 2026-10-16 09:00 UTC (id `23103309-67e9-4622-b274-bdca6de0cd26`), verified in the
-database; migration `20261016130000` written to match. Not yet confirmed by a real withdrawal. Root cause NOT fixed.
+**Status:** APPLIED LIVE 2026-10-16 and verified in the database: (1) per-user ID exception (`23103309-67e9-4622-b274-bdca6de0cd26`,
+migration `20261016130000`) so the withdrawal could be requested; (2) staff-created National ID link
+(`4f4a4521-14a6-4c52-bc26-46d16b47d369`, migration `20261016150000`) so Merchant Agents can claim it. Not yet confirmed by a real
+merchant claim. Root causes NOT fixed.
 
 ## Finding
 `sharifkc264@gmail.com` (KALULE SHARIF, `3f87c1f3-6564-478d-a08d-43da24614c80`, no phone, UGX 5,000,108 available
@@ -19,23 +21,44 @@ after a 2,000,108 ROI credit that morning) could not withdraw.
 - `payout_destination_verifications` row `f1068cff-e9f8-4f9c-8c12-4b83f9ad5b73` was auto-rejected ("National ID is
   already recorded on another account").
 
-## Root cause
-The two withdrawal gates disagree about pure partners:
-- `withdrawal_destination_gate` and `enforce_withdrawal_destination_verified` exempt `user_is_pure_partner`.
-- `issue-wallet-withdrawal-otp` (the step that sends the code) exempts only `id_verification_exceptions`, so a
-  rejected destination stops a pure partner before any code is sent.
-- `payout_withdrawal_block_reasons` returned `ok` (partner exempt), so the wallet screen showed no reason.
+## Two gates, two fixes
+1. **Request gate (OTP step).** `withdrawal_destination_gate` and `enforce_withdrawal_destination_verified` exempt
+   `user_is_pure_partner`, but `issue-wallet-withdrawal-otp` exempts only `id_verification_exceptions`, so a
+   rejected destination stopped a pure partner before any code was sent (and `payout_withdrawal_block_reasons`
+   returned `ok`, so the wallet screen showed no reason). Fix: per-user exception row, migration `20261016130000`.
+   After it, withdrawals of 1,000,000 (09:10) and 3,000,000 (11:00) were created, both to 0757229748.
+2. **Merchant claim gate (doc 211).** `claim_withdrawal_verified` calls `withdrawal_payout_number_check`: the number must be
+   a verified destination, an identity-lock number or the user's own login phone. Partner status and ID exceptions
+   deliberately do NOT bypass it (Carol Atuhaire incident, 2026-10-07). The partner account had none, so merchants saw
+   "This payout number is not a registered and verified payout number for the customer" and could not claim.
+   `finops_decide_payout_destination` could not verify it either: it auto-rejects a duplicate National ID.
+   Fix: link the two accounts (below). `duplicate_national_id_owner` skips pairs with an owner_approved/active link, and the
+   link's staff-confirm effects verify the requester's destinations.
 
-## Change
-Migration `20261016130000_kalule_sharif_partner_id_verification_exception.sql` inserts one
-`id_verification_exceptions` row (skipped if an active one exists) and an `audit_logs` row
-(`ID_VERIFICATION_EXCEPTION_GRANTED`). Revoke by setting `revoked_at`.
+## Staff-created link (holder consent skipped)
+Migration `20261016150000_link_kalule_sharif_partner_account_to_agent_account_by_national_id.sql` inserts an `active`
+`national_id_link_requests` row (requester `3f87c1f3`, holder `98ee118b`, NIN `CMO305210NU9EC`), sets
+`profiles.linked_national_id` and `linked_national_id_request_id`, verifies the requester's payout destinations
+(1: 0757229748) and writes `national_id_link_confirmed` to `audit_logs`.
+
+**The holder's OTP and in-app approval were NOT collected.** Josh Wanda (CFO) explicitly approved skipping holder
+consent on 2026-10-16 after tracing the identity: same National ID (identical under `normalize_national_id_fuzzy`),
+names match (1.00), 0757229748 is verified on the agent account, and the 09-30 3,000,000 agent-partnership transfer.
+`owner_decision` is left NULL and `decision_reason` says consent was skipped, so the record does not claim consent.
+The audit row carries `staff_created: true, holder_consent_collected: false`. Undo with the normal unlink flow
+(`request_national_id_unlink` / `decide_national_id_unlink`).
+
+## Verified after applying
+- Link `active`; partner profile `linked_national_id = CMO305210NU9EC`; destination `momo:757229748` `verified`.
+- `withdrawal_payout_number_check` for `7205a6ea-8b3c-48af-8023-2fca11a558c0` (3,000,000) and
+  `41fb1c0e-80db-443b-9234-8e21ddbf74e4` (1,000,000): `trusted`, `matched_via: verified_destination`;
+  `withdrawal_merchant_id_gate` true; both still `pending`, unassigned.
 
 ## Not changed
-- The rejected destination row stays `rejected`; the exception bypasses it. His withdrawals go to 0757229748, which is
-  registered to his agent account (same person, name match 1.00).
-- `issue-wallet-withdrawal-otp` still lacks the pure-partner exemption. Any other pure partner whose destination is
+- `issue-wallet-withdrawal-otp` still lacks the pure-partner exemption. Another pure partner whose destination is
   rejected will hit the same refusal. Count them before fixing.
-- The O/0 mismatch in the stored National ID on the partner account is not corrected.
+- The stored National ID on the partner profile still has the letter O (`CMO305...`). Not corrected; the link ignores it.
+- This is a manual identity link. The holder (Sharifu Kalule) was never asked; if he disputes it, unlink.
+- No merchant has claimed either withdrawal yet; the claim also checks float, channel permission and priority holds.
 - Advance recovery only deducts from the agent account's wallet; the partner wallet is out of its reach. See doc 240.
-- `granted_by` is empty because the insert ran through the service; the reason text names Josh.
+- `granted_by` on the exception row is empty because the insert ran through the service; the reason text names Josh.
