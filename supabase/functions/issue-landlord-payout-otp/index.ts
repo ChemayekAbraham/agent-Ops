@@ -4,6 +4,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Validates float, creates an OTP challenge, sends SMS to landlord.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
+import { resolveOtpRecipient, toLocalUgPhone } from "./resolveOtpRecipient.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -391,7 +392,12 @@ Deno.serve(async (req) => {
         .in("event_type", ["sent", "resent"]);
       const attemptNumber = (priorSends ?? 0) + 1;
 
-      const phone = normalizePhone(existing.landlord_phone);
+      // Resend goes to the same recipient as the original send: the landlord's
+      // own contact phone recorded on the challenge (older challenges predate
+      // the column and fall back to the payout number they were sent to).
+      const resendRecipient = toLocalUgPhone(existing.otp_recipient_phone) ?? toLocalUgPhone(existing.landlord_phone);
+      if (!resendRecipient) return json({ error: "No usable phone number on this challenge" }, 400);
+      const phone = normalizePhone(resendRecipient);
       const resent = await sendOtpWithFallback(
         phone,
         `Welile: UGX ${Number(existing.amount).toLocaleString()} rent for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
