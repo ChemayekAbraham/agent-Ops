@@ -80253,6 +80253,21 @@ export type Database = {
         }[]
       }
       tenant_ops_rent_request_lifetime: { Args: never; Returns: Json }
+      tenant_ops_rent_request_lifetime_list: {
+        Args: { p_bucket: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          agent_name: string
+          amount_repaid: number
+          funded_at: string
+          id: string
+          landlord_paid_at: string
+          rent_amount: number
+          status: string
+          tenant_name: string
+          total_matched: number
+          total_repayment: number
+        }[]
+      }
       tenant_payment_history: {
         Args: { p_limit?: number }
         Returns: {
