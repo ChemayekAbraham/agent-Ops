@@ -12836,6 +12836,124 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_communication_events: {
+        Row: {
+          action: string
+          actor_id: string
+          communication_id: string
+          created_at: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          communication_id: string
+          created_at?: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          communication_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_communication_events_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "crm_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_communication_receipts: {
+        Row: {
+          acknowledged_at: string
+          communication_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          communication_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          communication_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_communication_receipts_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "crm_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_communications: {
+        Row: {
+          audiences: string[]
+          body: string
+          communication_type: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          link_path: string | null
+          published_at: string | null
+          series_id: string
+          starts_at: string
+          state: string
+          title: string
+          version: number
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          audiences: string[]
+          body: string
+          communication_type: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          link_path?: string | null
+          published_at?: string | null
+          series_id: string
+          starts_at: string
+          state?: string
+          title: string
+          version?: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          audiences?: string[]
+          body?: string
+          communication_type?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          link_path?: string | null
+          published_at?: string | null
+          series_id?: string
+          starts_at?: string
+          state?: string
+          title?: string
+          version?: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: []
+      }
       crm_customer_issues: {
         Row: {
           contact: string | null
@@ -67317,6 +67435,36 @@ export type Database = {
       }
       crm_callee_dossier: { Args: { p_user_id: string }; Returns: Json }
       crm_cancel_call: { Args: { p_session_id: string }; Returns: string }
+      crm_communication_account_live: {
+        Args: { p_user: string }
+        Returns: boolean
+      }
+      crm_communication_acknowledge: {
+        Args: { p_id: string; p_role: string }
+        Returns: Json
+      }
+      crm_communication_admin_list: {
+        Args: { p_offset?: number; p_status?: string }
+        Returns: Json
+      }
+      crm_communication_audience_count: {
+        Args: { p_audiences: string[] }
+        Returns: number
+      }
+      crm_communication_editor: { Args: never; Returns: boolean }
+      crm_communication_inbox: {
+        Args: { p_id?: string; p_role: string }
+        Returns: Json
+      }
+      crm_communication_manage: {
+        Args: {
+          p_action: string
+          p_content?: Json
+          p_id?: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       crm_derive_outcome: {
         Args: { p_duration: number; p_hangup_cause: string; p_status: string }
         Returns: string
