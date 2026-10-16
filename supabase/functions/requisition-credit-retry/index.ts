@@ -9,7 +9,7 @@ const corsHeaders = {
 
 type RetrySource = "director_requisitions" | "employee_requisitions" | "staff_requisitions";
 
-const ALLOWED_ROLES = new Set(["cfo", "super_admin", "manager", "ceo"]);
+const ALLOWED_ROLES = new Set(["cfo", "super_admin", "manager", "ceo", "financial_ops"]);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

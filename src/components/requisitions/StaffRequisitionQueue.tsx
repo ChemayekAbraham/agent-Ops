@@ -946,7 +946,7 @@ export function StaffRequisitionQueue() {
               )}
               {active?.stage === active?.final_stage && (
                 <p className="text-xs text-muted-foreground">
-                  Final approval — this credits the requester's wallet immediately.
+                  Final approval — Financial Operations will release the funds to the requester's wallet.
                 </p>
               )}
             </div>
