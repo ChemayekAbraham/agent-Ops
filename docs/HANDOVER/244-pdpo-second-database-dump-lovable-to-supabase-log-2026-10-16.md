@@ -20,7 +20,9 @@ How it lines up with the runbook (`PDPO_RESTORE_RUNBOOK_2026-10-14.md`): the rep
 
 ## Open questions (to fill in)
 - Purpose of this dump: **ANSWERED by Josh 2026-10-16: FINAL CUTOVER.** Write freeze applies.
-- Does the target currently hold real data, and has the DPO approved the region? **[unanswered]**
+- DPO region: **ANSWERED by Josh 2026-10-16: approved, on condition the data is kept safe.** (G1 met; the condition means dump on encrypted disk, no credentials in git/chat, rehearsal copies deleted, who held the dump logged.)
+- Rehearsal: **ANSWERED by Josh: successful** (G2 met per Josh; no result file in the repo, so the baseline comparison at cutover is the real check).
+- Target edge functions: **not deployed yet** (G3 open). Order decided by Josh: **move storage files first.**
 
 ## Final cutover plan (set 2026-10-16)
 **Gates that must be true before the freeze starts** (any unknown blocks the freeze):
@@ -46,3 +48,5 @@ How it lines up with the runbook (`PDPO_RESTORE_RUNBOOK_2026-10-14.md`): the rep
 | (start) | Log opened. Repo docs reviewed to recover context. No commands run against source or target. | n/a |
 | 2026-10-16 | Josh pasted Luca's 10-14 reply as the basis for today's work; recorded above. Next step is Josh's UI action: start the Live database export. | pending |
 | 2026-10-16 | Josh confirmed this is the FINAL CUTOVER. Cutover plan and gates G1-G5 recorded above. Freeze not started. | gates open |
+| 2026-10-16 | Josh: DPO approved (conditional on data safety), rehearsal successful, target edge functions not deployed, storage files move first. | recorded |
+| 2026-10-16 | Read-only check of `C:\Users\USER\pdpo-rehearsal\logs\storage_*.done/.failed`: a storage copy was already run 2026-10-15 11:16 to 2026-10-16 00:54 across 23 buckets, **0 failed lines in every bucket**. Done counts: house-images 195,650; payment-proofs 5,619; identity-verification 666; partner-agreements 632; avatars 533; finops-reports 521; lc-letters 487; resumes 315; requisition-attachments 123; landlord-agreements 104; cash-deposit-receipts 89; reviews 84; merchandise 24; service-centre-photos 21; tenant-ids 13; business-advance-documents 10; budget-documents 7; task-evidence 7; email-assets 4; concern-attachments 3; food-meal-images 2; hr-documents 1; agent-receipts 1 (about 204.9k files, in line with the 204,190 `storage.objects` baseline of 10-14). Not yet done: per-bucket count and byte comparison against the source, and an incremental pass for files added after 10-16 00:54. A probe of the source function URL was blocked by the permission classifier and not retried, so whether `storage-migration-export` is still deployed on the source is unconfirmed. | copy done, unverified |
