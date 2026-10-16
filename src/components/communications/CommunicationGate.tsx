@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCommunicationAcknowledgement, useCommunicationInbox, readCommunication } from '@/hooks/useCrmCommunications';
 import { communicationDashboardRole, type Communication } from '@/lib/crmCommunications';
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
+import { OPEN_COMMUNICATION_EVENT } from './CommunicationsBellSection';
 
 /** Optional announcements yield to any existing modal without changing mandatory gates. */
 export default function CommunicationGate() {
@@ -74,6 +75,12 @@ export default function CommunicationGate() {
     return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [active?.id, dashboardRole]);
   useEffect(() => { if (active && query.data && !query.data.some(row => row.id === active.id)) setActive(null); }, [query.data]);
+  const openRef = useRef(openMessage); openRef.current = openMessage;
+  useEffect(() => {
+    const handler = (e: Event) => { const row = (e as CustomEvent<Communication>).detail; if (row) void openRef.current(row); };
+    window.addEventListener(OPEN_COMMUNICATION_EVENT, handler);
+    return () => window.removeEventListener(OPEN_COMMUNICATION_EVENT, handler);
+  }, []);
   if (!eligible) return null;
   const unread = query.data?.filter(row => !row.acknowledged_at).length ?? 0;
   const close = () => { if (active) setSnoozed(old => new Set([...old, active.id])); setActive(null); setError(null); };
