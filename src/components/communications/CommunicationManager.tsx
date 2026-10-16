@@ -67,7 +67,7 @@ export default function CommunicationManager() {
   const previewContent = () => { const next = validated(); if (next) setPreview({ ...next, series_id: selected?.series_id ?? next.id, version: selected?.version ?? 1 }); };
   return <section className="space-y-6 min-w-0">
     <header className="flex items-center justify-between gap-3 flex-wrap border-b border-border pb-5">
-      <div className="flex items-center gap-3"><Megaphone className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">In-app Communications</h1></div>
+      <div className="flex items-center gap-3"><Megaphone className="h-6 w-6 text-primary" /><h1 className="text-2xl font-semibold">Broadcast</h1></div>
       <Button onClick={() => openEditor()}><FilePlus2 className="mr-2 h-4 w-4" />New communication</Button>
     </header>
     {notice && <p role="status" className="text-sm text-primary">{notice}</p>}

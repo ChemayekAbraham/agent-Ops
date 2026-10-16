@@ -7,6 +7,7 @@
 <!-- LOVABLE:END -->
 
 - Requisition approval errors are normalized client-side only; server authorization is the sole permission authority.
+- CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
 - CFO 7-day reporting uses Kampala days via `src/lib/kampalaDays.ts`, matching the RPCs.
 - Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.

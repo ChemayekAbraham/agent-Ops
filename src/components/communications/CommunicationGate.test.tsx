@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import CommunicationGate from './CommunicationGate';
+import { OPEN_COMMUNICATION_EVENT } from './CommunicationsBellSection';
 const state = vi.hoisted(() => ({
  rows: [{ id:'virtual',series_id:'virtual',version:1,title:'Agent notice',body:'Virtual message',communication_type:'important',link_path:null,starts_at:'2026-01-01T00:00:00Z',expires_at:'2099-01-01T00:00:00Z',acknowledged_at:null }],
  read:vi.fn(), ack:vi.fn(), refetch:vi.fn(),
@@ -26,10 +27,9 @@ describe('optional communication queue',()=>{
   fireEvent.click(screen.getByRole('button',{name:'Acknowledge'}));
   await act(async()=>{await Promise.resolve();});expect(state.ack).toHaveBeenCalledWith('virtual');
  });
- it('opens a freshly fetched message from the inbox',async()=>{
+ it('opens a freshly fetched message selected from the bell',async()=>{
   render(<MemoryRouter initialEntries={['/dashboard/agent']}><CommunicationGate /></MemoryRouter>);
-  fireEvent.click(screen.getByRole('button',{name:'Open platform communications'}));
-  fireEvent.click(screen.getByRole('button',{name:/Agent notice/}));
+  act(()=>{window.dispatchEvent(new CustomEvent(OPEN_COMMUNICATION_EVENT,{detail:state.rows[0]}));});
   await waitFor(()=>expect(state.read).toHaveBeenCalledWith('agent','virtual'));
   await waitFor(()=>expect(screen.getByRole('dialog')).toHaveTextContent('Virtual message'));
  });
