@@ -12,8 +12,9 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { CalendarIcon, CheckCircle2, Loader2, RefreshCw, Undo2 } from 'lucide-react';
+import { CalendarIcon, CheckCircle2, Loader2, RefreshCw, Send, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -68,7 +69,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
   const { roles } = useAuth() as { roles?: string[] };
-  const isCfo = (roles ?? []).includes('cfo');
+  const roleSet = new Set(roles ?? []);
+  const isCfo = roleSet.has('cfo');
+  const canRelease = roleSet.has('financial_ops') || roleSet.has('cfo') || roleSet.has('super_admin') || roleSet.has('manager') || roleSet.has('ceo');
   const [day, setDay] = useState(today());
   const from = day, to = day;
   const [filter, setFilter] = useState<Filter>('all');
@@ -76,6 +79,7 @@ export function ApprovedRequisitionsPayoutPanel() {
   const [target, setTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [releasing, setReleasing] = useState<string | null>(null);
 
   const range = useMemo(() => ({
     p_from: new Date(`${from}T00:00:00`).toISOString(),
