@@ -65,6 +65,7 @@ const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/T
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
+const CommunicationGate = optionalLazyWithRetry(() => import("@/components/communications/CommunicationGate"), "CommunicationGate");
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
@@ -1067,6 +1068,7 @@ const App = () => {
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
+                          <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />
                           <HRBirthdayNoticeDialog />
                           <CreditLoadingDebugPanel />

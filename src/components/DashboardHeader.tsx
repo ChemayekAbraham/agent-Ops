@@ -24,6 +24,8 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { cn } from '@/lib/utils';
 import { TenantInAppNotificationBell } from '@/components/tenant/TenantInAppNotificationBell';
 import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
+import { roleToSlug } from '@/lib/roleRoutes';
 
 interface MenuItemConfig {
   icon: React.ComponentType<{ className?: string }>;
@@ -113,6 +115,8 @@ const DashboardHeader = memo(function DashboardHeader({
         return;
       }
       onRoleChange(role);
+      const targetRoute = roleDashboardRoutes[role] || roleToSlug(role);
+      navigate(targetRoute);
     } else {
       setRolePickerOpen(false);
     }

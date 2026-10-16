@@ -1,5 +1,10 @@
 # Tenant Ops Workspace — build log
 
+## 2026-10-16 — CRM in-app communications
+
+Added `drizzle/migrations/0589_crm_in_app_communications.sql`: dedicated versioned communications, sparse acknowledgements and immutable lifecycle history; enabled CRM/super-admin publishing and enabled-role inbox functions, all with explicit grants/RLS. Existing notifications, financial functions and Tenant Ops clocks remain unchanged. Acknowledgement emits an idempotent event and refreshes the canonical trust cache, without inventing a score increment.
+Live privilege inspection found inherited authenticated TRUNCATE/write grants; `0590_crm_communications_restrict_direct_writes.sql` explicitly revoked them on these three new tables. RLS alone does not protect TRUNCATE.
+
 ## 2026-09-26 — `20260926160000_tops_plan_clock_and_instalments.sql`
 
 **Objects added** (all new; nothing existing touched — confirmed via `git diff --stat`, no file outside `supabase/migrations/**`/`docs/**` changed):
@@ -1390,3 +1395,24 @@ Things to know when reading the numbers:
 - Main agents: the first 200 teams (the page limit) hold 2,494 sub-agents, 254 of the 292 houses and UGX 1,620,000 of the earnings; the rest are on later pages.
 
 Slow-query recommendations (not applied, per the rules; indexing existing tables is for a separate, reviewed change): `house_listings (created_at)` and `house_listings (agent_id, created_at)` for the range scans; `general_ledger (category, source_table, created_at)` where the ledger is large; `agent_listing_rejections (rejected_at)`; `agent_advances (issued_at)`. At today's volumes the five functions ran in 96 to 1,378 ms (the totals and the all-scope list are the slowest).
+
+## 2026-10-16: Agent Ops Metrics tab, tests and live reconciliation
+
+Tab: Agent Ops home, "Metrics" chip after "Agent Network" (`src/components/executive/agent-ops-v2/metrics/`, `src/hooks/useAgentOpsMetrics.ts`, `src/lib/agentMetrics.ts`). A "How these are counted" popover on the page explains the figures in plain words.
+
+Tests added or extended: `src/lib/agentMetrics.test.ts` (URL params, order save / restore / reset, unknown card ids dropped, new cards appended, move and drop), `src/hooks/useAgentOpsMetrics.test.tsx` (mocked RPCs that fail a detached `supabase.rpc`, 300 ms search debounce, 50 per page), `AgentMetricsTab.test.tsx` (reorder buttons, collapse, loading / empty / error with retry, agent sheet with tap-to-call, per-card CSV, popover, wording) and `e2e/agent-ops-metrics-tab.spec.ts` (chip after Agent Network, opens from a link with `mfrom` / `mto` / `mscope` / `msort`, 380px and 1280px with the sidebar open, no horizontal page scroll, 44px move buttons, error with retry). 30 unit and component tests and 3 e2e specs pass; `npm run guard:all` passes; eslint is clean on the new files.
+
+Live reconciliation, 2026-09-17 to 2026-10-16 (Kampala days), called as an agent_ops user, read-only (rolled back):
+
+| check | result |
+|---|---|
+| houses verified + pending + currently rejected = houses listed | 227 + 64 + 3 = 294; totals say 294 listed. Holds. "Currently rejected" is listings whose status is `rejected`; the totals function does not return it, so the page's Rejected figure (rejection events in the dates, 36 earlier) is a different number by design and the popover says so. |
+| sum of per-agent listing earnings = totals listing earnings | 3,484 agent rows (scope all, paged by 200, each person once) sum to UGX 1,808,000 = totals. Clawed back UGX 64,000 = totals. Houses listed 295 = 295 (a listing arrived between runs). Holds. |
+| advances outstanding = the Advance Repayment Monitor | Does NOT match. Overdue matches exactly (282 advances, UGX 36,176,292.28). Active: the monitor shows 40 advances, UGX 12,703,186.70; the metrics totals also count 3 active advances, UGX 10,206,012.00, whose `recovery_source` is `roi` (repaid from Returns rather than the wallet), which `get_agent_advance_repayment_monitor` excludes. Monitor total UGX 48,879,478.98, metrics UGX 59,085,490.98; the difference is exactly those 3. Left as is: the metrics figure is the full outstanding book, and the popover and the Advances card basis say it can be higher than the monitor. Aligning one to the other is a decision for Agent Ops / Finance and would need a new function version. |
+
+Not verified:
+- The map with a real Google Maps key and real pins: the e2e runs mock the key, so only the map area and its fallback message were seen. The pins-in-view count, marker colours and pan / zoom reloading were not seen on a real map.
+- Drag-and-drop reordering with a mouse (the up / down buttons are tested; the desktop drag handle is only checked to be present).
+- A physical phone and the Lovable preview: only Chromium at 380px and 1280px against the local dev server.
+- `tsc`: one error, in `RentApprovalMoneyCounter.tsx` (`rent_amount`, from commit c07e9fd5b7 or the one before it), not in the Metrics files.
+- Full `vitest run`: failures in files that do not import any Metrics code (payoutCardAggregatedTotals, subAgentCommissionCopy, RoleGating, AgentRentRequestDialog.undo, PromissoryNoteName, walletMovementSummary.readonly, fleetCollected, ExecutiveDashboardLayout.nesting, SendMoneyDialog, useAuthFormLoginPerf, and others); they fail the same way run alone, and were left alone as unrelated.
