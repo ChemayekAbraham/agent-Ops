@@ -95,6 +95,7 @@ import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
 import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvanceCommissionListener';
 import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
 import { useRecruiterOverrideToast } from '@/hooks/useRecruiterOverrideToast';
+import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { useAgentEarnings } from '@/hooks/useAgentEarnings';
 import { AgentDashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { WalletHeroSkeleton, MetricRowSkeleton, ListSectionSkeleton } from '@/components/skeletons/SectionSkeletons';
@@ -564,6 +565,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       setActiveTab('home');
     }
   }, [searchParams, activeTab]);
+
+  // Personal nudge toasts (rank, uncollected tenants, missed commission, new
+  // tenants). Copy in src/lib/agentNudges/nudges.json; paced inside the hook.
+  useAgentNudges(user?.id, {
+    onAction: (cta) => {
+      if (cta === 'collect') setTenantsSheetOpen(true);
+      else if (cta === 'add_tenant') setRentRequestOpen(true);
+      else if (cta === 'leaderboard') navigate('/dashboard/agent?tab=league');
+    },
+  });
 
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
