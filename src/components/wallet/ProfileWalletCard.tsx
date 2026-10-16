@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { UnifiedWalletHeroCard, type WalletRole } from '@/components/wallet/UnifiedWalletHeroCard';
-import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
+import { lazyWithRetry, lazyNamed } from '@/lib/lazyWithRetry';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import { useWallet } from '@/hooks/useWallet';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,9 +12,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { hapticTap } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { ArrowDownLeft, ArrowUpRight, Send } from 'lucide-react';
-import DepositFlow from '@/components/payments/DepositFlow';
-import WithdrawFlow from '@/components/payments/WithdrawFlow';
-import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
+
+const FullScreenWalletSheet = lazyNamed(() => import('@/components/wallet/FullScreenWalletSheet'), 'FullScreenWalletSheet');
+const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
+const WithdrawFlow = lazyWithRetry(() => import('@/components/payments/WithdrawFlow'));
+const SendMoneyDialog = lazyNamed(() => import('@/components/wallet/SendMoneyDialog'), 'SendMoneyDialog');
 
 /** Wallet card shown on "Your Profile" (moved from tenant/agent/landlord dashboards). */
 export function ProfileWalletCard() {
@@ -158,43 +160,53 @@ export function ProfileWalletCard() {
           )
         }
       />
-      <FullScreenWalletSheet
-        open={open}
-        onOpenChange={(o) => {
-          setOpen(o);
-          if (!o) setWalletScrollTarget(null);
-        }}
-        scrollTarget={walletScrollTarget}
-      />
-      {isAgent && (
-        <>
-          <DepositFlow
-            open={showQuickDeposit}
-            onOpenChange={(v) => {
-              setShowQuickDeposit(v);
-              if (!v) handleRefresh();
+      <Suspense fallback={null}>
+        {open && (
+          <FullScreenWalletSheet
+            open={open}
+            onOpenChange={(o) => {
+              setOpen(o);
+              if (!o) setWalletScrollTarget(null);
             }}
-            allowedPurposes={['personal_deposit', 'operational_float']}
-            defaultPurpose="operational_float"
-            requirePurposeChoice
+            scrollTarget={walletScrollTarget}
           />
-          <WithdrawFlow
-            open={showQuickWithdraw}
-            onOpenChange={(v) => {
-              setShowQuickWithdraw(v);
-              if (!v) handleRefresh();
-            }}
-            availableBalance={realWithdrawableBalance}
-          />
-          <SendMoneyDialog
-            open={showQuickTransfer}
-            onOpenChange={(v) => {
-              setShowQuickTransfer(v);
-              if (!v) handleRefresh();
-            }}
-          />
-        </>
-      )}
+        )}
+        {isAgent && (
+          <>
+            {showQuickDeposit && (
+              <DepositFlow
+                open={showQuickDeposit}
+                onOpenChange={(v) => {
+                  setShowQuickDeposit(v);
+                  if (!v) handleRefresh();
+                }}
+                allowedPurposes={['personal_deposit', 'operational_float']}
+                defaultPurpose="operational_float"
+                requirePurposeChoice
+              />
+            )}
+            {showQuickWithdraw && (
+              <WithdrawFlow
+                open={showQuickWithdraw}
+                onOpenChange={(v) => {
+                  setShowQuickWithdraw(v);
+                  if (!v) handleRefresh();
+                }}
+                availableBalance={realWithdrawableBalance}
+              />
+            )}
+            {showQuickTransfer && (
+              <SendMoneyDialog
+                open={showQuickTransfer}
+                onOpenChange={(v) => {
+                  setShowQuickTransfer(v);
+                  if (!v) handleRefresh();
+                }}
+              />
+            )}
+          </>
+        )}
+      </Suspense>
     </>
   );
 }

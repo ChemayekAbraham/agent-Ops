@@ -57,7 +57,7 @@ const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinki
 const ArchivedPdfsCard = lazyNamed(() => import('@/components/settings/ArchivedPdfsCard'), 'ArchivedPdfsCard');
 
 const PushNotificationButton = lazyNamed(() => import('@/components/PushNotificationButton'), 'PushNotificationButton');
-import { TenantNotificationPreferencesCard } from '@/components/tenant/TenantNotificationPreferencesCard';
+const TenantNotificationPreferencesCard = lazyNamed(() => import('@/components/tenant/TenantNotificationPreferencesCard'), 'TenantNotificationPreferencesCard');
 
 /**
  * Chunk prefetch map — dynamic imports are module-cached, so calling these
@@ -77,6 +77,7 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
   appearance: [],
   notifications: [
     () => import('@/components/PushNotificationButton'),
+    () => import('@/components/tenant/TenantNotificationPreferencesCard'),
   ],
   security: [
     () => import('@/components/settings/PinSecuritySection'),
