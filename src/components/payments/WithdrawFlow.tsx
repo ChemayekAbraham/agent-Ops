@@ -1182,6 +1182,14 @@ export default function WithdrawFlow({
       if (result.success === false) {
         return await applyWithdrawalRejection(result);
       }
+      // A success with no request row means nothing was created server-side.
+      // Never show the pending receipt for a withdrawal that does not exist.
+      if (!result.request_id) {
+        return await applyWithdrawalRejection({
+          code: 'no_request_created',
+          message: 'Your withdrawal was not created. Please try again, or contact support if this keeps happening.',
+        });
+      }
       return await applyWithdrawalSuccess(result);
     } catch (error: any) {
       console.error('OTP-gated withdrawal failed:', error);
