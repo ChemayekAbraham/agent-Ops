@@ -4131,6 +4131,13 @@
       "when": 1792140535573,
       "tag": "0589_crm_in_app_communications",
       "breakpoints": true
+    },
+    {
+      "idx": 590,
+      "version": "7",
+      "when": 1792140882632,
+      "tag": "0590_crm_communications_restrict_direct_writes",
+      "breakpoints": true
     }
   ]
 }
