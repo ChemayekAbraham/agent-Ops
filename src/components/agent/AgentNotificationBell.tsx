@@ -40,6 +40,8 @@ export function AgentNotificationBell({
 }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<NotificationDetail | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const navigate = useNavigate();
   const { isPulsing, stopPulse } = useNotificationPulse(userId);
 
