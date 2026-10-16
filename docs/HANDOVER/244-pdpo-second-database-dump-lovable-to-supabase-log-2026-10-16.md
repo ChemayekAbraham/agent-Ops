@@ -1,0 +1,18 @@
+# 244. PDPO migration: second Lovable -> Supabase Postgres dump (running log, 2026-10-16)
+
+**Status: STARTED, NOTHING RUN YET.** This is a running log. Every step taken, command run and decision made is appended below with its result. Nothing here has touched the source or the target yet.
+
+## Context (recovered from the repo; the session that started this was cleared)
+- Source: Lovable Cloud database, ref `wirntoujqoyjobfhyelc` (Lovable project `43e6c2e1-18a6-4503-badb-5bb6c23491cc`). Read-only for us.
+- Target: `byrzshwlentqvktcksem` (our own Supabase account). Restored once already from an earlier Lovable dump (doc 237). 32 storage buckets and 89 `storage.objects` policies are in place; the storage file copy (about 15.5 GB, 205k objects) was written but not run.
+- Procedure: `docs/PDPO_RESTORE_RUNBOOK_2026-10-14.md` (draft). Related: doc 237, doc 224 (full-table backup), doc 05 (disaster recovery).
+- Runbook rules that apply to this dump: never restore a full dump over Supabase (split by schema); `auth` data only; only `storage.buckets`, not `storage.objects`; rewrite cron commands that mention the source ref; load with `session_replication_role=replica` so the ledger is not re-posted; do not disconnect Cloud until the target is verified; credentials never in chat, git or shell history; the DPO has not approved the target region, so no real data until they do.
+
+## Open questions (to fill in)
+- Purpose of this dump: fresh rehearsal / final cutover with write freeze / redo of a failed restore? **[unanswered]**
+- Does the target currently hold real data, and has the DPO approved the region? **[unanswered]**
+
+## Log
+| When (2026-10-16) | Step | Result |
+|---|---|---|
+| (start) | Log opened. Repo docs reviewed to recover context. No commands run against source or target. | n/a |
