@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { acceptVideo, listAccepted, listReviewQueue, listTopics, listTopicVideos, proposeTopic, rejectVideo, setPublished, setTopicStatus } from '../api';
+import { acceptVideo, listAccepted, listReviewQueue, listTopics, listTopicVideos, myReviewProgress, proposeTopic, rejectVideo, setPublished, setTopicStatus } from '../api';
 import TutorialPlayerDialog, { formatDuration } from '../components/TutorialPlayerDialog';
 
 const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
@@ -143,6 +143,12 @@ function ReviewDialog({ video, onClose, onDone }: { video: any | null; onClose: 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { setWatched(0); setNoData(false); setNote(''); setReason(''); setRejecting(false); setError(null); }, [video?.id]);
+  useEffect(() => {
+    if (!video?.id) return;
+    let live = true;
+    myReviewProgress(video.id).then((v) => { if (live) setWatched((w) => Math.max(w, v)); }).catch(() => {});
+    return () => { live = false; };
+  }, [video?.id]);
 
   const dur = Number(video?.duration_seconds) || 0;
   const pct = dur ? Math.min(100, Math.round((watched / dur) * 100)) : 0;

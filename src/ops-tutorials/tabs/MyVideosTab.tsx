@@ -46,7 +46,7 @@ function claimStatus(c: any): string {
   const s = c.req_stage;
   if (s && STAGE_TEXT[s]) return `With ${STAGE_TEXT[s]}`;
   if (s === 'returned') return 'Returned — update it in Make a requisition';
-  if (s === 'approved') return c.wallet_credit_status === 'credited' ? `Paid ${c.credited_at ? dateFmt.format(new Date(c.credited_at)) : ''}`.trim() : 'Approved — crediting';
+  if (s === 'approved') return c.wallet_credit_status === 'credited' ? `Paid ${c.credited_at ? dateFmt.format(new Date(c.credited_at)) : ''}`.trim() : c.wallet_credit_status === 'reversed' ? 'Payment reversed' : 'Approved — crediting';
   if (s === 'rejected') return `Declined: ${c.rejection_reason ?? ''}`.trim();
   return 'Submitted';
 }
