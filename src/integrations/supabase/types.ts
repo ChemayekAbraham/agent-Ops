@@ -76449,6 +76449,14 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_tutorial_accept: {
+        Args: {
+          p_no_personal_data: boolean
+          p_note: string
+          p_video_id: string
+        }
+        Returns: undefined
+      }
       ops_tutorial_can_view_claim: {
         Args: { _claim_id: string }
         Returns: boolean
@@ -76458,9 +76466,30 @@ export type Database = {
         Returns: boolean
       }
       ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
+      ops_tutorial_log_view: {
+        Args: {
+          p_context: string
+          p_position_seconds: number
+          p_requisition_id?: string
+          p_video_id: string
+        }
+        Returns: undefined
+      }
       ops_tutorial_mark_uploaded: {
         Args: { p_video_id: string }
         Returns: undefined
+      }
+      ops_tutorial_members_list: {
+        Args: never
+        Returns: {
+          added_at: string
+          email: string
+          enabled: boolean
+          full_name: string
+          member_role: string
+          note: string
+          user_id: string
+        }[]
       }
       ops_tutorial_my_capabilities: { Args: never; Returns: Json }
       ops_tutorial_propose_topic: {
@@ -76486,6 +76515,31 @@ export type Database = {
           video_code: string
           video_id: string
         }[]
+      }
+      ops_tutorial_reject: {
+        Args: { p_reason: string; p_video_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_member: {
+        Args: {
+          p_email: string
+          p_enabled: boolean
+          p_note: string
+          p_role: string
+        }
+        Returns: string
+      }
+      ops_tutorial_set_published: {
+        Args: { p_published: boolean; p_video_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_rate: {
+        Args: { p_amount: number; p_tier: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_topic_status: {
+        Args: { p_status: string; p_topic_id: string }
+        Returns: undefined
       }
       ops_tutorial_submit: { Args: { p_video_id: string }; Returns: undefined }
       ops_tutorial_withdraw: {

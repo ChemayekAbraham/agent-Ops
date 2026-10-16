@@ -4208,6 +4208,13 @@
       "when": 1792148166246,
       "tag": "0600_ops_tutorial_tighten_privileges_mp4",
       "breakpoints": true
+    },
+    {
+      "idx": 601,
+      "version": "7",
+      "when": 1792148771992,
+      "tag": "0601_ops_tutorial_reviewer_hr_functions",
+      "breakpoints": true
     }
   ]
 }
