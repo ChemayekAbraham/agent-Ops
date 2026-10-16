@@ -120,7 +120,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Home', icon: Home, id: 'overview' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
-        { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals', route: '/approvals' },
+        { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
         { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },
         { label: 'Salary Advances', icon: HandCoins, id: 'cfo-pay-advances', route: '/hr/pay/advances' },
         { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
