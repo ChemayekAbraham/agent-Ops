@@ -121,6 +121,21 @@ Deno.serve(async (req) => {
         metadata: { requisition_id: requisitionId, source_table: sourceTable, amount, reversal_reference: reference, stage: "reversed" },
       });
     } catch (_) { /* best effort — never undo a completed reversal */ }
+    // SMS to the requester themselves (their own money, so the approver-only
+    // requisition SMS role policy does not apply). Best effort; never undoes the reversal.
+    try {
+      const code = claimed.requisition_code ?? requisitionId.slice(0, 8).toUpperCase();
+      const { data: prof } = await admin.from("profiles").select("phone, full_name").eq("id", claimed.user_id).maybeSingle();
+      const sms = `Welile: UGX ${Math.round(amount).toLocaleString("en-US")} paid for requisition ${code} has been reversed from your wallet and returned to the company. Reason: ${reason.slice(0, 120)}. No usage report is needed for it.`;
+      await sendSMS(String(prof?.phone ?? ""), sms, {
+        admin,
+        source: "requisition_reversal",
+        reference_id: reference ?? claimed.id,
+        recipient_user_id: claimed.user_id,
+        recipient_name: prof?.full_name ?? null,
+        idempotencyKey: `requisition_reversal_sms:${claimed.id}`,
+      });
+    } catch (_) { /* best effort */ }
 
     return json({ ok: true, reversal_reference: reference });
   } catch (e) {
