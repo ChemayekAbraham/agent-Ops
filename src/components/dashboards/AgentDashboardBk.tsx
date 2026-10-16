@@ -17,6 +17,12 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/cashoutAgentConfig';
 
+// The legacy "Post a rent request here" card and its "earn UGX 5000" line are
+// hidden for now (2026-10-16): the signature rent-request card is the single
+// entry point on this dashboard. Flip to true to bring them back.
+const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+
+
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
@@ -1274,18 +1280,24 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   fullName={profile?.full_name}
                   onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
                 />
-                {/* Add Tenant — major action taking up the biggest portion of the screen */}
-                <AgentPostRentRequestCard
-                  restricted={isMerchant}
-                  onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="w-full min-h-[300px] sm:min-h-[360px]"
-                />
-                <p 
-                  onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-                >
-                  and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
-                </p>
+                {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
+                    (2026-10-16). The signature card above is the entry point. */}
+                {SHOW_LEGACY_RENT_REQUEST_CARD && (
+                  <>
+                    <AgentPostRentRequestCard
+                      restricted={isMerchant}
+                      onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="w-full min-h-[300px] sm:min-h-[360px]"
+                    />
+                    <p
+                      onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+                    >
+                      and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
+                    </p>
+                  </>
+                )}
+
               </div>
             )}
 
