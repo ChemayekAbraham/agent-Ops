@@ -64592,6 +64592,10 @@ export type Database = {
           total_matched: number
         }[]
       }
+      agent_ops_metrics_listing_quality: {
+        Args: { p_end: string; p_limit?: number; p_offset?: number; p_start: string }
+        Returns: Json
+      }
       agent_ops_metrics_locations: {
         Args: { p_end: string; p_level?: string; p_start: string }
         Returns: {
@@ -64642,6 +64646,10 @@ export type Database = {
           status: string
           verified: boolean
         }[]
+      }
+      agent_ops_metrics_risk: {
+        Args: { p_end: string; p_limit?: number; p_offset?: number; p_start: string }
+        Returns: Json
       }
       agent_ops_metrics_totals: {
         Args: { p_end: string; p_start: string }
