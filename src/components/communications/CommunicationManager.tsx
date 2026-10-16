@@ -32,7 +32,6 @@ export default function CommunicationManager() {
   const [withdraw, setWithdraw] = useState<Communication | null>(null);
   const [history, setHistory] = useState<Communication | null>(null);
   const [notice, setNotice] = useState('');
-  const count = useCommunicationAudienceCount(editor ? content.audiences : []);
   const change = <K extends keyof CommunicationContent>(key: K, value: CommunicationContent[K]) => setContent(old => ({ ...old, [key]: value }));
   function openEditor(row?: Communication) {
     const next = freshContent();
@@ -78,7 +77,6 @@ export default function CommunicationManager() {
           const audiences = a.value === 'everyone' ? checked ? ['everyone'] : [] : checked ? [...content.audiences.filter(x => x !== 'everyone'), a.value] : content.audiences.filter(x => x !== a.value);
           setContent(old => ({ ...old, audiences, confirm_everyone: false }));
         }} />{a.label}</Label>)}</div>
-        <p className="text-sm text-muted-foreground">{count.isFetching ? 'Checking audience…' : count.error ? count.error.message : count.data != null ? `${Number(count.data).toLocaleString()} eligible accounts` : 'No audience selected'}</p>
       </fieldset>
       <div className="space-y-2"><Label htmlFor="communication-type">Type</Label><Select value={content.communication_type} onValueChange={v => change('communication_type', v as CommunicationType)}><SelectTrigger id="communication-type"><SelectValue /></SelectTrigger><SelectContent>{Object.entries(communicationTypes).map(([value, item]) => <SelectItem key={value} value={value}>{item.label}</SelectItem>)}</SelectContent></Select></div>
       <div className="space-y-2"><Label htmlFor="communication-title">Title</Label><Input id="communication-title" maxLength={160} value={content.title} onChange={e => change('title', e.target.value)} required /></div>
@@ -88,7 +86,7 @@ export default function CommunicationManager() {
       <div className="space-y-2"><Label htmlFor="communication-reason">Reason for this change</Label><Textarea id="communication-reason" rows={2} value={reason} minLength={10} maxLength={1000} onChange={e => setReason(e.target.value)} required /></div>
       {content.audiences.includes('everyone') && <Label className="flex gap-3 items-start"><Checkbox checked={content.confirm_everyone} onCheckedChange={v => change('confirm_everyone', v === true)} />I confirm this message is for Everyone, including staff.</Label>}
       {error && <p role="alert" className="text-destructive text-sm">{error}</p>}
-      <div className="flex flex-wrap gap-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={previewContent}><Eye className="h-4 w-4 mr-2" />Preview dialog</Button><Button type="submit" variant="secondary" disabled={mutation.isPending}><Save className="h-4 w-4 mr-2" />Save draft</Button><Button type="button" onClick={() => void save('publish')} disabled={mutation.isPending || count.isFetching || !!count.error}><Send className="h-4 w-4 mr-2" />{mutation.isPending ? 'Saving…' : 'Publish / Schedule'}</Button></div>
+      <div className="flex flex-wrap gap-2 border-t border-border pt-5"><Button type="button" variant="outline" onClick={previewContent}><Eye className="h-4 w-4 mr-2" />Preview dialog</Button><Button type="submit" variant="secondary" disabled={mutation.isPending}><Save className="h-4 w-4 mr-2" />Save draft</Button><Button type="button" onClick={() => void save('publish')} disabled={mutation.isPending}><Send className="h-4 w-4 mr-2" />{mutation.isPending ? 'Saving…' : 'Publish / Schedule'}</Button></div>
     </form> : <>
       <div className="flex items-center justify-between gap-3"><div className="w-44"><Select value={status} onValueChange={v => { setStatus(v); setOffset(0); }}><SelectTrigger aria-label="Communication status"><SelectValue /></SelectTrigger><SelectContent>{statuses.map(s => <SelectItem key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</SelectItem>)}</SelectContent></Select></div><Button variant="ghost" size="icon" aria-label="Refresh communications" title="Refresh communications" onClick={() => void query.refetch()}><RefreshCw className="h-4 w-4" /></Button></div>
       {query.isLoading && <p role="status" className="text-muted-foreground">Loading communications…</p>}
