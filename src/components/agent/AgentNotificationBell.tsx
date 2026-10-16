@@ -6,6 +6,7 @@ import { ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
+import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
 import { cn } from '@/lib/utils';
 import { useNotificationPulse } from '@/hooks/useNotificationPulse';
 
@@ -134,6 +135,7 @@ export function AgentNotificationBell({
           )}
         </div>
 
+        <CommunicationsBellSection onSelect={() => setOpen(false)} />
         <div className="max-h-[360px] overflow-y-auto px-2 pb-2 space-y-1">
           {notifications.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">No notifications yet</p>
