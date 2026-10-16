@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { createElement, useEffect, useRef } from 'react';
+import { AgentNudgeToast } from '@/components/agent/AgentNudgeToast';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePolling } from '@/hooks/usePolling';
@@ -59,17 +60,22 @@ function writeHistory(agentId: string, history: NudgeHistory) {
 }
 
 function showToast(nudge: RenderedNudge, onAction?: (cta: NudgeCta) => void) {
-  const show =
-    nudge.tone === 'celebrate' ? toast.success : nudge.tone === 'nudge' ? toast.warning : toast.info;
-  show(nudge.title, {
-    id: 'agent-nudge',
-    description: nudge.body,
-    duration: 9_000,
-    action:
-      nudge.cta && onAction
-        ? { label: CTA_LABELS[nudge.cta], onClick: () => onAction(nudge.cta!) }
-        : undefined,
-  });
+  toast.custom(
+    (t) =>
+      createElement(AgentNudgeToast, {
+        nudge,
+        ctaLabel: nudge.cta && onAction ? CTA_LABELS[nudge.cta] : undefined,
+        onCta:
+          nudge.cta && onAction
+            ? () => {
+                onAction(nudge.cta!);
+                toast.dismiss(t);
+              }
+            : undefined,
+        onClose: () => toast.dismiss(t),
+      }),
+    { id: 'agent-nudge', duration: 9_000, unstyled: true },
+  );
 }
 
 export function useAgentNudges(
