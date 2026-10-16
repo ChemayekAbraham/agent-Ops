@@ -4145,6 +4145,13 @@
       "when": 1792141514089,
       "tag": "0591_enable_bike_lease_recovery_cron",
       "breakpoints": true
+    },
+    {
+      "idx": 592,
+      "version": "7",
+      "when": 1792141974107,
+      "tag": "0592_ops_tutorial_tables",
+      "breakpoints": true
     }
   ]
 }
