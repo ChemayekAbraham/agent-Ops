@@ -1483,7 +1483,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     });
   };
 
-  const isCooStage = stage === 'partner_ops_approved';
   // Agent Ops reviews the `pending` stage and clears the largest backlog, so it
   // gets the same bulk controls as the COO — plus bulk return-for-correction.
   const isAgentOpsStage = stage === 'pending';
