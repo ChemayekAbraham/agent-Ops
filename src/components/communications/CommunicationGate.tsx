@@ -9,6 +9,16 @@ import { communicationDashboardRole, type Communication } from '@/lib/crmCommuni
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
 import { OPEN_COMMUNICATION_EVENT } from './CommunicationsBellSection';
 
+// Each active communication pops up on dashboard load at most twice a day (12 hours apart).
+const REPEAT_MS = 12 * 3600 * 1000;
+const shownKey = (uid: string | undefined, id: string) => `comm-shown:${uid ?? ''}:${id}`;
+function lastShown(uid: string | undefined, id: string): number {
+  try { return Number(localStorage.getItem(shownKey(uid, id))) || 0; } catch { return 0; }
+}
+function markShown(uid: string | undefined, id: string) {
+  try { localStorage.setItem(shownKey(uid, id), String(Date.now())); } catch { /* storage unavailable */ }
+}
+
 /** Optional announcements yield to any existing modal without changing mandatory gates. */
 export default function CommunicationGate() {
   const { user, role, loading, rolesResolved, roles } = useAuth();
@@ -51,13 +61,15 @@ export default function CommunicationGate() {
       // Do not race a mandatory gate that appeared during the read.
       const otherModal = document.querySelector('[role="dialog"]:not([data-communication-dialog="true"]),[role="alertdialog"]');
       if (otherModal) return;
+      markShown(user?.id, fresh.id);
       setActive(fresh);
     } catch (e) { if (scopeRef.current === captured) { setError(e instanceof Error ? e.message : 'Unable to open communication.'); setSnoozed(old => new Set([...old, row.id])); } }
     finally { if (scopeRef.current === captured) setOpening(false); }
   }
   useEffect(() => {
     if (!eligible || blocked || active || listOpen || opening || !query.data) return;
-    const next = query.data.find(row => !row.acknowledged_at && !snoozed.has(row.id));
+    const now = Date.now();
+    const next = query.data.find(row => !snoozed.has(row.id) && now - lastShown(user?.id, row.id) >= REPEAT_MS);
     if (!next) return;
     // Let all lazily mounted identity/security gates settle first.
     const timer = window.setTimeout(() => {
