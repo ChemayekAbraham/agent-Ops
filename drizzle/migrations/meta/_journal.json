@@ -4215,6 +4215,13 @@
       "when": 1792148771992,
       "tag": "0601_ops_tutorial_reviewer_hr_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 602,
+      "version": "7",
+      "when": 1792149063237,
+      "tag": "0602_ops_tutorial_claim_functions",
+      "breakpoints": true
     }
   ]
 }
