@@ -5863,21 +5863,54 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                     </button>
                   )}
                 </div>
-                <Select value={rangeFilter} onValueChange={setRangeFilter}>
-                  <SelectTrigger className="w-[120px] h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="tomorrow">Tomorrow</SelectItem>
-                    <SelectItem value="5">5 days</SelectItem>
-                    <SelectItem value="weekend">Weekend</SelectItem>
-                    <SelectItem value="7">7 days</SelectItem>
-                    <SelectItem value="30">30 days</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                    <SelectItem value="all">All</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      title="Filter by payout date range"
+                      className={cn(
+                        "h-9 gap-1.5 text-xs whitespace-nowrap",
+                        (payoutRange.from || payoutRange.to) && "border-primary text-primary",
+                      )}
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      {payoutRange.from && payoutRange.to
+                        ? format(payoutRange.from, 'yyyy-MM-dd') === format(payoutRange.to, 'yyyy-MM-dd')
+                          ? format(payoutRange.from, 'MMM d, yyyy')
+                          : `${format(payoutRange.from, 'MMM d')} – ${format(payoutRange.to, 'MMM d, yyyy')}`
+                        : payoutRange.from
+                          ? `From ${format(payoutRange.from, 'MMM d, yyyy')}`
+                          : payoutRange.to
+                            ? `Until ${format(payoutRange.to, 'MMM d, yyyy')}`
+                            : 'Payout Range'}
+                      <ChevronDown className="h-3 w-3 opacity-60" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3 z-[200] pointer-events-auto" align="end" collisionPadding={12}>
+                    <div className="space-y-2">
+                      <div className="text-xs font-semibold text-muted-foreground">Filter by payout date</div>
+                      <Calendar
+                        mode="range"
+                        selected={{ from: payoutRange.from, to: payoutRange.to }}
+                        onSelect={(r) => setPayoutRange({ from: r?.from, to: r?.to })}
+                        numberOfMonths={1}
+                        className="p-0 pointer-events-auto"
+                      />
+                      {(payoutRange.from || payoutRange.to) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => setPayoutRange({ from: undefined, to: undefined })}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Clear Date Range
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
