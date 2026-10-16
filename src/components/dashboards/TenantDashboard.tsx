@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast as sonnerToast } from 'sonner';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ import {
   BadgeCheck,
   HandCoins,
   ArrowLeft,
+  FileText,
 } from 'lucide-react';
 import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
@@ -178,6 +179,44 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const [loanOffersOpen, setLoanOffersOpen] = useState(false);
   useBackGestureClose(loanOffersOpen, () => setLoanOffersOpen(false));
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialTab: 'home' | 'rent-plan' =
+    tabParam === 'rent-plan' ? 'rent-plan' : 'home';
+  const [activeTab, setActiveTab] = useState<'home' | 'rent-plan'>(initialTab);
+
+  // Sync activeTab when query param ?tab changes
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab === 'rent-plan') {
+      setActiveTab('rent-plan');
+    } else {
+      setActiveTab('home');
+    }
+  }, [searchParams]);
+
+  // Sync activeTab when top-right menu triggers tab switch event
+  useEffect(() => {
+    const handleTabEvent = (e: CustomEvent<string>) => {
+      if (e.detail === 'rent-plan') {
+        setActiveTab('rent-plan');
+      } else if (e.detail === 'home') {
+        setActiveTab('home');
+      }
+    };
+    window.addEventListener('tenant-tab-change' as any, handleTabEvent);
+    return () => window.removeEventListener('tenant-tab-change' as any, handleTabEvent);
+  }, []);
+
+  useBackGestureClose(activeTab !== 'home', () => {
+    setActiveTab('home');
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('tab');
+      return next;
+    }, { replace: true });
+  });
+
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
     if (showWallet) {
@@ -194,6 +233,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
       userBehaviourTracker.setSection('tenant-available-houses', 'tenant');
     } else if (showCalculator) {
       userBehaviourTracker.setSection('tenant-calculator', 'tenant');
+    } else if (activeTab === 'rent-plan') {
+      userBehaviourTracker.setSection('tenant-rent-plan', 'tenant');
     } else {
       userBehaviourTracker.setSection('tenant-overview', 'tenant');
     }
@@ -205,6 +246,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     depositOpen,
     housesOpen,
     showCalculator,
+    activeTab,
   ]);
 
   const housesTriggerRef = useRef<HTMLElement | null>(null);
@@ -365,85 +407,129 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-6 space-y-6 animate-fade-in max-w-lg mx-auto flex flex-col min-h-full">
-          {/* Offline Notice */}
-          {!isOnline && (
-            <div className="animate-fade-in flex items-center gap-2.5 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
-              <WifiOff className="h-3.5 w-3.5 text-warning shrink-0" />
-              <p className="text-xs text-warning flex-1">You're offline — data may be outdated</p>
-              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.location.reload()}>
-                <RefreshCw className="h-3 w-3" />
-              </Button>
+          {/* Sub-screen Navigation Header (When rent-plan tab is active) */}
+          {activeTab !== 'home' && (
+            <div className="flex items-center justify-between pb-1 pt-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  hapticTap();
+                  setActiveTab('home');
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete('tab');
+                    return next;
+                  }, { replace: true });
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/80 hover:bg-muted text-xs font-semibold text-foreground transition-colors touch-manipulation shadow-xs"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Back to Home</span>
+              </button>
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {activeTab === 'rent-plan' ? 'Your Rent Plan' : 'Tenant Hub'}
+              </span>
             </div>
           )}
 
-          {/* Terms Acceptance Notice */}
-          <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
+          {activeTab === 'home' && (
+            <>
+              {/* Offline Notice */}
+              {!isOnline && (
+                <div className="animate-fade-in flex items-center gap-2.5 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
+                  <WifiOff className="h-3.5 w-3.5 text-warning shrink-0" />
+                  <p className="text-xs text-warning flex-1">You're offline — data may be outdated</p>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.location.reload()}>
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
 
-          {/* Profile Row */}
-          <div className="animate-fade-in flex items-center gap-3">
-            <ProfileSummaryPopover
-              avatarUrl={profile?.avatar_url}
-              fullName={profile?.full_name}
-              phone={(profile as any)?.phone}
-              email={(profile as any)?.email}
-              location={(profile as any)?.location}
-              verified={profile?.verified}
-              roleLabel="Tenant"
-              triggerSize="md"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
-              <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5 flex-wrap">
-                <span className="break-words">{profile?.full_name || 'Welcome'}</span>
-                {profile?.verified ? (
-                  <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
-                ) : (
-                  <BadgeCheck className="h-4 w-4 text-muted-foreground/30 shrink-0" />
-                )}
-              </h1>
+              {/* Terms Acceptance Notice */}
+              <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
+
+              {/* Profile Row */}
+              <div className="animate-fade-in flex items-center gap-3">
+                <ProfileSummaryPopover
+                  avatarUrl={profile?.avatar_url}
+                  fullName={profile?.full_name}
+                  phone={(profile as any)?.phone}
+                  email={(profile as any)?.email}
+                  location={(profile as any)?.location}
+                  verified={profile?.verified}
+                  roleLabel="Tenant"
+                  triggerSize="md"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
+                  <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5 flex-wrap">
+                    <span className="break-words">{profile?.full_name || 'Welcome'}</span>
+                    {profile?.verified ? (
+                      <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
+                    ) : (
+                      <BadgeCheck className="h-4 w-4 text-muted-foreground/30 shrink-0" />
+                    )}
+                  </h1>
+                </div>
+                <AiIdButton variant="compact" />
+              </div>
+
+              <WidgetErrorBoundary label="My loan requests">
+                <MyLoanRequestsCard userId={uid} />
+              </WidgetErrorBoundary>
+
+              {/* Outstanding balance / daily-charge status */}
+              <WidgetErrorBoundary label="Subscription status">
+                <SubscriptionStatusCard userId={uid} />
+              </WidgetErrorBoundary>
+
+              {/* Rent actions — request rent first, then browse available houses */}
+              <div className="flex flex-col gap-3">
+                <WidgetErrorBoundary label="Request rent as tenant">
+                  <TenantRentRequestCard userId={uid} />
+                </WidgetErrorBoundary>
+                <WidgetErrorBoundary label="Find a house">
+                  <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
+                </WidgetErrorBoundary>
+              </div>
+
+              {/* Recent payment activity timeline */}
+              <WidgetErrorBoundary label="Payment timeline">
+                <PaymentTimeline />
+              </WidgetErrorBoundary>
+
+              <WidgetErrorBoundary label="Suggested houses">
+                <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
+              </WidgetErrorBoundary>
+
+              <RentAccessGrowthBanner />
+            </>
+          )}
+
+          {/* === YOUR RENT PLAN TAB === Rent limit, usage, and behaviour score */}
+          {activeTab === 'rent-plan' && (
+            <div className="space-y-4 pb-24 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground">Your Rent Plan</h2>
+                  <p className="text-xs text-muted-foreground">Rent limit, usage, and payment behaviour score</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { hapticTap(); navigate('/dashboard/rent-plan'); }}
+                  className="h-9 px-3 text-xs font-bold rounded-xl gap-1.5"
+                >
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  Full Details
+                </Button>
+              </div>
+
+              <WidgetErrorBoundary label="Rent plan summary">
+                <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
+              </WidgetErrorBoundary>
             </div>
-            <AiIdButton variant="compact" />
-          </div>
-
-
-
-
-
-          <WidgetErrorBoundary label="My loan requests">
-            <MyLoanRequestsCard userId={uid} />
-          </WidgetErrorBoundary>
-
-          {/* Outstanding balance / daily-charge status */}
-          <WidgetErrorBoundary label="Subscription status">
-            <SubscriptionStatusCard userId={uid} />
-          </WidgetErrorBoundary>
-
-          {/* Rent actions — request rent first, then browse available houses */}
-          <div className="flex flex-col gap-3">
-            <WidgetErrorBoundary label="Request rent as tenant">
-              <TenantRentRequestCard userId={uid} />
-            </WidgetErrorBoundary>
-            <WidgetErrorBoundary label="Find a house">
-              <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
-            </WidgetErrorBoundary>
-          </div>
-
-          {/* Rent Plan summary — rent limit, usage, behaviour score */}
-          <WidgetErrorBoundary label="Rent plan summary">
-            <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
-          </WidgetErrorBoundary>
-
-          {/* Recent payment activity timeline */}
-          <WidgetErrorBoundary label="Payment timeline">
-            <PaymentTimeline />
-          </WidgetErrorBoundary>
-
-
-          <WidgetErrorBoundary label="Suggested houses">
-            <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
-          </WidgetErrorBoundary>
-
-          <RentAccessGrowthBanner />
+          )}
         </main>
       </div>
 

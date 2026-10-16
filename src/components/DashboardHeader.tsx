@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole, useAuth } from '@/hooks/useAuth';
