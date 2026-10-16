@@ -20,7 +20,7 @@ import type {
  * Every read is one RPC that already joins the names it shows (no per-row lookups), and every write is one RPC
  * that takes a whole batch and returns the new budget position, which is written straight into the status cache
  * so the budget bar updates without another round trip. All rules (who may act, what fits, locking) live in the
- * database; see src/lib/landlordFloatBudget.ts and the 20261016140000 migration.
+ * database; see src/lib/landlordFloatBudget.ts and the 20261016160000 migration.
  */
 
 export const LANDLORD_FLOAT_BUDGET_KEY = ['landlord-float-budget'] as const;

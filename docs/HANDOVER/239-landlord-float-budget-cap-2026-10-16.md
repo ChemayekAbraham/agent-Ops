@@ -30,7 +30,7 @@ or allowlist changes. It measures `rent_amount`, which is the same amount `fund-
   (`is_cfo_approver`).
 - Approving at the COO step: the `coo` role. This replaces the earlier `super_admin` allowance.
 
-## Database (migration `20261016140000_landlord_float_budget_cap.sql`)
+## Database (migration `20261016160000_landlord_float_budget_cap.sql`)
 
 **Tables** (read-only for COO/CFO through row-level security; all writes go through the functions below):
 - `landlord_float_budgets`

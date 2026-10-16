@@ -3,7 +3,7 @@
  *
  * The CFO sets a daily and a weekly landlord float budget; the COO can only forward rent requests to the CFO
  * while their rent_amount fits in the room left (the smaller of what is left today and this week). Every rule is
- * enforced in the database (supabase/migrations/20261016140000_landlord_float_budget_cap.sql); nothing here
+ * enforced in the database (supabase/migrations/20261016160000_landlord_float_budget_cap.sql); nothing here
  * decides anything — these helpers only shape the server's answers for the screens.
  */
 
