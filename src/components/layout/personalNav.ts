@@ -18,6 +18,7 @@ import {
   TrendingUp,
   UtensilsCrossed,
   ChefHat,
+  Clapperboard,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -74,5 +75,12 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     title: 'Food Management',
     description: 'Menu, orders and service — Food Coordinator only',
     requiresFoodCoordinator: true,
+  },
+  {
+    to: '/me/tutorials',
+    icon: Clapperboard,
+    title: 'Tutorial videos',
+    description: 'Watch operations tutorials. Creators upload and claim payment here',
+    requiresStaff: true,
   },
 ];
