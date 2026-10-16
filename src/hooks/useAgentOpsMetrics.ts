@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
+  MAP_PIN_LIMIT,
   METRICS_PAGE_SIZE,
   normalizeAgents,
   normalizeLocations,
   normalizeMainAgents,
   normalizePins,
+  normalizeQuality,
+  normalizeRisk,
   normalizeTotals,
   type MetricsScope,
 } from '@/lib/agentMetrics';
@@ -89,7 +92,7 @@ export function useMetricsLocations(from: string, to: string, level: LocationLev
 
 export interface MapBox { minLat: number; minLng: number; maxLat: number; maxLng: number }
 
-export function useMetricsPins(box: MapBox, enabled: boolean, limit = 500) {
+export function useMetricsPins(box: MapBox, enabled: boolean, limit = MAP_PIN_LIMIT) {
   const r = (n: number) => Math.round(n * 100) / 100;
   const key = [r(box.minLat), r(box.minLng), r(box.maxLat), r(box.maxLng)];
   const q = useQuery({
@@ -124,4 +127,54 @@ export function useMetricsMainAgents(from: string, to: string, page: number, ena
   });
   const rows = q.data ?? [];
   return { rows, total: rows[0]?.total_matched ?? 0, ...shape(q) };
+}
+
+/** Listing quality (network row and the longest-waiting pending houses). `limit` is how many waiting houses to load. */
+export function useMetricsQuality(from: string, to: string, limit = 10, enabled = true) {
+  const q = useQuery({
+    queryKey: ['agent-ops-metrics', 'quality', from, to, limit],
+    enabled: enabled && !!from && !!to,
+    staleTime: STALE,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_metrics_listing_quality', { p_start: from, p_end: to, p_limit: limit, p_offset: 0 });
+      if (error) throw error;
+      return normalizeQuality(data);
+    },
+  });
+  return { data: q.data ?? null, ...shape(q) };
+}
+
+/** Risk lists. Every list is paged by the same `limit` and `offset`; the counts in `summary` are the full counts. */
+export function useMetricsRisk(from: string, to: string, limit = 10, offset = 0, enabled = true) {
+  const q = useQuery({
+    queryKey: ['agent-ops-metrics', 'risk', from, to, limit, offset],
+    enabled: enabled && !!from && !!to,
+    staleTime: STALE,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_metrics_risk', { p_start: from, p_end: to, p_limit: limit, p_offset: offset });
+      if (error) throw error;
+      return normalizeRisk(data);
+    },
+  });
+  return { data: q.data ?? null, ...shape(q) };
+}
+
+/** The agents who earned most from listings in the dates, as the server ranks them (agent_ops_metrics_agents, sorted by listing_earned). */
+export function useMetricsTopEarners(from: string, to: string, limit = 5, enabled = true) {
+  const q = useQuery({
+    queryKey: ['agent-ops-metrics', 'top-earners', from, to, limit],
+    enabled: enabled && !!from && !!to,
+    staleTime: STALE,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_metrics_agents', {
+        p_start: from, p_end: to, p_sort: 'listing_earned', p_scope: 'all', p_limit: limit, p_offset: 0,
+      });
+      if (error) throw error;
+      return normalizeAgents(data);
+    },
+  });
+  return { rows: q.data ?? [], ...shape(q) };
 }

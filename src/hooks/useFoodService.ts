@@ -198,7 +198,7 @@ function useFoodCacheFollowsAuth() {
   const qc = useQueryClient();
   useEffect(() => {
     const onChange = supabase.auth.onAuthStateChange?.((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
         // reset (not just remove): mounted queries refetch for the new user
         void qc.resetQueries({ queryKey: keys.all });
       }

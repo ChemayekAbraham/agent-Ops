@@ -15,7 +15,7 @@ import { format, subDays, startOfMonth } from 'date-fns';
 /**
  * Requests that have cleared Agent Ops review and have entered the Tenant Ops pipeline.
  */
-const APPROVED_STATUSES = [
+export const APPROVED_STATUSES = [
   'agent_ops_approved',
   'agent_verified',
   'tenant_ops_approved',
@@ -158,22 +158,21 @@ export function AgentOpsApprovedRequestsPanel() {
         .select(
           'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
         )
-        .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
+        .in('status', APPROVED_STATUSES)
         .neq('status', 'rejected')
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
 
       if (from) {
-        query = query.gte('created_at', `${from}T00:00:00.000Z`);
+        // Look back 60 days on created_at so requests created earlier but approved in range are returned
+        const lookback = new Date(from);
+        lookback.setDate(lookback.getDate() - 60);
+        query = query.gte('created_at', `${format(lookback, 'yyyy-MM-dd')}T00:00:00.000Z`);
       }
       if (to) {
         query = query.lte('created_at', `${to}T23:59:59.999Z`);
       }
-      if (!from && !to) {
-        query = query.limit(300);
-      } else {
-        query = query.limit(1000);
-      }
+      query = query.limit(1000);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -313,14 +312,16 @@ export function AgentOpsApprovedRequestsPanel() {
     return rows
       .filter((r) => {
         if (q && !r.haystack.includes(q)) return false;
-        const ref = new Date(r.approved_at || r.created_at).getTime();
+        // Strictly require an approval timestamp to qualify as approved
+        if (!r.approved_at) return false;
+        const ref = new Date(r.approved_at).getTime();
         if (fromTs != null && ref < fromTs) return false;
         if (toTs != null && ref > toTs) return false;
         return true;
       })
       .sort((a, b) => {
-        const tsA = new Date(a.created_at).getTime();
-        const tsB = new Date(b.created_at).getTime();
+        const tsA = new Date(a.approved_at || a.created_at).getTime();
+        const tsB = new Date(b.approved_at || b.created_at).getTime();
         return sortOrder === 'desc' ? tsB - tsA : tsA - tsB;
       });
   }, [rows, search, from, to, sortOrder]);

@@ -1516,6 +1516,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         selectedCount={selectedIds.size}
         queueTotalAmount={queueTotalAmount}
         queueCount={rows.length}
+        queueRequests={rows}
+        selectedRequests={rows.filter((r) => selectedIds.has(r.id))}
+        onRequestClick={(req) => setSelectedRequest(req)}
       />
 
       <Card className="border border-border">

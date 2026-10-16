@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole, useAuth } from '@/hooks/useAuth';
@@ -34,6 +34,7 @@ interface MenuItemConfig {
   destructive?: boolean;
   separator?: boolean;
   badge?: React.ReactNode;
+  onPointerEnter?: () => void;
 }
 
 interface DashboardHeaderProps {
@@ -295,11 +296,31 @@ const DashboardHeader = memo(function DashboardHeader({
                   <Menu className="h-5 w-5" />
                 </Button>
               ) : (
-                <DropdownMenu>
+                <DropdownMenu onOpenChange={(open) => {
+                  if (open) {
+                    void import('@/pages/YourProfile');
+                    void import('@/pages/Settings');
+                    if (currentRole === 'agent') {
+                      void import('@/pages/AgentServiceCenter');
+                      void import('@/components/auth/ProxyAgentGuard');
+                      void import('@/pages/agent/ProxyPerformanceDashboard');
+                      void import('@/pages/AgentCommissionBenefits');
+                      void import('@/pages/MerchandiseStore');
+                    }
+                  }
+                }}>
                   <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
+                    onPointerEnter={() => {
+                      void import('@/pages/YourProfile');
+                      if (currentRole === 'agent') {
+                        void import('@/pages/AgentServiceCenter');
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }
+                    }}
                     className="h-10 w-10 min-w-[44px] min-h-[44px] text-white/90 hover:text-white hover:bg-white/10 rounded-xl touch-manipulation"
                   >
                     <Menu className="h-5 w-5" />
@@ -311,6 +332,8 @@ const DashboardHeader = memo(function DashboardHeader({
                 >
                   <DropdownMenuItem
                     onClick={() => navigate('/your-profile')}
+                    onPointerEnter={() => void import('@/pages/YourProfile')}
+                    onTouchStart={() => void import('@/pages/YourProfile')}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-primary/10">
@@ -321,6 +344,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/agent/service-center'); }}
+                      onPointerEnter={() => void import('@/pages/AgentServiceCenter')}
+                      onTouchStart={() => void import('@/pages/AgentServiceCenter')}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -337,6 +362,14 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/dashboard/agent/proxy'); }}
+                      onPointerEnter={() => {
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }}
+                      onTouchStart={() => {
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -356,6 +389,42 @@ const DashboardHeader = memo(function DashboardHeader({
                         <Download className="h-4 w-4 text-primary" />
                       </div>
                       Install App
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'tenant' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('tenant-tab-change', { detail: 'rent-plan' }));
+                        navigate('/dashboard/tenant?tab=rent-plan');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <FileText className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Your Rent Plan</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'tenant' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('tenant-tab-change', { detail: 'activity' }));
+                        navigate('/dashboard/tenant?tab=activity');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Clock className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Recent Activity</span>
+                      </div>
                     </DropdownMenuItem>
                   )}
 
@@ -565,6 +634,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => navigate('/agent-commission-benefits')}
+                      onPointerEnter={() => void import('@/pages/AgentCommissionBenefits')}
+                      onTouchStart={() => void import('@/pages/AgentCommissionBenefits')}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                     >
                       <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
@@ -583,6 +654,8 @@ const DashboardHeader = memo(function DashboardHeader({
                       {item.separator && index > 0 && <DropdownMenuSeparator />}
                       <DropdownMenuItem
                         onClick={item.onClick}
+                        onPointerEnter={item.onPointerEnter}
+                        onTouchStart={item.onPointerEnter}
                         className={cn(
                           "gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between",
                           item.destructive ? 'text-destructive' : ''
@@ -609,6 +682,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => navigate('/settings')} 
+                    onPointerEnter={() => void import('@/pages/Settings')}
+                    onTouchStart={() => void import('@/pages/Settings')}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-muted">

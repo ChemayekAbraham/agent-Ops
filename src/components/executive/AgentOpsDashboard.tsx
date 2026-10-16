@@ -1,3 +1,4 @@
+import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { useEffect, useRef, useState, lazy, Suspense, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
@@ -1023,6 +1024,7 @@ export function AgentOpsDashboard() {
   // HOME VIEW / shell
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+72px)] sm:pb-4">
+      <TutorialVideosButton />
       {/* Greeting header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
