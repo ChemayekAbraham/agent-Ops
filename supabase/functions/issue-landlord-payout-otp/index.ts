@@ -533,6 +533,7 @@ Deno.serve(async (req) => {
         // value and enforce_landlord_payout_eligibility() requires it to equal
         // verified_mobile_money_number exactly (doc 120).
         landlord_phone: approvedPhone,
+        otp_recipient_phone: otpRecipient.recipient,
         tenant_name: tenant_name ?? null,
         tenant_phone: tenant_phone ?? null,
         mobile_money_provider,
@@ -551,7 +552,7 @@ Deno.serve(async (req) => {
       return json({ error: insErr?.message ?? "Could not create challenge" }, 500);
     }
 
-    const phone = normalizePhone(approvedPhone);
+    const phone = normalizePhone(otpRecipient.recipient);
     const sent = await sendOtpWithFallback(
       phone,
       `Welile: UGX ${amt.toLocaleString()} rent${tenant_name ? ` from ${tenant_name}` : ""} for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
@@ -592,6 +593,9 @@ Deno.serve(async (req) => {
         delivery_status: sent.ok ? "submitted" : "failed",
         tenant_name: tenant_name ?? null,
         trigger_source: normalizedTrigger,
+        otp_recipient_phone: otpRecipient.recipient,
+        otp_recipient_source: otpRecipient.source,
+        payout_phone: approvedPhone,
       },
     });
 
