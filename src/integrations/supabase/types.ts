@@ -80252,6 +80252,7 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      tenant_ops_rent_request_lifetime: { Args: never; Returns: Json }
       tenant_payment_history: {
         Args: { p_limit?: number }
         Returns: {
