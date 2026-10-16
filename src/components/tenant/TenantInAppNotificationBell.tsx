@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, X, Check, ArrowRight, Loader2, MessageSquare } from 'lucide-react';
+import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
 
@@ -100,6 +101,7 @@ export function TenantInAppNotificationBell({
           </div>
         </div>
 
+        <CommunicationsBellSection onSelect={() => setOpen(false)} />
         {/* Notifications List */}
         <ScrollArea className="max-h-[380px] overflow-y-auto">
           {isLoading ? (

@@ -72,6 +72,8 @@ export function AgentNotificationBell({
   }, [userId]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const { unread: commUnread } = useBellCommunications();
+  const badgeCount = unreadCount + commUnread;
 
   const markAsRead = async (id: string) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
@@ -110,12 +112,12 @@ export function AgentNotificationBell({
           )}
         >
           <Bell className={cn("h-5 w-5 text-current", isPulsing && "animate-bell-ring origin-top")} />
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span className={cn(
               "absolute top-0 right-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full px-1",
               isPulsing && "animate-pulse",
             )}>
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {badgeCount > 9 ? '9+' : badgeCount}
             </span>
           )}
         </Button>
