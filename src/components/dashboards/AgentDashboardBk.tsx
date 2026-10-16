@@ -1311,7 +1311,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   fullName={profile?.full_name}
                   onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
                 />
-                <AgentNudgePreviewButton email={user?.email} />
+                <AgentNudgePreviewButton userId={user?.id} />
                 {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                     (2026-10-16). The signature card above is the entry point. */}
                 {SHOW_LEGACY_RENT_REQUEST_CARD && (
