@@ -34363,6 +34363,349 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_tutorial_claim_lines: {
+        Row: {
+          amount: number
+          claim_id: string
+          created_at: string
+          id: string
+          released_at: string | null
+          video_id: string
+        }
+        Insert: {
+          amount: number
+          claim_id: string
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          video_id: string
+        }
+        Update: {
+          amount?: number
+          claim_id?: string
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_claim_lines_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_claim_lines_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_tutorial_claims: {
+        Row: {
+          claim_code: string
+          closed_at: string | null
+          created_at: string
+          creator_id: string
+          id: string
+          linked_at: string | null
+          requisition_id: string | null
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          claim_code?: string
+          closed_at?: string | null
+          created_at?: string
+          creator_id: string
+          id?: string
+          linked_at?: string | null
+          requisition_id?: string | null
+          status?: string
+          total_amount: number
+        }
+        Update: {
+          claim_code?: string
+          closed_at?: string | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          linked_at?: string | null
+          requisition_id?: string | null
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
+      ops_tutorial_members: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          enabled: boolean
+          member_role: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          member_role: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          member_role?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ops_tutorial_rates: {
+        Row: {
+          amount_ugx: number
+          tier: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_ugx?: number
+          tier: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_ugx?: number
+          tier?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ops_tutorial_topics: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          description: string | null
+          id: string
+          proposed_by: string
+          status: string
+          tier: string
+          title: string
+          topic_code: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_by: string
+          status?: string
+          tier: string
+          title: string
+          topic_code?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_by?: string
+          status?: string
+          tier?: string
+          title?: string
+          topic_code?: string
+        }
+        Relationships: []
+      }
+      ops_tutorial_videos: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          kind: string
+          mime_type: string
+          no_personal_data_confirmed: boolean | null
+          published_at: string | null
+          published_by: string | null
+          rate_amount: number | null
+          rate_tier: string | null
+          recorded_on: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision_reason: string | null
+          sha256: string
+          size_bytes: number
+          status: string
+          storage_path: string
+          submitted_at: string | null
+          supersedes_video_id: string | null
+          title: string
+          topic_id: string
+          uploaded_at: string | null
+          uploaded_by: string
+          video_code: string
+          video_codec: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds: number
+          id?: string
+          kind: string
+          mime_type: string
+          no_personal_data_confirmed?: boolean | null
+          published_at?: string | null
+          published_by?: string | null
+          rate_amount?: number | null
+          rate_tier?: string | null
+          recorded_on?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_reason?: string | null
+          sha256: string
+          size_bytes: number
+          status?: string
+          storage_path: string
+          submitted_at?: string | null
+          supersedes_video_id?: string | null
+          title: string
+          topic_id: string
+          uploaded_at?: string | null
+          uploaded_by: string
+          video_code?: string
+          video_codec: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          kind?: string
+          mime_type?: string
+          no_personal_data_confirmed?: boolean | null
+          published_at?: string | null
+          published_by?: string | null
+          rate_amount?: number | null
+          rate_tier?: string | null
+          recorded_on?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_reason?: string | null
+          sha256?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          submitted_at?: string | null
+          supersedes_video_id?: string | null
+          title?: string
+          topic_id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string
+          video_code?: string
+          video_codec?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_videos_supersedes_video_id_fkey"
+            columns: ["supersedes_video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_videos_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_tutorial_view_events: {
+        Row: {
+          context: string
+          duration_seconds: number
+          first_played_at: string
+          id: string
+          last_seen_at: string
+          max_position_seconds: number
+          requisition_id: string | null
+          video_id: string
+          viewer_id: string
+        }
+        Insert: {
+          context: string
+          duration_seconds: number
+          first_played_at?: string
+          id?: string
+          last_seen_at?: string
+          max_position_seconds?: number
+          requisition_id?: string | null
+          video_id: string
+          viewer_id: string
+        }
+        Update: {
+          context?: string
+          duration_seconds?: number
+          first_played_at?: string
+          id?: string
+          last_seen_at?: string
+          max_position_seconds?: number
+          requisition_id?: string | null
+          video_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_view_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_view_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_view_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otp_login_audit: {
         Row: {
           actual_user_id: string | null
