@@ -15,7 +15,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { useTenantOpsRentLifetime } from './useTenantOpsRentLifetime';
+import { useTenantOpsRentLifetime, useTenantOpsRentLifetimeList } from './useTenantOpsRentLifetime';
 
 const wrapper = (qc: QueryClient) => ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 beforeEach(() => rpcMock.mockReset());
@@ -51,5 +51,27 @@ describe('useTenantOpsRentLifetime', () => {
     await waitFor(() => expect(result.current.error).toBeTruthy());
     result.current.refetch();
     await waitFor(() => expect(result.current.data?.submitted).toBe(3));
+  });
+
+  it('changing a date held by the page does not refetch the lifetime query', async () => {
+    rpcMock.mockResolvedValue({ data: { submitted: 6577 }, error: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result, rerender } = renderHook(({ from, to }: { from: string; to: string }) => { void from; void to; return useTenantOpsRentLifetime(); }, {
+      wrapper: wrapper(qc), initialProps: { from: '2026-10-01', to: '2026-10-16' },
+    });
+    await waitFor(() => expect(result.current.data?.submitted).toBe(6577));
+    for (const range of [{ from: '2026-10-10', to: '2026-10-16' }, { from: '2026-01-01', to: '2026-10-16' }, { from: '2026-10-16', to: '2026-10-16' }]) rerender(range);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(qc.getQueryCache().findAll({ queryKey: ['tenant-ops-rent-lifetime'] })).toHaveLength(1);
+  });
+
+  it('the list hook asks only once a bucket is open, 50 at a time, and reads the matched count from the rows', async () => {
+    rpcMock.mockResolvedValue({ data: [{ id: 'a', tenant_name: 'T', total_matched: 120 }], error: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result, rerender } = renderHook(({ b, page }: { b: 'never_paid' | null; page: number }) => useTenantOpsRentLifetimeList(b, page), { wrapper: wrapper(qc), initialProps: { b: null as 'never_paid' | null, page: 0 } });
+    expect(rpcMock).not.toHaveBeenCalled();
+    rerender({ b: 'never_paid', page: 2 });
+    await waitFor(() => expect(result.current.total).toBe(120));
+    expect(rpcMock).toHaveBeenLastCalledWith('tenant_ops_rent_request_lifetime_list', { p_bucket: 'never_paid', p_limit: 50, p_offset: 100 });
   });
 });

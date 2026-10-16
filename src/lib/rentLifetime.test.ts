@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FUNNEL_STAGES, classifyRepayment, normalizeLifetime, pct, stagePassRate } from './rentLifetime';
+import { FUNNEL_STAGES, classifyRepayment, kampalaDate, normalizeLifetime, normalizeLifetimeList, pct, stagePassRate, updatedClock } from './rentLifetime';
 
 const NOW = new Date('2026-10-16T09:00:00Z');
 const daysAgo = (d: number) => new Date(NOW.getTime() - d * 86_400_000);
@@ -91,5 +91,29 @@ describe('normalizeLifetime', () => {
     expect(d.money.total_repayment).toBe(1007310368);
     expect(d.repayment.full + d.repayment.partial + d.repayment.never_paid + d.repayment.too_early).toBe(d.financed);
     expect(normalizeLifetime(null).submitted).toBe(0);
+  });
+});
+
+describe('clock, dates and the list answer', () => {
+  it('shows the server time as HH:mm in Kampala, and nothing for a missing or bad time', () => {
+    expect(updatedClock('2026-10-16T11:32:00Z')).toBe('14:32');
+    expect(updatedClock('2026-10-16T21:05:00Z')).toBe('00:05');
+    expect(updatedClock('')).toBeNull();
+    expect(updatedClock('nope')).toBeNull();
+    expect(kampalaDate('2026-08-01T22:30:00Z')).toBe('2 Aug 2026');
+    expect(kampalaDate(null)).toBe('None');
+  });
+  it('types the list rows as returned (a missing name reads as unnamed, the matched count is kept)', () => {
+    const rows = normalizeLifetimeList([{ id: 'a', tenant_name: '', agent_name: 'Ann', rent_amount: '400000', total_repayment: 520000, amount_repaid: 0, landlord_paid_at: '2026-08-01T07:00:00Z', funded_at: null, status: 'repaying', total_matched: 22 }]);
+    expect(rows[0].tenant_name).toBe('Unnamed tenant');
+    expect(rows[0].rent_amount).toBe(400000);
+    expect(rows[0].funded_at).toBeNull();
+    expect(rows[0].total_matched).toBe(22);
+    expect(normalizeLifetimeList(null)).toEqual([]);
+  });
+  it('reads in_approval and generated_at from the summary', () => {
+    const d = normalizeLifetime({ generated_at: '2026-10-16T11:32:00Z', outcomes: { in_approval: 128 } });
+    expect(d.outcomes.in_approval).toBe(128);
+    expect(d.generated_at).toBe('2026-10-16T11:32:00Z');
   });
 });

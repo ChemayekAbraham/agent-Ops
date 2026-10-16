@@ -23,10 +23,12 @@ export interface FunnelRow { stage: FunnelStage; count: number }
 
 export interface RentLifetime {
   as_at: string;
+  /** server time of the answer */
+  generated_at: string;
   basis: string;
   submitted: number;
   stage_funnel: FunnelRow[];
-  outcomes: { waiting_service_centre: number; pending: number; rejected: number; deleted_by_agent: number; cancelled: number };
+  outcomes: { waiting_service_centre: number; pending: number; in_approval: number; rejected: number; deleted_by_agent: number; cancelled: number };
   funded: number;
   financed: number;
   repayment: { full: number; partial: number; never_paid: number; too_early: number };
@@ -51,11 +53,12 @@ export function normalizeLifetime(raw: unknown): RentLifetime {
   const rows = Array.isArray(r.stage_funnel) ? (r.stage_funnel as unknown[]).map(obj) : [];
   return {
     as_at: String(r.as_at ?? ''),
+    generated_at: String(r.generated_at ?? ''),
     basis: String(r.basis ?? ''),
     submitted: num(r.submitted),
     stage_funnel: FUNNEL_STAGES.map((stage) => ({ stage, count: num(rows.find((x) => x.stage === stage)?.count) })),
     outcomes: {
-      waiting_service_centre: num(o.waiting_service_centre), pending: num(o.pending), rejected: num(o.rejected),
+      waiting_service_centre: num(o.waiting_service_centre), pending: num(o.pending), in_approval: num(o.in_approval), rejected: num(o.rejected),
       deleted_by_agent: num(o.deleted_by_agent), cancelled: num(o.cancelled),
     },
     funded: num(r.funded),
@@ -99,4 +102,61 @@ export function classifyRepayment(
   if (repaid > 0) return 'partial';
   const cutoff = now.getTime() - NEVER_PAID_AFTER_DAYS * 86_400_000;
   return f.landlord_paid_at.getTime() < cutoff ? 'never_paid' : 'too_early';
+}
+
+// ---------- the lists behind three rows (tenant_ops_rent_request_lifetime_list) ----------
+
+export type LifetimeBucket = 'never_paid' | 'funded_not_financed' | 'financed_now_closed';
+export const LIFETIME_BUCKET_TITLE: Record<LifetimeBucket, string> = {
+  never_paid: 'Never paid (30+ days)',
+  funded_not_financed: 'Funded but not yet financed',
+  financed_now_closed: 'Financed, now rejected, cancelled or withdrawn',
+};
+export const LIFETIME_BUCKET_HINT: Record<LifetimeBucket, string> = {
+  never_paid: 'Landlord paid more than 30 days ago and nothing repaid yet; oldest landlord payment first.',
+  funded_not_financed: 'Funded, but no landlord payment recorded yet; funded longest ago first.',
+  financed_now_closed: 'The landlord was paid, then the request ended; latest landlord payment first.',
+};
+export const LIFETIME_PAGE_SIZE = 50;
+
+export interface LifetimeListRow {
+  id: string;
+  tenant_name: string;
+  agent_name: string;
+  rent_amount: number;
+  total_repayment: number;
+  amount_repaid: number;
+  landlord_paid_at: string | null;
+  funded_at: string | null;
+  status: string;
+  total_matched: number;
+}
+
+const str = (v: unknown): string | null => (v == null || v === '' ? null : String(v));
+
+export function normalizeLifetimeList(raw: unknown): LifetimeListRow[] {
+  return (Array.isArray(raw) ? raw : []).map((x) => {
+    const r = obj(x);
+    return {
+      id: String(r.id ?? ''), tenant_name: String(r.tenant_name ?? '') || 'Unnamed tenant', agent_name: String(r.agent_name ?? '') || 'Unnamed agent',
+      rent_amount: num(r.rent_amount), total_repayment: num(r.total_repayment), amount_repaid: num(r.amount_repaid),
+      landlord_paid_at: str(r.landlord_paid_at), funded_at: str(r.funded_at), status: String(r.status ?? ''), total_matched: num(r.total_matched),
+    };
+  });
+}
+
+/** "14:32" in Kampala time for an ISO timestamp (the server's generated_at), or null when there is none. */
+export function updatedClock(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Kampala', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+}
+
+/** "16 Oct 2026" in Kampala time, or "None" when there is no date. */
+export function kampalaDate(iso: string | null | undefined): string {
+  if (!iso) return 'None';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'None';
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Kampala', day: 'numeric', month: 'short', year: 'numeric' }).format(d);
 }

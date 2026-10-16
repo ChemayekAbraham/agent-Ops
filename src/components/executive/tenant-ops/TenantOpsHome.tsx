@@ -345,6 +345,9 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </div>
       </div>
 
+      {/* All-time rent request cards, right after the Executive summary: not affected by the date filter above. */}
+      <TenantOpsRentLifetimeCards />
+
       {/* Tenant Acquisition */}
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -401,9 +404,6 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             authoritative plan/payment fields used elsewhere in Tenant Ops. */}
         <TenantOpsRepaymentWatchlistCards onNavigate={onNavigate} />
       </div>
-
-      {/* All-time rent request cards: not affected by the date filter above. */}
-      <TenantOpsRentLifetimeCards />
 
       {/* Forward planning is separate from the existing dashboard charts. */}
       <TenantRepaymentForecastPanel />
