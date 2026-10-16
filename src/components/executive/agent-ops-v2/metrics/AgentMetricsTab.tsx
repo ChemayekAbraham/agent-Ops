@@ -20,6 +20,7 @@ import { LocationsCard } from './LocationsCard';
 import { MainAgentsCard } from './MainAgentsCard';
 import { AdvancesCard } from './AdvancesCard';
 import { ActivityExtrasCard } from './ActivityExtrasCard';
+import { RiskCard } from './RiskCard';
 import { HowCounted } from './HowCounted';
 
 // "Metrics" tab of Agent Ops: stacked, collapsible cards (built for a 380px phone first) over the agent_ops_metrics_* functions. The dates,
@@ -77,7 +78,8 @@ export function AgentMetricsStandalone() {
       case 'listings': return <ListingsCard key={id} {...common} />;
       case 'earnings': return <ListingEarningsCard key={id} {...common} />;
       case 'advances': return <AdvancesCard key={id} {...common} />;
-      case 'activity': return <ActivityExtrasCard key={id} {...common} />;
+      case 'activity': return <ActivityExtrasCard key={id} controls={controls} from={from} to={to} />;
+      case 'risk': return <RiskCard key={id} controls={controls} from={from} to={to} />;
       case 'agents': return <AgentsCard key={id} controls={controls} from={from} to={to} scope={scope} sort={sort} onScope={(s) => update({ scope: s })} onSort={(s) => update({ sort: s })} />;
       case 'locations': return <LocationsCard key={id} controls={controls} from={from} to={to} />;
       case 'main-agents': return <MainAgentsCard key={id} controls={controls} from={from} to={to} />;

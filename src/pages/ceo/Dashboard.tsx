@@ -12,6 +12,8 @@ import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
 import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
 import { ValuationModelPanel } from '@/components/executive/ValuationModelPanel';
+import { ApprovalsInbox } from '@/hr/pay/Approvals';
+import { AdvancesPanel } from '@/hr/pay/Advances';
 
 export default function CEODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('ceo');
@@ -41,6 +43,10 @@ export default function CEODashboardPage() {
         return <GlobalVerificationHub />;
       case 'welile-operations':
         return <WelileOperationsHub />;
+      case 'ceo-pay-advances':
+        return <AdvancesPanel />;
+      case 'ceo-pay-approvals':
+        return <ApprovalsInbox />;
       case 'role-management':
         return <RoleManagementPanel />;
       default:
