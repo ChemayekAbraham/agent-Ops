@@ -18,7 +18,7 @@ export function CommunicationDialog({ communication, open, onClose, onAcknowledg
         <div className="flex items-center gap-2 text-sm text-muted-foreground"><Icon aria-hidden="true" className={`h-5 w-5 shrink-0 ${communication.communication_type === 'important' ? 'text-destructive' : 'text-primary'}`} />{type.label}{preview && <span>· Preview</span>}</div>
         <DialogTitle className="pt-3 leading-snug tracking-normal break-words text-xl">{communication.title}</DialogTitle>
       </DialogHeader>
-      <DialogDescription className="whitespace-pre-wrap break-words text-base leading-relaxed text-foreground">{communication.body}</DialogDescription>
+      <DialogDescription className="whitespace-pre-wrap break-words text-base leading-relaxed text-foreground max-h-[45vh] overflow-y-auto">{communication.body}</DialogDescription>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <DialogFooter className="flex-row flex-wrap justify-end">
         <Button variant="outline" onClick={onClose} disabled={pending}>Close</Button>

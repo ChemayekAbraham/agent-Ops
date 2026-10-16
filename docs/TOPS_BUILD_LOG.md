@@ -3,6 +3,7 @@
 ## 2026-10-16 — CRM in-app communications
 
 Added `drizzle/migrations/0589_crm_in_app_communications.sql`: dedicated versioned communications, sparse acknowledgements and immutable lifecycle history; enabled CRM/super-admin publishing and enabled-role inbox functions, all with explicit grants/RLS. Existing notifications, financial functions and Tenant Ops clocks remain unchanged. Acknowledgement emits an idempotent event and refreshes the canonical trust cache, without inventing a score increment.
+Live privilege inspection found inherited authenticated TRUNCATE/write grants; `0590_crm_communications_restrict_direct_writes.sql` explicitly revoked them on these three new tables. RLS alone does not protect TRUNCATE.
 
 ## 2026-09-26 — `20260926160000_tops_plan_clock_and_instalments.sql`
 

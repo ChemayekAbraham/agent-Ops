@@ -27,7 +27,7 @@ export default function CommunicationGate() {
   const scopeRef = useRef(scope); scopeRef.current = scope;
   const firstOpen = useRef(false);
   useEffect(() => {
-    setActive(null); setListOpen(false); setError(null); setSnoozed(new Set()); firstOpen.current = false;
+    setActive(null); setListOpen(false); setOpening(false); setError(null); setSnoozed(new Set()); firstOpen.current = false;
   }, [scope]);
   useEffect(() => {
     const check = () => setBlocked(Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"]')).some(el => el.getAttribute('data-state') !== 'closed' && el.getAttribute('data-communication-dialog') !== 'true'));
@@ -36,12 +36,9 @@ export default function CommunicationGate() {
     check(); return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (!blocked) return;
-    setActive(old => {
-      if (old) setSnoozed(prior => new Set([...prior, old.id]));
-      return null;
-    });
-  }, [blocked]);
+    if (!blocked || !active) return;
+    setActive(null);
+  }, [blocked, active]);
   async function openMessage(row: Communication) {
     if (!dashboardRole || opening) return;
     const captured = scopeRef.current;
@@ -54,7 +51,7 @@ export default function CommunicationGate() {
       const otherModal = document.querySelector('[role="dialog"]:not([data-communication-dialog="true"]),[role="alertdialog"]');
       if (otherModal) return;
       setActive(fresh);
-    } catch (e) { if (scopeRef.current === captured) setError(e instanceof Error ? e.message : 'Unable to open communication.'); }
+    } catch (e) { if (scopeRef.current === captured) { setError(e instanceof Error ? e.message : 'Unable to open communication.'); setSnoozed(old => new Set([...old, row.id])); } }
     finally { if (scopeRef.current === captured) setOpening(false); }
   }
   useEffect(() => {
@@ -70,8 +67,9 @@ export default function CommunicationGate() {
   }, [eligible, blocked, active, listOpen, opening, query.data, snoozed, scope]);
   useEffect(() => {
     if (!active) return;
-    const timer = setTimeout(() => { setActive(null); void query.refetch(); }, Math.max(0, new Date(active.expires_at).getTime() - Date.now()));
-    const refresh = () => { if (document.visibilityState === 'visible' && dashboardRole) void readCommunication(dashboardRole, active.id).then(fresh => setActive(fresh)).catch(() => setActive(null)); };
+    const captured = scopeRef.current;
+    const timer = setTimeout(() => { if (captured === scopeRef.current) { setActive(null); void query.refetch(); } }, Math.min(2147483647, Math.max(0, new Date(active.expires_at).getTime() - Date.now())));
+    const refresh = () => { if (document.visibilityState === 'visible' && dashboardRole) void readCommunication(dashboardRole, active.id).then(fresh => { if (captured === scopeRef.current) setActive(fresh); }).catch(() => { if (captured === scopeRef.current) setActive(null); }); };
     document.addEventListener('visibilitychange', refresh);
     return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [active?.id, dashboardRole]);
