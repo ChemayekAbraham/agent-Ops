@@ -507,6 +507,14 @@ Deno.serve(async (req) => {
       return json({ error: reason, details: e }, 400);
     }
 
+    // STRICT RULE: the OTP goes to the landlord's own registered phone
+    // (landlords.phone), never the mobile money number — most landlords do not
+    // hold the MoMo line themselves. The payout number below stays the
+    // verified mobile money number; only the SMS recipient changes. If the
+    // landlord has no usable contact phone, fall back to the payout number and
+    // record that in the audit metadata.
+    const otpRecipient = resolveOtpRecipient(landlordRow?.phone, approvedPhone);
+
     // Generate OTP and persist challenge
     const otp = generateOtp();
     const otp_hash = await sha256(otp);
