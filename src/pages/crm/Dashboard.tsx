@@ -71,7 +71,8 @@ export default function CRMDashboardPage() {
     }
 
     switch (activeTab) {
-      case 'in-app-communications':
+      case 'broadcast':
+      case 'in-app-communications': // Preserves earlier links and saved tabs.
         return <Suspense fallback={<PanelFallback />}><CommunicationManager /></Suspense>;
       case 'requisitions':
         return <RequisitionsWorkspace />;

@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Make CRM Broadcast visible and verify publishing, recipient dialogs, bell reopening and acknowledgement with authorised accounts.
 - [x] Add protected CRM communications publishing, scheduling, versioning and audience checks; live RLS and revoked direct-write/TRUNCATE privileges verified.
 - [x] Add CRM editor/preview and shared recipient dialogs with cross-device acknowledgement; 25 tests, phone/desktop preview, mandatory-dialog queue and guards pass.
 - [ ] Verify CRM publish → recipient acknowledgement → cross-device readback with authorised accounts — blocked: injected account has neither CRM nor super-admin; own-account session mint failed. No messages published or money moved.
