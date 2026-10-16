@@ -4,7 +4,9 @@ import { toast } from 'sonner';
 import { AgentNudgeToast } from '@/components/agent/AgentNudgeToast';
 import type { RenderedNudge } from '@/lib/agentNudges';
 
-const PREVIEW_EMAIL = 'pexpert46@gmail.com';
+// PIUS LUBEGA SSENKAALI signs in by phone, so his auth email is a placeholder
+// (@welile.user) — gate on the user id, not on an email address.
+const PREVIEW_USER_ID = '0b109aad-212a-4fd0-ab03-3d7aee9cf397';
 
 const SAMPLES: (RenderedNudge & { ctaLabel?: string })[] = [
   { id: 'p1', tone: 'celebrate', category: 'rank', title: "You're #1 today! 🥇👑", body: 'You lead the board with 14 collections. Keep the crown, Boss!', cta: 'leaderboard', ctaLabel: 'See the board' },
