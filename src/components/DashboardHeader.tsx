@@ -295,11 +295,18 @@ const DashboardHeader = memo(function DashboardHeader({
                   <Menu className="h-5 w-5" />
                 </Button>
               ) : (
-                <DropdownMenu>
+                <DropdownMenu onOpenChange={(open) => {
+                  if (open && currentRole === 'agent') {
+                    void import('@/pages/AgentServiceCenter');
+                  }
+                }}>
                   <DropdownMenuTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="icon" 
+                    onPointerEnter={() => {
+                      if (currentRole === 'agent') void import('@/pages/AgentServiceCenter');
+                    }}
                     className="h-10 w-10 min-w-[44px] min-h-[44px] text-white/90 hover:text-white hover:bg-white/10 rounded-xl touch-manipulation"
                   >
                     <Menu className="h-5 w-5" />
@@ -321,6 +328,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/agent/service-center'); }}
+                      onPointerEnter={() => void import('@/pages/AgentServiceCenter')}
+                      onTouchStart={() => void import('@/pages/AgentServiceCenter')}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3 min-w-0">

@@ -969,6 +969,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
+  // Warm up Service Center route bundle during browser idle time so menu navigation is instant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import('@/pages/AgentServiceCenter');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Live "updated …" indicator for the Merchant Payouts earnings total.
   // Re-render every 15s so the relative timestamp stays fresh.
   const [nowTick, setNowTick] = useState(Date.now());
