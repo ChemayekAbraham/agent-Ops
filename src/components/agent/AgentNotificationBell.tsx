@@ -197,6 +197,12 @@ export function AgentNotificationBell({
           )}
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+      <NotificationDetailDialog
+        notification={detailItem}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
+    </>
   );
 }
