@@ -33,6 +33,8 @@ export function TenantInAppNotificationBell({
     tenantId,
   });
   const { data: unreadCount = 0 } = useUnreadTenantInAppCount(tenantId);
+  const { unread: commUnread } = useBellCommunications();
+  const badgeCount = unreadCount + commUnread;
   const markRead = useMarkTenantInAppNotificationRead();
   const dismiss = useDismissTenantInAppNotification();
 
@@ -75,9 +77,9 @@ export function TenantInAppNotificationBell({
           )}
         >
           <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm animate-in zoom-in-50">
-              {unreadCount > 99 ? '99+' : unreadCount}
+              {badgeCount > 99 ? '99+' : badgeCount}
             </span>
           )}
         </button>
