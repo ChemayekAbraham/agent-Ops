@@ -83,7 +83,7 @@ export function ProfileWalletCard() {
       <UnifiedWalletHeroCard
         balance={balance}
         role={walletRole}
-        defaultCollapsed={false}
+        defaultCollapsed={true}
         collapsible={true}
         {...(isAgent
           ? {
