@@ -30,6 +30,8 @@ export function DormantBikeLeasesPanel() {
   const [message, setMessage] = useState('');
   const { data = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['dormant-bike-leases'],
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await (supabase.rpc as any)('agent_ops_dormant_bike_leases');
       if (error) throw error;
