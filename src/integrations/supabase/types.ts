@@ -76458,7 +76458,40 @@ export type Database = {
         Returns: boolean
       }
       ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
+      ops_tutorial_mark_uploaded: {
+        Args: { p_video_id: string }
+        Returns: undefined
+      }
       ops_tutorial_my_capabilities: { Args: never; Returns: Json }
+      ops_tutorial_propose_topic: {
+        Args: { p_description: string; p_tier: string; p_title: string }
+        Returns: string
+      }
+      ops_tutorial_register_upload: {
+        Args: {
+          p_duration_seconds: number
+          p_kind: string
+          p_recorded_on: string
+          p_revision_reason: string
+          p_sha256: string
+          p_size_bytes: number
+          p_supersedes_video_id: string
+          p_title: string
+          p_topic_id: string
+          p_video_codec: string
+        }
+        Returns: {
+          resumed: boolean
+          storage_path: string
+          video_code: string
+          video_id: string
+        }[]
+      }
+      ops_tutorial_submit: { Args: { p_video_id: string }; Returns: undefined }
+      ops_tutorial_withdraw: {
+        Args: { p_video_id: string }
+        Returns: undefined
+      }
       ops_undo_agent_capability_job: {
         Args: { _job_id: string; _reason: string }
         Returns: Json
