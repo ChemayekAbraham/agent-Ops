@@ -4872,9 +4872,14 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
   onActionComplete?: () => void;
 }) {
   const [search, setSearch] = useState('');
-  // Default to "today" so the dialog matches the Nearing-Payout card count
-  // (the card is strictly scoped to portfolios due today).
-  const [rangeFilter, setRangeFilter] = useState<string>('today');
+  // Default to today-only so the dialog matches the Nearing-Payout card count
+  // (the card is strictly scoped to portfolios due today). Ops move or widen the
+  // window with the payout date-range picker in the toolbar.
+  const [payoutRange, setPayoutRange] = useState<{ from: Date | undefined; to: Date | undefined }>(() => {
+    const n = new Date();
+    const t = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    return { from: t, to: t };
+  });
   const [processing, setProcessing] = useState<Record<string, 'compound' | 'pay' | 'split' | null>>({});
   const [completed, setCompleted] = useState<Record<string, 'compounded' | 'pending' | 'completed' | 'split'>>({});
   const [reasons, setReasons] = useState<Record<string, string>>({});
@@ -4931,46 +4936,21 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
 
   const filtered = useMemo(() => {
     let list = localPortfolios;
-    // Compute the current week boundaries (Mon–Sun) so the "5 days" (weekdays)
-    // filter scopes to the given week, and "Weekend" scopes to the weekend
-    // that has just passed (last week's Sat & Sun), not the coming one.
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dow = startOfToday.getDay(); // 0=Sun … 6=Sat
-    const mondayOffset = dow === 0 ? -6 : 1 - dow; // shift back to Monday
-    const weekMonday = new Date(startOfToday);
-    weekMonday.setDate(startOfToday.getDate() + mondayOffset);
-    const weekFriday = new Date(weekMonday); weekFriday.setDate(weekMonday.getDate() + 4); // Mon..Fri
-    const weekSaturday = new Date(weekMonday); weekSaturday.setDate(weekMonday.getDate() + 5);
-    const weekSunday = new Date(weekMonday); weekSunday.setDate(weekMonday.getDate() + 6);
-    // Previous weekend = last week's Saturday & Sunday (7 days before this week's).
-    const lastWeekSaturday = new Date(weekSaturday); lastWeekSaturday.setDate(weekSaturday.getDate() - 7);
-    const lastWeekSunday = new Date(weekSunday); lastWeekSunday.setDate(weekSunday.getDate() - 7);
-    const inRange = (dateStr: string, from: Date, to: Date) => {
-      if (!dateStr) return false;
-      const d = new Date(dateStr);
-      const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      return day >= from && day <= to;
-    };
-    // Apply range filter
-    if (rangeFilter === 'overdue') {
-      list = list.filter(p => p.daysUntil < 0);
-    } else if (rangeFilter === 'today') {
-      list = list.filter(p => p.daysUntil === 0);
-    } else if (rangeFilter === 'tomorrow') {
-      list = list.filter(p => p.daysUntil === 1);
-    } else if (rangeFilter === '5') {
-      // Weekdays (Mon–Fri) of the current week
-      list = list.filter(p => inRange(p.nextPayoutDate, weekMonday, weekFriday));
-    } else if (rangeFilter === 'weekend') {
-      // Saturday & Sunday of the current week
-      list = list.filter(p => inRange(p.nextPayoutDate, weekSaturday, weekSunday));
-    } else if (rangeFilter === '7') {
-      list = list.filter(p => p.daysUntil >= -30 && p.daysUntil <= 7);
-    } else if (rangeFilter === '14') {
-      list = list.filter(p => p.daysUntil >= -30 && p.daysUntil <= 14);
-    } else if (rangeFilter === '30') {
-      list = list.filter(p => p.daysUntil >= -30 && p.daysUntil <= 30);
+    // Compare on calendar days only, so a picked range is inclusive of both
+    // ends and a payout dated at any time of day still lands inside it.
+    const dayOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const from = payoutRange.from ? dayOnly(payoutRange.from) : undefined;
+    const to = payoutRange.to ? dayOnly(payoutRange.to) : undefined;
+    // Apply the picked payout-date window. An open end means "no limit on that
+    // side"; no dates picked shows every portfolio.
+    if (from || to) {
+      list = list.filter(p => {
+        if (!p.nextPayoutDate) return false;
+        const day = dayOnly(new Date(p.nextPayoutDate));
+        if (from && day < from) return false;
+        if (to && day > to) return false;
+        return true;
+      });
     }
     // Apply search filter
     const q = search.trim().toLowerCase();
@@ -4988,7 +4968,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       list = list.filter(p => !p.alreadyProcessedThisCycle && !completed[p.portfolioId]);
     }
     return list;
-  }, [localPortfolios, search, rangeFilter, showProcessed, completed]);
+  }, [localPortfolios, search, payoutRange, showProcessed, completed]);
 
   // How many were removed from view because they're already handled this cycle.
   const processedHiddenCount = useMemo(
@@ -4998,21 +4978,18 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
 
   const generateRef = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
-  // Map the active range filter onto a human-readable label used in the PDF
+  // Human-readable description of the picked payout window, used in the PDF
   // header so the exported document mirrors the on-screen filter context.
   const rangeFilterLabel = (() => {
-    switch (rangeFilter) {
-      case 'overdue': return 'Overdue only';
-      case 'today':   return 'Due today';
-      case 'tomorrow': return 'Due tomorrow';
-      case '5':       return 'This week (Mon–Fri)';
-      case 'weekend': return 'This weekend (Sat & Sun)';
-      case '7':       return 'Next 7 days (incl. overdue ≤ 30d)';
-      case '14':      return 'Next 14 days (incl. overdue ≤ 30d)';
-      case '30':      return 'Next 30 days (incl. overdue ≤ 30d)';
-      case 'all':     return 'All portfolios';
-      default:        return `Filter: ${rangeFilter}`;
+    const { from, to } = payoutRange;
+    if (!from && !to) return 'All portfolios';
+    if (from && to) {
+      return format(from, 'yyyy-MM-dd') === format(to, 'yyyy-MM-dd')
+        ? `Due ${format(from, 'MMM d, yyyy')}`
+        : `Due ${format(from, 'MMM d')} – ${format(to, 'MMM d, yyyy')}`;
     }
+    if (from) return `Due from ${format(from, 'MMM d, yyyy')}`;
+    return `Due until ${format(to!, 'MMM d, yyyy')}`;
   })();
 
   // Two-way destination breakdown for the PDF dropdown: Banks (all bank names
@@ -5109,7 +5086,14 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           : methodKey === 'mobile_money'
             ? 'mobile-money'
             : methodKey.replace(/^bank:|^momo:/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      downloadNearingBlob(blob, `welile-nearing-payouts-${rangeFilter}-${methodSlug}-${stamp}.pdf`);
+      const rangeSlug = payoutRange.from && payoutRange.to
+        ? `${format(payoutRange.from, 'yyyy-MM-dd')}_${format(payoutRange.to, 'yyyy-MM-dd')}`
+        : payoutRange.from
+          ? `from-${format(payoutRange.from, 'yyyy-MM-dd')}`
+          : payoutRange.to
+            ? `until-${format(payoutRange.to, 'yyyy-MM-dd')}`
+            : 'all';
+      downloadNearingBlob(blob, `welile-nearing-payouts-${rangeSlug}-${methodSlug}-${stamp}.pdf`);
       toast.success('PDF exported', { description: `${rows.length} portfolio${rows.length === 1 ? '' : 's'} · ${payMethodLabel(methodKey)}.` });
     } catch (err: any) {
       console.error('Nearing payouts PDF export error:', err);
