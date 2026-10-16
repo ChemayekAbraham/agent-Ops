@@ -4159,6 +4159,13 @@
       "when": 1792143859453,
       "tag": "0593_renewal_waits_for_final_payout",
       "breakpoints": true
+    },
+    {
+      "idx": 594,
+      "version": "7",
+      "when": 1792144973789,
+      "tag": "0594_landlord_float_budget_cap",
+      "breakpoints": true
     }
   ]
 }
