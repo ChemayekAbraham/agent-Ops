@@ -26,7 +26,11 @@ interface PayrollAuthority {
   releaser: boolean;
 }
 
-export default function Approvals() {
+/**
+ * Inbox content without the HR page chrome, so the CFO dashboard can embed it
+ * as a section. The standalone HR page wraps this in HRPlaceholderPage.
+ */
+export function ApprovalsInbox() {
   const [items, setItems] = useState<ApprovalItem[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
   const [authority, setAuthority] = useState<PayrollAuthority | null>(null);
@@ -80,10 +84,7 @@ export default function Approvals() {
     : [];
 
   return (
-    <HRPlaceholderPage
-      heading="Approvals"
-      subtitle="Items waiting on you. This list reflects the position you hold, not your role."
-    >
+    <div className="space-y-4">
       {!loading && authority && (
         <>
           {authorityLabels.length > 0 ? (
@@ -162,6 +163,17 @@ export default function Approvals() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+export default function Approvals() {
+  return (
+    <HRPlaceholderPage
+      heading="Approvals"
+      subtitle="Items waiting on you. This list reflects the position you hold, not your role."
+    >
+      <ApprovalsInbox />
     </HRPlaceholderPage>
   );
 }
