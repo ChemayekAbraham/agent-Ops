@@ -40,7 +40,7 @@ export function AgentNudgePreviewButton({ email }: { email?: string | null }) {
     <button
       type="button"
       onClick={show}
-      className="fixed left-3 bottom-28 z-[60] rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg"
+      className="mt-2 w-full rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg"
     >
       Preview nudge ({(i % SAMPLES.length) + 1}/{SAMPLES.length})
     </button>

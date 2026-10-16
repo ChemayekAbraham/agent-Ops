@@ -176,6 +176,7 @@ import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard'
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -1300,6 +1301,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   fullName={profile?.full_name}
                   onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
                 />
+                <AgentNudgePreviewButton email={user?.email} />
                 {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                     (2026-10-16). The signature card above is the entry point. */}
                 {SHOW_LEGACY_RENT_REQUEST_CARD && (

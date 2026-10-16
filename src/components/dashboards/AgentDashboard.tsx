@@ -95,7 +95,6 @@ import { useBusinessAdvanceCommissionListener } from '@/hooks/useBusinessAdvance
 import { useAgentUnblockToast } from '@/hooks/useAgentUnblockToast';
 import { useRecruiterOverrideToast } from '@/hooks/useRecruiterOverrideToast';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
-import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { useAgentEarnings } from '@/hooks/useAgentEarnings';
 import { AgentDashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { WalletHeroSkeleton, MetricRowSkeleton, ListSectionSkeleton } from '@/components/skeletons/SectionSkeletons';
@@ -1110,7 +1109,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   return (
     <AgentFrozenGate>
     <OperatingLocationGate />
-    <AgentNudgePreviewButton email={user?.email} />
     <div className="agent-dashboard-shell h-[100dvh] bg-background flex flex-col overflow-hidden">
       <OfflineBanner />
       <PendingDraftsBanner />
