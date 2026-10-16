@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { RenderedNudge } from '@/lib/agentNudges';
 
@@ -8,8 +9,52 @@ interface Props {
   onClose: () => void;
 }
 
-/** Simple, calm nudge toast: plain card, text only, underlined text link for the action. */
+/** Action links are hidden for now; flip to true to show them again. */
+const SHOW_CTA = false;
+
+const TONE_NOTES: Record<string, number[]> = {
+  celebrate: [659.25, 783.99, 1046.5],
+  nudge: [587.33, 880],
+  info: [523.25],
+};
+
+let audioCtx: AudioContext | null = null;
+
+/** Short, soft chime generated in the browser (no sound files). Fails silently. */
+function playChime(tone: string) {
+  try {
+    if (typeof window === 'undefined') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx = audioCtx ?? new Ctx();
+    const ctx = audioCtx;
+    if (ctx.state === 'suspended') void ctx.resume();
+    const notes = TONE_NOTES[tone] ?? TONE_NOTES.info;
+    notes.forEach((freq, i) => {
+      const start = ctx.currentTime + i * 0.12;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.12, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.4);
+    });
+  } catch {
+    /* sound is optional */
+  }
+}
+
+/** Simple, calm nudge toast: plain card, text only. */
 export function AgentNudgeToast({ nudge, ctaLabel, onCta, onClose }: Props) {
+  useEffect(() => {
+    playChime(nudge.tone);
+  }, [nudge]);
+
   return (
     <div
       role="status"
@@ -17,7 +62,7 @@ export function AgentNudgeToast({ nudge, ctaLabel, onCta, onClose }: Props) {
     >
       <p className="text-sm font-semibold leading-tight">{nudge.title}</p>
       <p className="mt-1 text-sm leading-snug text-muted-foreground">{nudge.body}</p>
-      {ctaLabel && onCta && (
+      {SHOW_CTA && ctaLabel && onCta && (
         <button
           type="button"
           onClick={onCta}
