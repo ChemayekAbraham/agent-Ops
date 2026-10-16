@@ -57,10 +57,13 @@ import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
 import {
   fitsLandlordFloatBudget,
+  partitionByLandlordFloatRoom,
   landlordFloatErrorText,
   summarizeCooApproval,
   type CooApprovalResult,
 } from '@/lib/landlordFloatBudget';
+import { LandlordFloatBudgetPosition, LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
+import { LandlordFloatMiscAction } from './LandlordFloatMiscAction';
 
 
 
@@ -1503,6 +1506,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   return (
     <div className="space-y-4">
+      {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
+      {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
       <RentApprovalMoneyCounter
         stage={stage}
         reviewerAtColumn={config.reviewerAtColumn}
@@ -1551,12 +1556,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
-                  disabled={processing}
+                  disabled={processing || (isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0)}
+                  title={isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
                   onClick={handleBulkApprove}
                 >
                   {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                   Approve selected ({selectedIds.size})
                 </Button>
+                {isCooStage && <span className="text-xs text-muted-foreground">{partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length} of {selectedIds.size} will fit</span>}
               </div>
             </div>
           ) : (
@@ -2246,10 +2253,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
                     disabled={quickProcessingId === req.id}
                     className="h-8 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive active:scale-95 transition-all gap-1.5"
-                    title="Reject request"
+                    title={isCfoStage ? 'Return to COO' : 'Reject request'}
                   >
                     <XCircle className="h-3.5 w-3.5" />
-                    <span>Reject</span>
+                    <span>{isCfoStage ? 'Return to COO' : 'Reject'}</span>
                   </Button>
 
                   <Button
@@ -2268,9 +2275,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
-                      isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
+                      isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
                         ? `Complete the landlord verification checklist (${checklistDone}/2)`
@@ -2286,6 +2293,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <span>Approve</span>
                   </Button>
                 </div>
+                {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
               </div>
               );
             })}
@@ -2785,12 +2793,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   disabled={processing || !comment.trim()}
                 >
                   <XCircle className="h-4 w-4 mr-1" />
-                  Reject
+                  {isCfoStage ? 'Return to COO' : 'Reject'}
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => void handleApprove()}
-                  disabled={processing}
+                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest))}
+                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : undefined}
                   className="gap-1"
                 >
                   {processing ? (
