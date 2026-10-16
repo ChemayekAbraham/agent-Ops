@@ -27383,6 +27383,7 @@ export type Database = {
           mobile_money_provider: string
           otp_expires_at: string
           otp_hash: string
+          otp_recipient_phone: string | null
           property_latitude: number | null
           property_longitude: number | null
           rent_request_id: string | null
@@ -27410,6 +27411,7 @@ export type Database = {
           mobile_money_provider: string
           otp_expires_at: string
           otp_hash: string
+          otp_recipient_phone?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
           rent_request_id?: string | null
@@ -27437,6 +27439,7 @@ export type Database = {
           mobile_money_provider?: string
           otp_expires_at?: string
           otp_hash?: string
+          otp_recipient_phone?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
           rent_request_id?: string | null
@@ -62762,6 +62765,37 @@ export type Database = {
         }[]
       }
       _am_staff_ok: { Args: never; Returns: boolean }
+      _aom_allowed: { Args: never; Returns: boolean }
+      _aom_rows: {
+        Args: { p_end: string; p_scope: string; p_start: string }
+        Returns: {
+          advance_outstanding: number
+          advance_principal: number
+          advance_status: string
+          agent_id: string
+          clawed_back: number
+          gps_share: number
+          houses_approved: number
+          houses_gps: number
+          houses_listed: number
+          houses_pending: number
+          houses_rejected: number
+          last_listing: string
+          listing_earned: number
+          main_agent_id: string
+          main_agent_name: string
+          name: string
+          net: number
+          phone: string
+          top_district: string
+        }[]
+      }
+      _aom_scope: {
+        Args: { p_end: string; p_scope: string; p_start: string }
+        Returns: {
+          id: string
+        }[]
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -63708,6 +63742,116 @@ export type Database = {
           sub_agent_phone: string
           updated_at: string
           whitelisted: boolean
+        }[]
+      }
+      agent_ops_metrics_agents: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_start: string
+        }
+        Returns: {
+          advance_outstanding: number
+          advance_principal: number
+          advance_status: string
+          agent_id: string
+          clawed_back: number
+          gps_share: number
+          houses_approved: number
+          houses_listed: number
+          houses_pending: number
+          houses_rejected: number
+          last_listing: string
+          listing_earned: number
+          main_agent_id: string
+          main_agent_name: string
+          name: string
+          net: number
+          phone: string
+          top_district: string
+          total_matched: number
+        }[]
+      }
+      agent_ops_metrics_locations: {
+        Args: { p_end: string; p_level?: string; p_start: string }
+        Returns: {
+          agents: number
+          district: string
+          houses_listed: number
+          houses_pending: number
+          houses_verified: number
+          houses_with_gps: number
+          region: string
+          sub_county: string
+        }[]
+      }
+      agent_ops_metrics_main_agents: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
+        Returns: {
+          main_agent_id: string
+          name: string
+          phone: string
+          team_advances_outstanding: number
+          team_earnings: number
+          team_houses: number
+          team_size: number
+          total_matched: number
+        }[]
+      }
+      agent_ops_metrics_pins: {
+        Args: {
+          p_limit?: number
+          p_max_lat: number
+          p_max_lng: number
+          p_min_lat: number
+          p_min_lng: number
+        }
+        Returns: {
+          agent_id: string
+          created_at: string
+          district: string
+          latitude: number
+          listing_id: string
+          longitude: number
+          region: string
+          status: string
+          verified: boolean
+        }[]
+      }
+      agent_ops_metrics_totals: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          advances_given_amount: number
+          advances_given_count: number
+          advances_outstanding: number
+          advances_overdue_amount: number
+          advances_overdue_count: number
+          advances_repaid: number
+          agents_role: number
+          as_at: string
+          basis: string
+          houses_listed: number
+          houses_pending: number
+          houses_rejected: number
+          houses_verified: number
+          houses_with_gps: number
+          linked_subagents: number
+          listers_ever: number
+          listers_in_range: number
+          listing_clawed_back: number
+          listing_earned: number
+          qualifying_agents: number
+          range_end: string
+          range_start: string
         }[]
       }
       agent_ops_open_report: {

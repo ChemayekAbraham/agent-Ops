@@ -792,7 +792,12 @@ export function BikeLeaseApprovalQueue({
                 </div>
               </div>
 
-              <BikeLeaseSupplierAssign saleId={approveTarget.id} />
+              {/* Company supplier: assigned on Agent Ops only. CFO views locked recipient; COO does not manage suppliers. */}
+              {approveStage === 'ops' ? (
+                <BikeLeaseSupplierAssign saleId={approveTarget.id} />
+              ) : approveStage === 'cfo' ? (
+                <BikeLeaseSupplierAssign saleId={approveTarget.id} locked />
+              ) : null}
 
               {approveStage === 'ops' ? (
                 <div className="space-y-1.5">
@@ -886,7 +891,12 @@ export function BikeLeaseApprovalQueue({
               Cancel
             </Button>
             <Button
-              disabled={approve.isPending || valuationNum < 100000 || (approveStage === 'cfo' && !approveSupplier)}
+              disabled={
+                approve.isPending ||
+                valuationNum < 100000 ||
+                (approveStage === 'ops' && !approveSupplier) ||
+                (approveStage === 'cfo' && !approveSupplier)
+              }
               onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, stage: approveStage })}
             >
               {approve.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}

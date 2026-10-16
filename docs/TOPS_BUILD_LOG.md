@@ -1362,3 +1362,31 @@ Real-data check, last 30 Kampala days (2026-09-16 to 2026-10-15), the function (
 | approved.amount | UGX 197,940,001 | UGX 197,940,001 |
 
 No writes to any table. Tests: `agentNetwork.test.ts`, `useAgentOpsNetworkOverview.test.tsx`, `AgentNetworkTab.test.tsx` and `e2e/agent-ops-network-tab.spec.ts` (chip after First 7 Days, shows the tab, a link with net parameters opens on it, typing in search leaves it, the new badges and CSV button).
+
+## 2026-10-16: Agent Ops metrics functions (totals, agents, locations, pins, main agents)
+
+Migration `20261016100000_agent_ops_metrics.sql` adds five read-only SECURITY DEFINER functions (`agent_ops_metrics_totals`, `_agents`, `_locations`, `_pins`, `_main_agents`) and three owner-only helpers (`_aom_allowed`, `_aom_scope`, `_aom_rows`). Nothing existing was altered, no table or index was added. Test: `supabase/tests/agent_ops_metrics.sql` (role gate for 6 allowed and 8 refused roles, a disabled role, no role, signed out, anon; argument errors; every figure recomputed straight from `house_listings`, `agent_listing_rejections`, `general_ledger`, `agent_advances`, `agent_subagents`; reconciliation of totals with every agent row, the three location levels and the teams; soft-deleted agents dropped). It reported all checks passing against the live database, rolled back.
+
+Real-data reconciliation, 2026-09-17 to 2026-10-16 (Kampala days), called as an agent_ops user:
+
+| figure | totals | sum of agent rows (scope all, paged by 200) | location sums (region / district / sub_county) | direct SQL |
+|---|---|---|---|---|
+| houses listed | 292 | 292 | 292 / 292 / 292 | 292 |
+| houses verified | 220 | 220 | 220 | 220 |
+| houses pending | 69 | 69 | 69 | 69 |
+| houses rejected (rejection rows in range) | 36 | 36 | n/a | 36 |
+| houses with GPS | 292 | n/a | 292 | 292 |
+| listers in range | 29 | n/a | n/a | 29 |
+| listing earned | UGX 1,752,000 | equal | n/a | equal (ledger) |
+| listing clawed back | UGX 64,000 | equal | n/a | equal (ledger) |
+| advances given | 5, UGX 9,300,000 | UGX 9,300,000 | n/a | equal |
+| advances outstanding / overdue (today) | UGX 59,086,791 / 282 advances, UGX 36,177,592 | n/a | n/a | equal |
+
+Location rows: 4 regions, 21 districts, 30 sub-counties. Agents: 770 qualifying, 456 have ever listed, 3,125 linked sub-agents, 59,160 users with the agent role.
+
+Things to know when reading the numbers:
+- Listed (292) is more than verified + pending (220 + 69 = 289): the 3 others are listings whose status is `rejected`. A listing is pending only when it is neither verified nor rejected. Rejected (36) counts rejection events in the range from `agent_listing_rejections`, which are not the same rows as listings created in the range.
+- The listing money is UGX 1.75m in the range from the ledger. The "about UGX 33.75m" quoted in the request does not match any ledger definition (all time, `agent_commission` from `house_listings` is UGX 69.8m and `agent_commission_earned` from `listing_bonus_approvals` is UGX 19.68m); it was not used.
+- Main agents: the first 200 teams (the page limit) hold 2,494 sub-agents, 254 of the 292 houses and UGX 1,620,000 of the earnings; the rest are on later pages.
+
+Slow-query recommendations (not applied, per the rules; indexing existing tables is for a separate, reviewed change): `house_listings (created_at)` and `house_listings (agent_id, created_at)` for the range scans; `general_ledger (category, source_table, created_at)` where the ledger is large; `agent_listing_rejections (rejected_at)`; `agent_advances (issued_at)`. At today's volumes the five functions ran in 96 to 1,378 ms (the totals and the all-scope list are the slowest).

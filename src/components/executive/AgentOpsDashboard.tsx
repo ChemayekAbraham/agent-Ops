@@ -66,6 +66,8 @@ import { First7DaysTab } from '@/components/executive/agent-ops/First7DaysTab';
 import { hasFirst7Params } from '@/lib/newTenantFirst7';
 import { AgentNetworkStandalone } from '@/components/executive/agent-ops-v2/AgentNetworkTab';
 import { hasNetworkParams } from '@/lib/agentNetwork';
+import { AgentMetricsStandalone } from '@/components/executive/agent-ops-v2/metrics/AgentMetricsTab';
+import { hasMetricsParams } from '@/lib/agentMetrics';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
 import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
@@ -311,7 +313,7 @@ const BUSINESS_AREAS: BusinessAreaItem[] = [
   },
 ];
 
-type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7' | 'network';
+type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7' | 'network' | 'metrics';
 
 const CATEGORIES: { id: CategoryId; label: string; count: number; icon?: typeof Sprout }[] = [
   { id: 'all', label: 'All', count: 14 },
@@ -322,6 +324,7 @@ const CATEGORIES: { id: CategoryId; label: string; count: number; icon?: typeof 
   { id: 'reports', label: 'Ranks & Reports', count: 1 },
   { id: 'first7', label: 'First 7 Days', count: 1, icon: Sprout },
   { id: 'network', label: 'Agent Network', count: 1, icon: Network },
+  { id: 'metrics', label: 'Metrics', count: 1, icon: BarChart3 },
 ];
 
 export function AgentOpsDashboard() {
@@ -341,7 +344,7 @@ export function AgentOpsDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   // A shared First 7 Days link (?f7from=... and so on) opens straight on that tab.
-  const [activeCategory, setActiveCategory] = useState<CategoryId>(() => (hasFirst7Params(searchParams) ? 'first7' : hasNetworkParams(searchParams) ? 'network' : 'all'));
+  const [activeCategory, setActiveCategory] = useState<CategoryId>(() => (hasFirst7Params(searchParams) ? 'first7' : hasNetworkParams(searchParams) ? 'network' : hasMetricsParams(searchParams) ? 'metrics' : 'all'));
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
@@ -749,6 +752,7 @@ export function AgentOpsDashboard() {
   // The First 7 Days tab replaces the business-area grid; typing in the search box goes back to search results.
   const showFirst7Tab = activeCategory === 'first7' && !searchQuery.trim();
   const showNetworkTab = activeCategory === 'network' && !searchQuery.trim();
+  const showMetricsTab = activeCategory === 'metrics' && !searchQuery.trim();
 
   // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
@@ -843,6 +847,8 @@ export function AgentOpsDashboard() {
         <First7DaysTab />
       ) : showNetworkTab ? (
         <AgentNetworkStandalone />
+      ) : showMetricsTab ? (
+        <AgentMetricsStandalone />
       ) : filteredBusinessAreas.length === 0 && matchingNavItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-border bg-card/60 text-center space-y-3">
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">

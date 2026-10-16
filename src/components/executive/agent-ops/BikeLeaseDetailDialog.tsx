@@ -25,6 +25,7 @@ import {
   Download,
 } from 'lucide-react';
 
+import { BikeLeaseSupplierAssign } from './BikeLeaseSupplierAssign';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -765,6 +766,13 @@ export function BikeLeaseDetailDialog({
               </div>
             </div>
           </div>
+
+          {/* COMPANY SUPPLIER (Agent Ops only; read-only for CFO; omitted for COO) */}
+          {isOps ? (
+            <BikeLeaseSupplierAssign saleId={order.id} />
+          ) : stage === 'cfo' ? (
+            <BikeLeaseSupplierAssign saleId={order.id} locked />
+          ) : null}
 
           {/* SECTION 2: REPAYMENT BREAKDOWN */}
           <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs overflow-hidden">
