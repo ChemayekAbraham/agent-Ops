@@ -172,6 +172,7 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
+import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -1268,6 +1269,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 <WeeklyChampionTeamDialog />
                 <TenantLocationCorrectionPopup agentId={user.id} />
                 <WeeklyStreakDialog />
+                {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
+                <SignatureRentRequestCard
+                  fullName={profile?.full_name}
+                  onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                />
                 {/* Add Tenant — major action taking up the biggest portion of the screen */}
                 <AgentPostRentRequestCard
                   restricted={isMerchant}
