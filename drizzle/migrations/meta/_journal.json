@@ -4124,6 +4124,48 @@
       "when": 1792137074188,
       "tag": "0588_landlord_payout_otp_recipient_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 589,
+      "version": "7",
+      "when": 1792140535573,
+      "tag": "0589_crm_in_app_communications",
+      "breakpoints": true
+    },
+    {
+      "idx": 590,
+      "version": "7",
+      "when": 1792140882632,
+      "tag": "0590_crm_communications_restrict_direct_writes",
+      "breakpoints": true
+    },
+    {
+      "idx": 591,
+      "version": "7",
+      "when": 1792141514089,
+      "tag": "0591_enable_bike_lease_recovery_cron",
+      "breakpoints": true
+    },
+    {
+      "idx": 592,
+      "version": "7",
+      "when": 1792141974107,
+      "tag": "0592_ops_tutorial_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 593,
+      "version": "7",
+      "when": 1792143859453,
+      "tag": "0593_renewal_waits_for_final_payout",
+      "breakpoints": true
+    },
+    {
+      "idx": 594,
+      "version": "7",
+      "when": 1792144973789,
+      "tag": "0594_landlord_float_budget_cap",
+      "breakpoints": true
     }
   ]
 }

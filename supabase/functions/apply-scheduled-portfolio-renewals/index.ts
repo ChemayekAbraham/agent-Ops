@@ -147,7 +147,14 @@ Deno.serve(async (req) => {
         );
         if (renewErr) throw renewErr;
         if ((res as any)?.skipped) {
-          skipped++;
+          // The RPC holds payout-mode renewals until the final Returns payout
+          // is credited; this row is retried every night until then.
+          if ((res as any)?.reason === "awaiting_final_payout") {
+            deferredForPayout++;
+            deferred.push({ portfolio_id: row.id, reason: "awaiting_final_payout", cycle_date: (res as any)?.cycle_date ?? "" });
+          } else {
+            skipped++;
+          }
           continue;
         }
         renewed++;

@@ -70,11 +70,17 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   const [pendingRole, setPendingRole] = useState<AppRole | null>(null);
   const navigate = useNavigate();
 
-  // Clear pendingRole when the active role matches it
+  // Clear pendingRole when the active role matches it, with a fallback timeout to avoid stuck state
   useEffect(() => {
-    if (pendingRole && role === pendingRole) {
+    if (!pendingRole) return;
+    if (role === pendingRole) {
       setPendingRole(null);
+      return;
     }
+    const timer = setTimeout(() => {
+      setPendingRole(null);
+    }, 2500);
+    return () => clearTimeout(timer);
   }, [role, pendingRole]);
 
   const handlePublicRoleSwitch = useCallback(async (newRole: AppRole) => {
@@ -95,8 +101,9 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
 
     // URL is the source of truth for which persona dashboard renders, so
     // every role switch (header dropdown, bottom switcher, etc.) must
-    // also update the address bar to the matching `/dashboard/{role}` slug.
-    navigate(roleToSlug(newRole), { replace: true });
+    // also update the address bar to the matching route.
+    const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+    navigate(targetRoute, { replace: true });
   }, [role, roles, pendingRole, switchRole, navigate]);
 
   const { profile } = useProfile();
@@ -336,7 +343,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
       signOut, 
       currentRole: cachedDisplayRole, 
       availableRoles: cachedRoles, 
-      onRoleChange: switchRole,
+      onRoleChange: handlePublicRoleSwitch,
       addRoleComponent: <AddRoleDialog availableRoles={cachedRoles} onAddRole={addRole} />
     };
 

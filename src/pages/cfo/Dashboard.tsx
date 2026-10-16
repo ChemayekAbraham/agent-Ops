@@ -115,6 +115,7 @@ import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
 import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
+import { LandlordFloatBudgetPanel } from '@/components/cfo/LandlordFloatBudgetPanel';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -206,6 +207,8 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'landlord-float-budget':
+        return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':
         return <RedemptionApprovalsPanel />;
       case 'cash-position':

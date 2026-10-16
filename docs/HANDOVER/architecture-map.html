@@ -2082,6 +2082,12 @@ Transaction Groups: 297,457
             </p>
           </div>
           <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Landlord float budget cap (doc 239, branch <code>dev/landlord-float-cap</code>, migration not yet applied)</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              The CFO sets a daily and weekly landlord float budget (<code>landlord_float_budgets</code>). The COO step (<code>partner_ops_approved → coo_approved</code>) only passes through <code>coo_approve_rent_requests</code>, inside the room left; a trigger refuses direct writes. With no budget for today, COO approvals stop. Over-cap requests need a CFO-approved miscellaneous ask. A CFO reject returns the request to the COO. Budget control only: no ledger postings.
+            </p>
+          </div>
+          <div class="detail-card">
             <div class="detail-card-title" style="color: #00d2ff;">Detectors and whether they actually run</div>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
               <li><code>detect_wallet_projection_drift</code>: <span style="color:#10b981">every 15 min</span> (cron <code>wallet-projection-drift</code>).</li>

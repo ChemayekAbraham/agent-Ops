@@ -104,7 +104,7 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
     setAnnouncement(`Switched to ${label} dashboard`);
     onRoleChange(role);
     // Sync URL with the new persona — URL is the source of truth.
-    navigate(roleToSlug(role));
+    navigate(roleDashboardRoutes[role] || roleToSlug(role));
 
     if (role === 'agent') {
       window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'home' }));

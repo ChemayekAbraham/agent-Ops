@@ -1,4 +1,13 @@
 # Tasks
+- [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
+- [x] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
+- [x] Run budget UI tests, project guards and desktop/phone checks; no live budget amounts saved.
+- [ ] Set today's and this week's landlord float budgets — waiting for the designated CFO to enter the approved amounts.
+- [x] Make CRM Broadcast visible; tests and guards pass.
+- [ ] Verify Broadcast publishing and acknowledgement end to end — blocked: the signed-in preview account lacks CRM publishing permission.
+- [x] Add protected CRM communications publishing, scheduling, versioning and audience checks; live RLS and revoked direct-write/TRUNCATE privileges verified.
+- [x] Add CRM editor/preview and shared recipient dialogs with cross-device acknowledgement; 25 tests, phone/desktop preview, mandatory-dialog queue and guards pass.
+- [ ] Verify CRM publish → recipient acknowledgement → cross-device readback with authorised accounts — blocked: injected account has neither CRM nor super-admin; own-account session mint failed. No messages published or money moved.
 - [x] Make the R&D weekly report editable using shared recorded updates; signed-in add/edit/reload and PDF download verified, ten R&D tests and all guards pass.
 - [x] Diagnose and fix Service Centre tenant-request Claim failures; four tests pass and signed-in location/server errors verified without claiming real requests or moving money.
 - [x] Update Landlord Ops principal recovery with disbursed-float comparison, three KPIs, fee breakdown dialog and table; verified signed-in live figures, Today/All time, dialog, phone-width graph, guards and three accounting tests; no money moved.

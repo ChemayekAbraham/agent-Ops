@@ -54,6 +54,16 @@ import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
+import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
+import {
+  fitsLandlordFloatBudget,
+  partitionByLandlordFloatRoom,
+  landlordFloatErrorText,
+  summarizeCooApproval,
+  type CooApprovalResult,
+} from '@/lib/landlordFloatBudget';
+import { LandlordFloatBudgetPosition, LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
+import { LandlordFloatMiscAction } from './LandlordFloatMiscAction';
 
 
 
@@ -249,6 +259,54 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     queryClient.invalidateQueries({ queryKey: ['rent-approval-counter-today'] });
   };
   const config = STAGE_CONFIG[stage];
+
+  // Landlord float budget cap. The COO step forwards to the CFO only inside the CFO's daily/weekly budget
+  // (coo_approve_rent_requests checks it under a lock; a direct status write is refused by trigger), and the CFO
+  // step returns requests to the COO instead of back to the agent, giving their amount back to the budget.
+  // landlordFloatBudget.data drives the budget bar / disabled approve buttons / over-budget banner (UI: Gemini);
+  // fitsLandlordFloatBudget(landlordFloatBudget.data, req.rent_amount) is the per-card check, presentation only.
+  const isCooStage = stage === 'partner_ops_approved';
+  const isCfoStage = stage === 'coo_approved';
+  const landlordFloatBudget = useLandlordFloatBudgetStatus({ enabled: isCooStage || isCfoStage });
+  const landlordFloatActions = useLandlordFloatBudgetActions();
+  const requestFitsLandlordFloatBudget = (req: { rent_amount?: number | null }) =>
+    fitsLandlordFloatBudget(landlordFloatBudget.data, req.rent_amount);
+
+  const toastCooApproval = (res: CooApprovalResult) => {
+    const s = summarizeCooApproval(res);
+    toast({ title: s.title, description: s.description, variant: s.variant });
+  };
+
+  /** COO step: one call for one or many requests; ones over the budget stay at the COO step. */
+  const approveAtCooStage = (ids: string[], note?: string) =>
+    landlordFloatActions.approveAtCoo.mutateAsync({ requestIds: ids, comment: note });
+
+  /**
+   * COO step: ask the CFO to approve requests above the budget, one reason each (min 10 characters).
+   * Wired for the "Request miscellaneous" action Gemini adds to over-budget cards.
+   */
+  const requestLandlordFloatMisc = async (items: { rentRequestId: string; reason: string }[]) => {
+    try {
+      const res = await landlordFloatActions.requestMisc.mutateAsync(items);
+      if (res.requested.length > 0) {
+        toast({
+          title: `Sent ${res.requested.length} miscellaneous request${res.requested.length === 1 ? '' : 's'} to the CFO`,
+          description: 'They stay at the COO step until the CFO approves them.',
+        });
+      }
+      if (res.skipped.length > 0) {
+        toast({
+          title: `${res.skipped.length} not sent`,
+          description: res.skipped[0]?.message || res.skipped[0]?.reason,
+          variant: 'destructive',
+        });
+      }
+      return res;
+    } catch (err) {
+      toast({ title: 'Could not send to the CFO', description: landlordFloatErrorText(err), variant: 'destructive' });
+      return null;
+    }
+  };
 
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [comment, setComment] = useState('');
@@ -675,6 +733,24 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         return;
       }
     }
+    // COO step: through the budget-aware RPC (a direct update is refused by the database).
+    if (isCooStage) {
+      setQuickProcessingId(req.id);
+      try {
+        const res = await approveAtCooStage([req.id]);
+        if (res.approved.length > 0) {
+          toast({ title: '✅ Approved', description: `${req.tenant_name} → CFO` });
+          invalidateAllPipelineQueries();
+        } else {
+          toastCooApproval(res);
+        }
+      } catch (err) {
+        toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
+      } finally {
+        setQuickProcessingId(null);
+      }
+      return;
+    }
     setQuickProcessingId(req.id);
     try {
       const statusChangedAt = new Date().toISOString();
@@ -1076,6 +1152,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         });
         if (floatErr) throw new Error(floatErr.message || 'Failed to fund agent float');
         if (floatRes?.error) throw new Error(floatRes.error);
+      } else if (isCooStage) {
+        // COO step: inside the landlord float budget only. Held or refused -> keep the sheet open, toast says why.
+        const res = await approveAtCooStage([selectedRequest.id], comment);
+        if (res.approved.length === 0) {
+          toastCooApproval(res);
+          return;
+        }
       } else {
         const updateData: any = {
           status: config.nextStatus,
@@ -1144,7 +1227,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         recordLandlordApprovalAudit(selectedRequest, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1160,22 +1243,56 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       return;
     }
 
+    // CFO step: the request goes back to the COO (not the agent) and its amount returns to the landlord float
+    // budget. The RPC stamps the CFO reviewer and the comment itself.
+    if (isCfoStage) {
+      setProcessing(true);
+      try {
+        const res = await landlordFloatActions.returnToCoo.mutateAsync({
+          requestIds: [selectedRequest.id],
+          reason: comment.trim(),
+        });
+        if (res.returned.length === 0) {
+          throw new Error(res.skipped[0]?.message || 'This rent request could not be returned to the COO');
+        }
+        toast({ title: 'Returned to the COO', description: 'Its amount is back in the landlord float budget.' });
+        setSelectedRequest(null);
+        setComment('');
+        invalidateAllPipelineQueries();
+      } catch (err) {
+        toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
     setProcessing(true);
     try {
-      const { error } = await supabase.rpc('return_rent_request_for_correction', {
-        p_request_id: selectedRequest.id,
-        p_stage: stage,
-        p_reason: comment.trim(),
-      });
-      if (error) throw error;
+      if (isCooStage) {
+        // return_rent_request_for_correction does not accept the COO step ("Invalid stage"); coo_return_rent_request
+        // does the same return and stamps the COO reviewer + comment itself.
+        const { error } = await supabase.rpc('coo_return_rent_request', {
+          p_request_id: selectedRequest.id,
+          p_reason: comment.trim(),
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.rpc('return_rent_request_for_correction', {
+          p_request_id: selectedRequest.id,
+          p_stage: stage,
+          p_reason: comment.trim(),
+        });
+        if (error) throw error;
 
-      // Stamp reviewer + stage-specific comment column for audit trail
-      const reviewerPatch: any = {
-        [config.reviewerColumn]: user.id,
-        [config.reviewerAtColumn]: new Date().toISOString(),
-      };
-      if (config.commentColumn) reviewerPatch[config.commentColumn] = comment.trim();
-      await supabase.from('rent_requests').update(reviewerPatch).eq('id', selectedRequest.id);
+        // Stamp reviewer + stage-specific comment column for audit trail
+        const reviewerPatch: any = {
+          [config.reviewerColumn]: user.id,
+          [config.reviewerAtColumn]: new Date().toISOString(),
+        };
+        if (config.commentColumn) reviewerPatch[config.commentColumn] = comment.trim();
+        await supabase.from('rent_requests').update(reviewerPatch).eq('id', selectedRequest.id);
+      }
 
       // ── Auto-WhatsApp the originating Agent with the rejection details ──
       // The agent's own WhatsApp number is used (their account phone). We
@@ -1227,6 +1344,26 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
     setProcessing(true);
+    // COO step: the whole selection in one budget-aware call, oldest first, so the budget goes to the requests
+    // that have waited longest. Requests that do not fit stay selected and at the COO step.
+    if (isCooStage) {
+      try {
+        const ordered = rows
+          .filter(r => selectedIds.has(r.id))
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .map(r => r.id);
+        const res = await approveAtCooStage(ordered.length ? ordered : [...selectedIds]);
+        toastCooApproval(res);
+        const moved = new Set(res.approved.map(a => a.id));
+        setSelectedIds(prev => new Set([...prev].filter(id => !moved.has(id))));
+        if (moved.size > 0) invalidateAllPipelineQueries();
+      } catch (err) {
+        toast({ title: 'Bulk approval error', description: landlordFloatErrorText(err), variant: 'destructive' });
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
     try {
       const ids = [...selectedIds];
       const failures: string[] = [];
@@ -1285,6 +1422,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       const failures: string[] = [];
       let rejected = 0;
       for (const id of ids) {
+        if (isCooStage) {
+          // Same as the single COO return: coo_return_rent_request stamps the reviewer + comment itself.
+          const { error } = await supabase.rpc('coo_return_rent_request', { p_request_id: id, p_reason: reason });
+          if (error) failures.push(error.message);
+          else rejected += 1;
+          continue;
+        }
         const { error } = await supabase.rpc('return_rent_request_for_correction', {
           p_request_id: id,
           p_stage: stage,
@@ -1342,7 +1486,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     });
   };
 
-  const isCooStage = stage === 'partner_ops_approved';
   // Agent Ops reviews the `pending` stage and clears the largest backlog, so it
   // gets the same bulk controls as the COO — plus bulk return-for-correction.
   const isAgentOpsStage = stage === 'pending';
@@ -1363,6 +1506,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   return (
     <div className="space-y-4">
+      {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
+      {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
       <RentApprovalMoneyCounter
         stage={stage}
         reviewerAtColumn={config.reviewerAtColumn}
@@ -1411,12 +1556,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
-                  disabled={processing}
+                  disabled={processing || (isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0)}
+                  title={isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
                   onClick={handleBulkApprove}
                 >
                   {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
                   Approve selected ({selectedIds.size})
                 </Button>
+                {isCooStage && <span className="text-xs text-muted-foreground">{partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length} of {selectedIds.size} will fit</span>}
               </div>
             </div>
           ) : (
@@ -2106,10 +2253,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
                     disabled={quickProcessingId === req.id}
                     className="h-8 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive active:scale-95 transition-all gap-1.5"
-                    title="Reject request"
+                    title={isCfoStage ? 'Return to COO' : 'Reject request'}
                   >
                     <XCircle className="h-3.5 w-3.5" />
-                    <span>Reject</span>
+                    <span>{isCfoStage ? 'Return to COO' : 'Reject'}</span>
                   </Button>
 
                   <Button
@@ -2128,9 +2275,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
-                      isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
+                      isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
                         ? `Complete the landlord verification checklist (${checklistDone}/2)`
@@ -2146,6 +2293,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <span>Approve</span>
                   </Button>
                 </div>
+                {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
               </div>
               );
             })}
@@ -2645,12 +2793,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   disabled={processing || !comment.trim()}
                 >
                   <XCircle className="h-4 w-4 mr-1" />
-                  Reject
+                  {isCfoStage ? 'Return to COO' : 'Reject'}
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => void handleApprove()}
-                  disabled={processing}
+                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest))}
+                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : undefined}
                   className="gap-1"
                 >
                   {processing ? (

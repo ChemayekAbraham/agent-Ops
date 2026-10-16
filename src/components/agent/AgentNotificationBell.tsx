@@ -6,6 +6,8 @@ import { ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
+import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
+import { NotificationDetailDialog, type NotificationDetail } from '@/components/agent/NotificationDetailDialog';
 import { cn } from '@/lib/utils';
 import { useNotificationPulse } from '@/hooks/useNotificationPulse';
 
@@ -38,6 +40,8 @@ export function AgentNotificationBell({
 }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<NotificationDetail | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const navigate = useNavigate();
   const { isPulsing, stopPulse } = useNotificationPulse(userId);
 
@@ -71,6 +75,8 @@ export function AgentNotificationBell({
   }, [userId]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
+  const { unread: commUnread } = useBellCommunications();
+  const badgeCount = unreadCount + commUnread;
 
   const markAsRead = async (id: string) => {
     await supabase.from('notifications').update({ is_read: true }).eq('id', id);
@@ -92,10 +98,23 @@ export function AgentNotificationBell({
     } else if (meta.kind === 'merchandise_recovery' || n.type === 'merchandise_recovery') {
       setOpen(false);
       navigate('/merchandise');
+    } else {
+      // Open the full-information dialog for every other notification.
+      setOpen(false);
+      setDetailItem({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        created_at: n.created_at,
+        metadata: n.metadata,
+      });
+      setDetailOpen(true);
     }
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) stopPulse(); }}>
       <PopoverTrigger asChild>
         <Button
@@ -109,12 +128,12 @@ export function AgentNotificationBell({
           )}
         >
           <Bell className={cn("h-5 w-5 text-current", isPulsing && "animate-bell-ring origin-top")} />
-          {unreadCount > 0 && (
+          {badgeCount > 0 && (
             <span className={cn(
               "absolute top-0 right-0 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-bold bg-destructive text-destructive-foreground rounded-full px-1",
               isPulsing && "animate-pulse",
             )}>
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {badgeCount > 9 ? '9+' : badgeCount}
             </span>
           )}
         </Button>
@@ -134,6 +153,7 @@ export function AgentNotificationBell({
           )}
         </div>
 
+        <CommunicationsBellSection onSelect={() => setOpen(false)} />
         <div className="max-h-[360px] overflow-y-auto px-2 pb-2 space-y-1">
           {notifications.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">No notifications yet</p>
@@ -178,6 +198,12 @@ export function AgentNotificationBell({
           )}
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+      <NotificationDetailDialog
+        notification={detailItem}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
+    </>
   );
 }

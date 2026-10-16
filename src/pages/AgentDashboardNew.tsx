@@ -4,6 +4,7 @@ import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -27,7 +28,8 @@ export default function AgentDashboardNew() {
   const handleRoleChange = useCallback((newRole: AppRole) => {
     if (!roles.includes(newRole)) return;
     switchRole(newRole);
-    navigate(roleToSlug(newRole), { replace: true });
+    const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+    navigate(targetRoute, { replace: true });
   }, [roles, switchRole, navigate]);
 
   return (
