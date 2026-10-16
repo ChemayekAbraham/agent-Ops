@@ -42,7 +42,7 @@ export function AgentNudgePreviewButton({ email }: { email?: string | null }) {
       onClick={show}
       className="fixed left-3 bottom-28 z-[60] rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-lg"
     >
-      Preview nudge ({(idx.current % SAMPLES.length) + 1}/{SAMPLES.length})
+      Preview nudge ({(i % SAMPLES.length) + 1}/{SAMPLES.length})
     </button>
   );
 }
