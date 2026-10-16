@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { capabilities } from '@/ops-tutorials/api';
 import LibraryTab from '@/ops-tutorials/tabs/LibraryTab';
 import MyVideosTab from '@/ops-tutorials/tabs/MyVideosTab';
+import ReviewTab, { DefaultTabOnce } from '@/ops-tutorials/tabs/ReviewTab';
+import SettingsTab from '@/ops-tutorials/tabs/SettingsTab';
 
 interface Caps { is_staff?: boolean; is_creator?: boolean; is_reviewer?: boolean; is_admin?: boolean }
 
@@ -33,11 +35,14 @@ export default function Tutorials() {
           <TabsList className="flex w-full flex-wrap h-auto justify-start">
             <TabsTrigger value="library">Library</TabsTrigger>
             {caps?.is_creator && <TabsTrigger value="mine">My videos</TabsTrigger>}
-            {/* TUT-10 tab triggers */}
+            {caps?.is_reviewer && <TabsTrigger value="review">Review</TabsTrigger>}
+            {caps?.is_admin && <TabsTrigger value="settings">Settings</TabsTrigger>}
+            {caps?.is_reviewer && !caps?.is_creator && <DefaultTabOnce value="review" onSet={setTab} />}
           </TabsList>
           <TabsContent value="library" className="mt-4"><LibraryTab /></TabsContent>
           {caps?.is_creator && <TabsContent value="mine" className="mt-4"><MyVideosTab /></TabsContent>}
-          {/* TUT-10 tab contents */}
+          {caps?.is_reviewer && <TabsContent value="review" className="mt-4"><ReviewTab /></TabsContent>}
+          {caps?.is_admin && <TabsContent value="settings" className="mt-4"><SettingsTab /></TabsContent>}
         </Tabs>
       )}
     </PersonalLayout>
