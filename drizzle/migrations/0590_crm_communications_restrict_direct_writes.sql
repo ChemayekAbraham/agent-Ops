@@ -1,0 +1,3 @@
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.crm_communications, public.crm_communication_receipts, public.crm_communication_events FROM authenticated, anon;
+REVOKE ALL ON FUNCTION public.crm_communication_append_only(), public.crm_communication_content_guard() FROM authenticated, anon, PUBLIC;
+COMMENT ON TABLE public.crm_communications IS 'Versioned in-app CRM communications; publication and withdrawal are only through server-authorised RPCs. Direct client writes and TRUNCATE are denied.';

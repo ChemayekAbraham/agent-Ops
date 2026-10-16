@@ -27,6 +27,7 @@ const UserBehaviourAnalyticsPanel = lazyNamed(() => import('@/components/executi
 const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/TenantCampaignPanel'), 'TenantCampaignPanel');
 const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
 const AssistantConversationsPanel = lazyNamed(() => import('@/components/executive/crm/AssistantConversationsPanel'), 'AssistantConversationsPanel');
+const CommunicationManager = lazy(() => import('@/components/communications/CommunicationManager'));
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -70,6 +71,8 @@ export default function CRMDashboardPage() {
     }
 
     switch (activeTab) {
+      case 'in-app-communications':
+        return <Suspense fallback={<PanelFallback />}><CommunicationManager /></Suspense>;
       case 'requisitions':
         return <RequisitionsWorkspace />;
       // Pre-queue ids. Bookmarks, ?section= deep links and persisted tabs from
