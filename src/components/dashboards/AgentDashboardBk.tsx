@@ -1269,6 +1269,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 <WeeklyChampionTeamDialog />
                 <TenantLocationCorrectionPopup agentId={user.id} />
                 <WeeklyStreakDialog />
+                {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
+                <SignatureRentRequestCard
+                  fullName={profile?.full_name}
+                  onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                />
                 {/* Add Tenant — major action taking up the biggest portion of the screen */}
                 <AgentPostRentRequestCard
                   restricted={isMerchant}
