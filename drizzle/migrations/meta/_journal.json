@@ -4194,6 +4194,13 @@
       "when": 1792147857118,
       "tag": "0598_ops_tutorials_storage_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 599,
+      "version": "7",
+      "when": 1792147982974,
+      "tag": "0599_ops_tutorial_creator_functions",
+      "breakpoints": true
     }
   ]
 }
