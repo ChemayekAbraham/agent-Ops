@@ -4201,6 +4201,13 @@
       "when": 1792147982974,
       "tag": "0599_ops_tutorial_creator_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 600,
+      "version": "7",
+      "when": 1792148166246,
+      "tag": "0600_ops_tutorial_tighten_privileges_mp4",
+      "breakpoints": true
     }
   ]
 }
