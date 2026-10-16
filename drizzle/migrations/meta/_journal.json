@@ -4222,6 +4222,13 @@
       "when": 1792149063237,
       "tag": "0602_ops_tutorial_claim_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 603,
+      "version": "7",
+      "when": 1792153795673,
+      "tag": "0603_migration",
+      "breakpoints": true
     }
   ]
 }
