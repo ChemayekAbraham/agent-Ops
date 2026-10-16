@@ -62789,7 +62789,9 @@ export type Database = {
       }
       _aom_scope: {
         Args: { p_end: string; p_scope: string; p_start: string }
-        Returns: { id: string }[]
+        Returns: {
+          id: string
+        }[]
       }
       _budget_supplement_log: {
         Args: {
@@ -63785,7 +63787,12 @@ export type Database = {
         }[]
       }
       agent_ops_metrics_main_agents: {
-        Args: { p_end: string; p_limit?: number; p_offset?: number; p_start: string }
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
         Returns: {
           main_agent_id: string
           name: string
