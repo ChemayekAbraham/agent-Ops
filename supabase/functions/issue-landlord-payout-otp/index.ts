@@ -429,6 +429,7 @@ Deno.serve(async (req) => {
           primary_provider: resent.primaryProvider ?? null,
           primary_reason: resent.primaryReason ?? null,
           delivery_status: resent.ok ? "submitted" : "failed",
+          otp_recipient_phone: resendRecipient,
         },
       });
       return json({ success: true, challenge_id, expires_at: otp_expires_at, attempt_number: attemptNumber, sms_sent: resent.ok, sms_reason: resent.reason ?? null });
