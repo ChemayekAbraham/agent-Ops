@@ -4152,6 +4152,13 @@
       "when": 1792141974107,
       "tag": "0592_ops_tutorial_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 593,
+      "version": "7",
+      "when": 1792143859453,
+      "tag": "0593_renewal_waits_for_final_payout",
+      "breakpoints": true
     }
   ]
 }
