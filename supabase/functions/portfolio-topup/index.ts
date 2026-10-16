@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { topupHoldEntries, topupHoldKey } from "../_shared/topupFloatHold.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,38 +88,51 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch user wallet with optimistic lock
-    const { data: wallet, error: wErr } = await supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", user.id)
-      .single();
-
-    if (wErr || !wallet) {
-      return new Response(JSON.stringify({ error: "Wallet not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Funding source = OPERATIONAL FLOAT (never withdrawable), same as new
+    // portfolios in create-portfolio-invite. funder_float_available already
+    // nets out float earmarked for pending new portfolios.
+    const { data: floatAvailRaw, error: availErr } = await supabase.rpc("funder_float_available", {
+      p_user_id: user.id,
+    });
+    if (availErr) {
+      console.error("[portfolio-topup] float balance lookup failed:", availErr);
+      return new Response(JSON.stringify({ error: "Could not verify your operational float. Please retry." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const currentBalance = Number(wallet.balance);
-    if (currentBalance < topupAmount) {
-      return new Response(JSON.stringify({ error: "Insufficient wallet balance" }), {
+    const floatAvail = Number(floatAvailRaw ?? 0);
+    if (floatAvail < topupAmount) {
+      return new Response(JSON.stringify({
+        error: `Insufficient operational float. Need UGX ${topupAmount.toLocaleString()}, but only UGX ${floatAvail.toLocaleString()} is available.`,
+      }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const opId = crypto.randomUUID();
     const txGroupId = crypto.randomUUID();
     const accountLabel = portfolio.account_name || portfolio.portfolio_code;
+    const partnerId = portfolio.investor_id || portfolio.agent_id || user.id;
     const now = new Date().toISOString();
+    const holdKey = topupHoldKey(opId);
 
-    // ── REQUEST-ONLY FLOW ──
-    // Wallet → portfolio transfers no longer move real funds instantly.
-    // We record a REQUEST for Partner Ops in `awaiting_verification` and
-    // create NO ledger entry here, so the partner's wallet is NOT debited.
-    // The funds only leave the wallet when Partner Ops approves via
-    // `approve-portfolio-topup`, which performs the actual wallet debit
-    // at approval time (re-validating the balance first).
+    // ── HOLD-AT-REQUEST FLOW ──
+    // The top-up amount leaves the partner's operational float NOW and is
+    // parked as pending capital, so it cannot be spent while it waits.
+    // Partner Ops still approves; the 7pm engine applies it after the next
+    // Returns payout. Reject/cancel return it to float.
+    // 1. Record the request first (float_hold: pending) so a held amount
+    //    always has an op pointing at it.
+    const baseMeta = {
+      fund_source: "float",
+      source_wallet_user_id: user.id,
+      source_wallet_owner: "Operational Float",
+      requested_at: now,
+      requested_float_available: floatAvail,
+      hold_idempotency_key: holdKey,
+    };
     const { error: pendingErr } = await supabase.from("pending_wallet_operations").insert({
+      id: opId,
       user_id: user.id,
       amount: topupAmount,
       direction: "cash_in",
@@ -126,18 +140,11 @@ Deno.serve(async (req) => {
       source_table: "investor_portfolios",
       source_id: portfolio_id,
       transaction_group_id: txGroupId,
-      description: `Wallet-to-portfolio transfer request for ${accountLabel} — awaiting Partner Ops approval`,
+      description: `Wallet-to-portfolio top-up for ${accountLabel} — held from operational float, awaiting Partner Ops approval`,
       linked_party: "platform",
-      // `awaiting_verification` — surfaces in the Partner Ops / Financial Ops
-      // verification queue. NO money has moved yet.
       status: "awaiting_verification",
       operation_type: "portfolio_topup",
-      metadata: {
-        fund_source: "wallet",
-        requires_wallet_debit: true,
-        requested_at: now,
-        requested_wallet_balance: currentBalance,
-      },
+      metadata: { ...baseMeta, float_hold: "pending" },
     });
 
     if (pendingErr) {
@@ -147,9 +154,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    // NO ledger entry, NO wallet deduction, NO principal bump here.
-    // Real funds stay in the partner's wallet until Partner Ops approves.
-    console.log(`[portfolio-topup] User ${user.id} submitted wallet→portfolio transfer request of ${topupAmount} for ${portfolio_id} — awaiting Partner Ops approval (no funds moved)`);
+    // 2. Take the hold. Float debits get no balance check inside
+    //    create_ledger_transaction (it only checks withdrawable), so the
+    //    funder_float_available check above is the gate.
+    const { data: holdGroupId, error: holdErr } = await supabase.rpc("create_ledger_transaction", {
+      idempotency_key: holdKey,
+      entries: topupHoldEntries({
+        walletUserId: user.id,
+        partnerId,
+        amount: topupAmount,
+        portfolioId: portfolio_id,
+        portfolioCode: portfolio.portfolio_code,
+        label: accountLabel,
+      }),
+    });
+
+    if (holdErr) {
+      console.error("[portfolio-topup] float hold failed:", holdErr);
+      await supabase
+        .from("pending_wallet_operations")
+        .update({
+          status: "cancelled",
+          rejection_reason: "Operational float hold failed — no funds moved",
+          metadata: { ...baseMeta, float_hold: "failed", hold_error: holdErr.message },
+        })
+        .eq("id", opId);
+      return new Response(JSON.stringify({ error: "Could not hold the top-up from your operational float. No funds moved." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    await supabase
+      .from("pending_wallet_operations")
+      .update({ metadata: { ...baseMeta, float_hold: "held", hold_group_id: holdGroupId, held_at: now } })
+      .eq("id", opId);
+
+    await supabase.rpc("repair_wallet_cache_for_user", { p_user_id: user.id }).then(
+      ({ error }: any) => { if (error) console.warn("[portfolio-topup] wallet cache repair failed (cron will reconcile):", error); },
+    );
+
+    console.log(`[portfolio-topup] User ${user.id} top-up of ${topupAmount} for ${portfolio_id} — held from operational float (op ${opId}), awaiting Partner Ops approval`);
 
     // Log system event
     logSystemEvent(supabase, 'portfolio_topup', user.id, 'investor_portfolios', portfolio_id, { amount: topupAmount, portfolio_code: portfolio.portfolio_code });
@@ -168,23 +212,24 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
       body: JSON.stringify({
         userIds: [user.id],
-        payload: { title: "📤 Transfer Request Submitted", body: `Your UGX ${topupAmount.toLocaleString()} wallet→portfolio transfer is awaiting Partner Ops approval. No funds have left your wallet yet.`, url: "/dashboard/funder", type: "info" },
+        payload: { title: "📤 Transfer Request Submitted", body: `UGX ${topupAmount.toLocaleString()} has been set aside from your operational float for your portfolio top-up. It is awaiting Partner Ops approval and returns to your float if declined.`, url: "/dashboard/funder", type: "info" },
       }),
     }).catch(() => {});
 
 
     // NOTE: The partnership top-up CONFIRMATION email is intentionally NOT sent
-    // here. Funds have not moved yet — the confirmation email is dispatched by
-    // `approve-portfolio-topup` once Partner Ops approves the transfer.
+    // here — it is dispatched by `approve-portfolio-topup` once Partner Ops
+    // approves the transfer.
 
     return new Response(JSON.stringify({
       success: true,
       amount: topupAmount,
       status: "awaiting_approval",
       requested: true,
+      held: true,
       current_capital: Number(portfolio.investment_amount),
       portfolio_code: portfolio.portfolio_code,
-      message: "Transfer request submitted to Partner Ops. Funds stay in your wallet until approved.",
+      message: "Top-up submitted. The amount is held from your operational float until Partner Ops approves it, and returns to your float if declined.",
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
