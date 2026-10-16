@@ -76457,6 +76457,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      ops_tutorial_approver_watch_status: {
+        Args: { p_requisition_id: string }
+        Returns: {
+          started_count: number
+          video_count: number
+        }[]
+      }
       ops_tutorial_can_view_claim: {
         Args: { _claim_id: string }
         Returns: boolean
@@ -76464,6 +76471,56 @@ export type Database = {
       ops_tutorial_can_view_video: {
         Args: { _video_id: string }
         Returns: boolean
+      }
+      ops_tutorial_claim_cancel: {
+        Args: { p_claim_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_claim_for_requisition: {
+        Args: { p_requisition_id: string }
+        Returns: {
+          claim_code: string
+          claim_id: string
+          requisition_amount: number
+          total_amount: number
+          videos: Json
+        }[]
+      }
+      ops_tutorial_claim_link: { Args: { p_claim_id: string }; Returns: string }
+      ops_tutorial_claim_prepare: {
+        Args: { p_video_ids: string[] }
+        Returns: {
+          claim_code: string
+          claim_id: string
+          req_reason: string
+          req_title: string
+          total_amount: number
+        }[]
+      }
+      ops_tutorial_claim_release: {
+        Args: { p_claim_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_claims_list: {
+        Args: never
+        Returns: {
+          claim_code: string
+          claim_id: string
+          created_at: string
+          creator_id: string
+          credited_at: string
+          rejection_reason: string
+          req_amount: number
+          req_approved_amount: number
+          req_stage: string
+          requisition_code: string
+          requisition_id: string
+          status: string
+          total_amount: number
+          video_count: number
+          video_ids: string[]
+          wallet_credit_status: string
+        }[]
       }
       ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
       ops_tutorial_log_view: {
