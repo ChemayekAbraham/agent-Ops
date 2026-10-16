@@ -1416,3 +1416,50 @@ Not verified:
 - A physical phone and the Lovable preview: only Chromium at 380px and 1280px against the local dev server.
 - `tsc`: one error, in `RentApprovalMoneyCounter.tsx` (`rent_amount`, from commit c07e9fd5b7 or the one before it), not in the Metrics files.
 - Full `vitest run`: failures in files that do not import any Metrics code (payoutCardAggregatedTotals, subAgentCommissionCopy, RoleGating, AgentRentRequestDialog.undo, PromissoryNoteName, walletMovementSummary.readonly, fleetCollected, ExecutiveDashboardLayout.nesting, SendMoneyDialog, useAuthFormLoginPerf, and others); they fail the same way run alone, and were left alone as unrelated.
+
+## 2026-10-16: Agent Ops Metrics, listing quality and risk
+
+Migration `20261016190000_agent_ops_metrics_quality_risk.sql` adds two read-only SECURITY DEFINER functions, `agent_ops_metrics_listing_quality(p_start, p_end, p_limit, p_offset)` and `agent_ops_metrics_risk(p_start, p_end, p_limit, p_offset)`, both returning jsonb, built on the existing `_aom_allowed` / `_aom_rows` helpers (so the money rules, Kampala days and deleted-account exclusion are the ones of the first migration). The five existing functions were not touched. Test: `supabase/tests/agent_ops_metrics_quality_risk.sql` (45 checks, all passing live, rolled back). Rollback file and types added; one rule in `supabase/AGENTS.md`. UI: Listings card gains Currently rejected, listing quality figures and Waiting longest; Listing earnings gains Top earners; Main agents gains "Team owes most"; Activity is now inactive listers and sub-agents who never listed; new Risk card (appended to saved card orders); popover updated. Every figure, ratio and flag is shown as the server returns it.
+
+Live reconciliation, last 30 Kampala days (2026-09-17 to 2026-10-16), as an agent_ops user, read-only and rolled back:
+
+| figure | function | direct SQL / existing totals |
+|---|---|---|
+| houses listed | 307 | 307 (direct) and 307 (totals) |
+| verified + pending + currently rejected | 235 + 69 + 3 = 307 | = houses listed, by construction and checked per agent row |
+| currently rejected (listing status) | 3 | 3 (direct). Rejection events in the same dates: 36 (existing totals). Two different counts, both shown. |
+| occupied + empty | 0 + 307 | 307 (direct) |
+| waiting for verification today (any date) | 2,026 | 2,026 (direct); oldest first, the first row is the oldest pending house |
+| agents in the quality rows | 29 (paged by 200, each once) | rows add up to the network row for houses, verified, pending, currently rejected, occupied, empty |
+| listing earnings, everyone | UGX 1,864,000 | = existing totals |
+| listing earnings, agents in the rows | UGX 1,790,000 | = sum of the rows; the rest was earned by agents who listed nothing in the dates |
+| approval rate, days to verify, earnings per verified house | computed by the server | equal to the direct figures |
+| advance with no listing | 320 agents, UGX 57,002,116.28 | equal to direct SQL |
+| agents owing / amount | 322, UGX 57,941,492.28 | equal to direct SQL and to the existing totals' advances outstanding |
+| flags | no earnings 321, high 1, watch 0, low 0 | add up to the agents owing; thresholds and ratio checked on every row |
+| inactive listers / never-listed sub-agents | 427 / 2,695 | equal to direct SQL |
+| main agents owing / amount | 82, UGX 30,969,197.78 | equal to direct SQL; the top team equals the direct figure |
+
+Findings to know about:
+- `house_listings.tenant_id` is set on 6 of 9,798 houses and on none of the houses listed in the last 30 days, so Occupied is 0 and Empty equals houses listed. The spec asked for `tenant_id`, so that is what is used; four houses have status `occupied`. Whether tenant placement is recorded somewhere else is a question for the owners of the house flow, not decided here.
+- The risk ratio compares today's advance outstanding with listing earnings of the chosen dates only. With a 30-day range 321 of 322 owing agents have no listing earnings, so the flag is almost entirely "no listing earnings". The thresholds (high at 3x or more, watch from 1x to 3x) are my choice and are written in the migration header and the popover; Agent Ops should confirm them.
+- Timing at today's volumes: listing quality 833 ms and risk 1,096 ms for 30 days (both call `_aom_rows(..., 'all')`, about 3,500 people). No index was added. Suggestions, not applied: `house_listings (agent_id, created_at)` and `house_listings (verified, status, created_at)` for the waiting queue, and `agent_advances (status, agent_id)` for the outstanding sums.
+- Map: `agent_ops_metrics_pins` already allows up to 2,000 pins per call, so the page now asks for 2,000 (it was 500) and says "the first 2,000; zoom in" when the cap is reached. Not checked with a real map.
+
+Decision needed from Agent Ops / Finance (not changed here): the Metrics advances outstanding is the full book. It includes advances repaid from Returns (3 advances, UGX 10,206,012 at the last check), which the Advance Repayment Monitor leaves out. Please choose which figure the Metrics Advances and Risk cards should show: (a) the full book as now, or (b) the Advance Repayment Monitor figure (wallet-recovered advances only). Until then the popover tells readers the two can differ.
+
+Not verified: the real Google map and pins, mouse drag reordering (buttons are tested), a physical phone, the Lovable preview. Tested: unit, hook and component tests, and the e2e spec at 380px and 1280px against mocked answers.
+
+## 2026-10-16: Tenant Ops summary, all-time rent request cards
+
+Migration `20261016200000_tenant_ops_rent_request_lifetime.sql` adds one read-only SECURITY DEFINER function, `tenant_ops_rent_request_lifetime()` (jsonb, no arguments, no dates), with the same role check as `ops_tenant_ops_home_range`. Nothing existing was changed. Test: `supabase/tests/tenant_ops_rent_request_lifetime.sql` (role gate, every figure against direct SQL, the buckets adding up to financed, and the 30-day boundary by simulation). Two cards on the Tenant Ops summary ("Rent request journey" and "Financed: repayment outcome", both badged "All time") read it through `useTenantOpsRentLifetime` (5 minute cache, no dates), so the page's date filter cannot reach them.
+
+Live check on 2026-10-16 (the function called as an operations user, 43 ms): submitted 6,577; funded 1,742; financed 1,329; full 489, partial 773, never paid 22, too early 45 (sum 1,329); financed but now closed 6; funded but not financed 415; total repayment UGX 1,007,310,368 and repaid UGX 614,908,410 over the financed (61%). Waiting at Service Centre 3,786, pending 22, rejected 668, withdrawn by agent 172, cancelled 44. Funnel (requests that cleared the stage or a later one): Service Centre 2,540, Agent Ops 2,152, Tenant Ops 1,976, Landlord Ops 1,906, Partner Ops 1,902, Executive 1,855, Funded 1,744, Financed 1,329.
+
+Things to know:
+- The expected "never paid about 23" came out as 22 (and too early 45): the 30-day line moves every day, so one request is on either side of it depending on the hour.
+- The Funded row of the funnel is 1,744 while `funded` is 1,742: two financed requests have a landlord payment but no `funded_at`; a financed request always counts as having cleared Funded. Both figures are shown as the server returns them.
+- The Service Centre row only counts requests that cleared it by status or evidence; many older Rent Plans never went through a Service Centre review (only 387 of 969 repaying plans have a Service Centre review stamp), so they are counted by their later status. The funnel is therefore "cleared this stage or a later one", not "passed a Service Centre review".
+- Ended requests are placed by their latest `*_reviewed_at` as the stage that ended them (cleared = that stage minus 1). `rejected_at_stage` also exists on `rent_requests` (set on about half of the ended requests) and was not used because the spec asked for the review stamps; it would be a better source if Tenant Ops agrees.
+- The role check is `is_ops_role` (manager, super_admin, coo, operations) or manager, super_admin, cto, ceo, coo, exactly as `ops_tenant_ops_home_range`: a user who only holds the `tenant_ops` role is refused by both functions.
+- Not verified: the cards against the real signed-in page (the e2e runs answer the function from a fixed payload at 1280px and 380px, and show the figures unchanged while the date filter moves through Last 5 days, This year and Today with the function called once); a physical phone; the Lovable preview.

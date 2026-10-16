@@ -74,6 +74,7 @@ Deno.serve(async (req) => {
     // would either double-submit or, thanks to submit_withdrawal_request's
     // own client_request_id uniqueness, harmlessly no-op — but we can just
     // answer directly without a second RPC round-trip).
+    let resubmitVerified = false;
     if (ch.status === "verified") {
       if (ch.resulting_withdrawal_id) {
         const { data: wr } = await admin
@@ -88,23 +89,37 @@ Deno.serve(async (req) => {
           payout_code: wr?.payout_code ?? null,
         });
       }
-      return json({ success: true, code: "already_verified", request_id: null });
+      // Verified but no withdrawal row: the earlier submit was rejected (e.g.
+      // payout_account_locked) or failed. That is NOT a success — answering
+      // success with request_id null made the app show "Payment Pending" for a
+      // withdrawal that never existed (Nabukenya Hellen, 2026-10-15). Inside the
+      // challenge's validity window, re-run the submit below with the already
+      // proven OTP; submit_withdrawal_request is idempotent on client_request_id.
+      if (new Date(ch.otp_expires_at).getTime() < Date.now()) {
+        return json({ error: "Verification expired. Request a new code." }, 400);
+      }
+      resubmitVerified = true;
     }
-    if (ch.status !== "pending") {
+    if (!resubmitVerified && ch.status !== "pending") {
       return json({ error: `Challenge already ${ch.status}` }, 400);
     }
-    if (new Date(ch.otp_expires_at).getTime() < Date.now()) {
+    if (!resubmitVerified && new Date(ch.otp_expires_at).getTime() < Date.now()) {
       await admin.from("wallet_withdrawal_otp_challenges").update({ status: "expired" }).eq("id", challenge_id);
       await logEvent(admin, challenge_id, userId, { event_type: "failed", failure_reason: "expired" });
       return json({ error: "OTP expired. Request a new code." }, 400);
     }
-    if (ch.attempts >= ch.max_attempts) {
+    if (!resubmitVerified && ch.attempts >= ch.max_attempts) {
       await admin.from("wallet_withdrawal_otp_challenges").update({ status: "failed" }).eq("id", challenge_id);
       await logEvent(admin, challenge_id, userId, { event_type: "failed", failure_reason: "too_many_attempts" });
       return json({ error: "Too many attempts. Request a new code." }, 400);
     }
 
     const submittedHash = await sha256(String(otp));
+    // A re-submit of an already-verified challenge still requires the correct
+    // code — it is only the "mark verified" step that is skipped.
+    if (submittedHash !== ch.otp_hash && resubmitVerified) {
+      return json({ error: "Incorrect code" }, 400);
+    }
     if (submittedHash !== ch.otp_hash) {
       const newAttempts = ch.attempts + 1;
       const exhausted = newAttempts >= ch.max_attempts;
@@ -128,12 +143,14 @@ Deno.serve(async (req) => {
     // inside submit_withdrawal_request exactly as if the user had called it
     // directly, and every one of its own checks (balance, format, payout
     // destination verification) still applies in full.
-    const verified_at = new Date().toISOString();
-    await admin
-      .from("wallet_withdrawal_otp_challenges")
-      .update({ status: "verified", verified_at })
-      .eq("id", challenge_id);
-    await logEvent(admin, challenge_id, userId, { event_type: "verified" });
+    if (!resubmitVerified) {
+      const verified_at = new Date().toISOString();
+      await admin
+        .from("wallet_withdrawal_otp_challenges")
+        .update({ status: "verified", verified_at })
+        .eq("id", challenge_id);
+      await logEvent(admin, challenge_id, userId, { event_type: "verified" });
+    }
 
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },

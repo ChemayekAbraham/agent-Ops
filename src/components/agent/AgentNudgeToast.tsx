@@ -49,6 +49,20 @@ function playChime(tone: string) {
   }
 }
 
+/** Wraps digits/amounts so they stand out in the system colour. */
+function renderWithNumbers(text: string) {
+  const parts = text.split(/(#[0-9]+|\d[\d,]*(?:\.\d+)?)/g);
+  return parts.map((part, i) =>
+    /^(#[0-9]+|\d[\d,]*(?:\.\d+)?)$/.test(part) ? (
+      <span key={i} className="font-bold text-primary">
+        {part}
+      </span>
+    ) : (
+      part
+    )
+  );
+}
+
 /** Simple, calm nudge toast: plain card, text only. */
 export function AgentNudgeToast({ nudge, ctaLabel, onCta, onClose }: Props) {
   useEffect(() => {
@@ -58,10 +72,12 @@ export function AgentNudgeToast({ nudge, ctaLabel, onCta, onClose }: Props) {
   return (
     <div
       role="status"
-      className="relative w-[calc(100vw-2rem)] max-w-[420px] rounded-lg border border-border bg-card p-3 pr-9 text-card-foreground shadow-md"
+      className="relative w-[calc(100vw-2rem)] max-w-[420px] rounded-lg border-2 border-primary/70 bg-card p-3 pr-9 text-card-foreground shadow-md"
     >
-      <p className="text-sm font-semibold leading-tight">{nudge.title}</p>
-      <p className="mt-1 text-sm leading-snug text-muted-foreground">{nudge.body}</p>
+      <p className="text-sm font-bold leading-tight">{renderWithNumbers(nudge.title)}</p>
+      <p className="mt-1 text-sm font-semibold leading-snug text-muted-foreground">
+        {renderWithNumbers(nudge.body)}
+      </p>
       {SHOW_CTA && ctaLabel && onCta && (
         <button
           type="button"

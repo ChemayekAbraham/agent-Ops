@@ -145,6 +145,157 @@ export const normalizeMainAgents = (raw: unknown): MetricsMainAgent[] => rows(ra
   team_advances_outstanding: num(r.team_advances_outstanding), total_matched: num(r.total_matched),
 }));
 
+
+// ---------- listing quality and risk (agent_ops_metrics_listing_quality / agent_ops_metrics_risk, both return jsonb) ----------
+
+const numOrNull = (v: unknown): number | null => (v == null || v === '' ? null : num(v));
+
+export interface QualityNetwork {
+  as_at: string;
+  range_start: string;
+  range_end: string;
+  basis: string;
+  agents: number;
+  houses_listed: number;
+  houses_verified: number;
+  houses_pending: number;
+  houses_currently_rejected: number;
+  rejection_events: number;
+  occupied: number;
+  empty: number;
+  approval_rate: number | null;
+  avg_days_to_verify: number | null;
+  listing_earned: number;
+  listing_earned_listers: number;
+  earn_per_approved: number | null;
+  waiting_total: number;
+  oldest_waiting_days: number | null;
+}
+
+export interface QualityAgent {
+  agent_id: string;
+  name: string;
+  phone: string | null;
+  houses_listed: number;
+  houses_verified: number;
+  houses_pending: number;
+  houses_currently_rejected: number;
+  approval_rate: number | null;
+  avg_days_to_verify: number | null;
+  occupied: number;
+  empty: number;
+  listing_earned: number;
+  earn_per_approved: number | null;
+}
+
+export interface WaitingRow {
+  listing_id: string;
+  agent_id: string;
+  agent_name: string;
+  phone: string | null;
+  district: string | null;
+  listed_at: string;
+  days_waiting: number;
+}
+
+export interface ListingQuality { network: QualityNetwork; agents: QualityAgent[]; waiting: WaitingRow[] }
+
+export function normalizeQuality(raw: unknown): ListingQuality {
+  const r = obj(Array.isArray(raw) ? raw[0] : raw);
+  const n = obj(r.network);
+  return {
+    network: {
+      as_at: str(n.as_at), range_start: str(n.range_start), range_end: str(n.range_end), basis: str(n.basis), agents: num(n.agents),
+      houses_listed: num(n.houses_listed), houses_verified: num(n.houses_verified), houses_pending: num(n.houses_pending),
+      houses_currently_rejected: num(n.houses_currently_rejected), rejection_events: num(n.rejection_events),
+      occupied: num(n.occupied), empty: num(n.empty), approval_rate: numOrNull(n.approval_rate), avg_days_to_verify: numOrNull(n.avg_days_to_verify),
+      listing_earned: num(n.listing_earned), listing_earned_listers: num(n.listing_earned_listers), earn_per_approved: numOrNull(n.earn_per_approved),
+      waiting_total: num(n.waiting_total), oldest_waiting_days: numOrNull(n.oldest_waiting_days),
+    },
+    agents: rows(r.agents).map((a) => ({
+      agent_id: str(a.agent_id), name: str(a.name) || 'Unnamed agent', phone: strOrNull(a.phone),
+      houses_listed: num(a.houses_listed), houses_verified: num(a.houses_verified), houses_pending: num(a.houses_pending),
+      houses_currently_rejected: num(a.houses_currently_rejected), approval_rate: numOrNull(a.approval_rate), avg_days_to_verify: numOrNull(a.avg_days_to_verify),
+      occupied: num(a.occupied), empty: num(a.empty), listing_earned: num(a.listing_earned), earn_per_approved: numOrNull(a.earn_per_approved),
+    })),
+    waiting: rows(r.waiting).map((w) => ({
+      listing_id: str(w.listing_id), agent_id: str(w.agent_id), agent_name: str(w.agent_name) || 'Unnamed agent', phone: strOrNull(w.phone),
+      district: strOrNull(w.district), listed_at: str(w.listed_at), days_waiting: num(w.days_waiting),
+    })),
+  };
+}
+
+export type RiskFlag = 'no_earnings' | 'high' | 'watch' | 'ok';
+const FLAGS: readonly RiskFlag[] = ['no_earnings', 'high', 'watch', 'ok'];
+export const RISK_FLAG_LABEL: Record<RiskFlag, string> = {
+  no_earnings: 'No listing earnings',
+  high: 'High (3x or more)',
+  watch: 'Watch (1x to 3x)',
+  ok: 'Low (under 1x)',
+};
+
+export interface RiskSummary {
+  as_at: string;
+  range_start: string;
+  range_end: string;
+  inactive_window_start: string;
+  basis: string;
+  advance_no_listing_count: number;
+  advance_no_listing_amount: number;
+  owing_agents: number;
+  owing_amount: number;
+  flag_no_earnings: number;
+  flag_high: number;
+  flag_watch: number;
+  flag_ok: number;
+  inactive_listers_count: number;
+  never_listed_subagents_count: number;
+  main_agents_owing_count: number;
+  main_agents_owing_amount: number;
+}
+export interface RiskPerson { agent_id: string; name: string; phone: string | null }
+export interface AdvanceNoListing extends RiskPerson { advance_outstanding: number; last_listing: string | null }
+export interface AdvanceVsEarnings extends RiskPerson { advance_outstanding: number; listing_earned: number; ratio: number | null; flag: RiskFlag }
+export interface InactiveLister extends RiskPerson { last_listing: string | null; days_inactive: number; houses_listed_ever: number }
+export interface NeverListedSubagent extends RiskPerson { main_agent_id: string | null; main_agent_name: string | null; linked_on: string | null }
+export interface TeamOwes { main_agent_id: string; name: string; phone: string | null; team_size: number; team_houses: number; team_earnings: number; team_advances_outstanding: number }
+export interface MetricsRisk {
+  summary: RiskSummary;
+  advance_no_listing: AdvanceNoListing[];
+  advance_vs_earnings: AdvanceVsEarnings[];
+  inactive_listers: InactiveLister[];
+  never_listed_subagents: NeverListedSubagent[];
+  main_agents_by_advance: TeamOwes[];
+}
+
+const person = (r: Obj): RiskPerson => ({ agent_id: str(r.agent_id), name: str(r.name) || 'Unnamed agent', phone: strOrNull(r.phone) });
+
+export function normalizeRisk(raw: unknown): MetricsRisk {
+  const r = obj(Array.isArray(raw) ? raw[0] : raw);
+  const s = obj(r.summary);
+  return {
+    summary: {
+      as_at: str(s.as_at), range_start: str(s.range_start), range_end: str(s.range_end), inactive_window_start: str(s.inactive_window_start), basis: str(s.basis),
+      advance_no_listing_count: num(s.advance_no_listing_count), advance_no_listing_amount: num(s.advance_no_listing_amount),
+      owing_agents: num(s.owing_agents), owing_amount: num(s.owing_amount),
+      flag_no_earnings: num(s.flag_no_earnings), flag_high: num(s.flag_high), flag_watch: num(s.flag_watch), flag_ok: num(s.flag_ok),
+      inactive_listers_count: num(s.inactive_listers_count), never_listed_subagents_count: num(s.never_listed_subagents_count),
+      main_agents_owing_count: num(s.main_agents_owing_count), main_agents_owing_amount: num(s.main_agents_owing_amount),
+    },
+    advance_no_listing: rows(r.advance_no_listing).map((x) => ({ ...person(x), advance_outstanding: num(x.advance_outstanding), last_listing: strOrNull(x.last_listing) })),
+    advance_vs_earnings: rows(r.advance_vs_earnings).map((x) => ({
+      ...person(x), advance_outstanding: num(x.advance_outstanding), listing_earned: num(x.listing_earned), ratio: numOrNull(x.ratio),
+      flag: (FLAGS as readonly string[]).includes(str(x.flag)) ? (str(x.flag) as RiskFlag) : 'ok',
+    })),
+    inactive_listers: rows(r.inactive_listers).map((x) => ({ ...person(x), last_listing: strOrNull(x.last_listing), days_inactive: num(x.days_inactive), houses_listed_ever: num(x.houses_listed_ever) })),
+    never_listed_subagents: rows(r.never_listed_subagents).map((x) => ({ ...person(x), main_agent_id: strOrNull(x.main_agent_id), main_agent_name: strOrNull(x.main_agent_name), linked_on: strOrNull(x.linked_on) })),
+    main_agents_by_advance: rows(r.main_agents_by_advance).map((x) => ({
+      main_agent_id: str(x.main_agent_id), name: str(x.name) || 'Unnamed agent', phone: strOrNull(x.phone), team_size: num(x.team_size), team_houses: num(x.team_houses),
+      team_earnings: num(x.team_earnings), team_advances_outstanding: num(x.team_advances_outstanding),
+    })),
+  };
+}
+
 // ---------- dates ----------
 
 export type MetricsPreset = 'today' | 'last7' | 'last30' | 'month' | 'custom';
@@ -241,7 +392,7 @@ export function clearMetricsParams(base: URLSearchParams): URLSearchParams {
 
 // ---------- card order (per user, in the browser only) ----------
 
-export const CARD_IDS = ['headline', 'listings', 'earnings', 'agents', 'locations', 'main-agents', 'advances', 'activity'] as const;
+export const CARD_IDS = ['headline', 'listings', 'earnings', 'agents', 'locations', 'main-agents', 'advances', 'risk', 'activity'] as const;
 export type CardId = (typeof CARD_IDS)[number];
 export const CARD_TITLES: Record<CardId, string> = {
   headline: 'Headline',
@@ -251,6 +402,7 @@ export const CARD_TITLES: Record<CardId, string> = {
   locations: 'Locations',
   'main-agents': 'Main agents',
   advances: 'Advances',
+  risk: 'Risk',
   activity: 'Activity',
 };
 
@@ -309,6 +461,9 @@ export function dropCard(order: CardId[], id: CardId, onto: CardId): CardId[] {
 
 // ---------- map box ----------
 
+/** Most pins asked for at once: the server's own ceiling (agent_ops_metrics_pins clamps p_limit to 2000). */
+export const MAP_PIN_LIMIT = 2000;
+
 /** Uganda, used before the map has been moved. */
 export const UGANDA_BOX = { minLat: -1.5, minLng: 29.5, maxLat: 4.3, maxLng: 35.1 } as const;
 
@@ -365,3 +520,28 @@ export function locationLabel(l: MetricsLocation, level: 'region' | 'district' |
   if (level === 'district') return l.district || 'No district recorded';
   return [l.sub_county, l.district].filter(Boolean).join(', ') || 'No sub-county recorded';
 }
+
+export const WAITING_CSV_HEADERS = ['Agent', 'Phone', 'District', 'Listed on', 'Days waiting'];
+export const waitingCsvRow = (w: WaitingRow): (string | number)[] => [w.agent_name, w.phone ?? '', w.district ?? '', w.listed_at, w.days_waiting];
+
+export const RISK_CSV_HEADERS = ['List', 'Agent', 'Phone', 'Advance outstanding (UGX)', 'Listing earnings (UGX)', 'Ratio', 'Flag', 'Last listing', 'Days inactive', 'Main agent'];
+export function riskCsvRows(d: MetricsRisk): (string | number)[][] {
+  return [
+    ...d.advance_no_listing.map((x) => ['Advance with no listing', x.name, x.phone ?? '', x.advance_outstanding, '', '', '', x.last_listing ?? '', '', ''] as (string | number)[]),
+    ...d.advance_vs_earnings.map((x) => ['Advance against listing earnings', x.name, x.phone ?? '', x.advance_outstanding, x.listing_earned, x.ratio ?? '', RISK_FLAG_LABEL[x.flag], '', '', ''] as (string | number)[]),
+  ];
+}
+
+export const ACTIVITY_CSV_HEADERS = ['List', 'Agent', 'Phone', 'Last listing', 'Days inactive', 'Houses listed ever', 'Main agent', 'Linked on'];
+export function activityCsvRows(d: MetricsRisk): (string | number)[][] {
+  return [
+    ...d.inactive_listers.map((x) => ['Inactive lister', x.name, x.phone ?? '', x.last_listing ?? '', x.days_inactive, x.houses_listed_ever, '', ''] as (string | number)[]),
+    ...d.never_listed_subagents.map((x) => ['Never listed', x.name, x.phone ?? '', '', '', '', x.main_agent_name ?? '', x.linked_on ?? ''] as (string | number)[]),
+  ];
+}
+
+export const TOP_EARNER_CSV_HEADERS = ['Agent', 'Phone', 'Listing earnings (UGX)', 'Clawed back (UGX)', 'Net (UGX)', 'Houses listed', 'Houses verified'];
+export const topEarnerCsvRow = (a: MetricsAgent): (string | number)[] => [a.name, a.phone ?? '', a.listing_earned, a.clawed_back, a.net, a.houses_listed, a.houses_approved];
+
+export const TEAM_OWES_CSV_HEADERS = ['Main agent', 'Phone', 'Team size', 'Team houses', 'Team listing earnings (UGX)', 'Team advances outstanding (UGX)'];
+export const teamOwesCsvRow = (m: TeamOwes): (string | number)[] => [m.name, m.phone ?? '', m.team_size, m.team_houses, m.team_earnings, m.team_advances_outstanding];

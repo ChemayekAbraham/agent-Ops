@@ -822,24 +822,26 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         .select('id')
         .eq('is_frozen', true)
         .limit(5000);
-      const frozenUserIds = (frozenRows || []).map((r: any) => r.id);
+      const frozenUserIds = new Set<string>((frozenRows || []).map((r: any) => r.id));
       // Available = unclaimed OR a claim that has expired (>15 min).
+      // Frozen accounts are excluded client-side: inlining thousands of ids as
+      // `not.in.(...)` made the request URL too long, so the browser dropped it
+      // (surfaces as a CORS/network error) and the badge silently read 0.
       let q = supabase
         .from('withdrawal_requests')
-        .select('amount')
+        .select('amount, user_id, linked_party')
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('processed_at', null)
         .is('fin_ops_reference', null)
         .or(`assigned_cashout_agent_id.is.null,dispatched_at.lt.${cutoffIso}`);
       if (merchantCategoryOrClause) q = q.or(merchantCategoryOrClause);
-      if (frozenUserIds.length) {
-        const list = `(${frozenUserIds.join(',')})`;
-        q = q.not('user_id', 'in', list);
-        q = q.or(`linked_party.is.null,linked_party.not.in.${list}`);
-      }
       const { data, error } = await q.limit(2000);
       if (error) return { count: 0, totalCommission: 0 };
-      const rows = data || [];
+      const rows = (data || []).filter(
+        (r: any) =>
+          !frozenUserIds.has(r.user_id) &&
+          !(r.linked_party && frozenUserIds.has(r.linked_party)),
+      );
       const totalCommission = rows.reduce(
         (sum, r) => sum + Math.round(Number(r.amount || 0) * COMMISSION_RATE),
         0,

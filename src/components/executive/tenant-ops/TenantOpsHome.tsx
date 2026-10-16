@@ -27,6 +27,7 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { TenantOpsRepaymentWatchlistCards } from './TenantOpsRepaymentWatchlistCards';
+import { TenantOpsRentLifetimeCards } from './TenantOpsRentLifetimeCards';
 import { TenantPaymentBehaviorCard } from './TenantPaymentBehaviorCard';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
@@ -400,6 +401,9 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             authoritative plan/payment fields used elsewhere in Tenant Ops. */}
         <TenantOpsRepaymentWatchlistCards onNavigate={onNavigate} />
       </div>
+
+      {/* All-time rent request cards: not affected by the date filter above. */}
+      <TenantOpsRentLifetimeCards />
 
       {/* Forward planning is separate from the existing dashboard charts. */}
       <TenantRepaymentForecastPanel />

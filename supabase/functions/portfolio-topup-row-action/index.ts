@@ -97,6 +97,17 @@ Deno.serve(async (req) => {
       if (portfolio.status !== "active") {
         return json({ error: "Portfolio is not active" }, 400);
       }
+      // Never add a wallet top-up to principal unless its money has left the
+      // wallet: either held from operational float at request time, or (older
+      // requests) debited when Partner Ops approved it.
+      const m = meta as Record<string, unknown>;
+      const holdIncomplete = !!m.float_hold && m.float_hold !== "held";
+      const unheldWallet = !m.float_hold && m.requires_wallet_debit === true && op.status !== "approved";
+      if (holdIncomplete || unheldWallet) {
+        return json({
+          error: "This wallet top-up has no money held behind it yet. Approve it through Partner Ops first (which takes it from the partner's operational float), or reject it.",
+        }, 409);
+      }
 
       const next = prev + amount;
 
