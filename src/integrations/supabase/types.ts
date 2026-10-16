@@ -64065,6 +64065,20 @@ export type Database = {
           total_requests: number
         }[]
       }
+      _tor_lifetime_rows: {
+        Args: never
+        Returns: {
+          bucket: string
+          cleared: number
+          financed: boolean
+          funded_at: string
+          id: string
+          paid_at: string
+          repaid: number
+          status: string
+          total: number
+        }[]
+      }
       _tps_label: {
         Args: { p_basis: string; p_score: number }
         Returns: string
