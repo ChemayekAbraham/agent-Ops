@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
 import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
+import { NotificationDetailDialog, type NotificationDetail } from '@/components/agent/NotificationDetailDialog';
 import { cn } from '@/lib/utils';
 import { useNotificationPulse } from '@/hooks/useNotificationPulse';
 
