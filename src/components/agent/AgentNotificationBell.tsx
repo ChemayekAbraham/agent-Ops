@@ -114,6 +114,7 @@ export function AgentNotificationBell({
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) stopPulse(); }}>
       <PopoverTrigger asChild>
         <Button
