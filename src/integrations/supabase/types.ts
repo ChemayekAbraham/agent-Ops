@@ -76449,6 +76449,16 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_tutorial_can_view_claim: {
+        Args: { _claim_id: string }
+        Returns: boolean
+      }
+      ops_tutorial_can_view_video: {
+        Args: { _video_id: string }
+        Returns: boolean
+      }
+      ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
+      ops_tutorial_my_capabilities: { Args: never; Returns: Json }
       ops_undo_agent_capability_job: {
         Args: { _job_id: string; _reason: string }
         Returns: Json
