@@ -40,3 +40,4 @@
 - [x] CFO Approved Rent Requests: Approved tab lists every CFO approval all time; Paid only after Financial Operations payout.
 - [x] Usage report amount matching: popup + CFO review + server rules live; matching rule tests pass. Not yet clicked through signed-in.
 - [x] CFO Approved Rent Requests: date filters (Today etc.) use the CFO approval time; Approved column shows CFO approval time.
+- [x] Make CFO sidebar "Payroll Approvals" open as a CFO dashboard section instead of jumping to the HR shell; CFO click, breadcrumb and HR /approvals page verified in preview.
