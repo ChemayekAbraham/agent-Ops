@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { fetchWalletBalance } from '@/hooks/wallet/useWalletBalance';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,9 +29,10 @@ import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatu
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import { useDeleteMerchandiseApplication } from '@/hooks/useMerchandiseRepaymentPortfolio';
-import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
 import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
-import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
+
+const SpiroBikeOrderDialog = lazyWithRetry(() => import('@/components/merchandise/SpiroBikeOrderDialog'));
+const SmartphoneOrderDialog = lazyWithRetry(() => import('@/components/merchandise/SmartphoneOrderDialog'));
 
 import { StorageImage } from '@/components/ui/StorageImage';
 import { shortMerchandiseUrl, longMerchandiseUrl } from '@/lib/merchandiseShareLink';
@@ -1347,10 +1349,14 @@ export default function MerchandiseStore() {
         </DialogContent>
       </Dialog>
 
-      <SmartphoneOrderDialog open={phoneOpen} onOpenChange={setPhoneOpen} userId={user?.id} />
-
-
-      <SpiroBikeOrderDialog open={bikeOpen} onOpenChange={setBikeOpen} userId={user?.id} />
+      <Suspense fallback={null}>
+        {phoneOpen && (
+          <SmartphoneOrderDialog open={phoneOpen} onOpenChange={setPhoneOpen} userId={user?.id} />
+        )}
+        {bikeOpen && (
+          <SpiroBikeOrderDialog open={bikeOpen} onOpenChange={setBikeOpen} userId={user?.id} />
+        )}
+      </Suspense>
 
       {/* Share fallback dialog */}
       <Dialog open={!!shareItem} onOpenChange={(o) => { if (!o) setShareItem(null); }}>

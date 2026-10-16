@@ -85,7 +85,6 @@ import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet';
-import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
 import { WeeklyStreakDialog, WeeklyCollectionStreakCard } from '@/components/agent/WeeklyCollectionStreak';
@@ -147,11 +146,9 @@ import { useAgentPipelineCounts } from '@/hooks/useAgentPipelineCounts';
 
 import { getDuplicateEntries } from '@/lib/fieldCollectStore';
 import { FileWarning } from 'lucide-react';
-import { FieldCollectDailyTotals } from '@/components/agent/FieldCollectDailyTotals';
 import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
 import { FieldDepositQueueCard } from '@/components/agent/FieldDepositQueueCard';
 
-import { AgentRatingCard } from '@/components/agent/AgentRatingCard';
 import { AgentCollectionLeagueCard } from '@/components/agent/AgentCollectionLeagueCard';
 import { RecruitSubAgentCTA } from '@/components/agent/RecruitSubAgentCTA';
 import { ApprovedRentRequestsWidget } from '@/components/rent/ApprovedRentRequestsWidget';
@@ -231,6 +228,9 @@ const BorrowLoanSheet = lazy(() => import('@/components/vouch/borrower/BorrowLoa
 const AgentAdvanceRequestForm = lazyNamed(() => import('@/components/agent/AgentAdvanceRequestForm'), 'AgentAdvanceRequestForm');
 const CreditAccessCard = lazyNamed(() => import('@/components/CreditAccessCard'), 'CreditAccessCard');
 const AgentCashPayoutsTab = lazyNamed(() => import('@/components/agent/AgentCashPayoutsTab'), 'AgentCashPayoutsTab');
+const ServiceCenterQualificationCard = lazyNamed(() => import('@/components/agent/ServiceCenterQualificationCard'), 'ServiceCenterQualificationCard');
+const AgentRatingCard = lazyNamed(() => import('@/components/agent/AgentRatingCard'), 'AgentRatingCard');
+const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/FieldCollectDailyTotals'), 'FieldCollectDailyTotals');
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
@@ -948,12 +948,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
-  // Warm up Service Center and Proxy Agents route bundles during browser idle time so menu navigation is instant
+  // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
+      void import('@/pages/YourProfile');
       void import('@/pages/AgentServiceCenter');
       void import('@/components/auth/ProxyAgentGuard');
       void import('@/pages/agent/ProxyPerformanceDashboard');
+      void import('@/pages/AgentCommissionBenefits');
+      void import('@/pages/MerchandiseStore');
+      void import('@/pages/Settings');
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -2176,6 +2180,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
 
       {/* Free Service Center qualification dialog */}
+      <LazyModal when={freeServiceCenterOpen}>
       <Dialog open={freeServiceCenterOpen} onOpenChange={setFreeServiceCenterOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2184,8 +2189,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <ServiceCenterQualificationCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Your Rating dialog */}
+      <LazyModal when={ratingDialogOpen}>
       <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
         <DialogContent className="max-w-md p-4 sm:p-6 bg-card border-border">
           <DialogHeader>
@@ -2194,8 +2201,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <AgentRatingCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Field Collections daily totals dialog */}
+      <LazyModal when={fieldCollectionsOpen}>
       <Dialog open={fieldCollectionsOpen} onOpenChange={setFieldCollectionsOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2204,6 +2213,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <FieldCollectDailyTotals live />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Phase 1: Agent Operations Dialogs */}
       <LazyModal when={visitDialogOpen}>

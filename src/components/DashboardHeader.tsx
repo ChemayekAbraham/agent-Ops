@@ -34,6 +34,7 @@ interface MenuItemConfig {
   destructive?: boolean;
   separator?: boolean;
   badge?: React.ReactNode;
+  onPointerEnter?: () => void;
 }
 
 interface DashboardHeaderProps {

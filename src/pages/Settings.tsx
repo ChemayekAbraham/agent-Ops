@@ -820,7 +820,9 @@ export default function Settings() {
                 </Card>
 
                 {user?.id && (roles.includes('tenant') || role === 'tenant') && (
-                  <TenantNotificationPreferencesCard tenantId={user.id} />
+                  <Suspense fallback={<SectionSkeleton />}>
+                    <TenantNotificationPreferencesCard tenantId={user.id} />
+                  </Suspense>
                 )}
               </div>
             )}
