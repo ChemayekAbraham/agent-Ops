@@ -121,7 +121,11 @@ export function RentApprovalMoneyCounter({
         return { totalAmount: 0, totalCount: 0, myAmount: 0, myCount: 0 };
       }
 
-      const rows = data || [];
+      // The select string is assembled from runtime column names, so the
+      // generated table types cannot parse it — shape the rows explicitly.
+      const rows = (data || []) as unknown as Array<
+        { rent_amount: number | null } & Record<string, unknown>
+      >;
       let totalAmount = 0;
       let totalCount = 0;
       let myAmount = 0;
