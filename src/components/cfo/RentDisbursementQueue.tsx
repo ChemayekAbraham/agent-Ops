@@ -45,6 +45,7 @@ import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
 import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
+import { LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -534,6 +535,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   return (
     <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
       <CardHeader className="pb-0 space-y-0 p-0">
+        {landlordFloatOver.any && <div className="p-4"><LandlordFloatExcessBanner daily={landlordFloatOver.daily} weekly={landlordFloatOver.weekly} /></div>}
         {filteredItems.length > 0 && (
           <div className="flex items-center justify-end gap-3 px-5 pt-5 pb-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400">
@@ -1304,7 +1306,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   }}
                 >
                   <XCircle className="h-3.5 w-3.5 mr-1" />
-                  Reject
+                  Return to COO
                 </Button>
               </div>
               </CfoApprovalGate>
@@ -1329,14 +1331,13 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject rent request</DialogTitle>
+            <DialogTitle>Return to COO</DialogTitle>
             <DialogDescription>
               {rejectTarget && (
                 <>
                   Returning <b>{fmt(rejectTarget.rent_amount)}</b> for{' '}
                   <b>{rejectTarget.tenant_name}</b> → <b>{rejectTarget.landlord_name}</b> back to{' '}
-                  <b>{rejectTarget.agent_name}</b>. Your comment will appear in the agent's
-                  Rejected submissions.
+                  <b>the COO</b> for review. This releases the request's allocation back into the landlord float budget.
                 </>
               )}
             </DialogDescription>
@@ -1374,7 +1375,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               ) : (
                 <XCircle className="h-3.5 w-3.5 mr-1" />
               )}
-              Reject & return to agent
+              Return to COO
             </Button>
             </CfoApprovalGate>
           </DialogFooter>
