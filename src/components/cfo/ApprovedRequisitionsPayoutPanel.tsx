@@ -52,7 +52,6 @@ const SOURCE: Record<string, string> = {
 type Filter = 'all' | 'pending' | 'paid' | 'reversed';
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'pending', label: 'Pending' },
   { id: 'paid', label: 'Paid' },
   { id: 'reversed', label: 'Reversed' },
 ];
