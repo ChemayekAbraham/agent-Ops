@@ -27383,6 +27383,7 @@ export type Database = {
           mobile_money_provider: string
           otp_expires_at: string
           otp_hash: string
+          otp_recipient_phone: string | null
           property_latitude: number | null
           property_longitude: number | null
           rent_request_id: string | null
@@ -27410,6 +27411,7 @@ export type Database = {
           mobile_money_provider: string
           otp_expires_at: string
           otp_hash: string
+          otp_recipient_phone?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
           rent_request_id?: string | null
@@ -27437,6 +27439,7 @@ export type Database = {
           mobile_money_provider?: string
           otp_expires_at?: string
           otp_hash?: string
+          otp_recipient_phone?: string | null
           property_latitude?: number | null
           property_longitude?: number | null
           rent_request_id?: string | null
