@@ -1,4 +1,7 @@
 # Tasks
+- [ ] Add protected CRM communications publishing, scheduling, versioning and audience checks.
+- [ ] Add CRM editor/preview and shared recipient dialogs with cross-device acknowledgement.
+- [ ] Verify audience isolation, lifecycle, guards and signed-in communication flow without financial changes.
 - [x] Make the R&D weekly report editable using shared recorded updates; signed-in add/edit/reload and PDF download verified, ten R&D tests and all guards pass.
 - [x] Diagnose and fix Service Centre tenant-request Claim failures; four tests pass and signed-in location/server errors verified without claiming real requests or moving money.
 - [x] Update Landlord Ops principal recovery with disbursed-float comparison, three KPIs, fee breakdown dialog and table; verified signed-in live figures, Today/All time, dialog, phone-width graph, guards and three accounting tests; no money moved.
