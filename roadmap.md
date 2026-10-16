@@ -1,7 +1,8 @@
 # Tasks
-- [ ] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
-- [ ] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
-- [ ] Run budget UI tests, project guards and desktop/mobile checks; never invent or save live budget amounts.
+- [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
+- [x] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
+- [x] Run budget UI tests, project guards and desktop/phone checks; no live budget amounts saved.
+- [ ] Set today's and this week's landlord float budgets — waiting for the designated CFO to enter the approved amounts.
 - [x] Make CRM Broadcast visible; tests and guards pass.
 - [ ] Verify Broadcast publishing and acknowledgement end to end — blocked: the signed-in preview account lacks CRM publishing permission.
 - [x] Add protected CRM communications publishing, scheduling, versioning and audience checks; live RLS and revoked direct-write/TRUNCATE privileges verified.
