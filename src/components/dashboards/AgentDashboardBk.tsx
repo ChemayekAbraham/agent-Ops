@@ -1099,12 +1099,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
 
   const menuItems = [
-    { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
+    {
+      icon: ShoppingBag,
+      label: 'Buy Merchandise',
+      onClick: () => { hapticTap(); navigate('/merchandise'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+    },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
     },
   ];
 

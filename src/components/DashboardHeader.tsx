@@ -297,10 +297,16 @@ const DashboardHeader = memo(function DashboardHeader({
                 </Button>
               ) : (
                 <DropdownMenu onOpenChange={(open) => {
-                  if (open && currentRole === 'agent') {
-                    void import('@/pages/AgentServiceCenter');
-                    void import('@/components/auth/ProxyAgentGuard');
-                    void import('@/pages/agent/ProxyPerformanceDashboard');
+                  if (open) {
+                    void import('@/pages/YourProfile');
+                    void import('@/pages/Settings');
+                    if (currentRole === 'agent') {
+                      void import('@/pages/AgentServiceCenter');
+                      void import('@/components/auth/ProxyAgentGuard');
+                      void import('@/pages/agent/ProxyPerformanceDashboard');
+                      void import('@/pages/AgentCommissionBenefits');
+                      void import('@/pages/MerchandiseStore');
+                    }
                   }
                 }}>
                   <DropdownMenuTrigger asChild>
@@ -308,6 +314,7 @@ const DashboardHeader = memo(function DashboardHeader({
                     variant="ghost" 
                     size="icon" 
                     onPointerEnter={() => {
+                      void import('@/pages/YourProfile');
                       if (currentRole === 'agent') {
                         void import('@/pages/AgentServiceCenter');
                         void import('@/components/auth/ProxyAgentGuard');
@@ -325,6 +332,8 @@ const DashboardHeader = memo(function DashboardHeader({
                 >
                   <DropdownMenuItem
                     onClick={() => navigate('/your-profile')}
+                    onPointerEnter={() => void import('@/pages/YourProfile')}
+                    onTouchStart={() => void import('@/pages/YourProfile')}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-primary/10">
@@ -625,6 +634,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => navigate('/agent-commission-benefits')}
+                      onPointerEnter={() => void import('@/pages/AgentCommissionBenefits')}
+                      onTouchStart={() => void import('@/pages/AgentCommissionBenefits')}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                     >
                       <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
@@ -643,6 +654,8 @@ const DashboardHeader = memo(function DashboardHeader({
                       {item.separator && index > 0 && <DropdownMenuSeparator />}
                       <DropdownMenuItem
                         onClick={item.onClick}
+                        onPointerEnter={item.onPointerEnter}
+                        onTouchStart={item.onPointerEnter}
                         className={cn(
                           "gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between",
                           item.destructive ? 'text-destructive' : ''
@@ -669,6 +682,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => navigate('/settings')} 
+                    onPointerEnter={() => void import('@/pages/Settings')}
+                    onTouchStart={() => void import('@/pages/Settings')}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-muted">
