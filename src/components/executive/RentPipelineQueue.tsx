@@ -53,6 +53,7 @@ import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
+import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
 
 
 
@@ -245,6 +246,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     queryClient.invalidateQueries({ queryKey: ['pipeline-counts'] });
     queryClient.invalidateQueries({ queryKey: ['agent-ops-approved-requests'] });
     queryClient.invalidateQueries({ queryKey: ['agent-ops-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['rent-approval-counter-today'] });
   };
   const config = STAGE_CONFIG[stage];
 
@@ -1346,8 +1348,32 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const isAgentOpsStage = stage === 'pending';
   const allowBulkActions = isCooStage || isAgentOpsStage;
 
+  const selectedAmount = useMemo(() => {
+    if (selectedIds.size === 0) return 0;
+    let sum = 0;
+    for (const r of rows) {
+      if (selectedIds.has(r.id)) sum += Number(r.rent_amount || 0);
+    }
+    return sum;
+  }, [rows, selectedIds]);
+
+  const queueTotalAmount = useMemo(() => {
+    return rows.reduce((s, r) => s + Number(r.rent_amount || 0), 0);
+  }, [rows]);
+
   return (
-    <Card className="border border-border">
+    <div className="space-y-4">
+      <RentApprovalMoneyCounter
+        stage={stage}
+        reviewerAtColumn={config.reviewerAtColumn}
+        reviewerColumn={config.reviewerColumn}
+        selectedAmount={selectedAmount}
+        selectedCount={selectedIds.size}
+        queueTotalAmount={queueTotalAmount}
+        queueCount={rows.length}
+      />
+
+      <Card className="border border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-base font-bold flex items-center gap-2.5">
@@ -2680,5 +2706,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         defaultTab="landlord"
       />
     </Card>
+  </div>
   );
 }
