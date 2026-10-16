@@ -4229,6 +4229,13 @@
       "when": 1792153795673,
       "tag": "0603_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 604,
+      "version": "7",
+      "when": 1792155107830,
+      "tag": "0604_agent_nudge_stats",
+      "breakpoints": true
     }
   ]
 }
