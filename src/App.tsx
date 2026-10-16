@@ -363,6 +363,7 @@ const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
+const MyTutorialsPage = lazy(() => import('./pages/me/Tutorials'));
 const FoodOrderingPage = lazy(() => import('./pages/me/food/FoodOrderingPage'));
 const MyFoodOrdersPage = lazy(() => import('./pages/me/food/MyFoodOrdersPage'));
 const FoodManagementPage = lazy(() => import('./pages/me/food/FoodManagementPage'));
@@ -774,6 +775,7 @@ function AppRoutes() {
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
           <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
+          <Route path="/me/tutorials" element={<HRSignedInRoute><MyTutorialsPage /></HRSignedInRoute>} />
           {/* Canteen. Food Management is gated inside the page by the
               coordinator assignment, and is deliberately NOT in CFO navigation. */}
           <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Users, Home, Building2, Handshake, Banknote, Briefcase } from 'lucide-react';
+import { Loader2, Users, Home, Building2, Handshake, Banknote, Briefcase, Clapperboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScreenLoader from '@/components/common/ScreenLoader';
 
@@ -85,6 +85,15 @@ export default function OperationsDashboard() {
           );
         })}
       </div>
+
+      <Button
+        variant="outline"
+        className="w-full h-auto p-6 flex items-center justify-center gap-3 hover:border-primary/50"
+        onClick={() => navigate('/me/tutorials')}
+      >
+        <Clapperboard className="h-5 w-5 text-primary" />
+        <span className="font-semibold">Tutorial videos</span>
+      </Button>
     </div>
   );
 }
