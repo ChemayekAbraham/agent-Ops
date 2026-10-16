@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
     const { data: roleRows } = await admin
       .from("user_roles")
       .select("user_id, role")
-      .in("role", ["operations", "cfo", "coo", "manager"]);
+      .in("role", ["operations", "cfo", "coo", "manager"])
+      .eq("enabled", true); // disabled roles must not receive ops escalations
     const opsIds = Array.from(new Set((roleRows || []).map((r: any) => r.user_id)));
 
     for (const r of requests) {
