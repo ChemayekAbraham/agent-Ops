@@ -1,5 +1,5 @@
 // TEMPORARY design preview for the agent nudge toasts. Remove once signed off.
-import { useRef } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AgentNudgeToast } from '@/components/agent/AgentNudgeToast';
 import type { RenderedNudge } from '@/lib/agentNudges';
@@ -17,12 +17,12 @@ const SAMPLES: (RenderedNudge & { ctaLabel?: string })[] = [
 ];
 
 export function AgentNudgePreviewButton({ email }: { email?: string | null }) {
-  const idx = useRef(0);
+  const [i, setI] = useState(0);
   if (email?.toLowerCase() !== PREVIEW_EMAIL) return null;
 
   const show = () => {
-    const n = SAMPLES[idx.current % SAMPLES.length];
-    idx.current += 1;
+    const n = SAMPLES[i % SAMPLES.length];
+    setI(i + 1);
     toast.custom(
       (t) => (
         <AgentNudgeToast
