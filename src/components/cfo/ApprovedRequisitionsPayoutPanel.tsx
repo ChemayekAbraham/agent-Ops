@@ -92,6 +92,21 @@ export function ApprovedRequisitionsPayoutPanel() {
     },
   });
 
+  // Live payout status: refetch (debounced) when a requisition or its wallet credit changes.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const bump = () => {
+      clearTimeout(t);
+      t = setTimeout(() => qc.invalidateQueries({ queryKey: ['cfo-approved-requisitions'] }), 800);
+    };
+    const ch = supabase.channel('cfo-approved-requisitions-live');
+    for (const table of ['requisition_wallet_credits', 'staff_requisitions', 'employee_requisitions', 'director_requisitions']) {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table }, bump);
+    }
+    ch.subscribe();
+    return () => { clearTimeout(t); supabase.removeChannel(ch); };
+  }, [qc]);
+
   const byStatus = (r: Row) =>
     filter === 'all' ? true
       : filter === 'pending' ? r.payout_status === 'pending' || r.payout_status === 'failed'
