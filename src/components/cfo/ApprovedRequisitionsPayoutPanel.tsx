@@ -144,6 +144,23 @@ export function ApprovedRequisitionsPayoutPanel() {
     }
   }
 
+  async function releaseToWallet(row: Row) {
+    setReleasing(`${row.source_table}:${row.requisition_id}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('requisition-credit-retry', {
+        body: { source_table: row.source_table, requisition_id: row.requisition_id },
+      });
+      const msg = (data as any)?.error ?? (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) ?? error.message : null);
+      if (msg) throw new Error(msg);
+      toast.success(`${formatUGX(Number(row.amount))} released to ${row.receiver_name ?? 'the receiver'}'s wallet.`);
+      await qc.invalidateQueries({ queryKey: ['cfo-approved-requisitions'] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReleasing(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
