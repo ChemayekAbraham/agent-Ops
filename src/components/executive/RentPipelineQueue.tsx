@@ -2293,7 +2293,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <span>Approve</span>
                   </Button>
                 </div>
-                {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>
+                {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
               </div>
               );
             })}
