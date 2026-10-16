@@ -21,6 +21,10 @@ import { CapitalOpportunityEntry } from '@/components/angel-pool/CapitalOpportun
 import { useAuth } from '@/hooks/useAuth';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
+import { roleToSlug } from '@/lib/roleRoutes';
+import type { AppRole } from '@/hooks/useAuth';
+
 export default function AngelPool() {
   const navigate = useNavigate();
   const { profile } = useProfile();
@@ -29,6 +33,12 @@ export default function AngelPool() {
   const { user, role: currentRole, roles: availableRoles, switchRole, signOut } = useAuth();
   const [showWallet, setShowWallet] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleRoleChange = (newRole: AppRole) => {
+    switchRole(newRole);
+    const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+    navigate(targetRoute);
+  };
 
   const poolRef = useRef<HTMLDivElement>(null);
   const calcRef = useRef<HTMLDivElement>(null);
@@ -53,7 +63,7 @@ export default function AngelPool() {
       <DashboardHeader
         currentRole={currentRole || 'supporter'}
         availableRoles={availableRoles.length ? availableRoles : ['supporter']}
-        onRoleChange={switchRole}
+        onRoleChange={handleRoleChange}
         onSignOut={signOut}
         menuItems={menuItems}
         headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
