@@ -11,6 +11,7 @@
  * any money moves; a failed debit puts it back to credited.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
