@@ -167,6 +167,11 @@ export function ApprovalsInbox() {
   );
 }
 
+/**
+ * The same inbox inside the HR dashboard shell, for the standalone /approvals
+ * route. The CFO dashboard renders <ApprovalsInbox /> directly as a section so
+ * opening it never leaves the CFO dashboard.
+ */
 export default function Approvals() {
   return (
     <HRPlaceholderPage
