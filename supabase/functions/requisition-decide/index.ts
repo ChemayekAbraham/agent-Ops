@@ -1,6 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-// creditRequisitionWallet is no longer called here; wallet release is done by
-// Financial Ops via requisition-credit-retry.
+import { creditRequisitionWallet } from '../_shared/requisitionWalletCredit.ts';
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
@@ -85,12 +84,51 @@ Deno.serve(async (req) => {
     const { data: updated, error: updateError } = await admin.from('employee_requisitions').update(patch).eq('id', body.id).eq('status', before.status).select('id, employee_email, employee_name, amount, currency, purpose, category, status, approved_at').single();
     if (updateError) throw updateError;
 
-    // Wallet credit is no longer automatic — Financial Ops releases via
-    // requisition-credit-retry after approval.
+    let walletCredit: unknown = null;
+    let creditDetail: Record<string, unknown> | null = null;
+    let creditError: string | null = null;
+    let rolledBack = false;
+    if (approved) {
+      const { data: profile } = await admin.from('profiles').select('id').ilike('email', updated.employee_email).maybeSingle();
+      if (!profile?.id) {
+        creditError = `No user profile matches ${updated.employee_email}`;
+        creditDetail = { stage: 'recipient_lookup', message: creditError, rolled_back: true };
+        rolledBack = true;
+      } else {
+        const result = await creditRequisitionWallet({
+          admin,
+          sourceTable: 'employee_requisitions',
+          requisitionId: body.id,
+          requisitionCode: String(updated.id).slice(0, 8).toUpperCase(),
+          userId: profile.id,
+          approverId: userId,
+          amount: Number(updated.amount),
+          currency: updated.currency || 'UGX',
+          purpose: updated.purpose,
+          category: updated.category,
+          status: 'approved',
+          approvedAt: updated.approved_at,
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip'),
+          deviceInfo: req.headers.get('user-agent'),
+        });
+        walletCredit = result;
+        if (!result.ok) {
+          creditError = result.error ?? result.message;
+          creditDetail = { stage: result.stage ?? 'wallet_credit', message: result.message, upstream_function: result.upstream_function ?? null, upstream_status: result.upstream_status ?? null, attempt_count: result.attempt_count ?? null, idempotency_reference: result.idempotency_reference ?? null, rolled_back: true };
+          rolledBack = true;
+        } else if (!result.already_credited) {
+          await admin.from('employee_requisitions').update({ status: 'paid' }).eq('id', body.id);
+        }
+      }
+      if (rolledBack) {
+        await admin.from('employee_requisitions').update({ status: before.status, workflow_stage: before.workflow_stage, current_approver_role: before.current_approver_role, approved_by: before.approved_by, approved_at: before.approved_at, rejection_reason: before.rejection_reason, amount: before.amount, approved_amount: before.approved_amount, wallet_credit_status: 'failed' }).eq('id', body.id);
+      }
+    }
 
-    await audit(admin, userId, body.id, approved ? 'manual_requisition_cfo_approved' : 'manual_requisition_cfo_rejected', approved ? 'CFO approved manual requisition — awaiting Financial Ops release' : body.reason!.trim());
-    await notifyRequester(admin, updated, approved ? 'Your manual requisition was approved. Financial Operations will release the funds to your wallet shortly.' : `Your manual requisition was rejected. Reason: ${body.reason}`);
-    return json({ ok: true, credit_error: null, credit_detail: null, wallet_credit: null });
+    await audit(admin, userId, body.id, approved ? (rolledBack ? 'manual_requisition_approval_rolled_back' : 'manual_requisition_cfo_approved') : 'manual_requisition_cfo_rejected', approved ? (rolledBack ? 'CFO approval rolled back because wallet credit failed' : 'CFO approved manual requisition and credited the wallet') : body.reason!.trim());
+    if (!rolledBack) await notifyRequester(admin, updated, approved ? 'Your manual requisition was approved and credited to your wallet.' : `Your manual requisition was rejected. Reason: ${body.reason}`);
+    if (rolledBack) return json({ ok: false, rolled_back: true, error: creditError, credit_error: creditError, credit_detail: creditDetail, wallet_credit: walletCredit });
+    return json({ ok: true, credit_error: null, credit_detail: null, wallet_credit: walletCredit });
   } catch (error) {
     console.error('requisition-decide error', error);
     return json({ error: String((error as Error).message ?? error) }, 500);

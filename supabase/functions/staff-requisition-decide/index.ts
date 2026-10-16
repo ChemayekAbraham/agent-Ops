@@ -1,6 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-// creditRequisitionWallet is no longer called here; wallet release is done by
-// Financial Ops via requisition-credit-retry.
+import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
@@ -232,8 +231,11 @@ Deno.serve(async (req) => {
       return json({ ok: true, requisition: updated }, 200);
     }
 
-    // Final approval — mark approved; wallet credit is released separately by
-    // Financial Ops via the requisition-credit-retry function.
+    // Final approval -> wallet credit (idempotent, ledger-backed)
+    if (row.wallet_credit_status === "credited") {
+      return json({ ok: true, already_credited: true, requisition: row }, 200);
+    }
+
     const finalAmount = approvedAmount ?? Number(row.approved_amount ?? row.amount);
 
     const { data: approvedRow, error: apprErr } = await writer
@@ -253,47 +255,62 @@ Deno.serve(async (req) => {
     if (apprErr) return guardRefused(apprErr);
     if (!approvedRow) return stageMoved();
 
-    await logEvent(admin, requisitionId, actor.id, actorName, "approved", stageKey, comment || "Final approval granted", {
+    const credit = await creditRequisitionWallet({
+      admin,
+      sourceTable: "staff_requisitions",
+      requisitionId,
+      requisitionCode: row.requisition_code,
+      userId: row.requester_id,
+      approverId: actor.id,
+      approverName: actorName,
       amount: finalAmount,
+      currency: row.currency || "UGX",
+      purpose: row.title,
+      category: row.category,
+      status: "approved",
+      approvedAt: now,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      deviceInfo: req.headers.get("user-agent") ?? null,
     });
-    await auditLog(admin, actor.id, requisitionId, "staff_requisition_approved", comment || `Approved ${fmtUGX(finalAmount)} — awaiting Financial Ops release`);
+
+    if (!credit.ok) {
+      // No approved-but-uncredited limbo: roll the stage back to this approver.
+      await writer
+        .from("staff_requisitions")
+        .update({
+          stage: stageKey,
+          current_approver_role: stageKey,
+          decided_at: null,
+          wallet_credit_status: "failed",
+        })
+        .eq("id", requisitionId);
+      await logEvent(admin, requisitionId, actor.id, actorName, "credit_failed", stageKey, credit.message, {
+        stage_detail: credit.stage, error: credit.error,
+      });
+      return json({ ok: false, error: credit.error, message: credit.message, rolled_back: true }, 400);
+    }
+
+    await logEvent(admin, requisitionId, actor.id, actorName, "credited", stageKey, comment || "Approved and credited", {
+      amount: finalAmount, wallet_transaction_id: credit.wallet_transaction_id,
+    });
+    await auditLog(admin, actor.id, requisitionId, "staff_requisition_approved_credited", comment || `Credited ${fmtUGX(finalAmount)}`);
     // Growth commission claims: releasing the claim moves the counter baseline forward.
     await setGrowthClaimStatus(admin, requisitionId, "released", now);
 
     try {
       await admin.from("system_events").insert({
-        event_type: "requisition.approved",
+        event_type: "requisition.credited",
         payload: {
           source: "staff_requisitions",
           id: requisitionId,
           code: row.requisition_code,
           amount: finalAmount,
+          wallet_transaction_id: credit.wallet_transaction_id,
         },
       });
     } catch (_) { /* non-fatal */ }
 
-    // Notify Financial Ops that a requisition is ready for release.
-    try {
-      const { data: finOpsUsers } = await admin
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "financial_ops")
-        .eq("enabled", true)
-        .limit(20);
-      for (const fo of finOpsUsers || []) {
-        await admin.from("notifications").insert({
-          user_id: fo.user_id,
-          type: "staff_requisition",
-          title: `Requisition ${row.requisition_code} approved — release needed`,
-          message: `${row.requester_name} • ${fmtUGX(finalAmount)} — approved and awaiting wallet release.`,
-          metadata: { requisition_id: requisitionId, stage: "approved" },
-        });
-      }
-    } catch (_) { /* non-fatal */ }
-
-    await notifyRequester(admin, approvedRow, `Requisition ${row.requisition_code} has been fully approved (${fmtUGX(finalAmount)}). Financial Operations will release the funds to your wallet shortly.`, `Req ${row.requisition_code} approved for ${fmtUGX(finalAmount)}. Funds will be released shortly.`);
-
-    return json({ ok: true, requisition: approvedRow }, 200);
+    return json({ ok: true, requisition: approvedRow, wallet_credit: credit }, 200);
   } catch (e) {
     console.error("staff-requisition-decide error", e);
     return json({ error: String((e as Error).message ?? e) }, 500);
