@@ -4117,6 +4117,13 @@
       "when": 1792073856025,
       "tag": "0587_usage_report_matching_array_fix",
       "breakpoints": true
+    },
+    {
+      "idx": 588,
+      "version": "7",
+      "when": 1792137074188,
+      "tag": "0588_landlord_payout_otp_recipient_phone",
+      "breakpoints": true
     }
   ]
 }
