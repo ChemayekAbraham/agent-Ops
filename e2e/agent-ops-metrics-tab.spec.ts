@@ -110,6 +110,12 @@ test('Metrics chip on a 380px phone: stacked cards, server figures as returned, 
   const order = await page.evaluate((k) => localStorage.getItem(k), `agentOpsMetricsOrder:${U}`);
   expect(JSON.parse(order!).indexOf('advances')).toBe(5);
 
+  // the "How these are counted" popover is on the page and reads in plain words
+  await page.getByRole('button', { name: /How these are counted/ }).scrollIntoViewIfNeeded();
+  await page.getByRole('button', { name: /How these are counted/ }).click();
+  await expect(page.getByTestId('metrics-how-counted-body')).toContainText('add up to the houses listed');
+  await page.keyboard.press('Escape');
+
   // an agent opens in a sheet with a call link
   await page.getByRole('button', { name: 'Open Test Agent One' }).first().scrollIntoViewIfNeeded();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/phone-agents.png` });
@@ -139,6 +145,12 @@ test('Metrics chip at 1280px: agents as a table, the map area, a link with m* pa
   await expect(page.getByTestId('metrics-agent-table').locator('tbody tr').first()).toContainText('UGX 123,456');
   await expect(page.getByTestId('metrics-map')).toBeVisible();
   await expect(page.getByTestId('metrics-drag-listings')).toBeVisible();
+  // the sidebar is open at 1280px and the page still does not scroll sideways
+  await expect(page.getByText(/additional tools/i).first()).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // the chip comes right after Agent Network
+  const labels = await page.locator('button:has-text("Agent Network"), button:has-text("Metrics")').allInnerTexts();
+  expect(labels.findIndex((t) => /^Agent Network/.test(t.trim()))).toBe(labels.findIndex((t) => /^Metrics/.test(t.trim())) - 1);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/desktop-top.png` });
   await page.getByTestId('metrics-card-agents').scrollIntoViewIfNeeded();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/desktop-agents.png` });

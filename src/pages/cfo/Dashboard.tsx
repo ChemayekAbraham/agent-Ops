@@ -57,6 +57,8 @@ import { ListingBonusApprovalQueue } from '@/components/executive/ListingBonusAp
 import { FinancialAgentsPanel } from '@/components/cfo/FinancialAgentsPanel';
 import { PayrollPanel } from '@/components/cfo/PayrollPanel';
 import CfoPayrollPanel from '@/hr/pay/CfoPayrollPanel';
+import { ApprovalsInbox } from '@/hr/pay/Approvals';
+import { AdvancesPanel } from '@/hr/pay/Advances';
 import { CashoutAgentManager } from '@/components/cfo/CashoutAgentManager';
 import { HouseListingCommissionReport } from '@/components/cfo/HouseListingCommissionReport';
 import { CashoutAgentActivity } from '@/components/cfo/CashoutAgentActivity';
@@ -115,6 +117,7 @@ import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
 import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
+import { LandlordFloatBudgetPanel } from '@/components/cfo/LandlordFloatBudgetPanel';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -206,6 +209,8 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'landlord-float-budget':
+        return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':
         return <RedemptionApprovalsPanel />;
       case 'cash-position':
@@ -360,6 +365,10 @@ export default function CFODashboardPage() {
         return <PayrollPanel />;
       case 'payroll-release':
         return <CfoPayrollPanel />;
+      case 'cfo-pay-advances':
+        return <AdvancesPanel />;
+      case 'cfo-pay-approvals':
+        return <ApprovalsInbox />;
       case 'delivery-pipeline':
         return <DeliveryPipelineTracker />;
       case 'cash-reconciliation':

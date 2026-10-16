@@ -1,3 +1,4 @@
+import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -122,6 +123,7 @@ export function TenantOpsHub() {
 
   return (
     <div className="space-y-3">
+      <TutorialVideosButton />
       <AgentInactiveAlertBanner opsUserId={opsUserId} onOpenBehavior={setBehaviorTenantId} />
 
       {mode !== 'classic' && mode !== 'workspace' && (

@@ -12836,6 +12836,124 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_communication_events: {
+        Row: {
+          action: string
+          actor_id: string
+          communication_id: string
+          created_at: string
+          id: string
+          reason: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          communication_id: string
+          created_at?: string
+          id?: string
+          reason: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          communication_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_communication_events_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "crm_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_communication_receipts: {
+        Row: {
+          acknowledged_at: string
+          communication_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          communication_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          communication_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_communication_receipts_communication_id_fkey"
+            columns: ["communication_id"]
+            isOneToOne: false
+            referencedRelation: "crm_communications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_communications: {
+        Row: {
+          audiences: string[]
+          body: string
+          communication_type: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          link_path: string | null
+          published_at: string | null
+          series_id: string
+          starts_at: string
+          state: string
+          title: string
+          version: number
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          audiences: string[]
+          body: string
+          communication_type: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          link_path?: string | null
+          published_at?: string | null
+          series_id: string
+          starts_at: string
+          state?: string
+          title: string
+          version?: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          audiences?: string[]
+          body?: string
+          communication_type?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          link_path?: string | null
+          published_at?: string | null
+          series_id?: string
+          starts_at?: string
+          state?: string
+          title?: string
+          version?: number
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: []
+      }
       crm_customer_issues: {
         Row: {
           contact: string | null
@@ -26697,6 +26815,206 @@ export type Database = {
           },
         ]
       }
+      landlord_float_budget_allocations: {
+        Row: {
+          amount: number
+          approved_at: string
+          approved_by: string
+          budget_date: string
+          daily_budget_id: string | null
+          id: string
+          kind: string
+          misc_request_id: string | null
+          released_at: string | null
+          released_reason: string | null
+          released_to_status: string | null
+          rent_request_id: string
+          week_start: string
+          weekly_budget_id: string | null
+        }
+        Insert: {
+          amount: number
+          approved_at?: string
+          approved_by: string
+          budget_date: string
+          daily_budget_id?: string | null
+          id?: string
+          kind: string
+          misc_request_id?: string | null
+          released_at?: string | null
+          released_reason?: string | null
+          released_to_status?: string | null
+          rent_request_id: string
+          week_start: string
+          weekly_budget_id?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_at?: string
+          approved_by?: string
+          budget_date?: string
+          daily_budget_id?: string | null
+          id?: string
+          kind?: string
+          misc_request_id?: string | null
+          released_at?: string | null
+          released_reason?: string | null
+          released_to_status?: string | null
+          rent_request_id?: string
+          week_start?: string
+          weekly_budget_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_float_budget_allocations_daily_budget_id_fkey"
+            columns: ["daily_budget_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_misc_request_id_fkey"
+            columns: ["misc_request_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_misc_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landlord_float_budgets: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          over_weekly_warning: boolean
+          period_end: string
+          period_start: string
+          period_type: string
+          reason: string | null
+          set_by: string
+          superseded_at: string | null
+          superseded_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          over_weekly_warning?: boolean
+          period_end: string
+          period_start: string
+          period_type: string
+          reason?: string | null
+          set_by: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          over_weekly_warning?: boolean
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          reason?: string | null
+          set_by?: string
+          superseded_at?: string | null
+          superseded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_float_budgets_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_budgets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_float_idle_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -26771,6 +27089,132 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      landlord_float_misc_requests: {
+        Row: {
+          amount: number
+          budget_date: string
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          id: string
+          reason: string
+          rent_request_id: string
+          requested_at: string
+          requested_by: string
+          room_at_request: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          budget_date: string
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          id?: string
+          reason: string
+          rent_request_id: string
+          requested_at?: string
+          requested_by: string
+          room_at_request: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          budget_date?: string
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          id?: string
+          reason?: string
+          rent_request_id?: string
+          requested_at?: string
+          requested_by?: string
+          room_at_request?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "landlord_float_misc_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
       }
       landlord_float_receivables: {
         Row: {
@@ -34244,6 +34688,349 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ops_tutorial_claim_lines: {
+        Row: {
+          amount: number
+          claim_id: string
+          created_at: string
+          id: string
+          released_at: string | null
+          video_id: string
+        }
+        Insert: {
+          amount: number
+          claim_id: string
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          video_id: string
+        }
+        Update: {
+          amount?: number
+          claim_id?: string
+          created_at?: string
+          id?: string
+          released_at?: string | null
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_claim_lines_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_claim_lines_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_tutorial_claims: {
+        Row: {
+          claim_code: string
+          closed_at: string | null
+          created_at: string
+          creator_id: string
+          id: string
+          linked_at: string | null
+          requisition_id: string | null
+          status: string
+          total_amount: number
+        }
+        Insert: {
+          claim_code?: string
+          closed_at?: string | null
+          created_at?: string
+          creator_id: string
+          id?: string
+          linked_at?: string | null
+          requisition_id?: string | null
+          status?: string
+          total_amount: number
+        }
+        Update: {
+          claim_code?: string
+          closed_at?: string | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          linked_at?: string | null
+          requisition_id?: string | null
+          status?: string
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
+      ops_tutorial_members: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          enabled: boolean
+          member_role: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          member_role: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          enabled?: boolean
+          member_role?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ops_tutorial_rates: {
+        Row: {
+          amount_ugx: number
+          tier: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_ugx?: number
+          tier: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_ugx?: number
+          tier?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      ops_tutorial_topics: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          description: string | null
+          id: string
+          proposed_by: string
+          status: string
+          tier: string
+          title: string
+          topic_code: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_by: string
+          status?: string
+          tier: string
+          title: string
+          topic_code?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          proposed_by?: string
+          status?: string
+          tier?: string
+          title?: string
+          topic_code?: string
+        }
+        Relationships: []
+      }
+      ops_tutorial_videos: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          kind: string
+          mime_type: string
+          no_personal_data_confirmed: boolean | null
+          published_at: string | null
+          published_by: string | null
+          rate_amount: number | null
+          rate_tier: string | null
+          recorded_on: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          revision_reason: string | null
+          sha256: string
+          size_bytes: number
+          status: string
+          storage_path: string
+          submitted_at: string | null
+          supersedes_video_id: string | null
+          title: string
+          topic_id: string
+          uploaded_at: string | null
+          uploaded_by: string
+          video_code: string
+          video_codec: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds: number
+          id?: string
+          kind: string
+          mime_type: string
+          no_personal_data_confirmed?: boolean | null
+          published_at?: string | null
+          published_by?: string | null
+          rate_amount?: number | null
+          rate_tier?: string | null
+          recorded_on?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_reason?: string | null
+          sha256: string
+          size_bytes: number
+          status?: string
+          storage_path: string
+          submitted_at?: string | null
+          supersedes_video_id?: string | null
+          title: string
+          topic_id: string
+          uploaded_at?: string | null
+          uploaded_by: string
+          video_code?: string
+          video_codec: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          kind?: string
+          mime_type?: string
+          no_personal_data_confirmed?: boolean | null
+          published_at?: string | null
+          published_by?: string | null
+          rate_amount?: number | null
+          rate_tier?: string | null
+          recorded_on?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          revision_reason?: string | null
+          sha256?: string
+          size_bytes?: number
+          status?: string
+          storage_path?: string
+          submitted_at?: string | null
+          supersedes_video_id?: string | null
+          title?: string
+          topic_id?: string
+          uploaded_at?: string | null
+          uploaded_by?: string
+          video_code?: string
+          video_codec?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_videos_supersedes_video_id_fkey"
+            columns: ["supersedes_video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_videos_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_tutorial_view_events: {
+        Row: {
+          context: string
+          duration_seconds: number
+          first_played_at: string
+          id: string
+          last_seen_at: string
+          max_position_seconds: number
+          requisition_id: string | null
+          video_id: string
+          viewer_id: string
+        }
+        Insert: {
+          context: string
+          duration_seconds: number
+          first_played_at?: string
+          id?: string
+          last_seen_at?: string
+          max_position_seconds?: number
+          requisition_id?: string | null
+          video_id: string
+          viewer_id: string
+        }
+        Update: {
+          context?: string
+          duration_seconds?: number
+          first_played_at?: string
+          id?: string
+          last_seen_at?: string
+          max_position_seconds?: number
+          requisition_id?: string | null
+          video_id?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_tutorial_view_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_view_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+          {
+            foreignKeyName: "ops_tutorial_view_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "ops_tutorial_videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       otp_login_audit: {
         Row: {
@@ -62726,6 +63513,10 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_nudge_stats: {
+        Args: { p_agent_id: string; p_day: string }
+        Returns: Json
+      }
       _agent_products_authorized: { Args: never; Returns: boolean }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
@@ -62952,6 +63743,35 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _landlord_float_coo_step_problem: {
+        Args: {
+          p_row: Database["public"]["Tables"]["rent_requests"]["Row"]
+          p_uid: string
+        }
+        Returns: Json
+      }
+      _landlord_float_notify: {
+        Args: {
+          p_event_key: string
+          p_link?: string
+          p_message: string
+          p_metadata: Json
+          p_roles: string[]
+          p_title: string
+        }
+        Returns: undefined
+      }
+      _landlord_float_period_json: {
+        Args: {
+          b: Database["public"]["Tables"]["landlord_float_budgets"]["Row"]
+          p_count: number
+          p_misc: number
+          p_used: number
+        }
+        Returns: Json
+      }
+      _landlord_float_position: { Args: { p_day: string }; Returns: Json }
+      _landlord_float_ugx: { Args: { p_amount: number }; Returns: string }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -63776,6 +64596,15 @@ export type Database = {
           total_matched: number
         }[]
       }
+      agent_ops_metrics_listing_quality: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
+        Returns: Json
+      }
       agent_ops_metrics_locations: {
         Args: { p_end: string; p_level?: string; p_start: string }
         Returns: {
@@ -63826,6 +64655,15 @@ export type Database = {
           status: string
           verified: boolean
         }[]
+      }
+      agent_ops_metrics_risk: {
+        Args: {
+          p_end: string
+          p_limit?: number
+          p_offset?: number
+          p_start: string
+        }
+        Returns: Json
       }
       agent_ops_metrics_totals: {
         Args: { p_end: string; p_start: string }
@@ -66259,6 +67097,10 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
+      cfo_decide_landlord_float_misc: {
+        Args: { p_decision: string; p_misc_ids: string[]; p_note?: string }
+        Returns: Json
+      }
       cfo_decide_service_centre: {
         Args: {
           p_amount?: number
@@ -66339,6 +67181,10 @@ export type Database = {
       }
       cfo_reject_redemption: {
         Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
+      cfo_return_rent_requests_to_coo: {
+        Args: { p_reason: string; p_request_ids: string[] }
         Returns: Json
       }
       cfo_s12_audit: {
@@ -66460,6 +67306,15 @@ export type Database = {
       }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
+        Returns: Json
+      }
+      cfo_set_landlord_float_budget: {
+        Args: {
+          p_amount: number
+          p_period_start?: string
+          p_period_type: string
+          p_reason?: string
+        }
         Returns: Json
       }
       cfo_set_staff_tax_ids: {
@@ -66920,6 +67775,10 @@ export type Database = {
         Args: { p_comment?: string; p_request_id: string }
         Returns: Json
       }
+      coo_approve_rent_requests: {
+        Args: { p_comment?: string; p_request_ids: string[] }
+        Returns: Json
+      }
       coo_approve_smartphone_order: {
         Args: {
           p_daily_deduction?: number
@@ -66928,6 +67787,10 @@ export type Database = {
           p_sale_id: string
           p_total_amount?: number
         }
+        Returns: Json
+      }
+      coo_request_landlord_float_misc: {
+        Args: { p_items: Json }
         Returns: Json
       }
       coo_return_rent_request: {
@@ -67317,6 +68180,36 @@ export type Database = {
       }
       crm_callee_dossier: { Args: { p_user_id: string }; Returns: Json }
       crm_cancel_call: { Args: { p_session_id: string }; Returns: string }
+      crm_communication_account_live: {
+        Args: { p_user: string }
+        Returns: boolean
+      }
+      crm_communication_acknowledge: {
+        Args: { p_id: string; p_role: string }
+        Returns: Json
+      }
+      crm_communication_admin_list: {
+        Args: { p_offset?: number; p_status?: string }
+        Returns: Json
+      }
+      crm_communication_audience_count: {
+        Args: { p_audiences: string[] }
+        Returns: number
+      }
+      crm_communication_editor: { Args: never; Returns: boolean }
+      crm_communication_inbox: {
+        Args: { p_id?: string; p_role: string }
+        Returns: Json
+      }
+      crm_communication_manage: {
+        Args: {
+          p_action: string
+          p_content?: Json
+          p_id?: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       crm_derive_outcome: {
         Args: { p_duration: number; p_hangup_cause: string; p_status: string }
         Returns: string
@@ -69349,6 +70242,7 @@ export type Database = {
         }[]
       }
       get_agent_network_summary: { Args: { p_agent_id: string }; Returns: Json }
+      get_agent_nudge_stats: { Args: never; Returns: Json }
       get_agent_operational_population: {
         Args: { p_as_of?: string; p_from?: string }
         Returns: Json
@@ -70590,6 +71484,53 @@ export type Database = {
           max_single_transfer_ugx: number
         }[]
       }
+      get_landlord_float_budget_allocations: {
+        Args: { p_period_start: string; p_period_type: string }
+        Returns: {
+          agent_name: string
+          allocation_id: string
+          amount: number
+          approved_at: string
+          approved_by: string
+          approved_by_name: string
+          budget_date: string
+          kind: string
+          landlord_name: string
+          misc_reason: string
+          released_at: string
+          released_reason: string
+          released_to_status: string
+          rent_request_id: string
+          request_status: string
+          tenant_name: string
+        }[]
+      }
+      get_landlord_float_budget_history: {
+        Args: { p_limit?: number; p_period_type?: string }
+        Returns: {
+          amount: number
+          approved_count: number
+          created_at: string
+          excess: number
+          id: string
+          is_current: boolean
+          misc_used: number
+          over_weekly_warning: boolean
+          period_end: string
+          period_start: string
+          period_type: string
+          reason: string
+          set_by: string
+          set_by_name: string
+          superseded_at: string
+          superseded_by: string
+          used: number
+        }[]
+      }
+      get_landlord_float_budget_status: {
+        Args: { p_day?: string }
+        Returns: Json
+      }
       get_landlord_float_due_today: { Args: never; Returns: Json }
       get_landlord_float_management_split:
         | {
@@ -70604,6 +71545,29 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.get_landlord_float_management_split(p_as_at => date), public.get_landlord_float_management_split(p_as_at => timestamptz). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      get_landlord_float_misc_queue: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: {
+          agent_name: string
+          amount: number
+          budget_date: string
+          cfo_decided_at: string
+          cfo_decided_by: string
+          cfo_decided_by_name: string
+          cfo_note: string
+          id: string
+          landlord_name: string
+          reason: string
+          rent_request_id: string
+          request_status: string
+          requested_at: string
+          requested_by: string
+          requested_by_name: string
+          room_at_request: number
+          status: string
+          tenant_name: string
+        }[]
+      }
       get_landlord_ops_rows:
         | {
             Args: {
@@ -73587,6 +74551,11 @@ export type Database = {
           witness_signed_on: string
         }[]
       }
+      landlord_float_budget_can_view: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      landlord_float_budget_today: { Args: never; Returns: string }
       landlord_float_idle_action: {
         Args: { p_action: string; p_alert_id: string; p_note: string }
         Returns: Json
@@ -73596,6 +74565,7 @@ export type Database = {
         Returns: Json
       }
       landlord_float_recall_go_live: { Args: never; Returns: string }
+      landlord_float_week_start: { Args: { p_day: string }; Returns: string }
       landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
       landlord_has_current_agreement: {
         Args: { p_landlord_id: string }
@@ -75501,6 +76471,160 @@ export type Database = {
           p_rent_request_id: string
         }
         Returns: Json
+      }
+      ops_tutorial_accept: {
+        Args: {
+          p_no_personal_data: boolean
+          p_note: string
+          p_video_id: string
+        }
+        Returns: undefined
+      }
+      ops_tutorial_approver_watch_status: {
+        Args: { p_requisition_id: string }
+        Returns: {
+          started_count: number
+          video_count: number
+        }[]
+      }
+      ops_tutorial_can_view_claim: {
+        Args: { _claim_id: string }
+        Returns: boolean
+      }
+      ops_tutorial_can_view_video: {
+        Args: { _video_id: string }
+        Returns: boolean
+      }
+      ops_tutorial_claim_cancel: {
+        Args: { p_claim_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_claim_for_requisition: {
+        Args: { p_requisition_id: string }
+        Returns: {
+          claim_code: string
+          claim_id: string
+          requisition_amount: number
+          total_amount: number
+          videos: Json
+        }[]
+      }
+      ops_tutorial_claim_link: { Args: { p_claim_id: string }; Returns: string }
+      ops_tutorial_claim_prepare: {
+        Args: { p_video_ids: string[] }
+        Returns: {
+          claim_code: string
+          claim_id: string
+          req_reason: string
+          req_title: string
+          total_amount: number
+        }[]
+      }
+      ops_tutorial_claim_release: {
+        Args: { p_claim_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_claims_list: {
+        Args: never
+        Returns: {
+          claim_code: string
+          claim_id: string
+          created_at: string
+          creator_id: string
+          credited_at: string
+          rejection_reason: string
+          req_amount: number
+          req_approved_amount: number
+          req_stage: string
+          requisition_code: string
+          requisition_id: string
+          status: string
+          total_amount: number
+          video_count: number
+          video_ids: string[]
+          wallet_credit_status: string
+        }[]
+      }
+      ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
+      ops_tutorial_log_view: {
+        Args: {
+          p_context: string
+          p_position_seconds: number
+          p_requisition_id?: string
+          p_video_id: string
+        }
+        Returns: undefined
+      }
+      ops_tutorial_mark_uploaded: {
+        Args: { p_video_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_members_list: {
+        Args: never
+        Returns: {
+          added_at: string
+          email: string
+          enabled: boolean
+          full_name: string
+          member_role: string
+          note: string
+          user_id: string
+        }[]
+      }
+      ops_tutorial_my_capabilities: { Args: never; Returns: Json }
+      ops_tutorial_propose_topic: {
+        Args: { p_description: string; p_tier: string; p_title: string }
+        Returns: string
+      }
+      ops_tutorial_register_upload: {
+        Args: {
+          p_duration_seconds: number
+          p_kind: string
+          p_recorded_on: string
+          p_revision_reason: string
+          p_sha256: string
+          p_size_bytes: number
+          p_supersedes_video_id: string
+          p_title: string
+          p_topic_id: string
+          p_video_codec: string
+        }
+        Returns: {
+          resumed: boolean
+          storage_path: string
+          video_code: string
+          video_id: string
+        }[]
+      }
+      ops_tutorial_reject: {
+        Args: { p_reason: string; p_video_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_member: {
+        Args: {
+          p_email: string
+          p_enabled: boolean
+          p_note: string
+          p_role: string
+        }
+        Returns: string
+      }
+      ops_tutorial_set_published: {
+        Args: { p_published: boolean; p_video_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_rate: {
+        Args: { p_amount: number; p_tier: string }
+        Returns: undefined
+      }
+      ops_tutorial_set_topic_status: {
+        Args: { p_status: string; p_topic_id: string }
+        Returns: undefined
+      }
+      ops_tutorial_submit: { Args: { p_video_id: string }; Returns: undefined }
+      ops_tutorial_withdraw: {
+        Args: { p_video_id: string }
+        Returns: undefined
       }
       ops_undo_agent_capability_job: {
         Args: { _job_id: string; _reason: string }

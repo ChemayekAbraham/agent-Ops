@@ -11,6 +11,7 @@
  * any money moves; a failed debit puts it back to credited.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,6 +108,33 @@ Deno.serve(async (req) => {
         event_type: "wallet_transfer",
         user_id: claimed.user_id,
         metadata: { kind: "requisition_reversed", source_table: sourceTable, requisition_id: requisitionId, amount, by: user.id },
+      });
+    } catch (_) { /* best effort */ }
+    // Tell the requester right away (bell updates live on notification inserts).
+    try {
+      const code = claimed.requisition_code ?? requisitionId.slice(0, 8).toUpperCase();
+      await admin.from("notifications").insert({
+        user_id: claimed.user_id,
+        title: `Requisition ${code} payment reversed`,
+        message: `UGX ${Math.round(amount).toLocaleString("en-US")} paid for requisition ${code} was taken back from your wallet and returned to the company. Reason: ${reason.slice(0, 300)}. You do not need to submit a usage report for it.`,
+        type: "requisition_reversed",
+        is_read: false,
+        metadata: { requisition_id: requisitionId, source_table: sourceTable, amount, reversal_reference: reference, stage: "reversed" },
+      });
+    } catch (_) { /* best effort — never undo a completed reversal */ }
+    // SMS to the requester themselves (their own money, so the approver-only
+    // requisition SMS role policy does not apply). Best effort; never undoes the reversal.
+    try {
+      const code = claimed.requisition_code ?? requisitionId.slice(0, 8).toUpperCase();
+      const { data: prof } = await admin.from("profiles").select("phone, full_name").eq("id", claimed.user_id).maybeSingle();
+      const sms = `Welile: UGX ${Math.round(amount).toLocaleString("en-US")} paid for requisition ${code} has been reversed from your wallet and returned to the company. Reason: ${reason.slice(0, 120)}. No usage report is needed for it.`;
+      await sendSMS(String(prof?.phone ?? ""), sms, {
+        admin,
+        source: "requisition_reversal",
+        reference_id: reference ?? claimed.id,
+        recipient_user_id: claimed.user_id,
+        recipient_name: prof?.full_name ?? null,
+        idempotencyKey: `requisition_reversal_sms:${claimed.id}`,
       });
     } catch (_) { /* best effort */ }
 

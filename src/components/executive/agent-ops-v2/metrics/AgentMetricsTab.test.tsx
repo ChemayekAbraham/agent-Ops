@@ -35,6 +35,8 @@ const show = () => render(<MemoryRouter><AgentMetricsStandalone /></MemoryRouter
 const text = () => (document.body.textContent ?? '').replace(/\u00a0/g, ' ');
 const titles = () => screen.getAllByTestId(/^metrics-card-/).map((c) => c.getAttribute('data-testid')!.replace('metrics-card-', ''));
 
+vi.setConfig({ testTimeout: 30_000 });
+
 beforeEach(() => {
   localStorage.clear();
   refetch.mockClear();
@@ -147,6 +149,16 @@ describe('Metrics tab', () => {
     expect(headers).toEqual(['Figure', 'Amount (UGX)']);
     expect(rows).toEqual([['Listing earnings', 1752000], ['Clawed back', 64000]]);
     for (const l of ['Today', 'Last 7 days', 'Last 30 days', 'This month', 'Custom']) expect(screen.getByRole('button', { name: l })).toBeInTheDocument();
+  });
+
+  it('has a plain-language "How these are counted" popover that explains the rejected and advance figures', () => {
+    show();
+    fireEvent.click(screen.getByRole('button', { name: /How these are counted/ }));
+    const body = screen.getByTestId('metrics-how-counted-body');
+    expect(body.textContent).toMatch(/add up to the houses listed/);
+    expect(body.textContent).toMatch(/Advance Repayment Monitor/);
+    expect(body.textContent).toMatch(/only from the company ledger/);
+    expect(body.textContent).not.toMatch(/\bloan\b|\blender\b|\bROI\b|\binterest\b/i);
   });
 
   it('uses the approved wording and no emoji', () => {

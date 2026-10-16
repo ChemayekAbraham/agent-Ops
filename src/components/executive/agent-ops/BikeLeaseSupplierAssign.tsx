@@ -27,11 +27,27 @@ export function useBikeLeaseSupplier(saleId: string | null | undefined) {
 }
 
 /** Assign the internal company supplier who buys the bike. The lease stays in the agent's name. */
-export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; locked?: boolean }) {
+export function BikeLeaseSupplierAssign({
+  saleId,
+  locked,
+  isApproved,
+}: {
+  saleId: string;
+  locked?: boolean;
+  isApproved?: boolean;
+}) {
   const qc = useQueryClient();
   const { data: supplier, isLoading } = useBikeLeaseSupplier(saleId);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<SupplierChoice | null>(null);
+
+  // Leases approved prior to the supplier rule were disbursed directly and should not
+  // be blocked, flagged with errors, or prompted for a supplier after the fact.
+  if (isApproved && !supplier && !isLoading) {
+    return null;
+  }
+
+  const isLocked = locked || isApproved;
 
   const save = useMutation({
     mutationFn: async (choice: SupplierChoice) => {
@@ -58,7 +74,7 @@ export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; lo
             <p className="text-[10px] text-muted-foreground">Only internal company staff and operations team members can be the supplier. The lease stays in the agent's name.</p>
           </div>
         </div>
-        {!editing && !locked && (
+        {!editing && !isLocked && (
           <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[11px] gap-1"
             onClick={() => {
               setEditing(true);
@@ -91,7 +107,7 @@ export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; lo
           <p className="text-xs font-semibold truncate">{supplier.supplier_name || 'Registered supplier'}</p>
           {supplier.supplier_phone && <p className="text-[10px] text-muted-foreground">{supplier.supplier_phone}</p>}
         </div>
-      ) : (
+      ) : isApproved ? null : (
         <p className="text-[11px] text-destructive">No supplier assigned yet. The CFO cannot release funds until one is set.</p>
       )}
     </div>

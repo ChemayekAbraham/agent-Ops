@@ -17,6 +17,12 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/cashoutAgentConfig';
 
+// The legacy "Post a rent request here" card and its "earn UGX 5000" line are
+// hidden for now (2026-10-16): the signature rent-request card is the single
+// entry point on this dashboard. Flip to true to bring them back.
+const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+
+
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
@@ -95,7 +101,6 @@ import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet';
-import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
 import { WeeklyStreakDialog, WeeklyCollectionStreakCard } from '@/components/agent/WeeklyCollectionStreak';
@@ -157,11 +162,9 @@ import { useAgentPipelineCounts } from '@/hooks/useAgentPipelineCounts';
 
 import { getDuplicateEntries } from '@/lib/fieldCollectStore';
 import { FileWarning } from 'lucide-react';
-import { FieldCollectDailyTotals } from '@/components/agent/FieldCollectDailyTotals';
 import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
 import { FieldDepositQueueCard } from '@/components/agent/FieldDepositQueueCard';
 
-import { AgentRatingCard } from '@/components/agent/AgentRatingCard';
 import { AgentCollectionLeagueCard } from '@/components/agent/AgentCollectionLeagueCard';
 import { RecruitSubAgentCTA } from '@/components/agent/RecruitSubAgentCTA';
 import { ApprovedRentRequestsWidget } from '@/components/rent/ApprovedRentRequestsWidget';
@@ -173,6 +176,8 @@ import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard'
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { useAgentNudges } from '@/hooks/useAgentNudges';
+import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -244,6 +249,9 @@ const BorrowLoanSheet = lazy(() => import('@/components/vouch/borrower/BorrowLoa
 const AgentAdvanceRequestForm = lazyNamed(() => import('@/components/agent/AgentAdvanceRequestForm'), 'AgentAdvanceRequestForm');
 const CreditAccessCard = lazyNamed(() => import('@/components/CreditAccessCard'), 'CreditAccessCard');
 const AgentCashPayoutsTab = lazyNamed(() => import('@/components/agent/AgentCashPayoutsTab'), 'AgentCashPayoutsTab');
+const ServiceCenterQualificationCard = lazyNamed(() => import('@/components/agent/ServiceCenterQualificationCard'), 'ServiceCenterQualificationCard');
+const AgentRatingCard = lazyNamed(() => import('@/components/agent/AgentRatingCard'), 'AgentRatingCard');
+const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/FieldCollectDailyTotals'), 'FieldCollectDailyTotals');
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
@@ -885,6 +893,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     return true;
   };
 
+  // Personal nudge toasts (copy in src/lib/agentNudges/nudges.json; paced in the hook).
+  useAgentNudges(user?.id, {
+    onAction: (cta) => {
+      if (cta === 'collect') setTenantsSheetOpen(true);
+      else if (cta === 'add_tenant') { if (!guardMerchant()) setRentRequestOpen(true); }
+      else if (cta === 'leaderboard') navigate('/dashboard/agent?tab=league');
+    },
+  });
+
   // Merchant Agents are locked to the Home tab. If the active tab ever lands on
   // an operational section (e.g. it was set before the role resolved), snap back.
   useEffect(() => {
@@ -962,6 +979,20 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       window.removeEventListener('agent-open-free-service-center', handleOpenFreeServiceCenter);
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
+
+  // Warm up menu route bundles during browser idle time so menu navigation is instant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import('@/pages/YourProfile');
+      void import('@/pages/AgentServiceCenter');
+      void import('@/components/auth/ProxyAgentGuard');
+      void import('@/pages/agent/ProxyPerformanceDashboard');
+      void import('@/pages/AgentCommissionBenefits');
+      void import('@/pages/MerchandiseStore');
+      void import('@/pages/Settings');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Live "updated …" indicator for the Merchant Payouts earnings total.
   // Re-render every 15s so the relative timestamp stays fresh.
@@ -1079,12 +1110,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
 
   const menuItems = [
-    { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
+    {
+      icon: ShoppingBag,
+      label: 'Buy Merchandise',
+      onClick: () => { hapticTap(); navigate('/merchandise'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+    },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
     },
   ];
 
@@ -1274,18 +1311,25 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   fullName={profile?.full_name}
                   onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
                 />
-                {/* Add Tenant — major action taking up the biggest portion of the screen */}
-                <AgentPostRentRequestCard
-                  restricted={isMerchant}
-                  onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="w-full min-h-[300px] sm:min-h-[360px]"
-                />
-                <p 
-                  onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-                >
-                  and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
-                </p>
+                <AgentNudgePreviewButton userId={user?.id} />
+                {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
+                    (2026-10-16). The signature card above is the entry point. */}
+                {SHOW_LEGACY_RENT_REQUEST_CARD && (
+                  <>
+                    <AgentPostRentRequestCard
+                      restricted={isMerchant}
+                      onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="w-full min-h-[300px] sm:min-h-[360px]"
+                    />
+                    <p
+                      onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+                      className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+                    >
+                      and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
+                    </p>
+                  </>
+                )}
+
               </div>
             )}
 
@@ -2161,6 +2205,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       </LazyModal>
 
       {/* Free Service Center qualification dialog */}
+      <LazyModal when={freeServiceCenterOpen}>
       <Dialog open={freeServiceCenterOpen} onOpenChange={setFreeServiceCenterOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2169,8 +2214,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <ServiceCenterQualificationCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Your Rating dialog */}
+      <LazyModal when={ratingDialogOpen}>
       <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
         <DialogContent className="max-w-md p-4 sm:p-6 bg-card border-border">
           <DialogHeader>
@@ -2179,8 +2226,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <AgentRatingCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Field Collections daily totals dialog */}
+      <LazyModal when={fieldCollectionsOpen}>
       <Dialog open={fieldCollectionsOpen} onOpenChange={setFieldCollectionsOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2189,6 +2238,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <FieldCollectDailyTotals live />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Phase 1: Agent Operations Dialogs */}
       <LazyModal when={visitDialogOpen}>
