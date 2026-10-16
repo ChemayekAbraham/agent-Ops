@@ -414,7 +414,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
-        { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals', route: '/approvals' },
+        { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances', route: '/hr/pay/advances' },
         { label: 'Bonuses', icon: HandCoins, id: 'ceo-bonuses', route: '/hr/bonuses', access: { roles: ['ceo', 'super_admin'] } },
         { label: 'Platform Sales Officers', icon: Users, id: 'ceo-platform-sales-officers', route: '/hr/reports/platform-sales-officers' },
