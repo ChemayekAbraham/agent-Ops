@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDistanceToNow } from 'date-fns';
 import { CommunicationsBellSection, useBellCommunications } from '@/components/communications/CommunicationsBellSection';
+import { NotificationDetailDialog, type NotificationDetail } from '@/components/agent/NotificationDetailDialog';
 import { cn } from '@/lib/utils';
 import { useNotificationPulse } from '@/hooks/useNotificationPulse';
 
@@ -39,6 +40,8 @@ export function AgentNotificationBell({
 }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
+  const [detailItem, setDetailItem] = useState<NotificationDetail | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const navigate = useNavigate();
   const { isPulsing, stopPulse } = useNotificationPulse(userId);
 
@@ -95,10 +98,23 @@ export function AgentNotificationBell({
     } else if (meta.kind === 'merchandise_recovery' || n.type === 'merchandise_recovery') {
       setOpen(false);
       navigate('/merchandise');
+    } else {
+      // Open the full-information dialog for every other notification.
+      setOpen(false);
+      setDetailItem({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        created_at: n.created_at,
+        metadata: n.metadata,
+      });
+      setDetailOpen(true);
     }
   };
 
   return (
+    <>
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) stopPulse(); }}>
       <PopoverTrigger asChild>
         <Button
@@ -182,6 +198,12 @@ export function AgentNotificationBell({
           )}
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+      <NotificationDetailDialog
+        notification={detailItem}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
+    </>
   );
 }
