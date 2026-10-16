@@ -373,6 +373,24 @@ const DashboardHeader = memo(function DashboardHeader({
                     </DropdownMenuItem>
                   )}
 
+                  {currentRole === 'tenant' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('tenant-tab-change', { detail: 'activity' }));
+                        navigate('/dashboard/tenant?tab=activity');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Clock className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Recent Activity</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => {

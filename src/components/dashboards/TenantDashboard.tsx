@@ -181,15 +181,15 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
-  const initialTab: 'home' | 'rent-plan' =
-    tabParam === 'rent-plan' ? 'rent-plan' : 'home';
-  const [activeTab, setActiveTab] = useState<'home' | 'rent-plan'>(initialTab);
+  const initialTab: 'home' | 'rent-plan' | 'activity' =
+    tabParam === 'rent-plan' ? 'rent-plan' : tabParam === 'activity' ? 'activity' : 'home';
+  const [activeTab, setActiveTab] = useState<'home' | 'rent-plan' | 'activity'>(initialTab);
 
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab');
-    if (currentTab === 'rent-plan') {
-      setActiveTab('rent-plan');
+    if (currentTab === 'rent-plan' || currentTab === 'activity') {
+      setActiveTab(currentTab);
     } else {
       setActiveTab('home');
     }
@@ -198,8 +198,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<string>) => {
-      if (e.detail === 'rent-plan') {
-        setActiveTab('rent-plan');
+      if (e.detail === 'rent-plan' || e.detail === 'activity') {
+        setActiveTab(e.detail as any);
       } else if (e.detail === 'home') {
         setActiveTab('home');
       }
@@ -235,6 +235,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
       userBehaviourTracker.setSection('tenant-calculator', 'tenant');
     } else if (activeTab === 'rent-plan') {
       userBehaviourTracker.setSection('tenant-rent-plan', 'tenant');
+    } else if (activeTab === 'activity') {
+      userBehaviourTracker.setSection('tenant-recent-activity', 'tenant');
     } else {
       userBehaviourTracker.setSection('tenant-overview', 'tenant');
     }
@@ -427,7 +429,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
                 <span>Back to Home</span>
               </button>
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                {activeTab === 'rent-plan' ? 'Your Rent Plan' : 'Tenant Hub'}
+                {activeTab === 'rent-plan' ? 'Your Rent Plan' : activeTab === 'activity' ? 'Recent Activity' : 'Tenant Hub'}
               </span>
             </div>
           )}
@@ -493,11 +495,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
                 </WidgetErrorBoundary>
               </div>
 
-              {/* Recent payment activity timeline */}
-              <WidgetErrorBoundary label="Payment timeline">
-                <PaymentTimeline />
-              </WidgetErrorBoundary>
-
               <WidgetErrorBoundary label="Suggested houses">
                 <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
               </WidgetErrorBoundary>
@@ -527,6 +524,22 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
               <WidgetErrorBoundary label="Rent plan summary">
                 <RentPlanSummaryCard onViewDetails={() => navigate('/dashboard/rent-plan')} />
+              </WidgetErrorBoundary>
+            </div>
+          )}
+
+          {/* === RECENT ACTIVITY TAB === Payment and transaction history */}
+          {activeTab === 'activity' && (
+            <div className="space-y-4 pb-24 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base sm:text-lg font-bold text-foreground">Recent Activity</h2>
+                  <p className="text-xs text-muted-foreground">Your rent payments and account activity</p>
+                </div>
+              </div>
+
+              <WidgetErrorBoundary label="Payment timeline">
+                <PaymentTimeline limit={20} />
               </WidgetErrorBoundary>
             </div>
           )}
