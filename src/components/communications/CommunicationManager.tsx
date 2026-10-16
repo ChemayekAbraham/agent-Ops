@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useCommunicationAudienceCount, useCrmCommunicationManager, useManageCommunication } from '@/hooks/useCrmCommunications';
+import { useCrmCommunicationManager, useManageCommunication } from '@/hooks/useCrmCommunications';
 import { communicationAudiences, communicationDestinations, communicationTime, communicationTypes, kampalaInput, kampalaInputToIso, validateCommunication, type Communication, type CommunicationContent, type CommunicationType } from '@/lib/crmCommunications';
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
 
