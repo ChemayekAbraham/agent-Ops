@@ -72,7 +72,6 @@ export default function CRMDashboardPage() {
 
     switch (activeTab) {
       case 'in-app-communications':
-      case 'broadcast':
         return <Suspense fallback={<PanelFallback />}><CommunicationManager /></Suspense>;
       case 'requisitions':
         return <RequisitionsWorkspace />;
