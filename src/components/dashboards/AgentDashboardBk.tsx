@@ -176,6 +176,7 @@ import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard'
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
@@ -891,6 +892,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     import('sonner').then(({ toast }) => toast.error(MERCHANT_RESTRICTION_MESSAGE));
     return true;
   };
+
+  // Personal nudge toasts (copy in src/lib/agentNudges/nudges.json; paced in the hook).
+  useAgentNudges(user?.id, {
+    onAction: (cta) => {
+      if (cta === 'collect') setTenantsSheetOpen(true);
+      else if (cta === 'add_tenant') { if (!guardMerchant()) setRentRequestOpen(true); }
+      else if (cta === 'leaderboard') navigate('/dashboard/agent?tab=league');
+    },
+  });
 
   // Merchant Agents are locked to the Home tab. If the active tab ever lands on
   // an operational section (e.g. it was set before the role resolved), snap back.
