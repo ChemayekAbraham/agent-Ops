@@ -298,6 +298,8 @@ const DashboardHeader = memo(function DashboardHeader({
                 <DropdownMenu onOpenChange={(open) => {
                   if (open && currentRole === 'agent') {
                     void import('@/pages/AgentServiceCenter');
+                    void import('@/components/auth/ProxyAgentGuard');
+                    void import('@/pages/agent/ProxyPerformanceDashboard');
                   }
                 }}>
                   <DropdownMenuTrigger asChild>
@@ -305,7 +307,11 @@ const DashboardHeader = memo(function DashboardHeader({
                     variant="ghost" 
                     size="icon" 
                     onPointerEnter={() => {
-                      if (currentRole === 'agent') void import('@/pages/AgentServiceCenter');
+                      if (currentRole === 'agent') {
+                        void import('@/pages/AgentServiceCenter');
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }
                     }}
                     className="h-10 w-10 min-w-[44px] min-h-[44px] text-white/90 hover:text-white hover:bg-white/10 rounded-xl touch-manipulation"
                   >
@@ -346,6 +352,14 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/dashboard/agent/proxy'); }}
+                      onPointerEnter={() => {
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }}
+                      onTouchStart={() => {
+                        void import('@/components/auth/ProxyAgentGuard');
+                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                      }}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3 min-w-0">

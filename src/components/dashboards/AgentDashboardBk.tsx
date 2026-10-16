@@ -969,10 +969,12 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
-  // Warm up Service Center route bundle during browser idle time so menu navigation is instant
+  // Warm up Service Center & Proxy Agents route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
       void import('@/pages/AgentServiceCenter');
+      void import('@/components/auth/ProxyAgentGuard');
+      void import('@/pages/agent/ProxyPerformanceDashboard');
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
