@@ -19,11 +19,30 @@ Josh decided today's work follows this reply. What it says:
 How it lines up with the runbook (`PDPO_RESTORE_RUNBOOK_2026-10-14.md`): the reply matches it. Points that still need care and are not changed by the reply: restore by schema, not the whole dump over Supabase's own schemas; `auth` as data only; `storage.objects` is metadata, so files go through the Storage API; rewrite cron commands containing the source ref; the Live export is production data (personal data plus password hashes), so keep it off the repo, on an encrypted disk.
 
 ## Open questions (to fill in)
-- Purpose of this dump: fresh rehearsal / final cutover with write freeze / redo of a failed restore? **[unanswered]**
+- Purpose of this dump: **ANSWERED by Josh 2026-10-16: FINAL CUTOVER.** Write freeze applies.
 - Does the target currently hold real data, and has the DPO approved the region? **[unanswered]**
+
+## Final cutover plan (set 2026-10-16)
+**Gates that must be true before the freeze starts** (any unknown blocks the freeze):
+- G1. DPO has approved the target region for real data (runbook rule 0.1). **[unanswered]**
+- G2. A rehearsal restore has passed the runbook section 3 verification gate. Doc 237 says the target was restored from an earlier Lovable dump, but no verification result is recorded in the repo. **[unknown: confirm or rehearse]**
+- G3. Target edge functions deployed and secrets re-entered (secrets cannot be exported); target cron jobs rewritten to the target ref and left inactive until verification. **[unknown]**
+- G4. Storage file copy plan ready (about 15.5 GB, 205k objects, doc 237; `storage-migration-export` is not deployed yet). **[open]**
+- G5. Rollback is the untouched Lovable Cloud database: do not disconnect Cloud until the target is verified and the final export is downloaded.
+
+**Sequence**
+1. Announce the freeze window. Pause the app, scheduled jobs and webhooks on the source (done by Josh/Lovable; our `query_database` is SELECT-only and the runbook forbids production DDL from here). Inbound money feeds to note: IFTTT deposit intake, Gmail poller, SMS/mobile-money callbacks, pg_cron jobs (219). Anything arriving in the window must be replayed or reconciled after switch-over.
+2. Record the source baseline (counts, ledger/wallet control totals, `auth.users`, `storage.objects`) after the freeze and before the export.
+3. Josh starts the Live export (Luca's steps), downloads it, records size and SHA-256.
+4. Restore by schema per the runbook (public schema, data under `session_replication_role=replica`, post-data; `auth` data only; `storage.buckets` only; cron rewritten).
+5. Copy storage files; compare counts and bytes per bucket.
+6. Verification gate: counts equal baseline, ledger/wallet totals match to the shilling, test sign-in with an existing password, cron count explained.
+7. Link Lovable to `byrzshwlentqvktcksem`, then disconnect Cloud (final export already downloaded), enable target cron, re-enable webhooks pointing at the target, lift the freeze.
+8. Post-cutover: replay/reconcile freeze-window inflows, watch for failures, document results here.
 
 ## Log
 | When (2026-10-16) | Step | Result |
 |---|---|---|
 | (start) | Log opened. Repo docs reviewed to recover context. No commands run against source or target. | n/a |
 | 2026-10-16 | Josh pasted Luca's 10-14 reply as the basis for today's work; recorded above. Next step is Josh's UI action: start the Live database export. | pending |
+| 2026-10-16 | Josh confirmed this is the FINAL CUTOVER. Cutover plan and gates G1-G5 recorded above. Freeze not started. | gates open |
