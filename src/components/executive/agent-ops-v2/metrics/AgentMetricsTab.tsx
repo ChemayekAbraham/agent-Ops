@@ -20,6 +20,7 @@ import { LocationsCard } from './LocationsCard';
 import { MainAgentsCard } from './MainAgentsCard';
 import { AdvancesCard } from './AdvancesCard';
 import { ActivityExtrasCard } from './ActivityExtrasCard';
+import { HowCounted } from './HowCounted';
 
 // "Metrics" tab of Agent Ops: stacked, collapsible cards (built for a 380px phone first) over the agent_ops_metrics_* functions. The dates,
 // who to list and the sort live in the URL (?metrics=1&mfrom=&mto=&mscope=&msort=); the card order is kept per user in this browser.
@@ -96,6 +97,7 @@ export function AgentMetricsStandalone() {
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Reset order
           </Button>
         </div>
+        <HowCounted />
         <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Dates">
           {METRICS_PRESETS.map((p) => (
             <Button
