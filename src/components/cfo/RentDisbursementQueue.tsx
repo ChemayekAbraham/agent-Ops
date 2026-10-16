@@ -43,6 +43,8 @@ import { groupPayoutRows } from '@/lib/payoutDeskGrouping';
 import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
 import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
+import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
+import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -496,37 +498,30 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     onError: (e: any) => toast.error(e.message || 'Disbursement failed'),
   });
 
+  // Landlord float budget cap: a CFO rejection here returns the request to the COO step (not the agent) and gives
+  // its amount back to the budget. landlordFloatOver.any drives the "exceeds budget by UGX X" banner (UI: Gemini).
+  const landlordFloatBudget = useLandlordFloatBudgetStatus();
+  const landlordFloatOver = landlordFloatExcess(landlordFloatBudget.data);
+  const { returnToCoo } = useLandlordFloatBudgetActions();
+
   const rejectMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
       if (!user) throw new Error('Not authenticated');
       if (reason.trim().length < 10) throw new Error('Reason must be at least 10 characters');
-
-      const { error } = await supabase.rpc('return_rent_request_for_correction', {
-        p_request_id: id,
-        p_stage: 'coo_approved',
-        p_reason: reason.trim(),
-      });
-      if (error) throw error;
-
-      // Stamp CFO reviewer + comment for audit trail (mirrors RentPipelineQueue)
-      await supabase
-        .from('rent_requests')
-        .update({
-          cfo_reviewed_by: user.id,
-          cfo_reviewed_at: new Date().toISOString(),
-          approval_comment: reason.trim(),
-        })
-        .eq('id', id);
+      // One RPC: status back to the COO step, CFO reviewer + comment stamped, budget allocation released.
+      const res = await returnToCoo.mutateAsync({ requestIds: [id], reason });
+      if (res.returned.length === 0) {
+        throw new Error(res.skipped[0]?.message || 'This rent request could not be returned to the COO');
+      }
     },
     onSuccess: () => {
-      toast.success('Rent request returned to agent with your comment.');
+      toast.success('Returned to the COO with your comment. Its amount is back in the landlord float budget.');
       setRejectTarget(null);
       setRejectReason('');
       qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
       qc.invalidateQueries({ queryKey: ['rent-pipeline'] });
-      qc.invalidateQueries({ queryKey: ['agent-rejected-rent-requests'] });
     },
-    onError: (e: any) => toast.error(e.message || 'Failed to reject'),
+    onError: (e: any) => toast.error(landlordFloatErrorText(e)),
   });
 
   // Summary totals for the currently filtered queue.
