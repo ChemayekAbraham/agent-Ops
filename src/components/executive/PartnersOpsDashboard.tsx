@@ -1,3 +1,4 @@
+import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import SharesOnboardingPanel from './shares/SharesOnboardingPanel';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -383,6 +384,7 @@ export function PartnersOpsDashboard() {
 
   return (
     <div>
+      <TutorialVideosButton />
       {/* ═══ TOP BAR ═══ */}
       <PartnerOpsTopBar
         active={view}
