@@ -12,8 +12,9 @@ import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { CalendarIcon, CheckCircle2, Loader2, RefreshCw, Undo2 } from 'lucide-react';
+import { CalendarIcon, CheckCircle2, Loader2, RefreshCw, Send, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -68,7 +69,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
   const { roles } = useAuth() as { roles?: string[] };
-  const isCfo = (roles ?? []).includes('cfo');
+  const roleSet = new Set(roles ?? []);
+  const isCfo = roleSet.has('cfo');
+  const canRelease = roleSet.has('financial_ops') || roleSet.has('cfo') || roleSet.has('super_admin') || roleSet.has('manager') || roleSet.has('ceo');
   const [day, setDay] = useState(today());
   const from = day, to = day;
   const [filter, setFilter] = useState<Filter>('all');
@@ -76,6 +79,7 @@ export function ApprovedRequisitionsPayoutPanel() {
   const [target, setTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [releasing, setReleasing] = useState<string | null>(null);
 
   const range = useMemo(() => ({
     p_from: new Date(`${from}T00:00:00`).toISOString(),
@@ -137,6 +141,23 @@ export function ApprovedRequisitionsPayoutPanel() {
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function releaseToWallet(row: Row) {
+    setReleasing(`${row.source_table}:${row.requisition_id}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('requisition-credit-retry', {
+        body: { source_table: row.source_table, requisition_id: row.requisition_id },
+      });
+      const msg = (data as any)?.error ?? (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) ?? error.message : null);
+      if (msg) throw new Error(msg);
+      toast.success(`${formatUGX(Number(row.amount))} released to ${row.receiver_name ?? 'the receiver'}'s wallet.`);
+      await qc.invalidateQueries({ queryKey: ['cfo-approved-requisitions'] });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReleasing(null);
     }
   }
 
@@ -239,7 +260,13 @@ export function ApprovedRequisitionsPayoutPanel() {
                             <div className="mt-1 max-w-[200px] text-xs text-muted-foreground">{dt(r.reversed_at)} · {r.reversal_reason}</div>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-right">
+                        <TableCell className="whitespace-nowrap text-right space-x-1">
+                          {(r.payout_status === 'pending' || r.payout_status === 'failed') && canRelease && (
+                            <Button size="sm" variant="default" disabled={releasing === `${r.source_table}:${r.requisition_id}`} onClick={() => void releaseToWallet(r)}>
+                              {releasing === `${r.source_table}:${r.requisition_id}` ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />}
+                              Release to Wallet
+                            </Button>
+                          )}
                           {r.payout_status === 'paid' && isCfo && (
                             <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
                               <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse

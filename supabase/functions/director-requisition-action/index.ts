@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
-import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
+// creditRequisitionWallet is no longer called here; wallet release is done by
+// Financial Ops via requisition-credit-retry.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,27 +107,8 @@ Deno.serve(async (req) => {
       metadata: { requisition_code: reqRow.requisition_code, status: mapped.status },
     });
 
-    // Approved -> credit the requester's wallet (idempotent, ledger-backed).
-    let walletCredit: { ok: boolean; message: string; wallet_transaction_id?: string | null; already_credited?: boolean; error?: string } | null = null;
-    if (action === "approve") {
-      walletCredit = await creditRequisitionWallet({
-        admin,
-        sourceTable: "director_requisitions",
-        requisitionId,
-        requisitionCode: reqRow.requisition_code,
-        userId: reqRow.requester_id,
-        approverId: director.id,
-        approverName: directorName,
-        amount: Number(updated.amount),
-        currency: "UGX",
-        purpose: reqRow.title,
-        category: reqRow.requester_role,
-        status: "approved",
-        approvedAt: decidedAt.toISOString(),
-        ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip"),
-        deviceInfo: req.headers.get("user-agent"),
-      });
-    }
+    // Wallet credit is no longer automatic — Financial Ops releases via
+    // requisition-credit-retry after approval.
 
     // Notify requester
     const { data: requesterProfile } = await admin.from("profiles").select("id, full_name, phone, email").eq("id", reqRow.requester_id).maybeSingle();
@@ -173,7 +155,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, requisition: updated, wallet_credit: walletCredit }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ success: true, requisition: updated, wallet_credit: null }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error("director-requisition-action error", err);
     return new Response(JSON.stringify({ error: (err as Error).message || "Unexpected error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
