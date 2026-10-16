@@ -4236,6 +4236,13 @@
       "when": 1792155107830,
       "tag": "0604_agent_nudge_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 605,
+      "version": "7",
+      "when": 1792159701281,
+      "tag": "0605_merge_paidout_topups_requires_held_funds",
+      "breakpoints": true
     }
   ]
 }
