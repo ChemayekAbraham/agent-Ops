@@ -167,6 +167,32 @@ Deno.serve(async (req) => {
       );
       if (renewErr) throw renewErr;
 
+      // Final Returns payout not yet credited to the partner/proxy wallet:
+      // park the renewal on the portfolio so the nightly job applies it once
+      // the payout is approved. The partner gets the renewal email then.
+      if ((renewRes as any)?.skipped && (renewRes as any)?.reason === "awaiting_final_payout") {
+        const { error: parkErr } = await admin
+          .from("investor_portfolios")
+          .update({
+            pending_renewal_effective_date: portfolio.maturity_date,
+            pending_renewal_duration_months: portfolio.duration_months,
+            pending_renewal_request_id: request_id,
+          })
+          .eq("id", portfolio.id);
+        if (parkErr) throw parkErr;
+
+        await admin
+          .from("portfolio_action_requests")
+          .update({ status: "completed" })
+          .eq("id", request_id);
+
+        return json({
+          mode: "awaiting_final_payout",
+          portfolio_id: portfolio.id,
+          cycle_date: (renewRes as any)?.cycle_date ?? null,
+        });
+      }
+
       await admin
         .from("portfolio_action_requests")
         .update({ status: "completed" })

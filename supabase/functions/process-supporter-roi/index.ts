@@ -728,11 +728,17 @@ Deno.serve(async (req) => {
             console.log(`[process-supporter-roi] Renewal deferred for ${p.portfolio_code} — ${gate.reason} (cycle ${gate.cycleDate})`);
             continue;
           }
-          await supabase.rpc('apply_portfolio_renewal', {
+          const { data: renewRes, error: renewErr } = await supabase.rpc('apply_portfolio_renewal', {
             p_portfolio_id: p.id,
             p_renewed_by: systemActor,
             p_reason: `Auto-renewed after payout leg — matured portfolio (${gate.reason})`,
           });
+          if (renewErr) throw renewErr;
+          if ((renewRes as any)?.skipped) {
+            if ((renewRes as any)?.reason === 'awaiting_final_payout') results.renewalsDeferred++;
+            console.log(`[process-supporter-roi] Renewal held for ${p.portfolio_code} — ${(renewRes as any)?.reason}`);
+            continue;
+          }
           results.renewalsApplied++;
           console.log(`[process-supporter-roi] Auto-renewed matured portfolio ${p.portfolio_code} after payout (${gate.reason})`);
         } catch (e) {
