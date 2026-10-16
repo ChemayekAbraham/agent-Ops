@@ -260,7 +260,13 @@ export function ApprovedRequisitionsPayoutPanel() {
                             <div className="mt-1 max-w-[200px] text-xs text-muted-foreground">{dt(r.reversed_at)} · {r.reversal_reason}</div>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-right">
+                        <TableCell className="whitespace-nowrap text-right space-x-1">
+                          {(r.payout_status === 'pending' || r.payout_status === 'failed') && canRelease && (
+                            <Button size="sm" variant="default" disabled={releasing === `${r.source_table}:${r.requisition_id}`} onClick={() => void releaseToWallet(r)}>
+                              {releasing === `${r.source_table}:${r.requisition_id}` ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Send className="mr-1 h-3.5 w-3.5" />}
+                              Release to Wallet
+                            </Button>
+                          )}
                           {r.payout_status === 'paid' && isCfo && (
                             <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
                               <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse
