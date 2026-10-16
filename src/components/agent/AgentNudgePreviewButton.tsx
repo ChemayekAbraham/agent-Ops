@@ -18,9 +18,9 @@ const SAMPLES: (RenderedNudge & { ctaLabel?: string })[] = [
   { id: 'p7', tone: 'info', category: 'morning', title: 'Good morning ☀️', body: '9 tenants are due today. A quick start makes a great day.' },
 ];
 
-export function AgentNudgePreviewButton({ email }: { email?: string | null }) {
+export function AgentNudgePreviewButton({ userId }: { userId?: string | null }) {
   const [i, setI] = useState(0);
-  if (email?.toLowerCase() !== PREVIEW_EMAIL) return null;
+  if (userId !== PREVIEW_USER_ID) return null;
 
   const show = () => {
     const n = SAMPLES[i % SAMPLES.length];
