@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Megaphone, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunicationAcknowledgement, useCommunicationInbox, readCommunication } from '@/hooks/useCrmCommunications';
 import { communicationDashboardRole, type Communication } from '@/lib/crmCommunications';
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
+import { OPEN_COMMUNICATION_EVENT } from './CommunicationsBellSection';
 
 /** Optional announcements yield to any existing modal without changing mandatory gates. */
 export default function CommunicationGate() {
@@ -74,8 +75,14 @@ export default function CommunicationGate() {
     return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', refresh); };
   }, [active?.id, dashboardRole]);
   useEffect(() => { if (active && query.data && !query.data.some(row => row.id === active.id)) setActive(null); }, [query.data]);
+  const openRef = useRef(openMessage); openRef.current = openMessage;
+  useEffect(() => {
+    const handler = (e: Event) => { const row = (e as CustomEvent<Communication>).detail; if (row) void openRef.current(row); };
+    window.addEventListener(OPEN_COMMUNICATION_EVENT, handler);
+    return () => window.removeEventListener(OPEN_COMMUNICATION_EVENT, handler);
+  }, []);
   if (!eligible) return null;
-  const unread = query.data?.filter(row => !row.acknowledged_at).length ?? 0;
+
   const close = () => { if (active) setSnoozed(old => new Set([...old, active.id])); setActive(null); setError(null); };
   async function confirm() {
     if (!active) return;
@@ -94,7 +101,6 @@ export default function CommunicationGate() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to open destination.'); }
   }
   return <>
-    <div className="fixed right-4 top-20 z-40"><Button variant="outline" size="icon" title={`Communications${unread ? ` (${unread} unread)` : ''}`} aria-label="Open platform communications" disabled={blocked || opening} onClick={() => { void query.refetch(); setListOpen(true); }} className="relative bg-background"><Megaphone className="h-5 w-5" />{unread > 0 && <span className="absolute -right-1 -top-1 min-w-4 h-4 rounded-full bg-primary text-primary-foreground text-xs flex justify-center items-center">{unread}</span>}</Button></div>
     <Dialog open={listOpen && !blocked} onOpenChange={setListOpen}><DialogContent stable className="w-[calc(100%-2rem)] rounded-lg" data-communication-dialog="true"><DialogHeader><DialogTitle className="pr-10 tracking-normal">Communications</DialogTitle><DialogDescription>Platform messages</DialogDescription></DialogHeader><Button variant="ghost" size="sm" onClick={() => void query.refetch()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>{query.isLoading && <p role="status">Loading…</p>}{(error || query.error) && <p role="alert" className="text-destructive text-sm">{error || query.error?.message}</p>}<div className="divide-y divide-border">{query.data?.map(row => { const Icon = communicationIcons[row.communication_type]; return <Button key={row.id} variant="ghost" className="h-auto w-full py-4 justify-start text-left whitespace-normal" onClick={() => { setListOpen(false); window.setTimeout(() => void openMessage(row), 200); }}><Icon className="h-5 w-5 shrink-0 mr-3 text-primary" /><span className="min-w-0 break-words">{row.title}<span className="block text-xs text-muted-foreground">{row.acknowledged_at ? 'Acknowledged' : 'Unread'}</span></span></Button>; })}{!query.isLoading && !query.error && !query.data?.length && <p className="py-6 text-muted-foreground text-center">No active communications.</p>}</div></DialogContent></Dialog>
     <CommunicationDialog communication={active} open={!!active && !blocked} onClose={close} onAcknowledge={() => void confirm()} onNavigate={() => void openDestination()} pending={acknowledge.isPending} error={error} />
   </>;
