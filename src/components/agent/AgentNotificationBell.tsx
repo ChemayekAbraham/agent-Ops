@@ -98,6 +98,18 @@ export function AgentNotificationBell({
     } else if (meta.kind === 'merchandise_recovery' || n.type === 'merchandise_recovery') {
       setOpen(false);
       navigate('/merchandise');
+    } else {
+      // Open the full-information dialog for every other notification.
+      setOpen(false);
+      setDetailItem({
+        id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type,
+        created_at: n.created_at,
+        metadata: n.metadata,
+      });
+      setDetailOpen(true);
     }
   };
 
