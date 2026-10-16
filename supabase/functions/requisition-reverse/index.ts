@@ -109,6 +109,18 @@ Deno.serve(async (req) => {
         metadata: { kind: "requisition_reversed", source_table: sourceTable, requisition_id: requisitionId, amount, by: user.id },
       });
     } catch (_) { /* best effort */ }
+    // Tell the requester right away (bell updates live on notification inserts).
+    try {
+      const code = claimed.requisition_code ?? requisitionId.slice(0, 8).toUpperCase();
+      await admin.from("notifications").insert({
+        user_id: claimed.user_id,
+        title: `Requisition ${code} payment reversed`,
+        message: `UGX ${Math.round(amount).toLocaleString("en-US")} paid for requisition ${code} was taken back from your wallet and returned to the company. Reason: ${reason.slice(0, 300)}. You do not need to submit a usage report for it.`,
+        type: "requisition_reversed",
+        is_read: false,
+        metadata: { requisition_id: requisitionId, source_table: sourceTable, amount, reversal_reference: reference, stage: "reversed" },
+      });
+    } catch (_) { /* best effort — never undo a completed reversal */ }
 
     return json({ ok: true, reversal_reference: reference });
   } catch (e) {
