@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import type { AppRole } from './types';
 import { beginOAuthFunnel, trackOAuthRedirected, trackOAuthError, completePendingOAuthFunnel } from '@/lib/oauthFunnel';
@@ -133,9 +132,14 @@ export async function signIn(email: string, password: string) {
 
 async function attemptOAuth(provider: 'google' | 'apple', redirectUri: string) {
   console.log(`[OAuth] Attempting ${provider} with redirect_uri:`, redirectUri);
-  const result = await lovable.auth.signInWithOAuth(provider, {
-    redirect_uri: redirectUri,
+  // Own Supabase project (PDPO move, doc 246): the Lovable OAuth broker no longer serves this
+  // project. supabase-js redirects the page to the provider; the session is picked up from the
+  // return URL (detectSessionInUrl) on the way back.
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: redirectUri },
   });
+  const result = { redirected: !error, error: error as Error | null };
   console.log(`[OAuth] ${provider} result:`, { redirected: result.redirected, error: result.error?.message });
   return result;
 }
