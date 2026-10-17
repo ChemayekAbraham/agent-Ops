@@ -2,7 +2,12 @@
 // Uses localStorage for persistence across browser restarts
 // Cache is refreshed in background without affecting user activity
 
-const AUTH_TOKEN_KEY = 'sb-wirntoujqoyjobfhyelc-auth-token';
+// supabase-js stores the session under `sb-<project-ref>-auth-token`; the ref comes from the configured URL so the key
+// follows the project (the previous project's key is cleared too, for browsers that still hold it).
+const SUPABASE_PROJECT_REF = (() => {
+  try { return new URL(String(import.meta.env.VITE_SUPABASE_URL)).hostname.split('.')[0]; } catch { return ''; }
+})();
+const AUTH_TOKEN_KEYS = [SUPABASE_PROJECT_REF && `sb-${SUPABASE_PROJECT_REF}-auth-token`, 'sb-wirntoujqoyjobfhyelc-auth-token'].filter(Boolean) as string[];
 
 const SESSION_CACHE_KEY = 'welile_session_cache';
 const ROLES_CACHE_KEY = 'welile_roles_cache';
@@ -102,7 +107,7 @@ export function clearSessionCache(): void {
  */
 export function clearAllAuthStorage(): void {
   try {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
+    AUTH_TOKEN_KEYS.forEach((k) => localStorage.removeItem(k));
     localStorage.removeItem(SESSION_CACHE_KEY);
     localStorage.removeItem(ROLES_CACHE_KEY);
     sessionStorage.removeItem(SESSION_CACHE_KEY);

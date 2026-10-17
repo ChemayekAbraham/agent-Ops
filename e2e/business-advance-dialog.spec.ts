@@ -14,8 +14,8 @@ import { test, expect, Page, Route } from '@playwright/test';
  * the dialog runs against a fully deterministic backend.
  */
 
-const SUPABASE_HOST = 'wirntoujqoyjobfhyelc.supabase.co';
-const PROJECT_REF = 'wirntoujqoyjobfhyelc';
+const SUPABASE_HOST = 'byrzshwlentqvktcksem.supabase.co';
+const PROJECT_REF = 'byrzshwlentqvktcksem';
 const USER_ID = '00000000-0000-0000-0000-000000000abc';
 const STORAGE_KEY = `sb-${PROJECT_REF}-auth-token`;
 

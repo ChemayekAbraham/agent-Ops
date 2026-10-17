@@ -14,7 +14,7 @@
 import { test, expect, Page } from '@playwright/test';
 
 const KAMPALA = { latitude: 0.3476, longitude: 32.5825 };
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://wirntoujqoyjobfhyelc.supabase.co';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://byrzshwlentqvktcksem.supabase.co';
 const SUPABASE_KEY =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8';
