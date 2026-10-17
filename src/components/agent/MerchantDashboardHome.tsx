@@ -126,19 +126,29 @@ export function MerchantDashboardHome({
   return (
     <div className="space-y-5">
       {/* Merchant Payouts CTA */}
-      <motion.button
+      <button
+        type="button"
         onClick={() => {
           hapticTap();
           onOpenCashPayouts();
         }}
-        whileTap={{ scale: 0.97 }}
-        className="relative w-full overflow-hidden rounded-3xl border border-amber-400/40 bg-gradient-to-br from-amber-500 to-orange-500 p-5 text-left shadow-xl shadow-amber-500/20"
-        style={{ WebkitTapHighlightColor: 'transparent' }}
+        className="merchant-payouts-cta-card relative w-full overflow-hidden rounded-3xl border border-amber-400/40 bg-amber-500 bg-gradient-to-br from-amber-500 to-orange-500 p-5 text-left text-white shadow-xl shadow-amber-500/20 transition-all active:scale-[0.98] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 select-none"
+        style={{
+          background: 'linear-gradient(to bottom right, #f59e0b, #f97316)',
+          backgroundColor: '#f59e0b',
+          WebkitTapHighlightColor: 'transparent',
+          contain: 'paint',
+          isolation: 'isolate',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden',
+        }}
       >
-        <div className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_2.8s_infinite] bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+        {/* Subtle stationary ambient lighting for depth without animation tearing or flicker */}
+        <div className="pointer-events-none absolute -top-12 -right-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-12 -left-12 h-44 w-44 rounded-full bg-black/15 blur-2xl" />
         <div className="relative z-10 flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/20 backdrop-blur-md">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/30 bg-white/20 backdrop-blur-md shadow-sm">
               <Banknote className="h-7 w-7 text-white" />
             </div>
             <div className="min-w-0">
@@ -162,12 +172,12 @@ export function MerchantDashboardHome({
               </div>
             </div>
           </div>
-          <div className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md">
+          <div className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-xs font-bold text-white backdrop-blur-md shadow-xs">
             Pay now
             <ChevronRight className="h-4 w-4" />
           </div>
         </div>
-      </motion.button>
+      </button>
 
       {/* Quick actions */}
       <section>

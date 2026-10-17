@@ -1,5 +1,13 @@
-import { formatUGX } from '@/lib/rentCalculations';
-import welileLogoUrl from '@/assets/welile-logo.png';
+import { DASH, esc, num, ugx } from './welileReportDocument';
+import {
+  WELILE_OFFICE,
+  WELILE_PARTNER_EMAIL,
+  day,
+  reportDocumentHtml,
+  reportFooterHtml,
+  reportHeaderHtml,
+  runningHeaderHtml,
+} from './partnerReportParts';
 
 export interface PartnerWithdrawalPdfRow {
   partner: string;
@@ -21,118 +29,185 @@ export interface PartnerWithdrawalsPdfInput {
   generatedAt?: Date;
 }
 
-const THEME_PRIMARY: [number, number, number] = [12, 74, 110];
-const THEME_STRIPE: [number, number, number] = [237, 245, 250];
-
-const COMPANY_NAME = 'Welile Technologies Limited';
-const COMPANY_CONTACT = 'info@welile.com  |  www.welile.com';
-
-const fmtDate = (iso: string) => {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso || '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-
 const statusLabel = (s: string) =>
-  (s || '—').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  (s || DASH).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-async function loadLogoBase64(): Promise<string | null> {
-  try {
-    const res = await fetch(welileLogoUrl);
-    const blob = await res.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-}
+const statusTag = (s: string) =>
+  s === 'completed'
+    ? '<span class="status-tag tag-active">Completed</span>'
+    : `<span class="status-tag tag-closed">${esc(statusLabel(s))}</span>`;
 
+/* Pagination estimates in CSS px, same model as the partner statement. */
+const SHEET_PX = 1000;
+const PAGE1_CHROME_PX = 330;
+const CONT_CHROME_PX = 60;
+const ROW_PX = 17;
+const COMPLETION_PX = 95;
+
+/**
+ * Partner & proxy-partner withdrawals export, rendered with the exact same
+ * HTML template and rasteriser as the partner portfolio statement, so both
+ * documents carry the same header, tables, footer and look.
+ */
 export async function generatePartnerWithdrawalsPdf(input: PartnerWithdrawalsPdfInput): Promise<Blob> {
-  const { default: jsPDF } = await import('jspdf');
-  const autoTableMod: any = await import('jspdf-autotable');
-  const autoTable = autoTableMod.default || autoTableMod;
-
+  const rows = input.rows;
   const generatedAt = input.generatedAt || new Date();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 12;
+  const stamp = generatedAt.toISOString().slice(0, 10);
+  const ref = `W-PPW-${stamp.slice(0, 4)}-${stamp.slice(5, 7)}${stamp.slice(8, 10)}`;
 
-  const logoBase64 = await loadLogoBase64();
-
-  doc.setFillColor(...THEME_PRIMARY);
-  doc.rect(0, 0, pageWidth, 26, 'F');
-  if (logoBase64) {
-    try { doc.addImage(logoBase64, 'PNG', margin, 5, 16, 16); } catch { /* ignore */ }
-  }
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.text('Partner & Proxy Partner Withdrawals', logoBase64 ? margin + 20 : margin, 12);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.text(`${COMPANY_NAME}  |  ${COMPANY_CONTACT}`, logoBase64 ? margin + 20 : margin, 18);
-  const meta = [
-    input.searchTerm ? `Search: "${input.searchTerm}"` : 'All records',
-    `Records: ${input.rows.length}`,
-    `Generated: ${generatedAt.toLocaleString('en-GB')}`,
-  ].join('   ·   ');
-  doc.text(meta, pageWidth - margin, 18, { align: 'right' });
-
-  const total = input.rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-  const completed = input.rows.filter((r) => r.status === 'completed');
+  const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const completed = rows.filter((r) => r.status === 'completed');
   const completedTotal = completed.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const pendingCount = rows.length - completed.length;
 
-  doc.setTextColor(60, 60, 60);
-  doc.setFontSize(9);
-  doc.text(
-    `Total listed: ${formatUGX(total)}   ·   Completed: ${completed.length} (${formatUGX(completedTotal)})   ·   Pending: ${input.rows.length - completed.length}`,
-    margin,
-    33,
-  );
+  const dates = rows.map((r) => String(r.date ?? '').slice(0, 10)).filter(Boolean).sort();
+  const period = dates.length ? `${day(dates[0])} to ${day(stamp)}` : day(stamp);
 
-  autoTable(doc, {
-    startY: 37,
-    margin: { left: margin, right: margin },
-    head: [['#', 'Partner', 'Portfolio', 'Agent', 'Payee', 'Method', 'Reference', 'Amount', 'Status', 'Date']],
-    body: input.rows.map((r, i) => [
-      String(i + 1),
-      r.partner || '—',
-      r.portfolio || '—',
-      r.agent || '—',
-      r.payee || '—',
-      r.method || '—',
-      r.reference || '—',
-      formatUGX(Number(r.amount) || 0),
-      statusLabel(r.status),
-      fmtDate(r.date),
-    ]),
-    styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak', textColor: [40, 40, 40] },
-    headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-    alternateRowStyles: { fillColor: THEME_STRIPE },
-    columnStyles: {
-      0: { cellWidth: 9, halign: 'right' },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 38 },
-      3: { cellWidth: 36 },
-      4: { cellWidth: 34 },
-      5: { cellWidth: 22 },
-      6: { cellWidth: 30 },
-      7: { cellWidth: 27, halign: 'right' },
-      8: { cellWidth: 20 },
-      9: { cellWidth: 21 },
-    },
-    didDrawPage: () => {
-      const h = doc.internal.pageSize.getHeight();
-      doc.setFontSize(7.5);
-      doc.setTextColor(130, 130, 130);
-      doc.text('Confidential — partner payout reconciliation record.', margin, h - 6);
-      doc.text(`Page ${doc.getNumberOfPages()}`, pageWidth - margin, h - 6, { align: 'right' });
-    },
+  const header = reportHeaderHtml({
+    meta: [
+      { label: 'Report', value: 'Partner Ops — Executive Hub' },
+      { label: 'Statement Date', value: day(stamp), date: true },
+      { label: 'Period Covered', value: period },
+      { label: 'Statement Ref', value: ref, mono: true },
+    ],
+    customerName: 'PARTNER & PROXY PARTNER WITHDRAWALS',
+    customerLines: [
+      input.searchTerm
+        ? `Filter: search &ldquo;${esc(input.searchTerm)}&rdquo;`
+        : 'Filter: All approved records',
+      `Records: <strong>${num(rows.length)}</strong>`,
+      'Reporting Currency: UGX (Uganda Shilling)',
+    ],
+    branch: '<Welile Partner Portfolio Division>',
+    summary: [
+      { label: 'Total Listed:', valueHtml: esc(ugx(total)) },
+      {
+        label: 'Completed:',
+        valueHtml: `<strong>${num(completed.length)}</strong> <span class="text-muted" style="font-size:6.8px; font-weight:normal;">(${esc(ugx(completedTotal))})</span>`,
+      },
+      { label: 'Pending / In Progress:', valueHtml: `<strong>${num(pendingCount)}</strong>` },
+      { label: 'Total Paid Out to Date:', valueHtml: esc(ugx(completedTotal)), closing: true },
+    ],
   });
 
-  return doc.output('blob');
+  const note = `<div class="statement-disclosure-block">
+  <div class="disclosure-title">Report Note &amp; Reconciliation Disclosure</div>
+  <div class="disclosure-body">
+    This register lists every approved partner and proxy-partner withdrawal${input.searchTerm ? ` matching the search &ldquo;${esc(input.searchTerm)}&rdquo;` : ''}. Amounts are the recorded payout figures per withdrawal; a row marked <strong>Completed</strong> has been verified and paid out by Financial Ops, while any other status is still moving through the payout pipeline.
+  </div>
+</div>`;
+
+  const tableRows = rows.map((r, i) => `<tr>
+    <td class="text-center text-muted font-mono">${i + 1}</td>
+    <td class="font-bold">${esc(r.partner || DASH)}</td>
+    <td>${esc(r.portfolio || DASH)}</td>
+    <td>${esc(r.agent || DASH)}</td>
+    <td>${esc(r.payee || DASH)}</td>
+    <td>${esc(r.method || DASH)}</td>
+    <td class="font-mono text-muted">${esc(r.reference || DASH)}</td>
+    <td class="text-right num font-semibold">${esc(ugx(Number(r.amount) || 0))}</td>
+    <td class="text-center">${statusTag(r.status)}</td>
+    <td class="text-center date">${day(r.date)}</td>
+  </tr>`);
+
+  const TABLE_HEAD = `<tr>
+    <th style="width:20px;" class="text-center">#</th>
+    <th>Partner</th>
+    <th>Portfolio</th>
+    <th>Agent</th>
+    <th>Payee</th>
+    <th style="width:70px;">Method</th>
+    <th style="width:90px;">Reference</th>
+    <th class="text-right" style="width:80px;">Amount</th>
+    <th class="text-center" style="width:70px;">Status</th>
+    <th class="text-center" style="width:70px;">Date</th>
+  </tr>`;
+
+  const tableFoot = `<tr>
+    <td colspan="7" class="text-right font-bold" style="text-transform:uppercase;">Totals (${num(rows.length)} record${rows.length === 1 ? '' : 's'}):</td>
+    <td class="text-right num font-bold text-primary">${esc(ugx(total))}</td>
+    <td colspan="2" class="text-center text-muted" style="font-size:7px;">${num(completed.length)} completed &bull; ${num(pendingCount)} pending</td>
+  </tr>`;
+
+  const firstCap = Math.max(8, Math.floor((SHEET_PX - PAGE1_CHROME_PX) / ROW_PX));
+  const contCap = Math.floor((SHEET_PX - CONT_CHROME_PX - 60) / ROW_PX);
+  const chunks: string[][] = [tableRows.slice(0, firstCap)];
+  for (let i = firstCap; i < tableRows.length; i += contCap) {
+    chunks.push(tableRows.slice(i, i + contCap));
+  }
+
+  // The completion panel closes the last page; if it will not fit there, it gets one.
+  const lastUsed = (chunks[chunks.length - 1]?.length ?? 0) * ROW_PX;
+  const panelOnOwnPage = lastUsed + COMPLETION_PX > SHEET_PX - CONT_CHROME_PX - 60;
+  const totalPages = chunks.length + (panelOnOwnPage ? 1 : 0);
+
+  const footer = (i: number) =>
+    reportFooterHtml({ docName: 'PARTNER WITHDRAWALS REGISTER', ref, page: i, total: totalPages, confidential: 'CONFIDENTIAL PAYOUT RECONCILIATION RECORD' });
+
+  const completion = `<div class="statement-completion-panel">
+  <div class="completion-panel-header">
+    <span class="completion-title">Official Report Completion Verification</span>
+    <span class="font-mono text-muted" style="font-size:7px;">REF: ${esc(ref)}</span>
+  </div>
+  <div class="completion-body">
+    <p>This document constitutes the complete Partner &amp; Proxy Partner Withdrawals register covering <strong>${num(rows.length)}</strong> approved record${rows.length === 1 ? '' : 's'} totalling <strong>${esc(ugx(total))}</strong> as of <strong>${day(stamp)}</strong>. All recorded payouts are maintained under the financial administration of Welile Technologies Limited.</p>
+    <div class="completion-contact-row">
+      <span><strong>Partner Office:</strong> ${WELILE_PARTNER_EMAIL}</span><span>&bull;</span>
+      <span><strong>Partner Portal:</strong> welileapp.com</span><span>&bull;</span>
+      <span><strong>Head Office:</strong> ${WELILE_OFFICE}</span>
+    </div>
+  </div>
+</div>`;
+
+  const pages = chunks.map((chunk, i) => {
+    const pageNo = i + 1;
+    const isLast = i === chunks.length - 1;
+    const section = `<section>
+      <div class="section-header-bar">
+        <span class="section-title">${i === 0
+          ? `Withdrawals Register (All ${num(rows.length)} Approved Record${rows.length === 1 ? '' : 's'})`
+          : 'Withdrawals Register (continued)'}</span>
+        <span class="section-subtitle">Partner, portfolio, payee, method, reference, amount and status</span>
+      </div>
+      <div class="master-table-wrapper">
+        <table class="master-schedule-table">
+          <thead>${TABLE_HEAD}</thead>
+          <tbody>${chunk.join('')}</tbody>
+          ${isLast ? `<tfoot>${tableFoot}</tfoot>` : ''}
+        </table>
+      </div>
+      ${isLast && !panelOnOwnPage ? completion : ''}
+    </section>`;
+    return `<article class="report-page">
+  <div class="page-content">
+    ${i === 0 ? `${header}${note}` : runningHeaderHtml({
+      title: 'PARTNER WITHDRAWALS REGISTER',
+      accountLabel: 'Report', accountValue: 'Partner Ops',
+      holderLabel: 'Records', holder: num(rows.length),
+      date: day(stamp), page: pageNo, total: totalPages,
+    })}
+    ${section}
+  </div>
+  ${footer(pageNo)}
+</article>`;
+  });
+
+  if (panelOnOwnPage) {
+    pages.push(`<article class="report-page">
+  <div class="page-content">
+    ${runningHeaderHtml({
+      title: 'PARTNER WITHDRAWALS REGISTER &mdash; COMPLETION',
+      accountLabel: 'Report', accountValue: 'Partner Ops',
+      holderLabel: 'Records', holder: num(rows.length),
+      date: day(stamp), page: totalPages, total: totalPages,
+    })}
+    <div class="portfolio-schedule-list">${completion}</div>
+  </div>
+  ${footer(totalPages)}
+</article>`);
+  }
+
+  const html = reportDocumentHtml('Welile — Partner Withdrawals Register', pages);
+  const { renderReportPdfBlob } = await import('@/components/partner/renderAgreementPdf');
+  return renderReportPdfBlob(html);
 }

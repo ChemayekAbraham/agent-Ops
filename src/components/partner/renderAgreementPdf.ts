@@ -110,6 +110,23 @@ const REPORT_PAGE_OVERRIDES = `<style>
 .agreement-print-root .report-page { width: 210mm; max-width: 210mm; margin: 0; box-shadow: none; }
 </style>`;
 
+/**
+ * html2canvas 1.4.1 finds each font's text baseline by appending a hidden div
+ * to the LIVE document with a text span followed by a 1px <img>, then reading
+ * the img's offsetTop. The app's Tailwind preflight makes every img
+ * display:block, so the probe image drops below the text and the baseline is
+ * overstated: every line of text in the PDF lands off-centre in its cell,
+ * pill or row. Restore the inline probe image only while a render runs.
+ */
+const FONT_METRICS_FIX_ATTR = 'data-welile-h2c-font-metrics';
+function installFontMetricsFix(): () => void {
+  const style = document.createElement('style');
+  style.setAttribute(FONT_METRICS_FIX_ATTR, '');
+  style.textContent = 'body > div[style*="visibility: hidden"] > img { display: inline !important; }';
+  document.head.appendChild(style);
+  return () => style.remove();
+}
+
 async function renderToPdf(
   html: string,
   opts?: { format?: 'a4' | 'letter'; scopeStyles?: boolean },
@@ -141,6 +158,7 @@ async function renderToPdf(
   ].join(';');
   host.innerHTML = `${styles}${overrides}<div class="agreement-print-root" style="width:900px;background:#ffffff;">${body}</div>`;
   document.body.appendChild(host);
+  const removeFontMetricsFix = installFontMetricsFix();
 
   try {
     // Allow layout + webfonts/images to settle.
@@ -188,6 +206,7 @@ async function renderToPdf(
 
     return pdf;
   } finally {
+    removeFontMetricsFix();
     document.body.removeChild(host);
   }
 }

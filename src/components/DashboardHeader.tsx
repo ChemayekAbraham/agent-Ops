@@ -16,7 +16,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote } from 'lucide-react';
+import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole, useAuth } from '@/hooks/useAuth';
@@ -97,6 +98,7 @@ const DashboardHeader = memo(function DashboardHeader({
   const { user } = useAuth();
   const navigate = useNavigate();
   const { isInstalled, hasPrompt: isInstallable, promptInstall } = usePWAInstall();
+  const { isMerchantAgent } = useIsMerchantAgent();
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
 
   const handleInstallClick = async () => {
@@ -341,6 +343,21 @@ const DashboardHeader = memo(function DashboardHeader({
                     </div>
                     Your Profile
                   </DropdownMenuItem>
+                  {currentRole === 'agent' && isMerchantAgent && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'merchant' }));
+                        navigate('/dashboard/agent?tab=merchant');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-semibold touch-manipulation bg-emerald-500/20 hover:bg-emerald-500/30 focus:bg-emerald-500/30 border border-emerald-500/40 text-emerald-950 dark:text-emerald-100 transition-colors shadow-xs"
+                    >
+                      <div className="p-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white shadow-xs">
+                        <Banknote className="h-4 w-4" />
+                      </div>
+                      Merchant dashboard
+                    </DropdownMenuItem>
+                  )}
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/agent/service-center'); }}
