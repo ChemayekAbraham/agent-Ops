@@ -61,7 +61,9 @@ import { LanguageProvider } from "@/hooks/useLanguage";
 const PinAuthProvider = lazyNamed(() => import("@/hooks/usePinAuth"), 'PinAuthProvider');
 const BiometricAuthProvider = lazyNamed(() => import("@/hooks/useBiometricAuth"), 'BiometricAuthProvider');
 const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/notifications/PushNotificationGate"), "PushNotificationGate");
-const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/TwoFactorGate"), "TwoFactorGate");
+// TwoFactorGate disabled for now (2026-10-17): no users have enabled 2FA, and the
+// "Verify this device" screen was blocking sign-in. Re-enable by restoring this import
+// and the <TwoFactorGate /> render below.
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
@@ -466,7 +468,6 @@ function GlobalOnboardingGates() {
   if (isReceiptRoute) return null;
   return (
     <>
-      <TwoFactorGate />
       <PushNotificationGate />
       <PhoneCollectionGate />
       <NameCompletionGate />
