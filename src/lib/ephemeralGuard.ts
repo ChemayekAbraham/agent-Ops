@@ -36,15 +36,33 @@ const LAST_ACTIVE_KEY = 'welile_last_active_at';
 // marker as an iOS tab-kill (keep the session), not a browser close.
 const COLD_START_GRACE_MS = 60 * 60 * 1000; // 1 hour
 
-// One-time carry-over after the move to the new project: a browser that still holds the session under the previous
-// project's key gets it copied to the new key, so supabase-js can refresh it with the refresh token (restored in the new
-// project) instead of forcing a fresh sign-in. If the refresh fails the user is simply signed out, as without this.
+// After the move to the new project, a browser can still hold a session issued by the PREVIOUS project. Its tokens are
+// signed with that project's keys, so the current project answers 401 to every request and cannot refresh them, while
+// the cached session/roles make the app look signed in (a dashboard shell whose every call fails). Drop any stored
+// session whose access token was not issued by the current project, together with the cached session and roles, so
+// the user lands on a clean sign-in. A session issued by the current project is never touched.
+function storedSessionIsForeign(raw: string | null, expectedIssuer: string): boolean {
+  if (!raw) return false;
+  try {
+    const accessToken = JSON.parse(raw)?.access_token;
+    if (typeof accessToken !== 'string') return false;
+    let part = accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (part.length % 4) part += '=';
+    const issuer = JSON.parse(atob(part))?.iss;
+    return typeof issuer === 'string' && issuer !== expectedIssuer;
+  } catch { return false; }
+}
 try {
-  if (CURRENT_AUTH_TOKEN_KEY && CURRENT_AUTH_TOKEN_KEY !== LEGACY_AUTH_TOKEN_KEY
-      && !localStorage.getItem(CURRENT_AUTH_TOKEN_KEY) && localStorage.getItem(LEGACY_AUTH_TOKEN_KEY)) {
-    localStorage.setItem(CURRENT_AUTH_TOKEN_KEY, localStorage.getItem(LEGACY_AUTH_TOKEN_KEY) as string);
+  const expectedIssuer = `${new URL(String(import.meta.env.VITE_SUPABASE_URL)).origin}/auth/v1`;
+  let dropped = false;
+  for (const key of SUPABASE_AUTH_TOKEN_KEYS) {
+    if (storedSessionIsForeign(localStorage.getItem(key), expectedIssuer)) { localStorage.removeItem(key); dropped = true; }
   }
-} catch { /* storage unavailable */ }
+  if (dropped) {
+    localStorage.removeItem(SESSION_CACHE_KEY);
+    localStorage.removeItem(ROLES_CACHE_KEY);
+  }
+} catch { /* storage unavailable or no configured URL */ }
 
 try {
   const ephemeral = localStorage.getItem(EPHEMERAL_SESSION_KEY) === 'true';
