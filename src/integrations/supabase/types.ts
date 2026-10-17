@@ -31612,6 +31612,36 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_verified_tids: {
+        Row: {
+          amount: number
+          consumed_at: string | null
+          created_at: string
+          note: string | null
+          registered_by: string | null
+          tid_normalized: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          consumed_at?: string | null
+          created_at?: string
+          note?: string | null
+          registered_by?: string | null
+          tid_normalized: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          consumed_at?: string | null
+          created_at?: string
+          note?: string | null
+          registered_by?: string | null
+          tid_normalized?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       map_config: {
         Row: {
           browser_api_key: string | null
