@@ -1,32 +1,28 @@
--- Manual-intake float is TID-backed (backfill for the 2026-10-17 MTN outage payments).
+-- Manual-intake float is TID-backed - backfill for the 2026-10-17 MTN outage payments.
 --
 -- Symptom: after the three agent float top-ups from the MTN feed outage were
--- approved (NAGASHA Mellon 86,000, Mata Pius 22,800, DERRICK LUTAMAGUZI 21,000),
--- the app refused to collect rent with the new float: "You can collect up to
--- UGX 12,309. Rent collection needs real Mobile Money float" (12,309 was
--- NAGASHA's old TID-backed balance; her float is 98,309).
+-- approved (NAGASHA Mellon 86,000 / Mata Pius 22,800 / DERRICK LUTAMAGUZI 21,000)
+-- the app refused to collect rent with the new float. Message: You can collect up
+-- to UGX 12,309, rent collection needs real Mobile Money float.
 --
 -- Cause: tg_credit_tid_backed_float() credits agent_tid_backed_float for a
 -- deposit_requests credit only when a gmail_transactions row with the same TID
--- exists. These payments never reached gmail_transactions (the feed was down),
--- so the float was credited but never marked TID-backed.
+-- exists. These payments never reached gmail_transactions because the feed was
+-- down, so the float was credited but never marked TID-backed.
 --
--- The TIDs were checked against the MTN till statement by Financial Ops before
--- approval, and approve-deposit locked each one in ledger_reconciled_tids, so
--- each TID can back float only once. This credits the same amount to
--- agent_tid_backed_float, as 20260929232000 did for manual float credits.
+-- The TIDs were checked against the MTN till statement before approval and
+-- approve-deposit locked each one in ledger_reconciled_tids, so each TID can back
+-- float only once. This credits the same amount to agent_tid_backed_float, as
+-- 20260929232000 did for manual float credits.
 --
--- Safety, same rules as the earlier backfill:
---   * scoped to the three approved 'Manual intake 2026-10-17' operational_float
---     deposits; the tenants' rent-repayment deposits are excluded (their float
---     was consumed by settlement and tenants do not collect rent);
---   * capped at wallets.float_balance - agent_tid_backed_float.balance, so
---     TID-backed can never exceed real float;
---   * idempotent via an audit_logs marker per deposit request id.
--- The trigger and the gate are NOT changed. The raw-float check in
--- agent_allocate_tenant_payment_internal still applies.
+-- Safety:
+--   scoped to the three approved Manual intake 2026-10-17 operational_float deposits
+--   the three tenant rent-repayment deposits are excluded
+--   capped at wallets.float_balance minus agent_tid_backed_float.balance
+--   idempotent via an audit_logs marker per deposit request id
+-- The trigger and the rent-collection gate are NOT changed.
 --
--- Single statement, no DO block.
+-- One statement, no DO block, no semicolons inside comments.
 
 WITH src AS (
   SELECT dr.id AS deposit_id, dr.user_id, dr.amount, dr.transaction_id
