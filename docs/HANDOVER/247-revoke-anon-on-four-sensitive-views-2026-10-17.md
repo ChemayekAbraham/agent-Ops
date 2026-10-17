@@ -20,3 +20,11 @@
 - 10 refused or errored (500/401/405): `engrep_commit_survival`, `engrep_file_survival`, `engrep_repetition`, `v_cc_call_queue`, `v_identity_double_users`, `v_merchant_float_ledger_variance`, `v_merchant_oop_evidence`, `v_rent_plan_receivable_restatement`, `v_verified_bank_declarations`, `wallet_pivot_drift_view`. The 500s are failures (probably timeouts), not denials: treat as exposed.
 - Signed-out use in `src/`: none of the 80 is read by name from the frontend (searched `src/`); `referral_leaderboard` (used by `ReferralLeaderboard.tsx`) is an invoker view, not in the 80. Edge functions use the service key, which does not need the `anon` grant.
 - Full per-view results: scratch file `anon_view_audit.txt` (name|status|row count).
+
+## Fix applied for the other 80 (2026-10-17)
+`revoke all ... from anon` on every `public` view/materialized view without `security_invoker=true` (migration `20261017110000_revoke_anon_on_owner_rights_views.sql`, dynamic and idempotent). Verified in the database: 0 owner-rights views left with any `anon` privilege; 29 invoker views untouched. Verified from outside: the same anonymous count-only requests against all 84 views (the 80 + the first 4) now return **401** (before: 70 returned data).
+
+**Still open (decision needed):**
+- `authenticated` (any signed-in user, including tenants) can still read all of these views, i.e. company-wide ledger, wallets and contact data. Needs per-view work (invoker + role checks, or role-checked functions), tested against the staff dashboards and the 7 edge functions that read `v_user_wallet_strict`. Money logic: do not change blind.
+- New views created later get `anon` access again from the schema's default privileges. Consider revoking the default for new objects in `public` (check no public page depends on a new table first).
+- Whether anyone read these while exposed is unknown; API request logs for these paths can be checked (retention is Supabase's) and belong in the DPO reply as an exposure that has been closed.
