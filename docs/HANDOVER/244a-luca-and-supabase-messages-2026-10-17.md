@@ -59,3 +59,22 @@ Josh
 
 Thank you; happy to share the restore runbook and the exact commands.
 Josh Wanda, Welile
+
+## C. Reply to Lovable support's answers (drafted 2026-10-17, not sent)
+
+**Subject: Re: Full database dump and moving to our own Supabase project: follow-ups before we disconnect**
+
+Hi team,
+
+Thank you, this is very clear, and the correction in point 5 changes our plan. Status: the final export is downloaded and checked, and the restore into `byrzshwlentqvktcksem` is under way (data loaded, indexes building). Five follow-ups, in order of importance:
+
+1. **Connector keys at first deploy.** Please confirm exactly which secrets Lovable copies into our Supabase project: we need `LOVABLE_API_KEY`, `GOOGLE_MAIL_API_KEY`, `GOOGLE_DRIVE_API_KEY`, `GOOGLE_API_KEY`, and also the other connector keys our functions use (`TWILIO_API_KEY`, `SEMRUSH_API_KEY`, `INNGEST_API_KEY`, `LINKEDIN_API_KEY`; our SMS/OTP sending goes through the Twilio connector). Does the copy happen at link time, or only on the first edit that touches an edge function? If it needs an edit, what is the smallest safe edit you recommend, given that we must restore `config.toml` first?
+2. **config.toml.** We have saved ours (109 functions with `verify_jwt = false`) and will restore it right after linking and before any other edit. Please confirm Lovable will not reset it again on later edits or publishes, and that a redeploy of all functions from our restored file gives the same `verify_jwt` behaviour we had on Cloud.
+3. **Auth email hook.** Our `auth-email-hook` function verifies Lovable-signed webhooks (`@lovable.dev/webhooks-js`, `x-lovable-signature` headers), enqueues into our `auth_emails` queue, and our own function `process-email-queue` delivers through our Mailgun account. Since Cloud's built-in auth email does not carry over: what will call this hook on our own project? Supabase Auth's Send Email hook signs differently, so this function would reject it. Is there a Lovable-supported way to keep it working, or should we switch Supabase Auth to custom SMTP (Mailgun) in the dashboard and disable the hook?
+4. **Order of disconnect and link.** Since disconnecting Cloud cannot be undone, can we link our Supabase project first, while Cloud is still connected, verify everything, and only then disconnect? If linking requires disconnecting first, please confirm that, and whether anything besides `config.toml` is written or reset in our project at link time.
+5. **Safety net.** After disconnect the Cloud database is paused, not deleted. For how long is it retained, and is there any support path to recover data (for example Storage objects) if we missed something? We have copied all 205k storage files and hold the final database export, but we want to know what exists beyond that.
+
+We will not disconnect until our restore is verified against the frozen source. A reply on points 1, 3 and 4 before about 06:00 East Africa Time would help us most.
+
+Thanks,
+Josh
