@@ -570,7 +570,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as AgentHubTab | null;
   const initialTab: AgentHubTab =
-    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(tabParam)
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(tabParam)
       ? (tabParam as string) === 'more' ? 'grow' : (tabParam as string) === 'repayments' ? 'portfolio' : tabParam
       : 'home';
   const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
@@ -578,7 +578,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab') as AgentHubTab | null;
-    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(currentTab)) {
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(currentTab)) {
       const normalized = (currentTab as string) === 'more' ? 'grow' : (currentTab as string) === 'repayments' ? 'portfolio' : currentTab;
       if (normalized !== activeTab) {
         setActiveTab(normalized);
@@ -591,7 +591,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
-      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(e.detail)) {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(e.detail)) {
         setActiveTab(e.detail);
         if (e.detail === 'home') {
           setMenuOpen(false);
@@ -764,6 +764,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         subagents: 'Sub Agents',
         league: 'Collection League',
         portfolio: 'Repayment Portfolio',
+        merchant: 'Merchant Dashboard',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -897,15 +898,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   useAgentNudges(user?.id, {
     onAction: (cta) => {
       if (cta === 'collect') setTenantsSheetOpen(true);
-      else if (cta === 'add_tenant') { if (!guardMerchant()) setRentRequestOpen(true); }
+      else if (cta === 'add_tenant') { setRentRequestOpen(true); }
       else if (cta === 'leaderboard') navigate('/dashboard/agent?tab=league');
     },
   });
 
-  // Merchant Agents are locked to the Home tab. If the active tab ever lands on
+  // Merchant Agents are locked to the Home and Merchant tabs. If the active tab ever lands on
   // an operational section (e.g. it was set before the role resolved), snap back.
   useEffect(() => {
-    if (isMerchant && activeTab !== 'home') {
+    if (isMerchant && activeTab !== 'home' && activeTab !== 'merchant') {
       setSlideDirection(null);
       setActiveTab('home');
     }
@@ -1265,7 +1266,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               <span>Back to Home</span>
             </button>
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
+              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : activeTab === 'merchant' ? 'Merchant Dashboard' : 'Agent Hub'}
             </span>
           </div>
         )}
@@ -1277,8 +1278,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
         {/* Swipe surface — left/right gestures navigate adjacent hub tabs */}
         <div {...swipeHandlers} className="touch-pan-y">
-        {/* === HOME TAB === Most-used actions, at-a-glance */}
-        {activeTab === 'home' && isMerchant && isCashoutAgent && (
+        {/* === MERCHANT DASHBOARD TAB === Dedicated payout operations */}
+        {activeTab === 'merchant' && isCashoutAgent && (
           <div className={cn("space-y-4", tabAnimClass)}>
             <MerchantDashboardHome
               agentId={user.id}
@@ -1297,41 +1298,42 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             />
           </div>
         )}
-        {activeTab === 'home' && !isMerchant && (
+        {/* === HOME TAB === Most-used actions, at-a-glance */}
+        {activeTab === 'home' && (
           <div className={cn("space-y-2.5", tabAnimClass)}>
-            {/* Free Service Center qualification — permanent milestone tracker */}
-            {!isMerchant && (
-              <div className="flex flex-col space-y-2">
-                <LastWeekWinnerOverlay />
-                <WeeklyChampionTeamDialog />
-                <TenantLocationCorrectionPopup agentId={user.id} />
-                <WeeklyStreakDialog />
-                {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
-                <SignatureRentRequestCard
-                  fullName={profile?.full_name}
-                  onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                />
-                <AgentNudgePreviewButton userId={user?.id} />
-                {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
-                    (2026-10-16). The signature card above is the entry point. */}
-                {SHOW_LEGACY_RENT_REQUEST_CARD && (
-                  <>
-                    <AgentPostRentRequestCard
-                      restricted={isMerchant}
-                      onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                      className="w-full min-h-[300px] sm:min-h-[360px]"
-                    />
-                    <p
-                      onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                      className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-                    >
-                      and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
-                    </p>
-                  </>
-                )}
-
-              </div>
-            )}
+            <div className="flex flex-col space-y-2">
+              {!isMerchant && (
+                <>
+                  <LastWeekWinnerOverlay />
+                  <WeeklyChampionTeamDialog />
+                  <TenantLocationCorrectionPopup agentId={user.id} />
+                  <WeeklyStreakDialog />
+                </>
+              )}
+              {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
+              <SignatureRentRequestCard
+                fullName={profile?.full_name}
+                onPostRequest={() => { setRentRequestOpen(true); }}
+              />
+              <AgentNudgePreviewButton userId={user?.id} />
+              {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
+                  (2026-10-16). The signature card above is the entry point. */}
+              {SHOW_LEGACY_RENT_REQUEST_CARD && (
+                <>
+                  <AgentPostRentRequestCard
+                    restricted={false}
+                    onOpen={() => { setRentRequestOpen(true); }}
+                    className="w-full min-h-[300px] sm:min-h-[360px]"
+                  />
+                  <p
+                    onClick={() => { setRentRequestOpen(true); }}
+                    className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+                  >
+                    and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
+                  </p>
+                </>
+              )}
+            </div>
 
             {/* Merchant Agent invites moved to CTO dashboard → "Merchant Invites" tab */}
 
