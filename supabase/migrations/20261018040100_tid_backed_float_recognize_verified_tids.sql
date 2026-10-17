@@ -7,7 +7,7 @@
 -- consumed in the same step, so one verified TID can back float only once. The
 -- cash_out, cfo_direct_credit and bucket_reclass_in branches are unchanged.
 --
--- Depends on 20261018040000_manual_verified_tids_table.sql.
+-- Depends on 20261018040000 (table), 20261018040001 (RLS) and 20261018040002 (revoke).
 
 CREATE OR REPLACE FUNCTION public.tg_credit_tid_backed_float()
  RETURNS trigger
