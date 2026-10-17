@@ -518,7 +518,7 @@ Download (private link, expires in 7 days): ${signed.signedUrl}`
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "wirntoujqoyjobfhyelc";
+var projectRef = "byrzshwlentqvktcksem";
 var mcp_default = defineMcp({
   name: "welile-mcp",
   title: "Welile Receipts MCP",
