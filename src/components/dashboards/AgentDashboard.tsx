@@ -1248,9 +1248,15 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Home</span>
             </button>
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : activeTab === 'merchant' ? 'Merchant Dashboard' : 'Agent Hub'}
-            </span>
+            {activeTab === 'merchant' ? (
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                Merchant Dashboard
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
+              </span>
+            )}
           </div>
         )}
 
@@ -1263,7 +1269,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         <div {...swipeHandlers} className="touch-pan-y">
         {/* === MERCHANT DASHBOARD TAB === Dedicated hub for cashout/merchant operators */}
         {activeTab === 'merchant' && isCashoutAgent && (
-          <div className={cn("space-y-4", tabAnimClass)}>
+          <div className={cn("space-y-4 rounded-3xl p-3.5 sm:p-5 bg-gradient-to-b from-emerald-500/25 via-emerald-500/10 to-emerald-500/[0.04] border-2 border-emerald-500/35 shadow-sm", tabAnimClass)}>
             <MerchantDashboardHome
               agentId={user.id}
               cashoutAgentId={(isCashoutAgent as any)?.id ?? null}

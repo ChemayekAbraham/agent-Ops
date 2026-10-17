@@ -350,14 +350,12 @@ const DashboardHeader = memo(function DashboardHeader({
                         window.dispatchEvent(new CustomEvent('agent-hub-tab-change', { detail: 'merchant' }));
                         navigate('/dashboard/agent?tab=merchant');
                       }}
-                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-semibold touch-manipulation bg-emerald-500/20 hover:bg-emerald-500/30 focus:bg-emerald-500/30 border border-emerald-500/40 text-emerald-950 dark:text-emerald-100 transition-colors shadow-xs"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-1.5 rounded-lg bg-primary/10">
-                          <Banknote className="h-4 w-4 text-primary" />
-                        </div>
-                        <span className="truncate">Merchant dashboard</span>
+                      <div className="p-1.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white shadow-xs">
+                        <Banknote className="h-4 w-4" />
                       </div>
+                      Merchant dashboard
                     </DropdownMenuItem>
                   )}
                   {currentRole === 'agent' && (
