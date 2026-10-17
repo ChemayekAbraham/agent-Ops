@@ -66,7 +66,7 @@ export function AngelPoolSharePurchase({
   pool_round = 'Seed Round',
   company_name = 'Welile',
   funded_by = 'investor',
-  logo_url = 'https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
+  logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
   unsubscribe_url = 'https://welile.com/unsubscribe',
   agreement_url = 'https://welileapp.com/legal/EARLY_ANGEL_POOL_SHAREHOLDERS_AGREEMENT.pdf',
   dashboard_url = 'https://welileapp.com/auth',

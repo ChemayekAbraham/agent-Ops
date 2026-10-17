@@ -21,13 +21,30 @@
 
 const EPHEMERAL_SESSION_KEY = 'welile_ephemeral_session';
 const SESSION_ACTIVE_KEY = 'welile_session_active';
-const SUPABASE_AUTH_TOKEN_KEY = 'sb-wirntoujqoyjobfhyelc-auth-token';
+// supabase-js stores the session under `sb-<project-ref>-auth-token`; the ref comes from the configured URL so the key
+// follows the project. The previous project's key is kept in the list so it is cleared as well.
+const SUPABASE_PROJECT_REF = (() => {
+  try { return new URL(String(import.meta.env.VITE_SUPABASE_URL)).hostname.split('.')[0]; } catch { return ''; }
+})();
+const LEGACY_AUTH_TOKEN_KEY = 'sb-wirntoujqoyjobfhyelc-auth-token';
+const CURRENT_AUTH_TOKEN_KEY = SUPABASE_PROJECT_REF ? `sb-${SUPABASE_PROJECT_REF}-auth-token` : '';
+const SUPABASE_AUTH_TOKEN_KEYS = [CURRENT_AUTH_TOKEN_KEY, LEGACY_AUTH_TOKEN_KEY].filter(Boolean);
 const SESSION_CACHE_KEY = 'welile_session_cache';
 const ROLES_CACHE_KEY = 'welile_roles_cache';
 const LAST_ACTIVE_KEY = 'welile_last_active_at';
 // If the app was alive within this window, treat a missing sessionStorage
 // marker as an iOS tab-kill (keep the session), not a browser close.
 const COLD_START_GRACE_MS = 60 * 60 * 1000; // 1 hour
+
+// One-time carry-over after the move to the new project: a browser that still holds the session under the previous
+// project's key gets it copied to the new key, so supabase-js can refresh it with the refresh token (restored in the new
+// project) instead of forcing a fresh sign-in. If the refresh fails the user is simply signed out, as without this.
+try {
+  if (CURRENT_AUTH_TOKEN_KEY && CURRENT_AUTH_TOKEN_KEY !== LEGACY_AUTH_TOKEN_KEY
+      && !localStorage.getItem(CURRENT_AUTH_TOKEN_KEY) && localStorage.getItem(LEGACY_AUTH_TOKEN_KEY)) {
+    localStorage.setItem(CURRENT_AUTH_TOKEN_KEY, localStorage.getItem(LEGACY_AUTH_TOKEN_KEY) as string);
+  }
+} catch { /* storage unavailable */ }
 
 try {
   const ephemeral = localStorage.getItem(EPHEMERAL_SESSION_KEY) === 'true';
@@ -38,7 +55,7 @@ try {
 
   if (ephemeral && !sessionLive && !recentlyActive) {
     // Cold start after the browser was fully closed → require fresh sign-in.
-    localStorage.removeItem(SUPABASE_AUTH_TOKEN_KEY);
+    SUPABASE_AUTH_TOKEN_KEYS.forEach((k) => localStorage.removeItem(k));
     localStorage.removeItem(SESSION_CACHE_KEY);
     localStorage.removeItem(ROLES_CACHE_KEY);
   }

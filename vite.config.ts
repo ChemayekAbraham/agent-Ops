@@ -64,9 +64,9 @@ export default defineConfig(({ mode }) => {
     builtAt: new Date().toISOString(),
     mode,
   };
-  const supabaseUrl = env.VITE_SUPABASE_URL || "https://wirntoujqoyjobfhyelc.supabase.co";
+  const supabaseUrl = env.VITE_SUPABASE_URL || "https://byrzshwlentqvktcksem.supabase.co";
   const supabasePublishableKey = env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8";
-  const supabaseProjectId = env.VITE_SUPABASE_PROJECT_ID || "wirntoujqoyjobfhyelc";
+  const supabaseProjectId = env.VITE_SUPABASE_PROJECT_ID || "byrzshwlentqvktcksem";
 
   return {
     define: {
