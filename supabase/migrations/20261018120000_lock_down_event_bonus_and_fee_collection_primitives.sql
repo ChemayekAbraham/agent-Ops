@@ -1,0 +1,13 @@
+-- 2026-10-18 (doc 247, step 7): two more owner-rights functions with no caller check, executable by anon and authenticated.
+--   credit_agent_event_bonus(agent, event_type, tenant, source_id): credits ANY agent's wallet UGX 100 to 25,000 per call (cash_in agent_commission,
+--     balanced against platform marketing_expense). The duplicate guard only works when the caller supplies a source_id, so repeated calls without
+--     one credited every time. Callers verified: database functions agent_capture_contact_location, pay_tenant_placement_bonus,
+--     try_award_subagent_registration_bonus and advance_campaign_house_progress (all owner-rights, unaffected), the credit-listing-bonus edge function
+--     (service-role client), and one browser component, ServiceCentrePayoutApproval, which is NOT mounted anywhere (dead code; 0 service_centre_setup
+--     bonuses and 0 paid setups ever; the live flow is cfo_decide_service_centre, which does not call it).
+--   post_rent_fee_collection(rent_request, amount, source_table, source_id): posts the fee split for a collection. Only database functions call it
+--     (agent_allocate_tenant_payment_internal, get_cfo_rent_fee_collections); no page or edge function does.
+-- Both closed to service_role only via _fn_lockdown.run (dependency checks: no policy, default, constraint, trigger or caller-run function uses them).
+-- Already applied to production 2026-10-18. Needs _fn_lockdown.run from migration 20261017140000.
+-- Restore (only if proven necessary): grant execute on function <signature> to authenticated;
+select * from _fn_lockdown.run(array['credit_agent_event_bonus','post_rent_fee_collection'], true);
