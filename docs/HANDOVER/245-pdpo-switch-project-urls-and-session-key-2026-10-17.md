@@ -21,3 +21,7 @@ The database now lives in `byrzshwlentqvktcksem`; the old Lovable Cloud project 
 
 ## Verification
 `npm run guard:all` passed. TypeScript was not compiled locally (it cannot complete here, see memory); the changes are small and typed (`.filter(Boolean) as string[]`).
+
+## Added after the link (2026-10-17 ~05:30 EAT)
+- Lovable linked the new project and committed `Connected to new Supabase project` (`.lovable/mcp/manifest.json` issuer, `supabase/functions/mcp/index.ts` projectRef, `src/integrations/supabase/types.ts` regenerated, PostgrestVersion 14.18). `supabase/config.toml` was NOT reset by Lovable (all 109 `verify_jwt = false` entries intact), so only its `project_id` was changed here from `wirntoujqoyjobfhyelc` to `byrzshwlentqvktcksem`.
+- This branch merges `origin/lovable` 55ef48fe25 (merge commit, no rebase).
