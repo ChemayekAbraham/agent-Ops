@@ -161,7 +161,9 @@ function connectionModeRefusal(): string | null {
 }
 
 /** The live Welile project (supabase/config.toml). Never a test target. */
-export const PRODUCTION_PROJECT_REF = 'wirntoujqoyjobfhyelc';
+export const PRODUCTION_PROJECT_REF = 'byrzshwlentqvktcksem';
+/** The previous (Lovable Cloud) project. Also refused, so an old connection string can never become a test target. */
+export const PREVIOUS_PRODUCTION_PROJECT_REF = 'wirntoujqoyjobfhyelc';
 
 /**
  * LIVE-SYSTEM PROTECTION. This harness INSERTS into auth.users and profiles and
@@ -182,7 +184,7 @@ export function hostRefusal(env: NodeJS.ProcessEnv = process.env): string | null
   const host = (env.PGHOST ?? '').trim().toLowerCase();
   const settings = [env.PGHOST, env.PGHOSTADDR, env.PGSERVICE, env.PGDATABASE, env.DATABASE_URL, env.PGUSER]
     .map((v) => (v ?? '').toLowerCase()).join(' ');
-  if (settings.includes(PRODUCTION_PROJECT_REF)) {
+  if (settings.includes(PRODUCTION_PROJECT_REF) || settings.includes(PREVIOUS_PRODUCTION_PROJECT_REF)) {
     return 'the connection settings name the PRODUCTION project; this harness never connects there';
   }
   if (env.PGHOSTADDR || env.PGSERVICE || env.DATABASE_URL) {

@@ -57,7 +57,7 @@ export function SalaryPayslip({
   total_deductions = 0,
   employer_nssf = 0,
   payslip_url = 'https://welileapp.com/my-pay',
-  logo_url = 'https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
+  logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
 }: SalaryPayslipProps) {
   const year = new Date().getFullYear()
   const details: Array<[string, string]> = [

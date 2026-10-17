@@ -7,8 +7,8 @@ import { test, expect, Page, Route } from '@playwright/test';
  * deploy or a revert. Permanent regression coverage, not a one-off check.
  */
 
-const SUPABASE_HOST = 'wirntoujqoyjobfhyelc.supabase.co';
-const PROJECT_REF = 'wirntoujqoyjobfhyelc';
+const SUPABASE_HOST = 'byrzshwlentqvktcksem.supabase.co';
+const PROJECT_REF = 'byrzshwlentqvktcksem';
 const USER_ID = '00000000-0000-0000-0000-0000000000e2';
 const STORAGE_KEY = `sb-${PROJECT_REF}-auth-token`;
 

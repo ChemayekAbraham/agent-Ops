@@ -27,6 +27,7 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { TenantOpsRepaymentWatchlistCards } from './TenantOpsRepaymentWatchlistCards';
+import { TenantOpsRentLifetimeCards } from './TenantOpsRentLifetimeCards';
 import { TenantPaymentBehaviorCard } from './TenantPaymentBehaviorCard';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
@@ -343,6 +344,9 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
           </div>
         </div>
       </div>
+
+      {/* All-time rent request cards, right after the Executive summary: not affected by the date filter above. */}
+      <TenantOpsRentLifetimeCards />
 
       {/* Tenant Acquisition */}
       <div className="space-y-3">

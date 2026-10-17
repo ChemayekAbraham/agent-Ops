@@ -129,7 +129,7 @@ export function AgentLandlordPaidReceipt({
                       <tbody><tr>
                         <td align="center" valign="middle" width={64} height={64} style={iconBadgeCell}>
                           <Img
-                            src="https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/check-mark.png"
+                            src="https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/check-mark.png"
                             alt="Paid"
                             width="32"
                             height="32"

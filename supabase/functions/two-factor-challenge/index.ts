@@ -4,6 +4,7 @@
 //   action: "request" -> mail a 6-digit code to the account's inbox
 //   action: "verify"  -> check the code and mark this device verified
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isStaffUser } from "../_shared/staffMfa.ts";
 import { generateCode, hashCode, isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
 
 const corsHeaders = {
@@ -49,7 +50,7 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    const enabled = config?.enabled === true;
+    const staff = await isStaffUser(admin, user.id);
     const { data: trusted } = await admin
       .from("user_2fa_trusted_devices")
       .select("id")
@@ -67,9 +68,16 @@ Deno.serve(async (req) => {
       email = profile?.email ?? null;
     }
 
+    // Staff are always challenged, but only if a code can actually reach them:
+    // blocking an account whose inbox is a placeholder would lock it out for good.
+    const reachable = !isUnusableEmail(email);
+    const enabled = config?.enabled === true || (staff && reachable);
+
     if (action === "status") {
       return json({
         enabled,
+        required: staff,
+        required_unreachable: staff && !reachable,
         device_trusted: Boolean(trusted),
         email_masked: email && !isUnusableEmail(email) ? maskEmail(email) : null,
       });

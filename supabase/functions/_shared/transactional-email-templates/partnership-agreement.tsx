@@ -55,7 +55,7 @@ export function PartnershipAgreement({
   roi_percentage,
   currency = 'UGX',
   company_name = 'Welile',
-  logo_url = 'https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
+  logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
   unsubscribe_url = 'https://welile.com/unsubscribe',
   dashboard_url = 'https://welileapp.com/auth',
 }: PartnershipAgreementProps) {

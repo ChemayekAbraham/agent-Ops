@@ -548,7 +548,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as AgentHubTab | null;
   const initialTab: AgentHubTab =
-    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(tabParam)
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(tabParam)
       ? (tabParam as string) === 'more' ? 'grow' : (tabParam as string) === 'repayments' ? 'portfolio' : tabParam
       : 'home';
   const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
@@ -556,7 +556,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab') as AgentHubTab | null;
-    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(currentTab)) {
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(currentTab)) {
       const normalized = (currentTab as string) === 'more' ? 'grow' : (currentTab as string) === 'repayments' ? 'portfolio' : currentTab;
       if (normalized !== activeTab) {
         setActiveTab(normalized);
@@ -579,7 +579,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
-      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(e.detail)) {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(e.detail)) {
         setActiveTab(e.detail);
         if (e.detail === 'home') {
           setMenuOpen(false);
@@ -752,6 +752,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         subagents: 'Sub Agents',
         league: 'Collection League',
         portfolio: 'Repayment Portfolio',
+        merchant: 'Merchant Dashboard',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -822,24 +823,26 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         .select('id')
         .eq('is_frozen', true)
         .limit(5000);
-      const frozenUserIds = (frozenRows || []).map((r: any) => r.id);
+      const frozenUserIds = new Set<string>((frozenRows || []).map((r: any) => r.id));
       // Available = unclaimed OR a claim that has expired (>15 min).
+      // Frozen accounts are excluded client-side: inlining thousands of ids as
+      // `not.in.(...)` made the request URL too long, so the browser dropped it
+      // (surfaces as a CORS/network error) and the badge silently read 0.
       let q = supabase
         .from('withdrawal_requests')
-        .select('amount')
+        .select('amount, user_id, linked_party')
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('processed_at', null)
         .is('fin_ops_reference', null)
         .or(`assigned_cashout_agent_id.is.null,dispatched_at.lt.${cutoffIso}`);
       if (merchantCategoryOrClause) q = q.or(merchantCategoryOrClause);
-      if (frozenUserIds.length) {
-        const list = `(${frozenUserIds.join(',')})`;
-        q = q.not('user_id', 'in', list);
-        q = q.or(`linked_party.is.null,linked_party.not.in.${list}`);
-      }
       const { data, error } = await q.limit(2000);
       if (error) return { count: 0, totalCommission: 0 };
-      const rows = data || [];
+      const rows = (data || []).filter(
+        (r: any) =>
+          !frozenUserIds.has(r.user_id) &&
+          !(r.linked_party && frozenUserIds.has(r.linked_party)),
+      );
       const totalCommission = rows.reduce(
         (sum, r) => sum + Math.round(Number(r.amount || 0) * COMMISSION_RATE),
         0,
@@ -881,10 +884,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     return true;
   };
 
-  // Merchant Agents are locked to the Home tab. If the active tab ever lands on
+  // Merchant Agents can access Home and Merchant tabs. If the active tab ever lands on
   // an operational section (e.g. it was set before the role resolved), snap back.
   useEffect(() => {
-    if (isMerchant && activeTab !== 'home') {
+    if (isMerchant && activeTab !== 'home' && activeTab !== 'merchant') {
       setSlideDirection(null);
       setActiveTab('home');
     }
@@ -1245,9 +1248,15 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Home</span>
             </button>
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
-            </span>
+            {activeTab === 'merchant' ? (
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                Merchant Dashboard
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
+              </span>
+            )}
           </div>
         )}
 
@@ -1258,9 +1267,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
         {/* Swipe surface — left/right gestures navigate adjacent hub tabs */}
         <div {...swipeHandlers} className="touch-pan-y">
-        {/* === HOME TAB === Most-used actions, at-a-glance */}
-        {activeTab === 'home' && isMerchant && isCashoutAgent && (
-          <div className={cn("space-y-4", tabAnimClass)}>
+        {/* === MERCHANT DASHBOARD TAB === Dedicated hub for cashout/merchant operators */}
+        {activeTab === 'merchant' && isCashoutAgent && (
+          <div className={cn("space-y-4 rounded-3xl p-3.5 sm:p-5 bg-gradient-to-b from-emerald-500/25 via-emerald-500/10 to-emerald-500/[0.04] border-2 border-emerald-500/35 shadow-sm", tabAnimClass)}>
             <MerchantDashboardHome
               agentId={user.id}
               cashoutAgentId={(isCashoutAgent as any)?.id ?? null}
@@ -1278,29 +1287,32 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             />
           </div>
         )}
-        {activeTab === 'home' && !isMerchant && (
+        {/* === HOME TAB === Most-used actions, at-a-glance */}
+        {activeTab === 'home' && (
           <div className={cn("space-y-2.5", tabAnimClass)}>
             {/* Free Service Center qualification — permanent milestone tracker */}
-            {!isMerchant && (
-              <div className="flex flex-col space-y-2">
-                <LastWeekWinnerOverlay />
-                <WeeklyChampionTeamDialog />
-                <TenantLocationCorrectionPopup agentId={user.id} />
-                <WeeklyStreakDialog />
-                {/* Add Tenant — major action taking up the biggest portion of the screen */}
-                <AgentPostRentRequestCard
-                  restricted={isMerchant}
-                  onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="w-full min-h-[300px] sm:min-h-[360px]"
-                />
-                <p 
-                  onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                  className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-                >
-                  and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per tenant
-                </p>
-              </div>
-            )}
+            <div className="flex flex-col space-y-2">
+              {!isMerchant && (
+                <>
+                  <LastWeekWinnerOverlay />
+                  <WeeklyChampionTeamDialog />
+                  <TenantLocationCorrectionPopup agentId={user.id} />
+                  <WeeklyStreakDialog />
+                </>
+              )}
+              {/* Add Tenant — major action taking up the biggest portion of the screen */}
+              <AgentPostRentRequestCard
+                restricted={false}
+                onOpen={() => { setRentRequestOpen(true); }}
+                className="w-full min-h-[300px] sm:min-h-[360px]"
+              />
+              <p 
+                onClick={() => { setRentRequestOpen(true); }}
+                className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+              >
+                and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per tenant
+              </p>
+            </div>
 
             {/* Merchant Agent invites moved to CTO dashboard → "Merchant Invites" tab */}
 

@@ -23,6 +23,22 @@ function isInteractiveElement(el: EventTarget | null): boolean {
   return el.closest(INTERACTIVE_SELECTORS) !== null;
 }
 
+// True when the touch started inside an element (or ancestor) that is itself
+// scrolled down. Dashboards such as the agent shell scroll in an inner
+// container while the window stays at 0, so window.scrollY alone would let
+// every drag look like "at the top" and start a pull.
+function isInsideScrolledContainer(el: EventTarget | null): boolean {
+  let node = el instanceof HTMLElement ? el : null;
+  while (node && node !== document.body) {
+    if (node.scrollTop > 0) {
+      const oy = window.getComputedStyle(node).overflowY;
+      if (oy === 'auto' || oy === 'scroll') return true;
+    }
+    node = node.parentElement;
+  }
+  return false;
+}
+
 export function usePullToRefresh({
   onRefresh,
   threshold = 80,
@@ -61,7 +77,7 @@ export function usePullToRefresh({
       document.scrollingElement?.scrollTop ??
       document.documentElement.scrollTop ??
       0;
-    isAtTop.current = scrollTop <= 0;
+    isAtTop.current = scrollTop <= 0 && !isInsideScrolledContainer(e.target);
 
     if (isAtTop.current && !state.isRefreshing) {
       startY.current = e.touches[0].clientY;

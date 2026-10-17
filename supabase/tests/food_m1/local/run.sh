@@ -10,7 +10,7 @@ case "${PGHOST:-}" in 127.0.0.1|localhost) ;; *) echo "refusing: PGHOST must be 
 # live-system protection: nothing may redirect psql away from PGHOST, and the
 # production project is refused outright
 [ -z "${PGHOSTADDR:-}${PGSERVICE:-}${DATABASE_URL:-}" ] || { echo "refusing: PGHOSTADDR/PGSERVICE/DATABASE_URL set" >&2; exit 2; }
-case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*) echo "refusing: production project" >&2; exit 2;; esac
+case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*|*byrzshwlentqvktcksem*) echo "refusing: production project" >&2; exit 2;; esac
 here="$(cd "$(dirname "$0")" && pwd)"; root="$here/../../../.."
 db="food_run_$$"
 P() { psql -X -v ON_ERROR_STOP=1 -q "$@"; }

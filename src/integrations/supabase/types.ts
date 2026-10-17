@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.18"
   }
   public: {
     Tables: {
@@ -1352,6 +1352,39 @@ export type Database = {
             referencedColumns: ["request_id"]
           },
         ]
+      }
+      agent_agreement_acceptance: {
+        Row: {
+          accepted_at: string
+          agent_id: string
+          agreement_version: string
+          created_at: string
+          device_info: string | null
+          id: string
+          ip_address: string | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string
+          agent_id: string
+          agreement_version: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string
+          agent_id?: string
+          agreement_version?: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string
+        }
+        Relationships: []
       }
       agent_allocation_return_requests: {
         Row: {
@@ -59813,14 +59846,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -64063,6 +64096,20 @@ export type Database = {
           tenant_name: string
           tenant_phone: string
           total_requests: number
+        }[]
+      }
+      _tor_lifetime_rows: {
+        Args: never
+        Returns: {
+          bucket: string
+          cleared: number
+          financed: boolean
+          funded_at: string
+          id: string
+          paid_at: string
+          repaid: number
+          status: string
+          total: number
         }[]
       }
       _tps_label: {
@@ -80252,6 +80299,22 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      tenant_ops_rent_request_lifetime: { Args: never; Returns: Json }
+      tenant_ops_rent_request_lifetime_list: {
+        Args: { p_bucket: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          agent_name: string
+          amount_repaid: number
+          funded_at: string
+          id: string
+          landlord_paid_at: string
+          rent_amount: number
+          status: string
+          tenant_name: string
+          total_matched: number
+          total_repayment: number
+        }[]
+      }
       tenant_payment_history: {
         Args: { p_limit?: number }
         Returns: {
@@ -81829,6 +81892,10 @@ export type Database = {
         }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
+      topup_op_is_funded: {
+        Args: { p_metadata: Json; p_status: string }
+        Returns: boolean
+      }
       tppo_arrears_movement: {
         Args: { p_anchor?: string; p_granularity: string }
         Returns: Json
