@@ -468,7 +468,6 @@ function GlobalOnboardingGates() {
   if (isReceiptRoute) return null;
   return (
     <>
-      <TwoFactorGate />
       <PushNotificationGate />
       <PhoneCollectionGate />
       <NameCompletionGate />
