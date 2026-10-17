@@ -1353,6 +1353,39 @@ export type Database = {
           },
         ]
       }
+      agent_agreement_acceptance: {
+        Row: {
+          accepted_at: string
+          agent_id: string
+          agreement_version: string
+          created_at: string
+          device_info: string | null
+          id: string
+          ip_address: string | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string
+          agent_id: string
+          agreement_version: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string
+          agent_id?: string
+          agreement_version?: string
+          created_at?: string
+          device_info?: string | null
+          id?: string
+          ip_address?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       agent_allocation_return_requests: {
         Row: {
           agent_id: string
