@@ -6,7 +6,7 @@ import { test, expect, Page, Route } from '@playwright/test';
  * changes the cards nor calls the function again. Read-only: nothing is written.
  */
 
-const H = 'wirntoujqoyjobfhyelc.supabase.co';
+const H = 'byrzshwlentqvktcksem.supabase.co';
 const U = '00000000-0000-0000-0000-0000000000b1';
 const SHOTS = process.env.LIFETIME_SHOTS_DIR;
 const json = (route: Route, body: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
@@ -31,7 +31,7 @@ const LIST = [
 
 async function seed(page: Page, calls: { name: string; body: unknown }[]) {
   const session = { access_token: 'a', refresh_token: 'r', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: U, aud: 'authenticated', role: 'authenticated', email: 'e2e-lifetime@welile.test', email_confirmed_at: new Date().toISOString(), app_metadata: { provider: 'email' }, user_metadata: {}, created_at: new Date().toISOString() } };
-  await page.addInitScript(({ key, session }) => { try { localStorage.setItem(key, JSON.stringify(session)); } catch { /* ignore */ } }, { key: 'sb-wirntoujqoyjobfhyelc-auth-token', session });
+  await page.addInitScript(({ key, session }) => { try { localStorage.setItem(key, JSON.stringify(session)); } catch { /* ignore */ } }, { key: 'sb-byrzshwlentqvktcksem-auth-token', session });
   await page.route('**://' + H + '/**', async (route) => {
     const url = route.request().url();
     if (url.includes('/auth/v1/user')) return json(route, session.user);

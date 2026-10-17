@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hostRefusal, PRODUCTION_PROJECT_REF } from './foodDbTestGate';
+import { hostRefusal, PRODUCTION_PROJECT_REF, PREVIOUS_PRODUCTION_PROJECT_REF } from './foodDbTestGate';
 
 /**
  * The Food database harness writes auth.users, profiles and orders. These
@@ -20,6 +20,12 @@ describe('Food DB harness never reaches a live database', () => {
       .toMatch(/PRODUCTION/);
     expect(hostRefusal({ PGHOST: '127.0.0.1', DATABASE_URL: `postgres://x@db.${PRODUCTION_PROJECT_REF}.supabase.co/postgres` }))
       .toMatch(/PRODUCTION/);
+  });
+
+  it('also refuses the previous production project, with no override', () => {
+    const oldHost = `db.${PREVIOUS_PRODUCTION_PROJECT_REF}.supabase.co`;
+    expect(hostRefusal({ PGHOST: oldHost })).toMatch(/PRODUCTION/);
+    expect(hostRefusal({ PGHOST: oldHost, FOOD_DB_ALLOW_HOST: oldHost })).toMatch(/PRODUCTION/);
   });
 
   it('refuses any other remote host unless that exact host is allow-listed', () => {

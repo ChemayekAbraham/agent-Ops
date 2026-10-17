@@ -25,3 +25,14 @@ The database now lives in `byrzshwlentqvktcksem`; the old Lovable Cloud project 
 ## Added after the link (2026-10-17 ~05:30 EAT)
 - Lovable linked the new project and committed `Connected to new Supabase project` (`.lovable/mcp/manifest.json` issuer, `supabase/functions/mcp/index.ts` projectRef, `src/integrations/supabase/types.ts` regenerated, PostgrestVersion 14.18). `supabase/config.toml` was NOT reset by Lovable (all 109 `verify_jwt = false` entries intact), so only its `project_id` was changed here from `wirntoujqoyjobfhyelc` to `byrzshwlentqvktcksem`.
 - This branch merges `origin/lovable` 55ef48fe25 (merge commit, no rebase).
+
+## Safety guards and tooling repointed (2026-10-17, after the link)
+- **Database test guards protected the OLD project, not the new live one.** `src/__tests__/foodDbTestGate.ts` (`PRODUCTION_PROJECT_REF`, used by `hostRefusal`, which makes the Food DB harness, that INSERTs into `auth.users` and commits orders, refuse any live database) and the five shell harnesses `supabase/tests/food_m1/local/{run,race,isolation_check,migration_matrix}.sh` and `supabase/tests/ledger_boundary/local/run.sh` only refused `wirntoujqoyjobfhyelc`. They now refuse **both** the new production project `byrzshwlentqvktcksem` and the previous one; the unit test `foodDbHostGuard.test.ts` also proves the previous project is refused. (The guard still refuses `DATABASE_URL`; a variable named `DATABASE_URI` is not checked by it, so do not point test tooling at the live database through that name.)
+- `.agents/mcp_config.json` `serverUrl` now `https://byrzshwlentqvktcksem.supabase.co/functions/v1/mcp`.
+- The 10 `e2e/*.spec.ts` files mock the Supabase host and seed `sb-<ref>-auth-token`; their `SUPABASE_HOST` / `PROJECT_REF` constants now name the new project. `scripts/stress_test_api.py` default base URL now the new project, and both refs are in `PROD_HINTS`.
+- `npm run guard:all` passed.
+
+## Heads-up, not changed
+- `.github/workflows/deploy-edge-function.yml` reads the project ref from `supabase/config.toml` (now the new project), so it will deploy to the new project; the GitHub secret `SUPABASE_ACCESS_TOKEN` must belong to an account that can access it. Only a comment still names the old ref.
+- `supabase/pending/20261009120000_corr5300000_bucketa_gate_hardening.sql` (and its rollback) grant/revoke to the role `sandbox_exec_wirntoujqoyjobfhyelc`, which exists only on Lovable Cloud and not on the new project (the same missing role caused the 4,136 harmless errors in the restore): remove those role names before applying it, or it fails.
+- Still not touched here (UI): `index.html` preconnect, `src/pages/admin/Referrals.tsx` dashboard link.

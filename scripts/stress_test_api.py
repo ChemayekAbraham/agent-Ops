@@ -23,7 +23,7 @@ Usage
 -----
   # Functionality + security only (read-only, safe), against the direct edge URL:
   python scripts/stress_test_api.py \
-      --base-url https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/api \
+      --base-url https://byrzshwlentqvktcksem.supabase.co/functions/v1/api \
       --anon-key "<public anon key>" \
       --phone 0701355245 --password '******'
 
@@ -534,8 +534,8 @@ def phase_load(client: Client, rep: Report, token: Optional[str],
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
-DEFAULT_BASE = "https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/api"
-PROD_HINTS = ("api.welileapp.com", "welileapp.com", "wirntoujqoyjobfhyelc")
+DEFAULT_BASE = "https://byrzshwlentqvktcksem.supabase.co/functions/v1/api"
+PROD_HINTS = ("api.welileapp.com", "welileapp.com", "byrzshwlentqvktcksem", "wirntoujqoyjobfhyelc")
 
 
 def main() -> int:
