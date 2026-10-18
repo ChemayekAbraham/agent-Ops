@@ -1019,18 +1019,14 @@ export function useMerchantSettlementDebts(enabled = true) {
     staleTime: 20_000,
     refetchInterval: 60_000,
     queryFn: async (): Promise<MerchantDebtGroup[]> => {
-      // LEDGER TRUTH: read the evidence view, which reconstructs each desk's
-      // float position at the payout's own timestamp. A claim is only payable
-      // when the books show the desk was actually short at that moment.
-      const { data, error } = await supabase
-        .from('v_merchant_oop_evidence' as any)
-        .select(
-          'advance_id, agent_id, withdrawal_id, kind, payout_amount, telecom_charge, float_used, shortfall_amount, status, note, created_at, attested_at, reviewed_at, payout_at, payout_tid, recipient_name, recipient_phone, provider, float_position_at_payout, is_evidenced, is_estimate, evidenced_amount, evidence',
-        )
-        .in('status', [DEBT_STATUS_PAYABLE, DEBT_STATUS_REVIEW])
-        .is('reimbursed_at', null)
-        .order('created_at', { ascending: false })
-        .limit(2000);
+      // LEDGER TRUTH: the settlement function reconstructs each desk's float
+      // position at the payout's own timestamp and applies the access rule
+      // itself — a merchant sees only their own desk, finance/ops see all.
+      // It returns open claims only (pending_reimbursement / needs_review),
+      // not yet reimbursed, newest first, capped at p_limit.
+      const { data, error } = await supabase.rpc('merchant_oop_debts_for_settlement' as any, {
+        p_limit: 2000,
+      });
       if (error) throw error;
       const rows = (data ?? []) as any[];
 
