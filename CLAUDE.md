@@ -23,6 +23,7 @@ This project is being built by two agents in parallel. Stay in your lane so work
 - **`supabase/migrations/` does not faithfully reflect the live production schema.** Verify columns/functions/RPCs against the actual production database before relying on a migration file. Branch work from `origin/lovable`, not local, if local is stale.
 - For treasury cash figures, `get_treasury_cash_position` (A1+A5) is the correct RPC — `get_treasury_snapshot` is superseded and can show malformed negative numbers that look like a deficit but aren't.
 - Absolute "set float to X" operations re-credit already-spent float — prefer delta/"add" operations for float adjustments unless you've confirmed the current spent amount.
+- **New database functions are closed by default (since 2026-10-19, doc 247 step 23).** A function created in `public` is callable only by the owner and `service_role`. A migration that adds an RPC the browser calls must `grant execute on function public.<fn>(<args>) to authenticated;` (`anon` only for genuine pre-login flows) and the function must check the caller itself (`auth.uid()` / role helpers). `CREATE OR REPLACE` keeps grants; `DROP FUNCTION` + `CREATE FUNCTION` resets them, so re-grant. A fresh RPC that returns 401/403 is usually a missing grant. Never close a plain helper function that a view or policy uses (check `pg_depend`, including views that inline it).
 
 ## Git
 
