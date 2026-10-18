@@ -273,3 +273,9 @@ alter view public.v_tenant_ops_tenant_base set (security_invoker = on);
 
 -- ===== I. restored after the post-pass log review: my_bank_account_lock() has its own identity check and a screen calls it
 grant execute on function public.my_bank_account_lock() to authenticated;
+
+-- ===== J. the two location views were blocked only by three Uganda geography lookup materialized views (district / sub-county / village names) closed to signed-in users.
+-- Public reference data: readable by signed-in users; both views then return identical rows for every audience as caller-rights views.
+grant select on public.mv_ug_district_alias, public.mv_ug_subcounty_alias, public.mv_ug_village_geo to authenticated;
+alter view public.v_tenant_location_pivot set (security_invoker = on);
+alter view public.vw_agent_ops_directory set (security_invoker = on);
