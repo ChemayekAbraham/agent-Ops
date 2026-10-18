@@ -194,7 +194,7 @@ export function ApprovedRequisitionsPayoutPanel() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="outline" className={cn(!selected && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-4 w-4" />{selected ? format(selected, 'dd MMM yyyy') : 'Pick a date'}
+                  <CalendarIcon className="mr-1 h-4 w-4" />{selected ? format(selected, 'dd MMM yyyy') : 'All time'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -206,6 +206,11 @@ export function ApprovedRequisitionsPayoutPanel() {
                   initialFocus
                   className="pointer-events-auto p-3"
                 />
+                {day && (
+                  <div className="border-t p-2">
+                    <Button size="sm" variant="ghost" className="w-full" onClick={() => setDay(null)}>Show all time</Button>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
             <Button size="sm" variant="ghost" onClick={() => refetch()} aria-label="Refresh">
