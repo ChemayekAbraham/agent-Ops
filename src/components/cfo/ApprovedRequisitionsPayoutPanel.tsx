@@ -78,9 +78,12 @@ export function ApprovedRequisitionsPayoutPanel() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const range = useMemo(() => ({
+  const range = useMemo(() => from ? ({
     p_from: new Date(`${from}T00:00:00`).toISOString(),
     p_to: new Date(new Date(`${to}T00:00:00`).getTime() + 86_400_000).toISOString(),
+  }) : ({
+    p_from: new Date('1970-01-01T00:00:00').toISOString(),
+    p_to: new Date(Date.now() + 86_400_000).toISOString(),
   }), [from, to]);
 
   const { data: rows = [], isLoading, isFetching, refetch, error } = useQuery({
