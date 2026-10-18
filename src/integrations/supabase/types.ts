@@ -67025,6 +67025,8 @@ export type Database = {
         Returns: {
           amount: number
           approved_at: string
+          approver_name: string
+          approver_role: string
           credited_at: string
           error_message: string
           payout_status: string
