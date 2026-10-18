@@ -76236,6 +76236,42 @@ export type Database = {
         Returns: boolean
       }
       merchant_ledger_float: { Args: { p_agent_id: string }; Returns: number }
+      merchant_oop_debts_for_settlement: {
+        Args: { p_limit?: number }
+        Returns: {
+          advance_id: string | null
+          agent_id: string | null
+          attested_at: string | null
+          created_at: string | null
+          evidence: Json | null
+          evidenced_amount: number | null
+          float_position_at_payout: number | null
+          float_used: number | null
+          is_estimate: boolean | null
+          is_evidenced: boolean | null
+          kind: string | null
+          note: string | null
+          payout_amount: number | null
+          payout_at: string | null
+          payout_tid: string | null
+          provider: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reimbursed_at: string | null
+          reviewed_at: string | null
+          shortfall_amount: number | null
+          status: string | null
+          telecom_charge: number | null
+          withdrawal_amount: number | null
+          withdrawal_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_merchant_oop_evidence"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       merchant_payout_success_matrix: {
         Args: { p_days?: number }
         Returns: {
