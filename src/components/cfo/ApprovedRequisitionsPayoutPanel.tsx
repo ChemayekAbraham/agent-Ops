@@ -70,7 +70,7 @@ export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
   const { roles } = useAuth() as { roles?: string[] };
   const isCfo = (roles ?? []).includes('cfo');
-  const [day, setDay] = useState(today());
+  const [day, setDay] = useState<string | null>(null); // null = all time
   const from = day, to = day;
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
