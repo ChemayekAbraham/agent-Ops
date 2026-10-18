@@ -1,0 +1,11 @@
+-- 2026-10-18 (doc 247, step 12): two owner-rights functions callable by any signed-in user, with no caller check, that no page calls.
+--   apply_portfolio_renewal(portfolio, renewed_by, reason, source, is_auto): resets an investor portfolio's start date, maturity date, next ROI date,
+--     status and total_roi_earned (to 0) and writes a portfolio_renewals row. Callers: edge functions apply-scheduled-portfolio-renewals,
+--     process-portfolio-renewal and process-supporter-roi (all through SERVICE-ROLE clients) and the owner-rights database function
+--     auto_renew_due_portfolios. The mention in MaturityRequestsQueue.tsx is a comment.
+--   rent_apply_collections_to_days(rent_request): deletes and rebuilds a rent plan's day settlements from its collections. Callers: owner-rights
+--     database functions only (agent_allocate_tenant_payment, rent_sweep_unapplied_collections, ops_set_rent_plan_frequency,
+--     pin_agent_expected_day_catchup); the mention in arrearsAllocation.ts is a comment.
+-- No triggers, no cron jobs, no policies depend on either. Closed to service_role only (the database owner keeps EXECUTE, so the owner-rights
+-- callers still work). Already applied to production 2026-10-18. Needs _fn_lockdown.run from migration 20261017140000.
+select * from _fn_lockdown.run(array['apply_portfolio_renewal','rent_apply_collections_to_days'], true);
