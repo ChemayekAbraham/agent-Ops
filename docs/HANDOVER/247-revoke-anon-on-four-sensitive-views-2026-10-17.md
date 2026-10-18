@@ -223,3 +223,18 @@ Migration `20261018280000_supabase_advisor_security_pass.sql`.
 ## Step 23 (APPLIED 2026-10-19): new functions are closed by default
 Default privileges for functions created by `postgres` in `public` granted EXECUTE to `anon`, `authenticated` and `service_role`, so each new owner-rights function was open to the API on creation. Changed: new functions in `public` now get EXECUTE for the owner and `service_role` only, and the global default no longer grants PUBLIC. Tested with a throwaway function (rolled back): anon false, authenticated false, service_role true. Existing functions are untouched.
 **Consequence for everyone who writes migrations (also added to CLAUDE.md):** a new RPC the browser calls needs an explicit `grant execute on function public.<fn>(<args>) to authenticated;` (and `anon` only for real pre-login flows) in the same migration, plus a caller check inside the function. `CREATE OR REPLACE` keeps existing grants, but `DROP FUNCTION` + `CREATE FUNCTION` resets them to the closed default, so re-grant after any drop/recreate. A feature whose RPC suddenly returns 401/403 right after a deploy is almost always a missing grant. Tell Lovable's agent about this rule before the next merge.
+
+## Step 24 (functions APPLIED 2026-10-19; screen change and view closure PENDING): `landlords_directory`
+The advisor flags `landlords_directory` because signed-in users can select from an owner-rights view. Switching it to `security_invoker` was tested and breaks the feature (plain agent 46,753 -> 78 rows, supporter 0): agents use the directory to find existing landlords, and the Rental Finder browses it. Option chosen by Josh (2): move the readers to checked functions, then close the view to signed-in users.
+**Database side (done):** `landlord_directory_entry(p_id)` and `landlord_directory_browse(p_limit)` (migration `20261019100000_landlord_directory_checked_functions.sql`). Tested as real users: an agent gets their own landlord (1) and nothing for an unlinked one (0); staff get any; a borrower gets only the landlord on their profile; a non-agent is refused the browse; the browse is capped at 2,000.
+**Frontend side (Gemini's lane; four files, same data shape):**
+1. `src/components/agent/EditHouseListingDialog.tsx:88`: `.from('landlords_directory').select(...).eq('id', listing.landlord_id).maybeSingle()` -> `supabase.rpc('landlord_directory_entry', { p_id: listing.landlord_id })` and take the first row (`.maybeSingle()` works on rpc results); the function returns all view columns, pick the same fields.
+2. `src/components/vouch/borrower/BorrowerResidenceGate.tsx:147`: same replacement with `prof.borrower_landlord_id`.
+3. `src/components/vouch/borrower/BorrowLoanSheet.tsx:144`: same replacement with `p.borrower_landlord_id`.
+4. `src/components/agent/RentalFinderSheet.tsx:89`: `.from('landlords_directory').select(...).order(...).limit(2000)` -> `supabase.rpc('landlord_directory_browse', { p_limit: 2000 })` (already ordered newest first; same 23 columns).
+`LandlordSearchSelect` already uses the search RPC; `src/integrations/supabase/types.ts` needs regenerating for the two new functions.
+**Final step, only AFTER those four screens are live (otherwise they return nothing):**
+```sql
+revoke select on public.landlords_directory from authenticated;   -- keep service_role and the owner
+```
+Then the advisor stops flagging the view (no client can select from it) and the owner-rights functions keep reading it. Test the four screens as an agent and a borrower first.
