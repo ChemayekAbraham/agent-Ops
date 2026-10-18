@@ -33,6 +33,8 @@ interface Row {
   reversed_at: string | null;
   reversal_reason: string | null;
   error_message: string | null;
+  approver_name: string | null;
+  approver_role: string | null;
 }
 
 const STATUS: Record<Row['payout_status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'successSolid' }> = {
@@ -240,6 +242,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                     <TableHead>Purpose</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Approved</TableHead>
+                    <TableHead>Approved by</TableHead>
                     <TableHead>In wallet</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-0" />
@@ -256,6 +259,10 @@ export function ApprovedRequisitionsPayoutPanel() {
                         <TableCell className="max-w-[150px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
                         <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.approved_at)}</TableCell>
+                        <TableCell className="max-w-[140px] truncate text-xs" title={r.approver_name ?? ''}>
+                          {r.approver_name ?? '—'}
+                          {r.approver_role && <div className="text-muted-foreground">{r.approver_role}</div>}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.credited_at)}</TableCell>
                         <TableCell>
                           <Badge variant={s.variant}>{s.label}</Badge>
