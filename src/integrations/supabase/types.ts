@@ -65307,6 +65307,7 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_wallet_network_ids: { Args: { _agent: string }; Returns: string[] }
       allocate_company_managed_portfolio: {
         Args: { p_portfolio_id: string }
         Returns: Json
@@ -66547,8 +66548,13 @@ export type Database = {
         Args: { _target_agent_id: string; _viewer_id: string }
         Returns: boolean
       }
+      can_view_finance_reports: { Args: { _uid: string }; Returns: boolean }
       can_view_landlord_float_queue: {
         Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_view_lc1_verification_inbox: {
+        Args: { _uid: string }
         Returns: boolean
       }
       can_view_payout_reconciliation: {
@@ -66556,6 +66562,7 @@ export type Database = {
         Returns: boolean
       }
       can_view_receivables: { Args: { _user_id: string }; Returns: boolean }
+      can_view_staff_reports: { Args: { _uid: string }; Returns: boolean }
       can_view_web_analytics: { Args: { _user_id: string }; Returns: boolean }
       cancel_agent_advance: {
         Args: { p_advance_id: string; p_reason: string; p_recoup: boolean }
@@ -79615,8 +79622,6 @@ export type Database = {
         }
         Returns: Json
       }
-      show_limit: { Args: never; Returns: number }
-      show_trgm: { Args: { "": string }; Returns: string[] }
       signup_source_funnel: {
         Args: { p_end: string; p_start: string }
         Returns: {
