@@ -1,12 +1,29 @@
 import { safeUUID } from '@/lib/safeUUID';
+
 /**
- * Lightweight, stable-per-browser device fingerprint used ONLY for anti-fraud
- * gating at signup. Not a security boundary — a sophisticated attacker can
- * clear storage and change UA to bypass. Combined with IP + phone-OTP checks
- * server-side it is enough to stop casual bots.
+ * Lightweight, stable-per-browser device fingerprint used for anti-fraud
+ * gating at signup and for spotting one device signing in to many accounts.
+ * Not a security boundary — a determined attacker can wipe all site data —
+ * but combined with phone OTP and server-side caps it stops casual account
+ * farming.
+ *
+ * Two values:
+ *   - getDeviceFingerprint(): a per-browser seed bound to slow-changing device
+ *     signals. Used for the signup cap and the sign-in step-up. v1 hashed the
+ *     full user-agent string, so every browser auto-update (and every Chrome
+ *     version bump) turned the same phone into a "new device"; v2 keeps only
+ *     the OS and browser family. The seed is kept in localStorage AND a
+ *     first-party cookie, so clearing one of them alone no longer resets it.
+ *   - getHardwareFingerprint(): the same device signals WITHOUT the seed. It
+ *     survives clearing site data, but two phones of the same model in the same
+ *     time zone can collide, so it is only ever a review signal — never a block.
  */
-const STORAGE_KEY = 'welile_device_fp_v1';
+
+const STORAGE_KEY = 'welile_device_fp_v2';
+const LEGACY_STORAGE_KEY = 'welile_device_fp_v1';
 const SEED_KEY = 'welile_device_seed_v1';
+const SEED_COOKIE = 'welile_ds';
+const SEED_COOKIE_MAX_AGE_S = 400 * 24 * 60 * 60; // browsers cap cookie lifetime at 400 days
 
 async function sha256Hex(input: string): Promise<string> {
   try {
@@ -23,17 +40,64 @@ async function sha256Hex(input: string): Promise<string> {
   }
 }
 
-function getSeed(): string {
+const SEED_RE = /^[A-Za-z0-9-]{8,64}$/;
+
+function readSeedCookie(): string | null {
   try {
-    let s = localStorage.getItem(SEED_KEY);
-    if (!s) {
-      s = safeUUID();
-      localStorage.setItem(SEED_KEY, s);
-    }
-    return s;
+    const m = document.cookie.match(new RegExp('(?:^|;\\s*)' + SEED_COOKIE + '=([^;]+)'));
+    const v = m ? decodeURIComponent(m[1]) : null;
+    return v && SEED_RE.test(v) ? v : null;
   } catch {
-    return 'no-storage';
+    return null;
   }
+}
+
+function writeSeedCookie(seed: string): void {
+  try {
+    const secure = location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `${SEED_COOKIE}=${encodeURIComponent(seed)}; Max-Age=${SEED_COOKIE_MAX_AGE_S}; Path=/; SameSite=Lax${secure}`;
+  } catch {
+    /* ignore */
+  }
+}
+
+/** The per-browser seed, restored from whichever store still holds it and written back to both. */
+function getSeed(): string {
+  let seed: string | null = null;
+  try {
+    const stored = localStorage.getItem(SEED_KEY);
+    if (stored && SEED_RE.test(stored)) seed = stored;
+  } catch {
+    /* ignore */
+  }
+  if (!seed) seed = readSeedCookie();
+  if (!seed) seed = safeUUID();
+  try {
+    localStorage.setItem(SEED_KEY, seed);
+  } catch {
+    /* ignore */
+  }
+  writeSeedCookie(seed);
+  return seed;
+}
+
+/** OS and browser family only — never versions, which change on every update. */
+export function coarseUserAgent(ua: string): string {
+  let os = 'other';
+  if (/Android/i.test(ua)) os = 'android';
+  else if (/iPhone|iPad|iPod/i.test(ua)) os = 'ios';
+  else if (/Windows/i.test(ua)) os = 'windows';
+  else if (/CrOS/i.test(ua)) os = 'chromeos';
+  else if (/Mac OS X|Macintosh/i.test(ua)) os = 'mac';
+  else if (/Linux/i.test(ua)) os = 'linux';
+  let browser = 'other';
+  if (/Edg\//i.test(ua)) browser = 'edge';
+  else if (/OPR\/|Opera/i.test(ua)) browser = 'opera';
+  else if (/SamsungBrowser/i.test(ua)) browser = 'samsung';
+  else if (/Firefox\/|FxiOS/i.test(ua)) browser = 'firefox';
+  else if (/Chrome\/|CriOS/i.test(ua)) browser = 'chrome';
+  else if (/Safari\//i.test(ua)) browser = 'safari';
+  return `${os}/${browser}`;
 }
 
 function canvasSignature(): string {
@@ -55,21 +119,22 @@ function canvasSignature(): string {
   }
 }
 
-export async function getDeviceFingerprint(): Promise<string> {
-  const parts = [
-    getSeed(),
-    navigator.userAgent || '',
-    navigator.language || '',
-    (navigator.languages || []).join(','),
-    String(screen.width) + 'x' + String(screen.height) + 'x' + String(screen.colorDepth || ''),
+/** Slow-changing device signals: no versions, no seed. */
+function deviceSignals(): string[] {
+  const w = Math.max(screen.width || 0, screen.height || 0);
+  const h = Math.min(screen.width || 0, screen.height || 0); // orientation-independent
+  return [
+    coarseUserAgent(navigator.userAgent || ''),
+    `${w}x${h}x${screen.colorDepth || ''}`,
     String(new Date().getTimezoneOffset()),
     String((navigator as any).hardwareConcurrency || ''),
     String((navigator as any).deviceMemory || ''),
-    String((navigator as any).platform || ''),
-    canvasSignature(),
+    String((navigator as any).maxTouchPoints ?? ''),
   ];
-  const hash = await sha256Hex(parts.join('|'));
+}
 
+export async function getDeviceFingerprint(): Promise<string> {
+  const hash = await sha256Hex(['v2', getSeed(), ...deviceSignals()].join('|'));
   // "Don't trust user input": we ALWAYS recompute the fingerprint from live
   // browser signals rather than trusting whatever value happens to be sitting
   // in localStorage. If the cached value has been tampered with (edited via
@@ -81,8 +146,14 @@ export async function getDeviceFingerprint(): Promise<string> {
       localStorage.removeItem(STORAGE_KEY);
     }
     localStorage.setItem(STORAGE_KEY, hash);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch { /* ignore */ }
   return hash;
+}
+
+/** Device signals without the seed — survives clearing site data, may collide across identical phones. Review only. */
+export async function getHardwareFingerprint(): Promise<string> {
+  return sha256Hex(['hw1', ...deviceSignals(), navigator.language || '', canvasSignature()].join('|'));
 }
 
 /**

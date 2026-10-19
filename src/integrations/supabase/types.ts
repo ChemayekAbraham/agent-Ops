@@ -64586,6 +64586,17 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      agent_expected_split: {
+        Args: { p_agent_ids?: string[]; p_day?: string }
+        Returns: {
+          agent_id: string
+          arrears_plans: number
+          arrears_ugx: number
+          in_term_plans: number
+          in_term_ugx: number
+          total_ugx: number
+        }[]
+      }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
         Args: { p_agent_id: string }

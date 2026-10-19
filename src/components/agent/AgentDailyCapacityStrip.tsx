@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD, type AgentCapacity } from '@/hooks/useAgentCapacityMap';
+import { useOwnExpectedSplit } from '@/hooks/useAgentExpectedSplit';
 import { formatUGX } from '@/lib/rentCalculations';
-import { CalendarCheck2, CheckCircle2, Lock, Loader2 } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Lock, Loader2, AlarmClock } from 'lucide-react';
 
 const RATING_TONE: Record<AgentCapacity['daily_rating'], string> = {
   'Very Good': 'bg-emerald-600/15 text-emerald-700 border-emerald-600/40',
@@ -23,6 +24,9 @@ export function AgentDailyCapacityStrip() {
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  // Splits the pinned target into in-term rent vs past-term arrears. One RPC,
+  // batched with any other agent on screen — never call per list row.
+  const { data: split } = useOwnExpectedSplit(user?.id ?? null);
 
   if (!user?.id) return null;
 
@@ -83,6 +87,22 @@ export function AgentDailyCapacityStrip() {
             {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
           </p>
         </div>
+
+        {/* In-term vs past-term breakdown. Only appears when part of today's
+            target comes from Rent Plans already past their end date — routine
+            rent needs no callout. The big total above never changes. */}
+        {split && split.arrearsUgx > 0 && (
+          <div className="flex items-start gap-2 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2">
+            <AlarmClock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-snug">
+              <strong className="text-foreground tabular-nums">{formatUGX(split.inTermUgx)}</strong> is today&apos;s rent
+              {' · '}
+              <strong className="text-amber-700 tabular-nums">{formatUGX(split.arrearsUgx)}</strong> is owed by{' '}
+              <strong className="text-foreground tabular-nums">{split.arrearsPlans}</strong>{' '}
+              {split.arrearsPlans === 1 ? 'tenant' : 'tenants'} past their Rent Plan end date — chase them too
+            </p>
+          </div>
+        )}
       </div>
 
       {cap.weekly_plan_count > 0 && (

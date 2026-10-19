@@ -92,3 +92,12 @@ export async function signedUrl(storagePath: string): Promise<string> {
   if (error) throw new Error(error.message);
   return data.signedUrl;
 }
+
+// ---- Capabilities shape (ops_tutorial_my_capabilities) ----
+export interface TutorialCapabilities {
+  is_staff: boolean;
+  is_creator: boolean;
+  is_reviewer: boolean;
+  is_admin: boolean;
+  can_set_rates: boolean;
+}
