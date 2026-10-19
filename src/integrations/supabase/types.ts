@@ -64056,6 +64056,21 @@ export type Database = {
         }
         Returns: Json
       }
+      _rt_compute: {
+        Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
+        Returns: Json
+      }
+      _rt_desk_name: { Args: { p_rank: number }; Returns: string }
+      _rt_desk_of_status: { Args: { p_status: string }; Returns: string }
+      _rt_evidence: {
+        Args: { p_ids: string[] }
+        Returns: {
+          evidence: Json
+          request_id: string
+        }[]
+      }
+      _rt_rank: { Args: { p_desk: string }; Returns: number }
+      _rt_ts: { Args: { p: string }; Returns: string }
       _shopping_advance_received_24h: {
         Args: never
         Returns: {
@@ -79655,6 +79670,11 @@ export type Database = {
       rent_request_stale_return: {
         Args: { p_reason: string }
         Returns: boolean
+      }
+      rent_request_timing: { Args: { p_request_ids: string[] }; Returns: Json }
+      rent_request_timing_history: {
+        Args: { p_request_id: string }
+        Returns: Json
       }
       rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
