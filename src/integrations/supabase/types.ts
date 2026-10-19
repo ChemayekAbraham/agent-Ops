@@ -32007,6 +32007,8 @@ export type Database = {
       merchandise_recovery_plans: {
         Row: {
           amount_recovered: number
+          catchup_sms_pending: Json | null
+          catchup_sms_sent_on: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -32048,6 +32050,8 @@ export type Database = {
         }
         Insert: {
           amount_recovered?: number
+          catchup_sms_pending?: Json | null
+          catchup_sms_sent_on?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -32089,6 +32093,8 @@ export type Database = {
         }
         Update: {
           amount_recovered?: number
+          catchup_sms_pending?: Json | null
+          catchup_sms_sent_on?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
