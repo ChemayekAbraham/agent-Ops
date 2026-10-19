@@ -9,7 +9,7 @@
 --    third and later public account to sign in on a device must confirm a code
 --    sent by SMS to that account's own phone (device-step-up edge function),
 --    once per account per device. Staff are exempt (they have email 2FA).
---    Enforcement is switched by the DEVICE_STEP_UP_ENFORCE function secret;
+--    Enforcement is switched by system_config key device_step_up_enforce;
 --    with it off, devices are still recorded and flagged for review.
 -- 3. Review: get_shared_login_devices lists devices used by several accounts.
 --

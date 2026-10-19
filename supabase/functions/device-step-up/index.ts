@@ -11,8 +11,10 @@
 //   action: "request" -> text a code to the account's phone
 //   action: "verify"  -> check the code and trust this account on this device
 //
-// Kill switch: the function secret DEVICE_STEP_UP_ENFORCE. Unless it is "true",
-// "check" only records and flags the device and never asks for a code. Every
+// Switch: system_config key 'device_step_up_enforce' (true/false). Unless it is
+// true, "check" only records and flags the device and never asks for a code. The
+// function secret DEVICE_STEP_UP_ENFORCE=false overrides it as an emergency off
+// switch. Every
 // failure path answers "no code needed": an error here must never lock anyone out
 // (TwoFactorGate was switched off on 2026-10-17 for blocking sign-in).
 
@@ -41,8 +43,15 @@ const json = (body: unknown, status = 200) =>
 
 const NOT_REQUIRED = { required: false };
 
-function enforced(): boolean {
-  return (Deno.env.get("DEVICE_STEP_UP_ENFORCE") ?? "false").toLowerCase() === "true";
+// deno-lint-ignore no-explicit-any
+async function enforced(admin: any): Promise<boolean> {
+  if ((Deno.env.get("DEVICE_STEP_UP_ENFORCE") ?? "").toLowerCase() === "false") return false;
+  const { data } = await admin
+    .from("system_config")
+    .select("value")
+    .eq("key", "device_step_up_enforce")
+    .maybeSingle();
+  return data?.value === true || data?.value === "true";
 }
 
 /** +256 *** *** 123 — safe to show on screen. */
@@ -92,7 +101,7 @@ Deno.serve(async (req) => {
         return json(NOT_REQUIRED);
       }
       const needed = Boolean((result as { step_up_required?: boolean })?.step_up_required);
-      if (!needed || !enforced()) return json({ ...NOT_REQUIRED, observed: needed });
+      if (!needed || !(await enforced(admin))) return json({ ...NOT_REQUIRED, observed: needed });
       // No phone we can text: never lock the account out. The device stays flagged
       // for review in get_shared_login_devices.
       if (!reachable) return json({ ...NOT_REQUIRED, unreachable: true });
@@ -106,7 +115,7 @@ Deno.serve(async (req) => {
       .eq("device_fp", deviceFp)
       .eq("user_id", user.id)
       .maybeSingle();
-    if (!device?.step_up_required_at || device.step_up_verified_at || !enforced()) {
+    if (!device?.step_up_required_at || device.step_up_verified_at || !(await enforced(admin))) {
       return json({ success: true, required: false });
     }
     if (!reachable) return json({ success: true, required: false, unreachable: true });
