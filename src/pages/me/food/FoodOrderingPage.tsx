@@ -507,7 +507,7 @@ export default function FoodOrderingPage() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  Zero fees &middot; Deducted from wallet
+                  Zero cash &middot; Deducted from wallet
                 </span>
               </div>
             </div>
