@@ -784,6 +784,13 @@ function AppRoutes() {
           <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />
           <Route path="/me/food/orders" element={<HRSignedInRoute><MyFoodOrdersPage /></HRSignedInRoute>} />
           <Route path="/me/food/manage" element={<HRSignedInRoute><FoodManagementPage /></HRSignedInRoute>} />
+          {/* Friendly and bookmarked aliases */}
+          <Route path="/canteen" element={<Navigate to="/me/food" replace />} />
+          <Route path="/canteen/orders" element={<Navigate to="/me/food/orders" replace />} />
+          <Route path="/food" element={<Navigate to="/me/food" replace />} />
+          <Route path="/food/orders" element={<Navigate to="/me/food/orders" replace />} />
+          <Route path="/food/manage" element={<Navigate to="/me/food/manage" replace />} />
+          <Route path="/food-management" element={<Navigate to="/me/food/manage" replace />} />
           <Route path="/hr/contracts" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRContractsPage /></RoleGuard>} />
           <Route path="/me/payslips" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />

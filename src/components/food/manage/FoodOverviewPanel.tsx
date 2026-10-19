@@ -1,19 +1,50 @@
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, ChevronRight, Info } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useFoodCoordinatorOverview, formatUgx } from '@/hooks/useFoodService';
 
-function Stat({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
-  return (
-    <div className="rounded-xl border border-border/70 bg-card p-4">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+function Stat({
+  label, value, hint, onClick,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <div className={cn(
+      'rounded-xl border border-border/70 bg-card p-4 transition-all text-left w-full h-full flex flex-col justify-between',
+      onClick && 'cursor-pointer hover:border-primary/50 hover:bg-muted/30 active:scale-[0.99] group',
+    )}>
+      <div>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          {onClick && (
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+          )}
+        </div>
+        <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+      </div>
       {hint && <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{hint}</p>}
     </div>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {content}
+      </button>
+    );
+  }
+  return content;
 }
 
-export default function FoodOverviewPanel() {
+export default function FoodOverviewPanel({ onSelectTab }: { onSelectTab?: (tab: string) => void }) {
   const { data, isLoading, isError, error, refetch } = useFoodCoordinatorOverview();
 
   if (isLoading) {
@@ -65,14 +96,47 @@ export default function FoodOverviewPanel() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Orders today" value={data.orders_today} />
-        <Stat label="Unpaid" value={data.unpaid_orders} hint="Awaiting payment" />
-        <Stat label="Awaiting prep" value={data.awaiting_prep} />
-        <Stat label="Preparing" value={data.preparing} />
-        <Stat label="Ready" value={data.ready} />
-        <Stat label="Completed" value={data.completed} />
-        <Stat label="Cancelled" value={data.cancelled} />
-        <Stat label="Menu items published" value={data.menu_published} />
+        <Stat
+          label="Orders today"
+          value={data.orders_today}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Unpaid"
+          value={data.unpaid_orders}
+          hint="Awaiting payment"
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Awaiting prep"
+          value={data.awaiting_prep}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Preparing"
+          value={data.preparing}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Ready"
+          value={data.ready}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Completed"
+          value={data.completed}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Cancelled"
+          value={data.cancelled}
+          onClick={onSelectTab ? () => onSelectTab('queue') : undefined}
+        />
+        <Stat
+          label="Menu items published"
+          value={data.menu_published}
+          onClick={onSelectTab ? () => onSelectTab('menu') : undefined}
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -80,6 +144,7 @@ export default function FoodOverviewPanel() {
           label="Open exceptions"
           value={data.open_exceptions}
           hint="Issues raised during service"
+          onClick={onSelectTab ? () => onSelectTab('audit') : undefined}
         />
         {/*
           An operational figure only. This is the value of orders marked paid —

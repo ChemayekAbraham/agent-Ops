@@ -674,8 +674,8 @@ describe('Reporting a problem with an order (FM-21)', () => {
     expect(log).toBeDisabled();
     await user.type(screen.getByLabelText(/exception description/i), 'Swapped matooke for rice');
     await user.click(log);
-    await waitFor(() => expect(screen.getAllByText('Swapped matooke for rice').length).toBeGreaterThanOrEqual(1));
-    expect(screen.getAllByText(/logged by the food coordinator/i).length).toBeGreaterThan(0);
+    await waitFor(() => expect(screen.getAllByText(/logged by the food coordinator/i).length).toBeGreaterThan(0));
+    expect(screen.getAllByText('Swapped matooke for rice').length).toBeGreaterThanOrEqual(1);
   });
 });
 
