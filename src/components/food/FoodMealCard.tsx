@@ -3,6 +3,7 @@ import { ChevronDown, CupSoda, Heart, Minus, Plus, ShoppingCart, UtensilsCrossed
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUgx, forgetFoodMealPhotoUrl, type FoodMenuMeal } from '@/hooks/useFoodService';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface FoodMealCardProps {
   meal: FoodMenuMeal;
@@ -34,6 +35,7 @@ export default function FoodMealCard({
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showImage = Boolean(meal.image_path) && meal.image_path !== failedUrl;
   const [isFavorite, setIsFavorite] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   // Tapping anywhere on the card opens the meal's description. The quantity
   // stepper and "Add to order" stop the tap so they never open or close it.
@@ -71,17 +73,24 @@ export default function FoodMealCard({
       {/* Glovo-style rounded picture frame with badge and optional favorite toggle */}
       <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-2xl bg-amber-500/5 dark:bg-muted/40">
         {showImage ? (
-          <img
-            src={meal.image_path as string}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            onError={() => {
-              forgetFoodMealPhotoUrl(meal.image_path);
-              setFailedUrl(meal.image_path);
-            }}
-          />
+          <button
+            type="button"
+            aria-label={`View photo of ${meal.name}`}
+            className="h-full w-full cursor-zoom-in"
+            onClick={(e) => { e.stopPropagation(); setPhotoOpen(true); }}
+          >
+            <img
+              src={meal.image_path as string}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              onError={() => {
+                forgetFoodMealPhotoUrl(meal.image_path);
+                setFailedUrl(meal.image_path);
+              }}
+            />
+          </button>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-amber-500/5 text-amber-600/40 dark:bg-muted/30 dark:text-muted-foreground/40">
             <UtensilsCrossed className="h-10 w-10" aria-hidden="true" />
