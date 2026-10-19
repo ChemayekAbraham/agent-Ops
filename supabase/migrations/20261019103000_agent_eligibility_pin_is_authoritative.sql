@@ -100,5 +100,8 @@ BEGIN
   v_def := replace(v_def, v_old, v_new);
 
   EXECUTE format('CREATE OR REPLACE VIEW public.v_agent_daily_eligibility AS %s', v_def);
+  -- CREATE OR REPLACE VIEW does not carry reloptions forward, so the view
+  -- loses security_invoker unless it is set again. See 20261019110000.
+  EXECUTE 'ALTER VIEW public.v_agent_daily_eligibility SET (security_invoker = on)';
 END
 $mig$;
