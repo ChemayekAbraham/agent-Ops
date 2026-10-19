@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle, CalendarOff, ChefHat, ChevronLeft, ClipboardList, Clock, Flame, Heart, Info,
+  AlertCircle, CalendarOff, ChefHat, ChevronDown, ChevronLeft, ClipboardList, Clock, Flame, Heart, Info,
   MapPin, Moon, Search, ShieldAlert, ShieldCheck, ShoppingBag, Sparkles, Star, Sun, Sunrise,
   Utensils, UtensilsCrossed, X,
 } from 'lucide-react';
@@ -38,6 +38,19 @@ function PeriodIcon({ name }: { name: string }) {
       : n.includes('lunch') ? Sun
         : Clock;
   return <Icon className="h-4 w-4" aria-hidden="true" />;
+}
+
+/** Visual category sticker emoji/icon mimicking Glovo category stickers */
+function getCategoryIcon(catKey: string): string {
+  const k = catKey.toLowerCase();
+  if (k === 'all') return '🍽️';
+  if (k.includes('main') || k.includes('dish') || k.includes('meat') || k.includes('pilau') || k.includes('curry')) return '🍲';
+  if (k.includes('side') || k.includes('salad') || k.includes('veggie') || k.includes('greens')) return '🥗';
+  if (k.includes('drink') || k.includes('beverage') || k.includes('juice') || k.includes('tea') || k.includes('coffee') || k.includes('soda')) return '🥤';
+  if (k.includes('breakfast') || k.includes('morning') || k.includes('pastry')) return '🥐';
+  if (k.includes('snack') || k.includes('bite') || k.includes('fast')) return '🥪';
+  if (k.includes('dessert') || k.includes('sweet') || k.includes('fruit')) return '🍰';
+  return '✨';
 }
 
 export default function FoodOrderingPage() {
@@ -222,35 +235,21 @@ export default function FoodOrderingPage() {
   return (
     <PersonalLayout title="Canteen" backTo="/me" backLabel="Back to My space">
       <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
-        {/* Glovo App Search & Top Action Bar */}
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+        {/* Glovo Top Navigation & Location Pill */}
+        <div className="flex items-center justify-between gap-2.5 sm:gap-3">
           <Link
             to="/me"
             aria-label="Back to My space"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/70 text-foreground transition-colors hover:bg-muted active:scale-95"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/80 text-foreground transition-all hover:bg-muted active:scale-95 shadow-xs"
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
 
-          <div className="relative min-w-[200px] flex-1">
-            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search dishes, drinks, sides..."
-              className="h-10 w-full rounded-full border border-border/70 bg-muted/40 pl-10 pr-9 text-sm placeholder:text-muted-foreground/70 transition-all focus:border-amber-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-amber-400/20"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+          {/* Location Picker Pill */}
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/90 px-3.5 py-1.5 text-xs font-bold text-foreground shadow-xs">
+            <span className="text-sm" aria-hidden="true">🏢</span>
+            <span>Staff Dining Hall</span>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           </div>
 
           <div className="flex items-center gap-2">
@@ -258,7 +257,8 @@ export default function FoodOrderingPage() {
               <Button
                 asChild
                 variant="outline"
-                className="h-10 rounded-full border-border/70 font-semibold"
+                size="sm"
+                className="h-9 rounded-full border-border/70 font-semibold"
               >
                 <Link to="/me/food/manage">
                   <ChefHat className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -269,7 +269,8 @@ export default function FoodOrderingPage() {
             )}
             <Button
               asChild
-              className="h-10 rounded-full bg-primary px-4 font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
+              size="sm"
+              className="h-9 rounded-full bg-primary px-3.5 font-bold text-primary-foreground shadow-xs hover:bg-primary/90"
             >
               <Link to="/me/food/orders">
                 <ClipboardList className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -279,21 +280,192 @@ export default function FoodOrderingPage() {
           </div>
         </div>
 
-        {/* Section header: Title and date */}
-        <header className="flex flex-wrap items-baseline justify-between gap-2 pt-1">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Today&rsquo;s menu</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+        {/* Glovo Display Title & Search Bar */}
+        <div className="space-y-3 pt-1">
+          <div className="flex items-baseline justify-between">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              Food
+            </h1>
+            <span className="text-xs font-medium text-muted-foreground sm:text-sm">
               {menu?.service_date
                 ? new Date(`${menu.service_date}T00:00:00`).toLocaleDateString('en-GB', {
-                    weekday: 'long', day: 'numeric', month: 'long',
+                    weekday: 'long', day: 'numeric', month: 'short',
                   })
-                : 'Loading…'}
-            </p>
+                : 'Today'}
+            </span>
           </div>
-        </header>
 
-        {/* Glovo Featured Restaurant / Canteen Banner Card */}
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search in Food (dishes, sides, drinks...)"
+              className="h-12 w-full rounded-full border border-border/70 bg-muted/30 pl-11 pr-10 text-sm placeholder:text-muted-foreground/70 transition-all focus:border-amber-400 focus:bg-background focus:outline-none focus:ring-2 focus:ring-amber-400/20 shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Glovo Circular Category Sticker Bubbles */}
+        {!isLoading && !isError && !menu?.closed && categories.length > 0 && (
+          <Tabs value={category} onValueChange={handleCategoryChange} className="w-full">
+            <TabsList
+              variant="pills"
+              aria-label="Filter the menu by meal category"
+              className="flex h-auto w-full items-start justify-start gap-4 overflow-x-auto pb-2 pt-1 no-scrollbar bg-transparent border-0"
+            >
+              <TabsTrigger
+                variant="pills"
+                value="all"
+                className="group flex h-auto flex-col items-center gap-1.5 rounded-2xl border-0 bg-transparent p-1 shadow-none transition-all hover:bg-transparent data-[state=active]:border-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:border-0 data-[state=inactive]:hover:bg-transparent"
+              >
+                <div
+                  className={cn(
+                    'flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-sm transition-all duration-200',
+                    category === 'all'
+                      ? 'scale-105 border-amber-400 bg-gradient-to-br from-amber-100 to-amber-200/90 text-amber-950 shadow-md ring-2 ring-amber-400/50 dark:border-amber-500/50 dark:from-amber-900/40 dark:to-amber-800/30 dark:text-amber-200'
+                      : 'border-border/60 bg-muted/60 group-hover:scale-105 group-hover:bg-muted/90',
+                  )}
+                >
+                  <span aria-hidden="true" className="select-none text-2xl">
+                    🍽️
+                  </span>
+                </div>
+                <span
+                  className={cn(
+                    'max-w-[76px] truncate text-center text-xs transition-colors',
+                    category === 'all'
+                      ? 'font-bold text-foreground'
+                      : 'font-medium text-muted-foreground group-hover:text-foreground',
+                  )}
+                >
+                  All meals
+                </span>
+              </TabsTrigger>
+              {categories.map((c) => (
+                <TabsTrigger
+                  key={c.key}
+                  variant="pills"
+                  value={c.key}
+                  className="group flex h-auto flex-col items-center gap-1.5 rounded-2xl border-0 bg-transparent p-1 shadow-none transition-all hover:bg-transparent data-[state=active]:border-0 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:border-0 data-[state=inactive]:hover:bg-transparent"
+                >
+                  <div
+                    className={cn(
+                      'flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-sm transition-all duration-200',
+                      category === c.key
+                        ? 'scale-105 border-amber-400 bg-gradient-to-br from-amber-100 to-amber-200/90 text-amber-950 shadow-md ring-2 ring-amber-400/50 dark:border-amber-500/50 dark:from-amber-900/40 dark:to-amber-800/30 dark:text-amber-200'
+                        : 'border-border/60 bg-muted/60 group-hover:scale-105 group-hover:bg-muted/90',
+                    )}
+                  >
+                    <span aria-hidden="true" className="select-none text-2xl">
+                      {getCategoryIcon(c.key)}
+                    </span>
+                  </div>
+                  <span
+                    className={cn(
+                      'max-w-[76px] truncate text-center text-xs transition-colors',
+                      category === c.key
+                        ? 'font-bold text-foreground'
+                        : 'font-medium text-muted-foreground group-hover:text-foreground',
+                    )}
+                  >
+                    {c.label}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+
+        {/* Glovo Quick Filter Chips */}
+        {!isLoading && !isError && !menu?.closed && (
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <button
+              type="button"
+              onClick={() => setFilterAvailableOnly(!filterAvailableOnly)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
+                filterAvailableOnly
+                  ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                  : 'border-border/70 bg-card text-muted-foreground hover:bg-muted',
+              )}
+            >
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              Available now
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterUnder10k(!filterUnder10k)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
+                filterUnder10k
+                  ? 'border-primary bg-primary text-primary-foreground shadow-xs'
+                  : 'border-border/70 bg-card text-muted-foreground hover:bg-muted',
+              )}
+            >
+              Under UGX 10k
+            </button>
+            {periods.map((p) => (
+              <button
+                key={p.period_id}
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById(`period-${p.period_id}`);
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted active:scale-95"
+              >
+                <PeriodIcon name={p.name} />
+                View {p.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Glovo-Style Festive Staff Benefit Ribbon Banner */}
+        {!isLoading && !isError && !menu?.closed && (
+          <div className="relative overflow-hidden rounded-3xl border border-amber-300/60 bg-gradient-to-r from-amber-100 via-amber-50 to-orange-100 p-4 shadow-sm dark:border-amber-500/30 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-orange-950/30 sm:p-5">
+            {/* Decorative Ribbon Flourish */}
+            <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 text-rose-500/20 dark:text-rose-400/15" aria-hidden="true">
+              <svg viewBox="0 0 100 100" fill="currentColor">
+                <path d="M50 0 C60 30, 70 40, 100 50 C70 60, 60 70, 50 100 C40 70, 30 60, 0 50 C30 40, 40 30, 50 0 Z" />
+              </svg>
+            </div>
+            <div className="pointer-events-none absolute -left-2 -bottom-4 text-4xl opacity-80" aria-hidden="true">
+              🛵
+            </div>
+
+            <div className="relative z-10 pl-10 sm:pl-12">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+                  🎁 Your Staff Benefit
+                </span>
+                <span className="text-[11px] font-semibold text-amber-900/80 dark:text-amber-200/80">
+                  100% Subsidized
+                </span>
+              </div>
+              <h2 className="mt-1 text-base font-extrabold tracking-tight text-foreground sm:text-lg">
+                Zero meal fees &middot; Covered by daily staff allowance
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Meals prepared fresh and ready for swift dining hall pickup.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Glovo Featured Canteen Banner Card */}
         {!isLoading && !isError && !menu?.closed && (
           <div className="relative overflow-hidden rounded-3xl border border-amber-300/70 bg-gradient-to-br from-amber-500/10 via-amber-50/50 to-card p-4 shadow-sm dark:border-amber-500/20 dark:from-amber-500/10 dark:via-card dark:to-card sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -317,9 +489,9 @@ export default function FoodOrderingPage() {
             </div>
 
             <div className="mt-3">
-              <h1 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+              <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
                 Welile Staff Canteen
-              </h1>
+              </h2>
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-sm">
                 <span className="inline-flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
@@ -377,80 +549,6 @@ export default function FoodOrderingPage() {
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Sodas, teas & juices</p>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Glovo Category Navigation Tabs */}
-        {!isLoading && !isError && !menu?.closed && categories.length > 0 && (
-          <Tabs value={category} onValueChange={handleCategoryChange}>
-            <TabsList
-              variant="pills"
-              aria-label="Filter the menu by meal category"
-              className="flex h-auto w-full flex-wrap items-start justify-start gap-1.5 border-b border-border/40 pb-2.5 sm:gap-2"
-            >
-              <TabsTrigger
-                variant="pills"
-                value="all"
-                className="rounded-full px-3.5 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
-              >
-                All meals
-              </TabsTrigger>
-              {categories.map((c) => (
-                <TabsTrigger
-                  key={c.key}
-                  variant="pills"
-                  value={c.key}
-                  className="rounded-full px-3.5 py-1.5 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm"
-                >
-                  {c.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
-
-        {/* Glovo Quick Filter Chips */}
-        {!isLoading && !isError && !menu?.closed && (
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => setFilterAvailableOnly(!filterAvailableOnly)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
-                filterAvailableOnly
-                  ? 'border-primary bg-primary text-primary-foreground shadow-xs'
-                  : 'border-border/70 bg-card text-muted-foreground hover:bg-muted',
-              )}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Available now
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterUnder10k(!filterUnder10k)}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all active:scale-95',
-                filterUnder10k
-                  ? 'border-primary bg-primary text-primary-foreground shadow-xs'
-                  : 'border-border/70 bg-card text-muted-foreground hover:bg-muted',
-              )}
-            >
-              Under UGX 10k
-            </button>
-            {periods.map((p) => (
-              <button
-                key={p.period_id}
-                type="button"
-                onClick={() => {
-                  const el = document.getElementById(`period-${p.period_id}`);
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted active:scale-95"
-              >
-                <PeriodIcon name={p.name} />
-                View {p.name}
-              </button>
-            ))}
           </div>
         )}
 
