@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { setReportingTags } from '@/lib/errorReporting';
 import {
@@ -8,6 +8,8 @@ import {
   clearAllAuthStorage,
   getPreloadedSession,
   getPreloadedRoles,
+  isSessionPastMaxAge,
+  readStoredAuthSession,
 } from '@/lib/sessionCache';
 import { installStaleSessionDetector, STALE_SESSION_EVENTS, isSignOutSuppressed } from '@/lib/staleSessionDetector';
 import { loginTelemetry as lt } from '@/lib/loginTelemetry';
@@ -103,6 +105,38 @@ async function enforceAccountAccess(user: { id: string; email?: string | null; e
   return true;
 }
 
+/** Pages a signed-out person may stay on; ending a session there clears it without a redirect. */
+function isPublicPath(path: string): boolean {
+  return path.startsWith('/auth') || path === '/' || path.startsWith('/campaign');
+}
+
+/** Sign-in page URL that brings the person back to where they were. */
+function signInUrl(reason: string): string {
+  const back = window.location.pathname + window.location.search;
+  return `/auth?redirect=${encodeURIComponent(back)}&reason=${reason}`;
+}
+
+let endingSession = false;
+
+/**
+ * The one way out for a session that has ended — refresh token rejected, session dropped from storage, or past the
+ * 7-day limit: wipe it on this device and go to sign-in. Never leave the person on a dashboard where every query
+ * runs anonymously and comes back empty. Scope is local so the person's other devices keep their own sessions.
+ */
+async function endSession(reason: string): Promise<void> {
+  if (endingSession) return;
+  endingSession = true;
+  console.warn('[Auth] session ended —', reason);
+  lt.mark('auth.session_ended', { reason }, 'warn');
+  try { clearSessionCache(); clearAllAuthStorage(); } catch { /* ignore */ }
+  try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
+  if (isPublicPath(window.location.pathname)) {
+    endingSession = false;
+    return;
+  }
+  window.location.replace(signInUrl(reason));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const cachedSession = getPreloadedSession();
   const cachedRoles = getPreloadedRoles() as AppRole[] | null;
@@ -114,6 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : DEFAULT_ROLES;
 
   const [user, setUser] = useState<User | null>(null);
+  // Read by the session watchdog, which runs outside React's render cycle.
+  const userRef = useRef<User | null>(null);
+  userRef.current = user;
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(initialRoles.includes('supporter') ? 'supporter' : initialRoles[0]);
   const [roles, setRoles] = useState<AppRole[]>(initialRoles);
@@ -320,11 +357,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // redirect immediately to /auth instead of leaving the user idle on
           // a broken authenticated screen.
           try {
-            const path = window.location.pathname;
-            const alreadyOnAuth = path.startsWith('/auth') || path === '/' || path.startsWith('/campaign');
-            if (!alreadyOnAuth) {
-              const next = window.location.pathname + window.location.search;
-              window.location.replace(`/auth?next=${encodeURIComponent(next)}&reason=session_expired`);
+            if (!isPublicPath(window.location.pathname)) {
+              window.location.replace(signInUrl('session_expired'));
             }
           } catch { /* ignore */ }
         }
@@ -334,11 +368,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       lt.mark('auth.init.start');
       const forceLoadingOff = setTimeout(() => {
-        if (isMounted) {
+        if (!isMounted) return;
+        // getSession is still running — almost always a token refresh on a slow connection. Turning loading off with
+        // no user here sent signed-in people to /auth, where Sign in then queued behind the same refresh and seemed
+        // to refuse. If this device holds a session, show it now: queries wait for the refresh to finish, and if the
+        // refresh fails for good, SIGNED_OUT sends the person to sign in.
+        const stored = readStoredAuthSession();
+        if (stored && !isSessionPastMaxAge(stored)) {
+          console.warn('[Auth] Init slow after 8s — keeping the stored session while it refreshes');
+          lt.mark('auth.init.timeout_kept_session', { userId: stored.user.id }, 'warn');
+          setSession((prev) => prev ?? (stored as unknown as Session));
+          setUser((prev) => prev ?? (stored.user as User));
+        } else {
           console.warn('[Auth] Init timeout after 8s — forcing loading off');
           lt.mark('auth.init.timeout_forced', undefined, 'warn');
-          setLoading(false);
         }
+        setLoading(false);
       }, 8000);
 
       // Start role fetch early from cache in parallel with getSession
@@ -377,7 +422,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn('[Auth] Transient getSession error:', error.message);
           }
         } else {
-          if (session) {
+          if (session && isSessionPastMaxAge(session)) {
+            await endSession('session_max_age');
+            return;
+          } else if (session) {
             lt.setUserId(session.user.id);
             // Don't let a slow guard hold up the whole init: it sits behind
             // getSession and ahead of setUser/roles, and the 8s watchdog below
@@ -415,8 +463,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               stopRoles();
             }
           } else if (cachedSession) {
-            console.log('[Auth] getSession() null but cached session exists — preserving state');
+            // No error and no session means supabase-js holds no session at all (a failed refresh has already
+            // removed it). Keeping the cached identity left people on a dashboard where nothing loaded.
             lt.mark('auth.init.null_session_cached');
+            setSession(null);
+            setUser(null);
+            await endSession('session_expired');
           } else {
             setSession(null);
             setUser(null);
@@ -445,28 +497,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const expiryInterval = window.setInterval(async () => {
       if (!isMounted) return;
       try {
-        const { data: { session: current } } = await supabase.auth.getSession();
-        if (!current) return; // nothing to guard
+        const { data: { session: current }, error: currentError } = await supabase.auth.getSession();
+        if (!current) {
+          // A network failure also returns no session but keeps it stored — that is not an ending.
+          if (currentError && isAuthRetryableFetchError(currentError)) return;
+          // supabase-js dropped the session (its SIGNED_OUT may have landed while sign-out was suppressed and been
+          // ignored) but this screen still shows someone signed in, so every query now runs anonymously.
+          if (userRef.current && !readStoredAuthSession() && !isSignOutSuppressed()) {
+            await endSession('session_expired');
+          }
+          return;
+        }
+        if (isSessionPastMaxAge(current)) {
+          await endSession('session_max_age');
+          return;
+        }
         const expMs = (current.expires_at ?? 0) * 1000;
         if (!expMs) return;
         // Grace: only act 30s after expiry, so auto-refresh has a chance.
         if (Date.now() < expMs + 30_000) return;
-        // Try one refresh; if it fails, boot the user.
+        // Try one refresh; if the server rejects it, end the session.
         const { data, error } = await supabase.auth.refreshSession();
         if (!error && data.session) return;
+        // A refresh that failed on the network says nothing about the session — try again next tick.
+        if (error && isAuthRetryableFetchError(error)) return;
         // Do not boot the user while offline, backgrounded, or mid-action
         // (e.g. a merchant uploading proof of payment after using the camera).
         if (isSignOutSuppressed()) return;
-        console.warn('[Auth] session expired and refresh failed — signing out');
-        try { clearSessionCache(); clearAllAuthStorage(); } catch { /* ignore */ }
-        try { await supabase.auth.signOut(); } catch { /* ignore */ }
-        const path = window.location.pathname;
-        if (!path.startsWith('/auth')) {
-          const next = path + window.location.search;
-          window.location.replace(`/auth?next=${encodeURIComponent(next)}&reason=session_expired`);
-        }
+        await endSession('session_expired');
       } catch { /* never let the watchdog throw */ }
-    }, 60_000);
+    }, 20_000);
 
     return () => {
       isMounted = false;

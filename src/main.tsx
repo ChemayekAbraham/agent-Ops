@@ -7,6 +7,9 @@ import { ensureRuntimePolyfills } from './lib/runtimePolyfills';
 // Then: drops the stored session on a cold start when the user opted
 // out of "remember this device", before Supabase/session-cache read any token.
 import './lib/ephemeralGuard';
+// Then: a hung auth token request can no longer hold the Supabase auth lock
+// forever (which blocked both session restore and the Sign in button).
+import './lib/authFetchTimeout';
 // Clipboard writes fall back to execCommand when the async API is refused
 // ("Write permission denied." on old Android WebViews) — doc 160.
 import { installClipboardFallback } from './lib/clipboardFallback';
