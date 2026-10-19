@@ -71,7 +71,7 @@ they would be permanently blocked with no way to earn their way out. If the mone
 the bill counts.
 
 The legibility problem is solved by splitting the **display**, not the basis:
-`agent_expected_split(p_agent_ids, p_day)` (`20261019140000`) returns today's expected per
+`agent_expected_split(p_agent_ids, p_day)` (`20261019150000`) returns today's expected per
 agent as in-term vs arrears. It takes an array and returns a row per id — pass the whole
 set in one call, never one call per list row.
 
