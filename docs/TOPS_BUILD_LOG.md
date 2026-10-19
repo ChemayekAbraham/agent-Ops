@@ -1481,7 +1481,7 @@ Notes:
 
 ## 2026-10-19: Rent Plan application timing (data layer, tests, hand-off) 
 
-Scope: the server-side timing contract, its TypeScript helpers and hooks, tests and a UI hand-off. No shared JSX was changed (UI is Gemini's: `docs/RENT_TIMING_UI_CONTRACT.md`). **Migration `20261019100000_rent_request_timing.sql` is written and tested but NOT applied**; no data was changed, and the recorder in `docs/RENT_TIMING_RECORDER_PROPOSAL.md` is a proposal only (it needs approval). All database work was read-only; the tests ran inside a transaction that always rolls back, and the function list was checked afterwards (none created).
+Scope: the server-side timing contract, its TypeScript helpers and hooks, tests and a UI hand-off. No shared JSX was changed (UI is Gemini's: `docs/RENT_TIMING_UI_CONTRACT.md`). **Migration `20261019170000_rent_request_timing.sql` is written and tested but NOT applied**; no data was changed, and the recorder in `docs/RENT_TIMING_RECORDER_PROPOSAL.md` is a proposal only (it needs approval). All database work was read-only; the tests ran inside a transaction that always rolls back, and the function list was checked afterwards (none created).
 
 What the deployed database actually holds (verified live, not from migrations):
 - Ordinary desk approvals exist only as the latest `*_reviewed_at` stamp per desk on `rent_requests`; there is no per-approval event (`trigger_log_rent_request_event` logs only created and the legacy approved / funded / disbursed statuses). A re-approval overwrites the earlier stamp.

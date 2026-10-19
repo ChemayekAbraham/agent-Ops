@@ -1,4 +1,4 @@
--- Tests for 20261019100000_rent_request_timing.sql (rent_request_timing, rent_request_timing_history, _rt_compute, _rt_evidence).
+-- Tests for 20261019170000_rent_request_timing.sql (rent_request_timing, rent_request_timing_history, _rt_compute, _rt_evidence).
 -- One transaction that always rolls back: "ROLLED BACK REPORT: N passed of N | failing: none" is success. Nothing is written.
 -- The logic is tested through _rt_compute at a FIXED server time (as_of = 2026-10-19 12:00:00 UTC) with hand-made evidence; the gatherer and the
 -- access rules are tested against the deployed tables (read-only), and a live consistency pass checks real requests for impossible results.

@@ -49,7 +49,7 @@
 -- cannot see are simply left out of the answer. More than 200 ids is 22023 TOO_MANY_IDS. SECURITY DEFINER, STABLE, search_path = public; EXECUTE for
 -- authenticated only (the helpers: nobody but the owner). No ledger, wallet or payout table is read except agent_landlord_float_allocations
 -- (one indexed lookup per request, for the approximate landlord payment time).
--- Rollback: supabase/rollbacks/20261019100000_rent_request_timing.rollback.sql
+-- Rollback: supabase/rollbacks/20261019170000_rent_request_timing.rollback.sql
 
 -- ---------- helpers ----------
 

@@ -1,6 +1,6 @@
 # Rent Plan application timing: UI contract (hand-off to Gemini)
 
-Data and logic are done and tested: `rent_request_timing` / `rent_request_timing_history` (migration `20261019100000`, not applied yet), `src/lib/rentTiming.ts`, `src/hooks/useRentRequestTiming.ts`. No shared JSX was changed. Nothing below needs a calculation in the browser: every value is a string or number the helpers already return.
+Data and logic are done and tested: `rent_request_timing` / `rent_request_timing_history` (migration `20261019170000`, not applied yet), `src/lib/rentTiming.ts`, `src/hooks/useRentRequestTiming.ts`. No shared JSX was changed. Nothing below needs a calculation in the browser: every value is a string or number the helpers already return.
 
 ## 1. The row (every applicable review card)
 
