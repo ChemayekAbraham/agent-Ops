@@ -609,40 +609,6 @@ export default function FoodOrderingPage() {
 
           return (
             <section id={`period-${period.period_id}`} key={period.period_id} className="space-y-4">
-              {/* Glovo service-period panel: icon, name, status, window and limit, collection note */}
-              <div className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 dark:border-amber-500/15 dark:bg-amber-500/5 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                      <PeriodIcon name={period.name} />
-                    </span>
-                    <h3 className="text-base font-bold text-foreground sm:text-lg">{period.name}</h3>
-                    <span
-                      className={period.ordering_open
-                        ? 'inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success'
-                        : 'inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground'}
-                    >
-                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                      {period.ordering_open ? 'Ordering open' : 'Ordering closed'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground sm:text-sm">
-                    {isFoodAllDayWindow(period.ordering_opens_at, period.ordering_closes_at)
-                      ? 'Orders open all day'
-                      : <>Orders {clock(period.ordering_opens_at)} – {clock(period.ordering_closes_at)}</>}
-                    {period.max_qty_per_employee !== null && (
-                      <> &middot; up to {period.max_qty_per_employee} per person</>
-                    )}
-                  </p>
-                </div>
-
-                {period.collection_instructions && (
-                  <p className="mt-3 flex items-start gap-2 border-t border-amber-200/60 pt-3 text-xs leading-relaxed text-muted-foreground dark:border-amber-500/15 sm:text-sm">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>{period.collection_instructions}</span>
-                  </p>
-                )}
-              </div>
 
               {shown.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
