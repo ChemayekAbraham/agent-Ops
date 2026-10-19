@@ -299,7 +299,6 @@ function DrillAgentCard({
     queryKey: ['agent-product-sweeps-drill', row.agent_id, category ?? 'all'],
     enabled: expanded && !!row.agent_id,
     queryFn: async () => {
-      // @ts-expect-error RPC typed dynamically
       const { data, error } = await supabase.rpc('get_agent_product_detail', {
         p_agent_id: row.agent_id,
         p_category: category ?? null,
