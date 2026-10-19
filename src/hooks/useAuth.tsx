@@ -469,7 +469,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 5000));
               await Promise.race([earlyRoleFetch, timeoutPromise]);
               stopWait();
-            } else {
+            } else if (!rolesFetched) {
               rolesFetched = true;
               const stopRoles = lt.start('auth.roles.fetch', { userId: session.user.id });
               const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved);
@@ -509,8 +509,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase couldn't silently refresh (e.g. refresh token revoked, offline
     // for too long, cookie/storage cleared), force a clean sign-out + redirect
     // instead of leaving the user idle on a screen whose queries will all 401.
+    let expiryCheckRunning = false;
     const expiryInterval = window.setInterval(async () => {
-      if (!isMounted) return;
+      // A slow refresh can span multiple ticks; do not queue more lock waiters.
+      if (!isMounted || expiryCheckRunning) return;
+      expiryCheckRunning = true;
       try {
         const { data: { session: current }, error: currentError } = await supabase.auth.getSession();
         if (!current) {
@@ -541,6 +544,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isSignOutSuppressed()) return;
         await endSession('session_expired');
       } catch { /* never let the watchdog throw */ }
+      finally { expiryCheckRunning = false; }
     }, 20_000);
 
     return () => {

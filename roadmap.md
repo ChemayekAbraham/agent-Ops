@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Patch dashboard auth-lock delays and verify session regression tests; signed-in live checks depend on externally managed authentication.
 - [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
 - [x] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
 - [x] Run budget UI tests, project guards and desktop/phone checks; no live budget amounts saved.
