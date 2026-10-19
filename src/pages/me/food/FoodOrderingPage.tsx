@@ -245,12 +245,6 @@ export default function FoodOrderingPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
 
-          {/* Location Picker Pill */}
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/90 px-3.5 py-1.5 text-xs font-bold text-foreground shadow-xs">
-            <span className="text-sm" aria-hidden="true">🏢</span>
-            <span>Staff Dining Hall</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          </div>
 
           <div className="flex items-center gap-2">
             {isFoodCoordinator && (
