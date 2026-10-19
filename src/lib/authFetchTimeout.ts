@@ -1,4 +1,4 @@
-// Bounds every Supabase auth token request (refresh and password/OTP grants).
+// Bounds Supabase token requests and server-side identity checks.
 //
 // supabase-js holds a single auth lock while it refreshes the session, and
 // every getSession(), every query and signInWithPassword() waits on that lock.
@@ -18,17 +18,22 @@
 // created (imported right after ephemeralGuard in main.tsx). supabase-js looks
 // up the global fetch at call time, so wrapping window.fetch here is enough.
 
-const TOKEN_REQUEST_TIMEOUT_MS = 15_000;
+export const TOKEN_REQUEST_TIMEOUT_MS = 15_000;
 
-function isAuthTokenRequest(url: string): boolean {
-  return url.includes('/auth/v1/token');
+function isBlockingAuthRequest(url: string): boolean {
+  try {
+    const path = new URL(url, window.location.origin).pathname;
+    return path === '/auth/v1/token' || path === '/auth/v1/user';
+  } catch {
+    return false;
+  }
 }
 
-try {
-  if (typeof window !== 'undefined' && typeof window.fetch === 'function' && typeof AbortController === 'function') {
-    const originalFetch = window.fetch.bind(window);
+// getUser() holds the same lock as refresh. A hung /user request must also
+// release it so dashboard queries and subsequent sign-in can proceed.
+export function withAuthFetchTimeout(originalFetch: typeof fetch): typeof fetch {
 
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    return (input: RequestInfo | URL, init?: RequestInit) => {
       let url = '';
       try {
         url =
@@ -42,20 +47,28 @@ try {
       } catch {
         /* ignore */
       }
-      if (!url || !isAuthTokenRequest(url)) return originalFetch(input, init);
+      if (!url || !isBlockingAuthRequest(url)) return originalFetch(input, init);
 
       const controller = new AbortController();
       const callerSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
+      const abortFromCaller = () => controller.abort();
       if (callerSignal) {
         if (callerSignal.aborted) controller.abort();
-        else callerSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        else callerSignal.addEventListener('abort', abortFromCaller, { once: true });
       }
       const timer = setTimeout(() => controller.abort(), TOKEN_REQUEST_TIMEOUT_MS);
-      return originalFetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+      return originalFetch(input, { ...init, signal: controller.signal }).finally(() => {
+        clearTimeout(timer);
+        callerSignal?.removeEventListener('abort', abortFromCaller);
+      });
     };
+}
+
+try {
+  if (typeof window !== 'undefined' && typeof window.fetch === 'function' && typeof AbortController === 'function') {
+    window.fetch = withAuthFetchTimeout(window.fetch.bind(window));
   }
 } catch {
   /* never let the wrapper break boot */
 }
 
-export {};
