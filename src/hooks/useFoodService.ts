@@ -241,7 +241,11 @@ export function useFoodCanUseCanteen() {
     queryFn: async () => {
       const userId = await resolveFoodUserId();
       if (!userId && !isFoodMockMode()) return false;
-      return !!(await call<boolean>('food_can_use_canteen'));
+      try {
+        return !!(await call<boolean>('food_can_use_canteen'));
+      } catch {
+        return false;
+      }
     },
   });
 }
@@ -317,8 +321,12 @@ export async function signFoodMealPhotos(
   if (toSign.length === 0) return out;
   for (const n of toSign) out.set(n, null);
   try {
-    const { data, error } = await supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
+    const signPromise = supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
       .createSignedUrls(toSign, FOOD_MEAL_PHOTO_URL_TTL_SECONDS);
+    const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 1500)
+    );
+    const { data, error } = await Promise.race([signPromise, timeoutPromise]);
     if (error || !data) return out;
     const expiresAt = now + FOOD_MEAL_PHOTO_URL_TTL_SECONDS * 1000;
     for (const item of data) {
@@ -332,10 +340,12 @@ export async function signFoodMealPhotos(
   return out;
 }
 
-export function useFoodMenu(serviceDate?: string) {
+export function useFoodMenu(serviceDate?: string, enabled = true) {
   return useQuery({
     queryKey: keys.menu(serviceDate),
+    enabled,
     staleTime: 30_000,
+    retry: false,
     queryFn: async () => {
       const day = await call<FoodMenuDay>('food_menu_for_day', { p_service_date: serviceDate ?? null });
       const periods = day?.periods ?? [];
@@ -399,11 +409,15 @@ export function useFoodCoordinatorStatus() {
       if (!userId && !isFoodMockMode()) {
         return { isCoordinator: false, isActive: false, userId: null };
       }
-      const [isCoordinator, isActive] = await Promise.all([
-        call<boolean>('is_food_coordinator', { _user_id: userId }),
-        call<boolean>('is_active_food_coordinator', { _user_id: userId }),
-      ]);
-      return { isCoordinator: !!isCoordinator, isActive: !!isActive, userId };
+      try {
+        const [isCoordinator, isActive] = await Promise.all([
+          call<boolean>('is_food_coordinator', { _user_id: userId }),
+          call<boolean>('is_active_food_coordinator', { _user_id: userId }),
+        ]);
+        return { isCoordinator: !!isCoordinator, isActive: !!isActive, userId };
+      } catch {
+        return { isCoordinator: false, isActive: false, userId };
+      }
     },
   });
 }
@@ -426,10 +440,12 @@ export function useRequireFoodCoordinator(requireActive = false) {
 }
 
 /** The signed-in employee's own orders, newest first. */
-export function useMyFoodOrders() {
+export function useMyFoodOrders(enabled = true) {
   return useQuery({
     queryKey: keys.myOrders(),
+    enabled,
     staleTime: 30_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodOrderDetail>('food_orders', { mineOnly: true });
       return [...rows].sort((a, b) => String(b.placed_at).localeCompare(String(a.placed_at)));
@@ -443,6 +459,7 @@ export function useFoodOrders(serviceDate?: string, enabled = true) {
     queryKey: keys.orders(serviceDate),
     enabled,
     staleTime: 30_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodOrderDetail>('food_orders', {
         serviceDate: serviceDate ?? foodToday(),

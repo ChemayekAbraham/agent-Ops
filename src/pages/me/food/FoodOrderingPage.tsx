@@ -1,7 +1,7 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle, CalendarOff, ChefHat, ClipboardList, Clock, Info, Moon, ShoppingBag, Sun, Sunrise,
+  AlertCircle, CalendarOff, ChefHat, ClipboardList, Clock, Info, Moon, ShieldAlert, ShoppingBag, Sun, Sunrise,
   UtensilsCrossed,
 } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -14,7 +14,7 @@ import { isFoodAllDayWindow } from '@/lib/foodService';
 import { safeUUID } from '@/lib/safeUUID';
 import {
   useFoodMenu, useFoodSession, usePlaceFoodOrder, useMyFoodOrders,
-  useFoodCoordinatorStatus,
+  useFoodCoordinatorStatus, useFoodCanUseCanteen,
   formatUgx, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
   type FoodMenuMeal, type FoodMenuPeriod, type FoodPaymentMode,
 } from '@/hooks/useFoodService';
@@ -41,8 +41,11 @@ function PeriodIcon({ name }: { name: string }) {
 export default function FoodOrderingPage() {
   useFoodSession();
 
-  const { data: menu, isLoading, isError, error, refetch } = useFoodMenu();
-  const { data: myOrders } = useMyFoodOrders();
+  const { data: canUseCanteen, isLoading: checkingAccess } = useFoodCanUseCanteen();
+  const allowed = canUseCanteen !== false;
+
+  const { data: menu, isLoading, isError, error, refetch } = useFoodMenu(undefined, allowed);
+  const { data: myOrders } = useMyFoodOrders(allowed);
   const { data: coordinatorStatus } = useFoodCoordinatorStatus();
   const isFoodCoordinator = coordinatorStatus?.isCoordinator === true;
   const placeOrder = usePlaceFoodOrder();
@@ -186,6 +189,25 @@ export default function FoodOrderingPage() {
       },
     );
   };
+
+  if (!checkingAccess && canUseCanteen === false) {
+    return (
+      <PersonalLayout title="Canteen" backTo="/me" backLabel="Back to My space">
+        <div className="mx-auto w-full max-w-md p-6">
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-border/70 bg-card p-10 text-center">
+            <ShieldAlert className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+            <p className="text-sm font-medium">The canteen is for Welile staff only</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              If you are a staff member, make sure your employee profile is active.
+            </p>
+            <Button asChild variant="outline" size="sm" className="mt-3">
+              <Link to="/me">Back to My space</Link>
+            </Button>
+          </div>
+        </div>
+      </PersonalLayout>
+    );
+  }
 
   return (
     <PersonalLayout title="Canteen" backTo="/me" backLabel="Back to My space">

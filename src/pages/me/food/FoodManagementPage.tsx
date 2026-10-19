@@ -26,8 +26,8 @@ type FoodManagementTab = typeof VALID_TABS[number];
 export default function FoodManagementPage() {
   useFoodSession();
   const { checked, allowed, isBackupOnly, isActive } = useRequireFoodCoordinator();
-  // Pre-fetch coordinator overview in parallel so overview data resolves concurrently
-  useFoodCoordinatorOverview(undefined, true);
+  // Pre-fetch coordinator overview in parallel once allowed
+  useFoodCoordinatorOverview(undefined, allowed);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
