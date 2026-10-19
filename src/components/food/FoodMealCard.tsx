@@ -246,6 +246,14 @@ export default function FoodMealCard({
           </p>
         )}
       </div>
+      {showImage && (
+        <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+          <DialogContent className="max-w-3xl p-2" onClick={(e) => e.stopPropagation()}>
+            <DialogTitle className="sr-only">{meal.name}</DialogTitle>
+            <img src={meal.image_path as string} alt={meal.name} className="max-h-[80vh] w-full rounded-lg object-contain" />
+          </DialogContent>
+        </Dialog>
+      )}
     </article>
   );
 }
