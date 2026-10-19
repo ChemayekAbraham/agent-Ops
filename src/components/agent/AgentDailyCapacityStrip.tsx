@@ -87,6 +87,22 @@ export function AgentDailyCapacityStrip() {
             {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
           </p>
         </div>
+
+        {/* In-term vs past-term breakdown. Only appears when part of today's
+            target comes from Rent Plans already past their end date — routine
+            rent needs no callout. The big total above never changes. */}
+        {split && split.arrearsUgx > 0 && (
+          <div className="flex items-start gap-2 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2">
+            <AlarmClock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-snug">
+              <strong className="text-foreground tabular-nums">{formatUGX(split.inTermUgx)}</strong> is today&apos;s rent
+              {' · '}
+              <strong className="text-amber-700 tabular-nums">{formatUGX(split.arrearsUgx)}</strong> is owed by{' '}
+              <strong className="text-foreground tabular-nums">{split.arrearsPlans}</strong>{' '}
+              {split.arrearsPlans === 1 ? 'tenant' : 'tenants'} past their Rent Plan end date — chase them too
+            </p>
+          </div>
+        )}
       </div>
 
       {cap.weekly_plan_count > 0 && (
