@@ -79623,6 +79623,8 @@ export type Database = {
           total_count: number
         }[]
       }
+      rent_request_timing: { Args: { p_request_ids: string[] }; Returns: Json }
+      rent_request_timing_history: { Args: { p_request_id: string }; Returns: Json }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
