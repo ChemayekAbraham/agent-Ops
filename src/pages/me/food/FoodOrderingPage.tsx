@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle, CalendarOff, ChefHat, ChevronDown, ChevronLeft, ClipboardList, Clock, Flame, Heart, Info,
-  MapPin, Moon, Search, ShieldAlert, ShieldCheck, ShoppingBag, Sparkles, Star, Sun, Sunrise,
+  MapPin, Moon, Search, ShieldAlert, ShieldCheck, ShoppingBag, Sparkles, Star, Sun, Sunrise, Trash2,
   Utensils, UtensilsCrossed, X,
 } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
