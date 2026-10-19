@@ -179,10 +179,22 @@ export function canStartPreparingHere(
 async function resolveFoodUserId(): Promise<string | null> {
   let id: string | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    id = data.user?.id ?? null;
+    if (typeof supabase?.auth?.getSession === 'function') {
+      const { data } = await supabase.auth.getSession();
+      id = data?.session?.user?.id ?? null;
+    }
   } catch {
     id = null;
+  }
+  if (!id) {
+    try {
+      if (typeof supabase?.auth?.getUser === 'function') {
+        const { data } = await supabase.auth.getUser();
+        id = data?.user?.id ?? null;
+      }
+    } catch {
+      id = null;
+    }
   }
   if (import.meta.env.DEV && isFoodMockMode()) (await loadFoodMock()).setFoodMockUser(id);
   return id;
@@ -313,6 +325,7 @@ export async function signFoodMealPhotos(
 export function useFoodMenu(serviceDate?: string) {
   return useQuery({
     queryKey: keys.menu(serviceDate),
+    staleTime: 30_000,
     queryFn: async () => {
       const day = await call<FoodMenuDay>('food_menu_for_day', { p_service_date: serviceDate ?? null });
       const periods = day?.periods ?? [];
@@ -336,6 +349,8 @@ export function useFoodCoordinatorOverview(serviceDate?: string, enabled = true)
   return useQuery({
     queryKey: keys.overview(serviceDate),
     enabled,
+    staleTime: 30_000,
+    retry: false,
     queryFn: () => call<FoodCoordinatorOverview>('food_coordinator_overview', {
       p_service_date: serviceDate ?? null,
     }),
@@ -347,6 +362,7 @@ export function useFoodPreparationList(serviceDate?: string, periodId?: string, 
   return useQuery({
     queryKey: keys.prep(serviceDate, periodId),
     enabled,
+    staleTime: 30_000,
     queryFn: () => call<FoodPreparationRow[]>('food_preparation_list', {
       p_service_date: serviceDate ?? null,
       p_period_id: periodId ?? null,
@@ -403,6 +419,7 @@ export function useRequireFoodCoordinator(requireActive = false) {
 export function useMyFoodOrders() {
   return useQuery({
     queryKey: keys.myOrders(),
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await selectRows<FoodOrderDetail>('food_orders', { mineOnly: true });
       return [...rows].sort((a, b) => String(b.placed_at).localeCompare(String(a.placed_at)));
@@ -415,6 +432,7 @@ export function useFoodOrders(serviceDate?: string, enabled = true) {
   return useQuery({
     queryKey: keys.orders(serviceDate),
     enabled,
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await selectRows<FoodOrderDetail>('food_orders', {
         serviceDate: serviceDate ?? foodToday(),
@@ -432,6 +450,7 @@ export function useFoodOrderEvents(orderId?: string) {
   return useQuery({
     queryKey: keys.events(orderId),
     enabled: !!orderId,
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await selectRows<FoodOrderEvent>('food_order_events', { entityId: orderId });
       return [...rows].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
@@ -444,6 +463,7 @@ export function useFoodAuditHistory(entity?: string, entityId?: string, enabled 
   return useQuery({
     queryKey: keys.audit(entity, entityId),
     enabled,
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await selectRows<FoodAuditEntry>('food_audit', { entity, entityId });
       return [...rows]
@@ -457,6 +477,7 @@ export function useFoodExceptions(enabled = true) {
   return useQuery({
     queryKey: ['food', 'exceptions'] as const,
     enabled,
+    staleTime: 30_000,
     queryFn: () => selectRows<FoodException>('food_exceptions'),
   });
 }
@@ -465,6 +486,7 @@ export function useFoodCoordinatorAssignments(enabled = true) {
   return useQuery({
     queryKey: ['food', 'assignments'] as const,
     enabled,
+    staleTime: 60_000,
     queryFn: async () => {
       const rows = await selectRows<FoodCoordinatorAssignment>('food_coordinator_assignments');
       const named = await attachNames(
@@ -480,6 +502,7 @@ export function useFoodMeals(enabled = true) {
   return useQuery({
     queryKey: ['food', 'meals'] as const,
     enabled,
+    staleTime: 30_000,
     queryFn: async () => {
       const rows = await selectRows<FoodMeal>('food_meals');
       const urls = await signFoodMealPhotos(rows.map((m) => m.image_path));
@@ -491,6 +514,7 @@ export function useFoodMeals(enabled = true) {
 export function useFoodCategories(includeArchived = false) {
   return useQuery({
     queryKey: ['food', 'categories', includeArchived] as const,
+    staleTime: 60_000,
     queryFn: async () => {
       const rows = await selectRows<FoodCategory>('food_categories', { includeArchived });
       return [...rows].sort((a, b) => a.sort_order - b.sort_order);
@@ -501,6 +525,7 @@ export function useFoodCategories(includeArchived = false) {
 export function useFoodServicePeriods(includeInactive = false) {
   return useQuery({
     queryKey: ['food', 'periods', includeInactive] as const,
+    staleTime: 60_000,
     queryFn: async () => {
       const rows = await selectRows<FoodServicePeriod>('food_service_periods', { includeInactive });
       return [...rows].sort((a, b) => a.ordering_opens_at.localeCompare(b.ordering_opens_at));
@@ -511,6 +536,7 @@ export function useFoodServicePeriods(includeInactive = false) {
 export function useFoodClosures() {
   return useQuery({
     queryKey: ['food', 'closures'] as const,
+    staleTime: 60_000,
     queryFn: async () => {
       const rows = await selectRows<FoodServiceClosure>('food_service_closures');
       return [...rows].sort((a, b) => a.closure_date.localeCompare(b.closure_date));

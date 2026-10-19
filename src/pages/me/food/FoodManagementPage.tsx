@@ -2,7 +2,7 @@ import { ShieldAlert, Eye } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRequireFoodCoordinator, useFoodSession } from '@/hooks/useFoodService';
+import { useRequireFoodCoordinator, useFoodSession, useFoodCoordinatorOverview } from '@/hooks/useFoodService';
 import FoodOverviewPanel from '@/components/food/manage/FoodOverviewPanel';
 import FoodQueuePanel from '@/components/food/manage/FoodQueuePanel';
 import FoodMenuPanel from '@/components/food/manage/FoodMenuPanel';
@@ -21,6 +21,8 @@ import FoodCoordinatorPanel from '@/components/food/manage/FoodCoordinatorPanel'
 export default function FoodManagementPage() {
   useFoodSession();
   const { checked, allowed, isBackupOnly, isActive } = useRequireFoodCoordinator();
+  // Pre-fetch coordinator overview in parallel so overview data resolves concurrently
+  useFoodCoordinatorOverview(undefined, true);
 
   if (!checked) {
     return (

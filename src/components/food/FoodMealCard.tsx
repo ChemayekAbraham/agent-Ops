@@ -77,6 +77,7 @@ export default function FoodMealCard({
             src={meal.image_path as string}
             alt=""
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
             onError={() => {
               forgetFoodMealPhotoUrl(meal.image_path);
