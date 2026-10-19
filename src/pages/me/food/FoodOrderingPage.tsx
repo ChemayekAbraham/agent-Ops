@@ -636,13 +636,13 @@ export default function FoodOrderingPage() {
       {/* Glovo Floating Sticky Bottom Cart Bar */}
       {cartCount > 0 && (
         <div className="sticky bottom-4 z-30 mx-auto w-full max-w-5xl px-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-300/80 bg-card/95 p-3.5 shadow-2xl backdrop-blur-md dark:border-amber-500/30">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-300/80 bg-card/95 p-3 shadow-2xl backdrop-blur-md dark:border-amber-500/30 sm:gap-3 sm:p-3.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground shadow-xs">
                 {cartCount}
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-foreground tabular-nums sm:text-base">
+                <p className="truncate text-sm font-bold text-foreground tabular-nums sm:text-base">
                   {cartCount} item{cartCount === 1 ? '' : 's'} &middot; {formatUgx(cartTotal)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -651,11 +651,21 @@ export default function FoodOrderingPage() {
               </div>
             </div>
             <Button
-              className="h-10 rounded-full bg-primary px-5 font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95"
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear order"
+              className="h-10 w-10 shrink-0 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setCart({})}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button
+              className="h-10 shrink-0 rounded-full bg-primary px-3 font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-5"
               onClick={() => setCartOpen(true)}
             >
-              <ShoppingBag className="mr-2 h-4 w-4" aria-hidden="true" />
-              Review order
+              <ShoppingBag className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Review<span className="hidden sm:inline">&nbsp;order</span>
             </Button>
           </div>
         </div>
