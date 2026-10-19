@@ -46,6 +46,9 @@ import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
 import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
 import { LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
+import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
+import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
+import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -329,6 +332,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       return true;
     });
   }, [scoredItems, deskOrder.data, dateFilter, search, restrictSet, districtFilter, cityFilter, catField, catValue, aboveOnly]);
+
+  // How long each request has been on the CFO desk, and its total time in the system: one call for the rows on screen (first 200), read-only.
+  const deskTiming = useRentRequestTiming(useMemo(() => filteredItems.slice(0, TIMING_BATCH_LIMIT).map(i => i.id), [filteredItems]));
 
   // Category option list for the currently chosen category type.
   const catOptions = useMemo(() => {
@@ -1212,6 +1218,16 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             
 
 
+
+              <RentTimingRow
+                requestId={reviewTarget.id}
+                timing={deskTiming.byId.get(reviewTarget.id)}
+                loading={deskTiming.isLoading}
+                error={deskTiming.error}
+                onRetry={deskTiming.refetch}
+                ownDesk
+                className="mt-0 mb-3"
+              />
 
               <div className="rounded-xl border border-border/70 divide-y divide-border/60 text-sm">
                 {[

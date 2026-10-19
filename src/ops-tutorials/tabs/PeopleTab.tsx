@@ -1,41 +1,34 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { formatUGX } from '@/lib/creditFeeCalculations';
-import { listRates, membersList, setMember, setRate } from '../api';
+import { listRates, listTopics, membersList, setMember } from '../api';
+import RateStrip, { RATE_TIERS } from '../components/RateStrip';
 
-const TIERS = [
-  { tier: 'basic', label: 'Basic' },
-  { tier: 'standard', label: 'Standard' },
-  { tier: 'advanced', label: 'Advanced' },
-  { tier: 'revision', label: 'Revision' },
-];
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export default function SettingsTab() {
+export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates: boolean; onChangeRates: () => void }) {
   const [members, setMembers] = useState<any[]>([]);
-  const [rates, setRates] = useState<Record<string, number>>({});
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [topics, setTopics] = useState<any[]>([]);
+  const [rates, setRates] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('creator');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [m, r] = await Promise.all([membersList(), listRates()]);
-      setMembers(m ?? []);
-      const map: Record<string, number> = {};
-      r.forEach((x: any) => { map[x.tier] = Number(x.amount_ugx); });
-      setRates(map);
-      setDrafts(Object.fromEntries(TIERS.map((t) => [t.tier, map[t.tier] != null ? String(map[t.tier]) : ''])));
+      const [m, t, r] = await Promise.all([membersList(), listTopics(), listRates()]);
+      setMembers(m ?? []); setTopics(t ?? []); setRates(r ?? []);
+      setRefreshKey((k) => k + 1);
     } catch (e) { setError(errText(e)); }
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -46,6 +39,14 @@ export default function SettingsTab() {
     catch (e) { toast.error(errText(e)); return false; }
     finally { setBusy(null); }
   }
+
+  const rateSet = new Set(rates.filter((r) => r.amount_ugx != null).map((r) => r.tier));
+  const checklist = [
+    { ok: members.some((m) => m.enabled && m.member_role === 'creator'), label: 'At least one active Creator', hint: 'HR adds them above' },
+    { ok: members.some((m) => m.enabled && m.member_role === 'reviewer'), label: 'At least one active Reviewer', hint: 'HR adds them above' },
+    { ok: topics.some((t) => t.status === 'open'), label: 'At least one open topic', hint: 'A reviewer opens topics in Review → Topics' },
+    { ok: RATE_TIERS.every((t) => rateSet.has(t.tier)), label: 'All four rates set', hint: 'HR, COO, CEO or CFO sets them in Rates' },
+  ];
 
   return (
     <div className="space-y-8">
@@ -90,28 +91,24 @@ export default function SettingsTab() {
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold">Rate card</h2>
-        <p className="text-sm text-muted-foreground">Set after the CEO approves the rate card. Accepting a video fixes its rate; later changes do not re-price it.</p>
-        <div className="space-y-2">
-          {TIERS.map(({ tier, label }) => {
-            const draft = drafts[tier] ?? '';
-            const n = Number(draft.replace(/,/g, ''));
-            const valid = draft.trim() !== '' && Number.isFinite(n) && n >= 0;
-            return (
-              <div key={tier} className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3">
-                <div className="min-w-[8rem] flex-1">
-                  <p className="text-sm font-medium">{label}</p>
-                  <p className="text-xs text-muted-foreground">Current: {rates[tier] != null ? formatUGX(rates[tier]) : 'Not set'}</p>
-                </div>
-                <Input inputMode="numeric" className="w-40" placeholder="UGX" value={draft}
-                  onChange={(e) => setDrafts((d) => ({ ...d, [tier]: e.target.value }))} />
-                <Button size="sm" disabled={!valid || busy === tier || n === rates[tier]}
-                  onClick={() => run(tier, () => setRate({ p_tier: tier, p_amount: n }), `${label} rate saved`)}>Save</Button>
-              </div>
-            );
-          })}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Rates</h2>
+          {canSetRates && <Button variant="link" size="sm" className="h-auto p-0" onClick={onChangeRates}>Change rates</Button>}
         </div>
+        <RateStrip refreshKey={refreshKey} />
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">Setup checklist</h2>
+        <ul className="space-y-2">
+          {checklist.map((c) => (
+            <li key={c.label} className="flex items-start gap-2 text-sm">
+              {c.ok ? <Check className="mt-0.5 h-4 w-4 text-primary" aria-label="Done" /> : <X className="mt-0.5 h-4 w-4 text-destructive" aria-label="Not done" />}
+              <span><span className="font-medium">{c.label}</span> <span className="text-muted-foreground">— {c.hint}</span></span>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

@@ -37,6 +37,12 @@ import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
 import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
 import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { RENT_DESK_SORT_LABELS, isRentDeskSort } from '@/lib/rentDeskFilters';
+import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
+import { useRentRequestAgentChain } from '@/hooks/useRentRequestAgentChain';
+import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
+import { RentAgentChain } from '@/components/rent-desk/RentAgentChain';
+import { agentChainLines } from '@/lib/rentAgentChain';
+import { timingRow } from '@/lib/rentTiming';
 
 /** The hub's own sorts, kept in the URL beside the three server sorts (best payers, newest, oldest). */
 const HUB_EXTRA_SORTS = ['tenant_az', 'highest_rent', 'highest_outstanding', 'status'] as const;
@@ -239,6 +245,11 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
 
   const pageRows = filtered.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+
+  // Desk time and the agent chain for the visible page only (one call each, never one per row), plus the request open in the detail sheet.
+  const timingIds = useMemo(() => [...new Set([...pageRows.map((r) => r.id), ...(detail ? [detail.id] : [])])], [pageRows, detail]);
+  const pageTiming = useRentRequestTiming(timingIds);
+  const pageChain = useRentRequestAgentChain(timingIds);
 
   /** Location/agent filter predicate reused for collections & payouts. */
   const requestById = useMemo(() => new Map(requests.map((r) => [r.id, r])), [requests]);
@@ -1045,6 +1056,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                       <tr className="text-left text-[11px] text-muted-foreground">
                         <th className="p-2 font-medium">Tenant</th>
                         <th className="p-2 font-medium">Status</th>
+                        <th className="p-2 font-medium">Desk time</th>
                         <th className="p-2 font-medium">Agent</th>
                         <th className="p-2 font-medium">Landlord</th>
                         <th className="p-2 font-medium">District</th>
@@ -1063,6 +1075,12 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                             <PaymentLabelChip label={r.payment_label} score={r.payment_score} reason={r.payment_reason} className="mt-0.5 max-w-[220px]" />
                           </td>
                           <td className="p-2"><Badge variant="secondary" className="text-[10px]">{STATUS_LABELS[r.status] || r.status}</Badge></td>
+                          <td className="p-2 text-xs" data-testid="hub-desk-time">
+                            {pageTiming.isLoading ? '—' : pageTiming.error ? 'Not loaded' : (() => {
+                              const row = timingRow(pageTiming.byId.get(r.id));
+                              return (<><p className="text-muted-foreground">{row.current.label}</p><p className="font-semibold tabular-nums">{row.current.value}</p></>);
+                            })()}
+                          </td>
                           <td className="p-2 truncate max-w-[130px]">{r.agent_name}</td>
                           <td className="p-2 truncate max-w-[130px]">{r.landlord_name}</td>
                           <td className="p-2 truncate max-w-[110px]">{r.district}</td>
@@ -1073,7 +1091,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                         </tr>
                       ))}
                       {!pageRows.length && (
-                        <tr><td colSpan={9} className="p-6 text-center text-muted-foreground">No requests match this view. Try widening the date range or clearing filters.</td></tr>
+                        <tr><td colSpan={10} className="p-6 text-center text-muted-foreground">No requests match this view. Try widening the date range or clearing filters.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -1082,7 +1100,8 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y divide-border">
                   {pageRows.map((r) => (
-                    <button key={r.id} type="button" onClick={() => setDetail(r)} className="w-full text-left p-3 active:bg-muted/50">
+                    <div key={r.id}>
+                    <button type="button" onClick={() => setDetail(r)} className="w-full text-left p-3 active:bg-muted/50">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold truncate">{r.tenant_name}</p>
@@ -1100,6 +1119,10 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                         {r.agent_name} · {r.landlord_name} · {r[dateBasis] ? format(new Date(r[dateBasis] as string), 'dd MMM yyyy') : '—'}
                       </p>
                     </button>
+                    <div className="px-3 pb-3">
+                      <RentTimingRow requestId={r.id} timing={pageTiming.byId.get(r.id)} loading={pageTiming.isLoading} error={pageTiming.error} onRetry={pageTiming.refetch} className="mt-0" />
+                    </div>
+                    </div>
                   ))}
                   {!pageRows.length && <p className="p-6 text-center text-xs text-muted-foreground">No requests match this view.</p>}
                 </div>
@@ -1286,10 +1309,11 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
             <div className="mt-3 space-y-3 text-xs">
               <Badge variant="secondary">{STATUS_LABELS[detail.status] || detail.status}</Badge>
               <RenewalReviewPanel request={{ ...detail, duration_days: detail.duration_days ?? 0 }} />
+              <RentTimingRow requestId={detail.id} timing={pageTiming.byId.get(detail.id)} loading={pageTiming.isLoading} error={pageTiming.error} onRetry={pageTiming.refetch} className="mt-0" />
+              <RentAgentChain lines={agentChainLines(pageChain.byId.get(detail.id), detail.agent_id ? { id: detail.agent_id, name: detail.agent_name, phone: null } : null)} />
               <div className="grid grid-cols-2 gap-2">
                 {[
                   ['Phone', detail.tenant_phone],
-                  ['Agent', detail.agent_name],
                   ['Landlord', detail.landlord_name],
                   ['Landlord phone', detail.landlord_phone],
                   ['House', detail.house_title],

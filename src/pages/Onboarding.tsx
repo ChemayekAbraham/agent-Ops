@@ -55,6 +55,8 @@ const registerUser = async (payload: {
       fullName,
       phone: payload.phone,
       referrerId: payload.referrerId || null,
+      // Recorded for shared-device review; funder onboarding is exempt from the per-device cap.
+      deviceFp: guard.device_fp,
     },
   });
   // On a non-2xx (e.g. 409 "already registered") the SDK returns a generic

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
@@ -72,37 +71,30 @@ const CARDS = PERSONAL_NAV;
 
 
 const PersonalHub = () => {
-  const [staffRecord, setStaffRecord] = useState<Employee | null>(null);
-  const [reqCounts, setReqCounts] = useState({ pending: 0, approved: 0 });
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id;
-      if (!uid || cancelled) return;
+  const { data: reqCounts = { pending: 0, approved: 0 } } = useQuery({
+    queryKey: ['staff-requisitions-counts'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData.session?.user?.id ?? (await supabase.auth.getUser()).data.user?.id;
+      if (!uid) return { pending: 0, approved: 0 };
       const { data, error } = await supabase.from('staff_requisitions').select('stage').eq('requester_id', uid);
-      if (cancelled) return;
-      if (error) { console.error('staff_requisitions counts', error); return; }
+      if (error) { console.error('staff_requisitions counts', error); return { pending: 0, approved: 0 }; }
       const rows = (data ?? []) as { stage: string | null }[];
-      setReqCounts({
+      return {
         pending: rows.filter((r) => r.stage && !['approved', 'rejected', 'cancelled'].includes(r.stage)).length,
         approved: rows.filter((r) => r.stage === 'approved').length,
-      });
-    })();
-    return () => { cancelled = true; };
-  }, []);
+      };
+    },
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      let staff: Employee | null = null;
-      try { staff = await getMyStaff(); } catch { staff = null; }
-      if (cancelled) return;
-      setStaffRecord(staff);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const { data: staffRecord = null } = useQuery<Employee | null>({
+    queryKey: ['hr-my-staff'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      try { return await getMyStaff(); } catch { return null; }
+    },
+  });
 
   const { data: isPsoOfficer } = useQuery<boolean>({
     queryKey: ['pso-is-officer'],

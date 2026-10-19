@@ -52,6 +52,12 @@ import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
 import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
+import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
+import { useRentRequestAgentChain } from '@/hooks/useRentRequestAgentChain';
+import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
+import { RentAgentChain } from '@/components/rent-desk/RentAgentChain';
+import { agentChainLines } from '@/lib/rentAgentChain';
+import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
@@ -875,11 +881,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       );
 
       return data.map(r => {
-        const agentProfile = r.assigned_agent_id
-          ? profileMap.get(r.assigned_agent_id)
-          : r.agent_id
-            ? profileMap.get(r.agent_id)
-            : null;
+        // The registering agent's own profile: the name, phone and email shown for "agent" all belong to the same person. The assigned agent
+        // (if someone else) has their own fields below, so a phone is never shown next to another person's name.
+        const agentProfile = r.agent_id ? profileMap.get(r.agent_id) : null;
+        const assignedProfile = r.assigned_agent_id ? profileMap.get(r.assigned_agent_id) : null;
         const tenantProfile = profileMap.get(r.tenant_id) as any;
         const landlord = landlordMap.get(r.landlord_id) as any;
         const lc1 = r.lc1_id ? (lc1Map.get(r.lc1_id) as any) : null;
@@ -912,6 +917,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           agent_phone: agentProfile?.phone || '',
           agent_email: agentProfile?.email || '',
           assigned_agent_name: r.assigned_agent_id ? (profileMap.get(r.assigned_agent_id)?.full_name || '') : '',
+          assigned_agent_phone: assignedProfile?.phone || '',
           landlord_name: landlord?.name || 'Unknown',
           // "New" means an agent registered this landlord and nobody has
           // verified them yet — which is exactly when Landlord Ops has real
@@ -1104,6 +1110,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     : sortMode === 'oldest'
       ? [...matching].reverse()
       : matching;
+
+  // Desk time and the agent chain for the cards on screen: one call each for the whole desk (never one per card). A desk with more than 200 cards
+  // asks for the first 200 in the order shown; the rest read "Not available" and a note says so.
+  const timingIds = useMemo(() => filtered.slice(0, TIMING_BATCH_LIMIT).map((r) => r.id as string), [filtered]);
+  const deskTiming = useRentRequestTiming(timingIds);
+  const agentChain = useRentRequestAgentChain(timingIds);
+  const chainFor = (req: { id: string; agent_id?: string | null; agent_name?: string; agent_phone?: string | null }) => agentChainLines(agentChain.byId.get(req.id), req.agent_id ? { id: req.agent_id, name: req.agent_name, phone: req.agent_phone || null } : null);
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
@@ -1895,6 +1908,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           </div>
         ) : (
           <div className="divide-y divide-border">
+            {deskTiming.omitted > 0 && (
+              <p className="px-3.5 py-2 text-xs text-muted-foreground" data-testid="timing-limit-note">
+                Desk time and agent details are loaded for the first {TIMING_BATCH_LIMIT} requests in this list. Narrow the filters to see the rest.
+              </p>
+            )}
             {filtered.map(req => {
               const isLandlordStage = config.showLandlordChecklist && req.registration_type !== 'outstanding_balance';
               const cl = getCardChecklist(req.id);
@@ -2015,19 +2033,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
                       )}
                       <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
-                        {(req.assigned_agent_id || req.agent_id) && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); } }}
-                            className="inline-flex items-center gap-1 hover:text-primary hover:underline cursor-pointer"
-                            title="Open agent profile"
-                          >
-                            <UserCheck className="h-3 w-3 shrink-0" />
-                            <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.assigned_agent_name || req.agent_name || 'No Agent'}</span>
-                          </span>
-                        )}
+                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} className="basis-full space-y-0.5" />
                         {req.landlord_id && (
                           <span
                             role="button"
@@ -2063,6 +2069,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   </div>
                 </div>
 
+                {/* Desk time: on your desk / before / total in system (server answer, one call for the desk). Tap the clock for the journey. */}
+                <RentTimingRow
+                  requestId={req.id}
+                  timing={deskTiming.byId.get(req.id)}
+                  loading={deskTiming.isLoading}
+                  error={deskTiming.error}
+                  onRetry={deskTiming.refetch}
+                  ownDesk
+                />
+
                 {/* Foldable details section (unfolds on toggle) */}
                 {isExpanded && (
                   <div className="mt-2.5 pt-2 border-t border-dashed border-border/60 space-y-2 text-xs animate-in fade-in-50 duration-150">
@@ -2095,24 +2111,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           new LC1
                         </Badge>
                       )}
-                      {(req.assigned_agent_id || req.agent_id) ? (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); } }}
-                          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
-                          title="Open agent profile"
-                        >
-                          <UserCheck className="h-3 w-3" />
-                          {req.assigned_agent_name || req.agent_name || 'No Agent'}
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-primary">
-                          <UserCheck className="h-3 w-3" />
-                          No Agent
-                        </span>
-                      )}
                       {(req.request_city || req.landlord_district || req.tenant_district) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -2125,7 +2123,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
                       <WhatsAppButton phone={req.tenant_phone} name={req.tenant_name} label="Tenant" />
                       <WhatsAppButton phone={req.landlord_phone} name={req.landlord_name} label="Landlord" />
-                      <WhatsAppButton phone={req.agent_phone} name={req.assigned_agent_name || req.agent_name} label="Agent" />
                     </div>
 
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
@@ -2363,12 +2360,12 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <WhatsAppButton phone={selectedRequest.landlord_phone} name={selectedRequest.landlord_name} label="WhatsApp" />
                   </div>
                 </div>
-                <div className="space-y-0.5 col-span-2">
-                  <p className="text-xs text-muted-foreground">Assigned Agent</p>
-                  <p className="font-semibold">{selectedRequest.assigned_agent_name || selectedRequest.agent_name || 'No Agent'}</p>
-                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                    <span className="text-xs text-muted-foreground">{selectedRequest.agent_phone}</span>
-                    <WhatsAppButton phone={selectedRequest.agent_phone} name={selectedRequest.assigned_agent_name || selectedRequest.agent_name} label="WhatsApp" />
+                <div className="col-span-2">
+                  <RentTimingRow requestId={selectedRequest.id} timing={deskTiming.byId.get(selectedRequest.id)} loading={deskTiming.isLoading} error={deskTiming.error} onRetry={deskTiming.refetch} ownDesk />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} />
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       type="button"
                       variant="outline"
@@ -2385,13 +2382,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   )}
                 </div>
                 {/* Awareness call: phone the tenant / landlord / agent and record what they heard. Storage only; approve and reject below are unchanged.
-                    The COO and CFO stages see it read-only. The agent id is passed only when the phone shown is that agent's (no transfer to another agent). */}
+                    The COO and CFO stages see it read-only. The agent name, phone and id all belong to the registering agent. */}
                 <div className="col-span-2">
                   <AwarenessCallPanel
                     key={selectedRequest.id}
                     request={{
                       ...selectedRequest,
-                      agent_id: selectedRequest.assigned_agent_id && selectedRequest.assigned_agent_id !== selectedRequest.agent_id ? null : selectedRequest.agent_id,
+                      agent_id: selectedRequest.agent_id,
                     }}
                     defaultSubject={defaultAwarenessSubjectForStage(stage)}
                     readOnly={isAwarenessReadOnlyStage(stage)}

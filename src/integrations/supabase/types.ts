@@ -14382,6 +14382,42 @@ export type Database = {
         }
         Relationships: []
       }
+      device_step_up_challenges: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          device_fp: string
+          expires_at: string
+          id: string
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          device_fp: string
+          expires_at: string
+          id?: string
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          device_fp?: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       director_requisition_events: {
         Row: {
           action: string
@@ -20324,6 +20360,87 @@ export type Database = {
           expires_at?: string
           payload?: Json
           total_count?: number
+        }
+        Relationships: []
+      }
+      github_push_events: {
+        Row: {
+          after_sha: string | null
+          before_sha: string | null
+          branch: string
+          commit_count: number
+          commits: Json
+          compare_url: string | null
+          created: boolean
+          deleted: boolean
+          delivery_id: string
+          distinct_commit_count: number
+          files_added: number
+          files_modified: number
+          files_removed: number
+          forced: boolean
+          head_commit_message: string | null
+          id: string
+          is_tag: boolean
+          pusher_email: string | null
+          pusher_name: string | null
+          received_at: string
+          ref: string
+          repo_full_name: string
+          sender_avatar_url: string | null
+          sender_login: string | null
+        }
+        Insert: {
+          after_sha?: string | null
+          before_sha?: string | null
+          branch: string
+          commit_count?: number
+          commits?: Json
+          compare_url?: string | null
+          created?: boolean
+          deleted?: boolean
+          delivery_id: string
+          distinct_commit_count?: number
+          files_added?: number
+          files_modified?: number
+          files_removed?: number
+          forced?: boolean
+          head_commit_message?: string | null
+          id?: string
+          is_tag?: boolean
+          pusher_email?: string | null
+          pusher_name?: string | null
+          received_at?: string
+          ref: string
+          repo_full_name: string
+          sender_avatar_url?: string | null
+          sender_login?: string | null
+        }
+        Update: {
+          after_sha?: string | null
+          before_sha?: string | null
+          branch?: string
+          commit_count?: number
+          commits?: Json
+          compare_url?: string | null
+          created?: boolean
+          deleted?: boolean
+          delivery_id?: string
+          distinct_commit_count?: number
+          files_added?: number
+          files_modified?: number
+          files_removed?: number
+          forced?: boolean
+          head_commit_message?: string | null
+          id?: string
+          is_tag?: boolean
+          pusher_email?: string | null
+          pusher_name?: string | null
+          received_at?: string
+          ref?: string
+          repo_full_name?: string
+          sender_avatar_url?: string | null
+          sender_login?: string | null
         }
         Relationships: []
       }
@@ -31333,6 +31450,42 @@ export type Database = {
           locked_at?: string
           source?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      login_devices: {
+        Row: {
+          device_fp: string
+          first_seen_at: string
+          hw_fp: string | null
+          last_seen_at: string
+          login_count: number
+          step_up_required_at: string | null
+          step_up_verified_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          device_fp: string
+          first_seen_at?: string
+          hw_fp?: string | null
+          last_seen_at?: string
+          login_count?: number
+          step_up_required_at?: string | null
+          step_up_verified_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          device_fp?: string
+          first_seen_at?: string
+          hw_fp?: string | null
+          last_seen_at?: string
+          login_count?: number
+          step_up_required_at?: string | null
+          step_up_verified_at?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
@@ -63984,6 +64137,21 @@ export type Database = {
         }
         Returns: Json
       }
+      _rt_compute: {
+        Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
+        Returns: Json
+      }
+      _rt_desk_name: { Args: { p_rank: number }; Returns: string }
+      _rt_desk_of_status: { Args: { p_status: string }; Returns: string }
+      _rt_evidence: {
+        Args: { p_ids: string[] }
+        Returns: {
+          evidence: Json
+          request_id: string
+        }[]
+      }
+      _rt_rank: { Args: { p_desk: string }; Returns: number }
+      _rt_ts: { Args: { p: string }; Returns: string }
       _shopping_advance_received_24h: {
         Args: never
         Returns: {
@@ -64513,6 +64681,17 @@ export type Database = {
       agent_expected_collection: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      agent_expected_split: {
+        Args: { p_agent_ids?: string[]; p_day?: string }
+        Returns: {
+          agent_id: string
+          arrears_plans: number
+          arrears_ugx: number
+          in_term_plans: number
+          in_term_ugx: number
+          total_ugx: number
+        }[]
       }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
@@ -73131,6 +73310,20 @@ export type Database = {
           total_samples: number
         }[]
       }
+      get_shared_login_devices: {
+        Args: { p_limit?: number; p_min_accounts?: number }
+        Returns: {
+          account_names: string
+          accounts: number
+          accounts_needing_step_up: number
+          accounts_step_up_pending: number
+          accounts_step_up_verified: number
+          device_fp: string
+          first_seen: string
+          last_seen: string
+          sample_user_agent: string
+        }[]
+      }
       get_signup_attempt_log: {
         Args: { p_days?: number; p_limit?: number; p_status?: string }
         Returns: {
@@ -75108,6 +75301,7 @@ export type Database = {
         Returns: boolean
       }
       is_service_role_request: { Args: never; Returns: boolean }
+      is_staff_account: { Args: { p_user_id: string }; Returns: boolean }
       is_sub_agent: { Args: { _agent_id: string }; Returns: boolean }
       is_subagent_commission_whitelisted: {
         Args: { p_sub_agent_id: string }
@@ -79227,6 +79421,15 @@ export type Database = {
         Args: { p_payout_id: string; p_reason: string }
         Returns: Json
       }
+      register_login_device: {
+        Args: {
+          p_device_fp: string
+          p_hw_fp?: string
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       register_tenant_document: {
         Args: {
           p_bucket: string
@@ -79491,6 +79694,23 @@ export type Database = {
         }
         Returns: Json
       }
+      rent_request_agent_chain: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          assigned_agent_id: string
+          assigned_agent_name: string
+          assigned_agent_phone: string
+          assigned_differs: boolean
+          is_verified_subagent: boolean
+          parent_agent_id: string
+          parent_agent_name: string
+          parent_agent_phone: string
+          registering_agent_id: string
+          registering_agent_name: string
+          registering_agent_phone: string
+          request_id: string
+        }[]
+      }
       rent_request_agent_financials_ok: {
         Args: {
           _amount_repaid: number
@@ -79548,6 +79768,11 @@ export type Database = {
       rent_request_stale_return: {
         Args: { p_reason: string }
         Returns: boolean
+      }
+      rent_request_timing: { Args: { p_request_ids: string[] }; Returns: Json }
+      rent_request_timing_history: {
+        Args: { p_request_id: string }
+        Returns: Json
       }
       rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
@@ -80375,6 +80600,14 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      signup_device_block_reason: {
+        Args: { p_device_fp: string }
+        Returns: string
+      }
+      signup_device_lifetime_count: {
+        Args: { p_device_fp: string }
+        Returns: number
       }
       signup_source_funnel: {
         Args: { p_end: string; p_start: string }
