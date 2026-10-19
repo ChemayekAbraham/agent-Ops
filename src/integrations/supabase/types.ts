@@ -20363,6 +20363,87 @@ export type Database = {
         }
         Relationships: []
       }
+      github_push_events: {
+        Row: {
+          after_sha: string | null
+          before_sha: string | null
+          branch: string
+          commit_count: number
+          commits: Json
+          compare_url: string | null
+          created: boolean
+          deleted: boolean
+          delivery_id: string
+          distinct_commit_count: number
+          files_added: number
+          files_modified: number
+          files_removed: number
+          forced: boolean
+          head_commit_message: string | null
+          id: string
+          is_tag: boolean
+          pusher_email: string | null
+          pusher_name: string | null
+          received_at: string
+          ref: string
+          repo_full_name: string
+          sender_avatar_url: string | null
+          sender_login: string | null
+        }
+        Insert: {
+          after_sha?: string | null
+          before_sha?: string | null
+          branch: string
+          commit_count?: number
+          commits?: Json
+          compare_url?: string | null
+          created?: boolean
+          deleted?: boolean
+          delivery_id: string
+          distinct_commit_count?: number
+          files_added?: number
+          files_modified?: number
+          files_removed?: number
+          forced?: boolean
+          head_commit_message?: string | null
+          id?: string
+          is_tag?: boolean
+          pusher_email?: string | null
+          pusher_name?: string | null
+          received_at?: string
+          ref: string
+          repo_full_name: string
+          sender_avatar_url?: string | null
+          sender_login?: string | null
+        }
+        Update: {
+          after_sha?: string | null
+          before_sha?: string | null
+          branch?: string
+          commit_count?: number
+          commits?: Json
+          compare_url?: string | null
+          created?: boolean
+          deleted?: boolean
+          delivery_id?: string
+          distinct_commit_count?: number
+          files_added?: number
+          files_modified?: number
+          files_removed?: number
+          forced?: boolean
+          head_commit_message?: string | null
+          id?: string
+          is_tag?: boolean
+          pusher_email?: string | null
+          pusher_name?: string | null
+          received_at?: string
+          ref?: string
+          repo_full_name?: string
+          sender_avatar_url?: string | null
+          sender_login?: string | null
+        }
+        Relationships: []
+      }
       glossary_terms: {
         Row: {
           also: string[]
