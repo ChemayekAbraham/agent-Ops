@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Add and verify CTO Git Pushes view while preserving Commits and leaving the push hook/backend untouched.
 - [x] Patch dashboard auth-lock delays: bounded identity reads, duplicate startup role lookup removed, single-flight watchdog and header identity reuse; 28 tests and safety guards pass, public sign-in renders without runtime errors.
 - [ ] Verify patched dashboard with a real signed-in account — blocked: externally managed authentication cannot be restored by the available testing tools.
 - [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
