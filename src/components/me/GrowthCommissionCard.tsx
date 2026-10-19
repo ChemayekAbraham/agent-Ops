@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { Card } from '@/components/ui/card';
@@ -66,64 +67,62 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+export function useGrowthCommissionData() {
+  return useQuery({
+    queryKey: ['growth-commission', 'overview'],
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const [{ data: win }, { data: rows }] = await Promise.all([
+        supabase.rpc('growth_commission_next_window'),
+        supabase
+          .from('growth_commission_claims')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20),
+      ]);
+      const w = (Array.isArray(win) ? win[0] : win) as NextWindow | undefined;
+      return {
+        entitled: !!w?.eligible,
+        next: w ?? null,
+        claims: (rows ?? []) as Claim[],
+      };
+    },
+  });
+}
+
 /**
  * Growth commission: UGX 50 per new platform user, claimable at any time.
  * The card is self-gating — the entitlement lives in the database, so a user
  * without one simply sees nothing.
  */
 export function GrowthCommissionCard() {
-  const [entitled, setEntitled] = useState(false);
-  const [next, setNext] = useState<NextWindow | null>(null);
-  const [claims, setClaims] = useState<Claim[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
+  const { data, isLoading } = useGrowthCommissionData();
   const [claiming, setClaiming] = useState(false);
-
-  const load = useCallback(async () => {
-    const [{ data: win }, { data: rows }] = await Promise.all([
-      supabase.rpc('growth_commission_next_window'),
-      supabase
-        .from('growth_commission_claims')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20),
-    ]);
-    const w = (Array.isArray(win) ? win[0] : win) as NextWindow | undefined;
-    setEntitled(!!w?.eligible);
-    setNext(w ?? null);
-    setClaims((rows ?? []) as Claim[]);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load();
-    // 60s poll only. The old Realtime listener was on growth_commission_claims,
-    // which is not in the publication, so it never fired (doc 147).
-    const interval = setInterval(load, 60_000);
-    return () => {
-      clearInterval(interval);
-    };
-  }, [load]);
 
   const submitClaim = async () => {
     setClaiming(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{ ok?: boolean; message?: string; error?: string }>(
+      const { data: resData, error } = await invokeEdgeFunction<{ ok?: boolean; message?: string; error?: string }>(
         'growth-commission-claim',
         { body: {}, silent: true },
       );
-      if (error || data?.error) {
-        toast.error(data?.message || data?.error || error?.message || 'Could not raise the claim');
+      if (error || resData?.error) {
+        toast.error(resData?.message || resData?.error || error?.message || 'Could not raise the claim');
         return;
       }
       toast.success('Claim sent to the CEO for review');
-      await load();
+      void qc.invalidateQueries({ queryKey: ['growth-commission'] });
     } finally {
       setClaiming(false);
     }
   };
 
-  if (loading || !entitled) return null;
+  if (isLoading || !data?.entitled) return null;
 
+  const next = data.next;
+  const claims = data.claims;
   const count = Number(next?.user_count ?? 0);
   const amount = Number(next?.amount ?? 0);
 

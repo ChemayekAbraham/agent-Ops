@@ -200,6 +200,8 @@ async function resolveFoodUserId(): Promise<string | null> {
   return id;
 }
 
+let lastKnownFoodUserId: string | null = null;
+
 /**
  * Drops every cached Food answer when the signed-in user changes (FM-24).
  * The permission and order queries are keyed without the user id, so without
@@ -209,10 +211,18 @@ async function resolveFoodUserId(): Promise<string | null> {
 function useFoodCacheFollowsAuth() {
   const qc = useQueryClient();
   useEffect(() => {
-    const onChange = supabase.auth.onAuthStateChange?.((event) => {
-      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
-        // reset (not just remove): mounted queries refetch for the new user
+    const onChange = supabase.auth.onAuthStateChange?.((event, session) => {
+      const currentUserId = session?.user?.id ?? null;
+      if (event === 'SIGNED_OUT') {
+        lastKnownFoodUserId = null;
         void qc.resetQueries({ queryKey: keys.all });
+      } else if (event === 'SIGNED_IN') {
+        // Reset only if a different account signed in on the same tab (FM-24).
+        // Prevents flushing the entire food cache on normal page navigation.
+        if (lastKnownFoodUserId !== null && lastKnownFoodUserId !== currentUserId) {
+          void qc.resetQueries({ queryKey: keys.all });
+        }
+        lastKnownFoodUserId = currentUserId;
       }
     });
     return () => onChange?.data?.subscription?.unsubscribe();
@@ -224,7 +234,7 @@ export function useFoodCanUseCanteen() {
   useFoodCacheFollowsAuth();
   return useQuery({
     queryKey: ['food', 'can-use-canteen'] as const,
-    staleTime: 60_000,
+    staleTime: 5 * 60 * 1000,
     // Navigation gate on every personal page: a failure means "not offered".
     // No retries, so a missing or failing RPC never multiplies requests (FM-33).
     retry: false,
@@ -379,7 +389,7 @@ export function useFoodCoordinatorStatus() {
   useFoodCacheFollowsAuth();
   return useQuery({
     queryKey: keys.coordinator(),
-    staleTime: 30_000,
+    staleTime: 5 * 60 * 1000,
     // Navigation gate on every personal page; a failure means "no access" (FM-33).
     retry: false,
     queryFn: async () => {
