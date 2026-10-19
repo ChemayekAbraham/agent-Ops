@@ -1681,9 +1681,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentOverdueCallDrive agentId={user.id} />
             {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
             <AgentArrearsCard agentId={user.id} />
-            {/* Rent Plans past their end date that still owe. These carry no
-                pinned day, so they appear nowhere under today's target. */}
-            <AgentExpiredCyclesCard agentId={user.id} />
+            {/* Rent Plans past their end date now render inside
+                AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
                 "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
