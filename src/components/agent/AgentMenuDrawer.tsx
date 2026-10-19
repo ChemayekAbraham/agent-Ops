@@ -48,6 +48,9 @@ import {
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
 import partnerContractAsset from '@/assets/welile-partner-contract.pdf.asset.json';
+import tenantAgreementAsset from '@/assets/tenant-agreement.pdf.asset.json';
+import agentContractAsset from '@/assets/agent-contract.pdf.asset.json';
+import masterTenancyAsset from '@/assets/master-guaranteed-rent-tenancy-agreement.pdf.asset.json';
 import { exportAgentTenantsList } from '@/lib/agentTenantsListExport';
 
 interface AgentMenuDrawerProps {
@@ -262,6 +265,9 @@ export function AgentMenuDrawer({
         { icon: UserPlus, label: 'Tenant Reg Form', description: 'Download or share on WhatsApp', onClick: onDownloadTenantForm, accent: 'blue-600', badge: '📲' },
         { icon: Megaphone, label: 'Available for Rent Poster', description: 'Print or share on WhatsApp', onClick: onOpenRentPoster, accent: 'purple-500', badge: '📲' },
         { icon: ScrollText, label: 'Partner Contract', description: 'Download the partner agreement', onClick: () => { window.open(partnerContractAsset.url, '_blank', 'noopener,noreferrer'); }, accent: 'indigo-500', badge: '📄' },
+        { icon: ScrollText, label: 'Tenant Agreement', description: 'Download the tenant agreement', onClick: () => { window.open(tenantAgreementAsset.url, '_blank', 'noopener,noreferrer'); }, accent: 'blue-600', badge: '📄' },
+        { icon: ScrollText, label: 'Agent Contract', description: 'Download the agent contract', onClick: () => { window.open(agentContractAsset.url, '_blank', 'noopener,noreferrer'); }, accent: 'emerald-600', badge: '📄' },
+        { icon: ScrollText, label: 'Master Tenancy', description: 'Landlord master rent & tenancy agreement', onClick: () => { window.open(masterTenancyAsset.url, '_blank', 'noopener,noreferrer'); }, accent: 'purple-500', badge: '📄' },
         { icon: FileText, label: 'Tenants List', description: 'Download name, phone, plan & paid so far', onClick: () => { void exportAgentTenantsList().catch((e) => console.error('Tenants list download failed:', e)); }, accent: 'primary' },
       ].filter(i => i.onClick !== undefined),
     },
