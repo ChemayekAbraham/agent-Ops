@@ -71,6 +71,8 @@ const CommunicationGate = optionalLazyWithRetry(() => import("@/components/commu
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
+// Shared-device sign-in step-up: SMS code for the 3rd+ account on one phone (device-step-up edge fn).
+const DeviceStepUpGate = optionalLazyWithRetry(() => import("@/components/auth/DeviceStepUpGate"), "DeviceStepUpGate");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -1070,6 +1072,7 @@ const App = () => {
                           <SonnerToaster />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
+                          <DeviceStepUpGate />
                           <GlobalOnboardingGates />
                           <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />

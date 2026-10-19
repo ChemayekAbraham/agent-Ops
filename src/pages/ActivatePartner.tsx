@@ -12,6 +12,7 @@ import ScreenLoader from '@/components/common/ScreenLoader';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { getSignupDeviceFp } from '@/lib/signupGuard';
 
 export default function ActivatePartner() {
   const [searchParams] = useSearchParams();
@@ -84,6 +85,8 @@ export default function ActivatePartner() {
             data: {
               full_name: fullName.trim(),
               phone: phone.trim(),
+              // Per-device signup caps are enforced from this in handle_new_user.
+              device_fp: await getSignupDeviceFp(),
             },
           },
         });
