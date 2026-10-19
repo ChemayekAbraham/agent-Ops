@@ -20,6 +20,10 @@ const BodySchema = z.object({
   password: z.string().min(8).max(128),
   fullName: z.string().min(2).max(160).transform(cleanText),
   phone: z.string().min(7).max(32).transform(cleanText),
+  deviceFp: z.preprocess(
+    (value: unknown) => (typeof value === "string" && /^([a-f0-9]{64}|fb_[a-f0-9]{1,64})$/.test(value.trim()) ? value.trim() : undefined),
+    z.string().optional(),
+  ),
   referrerId: z.preprocess(
     (value) => (typeof value === "string" && value.trim() ? value.trim() : undefined),
     z.string().regex(UUID_RE).optional(),
@@ -58,7 +62,7 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    const { email, password, fullName, phone, referrerId } = parsed.data;
+    const { email, password, fullName, phone, referrerId, deviceFp } = parsed.data;
 
     // Pre-checks so the user gets a specific reason instead of a generic database error.
     const digits = phone.replace(/\D/g, "");
@@ -84,6 +88,10 @@ Deno.serve(async (req) => {
       signup_source: "funder-onboarding",
     };
     if (referrerId) metadata.referrer_id = referrerId.toLowerCase();
+    // Stored on the profile for shared-device review. handle_new_user exempts
+    // signup_source 'funder-onboarding' from the per-device cap (staff onboard
+    // funders from shared office machines).
+    if (deviceFp) metadata.device_fp = deviceFp;
 
     const { data, error } = await admin.auth.admin.createUser({
       email,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
+import { useInRouterContext, useLocation } from 'react-router-dom';
 import { User, Session, isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { setReportingTags } from '@/lib/errorReporting';
@@ -14,6 +15,7 @@ import {
 import { installStaleSessionDetector, STALE_SESSION_EVENTS, isSignOutSuppressed } from '@/lib/staleSessionDetector';
 import { loginTelemetry as lt } from '@/lib/loginTelemetry';
 import { keepRoles, keepSession, keepUser } from '@/lib/authStateIdentity';
+import { rememberReturnPath } from '@/lib/returnPath';
 
 
 // Re-export types so existing imports keep working
@@ -117,6 +119,17 @@ function signInUrl(reason: string): string {
 }
 
 let endingSession = false;
+/** Set while the person taps Sign out, so the sign-in page is not told their session expired. */
+let signingOutOnPurpose = false;
+
+/** Remembers the page a signed-in person is on, so signing back in returns them there (see lib/returnPath). */
+function ReturnPathTracker({ userId }: { userId: string }) {
+  const location = useLocation();
+  useEffect(() => {
+    rememberReturnPath(userId, location.pathname + location.search);
+  }, [userId, location.pathname, location.search]);
+  return null;
+}
 
 /**
  * The one way out for a session that has ended — refresh token rejected, session dropped from storage, or past the
@@ -148,6 +161,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       : DEFAULT_ROLES;
 
   const [user, setUser] = useState<User | null>(null);
+  // Tests mount the provider without a router; the tracker needs one.
+  const inRouter = useInRouterContext();
   // Read by the session watchdog, which runs outside React's render cycle.
   const userRef = useRef<User | null>(null);
   userRef.current = user;
@@ -358,7 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // a broken authenticated screen.
           try {
             if (!isPublicPath(window.location.pathname)) {
-              window.location.replace(signInUrl('session_expired'));
+              window.location.replace(signInUrl(signingOutOnPurpose ? 'signed_out' : 'session_expired'));
             }
           } catch { /* ignore */ }
         }
@@ -454,7 +469,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 5000));
               await Promise.race([earlyRoleFetch, timeoutPromise]);
               stopWait();
-            } else {
+            } else if (!rolesFetched) {
               rolesFetched = true;
               const stopRoles = lt.start('auth.roles.fetch', { userId: session.user.id });
               const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved);
@@ -494,8 +509,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase couldn't silently refresh (e.g. refresh token revoked, offline
     // for too long, cookie/storage cleared), force a clean sign-out + redirect
     // instead of leaving the user idle on a screen whose queries will all 401.
+    let expiryCheckRunning = false;
     const expiryInterval = window.setInterval(async () => {
-      if (!isMounted) return;
+      // A slow refresh can span multiple ticks; do not queue more lock waiters.
+      if (!isMounted || expiryCheckRunning) return;
+      expiryCheckRunning = true;
       try {
         const { data: { session: current }, error: currentError } = await supabase.auth.getSession();
         if (!current) {
@@ -526,6 +544,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (isSignOutSuppressed()) return;
         await endSession('session_expired');
       } catch { /* never let the watchdog throw */ }
+      finally { expiryCheckRunning = false; }
     }, 20_000);
 
     return () => {
@@ -561,7 +580,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await ops.signOutUser(user?.id);
+    signingOutOnPurpose = true;
+    try {
+      await ops.signOutUser(user?.id);
+    } finally {
+      signingOutOnPurpose = false;
+    }
     setUser(null);
     setSession(null);
     setRole(null);
@@ -592,6 +616,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword: ops.resetPassword,
       }}
     >
+      {inRouter && user && <ReturnPathTracker userId={user.id} />}
       {children}
     </AuthContext.Provider>
   );

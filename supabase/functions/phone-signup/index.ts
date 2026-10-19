@@ -111,6 +111,19 @@ Deno.serve(async (req) => {
     if (deviceFp) meta.device_fp = deviceFp;
     if (campaignAttributionToken) meta.campaign_attribution_token = campaignAttributionToken;
 
+    // Per-device caps (2 self-signups per device ever, 1 per 24h). handle_new_user
+    // enforces the same rule, but GoTrue reports a trigger refusal only as
+    // "Database error", so ask first and return a message the person can act on.
+    if (deviceFp) {
+      const { data: blockReason } = await adminClient.rpc("signup_device_block_reason", { p_device_fp: deviceFp });
+      if (typeof blockReason === "string" && blockReason) {
+        return new Response(JSON.stringify({ error: blockReason, code: "signup_device_limit" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,

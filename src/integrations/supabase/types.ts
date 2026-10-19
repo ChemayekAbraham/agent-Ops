@@ -14382,6 +14382,42 @@ export type Database = {
         }
         Relationships: []
       }
+      device_step_up_challenges: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          device_fp: string
+          expires_at: string
+          id: string
+          phone: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          device_fp: string
+          expires_at: string
+          id?: string
+          phone?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          device_fp?: string
+          expires_at?: string
+          id?: string
+          phone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       director_requisition_events: {
         Row: {
           action: string
@@ -31337,6 +31373,42 @@ export type Database = {
         }
         Relationships: []
       }
+      login_devices: {
+        Row: {
+          device_fp: string
+          first_seen_at: string
+          hw_fp: string | null
+          last_seen_at: string
+          login_count: number
+          step_up_required_at: string | null
+          step_up_verified_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          device_fp: string
+          first_seen_at?: string
+          hw_fp?: string | null
+          last_seen_at?: string
+          login_count?: number
+          step_up_required_at?: string | null
+          step_up_verified_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          device_fp?: string
+          first_seen_at?: string
+          hw_fp?: string | null
+          last_seen_at?: string
+          login_count?: number
+          step_up_required_at?: string | null
+          step_up_verified_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       login_phase_events: {
         Row: {
           created_at: string
@@ -33317,6 +33389,13 @@ export type Database = {
             columns: ["advance_id"]
             isOneToOne: true
             referencedRelation: "v_merchant_oop_evidence"
+            referencedColumns: ["advance_id"]
+          },
+          {
+            foreignKeyName: "merchant_oop_settlements_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: true
+            referencedRelation: "zz_oop_new"
             referencedColumns: ["advance_id"]
           },
         ]
@@ -63601,6 +63680,36 @@ export type Database = {
         }
         Relationships: []
       }
+      zz_oop_new: {
+        Row: {
+          advance_id: string | null
+          agent_id: string | null
+          attested_at: string | null
+          created_at: string | null
+          evidence: Json | null
+          evidenced_amount: number | null
+          float_position_at_payout: number | null
+          float_used: number | null
+          is_estimate: boolean | null
+          is_evidenced: boolean | null
+          kind: string | null
+          note: string | null
+          payout_amount: number | null
+          payout_at: string | null
+          payout_tid: string | null
+          provider: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reimbursed_at: string | null
+          reviewed_at: string | null
+          shortfall_amount: number | null
+          status: string | null
+          telecom_charge: number | null
+          withdrawal_amount: number | null
+          withdrawal_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _agent_nudge_stats: {
@@ -64513,6 +64622,17 @@ export type Database = {
       agent_expected_collection: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      agent_expected_split: {
+        Args: { p_agent_ids?: string[]; p_day?: string }
+        Returns: {
+          agent_id: string
+          arrears_plans: number
+          arrears_ugx: number
+          in_term_plans: number
+          in_term_ugx: number
+          total_ugx: number
+        }[]
       }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
@@ -73131,6 +73251,20 @@ export type Database = {
           total_samples: number
         }[]
       }
+      get_shared_login_devices: {
+        Args: { p_limit?: number; p_min_accounts?: number }
+        Returns: {
+          account_names: string
+          accounts: number
+          accounts_needing_step_up: number
+          accounts_step_up_pending: number
+          accounts_step_up_verified: number
+          device_fp: string
+          first_seen: string
+          last_seen: string
+          sample_user_agent: string
+        }[]
+      }
       get_signup_attempt_log: {
         Args: { p_days?: number; p_limit?: number; p_status?: string }
         Returns: {
@@ -75108,6 +75242,7 @@ export type Database = {
         Returns: boolean
       }
       is_service_role_request: { Args: never; Returns: boolean }
+      is_staff_account: { Args: { p_user_id: string }; Returns: boolean }
       is_sub_agent: { Args: { _agent_id: string }; Returns: boolean }
       is_subagent_commission_whitelisted: {
         Args: { p_sub_agent_id: string }
@@ -79227,6 +79362,15 @@ export type Database = {
         Args: { p_payout_id: string; p_reason: string }
         Returns: Json
       }
+      register_login_device: {
+        Args: {
+          p_device_fp: string
+          p_hw_fp?: string
+          p_user_agent?: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       register_tenant_document: {
         Args: {
           p_bucket: string
@@ -80375,6 +80519,14 @@ export type Database = {
           p_token: string
         }
         Returns: Json
+      }
+      signup_device_block_reason: {
+        Args: { p_device_fp: string }
+        Returns: string
+      }
+      signup_device_lifetime_count: {
+        Args: { p_device_fp: string }
+        Returns: number
       }
       signup_source_funnel: {
         Args: { p_end: string; p_start: string }

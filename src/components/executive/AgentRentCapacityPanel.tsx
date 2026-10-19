@@ -676,6 +676,9 @@ function CapacityRow({
         coverage_yesterday: (row as any).coverage_yesterday ?? 0,
         effective_coverage: (row as any).effective_coverage ?? 1,
 
+        // This row came back from get_agent_daily_eligibility, so the figures
+        // below are measured, not missing.
+        eligibility_unavailable: false,
         can_post_rent_today: row.daily_status !== 'blocked',
         good_days_last_week: (row as any).good_days_last_week ?? 0,
         unlimited_posting: (row as any).unlimited_posting ?? false,

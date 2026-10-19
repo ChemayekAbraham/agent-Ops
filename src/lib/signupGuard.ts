@@ -16,6 +16,16 @@ export type SignupGuardResult = {
   device_fp: string | null;
 };
 
+/**
+ * The validated device fingerprint for signup paths that create the account
+ * server-side without the preflight RPC (phone-signup, invite activation).
+ * Forward it as `device_fp` so handle_new_user can apply the per-device caps.
+ */
+export async function getSignupDeviceFp(): Promise<string | null> {
+  const raw = await getDeviceFingerprint().catch(() => null);
+  return isValidFingerprintShape(raw) ? raw : null;
+}
+
 function readUtm() {
   try {
     const q = new URLSearchParams(window.location.search);
