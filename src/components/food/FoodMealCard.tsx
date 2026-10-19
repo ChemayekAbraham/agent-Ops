@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { ChevronDown, CupSoda, Minus, Plus, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { ChevronDown, CupSoda, Heart, Minus, Plus, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUgx, forgetFoodMealPhotoUrl, type FoodMenuMeal } from '@/hooks/useFoodService';
@@ -33,6 +33,7 @@ export default function FoodMealCard({
   // new link gets a fresh attempt.
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showImage = Boolean(meal.image_path) && meal.image_path !== failedUrl;
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Tapping anywhere on the card opens the meal's description. The quantity
   // stepper and "Add to order" stop the tap so they never open or close it.
@@ -62,82 +63,97 @@ export default function FoodMealCard({
     <article
       onClick={hasDetails ? () => setExpanded((v) => !v) : undefined}
       className={cn(
-        'flex flex-col rounded-2xl border border-border/70 bg-card p-2.5 shadow-sm transition-colors',
-        unavailable && 'opacity-60',
-        hasDetails && 'cursor-pointer hover:border-primary/40',
+        'group relative flex flex-col rounded-3xl border border-border/70 bg-card p-3 shadow-sm transition-all duration-200 hover:shadow-md hover:border-amber-400/40',
+        unavailable && 'opacity-65',
+        hasDetails && 'cursor-pointer',
       )}
     >
-      {/* The photo is sized by height, not by width, so it stays about half the
-          card whatever the screen: the text block below it is roughly the same
-          height, which puts the picture at ~50% of the card on phones and on
-          wide desktop columns alike. */}
-      <div className="relative h-64 w-full overflow-hidden rounded-xl bg-muted">
+      {/* Glovo-style rounded picture frame with badge and optional favorite toggle */}
+      <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-2xl bg-amber-500/5 dark:bg-muted/40">
         {showImage ? (
           <img
             src={meal.image_path as string}
             alt=""
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             onError={() => {
               forgetFoodMealPhotoUrl(meal.image_path);
               setFailedUrl(meal.image_path);
             }}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
-            <UtensilsCrossed className="h-8 w-8" aria-hidden="true" />
+          <div className="flex h-full w-full items-center justify-center bg-amber-500/5 text-amber-600/40 dark:bg-muted/30 dark:text-muted-foreground/40">
+            <UtensilsCrossed className="h-10 w-10" aria-hidden="true" />
           </div>
         )}
+
+        {/* Favorite heart button (Glovo style) */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsFavorite((v) => !v);
+          }}
+          aria-label={`Favorite ${meal.name}`}
+          className="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground/70 backdrop-blur shadow-sm transition-transform hover:scale-110 active:scale-95"
+        >
+          <Heart
+            className={cn('h-4 w-4 transition-colors', isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground')}
+          />
+        </button>
+
         {meal.sold_out && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-            <span className="rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
+          <div className="absolute inset-0 flex items-center justify-center bg-background/75 backdrop-blur-[2px]">
+            <span className="rounded-full border border-destructive/30 bg-destructive/15 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-destructive shadow-sm">
               Sold out
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 px-2 pb-1.5 pt-3">
+      <div className="flex flex-1 flex-col gap-2 px-1 pb-1 pt-3">
         {(meal.category || (!meal.sold_out && left !== null && left <= LOW_STOCK_AT) || quantity > 0) && (
           <div className="flex flex-wrap items-center gap-1.5">
             {meal.category && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
                 <CategoryIcon category={meal.category} />
                 {meal.category}
               </span>
             )}
             {!meal.sold_out && left !== null && left <= LOW_STOCK_AT && (
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+              <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
                 Only {left} left
               </span>
             )}
             {quantity > 0 && (
-              <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success">
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
                 {quantity} in your order
               </span>
             )}
           </div>
         )}
 
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="text-base font-bold leading-snug text-card-foreground sm:text-lg">
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-1">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-bold leading-snug text-card-foreground transition-colors group-hover:text-primary sm:text-lg">
               {meal.name}
             </h3>
-            <p className="text-base font-bold text-primary sm:text-lg">{formatUgx(meal.price_ugx)}</p>
+            <p className="mt-0.5 text-base font-extrabold text-primary sm:text-lg tabular-nums">
+              {formatUgx(meal.price_ugx)}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <div
               className={cn(
-                'flex h-9 items-center rounded-lg border border-border/80',
+                'flex h-9 items-center rounded-full border border-border/80 bg-muted/40 shadow-xs',
                 !canAdd && 'opacity-50',
               )}
             >
               <button
                 type="button"
-                className="flex h-full w-9 items-center justify-center rounded-l-lg text-foreground transition-colors hover:bg-muted disabled:pointer-events-none"
+                className="flex h-full w-8 items-center justify-center rounded-l-full text-foreground transition-colors hover:bg-muted active:scale-95 disabled:pointer-events-none"
                 aria-label={`One fewer ${meal.name}`}
                 disabled={!canAdd || picked <= 1}
                 onClick={() => setPick(picked - 1)}
@@ -145,7 +161,7 @@ export default function FoodMealCard({
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span
-                className="w-8 border-x border-border/80 text-center text-sm font-semibold tabular-nums"
+                className="w-7 border-x border-border/70 text-center text-xs font-bold tabular-nums"
                 aria-live="polite"
                 aria-label={`${picked} to add`}
               >
@@ -153,7 +169,7 @@ export default function FoodMealCard({
               </span>
               <button
                 type="button"
-                className="flex h-full w-9 items-center justify-center rounded-r-lg text-foreground transition-colors hover:bg-muted disabled:pointer-events-none"
+                className="flex h-full w-8 items-center justify-center rounded-r-full text-foreground transition-colors hover:bg-muted active:scale-95 disabled:pointer-events-none"
                 aria-label={`One more ${meal.name}`}
                 disabled={!canAdd || picked >= room}
                 onClick={() => setPick(picked + 1)}
@@ -164,11 +180,11 @@ export default function FoodMealCard({
 
             <Button
               size="sm"
-              className="h-9 rounded-lg px-3 font-semibold"
+              className="h-9 rounded-full bg-primary px-3.5 font-bold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 hover:shadow active:scale-95"
               disabled={!canAdd}
               onClick={() => { onChange(quantity + picked); setPick(1); }}
             >
-              <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
               {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to order'}
             </Button>
           </div>
@@ -180,7 +196,7 @@ export default function FoodMealCard({
             aria-expanded={expanded}
             aria-controls={detailsId}
             onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border/70 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted"
+            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border/70 bg-muted/30 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ChevronDown
               className={cn(
@@ -205,7 +221,7 @@ export default function FoodMealCard({
             )}
           >
             <div className="overflow-hidden">
-              <div className="mt-1 rounded-xl border border-border/70 bg-muted/50 p-3">
+              <div className="mt-1 rounded-2xl border border-border/70 bg-muted/40 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                   About this meal
                 </p>
@@ -216,7 +232,7 @@ export default function FoodMealCard({
         )}
 
         {quantity > 0 && atAllowance && (
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
             That is your limit for this service period.
           </p>
         )}
