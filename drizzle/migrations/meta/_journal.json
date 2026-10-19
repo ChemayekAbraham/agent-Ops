@@ -4243,6 +4243,13 @@
       "when": 1792159701281,
       "tag": "0605_merge_paidout_topups_requires_held_funds",
       "breakpoints": true
+    },
+    {
+      "idx": 606,
+      "version": "7",
+      "when": 1792200000000,
+      "tag": "0606_merchandise_revenue_category",
+      "breakpoints": true
     }
   ]
 }

@@ -274,7 +274,9 @@ export async function signOutUser(userId: string | undefined) {
       await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint);
     });
   } catch { /* non-critical */ }
-  await supabase.auth.signOut();
+  // Local: signing out on one phone must not end the person's sessions on their other devices (the default
+  // 'global' scope revoked every session the account held).
+  await supabase.auth.signOut({ scope: 'local' });
 }
 
 export async function resetPassword(email: string) {

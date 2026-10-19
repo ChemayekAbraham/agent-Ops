@@ -187,6 +187,13 @@ export type AgentCapacity = {
   /** The coverage actually driving the rating demotion (best of the two). */
   effective_coverage: number;
 
+  /**
+   * True when the server eligibility read FAILED, so today's figures are
+   * unknown rather than zero. Every percentage on this record is sourced from
+   * the server row; with no row they are all 0, which must be read as "not
+   * measured", never as "collected nothing".
+   */
+  eligibility_unavailable: boolean;
   /** True iff agent may post a new rent request today. */
   can_post_rent_today: boolean;
   /**
@@ -415,7 +422,6 @@ export function useAgentCapacityMap(agentIds: string[]) {
       const allActiveIds = (active || []).map((r: any) => r.id);
       const unfundedIds = new Set<string>();
       const unfundedTenantsByAgent = new Map<string, Set<string>>();
-      const fallbackBlockedByUnpaidLandlordIds = new Set<string>();
       if (allActiveIds.length > 0) {
         const { data: revs } = await supabase
           .from('agent_tenant_float_reversals')
@@ -430,26 +436,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
             if (r.tenant_id) s.add(r.tenant_id);
           }
         });
-
-        if (!eligibilityRpcSucceeded) {
-          const { data: allocs } = await supabase
-            .from('agent_landlord_float_allocations')
-            .select('rent_request_id, status, paid_out_amount')
-            .in('rent_request_id', allActiveIds);
-          const blockedStatuses = new Set(['open', 'partially_paid', 'return_pending']);
-          (allocs || []).forEach((a: any) => {
-            const paidOut = Number(a.paid_out_amount) || 0;
-            if (blockedStatuses.has(String(a.status || '')) && paidOut <= 0) {
-              fallbackBlockedByUnpaidLandlordIds.add(a.rent_request_id);
-            }
-          });
-        }
+        // An extra agent_landlord_float_allocations round-trip used to run here
+        // when the eligibility RPC failed, to exclude unpaid-landlord plans from
+        // the client-side target. That target is gone (see below), so the query
+        // is gone with it.
       }
 
       const exposure = new Map<string, { used: number; count: number }>();
-      const expectedDaily = new Map<string, number>();
-      // Fallback-only: number of DAILY plans feeding the gate when the server RPC failed.
-      const fallbackGateCount = new Map<string, number>();
       const activeIdToAgent = new Map<string, string>();
       const activeIdToTenant = new Map<string, string>();
       const activeTenantsByAgent = new Map<string, Set<string>>();
@@ -458,24 +451,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const owed = Math.max((Number(r.total_repayment) || 0) - (Number(r.amount_repaid) || 0), 0);
         const prev = exposure.get(r.agent_id) || { used: 0, count: 0 };
         exposure.set(r.agent_id, { used: prev.used + owed, count: prev.count + 1 });
-        // Daily TARGET mirrors v_agent_daily_eligibility: a tenant only counts
-        // once the CFO has funded the landlord float (status 'funded'/'repaying')
-        // AND they still owe rent (balance > 0) AND the plan is DAILY — weekly
-        // plans are tracked separately and never feed the daily gate here.
-        // This fallback only runs if the server eligibility RPC failed.
-        const isWeekly = String(r.repayment_frequency || 'daily').toLowerCase() === 'weekly';
-        const fundedAndOwing =
-          (r.status === 'funded' || r.status === 'repaying') &&
-          owed > 0 &&
-          !isWeekly &&
-          !fallbackBlockedByUnpaidLandlordIds.has(r.id);
-        if (fundedAndOwing) {
-          expectedDaily.set(
-            r.agent_id,
-            (expectedDaily.get(r.agent_id) || 0) + (Number(r.daily_repayment) || 0),
-          );
-          fallbackGateCount.set(r.agent_id, (fallbackGateCount.get(r.agent_id) || 0) + 1);
-        }
+        // NOTE: a client-side daily TARGET used to be summed here and used
+        // whenever the server eligibility RPC failed. It was removed on
+        // 2026-10-19: it supplied a denominator while every numerator stayed 0,
+        // so an agent who had collected 255,000 was shown "UGX 0 of UGX 550,012
+        // - Very Bad" and blocked from posting. Today's target comes from the
+        // server row or not at all.
         activeIdToAgent.set(r.id, r.agent_id);
         if (r.tenant_id) {
           activeIdToTenant.set(r.id, r.tenant_id);
@@ -540,9 +521,16 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const elig = eligByAgent.get(id);
         // Prefer the server-side denominator when present (it applies the
         // same reversed/unfunded filter we apply on the client).
+        //
+        // When the RPC fails we publish NO denominator. Substituting client
+        // target math here put a number under a numerator that stays 0 (every
+        // paid_* / *_pct below reads from `elig`), so a failed read rendered as
+        // "UGX 0 of UGX 550,012 - 0% - Very Bad" for an agent who had in fact
+        // collected 255,000. An unmeasured day must look unmeasured: a zero
+        // target makes the strip show "Today's target is not set yet".
         const dailyExpected = eligibilityRpcSucceeded
           ? (elig?.expected_daily ?? 0)
-          : (expectedDaily.get(id) || 0);
+          : 0;
         const expected_weekly = dailyExpected * 7;
         const paid_last_week = paidByAgent.get(id) || 0;
         const expected_tenant_days = exp.count * 7;
@@ -631,9 +619,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
          * Using exp.count here (all active rent_requests incl. weekly) would
          * make the app disagree with the database trigger.
          */
+        // No server row means no gate population either, for the same reason
+        // as dailyExpected above. A zero population keeps `daily_blocked`
+        // false and drops the status to 'starter' — the honest state for
+        // "today's figures could not be read".
         const daily_gate_count = eligibilityRpcSucceeded
           ? (elig?.active_count ?? 0)
-          : (fallbackGateCount.get(id) || 0);
+          : 0;
         const weekly_plan_count    = elig?.weekly_plan_count    ?? 0;
         const weekly_lapsed_count  = elig?.weekly_lapsed_count  ?? 0;
         const weekly_expected_week = elig?.weekly_expected_week ?? 0;
@@ -658,8 +650,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // (enforce_agent_daily_eligibility) has no new-agent exemption, so
         // exempting them here made the app promise a post the server refused.
         // New agents remain governed by the smaller per-tenant cap above.
+        // Never block posting on figures we failed to load. The authoritative
+        // gate is the database trigger `enforce_agent_daily_eligibility`, which
+        // reads the view directly and raises DAILY_ELIGIBILITY_BLOCKED (handled
+        // in renewalAdvice.ts). This client check is a courtesy pre-check, so
+        // it fails OPEN: the server still refuses a post it should refuse.
         const can_post_rent_today =
-          unlimited_posting ? true : !daily_blocked;
+          unlimited_posting || !eligibilityRpcSucceeded ? true : !daily_blocked;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
@@ -686,6 +683,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
           daily_status,
           performance_pct,
           daily_rating,
+          eligibility_unavailable: !eligibilityRpcSucceeded,
           can_post_rent_today,
           good_days_last_week,
           unlimited_posting,

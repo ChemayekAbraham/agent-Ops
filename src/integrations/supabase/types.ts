@@ -31947,6 +31947,8 @@ export type Database = {
       merchandise_recovery_plans: {
         Row: {
           amount_recovered: number
+          catchup_sms_pending: Json | null
+          catchup_sms_sent_on: string | null
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -31988,6 +31990,8 @@ export type Database = {
         }
         Insert: {
           amount_recovered?: number
+          catchup_sms_pending?: Json | null
+          catchup_sms_sent_on?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -32029,6 +32033,8 @@ export type Database = {
         }
         Update: {
           amount_recovered?: number
+          catchup_sms_pending?: Json | null
+          catchup_sms_sent_on?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -64388,6 +64394,7 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
