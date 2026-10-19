@@ -58,6 +58,9 @@ import {
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
 import partnerContractAsset from '@/assets/welile-partner-contract.pdf.asset.json';
+import tenantAgreementAsset from '@/assets/tenant-agreement.pdf.asset.json';
+import agentContractAsset from '@/assets/agent-contract.pdf.asset.json';
+import masterTenancyAsset from '@/assets/master-guaranteed-rent-tenancy-agreement.pdf.asset.json';
 import { exportAgentTenantsList } from '@/lib/agentTenantsListExport';
 
 interface AgentMenuDrawerProps {
