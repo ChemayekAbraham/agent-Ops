@@ -133,10 +133,11 @@ describe('AuthProvider hands out the same user object when nothing has changed',
   });
 
   it('allows only one watchdog check while a session read hangs across 20-second ticks', async () => {
-    render(<AuthProvider><Probe /></AuthProvider>);
-    await waitFor(() => expect(last()?.user).toBeTruthy());
     vi.useFakeTimers();
     try {
+      render(<AuthProvider><Probe /></AuthProvider>);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+      expect(last()?.user).toBeTruthy();
       authMocks.getSession.mockClear().mockImplementation(() => new Promise(() => {}));
       await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
       expect(authMocks.getSession).toHaveBeenCalledTimes(1);
