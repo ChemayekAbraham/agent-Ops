@@ -10,7 +10,7 @@ One compact three-column row, built from `timingRow(timing)`:
 |---|---|---|
 | 1 | `row.current` | label ("At Tenant Ops", "With the agent for correction", "Review finished", "Closed"), value ("10 d", "5 h 20 min", "Not available"), detail ("Since 9 Oct 2026, 15:00") |
 | 2 | `row.previous` | label ("Before: Agent Ops"), value ("3 d"), detail ("6 Oct 2026, 15:00 to 9 Oct 2026, 15:00"); "None" when there was no earlier visit |
-| 3 | `row.total` | label "Total journey", value ("13 d"), detail ("Started 6 Oct 2026, 15:00") |
+| 3 | `row.total` | label "Total in system", value ("13 d"), detail ("Started 6 Oct 2026, 15:00") |
 
 - Each cell has `quality`: `confirmed` (show nothing extra), `estimated` (a small "Estimated" tag, `QUALITY_LABEL`), `unavailable` (the value already reads "Not available"; show the tag "Not recorded").
 - `row.note` is one plain sentence to show under the row when something is missing or estimated (otherwise null). It explains; it is never styled as a deadline or an alarm.

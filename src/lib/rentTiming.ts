@@ -187,20 +187,23 @@ export interface TimingRow {
   note: string | null;
 }
 
-/** The three cells a card shows, straight from the server's answer. A missing figure reads "Not available" and carries its reason. */
-export function timingRow(t: RentTiming | null | undefined): TimingRow {
+/**
+ * The three cells a card shows, straight from the server's answer. A missing figure reads "Not available" and carries its reason.
+ * `ownDesk` is true on a desk's own review cards: the first cell then reads "On your desk" instead of "At <desk>".
+ */
+export function timingRow(t: RentTiming | null | undefined, opts: { ownDesk?: boolean } = {}): TimingRow {
   if (!t) {
     const none: TimingCell = { label: 'Not available', value: 'Not available', detail: null, quality: 'unavailable' };
-    return { current: none, previous: none, total: { ...none, label: 'Total journey' }, quality: 'unavailable', note: 'No timing was returned for this request.' };
+    return { current: none, previous: none, total: { ...none, label: 'Total in system' }, quality: 'unavailable', note: 'No timing was returned for this request.' };
   }
   const open = t.state === 'at_desk' || t.state === 'correction';
   const current: TimingCell = open
-    ? { label: t.state === 'correction' ? 'With the agent for correction' : `At ${deskLabel(t.desk)}`, value: formatElapsed(t.current?.seconds), detail: t.current ? `Since ${formatKampala(t.current.entry)}` : null, quality: t.current?.quality ?? 'unavailable' }
+    ? { label: t.state === 'correction' ? 'With the agent for correction' : opts.ownDesk ? 'On your desk' : `At ${deskLabel(t.desk)}`, value: formatElapsed(t.current?.seconds), detail: t.current ? `Since ${formatKampala(t.current.entry)}` : null, quality: t.current?.quality ?? 'unavailable' }
     : { label: t.state === 'processed' ? 'Review finished' : 'Closed', value: t.state === 'processed' ? 'Funded' : 'Ended', detail: t.processing_end ? formatKampala(t.processing_end) : null, quality: t.quality };
   const previous: TimingCell = t.previous
     ? { label: `Before: ${deskLabel(t.previous.desk)}`, value: formatElapsed(t.previous.seconds), detail: t.previous.start ? `${formatKampala(t.previous.start)} to ${formatKampala(t.previous.end)}` : null, quality: t.previous.quality }
     : { label: 'Before', value: 'None', detail: null, quality: 'confirmed' };
-  const total: TimingCell = { label: 'Total journey', value: formatElapsed(t.total_seconds), detail: t.request_start ? `Started ${formatKampala(t.request_start)}` : null, quality: t.total_seconds == null ? 'unavailable' : t.quality };
+  const total: TimingCell = { label: 'Total in system', value: formatElapsed(t.total_seconds), detail: t.request_start ? `Started ${formatKampala(t.request_start)}` : null, quality: t.total_seconds == null ? 'unavailable' : t.quality };
   const note = missingReasonLabel(t.missing_reason)
     ?? (t.quality === 'estimated' ? 'Some of this history was not recorded exactly, so part of the timing is an estimate.' : null);
   return { current, previous, total, quality: t.quality, note };

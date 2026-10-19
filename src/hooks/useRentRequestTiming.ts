@@ -28,7 +28,7 @@ export function useRentRequestTiming(ids: string[], options: { enabled?: boolean
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<RentTimingBatch> => {
-      const { data, error } = await (supabase as any).rpc('rent_request_timing', { p_request_ids: asked });
+      const { data, error } = await supabase.rpc('rent_request_timing', { p_request_ids: asked });
       if (error) throw error;
       return normalizeTimingBatch(data);
     },
@@ -59,7 +59,7 @@ export function useRentRequestTimingHistory(requestId: string | null, enabled = 
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<RentTiming | null> => {
-      const { data, error } = await (supabase as any).rpc('rent_request_timing_history', { p_request_id: requestId as string });
+      const { data, error } = await supabase.rpc('rent_request_timing_history', { p_request_id: requestId as string });
       if (error) throw error;
       return data ? normalizeTiming({ ...(data as object) }) : null;
     },

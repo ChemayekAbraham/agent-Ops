@@ -48,8 +48,13 @@ describe('timingRow: the compact three-column row', () => {
     expect(row.current).toMatchObject({ label: 'At Tenant Ops', value: '10 d', quality: 'confirmed' });
     expect(row.current.detail).toBe('Since 9 Oct 2026, 15:00');
     expect(row.previous).toMatchObject({ label: 'Before: Agent Ops', value: '3 d', quality: 'confirmed' });
-    expect(row.total).toMatchObject({ label: 'Total journey', value: '13 d', quality: 'confirmed' });
+    expect(row.total).toMatchObject({ label: 'Total in system', value: '13 d', quality: 'confirmed' });
     expect(row.note).toBeNull();
+  });
+  it('on a desk\'s own cards the first cell reads "On your desk"; elsewhere "At <desk>"', () => {
+    expect(timingRow(normalizeTiming(ROW), { ownDesk: true }).current.label).toBe('On your desk');
+    expect(timingRow(normalizeTiming(ROW)).current.label).toBe('At Tenant Ops');
+    expect(timingRow(normalizeTiming({ ...ROW, state: 'correction', desk: 'agent' }), { ownDesk: true }).current.label).toBe('With the agent for correction');
   });
   it('a request waiting for the agent to correct says so and keeps the total running', () => {
     const row = timingRow(normalizeTiming({ ...ROW, state: 'correction', desk: 'agent', current: { ...ROW.current, desk: 'correction', seconds: 2 * D } }));
