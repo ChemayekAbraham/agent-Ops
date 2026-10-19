@@ -79613,6 +79613,23 @@ export type Database = {
         }
         Returns: Json
       }
+      rent_request_agent_chain: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          assigned_agent_id: string
+          assigned_agent_name: string
+          assigned_agent_phone: string
+          assigned_differs: boolean
+          is_verified_subagent: boolean
+          parent_agent_id: string
+          parent_agent_name: string
+          parent_agent_phone: string
+          registering_agent_id: string
+          registering_agent_name: string
+          registering_agent_phone: string
+          request_id: string
+        }[]
+      }
       rent_request_agent_financials_ok: {
         Args: {
           _amount_repaid: number
