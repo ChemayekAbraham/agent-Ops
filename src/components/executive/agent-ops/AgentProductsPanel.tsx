@@ -270,6 +270,210 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
   );
 }
 
+function getSweepWindowLabel(dateString: string): string {
+  try {
+    const d = new Date(dateString);
+    const hour = d.getHours();
+    if (hour >= 1 && hour <= 4) return '2:00 AM Night sweep';
+    if (hour >= 7 && hour <= 10) return '8:00 AM Morning sweep';
+    if (hour >= 13 && hour <= 16) return '2:00 PM Afternoon sweep';
+    if (hour >= 19 && hour <= 22) return '8:00 PM Evening sweep';
+    return 'Automated sweep';
+  } catch {
+    return 'Automated sweep';
+  }
+}
+
+function DrillAgentCard({
+  row,
+  category,
+  onOpenFullDetail,
+}: {
+  row: AgentProductRow;
+  category?: AgentProductCategory;
+  onOpenFullDetail?: (agentId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['agent-product-sweeps-drill', row.agent_id, category ?? 'all'],
+    enabled: expanded && !!row.agent_id,
+    queryFn: async () => {
+      // @ts-expect-error RPC typed dynamically
+      const { data, error } = await supabase.rpc('get_agent_product_detail', {
+        p_agent_id: row.agent_id,
+        p_category: category ?? null,
+      });
+      if (error) throw error;
+      const d = (data ?? {}) as {
+        deductions?: Array<{
+          id: string;
+          item_name: string;
+          amount: number;
+          outstanding_after: number;
+          transaction_ref: string | null;
+          created_at: string;
+        }>;
+      };
+      return d.deductions ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const deductions = data ?? [];
+
+  return (
+    <div
+      className={cn(
+        'rounded-xl border transition-all duration-200 overflow-hidden',
+        expanded
+          ? 'border-primary/50 bg-accent/5 shadow-sm ring-1 ring-primary/20'
+          : 'border-border hover:border-primary/40 hover:bg-muted/30 cursor-pointer',
+      )}
+    >
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setExpanded(!expanded)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
+        className="p-3 cursor-pointer select-none space-y-2"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="truncate text-sm font-semibold text-foreground hover:text-primary transition-colors">
+                {row.full_name || 'Agent'}
+              </p>
+              <Badge
+                variant={Number(row.outstanding_amount || 0) <= 0 ? 'secondary' : 'outline'}
+                className="text-[10px]"
+              >
+                {Number(row.outstanding_amount || 0) <= 0 ? 'Fully paid' : 'Repaying'}
+              </Badge>
+            </div>
+            <p className="truncate text-xs text-muted-foreground mt-0.5">
+              {(row.product_names || []).join(', ') || '—'}
+              {row.location_name ? ` • ${row.location_name}` : ''}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0 text-xs text-primary font-medium">
+            <span className="hidden sm:inline text-[11px]">
+              {expanded ? 'Hide breakdown' : 'View payments'}
+            </span>
+            <div className="rounded-md p-1 bg-muted/60 text-foreground transition-transform duration-200">
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] pt-1.5 border-t border-border/50">
+          <span className="text-muted-foreground">
+            Issued<br />
+            <b className="text-foreground tabular-nums">{formatUGX(Number(row.held_amount || 0))}</b>
+          </span>
+          <span className="text-muted-foreground">
+            Repaid<br />
+            <b className="text-emerald-600 tabular-nums">{formatUGX(Number(row.repaid_amount || 0))}</b>
+          </span>
+          <span className="text-muted-foreground">
+            Outstanding<br />
+            <b className="text-rose-600 tabular-nums">{formatUGX(Number(row.outstanding_amount || 0))}</b>
+          </span>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-border/70 bg-background/95 p-3 space-y-2.5 animate-in fade-in-50 duration-150">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-primary" />
+              Payment Sweeps Breakdown
+            </span>
+            <Badge variant="secondary" className="text-[10px] font-mono">
+              {deductions.length} {deductions.length === 1 ? 'sweep' : 'sweeps'}
+            </Badge>
+          </div>
+
+          {isLoading ? (
+            <div className="space-y-1.5 py-1">
+              <Skeleton className="h-10 w-full rounded-lg" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ) : deductions.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/80 p-3 text-center text-xs text-muted-foreground">
+              No repayment sweeps recorded yet for this agent.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/80 divide-y divide-border/60 max-h-64 overflow-y-auto bg-muted/20">
+              {deductions.map((d) => {
+                const dateObj = new Date(d.created_at);
+                const sweepWindow = getSweepWindowLabel(d.created_at);
+                return (
+                  <div
+                    key={d.id}
+                    className="p-2.5 flex items-center justify-between gap-3 text-xs hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-foreground">
+                          {format(dateObj, 'dd MMM yyyy')}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-[11px]">
+                          {format(dateObj, 'HH:mm')} ({format(dateObj, 'hh:mm a')})
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="text-[9px] py-0 px-1.5 font-normal bg-background text-primary border-primary/20"
+                        >
+                          {sweepWindow}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {d.item_name || 'Vehicle repayment'}
+                        {d.transaction_ref ? ` • Ref: ${d.transaction_ref}` : ''}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-bold text-emerald-600 tabular-nums text-xs">
+                        +{formatUGX(Number(d.amount || 0))}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground tabular-nums">
+                        {formatUGX(Number(d.outstanding_after || 0))} left
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {onOpenFullDetail && (
+            <div className="pt-1 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenFullDetail(row.agent_id);
+                }}
+              >
+                <span>View full agent details</span>
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'completed' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -1002,25 +1206,12 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               <p className="text-sm text-muted-foreground">No records in this group yet.</p>
             ) : (
               drillRows.map((r) => (
-                <div key={r.agent_id} className="rounded-xl border p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{r.full_name || 'Agent'}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {(r.product_names || []).join(', ') || '—'}
-                        {r.location_name ? ` • ${r.location_name}` : ''}
-                      </p>
-                    </div>
-                    <Badge variant={Number(r.outstanding_amount || 0) <= 0 ? 'secondary' : 'outline'} className="shrink-0 text-[10px]">
-                      {Number(r.outstanding_amount || 0) <= 0 ? 'Fully paid' : 'Repaying'}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                    <span className="text-muted-foreground">Issued<br /><b className="text-foreground tabular-nums">{formatUGX(Number(r.held_amount || 0))}</b></span>
-                    <span className="text-muted-foreground">Repaid<br /><b className="text-success tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</b></span>
-                    <span className="text-muted-foreground">Outstanding<br /><b className="text-foreground tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</b></span>
-                  </div>
-                </div>
+                <DrillAgentCard
+                  key={r.agent_id}
+                  row={r}
+                  category={category}
+                  onOpenFullDetail={(agentId) => setDetailAgentId(agentId)}
+                />
               ))
             )}
           </div>
