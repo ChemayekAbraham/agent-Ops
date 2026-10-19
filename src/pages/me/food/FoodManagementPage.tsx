@@ -1,5 +1,7 @@
-import { ShieldAlert, Eye } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ShieldAlert, Eye, UtensilsCrossed } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRequireFoodCoordinator, useFoodSession, useFoodCoordinatorOverview } from '@/hooks/useFoodService';
@@ -9,6 +11,9 @@ import FoodMenuPanel from '@/components/food/manage/FoodMenuPanel';
 import FoodServicePanel from '@/components/food/manage/FoodServicePanel';
 import FoodAuditPanel from '@/components/food/manage/FoodAuditPanel';
 import FoodCoordinatorPanel from '@/components/food/manage/FoodCoordinatorPanel';
+
+const VALID_TABS = ['overview', 'queue', 'menu', 'service', 'audit', 'coordinator'] as const;
+type FoodManagementTab = typeof VALID_TABS[number];
 
 /**
  * Food Management. Deliberately lives in My Space, not the CFO dashboard, and
@@ -24,9 +29,27 @@ export default function FoodManagementPage() {
   // Pre-fetch coordinator overview in parallel so overview data resolves concurrently
   useFoodCoordinatorOverview(undefined, true);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const activeTab = (tabParam && (VALID_TABS as readonly string[]).includes(tabParam))
+    ? tabParam
+    : 'overview';
+
+  const onTabChange = (nextTab: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextTab === 'overview') {
+        next.delete('tab');
+      } else {
+        next.set('tab', nextTab);
+      }
+      return next;
+    }, { replace: true });
+  };
+
   if (!checked) {
     return (
-      <PersonalLayout title="Food Management">
+      <PersonalLayout title="Food Management" backTo="/me" backLabel="Back to My space">
         <div className="mx-auto w-full max-w-5xl space-y-4 p-4 sm:p-6">
           <Skeleton className="h-7 w-48" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -42,7 +65,7 @@ export default function FoodManagementPage() {
 
   if (!allowed) {
     return (
-      <PersonalLayout title="Food Management">
+      <PersonalLayout title="Food Management" backTo="/me" backLabel="Back to My space">
         <div className="mx-auto w-full max-w-md p-6">
           <div className="flex flex-col items-center gap-3 rounded-xl border border-border/70 bg-card p-10 text-center">
             <ShieldAlert className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
@@ -60,13 +83,21 @@ export default function FoodManagementPage() {
   const canAuthor = isActive;
 
   return (
-    <PersonalLayout title="Food Management">
+    <PersonalLayout title="Food Management" backTo="/me" backLabel="Back to My space">
       <div className="mx-auto w-full max-w-5xl space-y-4 p-4 sm:p-6">
-        <header>
-          <h1 className="text-lg font-semibold sm:text-xl">Food Management</h1>
-          <p className="text-sm text-muted-foreground">
-            The canteen menu, orders and service for today.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold sm:text-xl">Food Management</h1>
+            <p className="text-sm text-muted-foreground">
+              The canteen menu, orders and service for today.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm" className="rounded-xl font-semibold">
+            <Link to="/me/food">
+              <UtensilsCrossed className="mr-2 h-4 w-4" aria-hidden="true" />
+              Today&rsquo;s menu
+            </Link>
+          </Button>
         </header>
 
         {isBackupOnly && (
@@ -80,7 +111,7 @@ export default function FoodManagementPage() {
           </div>
         )}
 
-        <Tabs defaultValue="overview">
+        <Tabs value={activeTab} onValueChange={onTabChange}>
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="queue">Orders &amp; queue</TabsTrigger>
@@ -91,7 +122,7 @@ export default function FoodManagementPage() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-4">
-            <FoodOverviewPanel />
+            <FoodOverviewPanel onSelectTab={onTabChange} />
           </TabsContent>
           <TabsContent value="queue" className="mt-4">
             <FoodQueuePanel canAuthor={canAuthor} />

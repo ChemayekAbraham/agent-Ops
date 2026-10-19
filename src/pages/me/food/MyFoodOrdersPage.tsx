@@ -36,7 +36,7 @@ export default function MyFoodOrdersPage() {
   const [toWithdraw, setToWithdraw] = useState<FoodOrderDetail | null>(null);
 
   return (
-    <PersonalLayout title="My canteen orders">
+    <PersonalLayout title="My canteen orders" backTo="/me/food" backLabel="Back to Canteen">
       <div className="mx-auto w-full max-w-3xl space-y-5 p-4 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>

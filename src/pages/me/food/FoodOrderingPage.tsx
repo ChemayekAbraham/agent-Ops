@@ -1,7 +1,7 @@
-import { useMemo, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
-  AlertCircle, CalendarOff, ClipboardList, Clock, Info, Moon, ShoppingBag, Sun, Sunrise,
+  AlertCircle, CalendarOff, ChefHat, ClipboardList, Clock, Info, Moon, ShoppingBag, Sun, Sunrise,
   UtensilsCrossed,
 } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -14,6 +14,7 @@ import { isFoodAllDayWindow } from '@/lib/foodService';
 import { safeUUID } from '@/lib/safeUUID';
 import {
   useFoodMenu, useFoodSession, usePlaceFoodOrder, useMyFoodOrders,
+  useFoodCoordinatorStatus,
   formatUgx, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
   type FoodMenuMeal, type FoodMenuPeriod, type FoodPaymentMode,
 } from '@/hooks/useFoodService';
@@ -42,15 +43,41 @@ export default function FoodOrderingPage() {
 
   const { data: menu, isLoading, isError, error, refetch } = useFoodMenu();
   const { data: myOrders } = useMyFoodOrders();
+  const { data: coordinatorStatus } = useFoodCoordinatorStatus();
+  const isFoodCoordinator = coordinatorStatus?.isCoordinator === true;
   const placeOrder = usePlaceFoodOrder();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category')?.toLowerCase();
 
   // menuItemId -> quantity, scoped to one service period at a time
   const [cart, setCart] = useState<Record<string, number>>({});
   const [activePeriodId, setActivePeriodId] = useState<string | null>(null);
   // which meal category the menu is filtered to; 'all' shows everything
-  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [activeCategory, setActiveCategory] = useState<string>(categoryParam ?? 'all');
   const [notes, setNotes] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
+
+  useEffect(() => {
+    if (categoryParam) {
+      setActiveCategory(categoryParam);
+    } else {
+      setActiveCategory('all');
+    }
+  }, [categoryParam]);
+
+  const handleCategoryChange = (val: string) => {
+    setActiveCategory(val);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (val === 'all') {
+        next.delete('category');
+      } else {
+        next.set('category', val);
+      }
+      return next;
+    }, { replace: true });
+  };
   // Chosen by the employee, never defaulted: it is recorded on the order.
   const [paymentMode, setPaymentMode] = useState<FoodPaymentMode | null>('wallet');
   // One key per cart CONTENTS. Reused on every retry of an unchanged cart so a
@@ -161,7 +188,7 @@ export default function FoodOrderingPage() {
   };
 
   return (
-    <PersonalLayout title="Canteen">
+    <PersonalLayout title="Canteen" backTo="/me" backLabel="Back to My space">
       <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -174,20 +201,34 @@ export default function FoodOrderingPage() {
                 : 'Loading…'}
             </p>
           </div>
-          <Button
-            asChild
-            className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            <Link to="/me/food/orders">
-              <ClipboardList className="mr-2 h-4 w-4" aria-hidden="true" />
-              My orders
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isFoodCoordinator && (
+              <Button
+                asChild
+                variant="outline"
+                className="h-11 rounded-xl font-semibold"
+              >
+                <Link to="/me/food/manage">
+                  <ChefHat className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Food Management
+                </Link>
+              </Button>
+            )}
+            <Button
+              asChild
+              className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+            >
+              <Link to="/me/food/orders">
+                <ClipboardList className="mr-2 h-4 w-4" aria-hidden="true" />
+                My orders
+              </Link>
+            </Button>
+          </div>
         </header>
 
         {/* category tabs: one per category on today's menu, plus everything */}
         {!isLoading && !isError && !menu?.closed && categories.length > 0 && (
-          <Tabs value={category} onValueChange={setActiveCategory}>
+          <Tabs value={category} onValueChange={handleCategoryChange}>
             <TabsList
               variant="pills"
               aria-label="Filter the menu by meal category"
