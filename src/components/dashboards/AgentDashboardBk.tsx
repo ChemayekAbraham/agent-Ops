@@ -141,7 +141,6 @@ import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
-import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
