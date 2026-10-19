@@ -24,6 +24,9 @@ export function AgentDailyCapacityStrip() {
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  // Splits the pinned target into in-term rent vs past-term arrears. One RPC,
+  // batched with any other agent on screen — never call per list row.
+  const { data: split } = useOwnExpectedSplit(user?.id ?? null);
 
   if (!user?.id) return null;
 
