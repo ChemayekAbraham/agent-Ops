@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD, type AgentCapacity } from '@/hooks/useAgentCapacityMap';
+import { useOwnExpectedSplit } from '@/hooks/useAgentExpectedSplit';
 import { formatUGX } from '@/lib/rentCalculations';
-import { CalendarCheck2, CheckCircle2, Lock, Loader2 } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Lock, Loader2, AlarmClock } from 'lucide-react';
 
 const RATING_TONE: Record<AgentCapacity['daily_rating'], string> = {
   'Very Good': 'bg-emerald-600/15 text-emerald-700 border-emerald-600/40',
