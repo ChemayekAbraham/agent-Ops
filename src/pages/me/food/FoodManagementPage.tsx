@@ -4,7 +4,10 @@ import PersonalLayout from '@/components/layout/PersonalLayout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRequireFoodCoordinator, useFoodSession, useFoodCoordinatorOverview } from '@/hooks/useFoodService';
+import {
+  useRequireFoodCoordinator, useFoodSession, useFoodCoordinatorOverview,
+  useFoodMeals, useFoodCategories, useFoodServicePeriods, useFoodMenu,
+} from '@/hooks/useFoodService';
 import FoodOverviewPanel from '@/components/food/manage/FoodOverviewPanel';
 import FoodQueuePanel from '@/components/food/manage/FoodQueuePanel';
 import FoodMenuPanel from '@/components/food/manage/FoodMenuPanel';
@@ -26,8 +29,12 @@ type FoodManagementTab = typeof VALID_TABS[number];
 export default function FoodManagementPage() {
   useFoodSession();
   const { checked, allowed, isBackupOnly, isActive } = useRequireFoodCoordinator();
-  // Pre-fetch coordinator overview in parallel once allowed
+  // Pre-fetch coordinator overview and menu tab data in parallel once allowed
   useFoodCoordinatorOverview(undefined, allowed);
+  useFoodMeals(allowed);
+  useFoodCategories(false);
+  useFoodServicePeriods(false);
+  useFoodMenu(undefined, allowed);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');

@@ -324,7 +324,7 @@ export async function signFoodMealPhotos(
     const signPromise = supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
       .createSignedUrls(toSign, FOOD_MEAL_PHOTO_URL_TTL_SECONDS);
     const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 1500)
+      setTimeout(() => resolve({ data: null, error: { message: 'timeout' } }), 700)
     );
     const { data, error } = await Promise.race([signPromise, timeoutPromise]);
     if (error || !data) return out;
@@ -530,6 +530,7 @@ export function useFoodMeals(enabled = true) {
     queryKey: ['food', 'meals'] as const,
     enabled,
     staleTime: 30_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodMeal>('food_meals');
       const urls = await signFoodMealPhotos(rows.map((m) => m.image_path));
@@ -542,6 +543,7 @@ export function useFoodCategories(includeArchived = false) {
   return useQuery({
     queryKey: ['food', 'categories', includeArchived] as const,
     staleTime: 60_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodCategory>('food_categories', { includeArchived });
       return [...rows].sort((a, b) => a.sort_order - b.sort_order);
@@ -553,6 +555,7 @@ export function useFoodServicePeriods(includeInactive = false) {
   return useQuery({
     queryKey: ['food', 'periods', includeInactive] as const,
     staleTime: 60_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodServicePeriod>('food_service_periods', { includeInactive });
       return [...rows].sort((a, b) => a.ordering_opens_at.localeCompare(b.ordering_opens_at));
@@ -564,6 +567,7 @@ export function useFoodClosures() {
   return useQuery({
     queryKey: ['food', 'closures'] as const,
     staleTime: 60_000,
+    retry: false,
     queryFn: async () => {
       const rows = await selectRows<FoodServiceClosure>('food_service_closures');
       return [...rows].sort((a, b) => a.closure_date.localeCompare(b.closure_date));
