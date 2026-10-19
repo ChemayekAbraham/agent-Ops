@@ -194,7 +194,7 @@ export default function FoodMealCard({
               onClick={() => { onChange(quantity + picked); setPick(1); }}
             >
               <ShoppingCart className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to order'}
+              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to cart'}
             </Button>
           </div>
         </div>
