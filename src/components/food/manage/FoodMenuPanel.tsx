@@ -405,7 +405,13 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
           </Button>
         </div>
 
-        {(categories ?? []).length === 0 ? (
+        {categoriesQ.isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (categories ?? []).length === 0 ? (
           <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
             No categories yet.
           </p>
