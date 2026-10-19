@@ -1,5 +1,6 @@
 # Tasks
-- [ ] Add and verify CTO Git Pushes view while preserving Commits and leaving the push hook/backend untouched.
+- [x] Add CTO Git Pushes view; 3 filter/refresh tests pass, isolated desktop/mobile checks cover expanded details and both themes; Commits and protected push hook/backend preserved.
+- [ ] Verify CTO Pushes with live signed-in history — blocked: externally managed authentication is unavailable to browser testing.
 - [x] Patch dashboard auth-lock delays: bounded identity reads, duplicate startup role lookup removed, single-flight watchdog and header identity reuse; 28 tests and safety guards pass, public sign-in renders without runtime errors.
 - [ ] Verify patched dashboard with a real signed-in account — blocked: externally managed authentication cannot be restored by the available testing tools.
 - [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.

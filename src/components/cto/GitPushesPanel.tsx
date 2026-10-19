@@ -32,7 +32,7 @@ function PushCard({ push }: { push: GithubPushEvent }) {
             {push.forced && <Badge variant="warning" className="tracking-normal">Force-push</Badge>}
             {push.created && <Badge variant="secondary" className="tracking-normal">New branch</Badge>}
             {push.deleted && <Badge variant="destructive" className="tracking-normal">Branch deleted</Badge>}
-            {push.isTag && <Badge variant="outline" className="tracking-normal">Tag</Badge>}
+            {push.isTag && <Badge variant="secondary" className="tracking-normal">Tag</Badge>}
           </div>
           <p className="break-words text-sm text-foreground">{push.headCommitMessage || '(no head commit message)'}</p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
@@ -43,7 +43,7 @@ function PushCard({ push }: { push: GithubPushEvent }) {
         </div>
       </div>
       <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
-        <CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="gap-2" aria-label={`${open ? 'Hide' : 'Show'} commits for ${push.pushedBy} on ${push.branch}`}><GitCommit className="h-3.5 w-3.5" />{open ? 'Hide commits' : 'Show commits'} ({push.commits.length})<ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></Button></CollapsibleTrigger>
+        <CollapsibleTrigger asChild><Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" aria-label={`${open ? 'Hide' : 'Show'} commits for ${push.pushedBy} on ${push.branch}`}><GitCommit className="h-3.5 w-3.5" />{open ? 'Hide commits' : 'Show commits'} ({push.commits.length})<ChevronDown className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} /></Button></CollapsibleTrigger>
         <CollapsibleContent>
           <ul className="mt-2 divide-y divide-border border-t border-border">
             {push.commits.map((commit, index) => (
@@ -81,7 +81,7 @@ export default function GitPushesPanel({ windows }: { windows: readonly { label:
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground"><Upload className="h-5 w-5 text-primary" />GitHub pushes</h2>
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <div className="grid min-w-0 flex-1 grid-cols-4 overflow-hidden rounded-lg border border-border sm:flex">{windows.map(window => <Button key={window.days} variant={days === window.days ? 'default' : 'ghost'} size="sm" className="rounded-none px-2 text-xs sm:px-3" aria-pressed={days === window.days} onClick={() => { setDays(window.days); setPerson(ALL); setBranch(ALL); }}>{window.label}</Button>)}</div>
+          <div className="grid min-w-0 flex-1 grid-cols-4 overflow-hidden rounded-lg border border-border sm:flex">{windows.map(window => <Button key={window.days} variant={days === window.days ? 'default' : 'ghost'} size="sm" className={`rounded-none px-2 text-xs sm:px-3 ${days === window.days ? 'text-primary-foreground' : 'text-muted-foreground'}`} aria-pressed={days === window.days} onClick={() => { setDays(window.days); setPerson(ALL); setBranch(ALL); }}>{window.label}</Button>)}</div>
           <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Refresh pushes" title="Refresh pushes" disabled={query.isFetching || windowQuery.isFetching} onClick={() => { void windowQuery.refetch(); if (person !== ALL || branch !== ALL) void query.refetch(); }}><RefreshCw className={`h-3.5 w-3.5 ${query.isFetching || windowQuery.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} /></Button>
         </div>
       </div>
