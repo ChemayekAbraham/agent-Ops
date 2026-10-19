@@ -456,7 +456,7 @@ export default function FoodOrderingPage() {
                 </span>
               </div>
               <h2 className="mt-1 text-base font-extrabold tracking-tight text-foreground sm:text-lg">
-                Zero meal fees &middot; Covered by daily staff allowance
+                Zero meal fees &middot; Partly covered by daily staff allowance
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Meals prepared fresh and ready for swift dining hall pickup.
