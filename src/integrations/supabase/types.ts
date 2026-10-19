@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      _audit_elig_before_20261019: {
+        Row: {
+          active_count: number | null
+          agent_id: string | null
+          effective_pct: number | null
+          expected_daily: number | null
+          paid_today: number | null
+          raw_today_pct: number | null
+          raw_yesterday_pct: number | null
+          tenants_due: number | null
+          tenants_paid_today: number | null
+          today_pct: number | null
+        }
+        Insert: {
+          active_count?: number | null
+          agent_id?: string | null
+          effective_pct?: number | null
+          expected_daily?: number | null
+          paid_today?: number | null
+          raw_today_pct?: number | null
+          raw_yesterday_pct?: number | null
+          tenants_due?: number | null
+          tenants_paid_today?: number | null
+          today_pct?: number | null
+        }
+        Update: {
+          active_count?: number | null
+          agent_id?: string | null
+          effective_pct?: number | null
+          expected_daily?: number | null
+          paid_today?: number | null
+          raw_today_pct?: number | null
+          raw_yesterday_pct?: number | null
+          tenants_due?: number | null
+          tenants_paid_today?: number | null
+          today_pct?: number | null
+        }
+        Relationships: []
+      }
+      _audit_pin_before_20261019: {
+        Row: {
+          agents: number | null
+          day: string | null
+          rows_n: number | null
+          ugx: number | null
+        }
+        Insert: {
+          agents?: number | null
+          day?: string | null
+          rows_n?: number | null
+          ugx?: number | null
+        }
+        Update: {
+          agents?: number | null
+          day?: string | null
+          rows_n?: number | null
+          ugx?: number | null
+        }
+        Relationships: []
+      }
       access_surface_positions: {
         Row: {
           created_at: string
