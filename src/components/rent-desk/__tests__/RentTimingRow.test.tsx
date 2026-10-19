@@ -28,12 +28,12 @@ describe('RentTimingRow', () => {
     expect(rpc).not.toHaveBeenCalled(); // journey is fetched only when opened
   });
   it('shows a skeleton while loading', () => {
-    wrap(<RentTimingRow requestId="r1" loading />);
+    wrap(<RentTimingRow requestId="r1" timing={undefined} loading />);
     expect(screen.getByTestId('timing-loading')).toBeTruthy();
   });
   it('shows an error with Retry', () => {
     const onRetry = vi.fn();
-    wrap(<RentTimingRow requestId="r1" error={new Error('x')} onRetry={onRetry} />);
+    wrap(<RentTimingRow requestId="r1" timing={undefined} error={new Error('x')} onRetry={onRetry} />);
     fireEvent.click(screen.getByRole('button', { name: /retry/i }));
     expect(onRetry).toHaveBeenCalled();
   });

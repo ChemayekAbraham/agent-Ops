@@ -18,7 +18,8 @@ export function useRentRequestAgentChain(ids: string[], options: { enabled?: boo
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<AgentChain[]> => {
-      const { data, error } = await supabase.rpc('rent_request_agent_chain', { p_request_ids: asked });
+      // types list not yet refreshed for this function (applied directly); remove the cast once it is
+      const { data, error } = await (supabase.rpc as any)('rent_request_agent_chain', { p_request_ids: asked });
       if (error) throw error;
       return normalizeAgentChain(data);
     },
