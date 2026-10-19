@@ -144,9 +144,7 @@ export default function BorrowerResidenceGate({ open, onOpenChange, onComplete }
     let ll: LinkedLandlord | null = null;
     if (prof?.borrower_landlord_id) {
       const { data } = await supabase
-        .from('landlords_directory')
-        .select('id, name, phone, verified, verification_status, verification_reason, latitude, longitude, property_address, village, district, registered_by')
-        .eq('id', prof.borrower_landlord_id)
+        .rpc('landlord_directory_entry', { p_id: prof.borrower_landlord_id })
         .maybeSingle();
       ll = (data as LinkedLandlord) ?? null;
     }

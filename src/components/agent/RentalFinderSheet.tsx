@@ -86,10 +86,7 @@ export function RentalFinderSheet({ open, onOpenChange }: RentalFinderSheetProps
     setLoading(true);
     setError(null);
     const { data, error: fetchError } = await supabase
-      .from('landlords_directory')
-      .select('id, name, phone, property_address, latitude, longitude, monthly_rent, number_of_rooms, number_of_houses, verified, country, region, district, county, sub_county, town_council, village, cell, house_number, electricity_meter_number, water_meter_number, caretaker_name, caretaker_phone')
-      .order('created_at', { ascending: false })
-      .limit(2000);
+      .rpc('landlord_directory_browse', { p_limit: 2000 });
     if (fetchError) {
       console.error('[RentalFinderSheet] landlord fetch failed:', fetchError);
       setError('Could not load landlords. Pull to retry.');

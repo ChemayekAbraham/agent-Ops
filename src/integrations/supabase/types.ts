@@ -75181,6 +75181,84 @@ export type Database = {
           witness_signed_on: string
         }[]
       }
+      landlord_directory_browse: {
+        Args: { p_limit?: number }
+        Returns: {
+          caretaker_name: string
+          caretaker_phone: string
+          cell: string
+          country: string
+          county: string
+          district: string
+          electricity_meter_number: string
+          house_number: string
+          id: string
+          latitude: number
+          longitude: number
+          monthly_rent: number
+          name: string
+          number_of_houses: number
+          number_of_rooms: number
+          phone: string
+          property_address: string
+          region: string
+          sub_county: string
+          town_council: string
+          verified: boolean
+          village: string
+          water_meter_number: string
+        }[]
+      }
+      landlord_directory_entry: {
+        Args: { p_id: string }
+        Returns: {
+          caretaker_name: string | null
+          caretaker_phone: string | null
+          cell: string | null
+          country: string | null
+          county: string | null
+          created_at: string | null
+          description: string | null
+          desired_rent_from_welile: number | null
+          district: string | null
+          electricity_meter_number: string | null
+          has_smartphone: boolean | null
+          house_category: string | null
+          house_number: string | null
+          id: string | null
+          is_agent_managed: boolean | null
+          is_occupied: boolean | null
+          latitude: number | null
+          location_captured_at: string | null
+          longitude: number | null
+          managed_by_agent_id: string | null
+          monthly_rent: number | null
+          name: string | null
+          number_of_houses: number | null
+          number_of_rooms: number | null
+          phone: string | null
+          property_address: string | null
+          ready_to_receive: boolean | null
+          region: string | null
+          registered_by: string | null
+          sub_county: string | null
+          tenant_id: string | null
+          town_council: string | null
+          updated_at: string | null
+          verification_reason: string | null
+          verification_status: string | null
+          verified: boolean | null
+          verified_at: string | null
+          village: string | null
+          water_meter_number: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "landlords_directory"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       landlord_float_budget_can_view: {
         Args: { _user_id: string }
         Returns: boolean
@@ -76158,6 +76236,42 @@ export type Database = {
         Returns: boolean
       }
       merchant_ledger_float: { Args: { p_agent_id: string }; Returns: number }
+      merchant_oop_debts_for_settlement: {
+        Args: { p_limit?: number }
+        Returns: {
+          advance_id: string | null
+          agent_id: string | null
+          attested_at: string | null
+          created_at: string | null
+          evidence: Json | null
+          evidenced_amount: number | null
+          float_position_at_payout: number | null
+          float_used: number | null
+          is_estimate: boolean | null
+          is_evidenced: boolean | null
+          kind: string | null
+          note: string | null
+          payout_amount: number | null
+          payout_at: string | null
+          payout_tid: string | null
+          provider: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reimbursed_at: string | null
+          reviewed_at: string | null
+          shortfall_amount: number | null
+          status: string | null
+          telecom_charge: number | null
+          withdrawal_amount: number | null
+          withdrawal_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "v_merchant_oop_evidence"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       merchant_payout_success_matrix: {
         Args: { p_days?: number }
         Returns: {
