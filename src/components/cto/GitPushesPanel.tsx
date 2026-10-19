@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import { AlertCircle, ChevronDown, ExternalLink, GitBranch, GitCommit, GitPush, RefreshCw } from 'lucide-react';
+import { AlertCircle, ChevronDown, ExternalLink, GitBranch, GitCommit, Upload, RefreshCw } from 'lucide-react';
 import { useGithubPushEvents, type GithubPushEvent } from '@/hooks/useGithubPushEvents';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +79,7 @@ export default function GitPushesPanel({ windows }: { windows: readonly { label:
   return (
     <div className="min-w-0 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground"><GitPush className="h-5 w-5 text-primary" />GitHub pushes</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground"><Upload className="h-5 w-5 text-primary" />GitHub pushes</h2>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <div className="grid min-w-0 flex-1 grid-cols-4 overflow-hidden rounded-lg border border-border sm:flex">{windows.map(window => <Button key={window.days} variant={days === window.days ? 'default' : 'ghost'} size="sm" className="rounded-none px-2 text-xs sm:px-3" aria-pressed={days === window.days} onClick={() => { setDays(window.days); setPerson(ALL); setBranch(ALL); }}>{window.label}</Button>)}</div>
           <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label="Refresh pushes" title="Refresh pushes" disabled={query.isFetching || windowQuery.isFetching} onClick={() => { void windowQuery.refetch(); if (person !== ALL || branch !== ALL) void query.refetch(); }}><RefreshCw className={`h-3.5 w-3.5 ${query.isFetching || windowQuery.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} /></Button>
