@@ -687,6 +687,7 @@ export function StaffRequisitionQueue() {
                   <th className="text-left px-3 py-2 font-semibold">Description / Purpose</th>
                   <th className="text-right px-3 py-2 font-semibold">Requested (UGX)</th>
                   <th className="text-right px-3 py-2 font-semibold">Current (UGX)</th>
+                  <th className="text-right px-3 py-2 font-semibold">Dept budget (UGX)</th>
                   <th className="text-left px-3 py-2 font-semibold">Status</th>
                   <th className="text-left px-3 py-2 font-semibold">Submitted</th>
                   <th className="text-right px-3 py-2 font-semibold">Actions</th>
