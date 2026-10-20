@@ -12,12 +12,21 @@
 --     not clear the payable. A screenshot match is shown as a label. An evidence line that matches more than
 --     one payout confirms none of them.
 --   * Exceptions for CFO review (a payout can carry several; 'exception' is the most serious): failed_but_paid,
---     completed_without_payout, paid_amount_differs (the withdrawal paid another amount than the payout records),
+--     completed_without_payout, evidence_conflict (a statement line says the transaction failed, was reversed or is
+--     pending), paid_amount_differs (the withdrawal paid another amount than the payout records),
 --     reference_unusable (not an 11-digit MTN or 12-digit Airtel transaction ID), shared_evidence, shared_reference (another payout has the same
 --     reference). probable_match is a hint, not an exception. Exceptions never change an amount or a state.
---   * Evidence: provider statements imported by FinOps/CFO (import_provider_statement; each line carries the
---     provider's status and only successful outgoing lines count, a reversed line cancels them; immutable lines, a
---     wrong file can be voided by the CFO, never deleted) plus the existing provider e-mail feed.
+--   * Evidence: the original provider SMS (provider e-mail feed) is the PRIMARY evidence. Provider statements imported
+--     by FinOps/CFO (import_provider_statement) are SUPPLEMENTARY: each line carries the provider's status; a
+--     successful outgoing line can confirm a payout that has no SMS only when the match is RELIABLE (one payout on the
+--     line, a valid 11/12-digit reference used by no other payout, an amount within the allowance, and no unresolved
+--     contradictory status; a pending line followed by a success on the same channel and account is resolved).
+--     A reversal cancels a statement success only when reliably linked (same transaction ID, channel and account,
+--     compatible amount). Anything less is kept for CFO review (statement_match_unreliable / evidence_conflict).
+--     Reversals issued under a NEW transaction ID cannot be linked (no official export sample shows an
+--     original-transaction column yet); unlinked failed/reversed/pending statement lines are listed for review. A failed, reversed or pending statement line NEVER removes an SMS confirmation or
+--     reopens a payable: it raises evidence_conflict for the CFO. Statement lines are immutable; a wrong file can be
+--     voided by the CFO, never deleted.
 --
 -- REPORTING AND EVIDENCE ONLY. No ledger entry, wallet, payout, withdrawal or status is written. The ledger
 -- still posts rent at CFO funding; recording a landlord payable balance in the ledger is a separate decision.
@@ -313,17 +322,40 @@ base AS (
     LEFT JOIN alloc al ON al.rent_request_id = lp.rent_request_id
     LEFT JOIN public.profiles pr ON pr.id = lp.landlord_id
 ),
-ev AS (                          -- provider evidence: imported statement lines (not voided) and provider e-mails
-  SELECT 'statement'::text AS source, l.id AS source_id, l.tid_normalized AS tid, l.amount, l.counterparty9 AS cp9, l.tx_at
+sl AS (                          -- live (not voided) statement lines
+  SELECT l.id, l.channel, l.account_ref, l.direction, l.status, l.tid_normalized AS tid, l.amount, l.counterparty9 AS cp9, l.tx_at
     FROM public.provider_statement_lines l
-   WHERE l.direction = 'out' AND l.voided_at IS NULL AND l.status = 'successful'
-     AND NOT EXISTS (SELECT 1 FROM public.provider_statement_lines r      -- a reversal cancels the evidence
-                      WHERE r.voided_at IS NULL AND r.status = 'reversed'
-                        AND r.channel = l.channel AND r.tid_normalized = l.tid_normalized)
+   WHERE l.voided_at IS NULL
+),
+st_ok AS (                       -- successful outgoing statement lines and how reliable they are
+  SELECT s.*,
+         -- A reversal cancels this line only when reliably linked: same transaction ID, channel and account, and an
+         -- amount within the fee allowance. Any other reversal is a contradiction for CFO review, never a cancellation.
+         EXISTS (SELECT 1 FROM sl r
+                  WHERE r.status = 'reversed' AND r.tid = s.tid AND r.channel = s.channel
+                    AND r.account_ref = s.account_ref AND abs(r.amount - s.amount) <= 5000) AS reliably_reversed,
+         -- Unresolved contradiction: another line for the same transaction ID that is failed; reversed but not reliably
+         -- linked; pending unless it is the same channel and account and earlier than this success (pending-then-
+         -- successful); or a second successful outgoing line (a duplicate in another channel).
+         EXISTS (SELECT 1 FROM sl x
+                  WHERE x.tid = s.tid AND x.id <> s.id
+                    AND (x.status = 'failed'
+                      OR (x.status = 'reversed' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
+                                                         AND abs(x.amount - s.amount) <= 5000))
+                      OR (x.status = 'pending' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
+                                                        AND x.tx_at <= s.tx_at))
+                      OR (x.status = 'successful' AND x.direction = 'out'))) AS contradicted
+    FROM sl s
+   WHERE s.direction = 'out' AND s.status = 'successful'
+),
+ev AS (                          -- provider evidence: the original provider SMS (primary) and statement lines (supplementary)
+  SELECT 'statement'::text AS source, s.id AS source_id, s.tid, s.amount, s.cp9, s.tx_at, s.contradicted
+    FROM st_ok s
+   WHERE NOT s.reliably_reversed
   UNION ALL
   SELECT 'provider_email'::text, g.id, regexp_replace(COALESCE(g.transaction_id, ''), '[^0-9]', '', 'g'), g.amount,
          right(regexp_replace(COALESCE(g.counterparty, ''), '[^0-9]', '', 'g'), 9),
-         COALESCE(g.tx_date::timestamp AT TIME ZONE 'Africa/Kampala', g.internal_date)
+         COALESCE(g.tx_date::timestamp AT TIME ZONE 'Africa/Kampala', g.internal_date), false
     FROM public.gmail_transactions g
    WHERE g.direction = 'out' AND g.amount > 0
 ),
@@ -332,17 +364,41 @@ refs AS (                        -- each paid-out payout's provider reference(s)
   UNION
   SELECT payout_id, amount, ref_finops FROM base WHERE paid_out AND ref_finops IS NOT NULL
 ),
+ref_all AS (                     -- how many payouts (any state) carry each reference, in either field
+  SELECT x.ref, count(DISTINCT x.payout_id) AS payouts
+    FROM (SELECT payout_id, ref_withdrawal AS ref FROM base WHERE ref_withdrawal IS NOT NULL
+          UNION ALL
+          SELECT payout_id, ref_finops FROM base WHERE ref_finops IS NOT NULL) x
+   GROUP BY x.ref
+),
 tid_match AS (                   -- same transaction ID and amount (up to 5,000 above, for the provider fee)
-  SELECT r.payout_id, e.source, e.source_id, e.tx_at,
+  SELECT r.payout_id, r.ref, e.source, e.source_id, e.tx_at, e.contradicted,
          count(*) OVER (PARTITION BY e.source, e.source_id) AS payouts_on_line
     FROM refs r
     JOIN ev e ON e.tid = r.ref AND length(e.tid) >= 6
    WHERE e.amount BETWEEN r.amount AND r.amount + 5000
 ),
-confirmed AS (                   -- an evidence line that matches more than one payout confirms none of them
+tid_ok AS (                      -- may this match confirm? The original SMS: as before (one payout on the line).
+                                 -- A statement line, without SMS: only when RELIABLE: one payout on the line, a valid
+                                 -- 11/12-digit reference used by no other payout, and no unresolved contradiction.
+  SELECT t.*,
+         (t.payouts_on_line = 1
+          AND (t.source = 'provider_email'
+               OR (length(t.ref) IN (11, 12) AND COALESCE(ra.payouts, 0) = 1 AND NOT t.contradicted))) AS reliable
+    FROM tid_match t
+    LEFT JOIN ref_all ra ON ra.ref = t.ref
+),
+confirmed AS (                   -- the original provider SMS is the primary evidence, a statement line supplementary
   SELECT DISTINCT ON (t.payout_id) t.payout_id, t.source, t.source_id, t.tx_at
-    FROM tid_match t WHERE t.payouts_on_line = 1
-   ORDER BY t.payout_id, (t.source = 'statement') DESC, t.tx_at
+    FROM tid_ok t WHERE t.reliable
+   ORDER BY t.payout_id, (t.source = 'provider_email') DESC, t.tx_at
+),
+st_unreliable AS (               -- statement lines that point at a payout but cannot confirm it: kept for CFO review
+  SELECT t.payout_id FROM tid_ok t WHERE t.source = 'statement' AND NOT t.reliable
+  UNION
+  SELECT r.payout_id                                   -- same transaction ID, amount outside the allowance
+    FROM refs r JOIN st_ok s ON s.tid = r.ref AND length(r.ref) >= 6
+   WHERE NOT s.reliably_reversed AND NOT (s.amount BETWEEN r.amount AND r.amount + 5000)
 ),
 shared AS (SELECT DISTINCT t.payout_id FROM tid_match t WHERE t.payouts_on_line > 1),
 phone_match AS (                 -- same number and amount within 3 days, but no transaction ID: probable only
@@ -357,6 +413,20 @@ shot AS (                        -- FinOps screenshot check (Welile-side capture
   SELECT DISTINCT ON (o.withdrawal_request_id) o.withdrawal_request_id, o.validation_result
     FROM public.payout_proof_ocr_log o
    ORDER BY o.withdrawal_request_id, o.created_at DESC
+),
+conflict AS (                    -- statement lines saying the payout's transaction failed, was reversed or is pending.
+                                 -- They never remove an SMS confirmation or reopen a payable: they are shown for review.
+                                 -- A pending line later resolved by a success on the same channel and account is not one.
+  SELECT r.payout_id,
+         array_agg(DISTINCT l.status ORDER BY l.status) AS statuses,
+         array_agg(l.id ORDER BY l.tx_at) AS line_ids
+    FROM refs r
+    JOIN sl l ON l.tid = r.ref AND length(r.ref) >= 6 AND l.status IN ('failed', 'reversed', 'pending')
+   WHERE NOT (l.status = 'pending'
+              AND EXISTS (SELECT 1 FROM sl s2
+                           WHERE s2.tid = l.tid AND s2.status = 'successful' AND s2.direction = 'out'
+                             AND s2.channel = l.channel AND s2.account_ref = l.account_ref AND s2.tx_at >= l.tx_at))
+   GROUP BY r.payout_id
 ),
 ref_use AS (                     -- how many payouts carry the same provider reference
   SELECT COALESCE(ref_withdrawal, ref_finops) AS ref, count(*) AS payouts
@@ -381,14 +451,23 @@ SELECT b.payout_id, b.rent_request_id, b.landlord_id, b.landlord_name, b.landlor
             WHEN b.payout_status = 'failed' THEN 'failed'
             ELSE 'not_paid' END AS state,
        b.paid_amount,
+       cf.statuses AS conflict_statuses,
+       cf.line_ids AS conflict_line_ids,
        -- Every exception that applies, most serious first; 'exception' (below) is the first one.
        --   paid_amount_differs  the completed withdrawal paid a different amount than the payout records
+       --   evidence_conflict    a statement line says this payout's transaction failed, was reversed or is pending
+       --                        (an SMS confirmation stays; the CFO investigates)
+       --   statement_match_unreliable  a statement line points at this payout but cannot confirm it: shared or invalid
+       --                        reference, several payouts on the line, an unresolved contradictory status, or an amount
+       --                        outside the allowance
        --   reference_unusable   paid out, unconfirmed, and its reference is not an MTN (11-digit) or Airtel (12-digit)
        --                        transaction ID, so it can never match a provider line exactly
        --   shared_reference     paid out, unconfirmed, and another payout carries the same reference
        array_remove(ARRAY[
          CASE WHEN b.paid_out AND b.payout_status = 'failed' THEN 'failed_but_paid' END,
          CASE WHEN NOT b.paid_out AND b.payout_status = 'completed' THEN 'completed_without_payout' END,
+         CASE WHEN cf.payout_id IS NOT NULL THEN 'evidence_conflict' END,
+         CASE WHEN b.paid_out AND c.payout_id IS NULL AND su.payout_id IS NOT NULL THEN 'statement_match_unreliable' END,
          CASE WHEN b.paid_out AND b.paid_amount IS NOT NULL AND b.paid_amount <> b.amount THEN 'paid_amount_differs' END,
          CASE WHEN b.paid_out AND c.payout_id IS NULL
                AND length(COALESCE(b.ref_withdrawal, b.ref_finops, '')) NOT IN (11, 12) THEN 'reference_unusable' END,
@@ -402,6 +481,8 @@ SELECT b.payout_id, b.rent_request_id, b.landlord_id, b.landlord_name, b.landlor
   LEFT JOIN phone_match pm ON pm.payout_id = b.payout_id
   LEFT JOIN shot sh ON sh.withdrawal_request_id = b.withdrawal_id
   LEFT JOIN ref_use ru ON ru.ref = COALESCE(b.ref_withdrawal, b.ref_finops)
+  LEFT JOIN conflict cf ON cf.payout_id = b.payout_id
+  LEFT JOIN (SELECT DISTINCT payout_id FROM st_unreliable) su ON su.payout_id = b.payout_id
 )
 SELECT fin.*, fin.exceptions[1] AS exception FROM fin;
 
@@ -622,7 +703,14 @@ DECLARE
   v jsonb;
 BEGIN
   PERFORM public.payables_guard();
-  WITH s0 AS MATERIALIZED (SELECT * FROM public.v_landlord_payout_settlement),
+  -- Amounts are reported in two NON-OVERLAPPING groups, so they can never be added together by mistake:
+  --   payable              paid out, not confirmed (the outstanding landlord payable). "payable_under_review" is
+  --                        the part of it carrying a review exception: a SUBSET of payable, never added to it.
+  --   review_only          carries a review exception but is NOT payable: confirmed payouts (e.g. confirmed by
+  --                        the original SMS with a conflicting statement line) and payouts never paid out.
+  WITH s0 AS MATERIALIZED (
+    SELECT s.*, (s.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'evidence_conflict', 'statement_match_unreliable', 'paid_amount_differs', 'reference_unusable', 'shared_evidence', 'shared_reference']::text[]) AS under_review
+      FROM public.v_landlord_payout_settlement s),
   al AS (
     SELECT a.week_start, sum(a.amount) AS allocated, count(*) AS allocated_count,
            COALESCE(sum(a.amount) FILTER (WHERE NOT EXISTS (SELECT 1 FROM s0 s WHERE s.rent_request_id = a.rent_request_id AND s.paid_out)), 0) AS approved_not_paid,
@@ -643,11 +731,15 @@ BEGIN
            count(*) FILTER (WHERE s.state = 'confirmed')                          AS confirmed_count,
            COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed'), 0) AS payable,
            count(*) FILTER (WHERE s.state = 'paid_unconfirmed')                   AS payable_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.under_review), 0) AS payable_under_review,
+           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.under_review) AS payable_under_review_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.state <> 'paid_unconfirmed' AND s.under_review), 0) AS review_only,
+           count(*) FILTER (WHERE s.state <> 'paid_unconfirmed' AND s.under_review) AS review_only_count,
            count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND 'probable_match' = ANY (s.exceptions)) AS probable_count,
            count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.screenshot_result = 'match') AS screenshot_matched_count
       FROM s0 s
-     WHERE s.paid_out
-     GROUP BY 1, 2),
+     GROUP BY 1, 2
+    HAVING count(*) FILTER (WHERE s.paid_out) > 0 OR count(*) FILTER (WHERE s.under_review) > 0),
   wk AS (
     SELECT week_start, true AS has_weekly_float FROM al
     UNION SELECT period_start, true FROM fl
@@ -661,34 +753,59 @@ BEGIN
            COALESCE(p.paid_out, 0) AS paid_out, COALESCE(p.paid_out_count, 0) AS paid_out_count,
            COALESCE(p.confirmed, 0) AS confirmed, COALESCE(p.confirmed_count, 0) AS confirmed_count,
            COALESCE(p.payable, 0) AS payable, COALESCE(p.payable_count, 0) AS payable_count,
+           COALESCE(p.payable_under_review, 0) AS payable_under_review,
+           COALESCE(p.payable_under_review_count, 0) AS payable_under_review_count,
+           COALESCE(p.review_only, 0) AS review_only, COALESCE(p.review_only_count, 0) AS review_only_count,
            COALESCE(p.probable_count, 0) AS probable_count, COALESCE(p.screenshot_matched_count, 0) AS screenshot_matched_count
       FROM wk w
       LEFT JOIN al a ON w.has_weekly_float AND a.week_start = w.week_start
       LEFT JOIN fl f ON w.has_weekly_float AND f.period_start = w.week_start
-      LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float)
+      LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float),
+  unlinked AS (                  -- failed / reversed / pending statement lines that match no payout reference
+    SELECT l.id, l.channel, l.account_ref, l.direction, l.status, l.transaction_id, l.amount, l.tx_at
+      FROM public.provider_statement_lines l
+     WHERE l.voided_at IS NULL AND l.status IN ('failed', 'reversed', 'pending')
+       AND NOT EXISTS (SELECT 1 FROM s0 s WHERE s.payout_reference = l.tid_normalized)
+       AND NOT EXISTS (SELECT 1 FROM public.landlord_payouts lp
+                        WHERE regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g') = l.tid_normalized))
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'A landlord payout is payable once it has been paid out, until a provider statement line confirms it (same transaction ID and amount). Grouped by the CFO weekly landlord float; payouts without a weekly float are grouped by the week they were paid.',
+    'rule', 'A landlord payout is payable once it has been paid out, until provider evidence confirms it: the original provider SMS (primary) or a reliably matched official statement line (same transaction ID and amount, no contradiction). Grouped by the CFO weekly landlord float; payouts without a weekly float are grouped by the week they were paid. Amounts under review are reported separately: payable_under_review is part of payable; review_only is not payable. Never add review amounts to payable.',
     'totals', (SELECT jsonb_build_object(
         'payable', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed'), 0),
         'payable_count', count(*) FILTER (WHERE state = 'paid_unconfirmed'),
         'payable_with_weekly_float', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND has_weekly_float), 0),
         'payable_without_weekly_float', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND NOT has_weekly_float), 0),
+        'payable_under_review', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND under_review), 0),
+        'payable_under_review_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND under_review),
+        'review_only', COALESCE(sum(amount) FILTER (WHERE state <> 'paid_unconfirmed' AND under_review), 0),
+        'review_only_count', count(*) FILTER (WHERE state <> 'paid_unconfirmed' AND under_review),
+        'confirmed_under_review', COALESCE(sum(amount) FILTER (WHERE state = 'confirmed' AND under_review), 0),
+        'confirmed_under_review_count', count(*) FILTER (WHERE state = 'confirmed' AND under_review),
+        'not_paid_under_review', COALESCE(sum(amount) FILTER (WHERE state IN ('not_paid', 'failed') AND under_review), 0),
+        'not_paid_under_review_count', count(*) FILTER (WHERE state IN ('not_paid', 'failed') AND under_review),
         'confirmed', COALESCE(sum(amount) FILTER (WHERE state = 'confirmed'), 0),
         'confirmed_count', count(*) FILTER (WHERE state = 'confirmed'),
         'approved_not_paid', (SELECT COALESCE(sum(approved_not_paid), 0) FROM al),
         'probable_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND 'probable_match' = ANY (exceptions)),
         'screenshot_matched_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND screenshot_result = 'match'),
-        'exception_count', count(*) FILTER (WHERE exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'paid_amount_differs', 'reference_unusable', 'shared_evidence', 'shared_reference']::text[]),
-        'exception_amount', COALESCE(sum(amount) FILTER (WHERE exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'paid_amount_differs', 'reference_unusable', 'shared_evidence', 'shared_reference']::text[]), 0))
+        'evidence_conflict_count', count(*) FILTER (WHERE 'evidence_conflict' = ANY (exceptions)),
+        'statement_match_unreliable_count', count(*) FILTER (WHERE 'statement_match_unreliable' = ANY (exceptions)),
+        'exception_count', count(*) FILTER (WHERE under_review),
+        'unlinked_statement_exception_count', (SELECT count(*) FROM unlinked))
       FROM s0),
     'by_week', (SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.week_start DESC, r.has_weekly_float DESC), '[]'::jsonb) FROM rows r),
     'exceptions', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
           'payout_id', s.payout_id, 'landlord', s.landlord_name, 'amount', s.amount, 'paid_at', s.paid_at,
           'payout_status', s.payout_status, 'exception', s.exception, 'exceptions', to_jsonb(s.exceptions),
-          'state', s.state, 'paid_amount', s.paid_amount, 'payout_reference', s.payout_reference)
+          'state', s.state, 'is_payable', s.state = 'paid_unconfirmed', 'paid_amount', s.paid_amount,
+          'payout_reference', s.payout_reference,
+          'evidence_source', s.evidence_source, 'conflict_statuses', to_jsonb(s.conflict_statuses),
+          'conflict_line_ids', to_jsonb(s.conflict_line_ids))
           ORDER BY s.paid_at DESC NULLS LAST), '[]'::jsonb)
-        FROM s0 s WHERE s.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'paid_amount_differs', 'reference_unusable', 'shared_evidence', 'shared_reference']::text[]),
+        FROM s0 s WHERE s.under_review),
+    'unlinked_statement_exceptions', (SELECT COALESCE(jsonb_agg(to_jsonb(u) ORDER BY u.tx_at DESC), '[]'::jsonb)
+        FROM (SELECT * FROM unlinked ORDER BY tx_at DESC LIMIT 200) u),
     'evidence', jsonb_build_object(
         'statement_imports', (SELECT count(*) FROM public.provider_statement_imports WHERE voided_at IS NULL),
         'last_statement_line_at', (SELECT max(tx_at) FROM public.provider_statement_lines WHERE voided_at IS NULL),

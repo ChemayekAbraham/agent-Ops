@@ -26,6 +26,12 @@ export interface LandlordPayablesWeek {
   confirmed_count: number;
   payable: number;
   payable_count: number;
+  /** Part of `payable` carrying a review exception — never add to payable. */
+  payable_under_review: number;
+  payable_under_review_count: number;
+  /** Under review but NOT payable (confirmed or never paid out) — never add to payable. */
+  review_only: number;
+  review_only_count: number;
   probable_count: number;
   screenshot_matched_count: number;
 }
@@ -33,6 +39,10 @@ export interface LandlordPayablesWeek {
 export type LandlordPayoutState = 'confirmed' | 'paid_unconfirmed' | 'not_paid' | 'failed';
 /**
  * Most serious first. All but probable_match are review exceptions; none of them changes an amount or a state.
+ * - evidence_conflict: a statement line says the transaction failed, was reversed or is pending. The original
+ *   provider SMS stays the primary evidence: a confirmation is never removed and a payable never reopened by it.
+ * - statement_match_unreliable: a statement line points at the payout but cannot confirm it (shared or invalid
+ *   reference, several payouts on the line, an unresolved contradictory status, or an amount outside the allowance).
  * - paid_amount_differs: the completed withdrawal paid another amount than the payout records
  * - reference_unusable: paid out, unconfirmed, reference is not an 11-digit MTN or 12-digit Airtel transaction ID
  * - shared_reference: paid out, unconfirmed, another payout carries the same reference
@@ -40,6 +50,8 @@ export type LandlordPayoutState = 'confirmed' | 'paid_unconfirmed' | 'not_paid' 
 export type LandlordPayoutException =
   | 'failed_but_paid'
   | 'completed_without_payout'
+  | 'evidence_conflict'
+  | 'statement_match_unreliable'
   | 'paid_amount_differs'
   | 'reference_unusable'
   | 'shared_evidence'
@@ -55,6 +67,9 @@ export interface LandlordPayoutSettlement {
   amount: number;
   /** What the completed withdrawal actually paid (null when paid by FinOps directly). */
   paid_amount: number | null;
+  /** Statuses of statement lines contradicting this payout (failed / reversed / pending), for review. */
+  conflict_statuses: string[] | null;
+  conflict_line_ids: string[] | null;
   payout_status: string;
   paid_out: boolean;
   paid_at: string | null;
@@ -85,8 +100,23 @@ export interface LandlordPayablesReport {
     approved_not_paid: number;
     probable_count: number;
     screenshot_matched_count: number;
+    /**
+     * Review figures. NEVER add them to `payable`:
+     * - payable_under_review is PART of payable (paid out, unconfirmed, carrying a review exception);
+     * - review_only is NOT payable (confirmed, e.g. SMS-confirmed with a conflicting statement, or never paid out).
+     */
+    payable_under_review: number;
+    payable_under_review_count: number;
+    review_only: number;
+    review_only_count: number;
+    confirmed_under_review: number;
+    confirmed_under_review_count: number;
+    not_paid_under_review: number;
+    not_paid_under_review_count: number;
     exception_count: number;
-    exception_amount: number;
+    evidence_conflict_count: number;
+    statement_match_unreliable_count: number;
+    unlinked_statement_exception_count: number;
   };
   by_week: LandlordPayablesWeek[];
   exceptions: Array<{
@@ -98,8 +128,18 @@ export interface LandlordPayablesReport {
     exception: LandlordPayoutException;
     exceptions: LandlordPayoutException[];
     state: LandlordPayoutState;
+    /** true = part of payable; false = review only (not payable). */
+    is_payable: boolean;
     paid_amount: number | null;
     payout_reference: string | null;
+    evidence_source: 'statement' | 'provider_email' | null;
+    conflict_statuses: string[] | null;
+    conflict_line_ids: string[] | null;
+  }>;
+  /** Failed / reversed / pending statement lines that match no payout reference (e.g. a reversal issued under a new ID). */
+  unlinked_statement_exceptions: Array<{
+    id: string; channel: string; account_ref: string; direction: string; status: string;
+    transaction_id: string; amount: number; tx_at: string;
   }>;
   evidence: { statement_imports: number; last_statement_line_at: string | null; last_provider_email_out: string | null };
   /** Present only when a week was requested. */

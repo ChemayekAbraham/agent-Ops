@@ -13,10 +13,15 @@
 --   5  importing the same file again is refused as already imported
 --   6  statement lines cannot be edited
 --   7  voiding the import puts the payout back on the list
---   8  get_landlord_payables_by_week totals reconcile with the payables list
+--   8  get_landlord_payables_by_week totals reconcile with the payables list, and review amounts never overlap payable
+--      (payable_under_review is part of payable; review_only = confirmed + not paid under review, outside payable)
 --   9  exceptions agree with the data: paid_amount_differs exactly where the withdrawal paid another amount,
 --      reference_unusable exactly where an unconfirmed paid-out payout has a reference that is not 11 (MTN) or 12 (Airtel) digits,
---      shared_reference exactly where an unconfirmed paid-out payout shares its reference
+--      shared_reference exactly where an unconfirmed paid-out payout shares its reference,
+--      evidence_conflict exactly where a live failed/reversed/pending statement line carries a paid-out payout's reference
+--      (a pending line later resolved by a success on the same channel and account is not a conflict), and such a
+--      conflict never turns an SMS-confirmed payout back into a payable; no payout is confirmed by a statement line
+--      alone when its reference is invalid or shared
 DO $test$
 DECLARE
   r jsonb := '[]'::jsonb;
@@ -101,7 +106,12 @@ BEGIN
     v_json := public.get_landlord_payables_by_week();
     SELECT COALESCE(sum(outstanding_amount), 0) INTO v_a FROM public.v_payables_lines WHERE category_key = 'landlord';
     r := r || jsonb_build_object('step', 8, 'pass', (v_json#>>'{totals,payable}')::numeric = v_a
-          AND (v_json#>>'{totals,payable_with_weekly_float}')::numeric + (v_json#>>'{totals,payable_without_weekly_float}')::numeric = v_a,
+          AND (v_json#>>'{totals,payable_with_weekly_float}')::numeric + (v_json#>>'{totals,payable_without_weekly_float}')::numeric = v_a
+          AND (v_json#>>'{totals,payable_under_review}')::numeric <= v_a
+          AND (v_json#>>'{totals,payable_under_review}')::numeric = (SELECT COALESCE(sum(amount), 0) FROM public.v_landlord_payout_settlement
+                WHERE state = 'paid_unconfirmed' AND exceptions && ARRAY['failed_but_paid','completed_without_payout','evidence_conflict','statement_match_unreliable','paid_amount_differs','reference_unusable','shared_evidence','shared_reference'])
+          AND (v_json#>>'{totals,review_only}')::numeric = (v_json#>>'{totals,confirmed_under_review}')::numeric + (v_json#>>'{totals,not_paid_under_review}')::numeric
+          AND NOT (v_json->'totals' ? 'exception_amount'),
           'totals', v_json->'totals');
   EXCEPTION WHEN OTHERS THEN r := r || jsonb_build_object('step', 8, 'pass', false, 'got', SQLERRM); END;
 
@@ -116,11 +126,27 @@ BEGIN
                                     <> (state = 'paid_unconfirmed' AND length(COALESCE(payout_reference, '')) NOT IN (11, 12))) AS ref_mismatch,
                 count(*) FILTER (WHERE ('shared_reference' = ANY (exceptions))
                                     <> (state = 'paid_unconfirmed' AND payout_reference IS NOT NULL AND ref_payouts > 1)) AS shared_mismatch,
-                count(*) FILTER (WHERE exception IS DISTINCT FROM exceptions[1]) AS primary_mismatch
+                count(*) FILTER (WHERE exception IS DISTINCT FROM exceptions[1]) AS primary_mismatch,
+                count(*) FILTER (WHERE ('evidence_conflict' = ANY (exceptions))
+                                    <> (paid_out AND EXISTS (SELECT 1 FROM public.provider_statement_lines l
+                                                              WHERE l.tid_normalized = s.payout_reference AND l.voided_at IS NULL
+                                                                AND l.status IN ('failed', 'reversed', 'pending')
+                                                                AND NOT (l.status = 'pending' AND EXISTS (
+                                                                      SELECT 1 FROM public.provider_statement_lines s2
+                                                                       WHERE s2.tid_normalized = l.tid_normalized AND s2.voided_at IS NULL
+                                                                         AND s2.status = 'successful' AND s2.direction = 'out'
+                                                                         AND s2.channel = l.channel AND s2.account_ref = l.account_ref
+                                                                         AND s2.tx_at >= l.tx_at))))) AS conflict_mismatch,
+                count(*) FILTER (WHERE 'evidence_conflict' = ANY (exceptions) AND evidence_source = 'provider_email'
+                                   AND state <> 'confirmed') AS sms_reopened,
+                count(*) FILTER (WHERE state = 'confirmed' AND evidence_source = 'statement'
+                                   AND (length(COALESCE(payout_reference, '')) NOT IN (11, 12) OR ref_payouts > 1)) AS unreliable_statement_confirmed
            FROM s)
-  SELECT jsonb_build_object('step', 9, 'pass', amount_mismatch + ref_mismatch + shared_mismatch + primary_mismatch = 0,
+  SELECT jsonb_build_object('step', 9, 'pass', amount_mismatch + ref_mismatch + shared_mismatch + primary_mismatch + conflict_mismatch + sms_reopened + unreliable_statement_confirmed = 0,
            'mismatches', jsonb_build_object('paid_amount_differs', amount_mismatch, 'reference_unusable', ref_mismatch,
-                                            'shared_reference', shared_mismatch, 'primary', primary_mismatch),
+                                            'shared_reference', shared_mismatch, 'primary', primary_mismatch,
+                                            'evidence_conflict', conflict_mismatch, 'sms_reopened', sms_reopened,
+                                            'unreliable_statement_confirmed', unreliable_statement_confirmed),
            'flagged', (SELECT jsonb_object_agg(e, n) FROM (SELECT unnest(exceptions) e, count(*) n FROM s GROUP BY 1) x))
     INTO v_json FROM bad;
   r := r || v_json;
