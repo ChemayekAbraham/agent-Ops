@@ -1366,8 +1366,25 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const { fits, overCap } = partitionByLandlordFloatRoom(sortedSelected, landlordFloatBudget.data);
     const fitsTotal = fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
-    return { fits, overCap, fitsTotal };
+    const selectedTotal = sortedSelected.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
+    return { fits, overCap, fitsTotal, selectedTotal };
   }, [isCooStage, rows, selectedIds, landlordFloatBudget.data]);
+
+  /** COO stage only: an unticked card can be ticked only while it still fits the room left. Unticking is always allowed. */
+  const cooSelectBlocked = (req: any): boolean => {
+    if (!isCooStage || selectedIds.has(req.id)) return false;
+    const budget = landlordFloatBudget.data;
+    if (!budget || budget.blocked) return true;
+    return cooBulkSplit.selectedTotal + Number(req.rent_amount || 0) > Number(budget.room);
+  };
+
+  /** COO stage only: what "Select all" would pick — visible rows oldest first, only those that fit. */
+  const cooSelectAllFits = useMemo(() => {
+    if (!isCooStage) return { fits: [] as any[], total: 0 };
+    const sortedVisible = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const { fits } = partitionByLandlordFloatRoom(sortedVisible, landlordFloatBudget.data);
+    return { fits, total: fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0) };
+  }, [isCooStage, filtered, landlordFloatBudget.data]);
 
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
@@ -1495,6 +1512,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   };
 
   const toggleSelectAll = () => {
+    if (isCooStage) {
+      const allFitSelected = cooSelectAllFits.fits.length > 0
+        && selectedIds.size === cooSelectAllFits.fits.length
+        && cooSelectAllFits.fits.every(r => selectedIds.has(r.id));
+      setSelectedIds(allFitSelected ? new Set() : new Set(cooSelectAllFits.fits.map(r => r.id)));
+      return;
+    }
     if (selectedIds.size === filtered.length) {
       setSelectedIds(new Set());
     } else {
@@ -1564,10 +1588,19 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
                 <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  checked={isCooStage
+                    ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
+                    : selectedIds.size === filtered.length && filtered.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                <span className="flex flex-col">
+                  <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                  {isCooStage && landlordFloatBudget.data && (
+                    <span className="font-normal text-muted-foreground">
+                      {formatUGX(cooBulkSplit.selectedTotal)} of {formatUGX(Number(landlordFloatBudget.data.room))} left selected
+                    </span>
+                  )}
+                </span>
               </label>
               <div className="flex items-center gap-2">
                 <Button
@@ -1602,9 +1635,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
                 <Checkbox
                   checked={false}
+                  disabled={isCooStage && cooSelectAllFits.fits.length === 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Select all ({filtered.length})</span>
+                <span>
+                  {isCooStage
+                    ? `Select all that fit (${cooSelectAllFits.fits.length} · ${formatUGX(cooSelectAllFits.total)})`
+                    : `Select all (${filtered.length})`}
+                </span>
               </label>
             </div>
           )
@@ -1949,9 +1987,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
-                      <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 mt-0.5"
+                        title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
+                      >
                         <Checkbox
                           checked={selectedIds.has(req.id)}
+                          disabled={cooSelectBlocked(req)}
+                          aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
+                          data-request-id={req.id}
                           onCheckedChange={() => toggleSelect(req.id)}
                         />
                       </div>
