@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Add Landlord Ops paid-but-unverified filter with server-side matching, count and tests; leave payments and verification unchanged.
 - [x] Update AgentDailyCapacityStrip to best-day tenant coverage, both-day context and tenant shortfalls; money/arrears and all hooks/backend preserved. Four calculation tests and isolated desktop/mobile light/dark checks pass; build OK.
 - [ ] Verify tenant strip on live agent accounts — blocked: externally managed authentication is unavailable to browser testing; supplied NSUBUGA figures and a six-tenant shortfall were checked in isolation.
 - [x] Add CTO Git Pushes view; 3 filter/refresh tests pass, isolated desktop/mobile checks cover expanded details and both themes; Commits and protected push hook/backend preserved.
