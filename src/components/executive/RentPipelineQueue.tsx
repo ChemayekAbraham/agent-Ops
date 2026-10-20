@@ -1512,6 +1512,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   };
 
   const toggleSelectAll = () => {
+    if (isCooStage) {
+      const allFitSelected = cooSelectAllFits.fits.length > 0
+        && selectedIds.size === cooSelectAllFits.fits.length
+        && cooSelectAllFits.fits.every(r => selectedIds.has(r.id));
+      setSelectedIds(allFitSelected ? new Set() : new Set(cooSelectAllFits.fits.map(r => r.id)));
+      return;
+    }
     if (selectedIds.size === filtered.length) {
       setSelectedIds(new Set());
     } else {
@@ -1581,10 +1588,19 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
                 <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  checked={isCooStage
+                    ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
+                    : selectedIds.size === filtered.length && filtered.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                <span className="flex flex-col">
+                  <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                  {isCooStage && landlordFloatBudget.data && (
+                    <span className="font-normal text-muted-foreground">
+                      {formatUGX(cooBulkSplit.selectedTotal)} of {formatUGX(Number(landlordFloatBudget.data.room))} left selected
+                    </span>
+                  )}
+                </span>
               </label>
               <div className="flex items-center gap-2">
                 <Button
@@ -1619,9 +1635,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
                 <Checkbox
                   checked={false}
+                  disabled={isCooStage && cooSelectAllFits.fits.length === 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Select all ({filtered.length})</span>
+                <span>
+                  {isCooStage
+                    ? `Select all that fit (${cooSelectAllFits.fits.length} · ${formatUGX(cooSelectAllFits.total)})`
+                    : `Select all (${filtered.length})`}
+                </span>
               </label>
             </div>
           )
@@ -1966,9 +1987,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
-                      <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 mt-0.5"
+                        title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
+                      >
                         <Checkbox
                           checked={selectedIds.has(req.id)}
+                          disabled={cooSelectBlocked(req)}
+                          aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
+                          data-request-id={req.id}
                           onCheckedChange={() => toggleSelect(req.id)}
                         />
                       </div>
