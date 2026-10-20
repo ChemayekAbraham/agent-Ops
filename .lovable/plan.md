@@ -1,0 +1,1 @@
+Synced to 870500555c (GitHub's new tip). The new migration file 20261018120000 (manual intake for two MTN rent payments) is present. No changes planned: the migration is left unedited and unapplied, and there are no code edits, database changes or deploys.

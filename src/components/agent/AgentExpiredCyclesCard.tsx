@@ -6,11 +6,10 @@ import { useAgentExpiredCycles } from '@/hooks/useAgentArrears';
 /**
  * Rent Plans whose cycle has ended while a balance remains.
  *
- * These are invisible everywhere else on the agent's screen: once the term has
- * passed there are no more days to pin, so today's expected amount reads 0 even
- * though the tenant may still owe the whole balance. The arrears queue does not
- * carry them either — it is floored at the go-live date and an expired cycle's
- * unpaid days sit almost entirely before it.
+ * These plans carry no pinned day of their own, so nothing in the daily figure
+ * marks them out — but since 2026-10-19 they ARE folded into today's expected
+ * amount. This card names the tenants behind them so the agent knows the money
+ * is not routine rent: it is owed on plans already past their end date.
  *
  * One RPC round trip (`agent_expired_cycles`), aggregated server-side. Renders
  * nothing when the agent has no expired plans still owing.
@@ -47,8 +46,8 @@ export function AgentExpiredCyclesCard({ agentId }: Props) {
           </p>
           <p className="font-bold text-lg tabular-nums truncate">{formatUGX(outstanding)}</p>
           <p className="text-[10px] text-muted-foreground">
-            {planCount} {planCount === 1 ? 'Rent Plan' : 'Rent Plans'} past the end date · nothing
-            shows under today&apos;s target
+            {planCount} {planCount === 1 ? 'Rent Plan' : 'Rent Plans'} past the end date · counted in
+            today&apos;s target — still needs clearing
           </p>
         </div>
         {expanded ? (

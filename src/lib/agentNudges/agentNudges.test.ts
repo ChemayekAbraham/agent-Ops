@@ -63,6 +63,14 @@ describe('nudges.json', () => {
     }
   });
 
+  it('never quotes board-wide figures', () => {
+    for (const n of NUDGES) {
+      const keys = [...placeholdersOf(n), ...Object.keys(n.when ?? {})];
+      expect(keys, n.id).not.toContain('active_agents_today');
+      expect(keys, n.id).not.toContain('top_percent');
+    }
+  });
+
   it('follows the regulatory terminology', () => {
     for (const n of NUDGES) {
       const text = `${n.title} ${n.body}`;

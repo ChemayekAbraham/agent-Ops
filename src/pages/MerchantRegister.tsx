@@ -15,6 +15,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { toast } from 'sonner';
 import { Store, Loader2, CheckCircle2, ShieldCheck, ArrowLeft } from 'lucide-react';
 import welileLogo from '@/assets/welile-contract-logo.png';
+import { getSignupDeviceFp } from '@/lib/signupGuard';
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REF_KEY = 'merchant_agent_ref';
@@ -133,6 +134,8 @@ export default function MerchantRegister() {
           referrer_id: ref || null,
           intended_role: 'agent',
           signup_source: 'merchant_register',
+          // Per-device signup caps are enforced from this in handle_new_user.
+          device_fp: await getSignupDeviceFp(),
         },
       });
       let serverError = (fnData as { error?: string } | null)?.error || null;

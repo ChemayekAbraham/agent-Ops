@@ -85,9 +85,7 @@ export function EditHouseListingDialog({ open, onOpenChange, listing, onSaved }:
       if (listing.landlord_id) {
         setLoadingLandlord(true);
         supabase
-          .from('landlords_directory')
-          .select('id, name, phone, property_address, district, town_council, county, village, verified')
-          .eq('id', listing.landlord_id)
+          .rpc('landlord_directory_entry', { p_id: listing.landlord_id })
           .maybeSingle()
           .then(({ data }) => {
             if (data) setSelectedLandlord(data as LandlordOption);

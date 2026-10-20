@@ -1,0 +1,56 @@
+-- Manual intake of MoMo payments lost to the MTN SMS feed outage of 2026-10-17.
+--
+-- The MTN IFTTT feed stopped forwarding at ~09:34 EAT on 2026-10-17 (the SIM
+-- left the forwarding phone), so none of the payments below reached
+-- gmail_transactions. Each TID was supplied by the payer / agent as a payer-side
+-- "You have paid WELILE TECHNOLOGIES LIMITED 090777 ..." SMS.
+--
+-- WHAT THIS DOES: inserts one PENDING deposit_requests row per payment. It moves
+-- no money. A manager then approves each row in Financial Ops, which runs the
+-- normal approve-deposit path:
+--   * agents    -> credit lands in operational float (float-by-default routing)
+--   * tenants   -> credit lands in float, then trg_tenant_self_repayment_on_approval
+--                  runs settle_tenant_rent_from_deposit and reduces the Rent Plan.
+-- Going through a pending row (not a hand-written ledger post) keeps the TID
+-- guards (trg_enforce_unique_deposit_tid, trg_guard_deposit_reference_uniqueness),
+-- the idempotency check in approve-deposit, receipts/SMS and the audit trail.
+--
+-- BEFORE APPROVING: confirm each TID and amount on the MTN till (090777)
+-- statement. These rows rest on payer-side screenshots only.
+--
+-- Idempotent, single statement (no DO block, so it also pastes cleanly into the
+-- dashboard SQL editor): a payment is skipped when the profile phone does not
+-- match the expected payer, when its TID already has a non-rejected deposit
+-- request, or when it is already in ledger_reconciled_tids.
+--
+-- NOT INCLUDED: TID 44313474818 (DERRICK LUTAMAGUZI, 92d867f6-...): the amount
+-- on the screenshot was cut off ("...21,000"). Add it in a follow-up once the
+-- full amount is confirmed.
+
+INSERT INTO public.deposit_requests (
+  user_id, amount, status, provider, transaction_id, deposit_purpose, notes
+)
+SELECT
+  t.user_id, t.amount, 'pending', 'mtn', t.tid, t.purpose,
+  'Manual intake 2026-10-17: MTN SMS feed outage, payer-side SMS. Verify TID on till 090777 statement before approving.'
+FROM (VALUES
+  -- tenants: self-repayment towards their own Rent Plan
+  ('7702570a-6705-499c-8b45-a9a79fa43283'::uuid, '765210766', '44295920306', 16500::numeric, 'personal_rent_repayment'::public.deposit_purpose),
+  ('7702570a-6705-499c-8b45-a9a79fa43283'::uuid, '765210766', '44311458825',  5000::numeric, 'personal_rent_repayment'::public.deposit_purpose),
+  ('15b1e5ee-8768-4cc7-ac64-4331425d3586'::uuid, '791135531', '44301761914',  5000::numeric, 'personal_rent_repayment'::public.deposit_purpose),
+  -- agents: operational float top-ups
+  ('6aac6c81-b0f8-45eb-a67b-6483e7dcf82f'::uuid, '776368807', '44308696961', 22800::numeric, 'operational_float'::public.deposit_purpose),
+  ('34f9591f-47fb-4d51-9104-9d821247ebb6'::uuid, '792790529', '44312707356', 86000::numeric, 'operational_float'::public.deposit_purpose)
+) AS t(user_id, phone_last9, tid, amount, purpose)
+JOIN public.profiles p
+  ON p.id = t.user_id
+ AND right(regexp_replace(coalesce(p.phone, ''), '\D', '', 'g'), 9) = t.phone_last9
+WHERE NOT EXISTS (
+        SELECT 1 FROM public.deposit_requests d
+         WHERE lower(btrim(d.transaction_id)) = t.tid
+           AND d.status NOT IN ('rejected', 'cancelled', 'failed')
+      )
+  AND NOT EXISTS (
+        SELECT 1 FROM public.ledger_reconciled_tids l
+         WHERE l.tid_normalized = t.tid
+      );

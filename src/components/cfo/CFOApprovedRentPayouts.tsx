@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
+import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
+import { TIMING_BATCH_LIMIT, formatElapsed, formatKampala } from '@/lib/rentTiming';
 import { Banknote, CalendarIcon, CheckCircle, Clock, Download, Loader2, X } from 'lucide-react';
 
 /**
@@ -154,6 +156,16 @@ export function CFOApprovedRentPayouts() {
       .some(v => v.toLowerCase().includes(s)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, search, names]);
+  // The payout wait after funding is a different clock from the review time: one call for the rows on screen (first 200), read-only.
+  const payoutTiming = useRentRequestTiming(useMemo(() => filtered.slice(0, TIMING_BATCH_LIMIT).map(r => r.id), [filtered]));
+  /** "Waiting for landlord payment" line; only for a funded plan that Financial Operations has not paid. The landlord payment time is approximate. */
+  const payoutLine = (r: { id: string; paid_at?: string | null }) => {
+    if (r.paid_at) return null;
+    const pay = payoutTiming.byId.get(r.id)?.payout;
+    if (!pay || pay.waiting_seconds == null) return null;
+    if (pay.still_waiting) return `Waiting for landlord payment: ${formatElapsed(pay.waiting_seconds)}`;
+    return pay.landlord_paid_at ? `Landlord paid about ${formatKampala(pay.landlord_paid_at)} (approximate)` : null;
+  };
   const total = filtered.reduce((a, r) => a + Number(r.rent_amount || 0), 0);
   const when = (s: string | null) => (s ? format(new Date(s), 'dd MMM yyyy, HH:mm') : '—');
 
@@ -244,6 +256,8 @@ export function CFOApprovedRentPayouts() {
                         {r.paid_at
                           ? <Badge className="bg-success/15 text-success hover:bg-success/15">Paid</Badge>
                           : <Badge className="bg-warning/15 text-warning hover:bg-warning/15">Pending</Badge>}
+                        {payoutLine(r) && <p className="mt-1 text-xs text-muted-foreground" data-testid="payout-wait">{payoutLine(r)}</p>}
+                        {payoutTiming.error && !r.paid_at && <p className="mt-1 text-xs text-muted-foreground" data-testid="payout-wait-error">Payout wait could not be loaded.</p>}
                       </TableCell>
                     </TableRow>
                   ))}

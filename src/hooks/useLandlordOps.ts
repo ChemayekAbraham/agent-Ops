@@ -62,6 +62,7 @@ export type LandlordCategory =
   | 'pending'
   | 'rejected'
   | 'resubmitted'
+  | 'paid_unverified'
   | 'has_tenants'
   | 'no_tenants';
 export type LandlordPendingFilter = 'all' | 'has_address' | 'has_phone' | 'has_smartphone' | 'has_bank' | 'has_momo';
@@ -140,6 +141,7 @@ export function useLandlordOpsList(params: UseLandlordOpsListParams) {
  */
 export interface LandlordScopedCounts {
   all: number;
+  paid_unverified?: number;
   verified: number;
   pending: number;
   rejected: number;
