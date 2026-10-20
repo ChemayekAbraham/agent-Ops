@@ -122,7 +122,7 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
     queryFn: async () => {
       const { data, error } = await supabase
         .from('proxy_agent_identity')
-        .select('status, updated_at');
+        .select('status, reviewed_at, submitted_at, captured_at');
       if (error) throw error;
       const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0, other: 0 };
       let lastUpdated: string | null = null;
@@ -133,7 +133,11 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
         else if (s === 'rejected') counts.rejected += 1;
         else if (s === 'suspended') counts.suspended += 1;
         else counts.other += 1;
-        const u = (row as any).updated_at as string | null;
+        // proxy_agent_identity has no updated_at column: latest of review / submit / capture time.
+        const u = [(row as any).reviewed_at, (row as any).submitted_at, (row as any).captured_at]
+          .filter(Boolean)
+          .sort()
+          .pop() as string | null;
         if (u && (!lastUpdated || u > lastUpdated)) lastUpdated = u;
       }
       return { counts, lastUpdated };
