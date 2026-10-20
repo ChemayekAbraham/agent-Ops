@@ -64,7 +64,7 @@ describe('useLandlordFloatBudget', () => {
     expect(cached?.can_approve).toBe(true); // viewer fields survive the merge
   });
 
-  it('sends one reason per request for a miscellaneous ask, and surfaces server errors', async () => {
+  it('sends one reason per request for a miscellaneous ask', async () => {
     const qc = makeClient();
     rpcMock.mockResolvedValueOnce({ data: { requested: [], skipped: [], requested_total: 0 }, error: null });
     const { result } = renderHook(() => useLandlordFloatBudgetActions(), { wrapper: wrapperFor(qc) });
@@ -74,12 +74,25 @@ describe('useLandlordFloatBudget', () => {
     expect(rpcMock).toHaveBeenCalledWith('coo_request_landlord_float_misc', {
       p_items: [{ rent_request_id: 'r1', reason: 'Landlord deadline today' }],
     });
+  });
 
+  // Its own hook instance: chaining a second mutation after the first in one test is not reliable on
+  // @tanstack/react-query 5.83 (the second call never reached the client), and the two cases are independent.
+  it('surfaces a server error when setting a budget', async () => {
+    const qc = makeClient();
     rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'OVER_WEEKLY_REASON_REQUIRED: give a reason' } });
-    await expect(
-      act(() => result.current.setBudget.mutateAsync({ periodType: 'daily', amount: 300_000_000 })),
-    ).rejects.toThrow('OVER_WEEKLY_REASON_REQUIRED');
-    expect(rpcMock).toHaveBeenLastCalledWith('cfo_set_landlord_float_budget', {
+    const { result } = renderHook(() => useLandlordFloatBudgetActions(), { wrapper: wrapperFor(qc) });
+    let message = '';
+    await act(async () => {
+      try {
+        await result.current.setBudget.mutateAsync({ periodType: 'daily', amount: 300_000_000 });
+      } catch (err) {
+        message = (err as Error).message;
+      }
+    });
+    expect(message).toContain('OVER_WEEKLY_REASON_REQUIRED');
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock).toHaveBeenCalledWith('cfo_set_landlord_float_budget', {
       p_period_type: 'daily', p_amount: 300_000_000, p_reason: null, p_period_start: null,
     });
   });
