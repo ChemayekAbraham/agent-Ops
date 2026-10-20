@@ -5600,6 +5600,146 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_posting_gate_exemptions: {
+        Row: {
+          agent_id: string
+          created_at: string
+          day: string
+          granted_by: string | null
+          id: string
+          reason: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          day: string
+          granted_by?: string | null
+          id?: string
+          reason: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          day?: string
+          granted_by?: string | null
+          id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_posting_gate_exemptions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       agent_proxy_card_dismissals: {
         Row: {
           agent_id: string
@@ -77508,6 +77648,7 @@ export type Database = {
           video_count: number
         }[]
       }
+      ops_tutorial_can_manage: { Args: never; Returns: boolean }
       ops_tutorial_can_view_claim: {
         Args: { _claim_id: string }
         Returns: boolean
@@ -77566,6 +77707,17 @@ export type Database = {
           wallet_credit_status: string
         }[]
       }
+      ops_tutorial_eligible_people: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          phone: string
+          tutorial_roles: string
+          user_id: string
+        }[]
+      }
+      ops_tutorial_has_access: { Args: never; Returns: boolean }
       ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
       ops_tutorial_is_rate_setter: { Args: never; Returns: boolean }
       ops_tutorial_log_view: {
@@ -77630,6 +77782,15 @@ export type Database = {
           p_role: string
         }
         Returns: string
+      }
+      ops_tutorial_set_member_by_id: {
+        Args: {
+          p_enabled: boolean
+          p_note: string
+          p_role: string
+          p_user_id: string
+        }
+        Returns: undefined
       }
       ops_tutorial_set_published: {
         Args: { p_published: boolean; p_video_id: string }
