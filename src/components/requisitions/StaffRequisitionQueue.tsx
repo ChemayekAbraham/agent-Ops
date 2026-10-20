@@ -815,7 +815,7 @@ export function StaffRequisitionQueue() {
                     <Building2 className="h-3 w-3" /> {budgetFor(detail)!.department_name}
                   </span>
                   <span>Approved budget: <b>{formatUGX(Number(budgetFor(detail)!.approved_budget))}</b></span>
-                  <span>Committed: <b>{formatUGX(Number(budgetFor(detail)!.committed_amount))}</b></span>
+                  <span>Used: <b>{formatUGX(Number(budgetFor(detail)!.committed_amount))}</b></span>
                   <span className={Number(budgetFor(detail)!.remaining_budget) < 0 ? 'text-amber-700' : ''}>
                     Remaining: <b>{formatUGX(Number(budgetFor(detail)!.remaining_budget))}</b>
                   </span>
