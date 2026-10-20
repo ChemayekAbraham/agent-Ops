@@ -730,6 +730,23 @@ export function StaffRequisitionQueue() {
                       <td className={cn('px-3 py-2 text-right font-mono font-bold', current < requested ? 'text-amber-700' : 'text-primary')}>
                         {formatUGX(current)}
                       </td>
+                      {(() => {
+                        const b = budgetFor(row);
+                        const remaining = b ? Number(b.remaining_budget) : null;
+                        const tight = b ? remaining! < current : false;
+                        return (
+                          <td className={cn('px-3 py-2 text-right font-mono', tight ? 'text-amber-700' : 'text-muted-foreground')}>
+                            {b ? (
+                              <>
+                                <p className="font-semibold">{formatUGX(remaining!)}</p>
+                                <p className="text-[10px] font-sans text-muted-foreground whitespace-nowrap">
+                                  {formatUGX(Number(b.committed_amount))} used of {formatUGX(Number(b.approved_budget))}
+                                </p>
+                              </>
+                            ) : '—'}
+                          </td>
+                        );
+                      })()}
                       <td className="px-3 py-2"><StageBadge row={row} compact /></td>
                       <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{fmtDay(row.created_at)}</td>
                       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
