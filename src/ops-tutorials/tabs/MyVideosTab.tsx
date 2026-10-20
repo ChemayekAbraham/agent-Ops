@@ -84,7 +84,7 @@ export default function MyVideosTab() {
       waiting: videos.filter((v) => v.status === 'submitted').length,
       readyCount: ready.length,
       readyTotal: ready.reduce((s, v) => s + Number(v.rate_amount || 0), 0),
-      paid: claims.filter((c) => c.wallet_credit_status === 'credited' && inMonth(c.credited_at)).reduce((s, c) => s + Number(c.total_amount || 0), 0),
+      paid: claims.filter((c) => c.wallet_credit_status === 'credited' && inMonth(c.credited_at)).reduce((s, c) => s + Number(c.req_approved_amount ?? c.total_amount ?? 0), 0),
     };
   }, [videos, ready, claims]);
 
