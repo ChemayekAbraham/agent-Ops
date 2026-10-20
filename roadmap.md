@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Add Not verified and Rejected filters inside Paid & Repaying, preserving its paid/repaying scope.
 - [x] Add Landlord Ops paid-but-unverified filter presentation, count contract, export support and four passing hook tests; guards and preview compilation pass, payments/verification unchanged.
 - [ ] Enable paid-but-unverified matching — blocked: migration service repeatedly fails with 42P10 and live functions remain absent; filter safely disabled, SQL parity test cannot run; authenticated browser check unavailable for external Supabase.
 - [x] Update AgentDailyCapacityStrip to best-day tenant coverage, both-day context and tenant shortfalls; money/arrears and all hooks/backend preserved. Four calculation tests and isolated desktop/mobile light/dark checks pass; build OK.
