@@ -23,6 +23,7 @@ const NOT_A_RETURN_PAGE = [
   /^\/install(\/|$)/,
   /^\/join(\/|$)/,
   /^\/r\//,
+  /^\/device-check(\/|$)/,
 ];
 
 /** An in-app path ("/x"), never another origin ("//evil.com", "/\evil.com", "https://…"). */

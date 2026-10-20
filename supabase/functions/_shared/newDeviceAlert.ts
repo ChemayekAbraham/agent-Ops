@@ -52,6 +52,47 @@ export const DEVICE_ICON_LABEL: Record<DeviceIconKey, string> = {
   unknown: "Unknown device",
 };
 
+const SITE_URL = "https://welileapp.com";
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** SHA-256 of an email action token: only the hash is ever stored. */
+export function hashActionToken(token: string): Promise<string> {
+  return sha256Hex(`device-alert:${token}`);
+}
+
+function randomToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/**
+ * Single-use "this was me" / "sign it out" links for the alert email. Each opens
+ * a confirm page (/device-check); see use_device_alert_token. Null if they could
+ * not be stored, in which case the email goes without buttons.
+ */
+// deno-lint-ignore no-explicit-any
+async function mintActionLinks(admin: any, userId: string, deviceFp: string): Promise<{ trustUrl: string; rejectUrl: string } | null> {
+  const trust = randomToken();
+  const reject = randomToken();
+  const { error } = await admin.from("device_alert_action_tokens").insert([
+    { token_hash: await hashActionToken(trust), user_id: userId, device_fp: deviceFp, action: "trust" },
+    { token_hash: await hashActionToken(reject), user_id: userId, device_fp: deviceFp, action: "reject" },
+  ]);
+  if (error) {
+    console.error("[newDeviceAlert] could not store action links:", error.message);
+    return null;
+  }
+  return {
+    trustUrl: `${SITE_URL}/device-check?t=${encodeURIComponent(trust)}`,
+    rejectUrl: `${SITE_URL}/device-check?t=${encodeURIComponent(reject)}`,
+  };
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The auth session id inside an access token (already verified by getUser). */
@@ -166,6 +207,7 @@ export async function sendNewDeviceAlert(
   const to = await ownerEmail(admin, user);
   if (!to) return;
   const { data: profile } = await admin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+  const links = await mintActionLinks(admin, user.id, deviceFp);
   const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
     body: {
       templateName: "new-device-sign-in",
@@ -177,6 +219,8 @@ export async function sendNewDeviceAlert(
         location: place ?? "Unknown location",
         ipAddress: ip ?? "Unknown",
         signedInAt: now.toISOString(),
+        trustUrl: links?.trustUrl ?? null,
+        rejectUrl: links?.rejectUrl ?? null,
       },
     },
   });

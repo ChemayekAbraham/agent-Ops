@@ -343,6 +343,8 @@ const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
 const PartnersTerms = lazy(() => import('./pages/PartnersTerms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+// Confirm page for the new-device alert email's buttons (no sign-in needed; token-gated).
+const DeviceCheck = lazy(() => import('./pages/DeviceCheck'));
 const ShareLocation = lazy(() => import('./pages/ShareLocation'));
 const InvestorPortfolioPublic = lazy(() => import('./pages/InvestorPortfolioPublic'));
 const PortfolioActionRequest = lazy(() => import('./pages/PortfolioActionRequest'));
@@ -888,6 +890,7 @@ function AppRoutes() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/seo-results" element={<SeoResults />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/device-check" element={<DeviceCheck />} />
           <Route path="/partners-terms" element={<PartnersTerms />} />
           <Route path="/privacy-policy" element={<Privacy />} />
           <Route path="/share-location" element={<ShareLocation />} />
