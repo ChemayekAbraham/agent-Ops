@@ -64496,6 +64496,19 @@ export type Database = {
         }
         Returns: Json
       }
+      _wallet_strict_for_users_impl: {
+        Args: { p_ids: string[] }
+        Returns: {
+          advance_balance: number
+          float_balance: number
+          float_balance_signed: number
+          pending_holds: number
+          restricted_held: number
+          total_visible: number
+          user_id: string
+          withdrawable: number
+        }[]
+      }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -83547,6 +83560,13 @@ export type Database = {
           pending_holds: number
           restricted_held: number
           total_visible: number
+          user_id: string
+          withdrawable: number
+        }[]
+      }
+      wallet_strict_withdrawable_for_users: {
+        Args: { p_user_ids: string[] }
+        Returns: {
           user_id: string
           withdrawable: number
         }[]
