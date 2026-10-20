@@ -37,6 +37,9 @@ export const withdrawVideo = (p_video_id: string) => rpc<void>('ops_tutorial_wit
 // ---- HR / reviewer ----
 export const setMember = (a: { p_email: string; p_role: string; p_enabled: boolean; p_note: string | null }) => rpc<string>('ops_tutorial_set_member', a);
 export const membersList = () => rpc<any[]>('ops_tutorial_members_list');
+export const eligiblePeople = () => rpc<any[]>('ops_tutorial_eligible_people');
+export const setMemberById = (p: { p_user_id: string; p_role: string; p_enabled: boolean; p_note: string | null }) =>
+  rpc<string>('ops_tutorial_set_member_by_id', { p_user_id: p.p_user_id, p_role: p.p_role, p_enabled: p.p_enabled, p_note: p.p_note });
 export const setRate = (a: { p_tier: string; p_amount: number }) => rpc<void>('ops_tutorial_set_rate', a);
 export const setTopicStatus = (a: { p_topic_id: string; p_status: 'open' | 'closed' }) => rpc<void>('ops_tutorial_set_topic_status', a);
 export const logView = (a: { p_video_id: string; p_context: 'review' | 'approval' | 'library' | 'own'; p_position_seconds: number; p_requisition_id?: string | null }) =>
@@ -100,4 +103,5 @@ export interface TutorialCapabilities {
   is_reviewer: boolean;
   is_admin: boolean;
   can_set_rates: boolean;
+  has_access: boolean;
 }
