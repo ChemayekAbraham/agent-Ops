@@ -16,11 +16,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import {
-  claimCancel, claimLink, claimPrepare, claimRelease, claimsList, listMyLiveClaimVideoIds, listMyVideos, listTopics,
+  claimCancel, claimLink, claimPrepare, claimRelease, claimsList, listMyLiveClaimVideoIds, listMyVideos, listRates, listTopics,
   proposeTopic, submitVideo, withdrawVideo,
 } from '../api';
 import { uploadTutorial, type UploadStage } from '../lib/uploadTutorial';
 import TutorialPlayerDialog, { formatDuration, type TutorialPlayerVideo } from '../components/TutorialPlayerDialog';
+import RateStrip from '../components/RateStrip';
 
 const monthFmt = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'Africa/Kampala' });
 const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
@@ -75,6 +76,17 @@ export default function MyVideosTab() {
 
   const ready = useMemo(() => videos.filter((v) => v.status === 'accepted' && !liveIds.has(v.id)), [videos, liveIds]);
   const total = ready.filter((v) => picked.has(v.id)).reduce((s, v) => s + Number(v.rate_amount || 0), 0);
+  const summary = useMemo(() => {
+    const thisMonth = monthFmt.format(new Date());
+    const inMonth = (d: string | null | undefined) => !!d && monthFmt.format(new Date(d)) === thisMonth;
+    return {
+      uploaded: videos.filter((v) => inMonth(v.created_at)).length,
+      waiting: videos.filter((v) => v.status === 'submitted').length,
+      readyCount: ready.length,
+      readyTotal: ready.reduce((s, v) => s + Number(v.rate_amount || 0), 0),
+      paid: claims.filter((c) => c.wallet_credit_status === 'credited' && inMonth(c.credited_at)).reduce((s, c) => s + Number(c.total_amount || 0), 0),
+    };
+  }, [videos, ready, claims]);
 
   async function run(key: string, fn: () => Promise<unknown>, ok?: string) {
     setBusy(key);
@@ -112,9 +124,29 @@ export default function MyVideosTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setUploadOpen(true)}><Upload className="mr-2 h-4 w-4" />Upload a video</Button>
-        <Button variant="outline" onClick={() => setProposeOpen(true)}><Lightbulb className="mr-2 h-4 w-4" />Propose a topic</Button>
+      <RateStrip />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: 'Uploaded this month', value: String(summary.uploaded) },
+          { label: 'Waiting for review', value: String(summary.waiting) },
+          { label: 'Accepted, not yet claimed', value: String(summary.readyCount), sub: formatUGX(summary.readyTotal) },
+          { label: 'Paid this month', value: formatUGX(summary.paid) },
+        ].map((s) => (
+          <div key={s.label} className="rounded-md border border-border bg-card p-3">
+            <p className="text-xs text-muted-foreground">{s.label}</p>
+            <p className="mt-1 text-lg font-semibold break-words">{s.value}</p>
+            {s.sub && <p className="text-xs text-muted-foreground">{s.sub}</p>}
+          </div>
+        ))}
+      </div>
+      <div className="w-full rounded-lg border-2 border-dashed border-border bg-muted/30 p-5 text-center space-y-3">
+        <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+        <h2 className="text-base font-semibold">Upload a tutorial</h2>
+        <p className="text-sm text-muted-foreground">MP4 (H.264), max 500 MB. Record on a demo account — no real tenant, landlord, agent or staff details on screen.</p>
+        <div className="flex flex-col items-center gap-2">
+          <Button onClick={() => setUploadOpen(true)}>Choose video</Button>
+          <Button variant="link" size="sm" onClick={() => setProposeOpen(true)}><Lightbulb className="mr-1 h-4 w-4" />Propose a topic</Button>
+        </div>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
@@ -241,6 +273,20 @@ function UploadDialog({ open, onOpenChange, topics, myVideos, onDone }: {
 }) {
   const [topicId, setTopicId] = useState('');
   const [kind, setKind] = useState<'original' | 'revision'>('original');
+  const [rates, setRates] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    listRates()
+      .then((r: any[]) => {
+        if (cancelled) return;
+        const m: Record<string, number> = {};
+        r.forEach((x) => { const n = Number(x.amount_ugx); if (x.amount_ugx != null && n > 0) m[x.tier] = n; });
+        setRates(m);
+      })
+      .catch(() => { /* pay line falls back to "rate not set yet" */ });
+    return () => { cancelled = true; };
+  }, [open]);
   const [replaces, setReplaces] = useState('');
   const [why, setWhy] = useState('');
   const [title, setTitle] = useState('');
@@ -287,6 +333,17 @@ function UploadDialog({ open, onOpenChange, topics, myVideos, onDone }: {
               <SelectTrigger><SelectValue placeholder="Choose an open topic" /></SelectTrigger>
               <SelectContent>{openTopics.map((t) => <SelectItem key={t.id} value={t.id}>{t.topic_code} · {t.title}</SelectItem>)}</SelectContent>
             </Select>
+            {topicId && (() => {
+              const t = openTopics.find((x) => x.id === topicId);
+              const tier: string = t?.tier ?? '';
+              const tierLabel = tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : 'This';
+              const rate = rates[kind === 'revision' ? 'revision' : tier];
+              return (
+                <p className="text-xs text-muted-foreground">
+                  {kind === 'revision' ? 'Revision' : `${tierLabel} topic`} — {rate > 0 ? `pays ${formatUGX(rate)} when accepted` : 'rate not set yet'}
+                </p>
+              );
+            })()}
           </div>
           <div className="space-y-1">
             <Label>Type</Label>
