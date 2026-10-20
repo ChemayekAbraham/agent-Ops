@@ -2,6 +2,13 @@
 // The server decides who is in each tab, the counts and every figure; the browser only shows them.
 
 export type PaidListTab = 'paid_repaying' | 'completed';
+export type PaidVerificationFilter = 'all' | 'not_verified' | 'rejected';
+
+export function matchesPaidVerification(row: PaidListRow, filter: PaidVerificationFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'rejected') return row.verification_status === 'rejected';
+  return row.verified !== true && row.verification_status !== 'verified';
+}
 
 export const PAID_LIST_TABS: readonly PaidListTab[] = ['paid_repaying', 'completed'];
 
