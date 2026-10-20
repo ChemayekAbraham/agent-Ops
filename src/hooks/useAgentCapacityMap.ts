@@ -194,6 +194,12 @@ export type AgentCapacity = {
    * measured", never as "collected nothing".
    */
   eligibility_unavailable: boolean;
+  /**
+   * True when staff granted this agent a one-day exemption from the posting
+   * gate (agent_posting_gate_exemptions). The database honours it; so must the
+   * app, or the grant is invisible to the agent it was granted to.
+   */
+  posting_exempt_today: boolean;
   /** True iff agent may post a new rent request today. */
   can_post_rent_today: boolean;
   /**
@@ -381,6 +387,28 @@ export function useAgentCapacityMap(agentIds: string[]) {
         });
       });
 
+
+      // ----- Staff grants: one-day exemptions from the posting gate -----
+      // enforce_agent_daily_eligibility honours a row in
+      // agent_posting_gate_exemptions before it looks at coverage. Without
+      // reading it here the app would block an agent the database would let
+      // through — the grant would be invisible to the person it was granted to.
+      // RLS lets an agent see their own row, so this works for self and staff.
+      const exemptAgentIds = new Set<string>();
+      {
+        const todayEat = new Date(
+          new Date().toLocaleString('en-US', { timeZone: 'Africa/Kampala' }),
+        ).toISOString().slice(0, 10);
+        const { data: exRows, error: exErr } = await supabase
+          .from('agent_posting_gate_exemptions')
+          .select('agent_id')
+          .in('agent_id', agentIds)
+          .eq('day', todayEat);
+        if (exErr) {
+          console.error('[useAgentCapacityMap] posting exemptions failed', exErr);
+        }
+        (exRows ?? []).forEach((r) => exemptAgentIds.add(r.agent_id));
+      }
 
       // ----- Weekly Good-Standing unlock: count "Good"+ days last week -----
       // Pull the last 7 days of saved daily eligibility history for every
@@ -668,8 +696,14 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // reads the view directly and raises DAILY_ELIGIBILITY_BLOCKED (handled
         // in renewalAdvice.ts). This client check is a courtesy pre-check, so
         // it fails OPEN: the server still refuses a post it should refuse.
+        // A staff grant for today overrides the gate, exactly as the trigger
+        // does. Checked here too so the app never refuses a post the database
+        // would accept.
+        const posting_exempt_today = exemptAgentIds.has(id);
         const can_post_rent_today =
-          unlimited_posting || !eligibilityRpcSucceeded ? true : !daily_blocked;
+          posting_exempt_today || unlimited_posting || !eligibilityRpcSucceeded
+            ? true
+            : !daily_blocked;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
@@ -697,6 +731,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
           performance_pct,
           daily_rating,
           eligibility_unavailable: !eligibilityRpcSucceeded,
+          posting_exempt_today,
           can_post_rent_today,
           good_days_last_week,
           unlimited_posting,

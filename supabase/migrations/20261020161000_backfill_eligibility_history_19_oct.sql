@@ -1,0 +1,16 @@
+-- Re-record 2026-10-19 with the corrected snapshot.
+--
+-- The rows written that night came from the four-way-broken function replaced
+-- in 20261020160000: paid understated 23% fleet-wide, expected overstated 31%,
+-- and any payment that cleared a Rent Plan deleted outright. IAN MUHWEZI was
+-- recorded as collecting 594,799 when he had collected 1,150,000 — the missing
+-- 555,201 was one payment that finished a tenant's plan.
+--
+-- This is a correction, not a revision: both sides now tie to source. Expected
+-- reconciles to agent_expected_day_plans (17,691,185) and paid reconciles to
+-- agent_collections (4,687,674), where before neither did.
+--
+-- Scoped to the single day. The nightly cron runs snapshot_agent_daily_eligibility(1)
+-- at 00:30 and only ever writes the previous day, so 19 October would otherwise
+-- have kept its wrong figures permanently.
+SELECT public.snapshot_agent_daily_eligibility(1);

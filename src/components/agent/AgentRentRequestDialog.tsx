@@ -611,18 +611,40 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
    * this form at all. We close immediately and explain why with a toast
    * instead of letting them fill in five steps only to be rejected on submit.
    */
+  /**
+   * What the posting gate actually asks for, in the gate's own units.
+   *
+   * It measures tenants reached, not shillings (enforce_agent_daily_eligibility,
+   * 2026-10-20). The old wording quoted a money ratio, pasted yesterday's
+   * collections next to TODAY's target as though they were one figure, and
+   * doubled the currency prefix because formatUGX already adds it. An agent
+   * could have collected the whole amount it named from a single tenant and
+   * stayed blocked.
+   *
+   * No denominator is shown for yesterday: the view exposes today's tenants_due
+   * only, and reusing it for yesterday would misstate a day when the book moved.
+   */
+  const blockedReason = (c: NonNullable<typeof myCap>) => {
+    const needed = Math.max(
+      0,
+      Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today,
+    );
+    const plural = (n: number) => (n === 1 ? 'tenant' : 'tenants');
+    return (
+      `You have reached ${c.tenants_paid_today} of ${c.tenants_due} ${plural(c.tenants_due)} today` +
+      `, and ${c.tenants_paid_yesterday} yesterday. ` +
+      `Collect from ${needed} more ${plural(needed)} today to post new Rent Plans. ` +
+      `Any payment counts, however small.`
+    );
+  };
+
   const postingBlockedToday =
     !!myCap && !unlimitedPosting && !myCap.can_post_rent_today;
   useEffect(() => {
     if (!open || capLoading || !postingBlockedToday || !myCap) return;
-    const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
-    const ypct = Math.round((myCap.yesterday_response_pct ?? 0) * 100);
     onOpenChange(false);
     toast.error('You cannot post a rent request today', {
-      description:
-        `Yesterday you collected ${ypct}% of your expected daily rent ` +
-        `(UGX ${formatUGX(myCap.paid_yesterday)} of UGX ${formatUGX(myCap.expected_daily)}). ` +
-        `Collect at least ${threshold}% today to be unblocked tomorrow.`,
+      description: blockedReason(myCap),
       duration: 9000,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2541,13 +2563,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // (reached the tenant threshold). New agents are exempt and gated only
     // by the per-tenant cap. `can_post_rent_today` already encodes this.
     if (myCap && !myCap.can_post_rent_today) {
-      const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
-      const ypct = Math.round(myCap.yesterday_response_pct * 100);
-      const msg =
-        `Blocked from posting new rent requests today. ` +
-        `Yesterday you collected ${ypct}% of your expected daily rent ` +
-        `(UGX ${formatUGX(myCap.paid_yesterday)} of UGX ${formatUGX(myCap.expected_daily)}). ` +
-        `Collect at least ${threshold}% today to be unblocked and rated Good tomorrow.`;
+      const msg = `Blocked from posting new Rent Plans today. ${blockedReason(myCap)}`;
       setSubmissionError(msg);
       toast.error('Blocked today', { description: msg });
       return;
