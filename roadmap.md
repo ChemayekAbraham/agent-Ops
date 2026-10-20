@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Update AgentDailyCapacityStrip to best-day tenant coverage, both-day context and tenant shortfalls; preserve money/arrears and all hooks/backend.
 - [x] Add CTO Git Pushes view; 3 filter/refresh tests pass, isolated desktop/mobile checks cover expanded details and both themes; Commits and protected push hook/backend preserved.
 - [ ] Verify CTO Pushes with live signed-in history — blocked: externally managed authentication is unavailable to browser testing.
 - [x] Patch dashboard auth-lock delays: bounded identity reads, duplicate startup role lookup removed, single-flight watchdog and header identity reuse; 28 tests and safety guards pass, public sign-in renders without runtime errors.
