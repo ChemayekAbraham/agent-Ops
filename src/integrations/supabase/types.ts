@@ -77567,6 +77567,7 @@ export type Database = {
         }[]
       }
       ops_tutorial_is_member: { Args: { _role: string }; Returns: boolean }
+      ops_tutorial_is_rate_setter: { Args: never; Returns: boolean }
       ops_tutorial_log_view: {
         Args: {
           p_context: string
