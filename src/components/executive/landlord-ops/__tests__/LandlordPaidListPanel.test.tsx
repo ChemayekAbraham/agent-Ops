@@ -32,6 +32,23 @@ const renderPanel = (props: Partial<React.ComponentProps<typeof LandlordPaidList
 beforeEach(() => { rpcMock.mockReset(); });
 
 describe('LandlordPaidListPanel', () => {
+  it('filters the paid scope to not verified and then rejected, resetting pagination', async () => {
+    const rows = [row(), row({ landlord_id: 'pending', landlord_name: 'Pending landlord', verified: false, verification_status: 'pending' }), row({ landlord_id: 'rejected', landlord_name: 'Rejected landlord', verified: false, verification_status: 'rejected' })];
+    rpcMock.mockResolvedValue({ data: response(rows), error: null });
+    const { onPageChange } = renderPanel();
+    await screen.findByText('Mr Okello');
+    await userEvent.click(screen.getByRole('button', { name: 'Not verified' }));
+    await screen.findByText('Pending landlord');
+    expect(screen.queryByText('Mr Okello')).not.toBeInTheDocument();
+    expect(screen.getByText('Rejected landlord')).toBeInTheDocument();
+    expect(onPageChange).toHaveBeenCalledWith(1);
+    await userEvent.click(screen.getByRole('button', { name: 'Rejected' }));
+    await waitFor(() => expect(screen.queryByText('Pending landlord')).not.toBeInTheDocument());
+    expect(screen.getByText('Rejected landlord')).toBeInTheDocument();
+    expect(rpcMock).toHaveBeenLastCalledWith('landlord_ops_paid_lists', { p_tab: 'paid_repaying', p_search: undefined, p_limit: 200, p_offset: 0 });
+    await userEvent.click(screen.getByRole('button', { name: 'All' }));
+    await screen.findByText('Mr Okello');
+  });
   it('loads the tab from landlord_ops_paid_lists with the search and the page', async () => {
     rpcMock.mockResolvedValue({ data: response([row()]), error: null });
     renderPanel({ tab: 'completed', search: ' okello ', page: 3 });
@@ -147,7 +164,7 @@ describe('how the tabs are wired into the Landlords page', () => {
   it('adds the two tabs right after Funded, and leaves the existing ones as they were', () => {
     const block = dashboard.slice(dashboard.indexOf('const LANDLORD_CATEGORIES'), dashboard.indexOf('];', dashboard.indexOf('const LANDLORD_CATEGORIES')));
     const order = [...block.matchAll(/\{ value: '([a-z_]+)', label: '([^']+)'/g)].map((m) => m[1]);
-    expect(order).toEqual(['all', 'verified', 'pending', 'rejected', 'resubmitted', 'funded', 'paid_repaying', 'completed', 'has_tenants', 'no_tenants']);
+    expect(order).toEqual(['all', 'verified', 'pending', 'rejected', 'paid_unverified', 'resubmitted', 'funded', 'paid_repaying', 'completed', 'has_tenants', 'no_tenants']);
     expect(dashboard).toContain("{ value: 'paid_repaying', label: 'Paid & Repaying'");
     expect(dashboard).toContain("{ value: 'completed', label: 'Completed'");
   });

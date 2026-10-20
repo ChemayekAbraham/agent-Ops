@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { PaidListResponse, PaidListRow, PaidListTab } from '@/lib/landlordPaidLists';
+import { matchesPaidVerification, type PaidVerificationFilter, type PaidListResponse, type PaidListRow, type PaidListTab } from '@/lib/landlordPaidLists';
 
 const num = (v: unknown) => Number(v) || 0;
 
@@ -27,12 +27,26 @@ export async function fetchLandlordPaidList(tab: PaidListTab, search: string, li
 }
 
 /** The page on screen for a tab, a search and a page number (1-based). */
-export function useLandlordPaidList(params: { tab: PaidListTab; search: string; page: number; perPage: number; enabled?: boolean }) {
-  const { tab, search, page, perPage, enabled = true } = params;
+export async function fetchFilteredLandlordPaidList(tab: PaidListTab, search: string, filter: PaidVerificationFilter): Promise<PaidListResponse> {
+  const first = await fetchLandlordPaidList(tab, search, 200, 0);
+  const rows = [...first.rows];
+  while (rows.length < first.total) {
+    const next = await fetchLandlordPaidList(tab, search, 200, rows.length);
+    if (next.rows.length === 0) throw new Error('Paid landlord list changed. Please refresh.');
+    rows.push(...next.rows);
+  }
+  const matching = rows.filter(row => matchesPaidVerification(row, filter));
+  return { ...first, rows: matching, total: matching.length, offset: 0 };
+}
+
+export function useLandlordPaidList(params: { tab: PaidListTab; search: string; page: number; perPage: number; enabled?: boolean; verification?: PaidVerificationFilter }) {
+  const { tab, search, page, perPage, enabled = true, verification = 'all' } = params;
   return useQuery({
-    queryKey: ['landlord-paid-lists', 'page', { tab, search: search.trim(), page, perPage }],
-    queryFn: () => fetchLandlordPaidList(tab, search, perPage, Math.max(0, (page - 1) * perPage)),
-    placeholderData: keepPreviousData,
+    queryKey: ['landlord-paid-lists', 'page', { tab, search: search.trim(), page: verification === 'all' ? page : undefined, perPage, verification }],
+    queryFn: () => verification === 'all'
+      ? fetchLandlordPaidList(tab, search, perPage, Math.max(0, (page - 1) * perPage))
+      : fetchFilteredLandlordPaidList(tab, search, verification),
+    select: data => verification === 'all' ? data : { ...data, rows: data.rows.slice(Math.max(0, (page - 1) * perPage), page * perPage) },
     staleTime: 30_000,
     retry: false,
     enabled,
