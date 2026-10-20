@@ -1,4 +1,4 @@
--- Landlord rejected gate and payout-number review (20261020100000_landlord_rejected_gate_and_payout_number_review.sql).
+-- Landlord rejected gate and payout-number review (20261020170000_landlord_rejected_gate_and_payout_number_review.sql).
 -- One DO block that ends in an exception, so NOTHING is kept; the report is the exception message. Run AFTER the migration is applied.
 -- (A) a Rent Plan at the Landlord Ops desk cannot move forward while its landlord is rejected, and the message names the landlord and reason;
 -- (B) rejecting that Rent Plan is still allowed; (C) once the landlord is verified again the same move is allowed;

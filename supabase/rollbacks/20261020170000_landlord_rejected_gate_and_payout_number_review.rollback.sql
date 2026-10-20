@@ -1,4 +1,4 @@
--- Rollback for 20261020100000_landlord_rejected_gate_and_payout_number_review.sql
+-- Rollback for 20261020170000_landlord_rejected_gate_and_payout_number_review.sql
 -- Only new objects were added. Approved numbers already confirmed through confirm_landlord_payout_number() keep their new value and are
 -- findable with verified_mobile_money_source = 'payout_number_reconcile' (and landlord_number_audit event 'payout_number_reconciled').
 DROP TRIGGER IF EXISTS trg_block_review_rejected_landlord ON public.rent_requests;
