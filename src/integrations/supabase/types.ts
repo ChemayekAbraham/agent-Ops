@@ -79713,6 +79713,10 @@ export type Database = {
         Args: { p_listing_id: string; p_reason: string }
         Returns: Json
       }
+      reject_landlord_payouts: {
+        Args: { p_message?: string; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       reject_merchandise_purchase: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
