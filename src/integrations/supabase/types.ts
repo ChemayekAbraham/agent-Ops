@@ -14522,6 +14522,36 @@ export type Database = {
         }
         Relationships: []
       }
+      device_alert_action_tokens: {
+        Row: {
+          action: string
+          created_at: string
+          device_fp: string
+          expires_at: string
+          token_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          device_fp: string
+          expires_at?: string
+          token_hash: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          device_fp?: string
+          expires_at?: string
+          token_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       device_step_up_challenges: {
         Row: {
           attempts: number
@@ -79713,6 +79743,10 @@ export type Database = {
         Args: { p_listing_id: string; p_reason: string }
         Returns: Json
       }
+      reject_landlord_payouts: {
+        Args: { p_message?: string; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       reject_merchandise_purchase: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
@@ -83456,6 +83490,10 @@ export type Database = {
           p_token: string
           p_verification_status?: string
         }
+        Returns: Json
+      }
+      use_device_alert_token: {
+        Args: { p_peek?: boolean; p_token_hash: string }
         Returns: Json
       }
       user_can_access_landlord: {

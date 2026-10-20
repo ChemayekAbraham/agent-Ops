@@ -2,6 +2,7 @@
 import * as React from 'npm:react@18.3.1'
 import {
   Body,
+  Button,
   Container,
   Head,
   Heading,
@@ -26,6 +27,9 @@ interface NewDeviceSignInProps {
   location?: string
   ipAddress?: string
   signedInAt?: string
+  /** Single-use confirm-page links; when absent the email has no buttons. */
+  trustUrl?: string | null
+  rejectUrl?: string | null
 }
 
 export function NewDeviceSignInEmail({
@@ -35,6 +39,8 @@ export function NewDeviceSignInEmail({
   location = 'Unknown location',
   ipAddress = 'Unknown',
   signedInAt = new Date().toISOString(),
+  trustUrl = null,
+  rejectUrl = null,
 }: NewDeviceSignInProps) {
   const when = new Date(signedInAt).toLocaleString('en-UG', { timeZone: 'Africa/Kampala' })
   return (
@@ -59,10 +65,22 @@ export function NewDeviceSignInEmail({
           <Text style={value}>{ipAddress}</Text>
           <Hr style={hr} />
           <Text style={text}>
-            <strong>Was this you?</strong> Open Welile on a phone or computer you normally use. You'll see this
-            sign-in there: choose <strong>I know this device</strong> to keep it, or <strong>I don't know this
-            device</strong> to sign it out.
+            <strong>Was this you?</strong>
           </Text>
+          {trustUrl && rejectUrl ? (
+            <Section style={buttonRow}>
+              <Button href={trustUrl} style={buttonPrimary}>Yes, this was me</Button>{' '}
+              <Button href={rejectUrl} style={buttonDanger}>No, sign it out</Button>
+            </Section>
+          ) : null}
+          <Text style={text}>
+            {trustUrl && rejectUrl ? 'You can also answer' : 'Answer'} in Welile on a phone or computer you normally
+            use: choose <strong>I know this device</strong> to keep it, or <strong>I don't know this device</strong> to
+            sign it out.
+          </Text>
+          {trustUrl && rejectUrl ? (
+            <Text style={muted}>Each button works once and expires in 7 days. You'll be asked to confirm.</Text>
+          ) : null}
           <Text style={muted}>
             Location is estimated from the internet connection and can be off, especially on mobile data.
           </Text>
@@ -101,6 +119,18 @@ const label: React.CSSProperties = {
   fontWeight: 600,
 }
 const value: React.CSSProperties = { color: '#0f172a', fontSize: '14px', margin: '0 0 12px' }
+const buttonRow: React.CSSProperties = { textAlign: 'center' as const, margin: '0 0 16px' }
+const buttonBase: React.CSSProperties = {
+  display: 'inline-block',
+  borderRadius: '8px',
+  padding: '12px 18px',
+  fontSize: '15px',
+  fontWeight: 700,
+  textDecoration: 'none',
+  margin: '4px 6px',
+}
+const buttonPrimary: React.CSSProperties = { ...buttonBase, backgroundColor: '#7c3aed', color: '#ffffff' }
+const buttonDanger: React.CSSProperties = { ...buttonBase, backgroundColor: '#dc2626', color: '#ffffff' }
 const hr: React.CSSProperties = { borderColor: '#e2e8f0', margin: '20px 0 16px' }
 const footer: React.CSSProperties = { color: '#94a3b8', fontSize: '12px', margin: '12px 0 0' }
 
@@ -115,5 +145,7 @@ export const template = {
     location: 'Kampala, Uganda',
     ipAddress: '102.85.0.1',
     signedInAt: new Date().toISOString(),
+    trustUrl: 'https://welileapp.com/device-check?t=preview-trust',
+    rejectUrl: 'https://welileapp.com/device-check?t=preview-reject',
   },
 } satisfies TemplateEntry
