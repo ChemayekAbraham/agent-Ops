@@ -31596,33 +31596,66 @@ export type Database = {
       }
       login_devices: {
         Row: {
+          alerted_at: string | null
+          auth_session_id: string | null
+          browser: string | null
+          decided_at: string | null
+          decided_from_device_fp: string | null
+          device_class: string | null
           device_fp: string
           first_seen_at: string
           hw_fp: string | null
+          ip_city: string | null
+          ip_country: string | null
+          last_ip: string | null
           last_seen_at: string
           login_count: number
+          os: string | null
+          status: string
           step_up_required_at: string | null
           step_up_verified_at: string | null
           user_agent: string | null
           user_id: string
         }
         Insert: {
+          alerted_at?: string | null
+          auth_session_id?: string | null
+          browser?: string | null
+          decided_at?: string | null
+          decided_from_device_fp?: string | null
+          device_class?: string | null
           device_fp: string
           first_seen_at?: string
           hw_fp?: string | null
+          ip_city?: string | null
+          ip_country?: string | null
+          last_ip?: string | null
           last_seen_at?: string
           login_count?: number
+          os?: string | null
+          status?: string
           step_up_required_at?: string | null
           step_up_verified_at?: string | null
           user_agent?: string | null
           user_id: string
         }
         Update: {
+          alerted_at?: string | null
+          auth_session_id?: string | null
+          browser?: string | null
+          decided_at?: string | null
+          decided_from_device_fp?: string | null
+          device_class?: string | null
           device_fp?: string
           first_seen_at?: string
           hw_fp?: string | null
+          ip_city?: string | null
+          ip_country?: string | null
+          last_ip?: string | null
           last_seen_at?: string
           login_count?: number
+          os?: string | null
+          status?: string
           step_up_required_at?: string | null
           step_up_verified_at?: string | null
           user_agent?: string | null
@@ -68021,6 +68054,19 @@ export type Database = {
         Returns: string
       }
       claim_lead_click: { Args: { p_click_id: string }; Returns: boolean }
+      claim_login_device_alert: {
+        Args: {
+          p_browser?: string
+          p_city?: string
+          p_country?: string
+          p_device_class?: string
+          p_device_fp: string
+          p_ip?: string
+          p_os?: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       claim_next_agent_capability_batch: {
         Args: { _job_id?: string }
         Returns: Json
@@ -68912,6 +68958,15 @@ export type Database = {
       }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
+        Returns: Json
+      }
+      decide_login_device: {
+        Args: {
+          p_device_fp: string
+          p_from_device_fp: string
+          p_trust: boolean
+          p_user_id: string
+        }
         Returns: Json
       }
       decide_merchant_desk_external_funding: {
@@ -78929,6 +78984,7 @@ export type Database = {
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
+      purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
         Args: {
           p_message: string
@@ -79618,6 +79674,7 @@ export type Database = {
         Args: {
           p_device_fp: string
           p_hw_fp?: string
+          p_session_id?: string
           p_user_agent?: string
           p_user_id: string
         }
@@ -79655,6 +79712,10 @@ export type Database = {
       reject_house_listing: {
         Args: { p_listing_id: string; p_reason: string }
         Returns: Json
+      }
+      reject_landlord_payouts: {
+        Args: { p_message?: string; p_withdrawal_ids: string[] }
+        Returns: number
       }
       reject_merchandise_purchase: {
         Args: { p_reason: string; p_sale_id: string }

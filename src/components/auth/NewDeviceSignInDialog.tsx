@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert, Clock, MapPin, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -47,38 +47,63 @@ export default function NewDeviceSignInDialog() {
 
   return (
     <AlertDialog open onOpenChange={() => { /* an answer is required */ }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>New sign-in to your account</AlertDialogTitle>
-          <AlertDialogDescription>
-            Your account was signed in to on a device it hasn't used before. Do you know this device?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="flex items-start gap-3 rounded-xl border p-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <DeviceOsIcon icon={device.icon} className="h-6 w-6" />
-          </div>
-          <div className="min-w-0 space-y-0.5 text-sm">
-            <p className="font-semibold text-foreground">{device.label}</p>
-            <p className="text-muted-foreground">{when} (EAT)</p>
-            {device.location ? <p className="text-muted-foreground">Near {device.location}</p> : null}
-            {device.ip ? <p className="text-xs text-muted-foreground">IP {device.ip}</p> : null}
-          </div>
+      <AlertDialogContent
+        className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-hidden rounded-2xl p-0"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        <div className="border-b border-primary/15 bg-primary/10 px-5 pb-4 pt-5">
+          <AlertDialogHeader className="space-y-2 text-left">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                <ShieldAlert className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <AlertDialogTitle className="text-base leading-tight sm:text-lg">New sign-in to your account</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-sm">
+              Your account was signed in to on a device it hasn't used before. Do you know this device?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
         </div>
 
-        {pending.length > 1 ? (
-          <p className="text-xs text-muted-foreground">{pending.length - 1} more new sign-in(s) after this one.</p>
-        ) : null}
+        <div className="space-y-3 px-5 py-4">
+          <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground">
+              <DeviceOsIcon icon={device.icon} className="h-9 w-9" />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="break-words text-base font-semibold text-foreground">{device.label}</p>
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 break-words">{when} (EAT)</span>
+              </p>
+              {device.location ? (
+                <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 break-words">Near {device.location}</span>
+                </p>
+              ) : null}
+              {device.ip ? (
+                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Globe className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 break-all font-mono">IP {device.ip}</span>
+                </p>
+              ) : null}
+            </div>
+          </div>
 
-        <AlertDialogFooter className="gap-2 sm:gap-2">
-          <Button variant="destructive" onClick={() => answer(false)} disabled={busy !== null}>
-            {busy === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            I don't know this device
-          </Button>
-          <Button onClick={() => answer(true)} disabled={busy !== null}>
+          {pending.length > 1 ? (
+            <p className="text-center text-xs text-muted-foreground">{pending.length - 1} more new sign-in(s) after this one.</p>
+          ) : null}
+        </div>
+
+        <AlertDialogFooter className="flex-col gap-2 border-t border-border px-5 py-4 sm:flex-col sm:space-x-0">
+          <Button className="w-full" onClick={() => answer(true)} disabled={busy !== null}>
             {busy === 'trust' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             I know this device
+          </Button>
+          <Button variant="destructive" className="w-full" onClick={() => answer(false)} disabled={busy !== null}>
+            {busy === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            I don't know this device
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
