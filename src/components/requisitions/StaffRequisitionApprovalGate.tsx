@@ -249,7 +249,7 @@ export function StaffRequisitionApprovalGate(
           {budget && (
             <div className="grid grid-cols-3 gap-2 rounded-xl border bg-muted/40 p-2.5 text-xs">
               <div><p className="text-muted-foreground">{budget.department_name} budget</p><p className="font-semibold">{formatUGX(Number(budget.approved_budget))}</p></div>
-              <div><p className="text-muted-foreground">Committed</p><p className="font-semibold">{formatUGX(Number(budget.committed_amount))}</p></div>
+              <div><p className="text-muted-foreground">Used</p><p className="font-semibold">{formatUGX(Number(budget.committed_amount))}</p></div>
               <div><p className="text-muted-foreground">Remaining</p><p className={Number(budget.remaining_budget) < amount ? 'font-semibold text-amber-700' : 'font-semibold'}>{formatUGX(Number(budget.remaining_budget))}</p></div>
             </div>
           )}
