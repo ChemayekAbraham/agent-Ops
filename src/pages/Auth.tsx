@@ -487,6 +487,22 @@ export default function Auth() {
           <img src={authLogoAsset.url} alt="Welile" className="auth-logo" />
         </div>)}
 
+        {(() => {
+          const reasonNotice: Record<string, string> = {
+            device_signed_out: 'This device was signed out by the account owner.',
+            session_expired: 'Your session ended. Please sign in again.',
+            session_max_age: 'For your security, please sign in again (sessions last 7 days).',
+            stale_session: 'Please sign in again.',
+          };
+          const notice = reasonNotice[searchParams.get('reason') ?? ''];
+          return notice ? (
+            <div role="status" className="mx-4 mb-3 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2.5 text-sm text-foreground">
+              <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-primary" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+              <span>{notice}</span>
+            </div>
+          ) : null;
+        })()}
+
         <div className="auth-step" style={{ flex: '1 0 auto' }}>
         {isLoginView && (
           <>

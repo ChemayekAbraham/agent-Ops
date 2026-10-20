@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Smartphone, Loader2, LogOut } from 'lucide-react';
+import { ShieldCheck, Loader2, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -61,10 +61,12 @@ export default function DeviceStepUpGate() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background p-5">
-      <div className="w-full max-w-sm space-y-5 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-          <Smartphone className="h-7 w-7 text-primary" />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-background p-4">
+      <div className="w-full max-w-sm space-y-5 overflow-hidden rounded-2xl border border-border bg-card p-5 text-center shadow-lg">
+        <div className="-mx-5 -mt-5 border-b border-primary/15 bg-primary/10 px-5 py-5">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+            <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+          </div>
         </div>
         <div className="space-y-1.5">
           <h1 className="text-lg font-semibold text-foreground">Confirm it's you</h1>
@@ -84,7 +86,7 @@ export default function DeviceStepUpGate() {
           >
             <InputOTPGroup>
               {[0, 1, 2, 3, 4, 5].map((i) => (
-                <InputOTPSlot key={i} index={i} />
+                <InputOTPSlot key={i} index={i} className="h-11 w-10 text-base sm:w-11" />
               ))}
             </InputOTPGroup>
           </InputOTP>
