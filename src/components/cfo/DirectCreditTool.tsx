@@ -202,6 +202,16 @@ export const PAYOUT_CATEGORIES: PayoutCategory[] = [
     recipientLock: 'user',
   },
   {
+    id: 'lunch_allowance',
+    label: '🍽️ Lunch Allowance',
+    description: 'Staff lunch allowance paid into staff wallets — recorded as a staff cost under payroll expenses',
+    impact: 'expense',
+    walletCategory: 'payroll_expense',
+    platformCategory: 'payroll_expense',
+    allowedOps: ['credit'],
+    recipientLock: 'user',
+  },
+  {
     id: 'tax_payment',
     label: '🏛️ Tax Payment',
     description: 'Income tax, VAT, withholding tax, and other government levies',
