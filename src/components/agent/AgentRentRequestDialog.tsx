@@ -89,6 +89,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getTenantCoveragePresentation } from '@/components/agent/AgentDailyCapacityStrip';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
@@ -257,70 +258,40 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
     // enforces it on everyone. They keep the smaller per-tenant cap only.
 
     const rating = cap.daily_rating;
-    const ypct = Math.round(cap.yesterday_response_pct * 100);
-    const tpct = Math.round(cap.today_response_pct * 100);
-    if (rating === 'Very Good') {
-      return (
-        <div className="rounded-xl border border-emerald-600/50 bg-emerald-600/10 p-3 text-emerald-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Very Good — Allowed Today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are well above the {threshold}% law and may post new rent requests. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Good') {
-      return (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Good — Allowed Today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You met the {threshold}% law and may post new rent requests. Keep going to reach Very Good (≥ 50%). (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Fair') {
-      return (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Fair — Blocked from posting today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are between 15% and 19%, just below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Bad') {
-      return (
-        <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-orange-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Bad — Blocked from posting today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are between 5% and 14%, below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    // Very Bad
+    const tiers: Record<string, { tone: string; text: string }> = {
+      'Very Good': { tone: 'border-emerald-600/50 bg-emerald-600/10 text-emerald-700', text: 'You are collecting strongly from your tenants. Keep visiting them.' },
+      'Good': { tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700', text: 'You are performing well. Visit more of your tenants to reach Very Good.' },
+      'Fair': { tone: 'border-amber-500/40 bg-amber-500/10 text-amber-700', text: 'Your collections are below where they should be. Go and see more of your tenants.' },
+      'Bad': { tone: 'border-orange-500/40 bg-orange-500/10 text-orange-700', text: 'Few of your tenants are paying. Go and see more of them today.' },
+      'Very Bad': { tone: 'border-destructive/40 bg-destructive/10 text-destructive', text: 'Very few of your tenants are paying. Go and see more of them today.' },
+    };
+    const tier = tiers[rating] ?? tiers['Very Bad'];
+    const coverage = getTenantCoveragePresentation(cap);
+    const canPost = cap.can_post_rent_today === true;
     return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-destructive">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-extrabold uppercase tracking-wide">Very Bad — Blocked from posting today</span>
-          <DailyRatingThresholdPopover />
+      <div className="space-y-2">
+        <div className={`rounded-xl border p-3 ${tier.tone}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-extrabold uppercase tracking-wide">Your rating: {rating}</span>
+            <DailyRatingThresholdPopover />
+          </div>
+          <p className="text-[11px] leading-snug opacity-95">{tier.text} Your rating shows how you are performing; it does not decide whether you can post.</p>
         </div>
-        <p className="text-[11px] leading-snug opacity-95">
-          Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are below 5%, far below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-        </p>
+        <div className={`rounded-xl border p-3 ${canPost ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}>
+          <span className="text-xs font-extrabold uppercase tracking-wide">
+            {canPost ? 'You can post new Rent Plans today' : 'You cannot post new Rent Plans yet'}
+          </span>
+          <p className="mt-1 text-[11px] leading-snug opacity-95">
+            <strong>{cap.tenants_paid_today}</strong> of <strong>{cap.tenants_due}</strong> tenants paid today · <strong>{cap.tenants_paid_yesterday}</strong> yesterday.
+            {' '}You need at least half of the tenants who owe you to pay something, today or yesterday. Any payment counts, however small.
+          </p>
+          {canPost && coverage.yesterdayCarrying && (
+            <p className="mt-1 text-[11px] leading-snug opacity-95">Yesterday&apos;s {cap.tenants_paid_yesterday} tenants are keeping you unlocked today.</p>
+          )}
+          {!canPost && coverage.todayRemaining > 0 && (
+            <p className="mt-1 text-[11px] font-semibold leading-snug">Collect from {coverage.todayRemaining} more tenant{coverage.todayRemaining === 1 ? '' : 's'} to unlock new Rent Plans.</p>
+          )}
+        </div>
       </div>
     );
   })();
