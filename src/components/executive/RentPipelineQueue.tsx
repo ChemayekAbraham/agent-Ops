@@ -1,3 +1,4 @@
+import { landlordRejectedGate, landlordRejectedErrorText } from '@/lib/landlordRejectedGate';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   filterByRentDesk,
@@ -721,6 +722,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const handleQuickApprove = async (req: any, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user || quickProcessingId) return;
+    if (stage === 'tenant_ops_approved') {
+      const gate = landlordRejectedGate(req);
+      if (gate.blocked) {
+        toast({ title: gate.title, description: gate.description, variant: 'destructive' });
+        return;
+      }
+    }
     const isOutstanding = req.registration_type === 'outstanding_balance';
     // CFO stage needs payout ref, Tenant Ops may need agent — use dialog.
     // Outstanding-balance requests skip the agent-assignment requirement
@@ -805,7 +813,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         recordLandlordApprovalAudit(req, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({ title: 'Error', description: landlordRejectedErrorText(err?.message) ?? err.message, variant: 'destructive' });
     } finally {
       setQuickProcessingId(null);
     }
@@ -854,7 +862,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         landlordIds.length > 0
           ? supabase
               .from('landlords')
-              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, registered_by')
+              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, verification_reason, registered_by')
               .in('id', landlordIds)
           : { data: [] },
         lc1Ids.length > 0
@@ -924,6 +932,9 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           // work to do, and when the agent's UGX 5,000 registration bonus is
           // still owed. A landlord already on file needs neither.
           landlord_is_new: !!landlord?.registered_by && landlord?.verification_status !== 'verified',
+          // Used by the Landlord Ops gate: a rejected landlord's Rent Plan cannot be verified (see landlordRejectedGate).
+          landlord_verification_status: landlord?.verification_status ?? null,
+          landlord_rejection_reason: landlord?.verification_reason ?? null,
           lc1_is_new: !!lc1?.registered_by && !lc1?.verified,
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
@@ -1124,6 +1135,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
     }
+    if (stage === 'tenant_ops_approved') {
+      const gate = landlordRejectedGate(selectedRequest);
+      if (gate.blocked) {
+        toast({ title: gate.title, description: gate.description, variant: 'destructive' });
+        return;
+      }
+    }
     const isOutstanding = selectedRequest.registration_type === 'outstanding_balance';
     if (config.showAgentSelector && !isOutstanding && !assignedAgentId && !selectedRequest.agent_id) {
       toast({ title: 'Please assign an agent', variant: 'destructive' });
@@ -1240,7 +1258,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         recordLandlordApprovalAudit(selectedRequest, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
+      toast({ title: 'Error', description: landlordRejectedErrorText(err?.message) ?? landlordFloatErrorText(err), variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1409,7 +1427,15 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       const ids = [...selectedIds];
       const failures: string[] = [];
       let approved = 0;
+      // Landlord Ops: a Rent Plan whose landlord was rejected is skipped here and named in the message.
+      const rejectedLandlordIds = new Set<string>(
+        stage === 'tenant_ops_approved'
+          ? (requests ?? []).filter((r: any) => landlordRejectedGate(r).blocked).map((r: any) => r.id)
+          : [],
+      );
+      let skippedRejected = 0;
       for (const id of ids) {
+        if (rejectedLandlordIds.has(id)) { skippedRejected += 1; continue; }
         const stampedAt = new Date().toISOString();
         const { error } = await supabase
           .from('rent_requests')
@@ -1427,6 +1453,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       }
       if (approved > 0) {
         toast({ title: `✅ ${approved} request${approved === 1 ? '' : 's'} approved` });
+      }
+      if (skippedRejected > 0) {
+        toast({
+          title: `${skippedRejected} skipped: landlord was rejected`,
+          description: 'These Rent Plans cannot be verified until the landlord is verified again, or the Rent Plan is returned to the agent.',
+          variant: 'destructive',
+        });
       }
       if (failures.length > 0) {
         toast({
@@ -2129,6 +2162,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   </div>
                 </div>
 
+                {stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked && (
+                  <div role="alert" className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                    <p className="font-semibold">{landlordRejectedGate(req).title}</p>
+                    <p>{landlordRejectedGate(req).description}</p>
+                  </div>
+                )}
+
                 {/* Desk time: on your desk / before / total in system (server answer, one call for the desk). Tap the clock for the journey. */}
                 <RentTimingRow
                   requestId={req.id}
@@ -2335,8 +2375,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || (stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
+                      stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked ? landlordRejectedGate(req).title :
                       isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
@@ -2441,6 +2482,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <p className="text-xs text-muted-foreground mt-0.5">✉️ {selectedRequest.agent_email}</p>
                   )}
                 </div>
+                {stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked && (
+                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <p className="font-semibold">{landlordRejectedGate(selectedRequest).title}</p>
+                    <p className="mt-0.5">{landlordRejectedGate(selectedRequest).description}</p>
+                  </div>
+                )}
+
                 {/* Awareness call: phone the tenant / landlord / agent and record what they heard. Storage only; approve and reject below are unchanged.
                     The COO and CFO stages see it read-only. The agent name, phone and id all belong to the registering agent. */}
                 <div className="col-span-2">
@@ -2858,8 +2906,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   onClick={() => void handleApprove()}
-                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest))}
-                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : undefined}
+                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest)) || (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked)}
+                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked) ? landlordRejectedGate(selectedRequest).title : undefined}
                   className="gap-1"
                 >
                   {processing ? (
