@@ -250,7 +250,6 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
     : pct >= 75 ? 'bg-warning/10 border-warning/40 text-warning'
     : 'bg-success/10 border-success/30 text-success';
 
-  const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
 
   const dailyBanner = (() => {
     if (!cap || cap.daily_status === 'starter') return null;
