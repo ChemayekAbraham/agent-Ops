@@ -615,9 +615,18 @@ export function useAgentCapacityMap(agentIds: string[]) {
          *     DAILY plans plus weekly plans whose week lapsed unpaid. Weekly
          *     plans that are on schedule are NOT in this count.
          *   - blocked iff gate population > 0 AND
-         *     max(effective_pct, raw_today_pct, raw_yesterday_pct) < threshold.
-         * Using exp.count here (all active rent_requests incl. weekly) would
-         * make the app disagree with the database trigger.
+         *     max(coverage_today, coverage_yesterday) < threshold.
+         *
+         * COVERAGE, not amounts (2026-10-20). The rating moved onto coverage on
+         * 2026-08-31; the gate only caught up now, after billing the arrears
+         * book raised the money denominator and left agents who had reached
+         * every one of their tenants — NSUBUGA 17/17, NATTU 11/11 — badged
+         * "Very Good" by this hook and refused by the database.
+         *
+         * This must mirror the trigger exactly. If the two drift again the app
+         * promises posts the server refuses, which is the bug that was just
+         * fixed. The server also honours the unlimited-posting unlock below,
+         * so that no longer diverges either.
          */
         // No server row means no gate population either, for the same reason
         // as dailyExpected above. A zero population keeps `daily_blocked`
@@ -639,8 +648,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
           : tenants_due > 0
             ? Math.max(coverage_today, coverage_yesterday, server_best_pct)
             : server_best_pct;
+        // Mirrors enforce_agent_daily_eligibility: coverage, not amount.
+        // `effective_coverage` is already forced to 1 when tenants_due is 0,
+        // which matches the trigger passing an agent through when nothing was
+        // billed to them — an absent measurement must never read as a failed one.
         const daily_blocked =
-          daily_gate_count > 0 && server_best_pct < DAILY_ELIGIBILITY_THRESHOLD;
+          daily_gate_count > 0 && effective_coverage < DAILY_ELIGIBILITY_THRESHOLD;
         let daily_status: AgentCapacity['daily_status'];
         if (daily_gate_count <= 0) daily_status = 'starter';
         else if (daily_blocked) daily_status = 'blocked';
