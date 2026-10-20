@@ -17,6 +17,7 @@ import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummar
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
 import { DirectCreditTool } from '@/components/cfo/DirectCreditTool';
+import { LunchAllowanceTracker } from '@/components/cfo/LunchAllowanceTracker';
 import { StandingOrdersPanel } from '@/components/cfo/StandingOrdersPanel';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpendApproval';
@@ -213,6 +214,8 @@ export default function CFODashboardPage() {
         return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':
         return <RedemptionApprovalsPanel />;
+      case 'lunch-allowance':
+        return <LunchAllowanceTracker />;
       case 'cash-position':
         return <CFOOverviewDashboard cashPositionOnly onTabChange={setActiveTab} />;
       case 'requisitions':
