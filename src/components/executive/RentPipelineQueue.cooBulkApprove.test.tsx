@@ -212,7 +212,7 @@ describe('COO bulk approve under the landlord float budget', () => {
 
     const approve = await screen.findByRole('button', { name: /Approve 2 that fit/ });
     expect(approve).toHaveTextContent('Approve 2 that fit (UGX 1,000,000)');
-    expect(screen.getByText('1 over budget stay at the COO step')).toBeInTheDocument();
+    expect(screen.queryByText(/over budget stay at the COO step/)).not.toBeInTheDocument();
 
     fireEvent.click(approve);
 
@@ -227,5 +227,31 @@ describe('COO bulk approve under the landlord float budget', () => {
       p_request_ids: string[];
     };
     expect(sent.p_request_ids).not.toContain('r500');
+  });
+
+  const card = (id: string) =>
+    document.querySelector(`[data-request-id="${id}"]`) as HTMLButtonElement;
+
+  it('disables a card that would push the selection past the room, and re-enables it on untick', async () => {
+    renderQueue();
+    await waitFor(() => expect(card('r600')).not.toBeDisabled());
+
+    fireEvent.click(card('r600'));
+    await waitFor(() => expect(card('r500')).toBeDisabled());
+    expect(card('r400')).not.toBeDisabled();
+    expect(card('r500')).toHaveAccessibleName('Over the landlord float budget left today');
+    expect(screen.getByText('UGX 600,000 of UGX 1,000,000 left selected')).toBeInTheDocument();
+
+    fireEvent.click(card('r600'));
+    await waitFor(() => expect(card('r500')).not.toBeDisabled());
+  });
+
+  it('select all picks only the requests that fit, oldest first', async () => {
+    renderQueue();
+    const selectAll = await screen.findByText('Select all that fit (2 · UGX 1,000,000)');
+    fireEvent.click(selectAll);
+    await waitFor(() => expect(card('r600')).toBeChecked());
+    expect(card('r400')).toBeChecked();
+    expect(card('r500')).not.toBeChecked();
   });
 });
