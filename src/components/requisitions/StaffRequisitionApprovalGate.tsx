@@ -107,6 +107,22 @@ export function StaffRequisitionApprovalGate(
     setOpenedAttachment(false);
   }, [prompt?.prompt_id]);
 
+  const [budget, setBudget] = useState<{ department_name: string; approved_budget: number; committed_amount: number; remaining_budget: number } | null>(null);
+  useEffect(() => {
+    setBudget(null);
+    const reqId = prompt?.requisition_id;
+    if (!reqId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: req } = await supabase.from('staff_requisitions').select('department_id').eq('id', reqId).maybeSingle();
+      const deptId = (req as { department_id?: string } | null)?.department_id;
+      if (!deptId) return;
+      const { data: b } = await supabase.from('v_staff_requisition_budget_context').select('*').eq('department_id', deptId).maybeSingle();
+      if (!cancelled && b) setBudget(b as never);
+    })();
+    return () => { cancelled = true; };
+  }, [prompt?.requisition_id]);
+
   const attachments = prompt?.attachment_urls ?? [];
   const amount = Number(prompt?.approved_amount ?? prompt?.amount ?? 0);
 
@@ -229,6 +245,14 @@ export function StaffRequisitionApprovalGate(
             <p className="font-semibold">{prompt.title}</p>
             <p className="text-lg font-bold text-primary">{formatUGX(amount)}</p>
           </div>
+
+          {budget && (
+            <div className="grid grid-cols-3 gap-2 rounded-xl border bg-muted/40 p-2.5 text-xs">
+              <div><p className="text-muted-foreground">{budget.department_name} budget</p><p className="font-semibold">{formatUGX(Number(budget.approved_budget))}</p></div>
+              <div><p className="text-muted-foreground">Committed</p><p className="font-semibold">{formatUGX(Number(budget.committed_amount))}</p></div>
+              <div><p className="text-muted-foreground">Remaining</p><p className={Number(budget.remaining_budget) < amount ? 'font-semibold text-amber-700' : 'font-semibold'}>{formatUGX(Number(budget.remaining_budget))}</p></div>
+            </div>
+          )}
 
           {prompt.snooze_count > 0 && (
             <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700">
