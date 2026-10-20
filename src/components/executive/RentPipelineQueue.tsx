@@ -34,7 +34,7 @@ import {
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { calculateRentRepayment } from '@/lib/rentCalculations';
+import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 import { toast as sonnerToast } from 'sonner';
@@ -1354,18 +1354,29 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const fmt = (n: number) => Number(n || 0).toLocaleString();
 
+  /**
+   * COO step: the CFO's landlord float budget caps what can actually go through, so the split of the
+   * selection into "fits" and "over cap" is computed once per render (oldest first, so the budget goes
+   * to the requests that have waited longest) and drives the Approve button's label, its disabled state
+   * and the ids the approval call sends.
+   */
+  const cooBulkSplit = useMemo(() => {
+    const sortedSelected = rows
+      .filter(r => isCooStage && selectedIds.has(r.id))
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const { fits, overCap } = partitionByLandlordFloatRoom(sortedSelected, landlordFloatBudget.data);
+    const fitsTotal = fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
+    return { fits, overCap, fitsTotal };
+  }, [isCooStage, rows, selectedIds, landlordFloatBudget.data]);
+
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
     setProcessing(true);
-    // COO step: the whole selection in one budget-aware call, oldest first, so the budget goes to the requests
-    // that have waited longest. Requests that do not fit stay selected and at the COO step.
+    // COO step: only the requests that fit inside the budget are sent, oldest first. The over-cap ones
+    // stay selected and at the COO step, where the operator can ask the CFO for a miscellaneous approval.
     if (isCooStage) {
       try {
-        const ordered = rows
-          .filter(r => selectedIds.has(r.id))
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          .map(r => r.id);
-        const res = await approveAtCooStage(ordered.length ? ordered : [...selectedIds]);
+        const res = await approveAtCooStage(cooBulkSplit.fits.map(r => r.id));
         toastCooApproval(res);
         const moved = new Set(res.approved.map(a => a.id));
         setSelectedIds(prev => new Set([...prev].filter(id => !moved.has(id))));
@@ -1572,14 +1583,18 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
-                  disabled={processing || (isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0)}
-                  title={isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
+                  disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
+                  title={isCooStage && cooBulkSplit.fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
                   onClick={handleBulkApprove}
                 >
                   {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                  Approve selected ({selectedIds.size})
+                  {isCooStage
+                    ? `Approve ${cooBulkSplit.fits.length} that fit (${formatUGX(cooBulkSplit.fitsTotal)})`
+                    : `Approve selected (${selectedIds.size})`}
                 </Button>
-                {isCooStage && <span className="text-xs text-muted-foreground">{partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length} of {selectedIds.size} will fit</span>}
+                {isCooStage && cooBulkSplit.overCap.length > 0 && (
+                  <span className="text-xs text-muted-foreground">{cooBulkSplit.overCap.length} over budget stay at the COO step</span>
+                )}
               </div>
             </div>
           ) : (
