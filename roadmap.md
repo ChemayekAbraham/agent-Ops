@@ -1,4 +1,13 @@
 # Tasks
+- [x] Add Not verified and Rejected filters inside Paid & Repaying, preserving its paid/repaying scope across all pages; 28 tests, guards and preview compilation pass. Live authenticated check unavailable for externally managed authentication.
+- [x] Add Landlord Ops paid-but-unverified filter presentation, count contract, export support and four passing hook tests; guards and preview compilation pass, payments/verification unchanged.
+- [ ] Enable paid-but-unverified matching — blocked: migration service repeatedly fails with 42P10 and live functions remain absent; filter safely disabled, SQL parity test cannot run; authenticated browser check unavailable for external Supabase.
+- [x] Update AgentDailyCapacityStrip to best-day tenant coverage, both-day context and tenant shortfalls; money/arrears and all hooks/backend preserved. Four calculation tests and isolated desktop/mobile light/dark checks pass; build OK.
+- [ ] Verify tenant strip on live agent accounts — blocked: externally managed authentication is unavailable to browser testing; supplied NSUBUGA figures and a six-tenant shortfall were checked in isolation.
+- [x] Add CTO Git Pushes view; 3 filter/refresh tests pass, isolated desktop/mobile checks cover expanded details and both themes; Commits and protected push hook/backend preserved.
+- [ ] Verify CTO Pushes with live signed-in history — blocked: externally managed authentication is unavailable to browser testing.
+- [x] Patch dashboard auth-lock delays: bounded identity reads, duplicate startup role lookup removed, single-flight watchdog and header identity reuse; 28 tests and safety guards pass, public sign-in renders without runtime errors.
+- [ ] Verify patched dashboard with a real signed-in account — blocked: externally managed authentication cannot be restored by the available testing tools.
 - [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
 - [x] Add COO budget gating/miscellaneous UI and CFO Return to COO/excess warnings without changing existing handlers.
 - [x] Run budget UI tests, project guards and desktop/phone checks; no live budget amounts saved.
@@ -40,3 +49,6 @@
 - [x] CFO Approved Rent Requests: Approved tab lists every CFO approval all time; Paid only after Financial Operations payout.
 - [x] Usage report amount matching: popup + CFO review + server rules live; matching rule tests pass. Not yet clicked through signed-in.
 - [x] CFO Approved Rent Requests: date filters (Today etc.) use the CFO approval time; Approved column shows CFO approval time.
+- [x] Make CFO sidebar "Payroll Approvals" open as a CFO dashboard section instead of jumping to the HR shell; CFO click, breadcrumb and HR /approvals page verified in preview.
+
+- [x] Apply the approved agent dashboard nudge figures migration exactly as written; stored functions verified identical to the file, signed-in call returns figures, signed-out call refused.

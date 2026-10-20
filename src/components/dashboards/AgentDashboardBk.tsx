@@ -101,7 +101,6 @@ import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
 import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet';
-import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
 import { WeeklyStreakDialog, WeeklyCollectionStreakCard } from '@/components/agent/WeeklyCollectionStreak';
@@ -142,7 +141,6 @@ import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
-import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
 import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
@@ -163,11 +161,9 @@ import { useAgentPipelineCounts } from '@/hooks/useAgentPipelineCounts';
 
 import { getDuplicateEntries } from '@/lib/fieldCollectStore';
 import { FileWarning } from 'lucide-react';
-import { FieldCollectDailyTotals } from '@/components/agent/FieldCollectDailyTotals';
 import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
 import { FieldDepositQueueCard } from '@/components/agent/FieldDepositQueueCard';
 
-import { AgentRatingCard } from '@/components/agent/AgentRatingCard';
 import { AgentCollectionLeagueCard } from '@/components/agent/AgentCollectionLeagueCard';
 import { RecruitSubAgentCTA } from '@/components/agent/RecruitSubAgentCTA';
 import { ApprovedRentRequestsWidget } from '@/components/rent/ApprovedRentRequestsWidget';
@@ -179,6 +175,8 @@ import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard'
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { useAgentNudges } from '@/hooks/useAgentNudges';
+import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -250,6 +248,9 @@ const BorrowLoanSheet = lazy(() => import('@/components/vouch/borrower/BorrowLoa
 const AgentAdvanceRequestForm = lazyNamed(() => import('@/components/agent/AgentAdvanceRequestForm'), 'AgentAdvanceRequestForm');
 const CreditAccessCard = lazyNamed(() => import('@/components/CreditAccessCard'), 'CreditAccessCard');
 const AgentCashPayoutsTab = lazyNamed(() => import('@/components/agent/AgentCashPayoutsTab'), 'AgentCashPayoutsTab');
+const ServiceCenterQualificationCard = lazyNamed(() => import('@/components/agent/ServiceCenterQualificationCard'), 'ServiceCenterQualificationCard');
+const AgentRatingCard = lazyNamed(() => import('@/components/agent/AgentRatingCard'), 'AgentRatingCard');
+const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/FieldCollectDailyTotals'), 'FieldCollectDailyTotals');
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
@@ -568,7 +569,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') as AgentHubTab | null;
   const initialTab: AgentHubTab =
-    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(tabParam)
+    tabParam && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(tabParam)
       ? (tabParam as string) === 'more' ? 'grow' : (tabParam as string) === 'repayments' ? 'portfolio' : tabParam
       : 'home';
   const [activeTab, setActiveTab] = useState<AgentHubTab>(initialTab);
@@ -576,7 +577,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // Sync activeTab when query param ?tab changes
   useEffect(() => {
     const currentTab = searchParams.get('tab') as AgentHubTab | null;
-    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(currentTab)) {
+    if (currentTab && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(currentTab)) {
       const normalized = (currentTab as string) === 'more' ? 'grow' : (currentTab as string) === 'repayments' ? 'portfolio' : currentTab;
       if (normalized !== activeTab) {
         setActiveTab(normalized);
@@ -589,7 +590,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // Sync activeTab when top-right menu triggers tab switch event
   useEffect(() => {
     const handleTabEvent = (e: CustomEvent<AgentHubTab>) => {
-      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio'].includes(e.detail)) {
+      if (e.detail && ['home', 'money', 'tenants', 'grow', 'subagents', 'league', 'portfolio', 'merchant'].includes(e.detail)) {
         setActiveTab(e.detail);
         if (e.detail === 'home') {
           setMenuOpen(false);
@@ -762,6 +763,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         subagents: 'Sub Agents',
         league: 'Collection League',
         portfolio: 'Repayment Portfolio',
+        merchant: 'Merchant Dashboard',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
       setSlideDirection(null);
@@ -891,10 +893,19 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     return true;
   };
 
-  // Merchant Agents are locked to the Home tab. If the active tab ever lands on
+  // Personal nudge toasts (copy in src/lib/agentNudges/nudges.json; paced in the hook).
+  useAgentNudges(user?.id, {
+    onAction: (cta) => {
+      if (cta === 'collect') setTenantsSheetOpen(true);
+      else if (cta === 'add_tenant') { setRentRequestOpen(true); }
+      else if (cta === 'leaderboard') navigate('/dashboard/agent?tab=league');
+    },
+  });
+
+  // Merchant Agents are locked to the Home and Merchant tabs. If the active tab ever lands on
   // an operational section (e.g. it was set before the role resolved), snap back.
   useEffect(() => {
-    if (isMerchant && activeTab !== 'home') {
+    if (isMerchant && activeTab !== 'home' && activeTab !== 'merchant') {
       setSlideDirection(null);
       setActiveTab('home');
     }
@@ -968,6 +979,20 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       window.removeEventListener('agent-open-free-service-center', handleOpenFreeServiceCenter);
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
+
+  // Warm up menu route bundles during browser idle time so menu navigation is instant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import('@/pages/YourProfile');
+      void import('@/pages/AgentServiceCenter');
+      void import('@/components/auth/ProxyAgentGuard');
+      void import('@/pages/agent/ProxyPerformanceDashboard');
+      void import('@/pages/AgentCommissionBenefits');
+      void import('@/pages/MerchandiseStore');
+      void import('@/pages/Settings');
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Live "updated …" indicator for the Merchant Payouts earnings total.
   // Re-render every 15s so the relative timestamp stays fresh.
@@ -1085,12 +1110,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
 
   const menuItems = [
-    { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
+    {
+      icon: ShoppingBag,
+      label: 'Buy Merchandise',
+      onClick: () => { hapticTap(); navigate('/merchandise'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+    },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
+      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
     },
   ];
 
@@ -1233,9 +1264,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Back to Home</span>
             </button>
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
-            </span>
+            {activeTab === 'merchant' ? (
+              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                Merchant Dashboard
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {activeTab === 'money' ? 'Money Hub' : activeTab === 'tenants' ? 'Tenants Hub' : activeTab === 'grow' ? 'More Tools' : activeTab === 'league' ? 'Collection League' : activeTab === 'portfolio' ? 'Repayment Portfolio' : 'Agent Hub'}
+              </span>
+            )}
           </div>
         )}
 
@@ -1246,9 +1283,9 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
 
         {/* Swipe surface — left/right gestures navigate adjacent hub tabs */}
         <div {...swipeHandlers} className="touch-pan-y">
-        {/* === HOME TAB === Most-used actions, at-a-glance */}
-        {activeTab === 'home' && isMerchant && isCashoutAgent && (
-          <div className={cn("space-y-4", tabAnimClass)}>
+        {/* === MERCHANT DASHBOARD TAB === Dedicated payout operations */}
+        {activeTab === 'merchant' && isCashoutAgent && (
+          <div className={cn("space-y-4 rounded-3xl p-3.5 sm:p-5 bg-gradient-to-b from-emerald-500/25 via-emerald-500/10 to-emerald-500/[0.04] border-2 border-emerald-500/35 shadow-sm", tabAnimClass)}>
             <MerchantDashboardHome
               agentId={user.id}
               cashoutAgentId={(isCashoutAgent as any)?.id ?? null}
@@ -1266,40 +1303,42 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             />
           </div>
         )}
-        {activeTab === 'home' && !isMerchant && (
+        {/* === HOME TAB === Most-used actions, at-a-glance */}
+        {activeTab === 'home' && (
           <div className={cn("space-y-2.5", tabAnimClass)}>
-            {/* Free Service Center qualification — permanent milestone tracker */}
-            {!isMerchant && (
-              <div className="flex flex-col space-y-2">
-                <LastWeekWinnerOverlay />
-                <WeeklyChampionTeamDialog />
-                <TenantLocationCorrectionPopup agentId={user.id} />
-                <WeeklyStreakDialog />
-                {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
-                <SignatureRentRequestCard
-                  fullName={profile?.full_name}
-                  onPostRequest={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                />
-                {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
-                    (2026-10-16). The signature card above is the entry point. */}
-                {SHOW_LEGACY_RENT_REQUEST_CARD && (
-                  <>
-                    <AgentPostRentRequestCard
-                      restricted={isMerchant}
-                      onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                      className="w-full min-h-[300px] sm:min-h-[360px]"
-                    />
-                    <p
-                      onClick={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
-                      className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-                    >
-                      and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
-                    </p>
-                  </>
-                )}
-
-              </div>
-            )}
+            <div className="flex flex-col space-y-2">
+              {!isMerchant && (
+                <>
+                  <LastWeekWinnerOverlay />
+                  <WeeklyChampionTeamDialog />
+                  <TenantLocationCorrectionPopup agentId={user.id} />
+                  <WeeklyStreakDialog />
+                </>
+              )}
+              {/* Violet signature rent-request card (copied from /dashboard/agent-new) */}
+              <SignatureRentRequestCard
+                fullName={profile?.full_name}
+                onPostRequest={() => { setRentRequestOpen(true); }}
+              />
+              <AgentNudgePreviewButton userId={user?.id} />
+              {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
+                  (2026-10-16). The signature card above is the entry point. */}
+              {SHOW_LEGACY_RENT_REQUEST_CARD && (
+                <>
+                  <AgentPostRentRequestCard
+                    restricted={false}
+                    onOpen={() => { setRentRequestOpen(true); }}
+                    className="w-full min-h-[300px] sm:min-h-[360px]"
+                  />
+                  <p
+                    onClick={() => { setRentRequestOpen(true); }}
+                    className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+                  >
+                    and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per new tenant
+                  </p>
+                </>
+              )}
+            </div>
 
             {/* Merchant Agent invites moved to CTO dashboard → "Merchant Invites" tab */}
 
@@ -1647,9 +1686,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             <AgentOverdueCallDrive agentId={user.id} />
             {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
             <AgentArrearsCard agentId={user.id} />
-            {/* Rent Plans past their end date that still owe. These carry no
-                pinned day, so they appear nowhere under today's target. */}
-            <AgentExpiredCyclesCard agentId={user.id} />
+            {/* Rent Plans past their end date now render inside
+                AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
                 "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
@@ -2173,6 +2211,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       </LazyModal>
 
       {/* Free Service Center qualification dialog */}
+      <LazyModal when={freeServiceCenterOpen}>
       <Dialog open={freeServiceCenterOpen} onOpenChange={setFreeServiceCenterOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2181,8 +2220,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <ServiceCenterQualificationCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Your Rating dialog */}
+      <LazyModal when={ratingDialogOpen}>
       <Dialog open={ratingDialogOpen} onOpenChange={setRatingDialogOpen}>
         <DialogContent className="max-w-md p-4 sm:p-6 bg-card border-border">
           <DialogHeader>
@@ -2191,8 +2232,10 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <AgentRatingCard agentId={user.id} />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Field Collections daily totals dialog */}
+      <LazyModal when={fieldCollectionsOpen}>
       <Dialog open={fieldCollectionsOpen} onOpenChange={setFieldCollectionsOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -2201,6 +2244,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <FieldCollectDailyTotals live />
         </DialogContent>
       </Dialog>
+      </LazyModal>
 
       {/* Phase 1: Agent Operations Dialogs */}
       <LazyModal when={visitDialogOpen}>

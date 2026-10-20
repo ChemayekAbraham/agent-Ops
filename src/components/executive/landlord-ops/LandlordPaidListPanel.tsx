@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useLandlordPaidList } from '@/hooks/useLandlordPaidLists';
-import { PAID_LIST_HELP, paidListErrorMessage, type PaidListRow, type PaidListTab } from '@/lib/landlordPaidLists';
+import { PAID_LIST_HELP, paidListErrorMessage, type PaidListRow, type PaidListTab, type PaidVerificationFilter } from '@/lib/landlordPaidLists';
 import { formatUgx } from '@/lib/landlordTenants';
 import { CallButtons } from './LandlordTenantsSection';
 
@@ -27,7 +27,9 @@ export function LandlordPaidListPanel({
   renderReview: (row: PaidListRow) => ReactNode;
   className?: string;
 }) {
-  const { data, isLoading, isError, error, refetch, isFetching } = useLandlordPaidList({ tab, search, page, perPage });
+  const [verification, setVerification] = useState<PaidVerificationFilter>('all');
+  const activeVerification = tab === 'paid_repaying' ? verification : 'all';
+  const { data, isLoading, isError, error, refetch, isFetching } = useLandlordPaidList({ tab, search, page, perPage, verification: activeVerification });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -56,10 +58,24 @@ export function LandlordPaidListPanel({
   return (
     <div className={cn('space-y-2', className)}>
       <p className="text-[11px] text-muted-foreground">{PAID_LIST_HELP[tab]}</p>
+      {tab === 'paid_repaying' && (
+        <div role="group" aria-label="Verification filter" className="flex flex-wrap gap-1.5">
+          {([
+            ['all', 'All'], ['not_verified', 'Not verified'], ['rejected', 'Rejected'],
+          ] as const).map(([value, label]) => (
+            <Button key={value} type="button" size="sm" variant={verification === value ? 'secondary' : 'outline'}
+              aria-pressed={verification === value}
+              onClick={() => { setVerification(value); setExpandedId(null); onPageChange(1); }}>
+              {label}
+            </Button>
+          ))}
+          {activeVerification !== 'all' && <span className="self-center text-xs text-muted-foreground">{total.toLocaleString('en-US')} landlords</span>}
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          {searching ? 'No landlords match this search.' : tab === 'paid_repaying' ? 'No landlords have tenants repaying right now.' : 'No landlords have fully paid-off tenants yet.'}
+          {activeVerification !== 'all' ? 'No landlords match this verification filter.' : searching ? 'No landlords match this search.' : tab === 'paid_repaying' ? 'No landlords have tenants repaying right now.' : 'No landlords have fully paid-off tenants yet.'}
         </p>
       ) : (
         <ul className={cn('space-y-2', isFetching && 'opacity-70')}>
@@ -71,7 +87,9 @@ export function LandlordPaidListPanel({
                     <p className="break-words text-sm font-bold leading-tight">{row.landlord_name}</p>
                     {row.landlord_phone && <CallButtons phone={row.landlord_phone} name={row.landlord_name} />}
                     <div className="flex flex-wrap items-center gap-1 pt-0.5">
-                      {row.verified
+                      {row.verification_status === 'rejected'
+                        ? <Badge variant="outline" className="border-destructive/30 text-destructive px-1.5 py-0 text-[9px]">Rejected</Badge>
+                        : row.verified
                         ? <Badge variant="outline" className="border-0 bg-emerald-100 px-1.5 py-0 text-[9px] text-emerald-700">Verified</Badge>
                         : <Badge variant="outline" className="border-0 bg-red-100 px-1.5 py-0 text-[9px] font-semibold text-red-700">Not Verified</Badge>}
                       {(row.district || row.village) && (

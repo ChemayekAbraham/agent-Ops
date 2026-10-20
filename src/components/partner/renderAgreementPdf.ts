@@ -101,14 +101,33 @@ async function ensureReportFonts(): Promise<void> {
 }
 
 /**
- * Pin each report page to exactly A4 on screen (the template centres a fluid
- * page inside a padded wrapper), so the raster is the page itself, edge to
- * edge, with no wrapper padding or shadow around it.
+ * Pin each report page to exactly A4 wide on screen (the template centres a
+ * fluid page inside a padded wrapper), so the raster is the page itself, edge
+ * to edge, with no wrapper padding or shadow around it. The template's A4
+ * min-height is dropped: a page is only as tall as its content, and the PDF
+ * page is cut to that height, so a short last page carries no blank sheet.
  */
 const REPORT_PAGE_OVERRIDES = `<style>
 .agreement-print-root .document-wrapper { width: 210mm; max-width: 210mm; margin: 0; padding: 0; }
-.agreement-print-root .report-page { width: 210mm; max-width: 210mm; margin: 0; box-shadow: none; }
+.agreement-print-root .report-page { width: 210mm; max-width: 210mm; min-height: 0; margin: 0; box-shadow: none; }
 </style>`;
+
+/**
+ * html2canvas 1.4.1 finds each font's text baseline by appending a hidden div
+ * to the LIVE document with a text span followed by a 1px <img>, then reading
+ * the img's offsetTop. The app's Tailwind preflight makes every img
+ * display:block, so the probe image drops below the text and the baseline is
+ * overstated: every line of text in the PDF lands off-centre in its cell,
+ * pill or row. Restore the inline probe image only while a render runs.
+ */
+const FONT_METRICS_FIX_ATTR = 'data-welile-h2c-font-metrics';
+function installFontMetricsFix(): () => void {
+  const style = document.createElement('style');
+  style.setAttribute(FONT_METRICS_FIX_ATTR, '');
+  style.textContent = 'body > div[style*="visibility: hidden"] > img { display: inline !important; }';
+  document.head.appendChild(style);
+  return () => style.remove();
+}
 
 async function renderToPdf(
   html: string,
@@ -141,6 +160,7 @@ async function renderToPdf(
   ].join(';');
   host.innerHTML = `${styles}${overrides}<div class="agreement-print-root" style="width:900px;background:#ffffff;">${body}</div>`;
   document.body.appendChild(host);
+  const removeFontMetricsFix = installFontMetricsFix();
 
   try {
     // Allow layout + webfonts/images to settle.
@@ -163,6 +183,9 @@ async function renderToPdf(
     const margin = opts?.scopeStyles ? 0 : 8;
     const maxW = pageW - margin * 2;
     const maxH = pageH - margin * 2;
+    // Reports get one PDF page per article at the article's own height (never
+    // taller than A4); the contract keeps fixed A4 sheets.
+    const fitToContent = !!opts?.scopeStyles;
 
     for (let i = 0; i < targets.length; i++) {
       const canvas = await html2canvas(targets[i], {
@@ -182,12 +205,23 @@ async function renderToPdf(
       }
       const x = (pageW - w) / 2;
       const y = margin;
-      if (i > 0) pdf.addPage();
+      if (fitToContent) {
+        // jsPDF orders [w, h] by orientation, so a page shorter than it is
+        // wide must be added as landscape to keep its width.
+        const sheetH = Math.min(pageH, h + margin * 2);
+        pdf.addPage([pageW, sheetH], sheetH >= pageW ? 'portrait' : 'landscape');
+      } else if (i > 0) {
+        pdf.addPage();
+      }
       pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
     }
 
+    // The constructor's blank A4 sheet comes before the fitted pages.
+    if (fitToContent && targets.length > 0) pdf.deletePage(1);
+
     return pdf;
   } finally {
+    removeFontMetricsFix();
     document.body.removeChild(host);
   }
 }

@@ -1,17 +1,19 @@
 import { ArrowLeft, Users, Award, BookOpen, Download, ImageIcon, Share2, DollarSign, Star, Printer, Zap, MapPin, Bike, Wallet, HandCoins, Building2, UserPlus, TrendingUp, CheckCircle2, Home, FileText, ChevronDown, FileDown, Link2, MessageCircle } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import WelileLogo from '@/assets/welile-logo.jpeg';
 import WelileServiceCentrePoster from '@/assets/welile-service-centre-poster.jpeg';
 import { toast } from 'sonner';
-import { ServiceCentreSubmissionForm } from '@/components/agent/ServiceCentreSubmissionForm';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sharePdfViaWhatsApp } from '@/lib/whatsappShare';
 import { generateAgentEarningsPdf, EARNINGS_SHARE_CAPTION, EARNINGS_SHARE_URL } from '@/lib/agentEarningsPdf';
 import { formatUGX } from '@/lib/rentCalculations';
+
+const ServiceCentreSubmissionForm = lazyNamed(() => import('@/components/agent/ServiceCentreSubmissionForm'), 'ServiceCentreSubmissionForm');
 
 const AgentCommissionBenefits = () => {
   const navigate = useNavigate();
@@ -787,7 +789,9 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       {requestNote && <p className="text-xs mt-1 text-muted-foreground">{requestNote}</p>}
                     </div>
                   )}
-                  <ServiceCentreSubmissionForm />
+                  <Suspense fallback={<div className="py-4 text-center text-xs text-muted-foreground">Loading submission form…</div>}>
+                    <ServiceCentreSubmissionForm />
+                  </Suspense>
                 </CardContent>
               </CollapsibleContent>
             </Card>

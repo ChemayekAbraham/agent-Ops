@@ -28,6 +28,7 @@ import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { postSignInPath, safeInternalPath, takeReturnPath } from '@/lib/returnPath';
 import { supabase } from '@/integrations/supabase/client';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
@@ -197,9 +198,10 @@ export default function Auth() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      const redirectParam = searchParams.get('redirect');
-      if (redirectParam && redirectParam.startsWith('/')) {
-        navigate(redirectParam, { replace: true });
+      // An explicit ?redirect= (in-app paths only) wins.
+      const redirectParam = safeInternalPath(searchParams.get('redirect'));
+      if (redirectParam) {
+        navigate(postSignInPath(user.id, redirectParam), { replace: true });
         return;
       }
       // OAuth consent and other flows that started via Google/Apple lose the
@@ -210,8 +212,14 @@ export default function Auth() {
         storedRedirect = sessionStorage.getItem('welile_post_auth_redirect');
         if (storedRedirect) sessionStorage.removeItem('welile_post_auth_redirect');
       } catch { /* ignore */ }
-      if (storedRedirect && storedRedirect.startsWith('/')) {
-        navigate(storedRedirect, { replace: true });
+      if (safeInternalPath(storedRedirect)) {
+        navigate(storedRedirect as string, { replace: true });
+        return;
+      }
+      // Back to the page this person was on when they signed out or their session ended.
+      const returnPath = takeReturnPath(user.id);
+      if (returnPath) {
+        navigate(returnPath, { replace: true });
         return;
       }
       // Let the central resolver (/dashboard → DashboardRedirect) decide the
@@ -371,8 +379,9 @@ export default function Auth() {
             return;
           }
           toast({ title: `Welcome back${data.user_name ? ', ' + data.user_name : ''}! 🎉`, description: 'Logging you in...' });
-          // Same-origin navigation — session is already persisted first-party.
-          window.location.href = '/';
+          // Same-origin navigation — session is already persisted first-party. Go back to the page the person
+          // was on (or ?redirect=) rather than always '/', which resolved to the default dashboard.
+          window.location.href = data.user_id ? postSignInPath(data.user_id, searchParams.get('redirect')) : '/';
           return;
         }
 

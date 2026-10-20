@@ -15,7 +15,7 @@ vi.mock('@/integrations/supabase/client', () => ({
   },
 }));
 
-import { useDebouncedValue, useMetricsAgents, useMetricsMainAgents, useMetricsPins, useMetricsTotals } from './useAgentOpsMetrics';
+import { useDebouncedValue, useMetricsAgents, useMetricsMainAgents, useMetricsPins, useMetricsQuality, useMetricsRisk, useMetricsTopEarners, useMetricsTotals } from './useAgentOpsMetrics';
 
 const wrapper = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -72,8 +72,41 @@ describe('useAgentOpsMetrics', () => {
     renderHook(() => useMetricsPins(box, false), { wrapper: wrapper() });
     expect(rpcMock).not.toHaveBeenCalled();
     renderHook(() => useMetricsPins(box, true), { wrapper: wrapper() });
-    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('agent_ops_metrics_pins', { p_min_lat: 0, p_min_lng: 30, p_max_lat: 1, p_max_lng: 31, p_limit: 500 }));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('agent_ops_metrics_pins', { p_min_lat: 0, p_min_lng: 30, p_max_lat: 1, p_max_lng: 31, p_limit: 2000 }));
     renderHook(() => useMetricsMainAgents('2026-10-01', '2026-10-16', 1), { wrapper: wrapper() });
     await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('agent_ops_metrics_main_agents', { p_start: '2026-10-01', p_end: '2026-10-16', p_limit: 50, p_offset: 50 }));
+  });
+
+  it('asks for listing quality with the waiting limit and types the answer; a failing call surfaces an error and can retry', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'quality boom' } }).mockResolvedValueOnce({ data: { network: { houses_listed: 307, houses_currently_rejected: 3, waiting_total: 2031 }, agents: [], waiting: [] }, error: null });
+    const { result } = renderHook(() => useMetricsQuality('2026-09-17', '2026-10-16', 10), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    act(() => result.current.refetch());
+    await waitFor(() => expect(result.current.data?.network.houses_currently_rejected).toBe(3));
+    expect(rpcMock).toHaveBeenLastCalledWith('agent_ops_metrics_listing_quality', { p_start: '2026-09-17', p_end: '2026-10-16', p_limit: 10, p_offset: 0 });
+    expect(result.current.data?.network.waiting_total).toBe(2031);
+  });
+
+  it('asks for the risk lists with the limit and offset, and keeps the previous answer while the next page loads', async () => {
+    rpcMock.mockResolvedValue({ data: { summary: { owing_agents: 322, main_agents_owing_count: 82 }, main_agents_by_advance: [{ main_agent_id: 'm', name: 'M', team_advances_outstanding: 5 }] }, error: null });
+    const { result, rerender } = renderHook(({ off }) => useMetricsRisk('2026-09-17', '2026-10-16', 50, off), { wrapper: wrapper(), initialProps: { off: 0 } });
+    await waitFor(() => expect(result.current.data?.summary.owing_agents).toBe(322));
+    expect(rpcMock).toHaveBeenLastCalledWith('agent_ops_metrics_risk', { p_start: '2026-09-17', p_end: '2026-10-16', p_limit: 50, p_offset: 0 });
+    let release: (v: unknown) => void = () => {};
+    rpcMock.mockReturnValueOnce(new Promise((r) => { release = r; }));
+    rerender({ off: 50 });
+    expect(result.current.data?.summary.owing_agents).toBe(322); // previous page stays on screen
+    expect(result.current.isStale).toBe(true);
+    release({ data: { summary: { owing_agents: 322 } }, error: null });
+    await waitFor(() => expect(rpcMock).toHaveBeenLastCalledWith('agent_ops_metrics_risk', expect.objectContaining({ p_offset: 50 })));
+  });
+
+  it('does not ask for the risk lists when disabled, and asks for the top earners sorted by listing earnings', async () => {
+    rpcMock.mockResolvedValue({ data: [{ agent_id: 'a', name: 'A', listing_earned: 900000 }], error: null });
+    renderHook(() => useMetricsRisk('2026-09-17', '2026-10-16', 50, 0, false), { wrapper: wrapper() });
+    expect(rpcMock).not.toHaveBeenCalled();
+    const { result } = renderHook(() => useMetricsTopEarners('2026-09-17', '2026-10-16', 5), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.rows[0]?.listing_earned).toBe(900000));
+    expect(rpcMock).toHaveBeenLastCalledWith('agent_ops_metrics_agents', { p_start: '2026-09-17', p_end: '2026-10-16', p_sort: 'listing_earned', p_scope: 'all', p_limit: 5, p_offset: 0 });
   });
 });

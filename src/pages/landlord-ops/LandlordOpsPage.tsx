@@ -6,6 +6,7 @@ import { LandlordOpsTopBar } from '@/components/executive/landlord-ops/LandlordO
 import { LandlordOpsSidebar } from '@/components/executive/landlord-ops/LandlordOpsSidebar';
 import { LandlordOpsDecisionDrawer } from '@/components/executive/landlord-ops/LandlordOpsDecisionDrawer';
 import { Button } from '@/components/ui/button';
+import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 
 /**
  * Layout route for Landlord Ops.
@@ -77,6 +78,7 @@ export default function LandlordOpsPage() {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
+          <TutorialVideosButton />
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">

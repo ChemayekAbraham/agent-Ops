@@ -53,7 +53,7 @@ export function ReturnsDisbursementConfirmation({
   payout_method = 'Wallet',
   payout_method_last4digit = '',
   company_name = 'Welile',
-  logo_url = 'https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
+  logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
   is_managed_by_agent = false,
   agent_name = '',
   roi_percentage,
@@ -129,7 +129,7 @@ export function ReturnsDisbursementConfirmation({
                       <tbody><tr>
                         <td align="center" valign="middle" width={64} height={64} style={iconBadgeCell}>
                           <Img
-                            src="https://wirntoujqoyjobfhyelc.supabase.co/storage/v1/object/public/email-assets/check-mark.png"
+                            src="https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/check-mark.png"
                             alt="Success"
                             width="32"
                             height="32"

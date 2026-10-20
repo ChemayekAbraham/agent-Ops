@@ -1,5 +1,5 @@
 import { safeUUID } from '@/lib/safeUUID';
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -4934,7 +4934,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     }
   }, [open]);
 
+  // Defer the heavy list re-filter/re-render so the calendar stays responsive
+  // while dates are being picked.
+  const deferredPayoutRange = useDeferredValue(payoutRange);
   const filtered = useMemo(() => {
+    const payoutRange = deferredPayoutRange;
     let list = localPortfolios;
     // Compare on calendar days only, so a picked range is inclusive of both
     // ends and a payout dated at any time of day still lands inside it.
@@ -4968,7 +4972,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       list = list.filter(p => !p.alreadyProcessedThisCycle && !completed[p.portfolioId]);
     }
     return list;
-  }, [localPortfolios, search, payoutRange, showProcessed, completed]);
+  }, [localPortfolios, search, deferredPayoutRange, showProcessed, completed]);
 
   // How many were removed from view because they're already handled this cycle.
   const processedHiddenCount = useMemo(

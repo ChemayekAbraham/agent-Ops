@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARD_IDS, dropCard, hasMetricsParams, mergeOrder, metricsPresetOf, metricsPresetRange, moveCard, normalizeAgents, normalizeTotals, orderKey, readMetricsParams,
-  readOrder, validSort, writeMetricsParams, writeOrder, metricsErrorMessage, locationLabel, normalizePins,
+  readOrder, validSort, writeMetricsParams, writeOrder, metricsErrorMessage, locationLabel, normalizePins, normalizeQuality, normalizeRisk, riskCsvRows, activityCsvRows, RISK_FLAG_LABEL,
 } from './agentMetrics';
 
 const TODAY = '2026-10-16';
@@ -108,5 +108,69 @@ describe('normalising what the server returns', () => {
     expect(metricsErrorMessage({ code: '42501', message: 'not authorized' })).toMatch(/do not have access/);
     expect(metricsErrorMessage({ message: 'RANGE_INVALID: p_end is before p_start' })).toMatch(/end date/);
     expect(metricsErrorMessage(null)).not.toBe('');
+  });
+});
+
+describe('the Risk card in the card order', () => {
+  it('is in the default order after Advances', () => {
+    expect(CARD_IDS).toContain('risk');
+    expect(CARD_IDS.indexOf('risk')).toBe(CARD_IDS.indexOf('advances') + 1);
+    expect([...CARD_IDS]).toEqual(['headline', 'listings', 'earnings', 'agents', 'locations', 'main-agents', 'advances', 'risk', 'activity']);
+  });
+  it('is appended to an order saved before it existed, and keeps the saved order', () => {
+    const old = ['activity', 'advances', 'main-agents', 'locations', 'agents', 'earnings', 'listings', 'headline'];
+    const merged = mergeOrder(old);
+    expect(merged.slice(0, 8)).toEqual(old);
+    expect(merged[8]).toBe('risk');
+    expect(merged).toHaveLength(CARD_IDS.length);
+    const s = store();
+    s.setItem(orderKey('u9'), JSON.stringify(old));
+    expect(readOrder('u9', s)[8]).toBe('risk');
+  });
+});
+
+describe('quality and risk answers', () => {
+  it('types the quality answer as returned (rates stay as sent, a missing figure reads as 0 or null)', () => {
+    const q = normalizeQuality({
+      network: { houses_listed: 307, houses_verified: 230, houses_pending: 74, houses_currently_rejected: 3, rejection_events: 36, occupied: 0, empty: 307, approval_rate: 74.9, avg_days_to_verify: null, earn_per_approved: 8043, waiting_total: 2031, oldest_waiting_days: 108 },
+      agents: [{ agent_id: 'a', name: '', houses_listed: 2, approval_rate: 50, earn_per_approved: null }],
+      waiting: [{ listing_id: 'l', agent_id: 'a', agent_name: 'G', phone: '', district: null, listed_at: '2026-06-30T05:18:54+00:00', days_waiting: 108 }],
+    });
+    expect(q.network.houses_currently_rejected).toBe(3);
+    expect(q.network.approval_rate).toBe(74.9);
+    expect(q.network.avg_days_to_verify).toBeNull();
+    expect(q.network.listing_earned).toBe(0);
+    expect(q.agents[0].name).toBe('Unnamed agent');
+    expect(q.agents[0].earn_per_approved).toBeNull();
+    expect(q.waiting[0].phone).toBeNull();
+    expect(normalizeQuality(null).waiting).toEqual([]);
+  });
+  it('types the risk answer, keeps the flag and ratio the server decided, and falls back to ok for an unknown flag', () => {
+    const r = normalizeRisk({
+      summary: { owing_agents: 322, flag_high: 1, inactive_listers_count: 427 },
+      advance_vs_earnings: [{ agent_id: 'a', name: 'A', advance_outstanding: '900000', listing_earned: 100000, ratio: 9, flag: 'high' }, { agent_id: 'b', name: 'B', flag: 'mystery', ratio: null }],
+      inactive_listers: [{ agent_id: 'i', name: 'I', days_inactive: 30 }],
+      main_agents_by_advance: [{ main_agent_id: 'm', name: 'M', team_advances_outstanding: 12891354.74 }],
+    });
+    expect(r.summary.owing_agents).toBe(322);
+    expect(r.summary.flag_watch).toBe(0);
+    expect(r.advance_vs_earnings[0]).toMatchObject({ ratio: 9, flag: 'high', advance_outstanding: 900000 });
+    expect(r.advance_vs_earnings[1].flag).toBe('ok');
+    expect(r.advance_vs_earnings[1].ratio).toBeNull();
+    expect(r.main_agents_by_advance[0].team_advances_outstanding).toBe(12891354.74);
+    expect(normalizeRisk(undefined).never_listed_subagents).toEqual([]);
+  });
+  it('builds CSV rows with the flag label and the values unchanged', () => {
+    const r = normalizeRisk({
+      advance_no_listing: [{ agent_id: 'a', name: 'A', phone: '+256700000001', advance_outstanding: 100, last_listing: '2026-08-01' }],
+      advance_vs_earnings: [{ agent_id: 'b', name: 'B', advance_outstanding: 50, listing_earned: 10, ratio: 5, flag: 'high' }],
+      inactive_listers: [{ agent_id: 'i', name: 'I', last_listing: '2026-09-16', days_inactive: 30, houses_listed_ever: 8 }],
+      never_listed_subagents: [{ agent_id: 'n', name: 'N', main_agent_name: 'Main', linked_on: '2026-01-19' }],
+    });
+    const rows = riskCsvRows(r);
+    expect(rows).toHaveLength(2);
+    expect(rows[1][6]).toBe(RISK_FLAG_LABEL.high);
+    expect(rows[1][5]).toBe(5);
+    expect(activityCsvRows(r).map((x) => x[0])).toEqual(['Inactive lister', 'Never listed']);
   });
 });

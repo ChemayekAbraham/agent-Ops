@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useGoogleMapsLoader } from '@/hooks/useGoogleMapsLoader';
 import { useMetricsLocations, useMetricsPins, type LocationLevel, type MapBox } from '@/hooks/useAgentOpsMetrics';
 import { downloadCsvWithPreamble } from '@/lib/csvExport';
-import { LOCATION_CSV_HEADERS, UGANDA_BOX, locationCsvRow, locationLabel, metricsCsvName, metricsPreamble, type MetricsPin } from '@/lib/agentMetrics';
+import { LOCATION_CSV_HEADERS, MAP_PIN_LIMIT, UGANDA_BOX, locationCsvRow, locationLabel, metricsCsvName, metricsPreamble, type MetricsPin } from '@/lib/agentMetrics';
 import { cn } from '@/lib/utils';
 import { CardShell, ListSkeleton, type CardControls } from './MetricsShared';
 import { num } from './metricsFormat';
@@ -68,7 +68,7 @@ function cssColor(name: string, fallback: string): string {
   } catch { return fallback; }
 }
 
-/** Every house pin inside the part of the map you can see (up to 500). Browser JavaScript API only; the pins come from the server. */
+/** Every house pin inside the part of the map you can see (up to the server ceiling of 2,000). Browser JavaScript API only; the pins come from the server. */
 function PinsMap() {
   const maps = useGoogleMapsLoader(true);
   const holder = useRef<HTMLDivElement>(null);
@@ -121,7 +121,7 @@ function PinsMap() {
       </div>
       {maps.isReady && (
         <p className="text-xs text-muted-foreground">
-          {num(pins.rows.length)} houses in view{pins.rows.length >= 500 ? ' (the first 500; zoom in to see the rest)' : ''}. Filled pins are verified houses, grey pins are not yet verified. Pins show every house ever listed, not only the chosen dates.
+          {num(pins.rows.length)} houses in view{pins.rows.length >= MAP_PIN_LIMIT ? ` (the first ${num(MAP_PIN_LIMIT)}; zoom in to see the rest)` : ''}. Filled pins are verified houses, grey pins are not yet verified. Pins show every house ever listed, not only the chosen dates.
         </p>
       )}
       {pins.error != null && !pins.isFetching && <p role="alert" className="text-xs text-destructive">Could not load the pins. <button type="button" className="min-h-11 underline" onClick={pins.refetch}>Retry</button></p>}

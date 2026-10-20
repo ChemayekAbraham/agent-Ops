@@ -61,7 +61,9 @@ import { LanguageProvider } from "@/hooks/useLanguage";
 const PinAuthProvider = lazyNamed(() => import("@/hooks/usePinAuth"), 'PinAuthProvider');
 const BiometricAuthProvider = lazyNamed(() => import("@/hooks/useBiometricAuth"), 'BiometricAuthProvider');
 const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/notifications/PushNotificationGate"), "PushNotificationGate");
-const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/TwoFactorGate"), "TwoFactorGate");
+// TwoFactorGate disabled for now (2026-10-17): no users have enabled 2FA, and the
+// "Verify this device" screen was blocking sign-in. Re-enable by restoring this import
+// and the <TwoFactorGate /> render below.
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
@@ -69,6 +71,8 @@ const CommunicationGate = optionalLazyWithRetry(() => import("@/components/commu
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
+// Shared-device sign-in step-up: SMS code for the 3rd+ account on one phone (device-step-up edge fn).
+const DeviceStepUpGate = optionalLazyWithRetry(() => import("@/components/auth/DeviceStepUpGate"), "DeviceStepUpGate");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -466,7 +470,6 @@ function GlobalOnboardingGates() {
   if (isReceiptRoute) return null;
   return (
     <>
-      <TwoFactorGate />
       <PushNotificationGate />
       <PhoneCollectionGate />
       <NameCompletionGate />
@@ -488,9 +491,12 @@ function GlobalOnboardingGates() {
 
 function AppRoutes() {
   const location = useLocation();
-  // Financial Ops is added here because a stray pull-to-refresh inside a long
-  // panel (e.g. Merchant Agents) reloads the whole app mid-task.
-  const PTR_DISABLED_PREFIXES = ['/', '/index', '/auth', '/welcome', '/funder-onboarding', '/executive-hub', '/admin/financial-ops', '/landlord-ops'];
+  // Financial Ops and My Space are added here because a stray pull-to-refresh
+  // inside a long panel (e.g. Merchant Agents or Canteen/Food Management) reloads the whole app mid-task.
+  const PTR_DISABLED_PREFIXES = [
+    '/', '/index', '/auth', '/welcome', '/funder-onboarding',
+    '/executive-hub', '/admin/financial-ops', '/landlord-ops', '/me',
+  ];
   const disablePullToRefresh = PTR_DISABLED_PREFIXES.some(
     (p) => location.pathname === p || location.pathname.startsWith(p + '/'),
   );
@@ -778,6 +784,13 @@ function AppRoutes() {
           <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />
           <Route path="/me/food/orders" element={<HRSignedInRoute><MyFoodOrdersPage /></HRSignedInRoute>} />
           <Route path="/me/food/manage" element={<HRSignedInRoute><FoodManagementPage /></HRSignedInRoute>} />
+          {/* Friendly and bookmarked aliases */}
+          <Route path="/canteen" element={<Navigate to="/me/food" replace />} />
+          <Route path="/canteen/orders" element={<Navigate to="/me/food/orders" replace />} />
+          <Route path="/food" element={<Navigate to="/me/food" replace />} />
+          <Route path="/food/orders" element={<Navigate to="/me/food/orders" replace />} />
+          <Route path="/food/manage" element={<Navigate to="/me/food/manage" replace />} />
+          <Route path="/food-management" element={<Navigate to="/me/food/manage" replace />} />
           <Route path="/hr/contracts" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRContractsPage /></RoleGuard>} />
           <Route path="/me/payslips" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />
@@ -1066,6 +1079,7 @@ const App = () => {
                           <SonnerToaster />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
+                          <DeviceStepUpGate />
                           <GlobalOnboardingGates />
                           <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />

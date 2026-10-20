@@ -12,8 +12,8 @@ import { test, expect, Page } from '@playwright/test';
  * the sonner toast description that explains the routing decision.
  */
 
-const SUPABASE_HOST = 'wirntoujqoyjobfhyelc.supabase.co';
-const PROJECT_REF = 'wirntoujqoyjobfhyelc';
+const SUPABASE_HOST = 'byrzshwlentqvktcksem.supabase.co';
+const PROJECT_REF = 'byrzshwlentqvktcksem';
 const USER_ID = '00000000-0000-0000-0000-000000000abc';
 const EMAIL = 'e2e@welile.test';
 const STORAGE_KEY = `sb-${PROJECT_REF}-auth-token`;

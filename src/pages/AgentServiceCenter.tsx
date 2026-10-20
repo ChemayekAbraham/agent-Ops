@@ -48,11 +48,8 @@ export default function AgentServiceCenter() {
   useRestoreBodyPointerEvents();
   const { data, isLoading, error } = useServiceCenterOverview();
   const { data: transfers = [] } = useServiceCenterTransfers();
-  const { data: catalog = [], isLoading: loadingCatalog } = useServiceCenterCatalog();
   const { data: vetting } = useServiceCenterRentQueue({ ordered: false }); // counts only: no server order or filter call
   const { data: verificationQueue } = useServiceCenterVerificationQueue();
-  const { data: listingQueue = [] } = useServiceCenterListingQueue();
-  const { openCount: intakeOpenCount, newCount: intakeNewCount } = useTenantRentIntakeQueue();
 
   const [query, setQuery] = useState('');
   const [vettingQuery, setVettingQuery] = useState('');
@@ -234,66 +231,20 @@ export default function AgentServiceCenter() {
           </TabsList>
 
           <TabsContent value="vetting" className="mt-3 space-y-3">
-            {intakeNewCount > 0 && (
-              <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <p className="text-xs font-semibold text-primary">
-                  {intakeNewCount} tenant{intakeNewCount === 1 ? '' : 's'} asked for rent themselves
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Open the “Tenant requests” tab to claim, visit and verify them.
-                </p>
-              </div>
-            )}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={vettingQuery}
-                onChange={(e) => setVettingQuery(e.target.value)}
-                placeholder="Search by agent, tenant, landlord, phone…"
-                className="pl-9 text-xs sm:text-sm h-9 sm:h-10"
+            {mainTab === 'vetting' && (
+              <ServiceCenterVettingTab
+                vetTab={vetTab}
+                setVetTab={setVetTab}
+                vettingQuery={vettingQuery}
+                setVettingQuery={setVettingQuery}
+                vettingCount={vetting?.pending_count}
+                verificationQueue={verificationQueue}
               />
-            </div>
-            <Tabs value={vetTab} onValueChange={setVetTab}>
-              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
-                <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="tenant_requests" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  Tenant requests{intakeOpenCount ? ` (${intakeOpenCount})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="houses" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  Houses{listingQueue.length ? ` (${listingQueue.length})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="landlords" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  Landlords{verificationQueue?.landlords?.length ? ` (${verificationQueue.landlords.length})` : ''}
-                </TabsTrigger>
-                <TabsTrigger value="lc1" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
-                  LC1{verificationQueue?.lc1?.length ? ` (${verificationQueue.lc1.length})` : ''}
-                </TabsTrigger>
-              </TabsList>
-
-
-              <TabsContent value="tenant_requests" className="mt-3">
-                <TenantRentIntakeQueue searchQuery={vettingQuery} />
-              </TabsContent>
-
-              <TabsContent value="rent" className="mt-3">
-                <ServiceCenterRentVettingQueue searchQuery={vettingQuery} />
-              </TabsContent>
-              <TabsContent value="houses" className="mt-3">
-                <ServiceCenterListingVettingQueue searchQuery={vettingQuery} />
-              </TabsContent>
-              <TabsContent value="landlords" className="mt-3">
-                <ServiceCenterVerificationVettingQueue only="landlord" searchQuery={vettingQuery} />
-              </TabsContent>
-              <TabsContent value="lc1" className="mt-3">
-                <ServiceCenterVerificationVettingQueue only="lc1" searchQuery={vettingQuery} />
-              </TabsContent>
-            </Tabs>
+            )}
           </TabsContent>
 
           <TabsContent value="followup" className="mt-3 space-y-3">
-            <ServiceCenterPipelineTracker />
+            {mainTab === 'followup' && <ServiceCenterPipelineTracker />}
           </TabsContent>
 
           <TabsContent value="team" className="mt-3 space-y-3">
@@ -383,57 +334,7 @@ export default function AgentServiceCenter() {
           </TabsContent>
 
           <TabsContent value="shop" className="mt-3 space-y-2">
-            <Tabs value={shopTab} onValueChange={setShopTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="catalog" className="text-xs sm:text-sm">Catalogue</TabsTrigger>
-                <TabsTrigger value="advances" className="text-xs sm:text-sm">Active advances</TabsTrigger>
-              </TabsList>
-              <TabsContent value="advances" className="mt-3">
-                {shopTab === 'advances' && <ServiceCenterAdvancesTracker />}
-              </TabsContent>
-              <TabsContent value="catalog" className="mt-3 space-y-2">
-            {loadingCatalog ? (
-              <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
-            ) : catalog.length === 0 ? (
-              <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
-                No items are available right now.
-              </CardContent></Card>
-            ) : (
-              catalog.map((item) => {
-                const img = item.image_urls?.[0] || item.image_url;
-                return (
-                  <Card key={item.id} className="overflow-hidden">
-                    <CardContent className="flex items-center gap-3 p-3">
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
-                        {img ? (
-                          <StorageImage src={img} alt={item.item_name} className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Package className="h-6 w-6 text-muted-foreground/40" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold text-foreground">{item.item_name}</div>
-                        <div className="mt-0.5 text-base font-bold leading-tight text-primary">
-                          {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}
-                          <span className="text-xs font-medium">/day</span>
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Instalments over up to 12 months · or {formatUGX(item.unit_price)} cash
-                        </div>
-                      </div>
-                      <Button size="sm" onClick={() => navigate(`/merchandise?item=${item.id}`)}>
-                        Buy
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })
-
-            )}
-              </TabsContent>
-            </Tabs>
+            {mainTab === 'shop' && <ServiceCenterShopTab shopTab={shopTab} setShopTab={setShopTab} />}
           </TabsContent>
         </Tabs>
       </main>
@@ -472,5 +373,152 @@ export default function AgentServiceCenter() {
       />
       <SubAgentInviteLinkDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
+  );
+}
+
+function ServiceCenterVettingTab({
+  vetTab,
+  setVetTab,
+  vettingQuery,
+  setVettingQuery,
+  vettingCount,
+  verificationQueue,
+}: {
+  vetTab: string;
+  setVetTab: (v: string) => void;
+  vettingQuery: string;
+  setVettingQuery: (v: string) => void;
+  vettingCount?: number;
+  verificationQueue?: {
+    landlords?: any[];
+    lc1?: any[];
+    pending_count?: number;
+  };
+}) {
+  const { openCount: intakeOpenCount, newCount: intakeNewCount } = useTenantRentIntakeQueue();
+  const { data: listingQueue = [] } = useServiceCenterListingQueue();
+
+  return (
+    <div className="space-y-3">
+      {intakeNewCount > 0 && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+          <p className="text-xs font-semibold text-primary">
+            {intakeNewCount} tenant{intakeNewCount === 1 ? '' : 's'} asked for rent themselves
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Open the “Tenant requests” tab to claim, visit and verify them.
+          </p>
+        </div>
+      )}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={vettingQuery}
+          onChange={(e) => setVettingQuery(e.target.value)}
+          placeholder="Search by agent, tenant, landlord, phone…"
+          className="pl-9 text-xs sm:text-sm h-9 sm:h-10"
+        />
+      </div>
+      <Tabs value={vetTab} onValueChange={setVetTab}>
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
+          <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
+            Rent{vettingCount ? ` (${vettingCount})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="tenant_requests" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
+            Tenant requests{intakeOpenCount ? ` (${intakeOpenCount})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="houses" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
+            Houses{listingQueue.length ? ` (${listingQueue.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="landlords" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
+            Landlords{verificationQueue?.landlords?.length ? ` (${verificationQueue.landlords.length})` : ''}
+          </TabsTrigger>
+          <TabsTrigger value="lc1" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
+            LC1{verificationQueue?.lc1?.length ? ` (${verificationQueue.lc1.length})` : ''}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="tenant_requests" className="mt-3">
+          <TenantRentIntakeQueue searchQuery={vettingQuery} />
+        </TabsContent>
+
+        <TabsContent value="rent" className="mt-3">
+          <ServiceCenterRentVettingQueue searchQuery={vettingQuery} />
+        </TabsContent>
+        <TabsContent value="houses" className="mt-3">
+          <ServiceCenterListingVettingQueue searchQuery={vettingQuery} />
+        </TabsContent>
+        <TabsContent value="landlords" className="mt-3">
+          <ServiceCenterVerificationVettingQueue only="landlord" searchQuery={vettingQuery} />
+        </TabsContent>
+        <TabsContent value="lc1" className="mt-3">
+          <ServiceCenterVerificationVettingQueue only="lc1" searchQuery={vettingQuery} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function ServiceCenterShopTab({
+  shopTab,
+  setShopTab,
+}: {
+  shopTab: string;
+  setShopTab: (v: string) => void;
+}) {
+  const navigate = useNavigate();
+  const { data: catalog = [], isLoading: loadingCatalog } = useServiceCenterCatalog();
+
+  return (
+    <Tabs value={shopTab} onValueChange={setShopTab}>
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="catalog" className="text-xs sm:text-sm">Catalogue</TabsTrigger>
+        <TabsTrigger value="advances" className="text-xs sm:text-sm">Active advances</TabsTrigger>
+      </TabsList>
+      <TabsContent value="advances" className="mt-3">
+        {shopTab === 'advances' && <ServiceCenterAdvancesTracker />}
+      </TabsContent>
+      <TabsContent value="catalog" className="mt-3 space-y-2">
+        {loadingCatalog ? (
+          <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
+        ) : catalog.length === 0 ? (
+          <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
+            No items are available right now.
+          </CardContent></Card>
+        ) : (
+          catalog.map((item) => {
+            const img = item.image_urls?.[0] || item.image_url;
+            return (
+              <Card key={item.id} className="overflow-hidden">
+                <CardContent className="flex items-center gap-3 p-3">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
+                    {img ? (
+                      <StorageImage src={img} alt={item.item_name} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Package className="h-6 w-6 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-foreground">{item.item_name}</div>
+                    <div className="mt-0.5 text-base font-bold leading-tight text-primary">
+                      {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}
+                      <span className="text-xs font-medium">/day</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Instalments over up to 12 months · or {formatUGX(item.unit_price)} cash
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => navigate(`/merchandise?item=${item.id}`)}>
+                    Buy
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </TabsContent>
+    </Tabs>
   );
 }

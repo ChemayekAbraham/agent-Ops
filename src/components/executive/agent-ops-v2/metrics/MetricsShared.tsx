@@ -1,8 +1,9 @@
 import { useState, type DragEvent, type ReactNode } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, Download, GripVertical, Info, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Download, GripVertical, Info, Loader2, Phone, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { telHref } from '@/lib/awarenessCallLabels';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { CARD_TITLES, metricsErrorMessage, metricsStamp, type CardId } from '@/lib/agentMetrics';
@@ -156,4 +157,68 @@ export function Stat({ label, value, hint, testId }: { label: string; value: str
 
 export function StatGrid({ children }: { children: ReactNode }) {
   return <div className="grid grid-cols-2 gap-2 md:grid-cols-3">{children}</div>;
+}
+
+/** A titled section inside a card that has its own query: its own skeleton, empty text, error with Retry and CSV. */
+export function Block({ title, hint, state, empty, emptyText, onCsv, csvLabel, testId, children }: {
+  title: string; hint?: string; state: CardFetchState; empty?: boolean; emptyText?: string; onCsv?: () => void; csvLabel?: string; testId: string; children: ReactNode;
+}) {
+  const failed = !!state.error && !state.isFetching;
+  return (
+    <section className="space-y-2" data-testid={testId} aria-label={title}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+        </div>
+        {onCsv && (
+          <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={onCsv} aria-label={csvLabel ?? `Download CSV: ${title}`}>
+            <Download className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+      {state.isLoading ? <ListSkeleton rows={3} /> : failed ? <CardError error={state.error} onRetry={state.refetch} /> : empty ? (
+        <p className="rounded-xl border border-dashed border-border p-3 text-center text-sm text-muted-foreground" data-testid={`${testId}-empty`}>{emptyText ?? 'Nothing to show.'}</p>
+      ) : children}
+    </section>
+  );
+}
+
+/** One person in a list: name and a detail line on the left, a figure on the right, tap-to-call when there is a phone number. */
+export function PersonRow({ name, phone, detail, figure, figureHint, badge }: {
+  name: string; phone: string | null; detail?: string; figure?: string; figureHint?: string; badge?: string;
+}) {
+  const href = telHref(phone);
+  return (
+    <li className="flex items-center justify-between gap-2 p-3" data-testid="metrics-person-row">
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold text-foreground">{name}</p>
+        {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+        {badge && <p className="text-xs font-medium text-foreground">{badge}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">
+        {figure && (
+          <div className="text-right">
+            <p className="text-sm font-bold tabular-nums text-foreground">{figure}</p>
+            {figureHint && <p className="text-xs text-muted-foreground">{figureHint}</p>}
+          </div>
+        )}
+        {href && (
+          <a href={href} aria-label={`Call ${name}`} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Phone className="h-4 w-4" />
+          </a>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** "Show more" for a list that is loaded `step` rows at a time; hidden when everything is shown. */
+export function ShowMore({ shown, total, onMore, busy, label }: { shown: number; total: number; onMore: () => void; busy?: boolean; label: string }) {
+  if (shown >= total) return null;
+  return (
+    <Button type="button" variant="outline" className="min-h-11 w-full" onClick={onMore} disabled={busy} aria-label={`Show more ${label}`}>
+      Show more ({num(shown)} of {num(total)})
+    </Button>
+  );
 }

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { topupReleaseKey } from "../_shared/topupFloatHold.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,19 +74,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch approved (parked) top-ups for this portfolio.
+    // Fetch top-ups whose money is parked: approved ones, plus requests still
+    // awaiting approval whose amount was already held from operational float
+    // at request time (metadata.float_hold = 'held'). Unheld awaiting requests
+    // moved no money and are declined via approve-portfolio-topup instead.
     // Optionally restrict to a specific subset via pending_op_ids.
     let q = adminClient
       .from("pending_wallet_operations")
-      .select("id, amount, metadata")
+      .select("id, amount, metadata, status")
       .eq("source_id", portfolio_id)
       .eq("source_table", "investor_portfolios")
       .eq("operation_type", "portfolio_topup")
-      .eq("status", "approved");
+      .in("status", ["approved", "awaiting_verification"]);
     if (Array.isArray(pending_op_ids) && pending_op_ids.length > 0) {
       q = q.in("id", pending_op_ids);
     }
-    const { data: pendingOps, error: poErr } = await q;
+    const { data: fetchedOps, error: poErr } = await q;
+    const pendingOps = (fetchedOps || []).filter((op: any) =>
+      op.status === "approved" || (op.metadata && op.metadata.float_hold === "held")
+    );
 
     if (poErr || !pendingOps || pendingOps.length === 0) {
       return new Response(JSON.stringify({ error: "No approved pending top-ups found to cancel" }), {
@@ -126,6 +133,7 @@ Deno.serve(async (req) => {
     //      • platform-scope cash_in (pending_portfolio_topup) to park capital
     //    The reversal mirrors these legs in the opposite direction.
     let refundErr: { message: string } | null = null;
+    const refundedIds: string[] = [];
     for (const op of pendingOps) {
       const meta = (op.metadata || {}) as Record<string, unknown>;
       // Fall back to the partner wallet + withdrawable bucket for legacy ops
@@ -140,6 +148,8 @@ Deno.serve(async (req) => {
       const opAmount = Number(op.amount);
 
       const { error: ledgerErr } = await adminClient.rpc("create_ledger_transaction", {
+        // One refund per op, ever — a retried cancel must not refund twice.
+        idempotency_key: topupReleaseKey(op.id),
         entries: [
           {
             // Release the parked capital (reverse of the original platform cash_in)
@@ -163,6 +173,7 @@ Deno.serve(async (req) => {
             category: "partner_funding",
             ledger_scope: "wallet",
             recipient_type: fundSource === "float" ? "operational_wallet" : "user",
+            wallet_bucket: fundSource === "float" ? "float" : "withdrawable",
             source_table: "investor_portfolios",
             source_id: portfolio_id,
             linked_party: "platform",
@@ -177,6 +188,13 @@ Deno.serve(async (req) => {
         refundErr = ledgerErr;
         break;
       }
+      refundedIds.push(op.id);
+      if (meta.float_hold) {
+        await adminClient
+          .from("pending_wallet_operations")
+          .update({ metadata: { ...meta, float_hold: "released", released_at: now } })
+          .eq("id", op.id);
+      }
 
       // Make the refund visible in the source wallet's transaction history.
       await adminClient.from("wallet_transactions").insert({
@@ -188,12 +206,16 @@ Deno.serve(async (req) => {
     }
 
     if (refundErr) {
-      // Roll back the cancellation. (Any per-op refunds already posted are
-      // balanced ledger transactions; partial failure is logged for ops.)
-      await adminClient
-        .from("pending_wallet_operations")
-        .update({ status: "approved", reviewed_at: null, reviewed_by: null, rejection_reason: null })
-        .in("id", ids);
+      // Roll back only the ops that were NOT refunded, each to the status it
+      // had. Refunded ops stay cancelled — putting them back would let an
+      // engine apply money that has already been returned.
+      for (const op of pendingOps) {
+        if (refundedIds.includes(op.id)) continue;
+        await adminClient
+          .from("pending_wallet_operations")
+          .update({ status: op.status, reviewed_at: null, reviewed_by: null, rejection_reason: null })
+          .eq("id", op.id);
+      }
       return new Response(JSON.stringify({ error: "Ledger refund failed, rolled back: " + refundErr.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -220,7 +242,7 @@ Deno.serve(async (req) => {
     await adminClient.from("notifications").insert({
       user_id: partnerId,
       title: "↩️ Pending Top-Up Cancelled",
-      message: `${pendingOps.length} pending top-up(s) totalling UGX ${totalCancelled.toLocaleString()} on "${accountLabel}" have been cancelled and refunded to your wallet.`,
+      message: `${pendingOps.length} pending top-up(s) totalling UGX ${totalCancelled.toLocaleString()} on "${accountLabel}" have been cancelled and returned to where they were taken from.`,
       type: "info",
       metadata: {
         portfolio_id,

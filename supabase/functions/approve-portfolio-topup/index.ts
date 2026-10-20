@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipTopupRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { topupHoldEntries, topupHoldKey, topupReleaseEntries, topupReleaseKey } from "../_shared/topupFloatHold.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -130,21 +131,52 @@ Deno.serve(async (req) => {
 
     // ── REJECT ──
     if (action === "reject") {
-      // Money never left the partner's wallet in the request-only flow, so
-      // marking these rejected effectively returns the funds to the wallet
-      // (they were never debited). We stamp the reason so the partner can see
-      // exactly why their transfer was declined.
-      const { error: rejectErr } = await supabase
-        .from("pending_wallet_operations")
-        .update({
-          status: "rejected",
-          reviewed_at: now,
-          reviewed_by: user.id,
-          metadata: { rejection_reason: rejectReason, rejected_by: user.id, rejected_at: now, funds_returned_to_wallet: true },
-        })
-        .in("id", opIds);
+      // Held top-ups (portfolio-topup took the amount out of operational
+      // float at request time) are released back to the same float, one op at
+      // a time with an idempotent key, then marked rejected. Older requests
+      // that were never held only need marking. Existing metadata is kept.
+      let rejectErr: { message: string } | null = null;
+      for (const op of awaitingOps) {
+        const meta = (op.metadata && typeof op.metadata === "object") ? op.metadata as Record<string, unknown> : {};
+        const wasHeld = meta.float_hold === "held";
+        if (wasHeld) {
+          const walletUserId = (typeof meta.source_wallet_user_id === "string" && meta.source_wallet_user_id)
+            ? meta.source_wallet_user_id as string
+            : (op.user_id || partnerId);
+          const { error: relErr } = await supabase.rpc("create_ledger_transaction", {
+            idempotency_key: topupReleaseKey(op.id),
+            entries: topupReleaseEntries({
+              walletUserId,
+              partnerId: partnerId || walletUserId,
+              amount: Number(op.amount),
+              portfolioId: portfolio_id,
+              portfolioCode: portfolio.portfolio_code,
+              label: accountLabel,
+              note: rejectReason,
+            }),
+          });
+          if (relErr) { rejectErr = relErr; break; }
+          await supabase.rpc("repair_wallet_cache_for_user", { p_user_id: walletUserId });
+        }
+        const { error: upErr } = await supabase
+          .from("pending_wallet_operations")
+          .update({
+            status: "rejected",
+            reviewed_at: now,
+            reviewed_by: user.id,
+            metadata: {
+              ...meta,
+              ...(wasHeld ? { float_hold: "released", released_at: now } : {}),
+              rejection_reason: rejectReason, rejected_by: user.id, rejected_at: now,
+              funds_returned_to_wallet: true,
+            },
+          })
+          .eq("id", op.id);
+        if (upErr) { rejectErr = upErr; break; }
+      }
 
       if (rejectErr) {
+        console.error("[approve-portfolio-topup] reject failed:", rejectErr);
         return new Response(JSON.stringify({ error: "Failed to reject top-ups" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -178,7 +210,7 @@ Deno.serve(async (req) => {
             userIds: [partnerId],
             payload: {
               title: "❌ Portfolio Top-Up Declined",
-              body: `Your UGX ${totalAmount.toLocaleString()} transfer to ${accountLabel} was declined: ${rejectReason}. The funds remain in your wallet.`,
+              body: `Your UGX ${totalAmount.toLocaleString()} transfer to ${accountLabel} was declined: ${rejectReason}. Any amount held for it has been returned to your operational float.`,
               url: "/dashboard/funder",
               type: "warning",
             },
@@ -195,90 +227,103 @@ Deno.serve(async (req) => {
 
     // ── APPROVE: Park funds with ledger entry until next ROI cycle ──
 
-    // Split ops by funding source. Wallet-funded transfer requests (created by
-    // `portfolio-topup`) carry metadata.requires_wallet_debit and have NOT moved
-    // any money yet — the real wallet debit happens HERE, at approval time.
-    // External / off-platform deposits are simply parked (money already arrived).
-    const walletOps = (awaitingOps || []).filter(
-      (op: any) => op?.metadata && op.metadata.requires_wallet_debit === true,
+    // Split ops by funding source:
+    //   heldOps     — portfolio-topup already took the amount out of operational
+    //                 float at request time (metadata.float_hold = 'held').
+    //                 Nothing to move here; approval only parks them.
+    //   unheldOps   — older requests (before hold-at-request) that never moved
+    //                 money (metadata.requires_wallet_debit). Debit operational
+    //                 float NOW, with the same legs as a request-time hold.
+    //   externalOps — off-platform deposits, simply parked (money already arrived).
+    // A request whose hold never completed (float_hold 'pending'/'failed')
+    // must not be approved: no money is behind it.
+    const metaOf = (op: any) => (op?.metadata && typeof op.metadata === "object") ? op.metadata : {};
+    const brokenHold = (awaitingOps || []).filter(
+      (op: any) => metaOf(op).float_hold && metaOf(op).float_hold !== "held",
+    );
+    if (brokenHold.length > 0) {
+      return new Response(JSON.stringify({
+        error: `${brokenHold.length} top-up request(s) on this portfolio have no completed float hold. Reject them; the partner can resubmit.`,
+      }), {
+        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const heldOps = (awaitingOps || []).filter((op: any) => metaOf(op).float_hold === "held");
+    const unheldOps = (awaitingOps || []).filter(
+      (op: any) => !metaOf(op).float_hold && metaOf(op).requires_wallet_debit === true,
     );
     const externalOps = (awaitingOps || []).filter(
-      (op: any) => !(op?.metadata && op.metadata.requires_wallet_debit === true),
+      (op: any) => !metaOf(op).float_hold && metaOf(op).requires_wallet_debit !== true,
     );
-    const walletTotal = walletOps.reduce((s: number, op: any) => s + Number(op.amount), 0);
+    const heldTotal = heldOps.reduce((s: number, op: any) => s + Number(op.amount), 0);
+    const unheldTotal = unheldOps.reduce((s: number, op: any) => s + Number(op.amount), 0);
     const externalTotal = externalOps.reduce((s: number, op: any) => s + Number(op.amount), 0);
 
-    // 0. For wallet-funded requests: re-validate the partner's balance and debit
-    //    the wallet NOW. This is the deferred money movement the partner agreed to.
-    if (walletTotal > 0) {
-      const walletUserId = walletOps[0]?.user_id || partnerId;
+    // 0. Older unheld requests: re-validate OPERATIONAL FLOAT (never
+    //    withdrawable) and take it now, one op at a time.
+    if (unheldTotal > 0) {
+      const walletUserId = unheldOps[0]?.user_id || partnerId;
       if (!walletUserId) {
         return new Response(JSON.stringify({ error: "Cannot resolve wallet owner for this transfer request" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // STRICT withdrawable check — funds must still be available at approval time.
       const { data: availRaw, error: availErr } = await supabase.rpc(
-        "get_user_available_balance",
+        "funder_float_available",
         { p_user_id: walletUserId },
       );
       if (availErr) {
-        console.error("[approve-portfolio-topup] balance lookup failed:", availErr);
-        return new Response(JSON.stringify({ error: "Could not verify partner wallet balance. Please retry." }), {
+        console.error("[approve-portfolio-topup] float balance lookup failed:", availErr);
+        return new Response(JSON.stringify({ error: "Could not verify partner operational float. Please retry." }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const avail = Number(availRaw ?? 0);
-      if (avail < walletTotal) {
+      if (avail < unheldTotal) {
         return new Response(JSON.stringify({
-          error: `Partner wallet no longer has enough funds for this transfer. Needs UGX ${walletTotal.toLocaleString()}, but only UGX ${avail.toLocaleString()} is available. Ask the partner to top up their wallet or reject the request.`,
+          error: `Partner operational float no longer covers this transfer. Needs UGX ${unheldTotal.toLocaleString()}, but only UGX ${avail.toLocaleString()} is available. Ask the partner to add float or reject the request.`,
         }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Real money movement: wallet → platform. Balanced double-entry: wallet cash_out + platform cash_in.
-      // Wallet cache is refreshed immediately below via repair_wallet_cache_for_user so the partner
-      // sees the new balance without waiting for the reconcile-wallets-from-pivot cron.
-      const { error: debitErr } = await supabase.rpc("create_ledger_transaction", {
-        entries: [
-          {
-            user_id: walletUserId,
-            amount: walletTotal,
-            direction: "cash_out",
-            category: "partner_funding",
-            source_table: "investor_portfolios",
-            source_id: portfolio_id,
-            description: `Approved wallet→portfolio transfer: ${accountLabel} (${portfolio.portfolio_code})`,
-            currency: "UGX",
-            ledger_scope: "wallet",
-            transaction_date: now,
-          },
-          {
-            user_id: walletUserId,
-            amount: walletTotal,
-            direction: "cash_in",
-            category: "partner_funding",
-            source_table: "investor_portfolios",
-            source_id: portfolio_id,
-            description: `Pending capital for ${accountLabel} — applied on next payout`,
-            currency: "UGX",
-            ledger_scope: "platform",
-            transaction_date: now,
-          },
-        ],
-      });
-
-      if (debitErr) {
-        console.error("[approve-portfolio-topup] Wallet debit failed:", debitErr);
-        return new Response(JSON.stringify({ error: "Failed to debit partner wallet. No changes were made." }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      for (const op of unheldOps) {
+        const opUserId = op.user_id || walletUserId;
+        const { data: holdGroupId, error: debitErr } = await supabase.rpc("create_ledger_transaction", {
+          idempotency_key: topupHoldKey(op.id),
+          entries: topupHoldEntries({
+            walletUserId: opUserId,
+            partnerId: partnerId || opUserId,
+            amount: Number(op.amount),
+            portfolioId: portfolio_id,
+            portfolioCode: portfolio.portfolio_code,
+            label: accountLabel,
+          }),
         });
+        if (debitErr) {
+          console.error("[approve-portfolio-topup] Float debit failed:", debitErr);
+          return new Response(JSON.stringify({ error: "Failed to take the top-up from partner operational float. Nothing was approved." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await supabase
+          .from("pending_wallet_operations")
+          .update({
+            metadata: {
+              ...metaOf(op),
+              fund_source: "float",
+              source_wallet_user_id: opUserId,
+              source_wallet_owner: "Operational Float",
+              float_hold: "held",
+              hold_group_id: holdGroupId,
+              held_at: now,
+              held_at_approval: true,
+            },
+          })
+          .eq("id", op.id);
       }
 
-      // Immediate wallet cache repair — pulls strict ledger truth into wallets.* so the UI sees
-      // the debit right after approval instead of waiting for the 10-minute reconciliation cron.
       const { error: repairErr } = await supabase.rpc("repair_wallet_cache_for_user", {
         p_user_id: walletUserId,
       });
@@ -286,6 +331,7 @@ Deno.serve(async (req) => {
         console.warn("[approve-portfolio-topup] wallet cache repair failed (safe — cron will reconcile):", repairErr);
       }
     }
+    console.log(`[approve-portfolio-topup] ${portfolio.portfolio_code}: held=${heldTotal} unheld_debited_now=${unheldTotal} external=${externalTotal}`);
 
     // 1. Mark all ops as approved (parked)
     const { error: approveErr } = await supabase

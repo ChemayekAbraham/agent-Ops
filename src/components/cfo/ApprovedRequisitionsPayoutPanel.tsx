@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +33,8 @@ interface Row {
   reversed_at: string | null;
   reversal_reason: string | null;
   error_message: string | null;
+  approver_name: string | null;
+  approver_role: string | null;
 }
 
 const STATUS: Record<Row['payout_status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'successSolid' }> = {
@@ -52,6 +54,7 @@ const SOURCE: Record<string, string> = {
 type Filter = 'all' | 'pending' | 'paid' | 'reversed';
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
   { id: 'paid', label: 'Paid' },
   { id: 'reversed', label: 'Reversed' },
 ];
@@ -69,7 +72,7 @@ export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
   const { roles } = useAuth() as { roles?: string[] };
   const isCfo = (roles ?? []).includes('cfo');
-  const [day, setDay] = useState(today());
+  const [day, setDay] = useState<string | null>(null); // null = all time
   const from = day, to = day;
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -77,9 +80,12 @@ export function ApprovedRequisitionsPayoutPanel() {
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const range = useMemo(() => ({
+  const range = useMemo(() => from ? ({
     p_from: new Date(`${from}T00:00:00`).toISOString(),
     p_to: new Date(new Date(`${to}T00:00:00`).getTime() + 86_400_000).toISOString(),
+  }) : ({
+    p_from: new Date('1970-01-01T00:00:00').toISOString(),
+    p_to: new Date(Date.now() + 86_400_000).toISOString(),
   }), [from, to]);
 
   const { data: rows = [], isLoading, isFetching, refetch, error } = useQuery({
@@ -91,6 +97,21 @@ export function ApprovedRequisitionsPayoutPanel() {
       return (data ?? []) as Row[];
     },
   });
+
+  // Live payout status: refetch (debounced) when a requisition or its wallet credit changes.
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const bump = () => {
+      clearTimeout(t);
+      t = setTimeout(() => qc.invalidateQueries({ queryKey: ['cfo-approved-requisitions'] }), 800);
+    };
+    const ch = supabase.channel('cfo-approved-requisitions-live');
+    for (const table of ['requisition_wallet_credits', 'staff_requisitions', 'employee_requisitions', 'director_requisitions']) {
+      ch.on('postgres_changes', { event: '*', schema: 'public', table }, bump);
+    }
+    ch.subscribe();
+    return () => { clearTimeout(t); supabase.removeChannel(ch); };
+  }, [qc]);
 
   const byStatus = (r: Row) =>
     filter === 'all' ? true
@@ -175,7 +196,7 @@ export function ApprovedRequisitionsPayoutPanel() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button size="sm" variant="outline" className={cn(!selected && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-1 h-4 w-4" />{selected ? format(selected, 'dd MMM yyyy') : 'Pick a date'}
+                  <CalendarIcon className="mr-1 h-4 w-4" />{selected ? format(selected, 'dd MMM yyyy') : 'All time'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -187,6 +208,11 @@ export function ApprovedRequisitionsPayoutPanel() {
                   initialFocus
                   className="pointer-events-auto p-3"
                 />
+                {day && (
+                  <div className="border-t p-2">
+                    <Button size="sm" variant="ghost" className="w-full" onClick={() => setDay(null)}>Show all time</Button>
+                  </div>
+                )}
               </PopoverContent>
             </Popover>
             <Button size="sm" variant="ghost" onClick={() => refetch()} aria-label="Refresh">
@@ -216,6 +242,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                     <TableHead>Purpose</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Approved</TableHead>
+                    <TableHead>Approved by</TableHead>
                     <TableHead>In wallet</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-0" />
@@ -232,6 +259,10 @@ export function ApprovedRequisitionsPayoutPanel() {
                         <TableCell className="max-w-[150px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
                         <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.approved_at)}</TableCell>
+                        <TableCell className="max-w-[140px] truncate text-xs" title={r.approver_name ?? ''}>
+                          {r.approver_name ?? '—'}
+                          {r.approver_role && <div className="text-muted-foreground">{r.approver_role}</div>}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.credited_at)}</TableCell>
                         <TableCell>
                           <Badge variant={s.variant}>{s.label}</Badge>

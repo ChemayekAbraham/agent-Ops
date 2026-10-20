@@ -1,0 +1,1 @@
+Synced to 5b705eaa23 (GitHub's new tip). The two new migration files (20261018110000 and 20261018110100, manual intake for Onesmus Akampurira's MTN payment) and the updated schema-types fingerprint are present. No changes planned: the migrations are left unedited and unapplied, and there are no code edits, database changes or deploys.

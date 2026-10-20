@@ -16,8 +16,8 @@
  *   welileapp.com/s/*      www.welileapp.com/s/*
  *   welileapp.com/m/*      www.welileapp.com/m/*   (legacy merchandise links)
  */
-const MERCH_UPSTREAM = "https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/og-merchandise";
-const PLAN_UPSTREAM = "https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/og-plan";
+const MERCH_UPSTREAM = "https://byrzshwlentqvktcksem.supabase.co/functions/v1/og-merchandise";
+const PLAN_UPSTREAM = "https://byrzshwlentqvktcksem.supabase.co/functions/v1/og-plan";
 const SITE = "https://welileapp.com";
 
 /** Only /s/<code> and /m/<code> are proxied — never any other app route. */

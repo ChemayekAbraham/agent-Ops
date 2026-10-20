@@ -2,30 +2,45 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useMetricsMainAgents } from '@/hooks/useAgentOpsMetrics';
+import { useMetricsMainAgents, useMetricsRisk } from '@/hooks/useAgentOpsMetrics';
 import { downloadCsvWithPreamble } from '@/lib/csvExport';
 import { formatUGX } from '@/lib/rentCalculations';
 import { telHref } from '@/lib/awarenessCallLabels';
-import { MAIN_CSV_HEADERS, METRICS_PAGE_SIZE, mainAgentCsvRow, metricsCsvName, metricsPreamble } from '@/lib/agentMetrics';
+import { MAIN_CSV_HEADERS, METRICS_PAGE_SIZE, mainAgentCsvRow, metricsCsvName, metricsPreamble, type MetricsMainAgent } from '@/lib/agentMetrics';
 import { CardShell, ListSkeleton, type CardControls } from './MetricsShared';
 import { num } from './metricsFormat';
 
+const BASIS_OWES = 'A main agent is the agent a sub-agent is first verified under. "Team owes most" ranks main agents by the advance outstanding today of their team, biggest first; only teams that owe something are listed. Deleted accounts are left out. As the server returns them.';
 const BASIS = 'A main agent is the agent a sub-agent is first verified under; each sub-agent counts once, deleted accounts are left out. Team figures cover the dates. Biggest team first. As the server returns them.';
 
 export function MainAgentsCard({ controls, from, to }: { controls: CardControls; from: string; to: string }) {
   const [page, setPage] = useState(0);
-  const q = useMetricsMainAgents(from, to, page);
-  useEffect(() => { setPage(0); }, [from, to]);
-  const last = Math.max(0, Math.ceil(q.total / METRICS_PAGE_SIZE) - 1);
-  const shownFrom = q.rows.length ? page * METRICS_PAGE_SIZE + 1 : 0;
-  const shownTo = page * METRICS_PAGE_SIZE + q.rows.length;
-  const csv = q.rows.length
-    ? () => downloadCsvWithPreamble(metricsCsvName('main-agents', from, to), metricsPreamble(`Main agents (rows ${shownFrom} to ${shownTo} of ${q.total})`, from, to, BASIS), MAIN_CSV_HEADERS, q.rows.map(mainAgentCsvRow))
+  const [sort, setSort] = useState<'size' | 'owes'>('size');
+  const bySize = useMetricsMainAgents(from, to, page, sort === 'size');
+  const byOwes = useMetricsRisk(from, to, METRICS_PAGE_SIZE, page * METRICS_PAGE_SIZE, sort === 'owes');
+  useEffect(() => { setPage(0); }, [from, to, sort]);
+  const owes = sort === 'owes';
+  // both answers are shown as the server returns them; the risk answer only carries a different list name
+  const rows: MetricsMainAgent[] = owes
+    ? (byOwes.data?.main_agents_by_advance ?? []).map((m) => ({ ...m, total_matched: byOwes.data?.summary.main_agents_owing_count ?? 0 }))
+    : bySize.rows;
+  const total = owes ? (byOwes.data?.summary.main_agents_owing_count ?? 0) : bySize.total;
+  const q = owes ? byOwes : bySize;
+  const basis = owes ? BASIS_OWES : BASIS;
+  const last = Math.max(0, Math.ceil(total / METRICS_PAGE_SIZE) - 1);
+  const shownFrom = rows.length ? page * METRICS_PAGE_SIZE + 1 : 0;
+  const shownTo = page * METRICS_PAGE_SIZE + rows.length;
+  const csv = rows.length
+    ? () => downloadCsvWithPreamble(metricsCsvName(owes ? 'main-agents-team-owes' : 'main-agents', from, to), metricsPreamble(`Main agents, ${owes ? 'team owes most' : 'biggest team'} (rows ${shownFrom} to ${shownTo} of ${total})`, from, to, basis), MAIN_CSV_HEADERS, rows.map(mainAgentCsvRow))
     : undefined;
   return (
-    <CardShell id="main-agents" controls={controls} state={q} basis={BASIS} onCsv={csv} csvLabel="Download CSV: Main agents (this page)" skeleton={<ListSkeleton />} empty={q.rows.length === 0 && !q.isFetching} emptyText="No main agents have a team yet.">
+    <CardShell id="main-agents" controls={controls} state={q} basis={basis} onCsv={csv} csvLabel="Download CSV: Main agents (this page)" skeleton={<ListSkeleton />} empty={rows.length === 0 && !q.isFetching} emptyText={owes ? 'No team owes an advance.' : 'No main agents have a team yet.'}>
+      <div className="flex flex-wrap gap-1" role="group" aria-label="Order main agents by">
+        <Button type="button" size="sm" variant={!owes ? 'default' : 'outline'} aria-pressed={!owes} className="min-h-11" onClick={() => setSort('size')}>Biggest team</Button>
+        <Button type="button" size="sm" variant={owes ? 'default' : 'outline'} aria-pressed={owes} className="min-h-11" onClick={() => setSort('owes')}>Team owes most</Button>
+      </div>
       <ul className="space-y-2 md:hidden" data-testid="metrics-main-cards">
-        {q.rows.map((m) => {
+        {rows.map((m) => {
           const href = telHref(m.phone);
           return (
             <li key={m.main_agent_id} className="flex flex-col gap-1 rounded-xl border border-border bg-card p-3">
@@ -49,7 +64,7 @@ export function MainAgentsCard({ controls, from, to }: { controls: CardControls;
             </TableRow>
           </TableHeader>
           <TableBody>
-            {q.rows.map((m) => {
+            {rows.map((m) => {
               const href = telHref(m.phone);
               return (
                 <TableRow key={m.main_agent_id}>
@@ -66,7 +81,7 @@ export function MainAgentsCard({ controls, from, to }: { controls: CardControls;
         </Table>
       </div>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">{q.total ? `${num(shownFrom)} to ${num(shownTo)} of ${num(q.total)}` : ''}</p>
+        <p className="text-xs text-muted-foreground">{total ? `${num(shownFrom)} to ${num(shownTo)} of ${num(total)}` : ''}</p>
         <div className="flex gap-1">
           <Button type="button" variant="outline" className="min-h-11 min-w-11" disabled={page === 0 || q.isFetching} onClick={() => setPage((p) => Math.max(0, p - 1))} aria-label="Previous page of main agents"><ChevronLeft className="h-4 w-4" /></Button>
           <Button type="button" variant="outline" className="min-h-11 min-w-11" disabled={page >= last || q.isFetching} onClick={() => setPage((p) => Math.min(last, p + 1))} aria-label="Next page of main agents"><ChevronRight className="h-4 w-4" /></Button>

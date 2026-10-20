@@ -1,4 +1,4 @@
-project_id = "wirntoujqoyjobfhyelc"
+project_id = "byrzshwlentqvktcksem"
 
 [functions]
   # Africa's Talking cannot present our JWT, so the voice callback must be
@@ -165,6 +165,8 @@ project_id = "wirntoujqoyjobfhyelc"
   [functions.generate-daily-merchant-commission]
     verify_jwt = false
   [functions.github-commit-activity]
+    verify_jwt = false
+  [functions.github-push-webhook]
     verify_jwt = false
   [functions.validate-deposit-reference]
     verify_jwt = false

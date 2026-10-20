@@ -89,6 +89,7 @@ import {
   Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getTenantCoveragePresentation } from '@/components/agent/AgentDailyCapacityStrip';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { formatUGX, calculateRentRepayment } from '@/lib/rentCalculations';
@@ -249,7 +250,6 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
     : pct >= 75 ? 'bg-warning/10 border-warning/40 text-warning'
     : 'bg-success/10 border-success/30 text-success';
 
-  const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
 
   const dailyBanner = (() => {
     if (!cap || cap.daily_status === 'starter') return null;
@@ -257,70 +257,40 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
     // enforces it on everyone. They keep the smaller per-tenant cap only.
 
     const rating = cap.daily_rating;
-    const ypct = Math.round(cap.yesterday_response_pct * 100);
-    const tpct = Math.round(cap.today_response_pct * 100);
-    if (rating === 'Very Good') {
-      return (
-        <div className="rounded-xl border border-emerald-600/50 bg-emerald-600/10 p-3 text-emerald-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Very Good — Allowed Today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are well above the {threshold}% law and may post new rent requests. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Good') {
-      return (
-        <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-emerald-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Good — Allowed Today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You met the {threshold}% law and may post new rent requests. Keep going to reach Very Good (≥ 50%). (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Fair') {
-      return (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-amber-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Fair — Blocked from posting today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are between 15% and 19%, just below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    if (rating === 'Bad') {
-      return (
-        <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-orange-700">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-extrabold uppercase tracking-wide">Bad — Blocked from posting today</span>
-            <DailyRatingThresholdPopover />
-          </div>
-          <p className="text-[11px] leading-snug opacity-95">
-            Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are between 5% and 14%, below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-          </p>
-        </div>
-      );
-    }
-    // Very Bad
+    const tiers: Record<string, { tone: string; text: string }> = {
+      'Very Good': { tone: 'border-emerald-600/50 bg-emerald-600/10 text-emerald-700', text: 'You are collecting strongly from your tenants. Keep visiting them.' },
+      'Good': { tone: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700', text: 'You are performing well. Visit more of your tenants to reach Very Good.' },
+      'Fair': { tone: 'border-amber-500/40 bg-amber-500/10 text-amber-700', text: 'Your collections are below where they should be. Go and see more of your tenants.' },
+      'Bad': { tone: 'border-orange-500/40 bg-orange-500/10 text-orange-700', text: 'Few of your tenants are paying. Go and see more of them today.' },
+      'Very Bad': { tone: 'border-destructive/40 bg-destructive/10 text-destructive', text: 'Very few of your tenants are paying. Go and see more of them today.' },
+    };
+    const tier = tiers[rating] ?? tiers['Very Bad'];
+    const coverage = getTenantCoveragePresentation(cap);
+    const canPost = cap.can_post_rent_today === true;
     return (
-      <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-destructive">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-extrabold uppercase tracking-wide">Very Bad — Blocked from posting today</span>
-          <DailyRatingThresholdPopover />
+      <div className="space-y-2">
+        <div className={`rounded-xl border p-3 ${tier.tone}`}>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-extrabold uppercase tracking-wide">Your rating: {rating}</span>
+            <DailyRatingThresholdPopover />
+          </div>
+          <p className="text-[11px] leading-snug opacity-95">{tier.text} Your rating shows how you are performing; it does not decide whether you can post.</p>
         </div>
-        <p className="text-[11px] leading-snug opacity-95">
-          Today you have collected <strong className="font-mono">{formatUGX(cap.paid_today)}</strong> ({tpct}%) of <strong className="font-mono">{formatUGX(cap.expected_daily)}</strong> today&apos;s target. You are below 5%, far below the {threshold}% law. Hit {threshold}% today to be unblocked and rated Good immediately. (Yesterday: {ypct}%.)
-        </p>
+        <div className={`rounded-xl border p-3 ${canPost ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/40 bg-destructive/10 text-destructive'}`}>
+          <span className="text-xs font-extrabold uppercase tracking-wide">
+            {canPost ? 'You can post new Rent Plans today' : 'You cannot post new Rent Plans yet'}
+          </span>
+          <p className="mt-1 text-[11px] leading-snug opacity-95">
+            <strong>{cap.tenants_paid_today}</strong> of <strong>{cap.tenants_due}</strong> tenants paid today · <strong>{cap.tenants_paid_yesterday}</strong> yesterday.
+            {' '}You need at least half of the tenants who owe you to pay something, today or yesterday. Any payment counts, however small.
+          </p>
+          {canPost && coverage.yesterdayCarrying && (
+            <p className="mt-1 text-[11px] leading-snug opacity-95">Yesterday&apos;s {cap.tenants_paid_yesterday} tenants are keeping you unlocked today.</p>
+          )}
+          {!canPost && coverage.todayRemaining > 0 && (
+            <p className="mt-1 text-[11px] font-semibold leading-snug">Collect from {coverage.todayRemaining} more tenant{coverage.todayRemaining === 1 ? '' : 's'} to unlock new Rent Plans.</p>
+          )}
+        </div>
       </div>
     );
   })();
@@ -611,18 +581,40 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
    * this form at all. We close immediately and explain why with a toast
    * instead of letting them fill in five steps only to be rejected on submit.
    */
+  /**
+   * What the posting gate actually asks for, in the gate's own units.
+   *
+   * It measures tenants reached, not shillings (enforce_agent_daily_eligibility,
+   * 2026-10-20). The old wording quoted a money ratio, pasted yesterday's
+   * collections next to TODAY's target as though they were one figure, and
+   * doubled the currency prefix because formatUGX already adds it. An agent
+   * could have collected the whole amount it named from a single tenant and
+   * stayed blocked.
+   *
+   * No denominator is shown for yesterday: the view exposes today's tenants_due
+   * only, and reusing it for yesterday would misstate a day when the book moved.
+   */
+  const blockedReason = (c: NonNullable<typeof myCap>) => {
+    const needed = Math.max(
+      0,
+      Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today,
+    );
+    const plural = (n: number) => (n === 1 ? 'tenant' : 'tenants');
+    return (
+      `You have reached ${c.tenants_paid_today} of ${c.tenants_due} ${plural(c.tenants_due)} today` +
+      `, and ${c.tenants_paid_yesterday} yesterday. ` +
+      `Collect from ${needed} more ${plural(needed)} today to post new Rent Plans. ` +
+      `Any payment counts, however small.`
+    );
+  };
+
   const postingBlockedToday =
     !!myCap && !unlimitedPosting && !myCap.can_post_rent_today;
   useEffect(() => {
     if (!open || capLoading || !postingBlockedToday || !myCap) return;
-    const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
-    const ypct = Math.round((myCap.yesterday_response_pct ?? 0) * 100);
     onOpenChange(false);
     toast.error('You cannot post a rent request today', {
-      description:
-        `Yesterday you collected ${ypct}% of your expected daily rent ` +
-        `(UGX ${formatUGX(myCap.paid_yesterday)} of UGX ${formatUGX(myCap.expected_daily)}). ` +
-        `Collect at least ${threshold}% today to be unblocked tomorrow.`,
+      description: blockedReason(myCap),
       duration: 9000,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2541,13 +2533,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // (reached the tenant threshold). New agents are exempt and gated only
     // by the per-tenant cap. `can_post_rent_today` already encodes this.
     if (myCap && !myCap.can_post_rent_today) {
-      const threshold = Math.round(DAILY_ELIGIBILITY_THRESHOLD * 100);
-      const ypct = Math.round(myCap.yesterday_response_pct * 100);
-      const msg =
-        `Blocked from posting new rent requests today. ` +
-        `Yesterday you collected ${ypct}% of your expected daily rent ` +
-        `(UGX ${formatUGX(myCap.paid_yesterday)} of UGX ${formatUGX(myCap.expected_daily)}). ` +
-        `Collect at least ${threshold}% today to be unblocked and rated Good tomorrow.`;
+      const msg = `Blocked from posting new Rent Plans today. ${blockedReason(myCap)}`;
       setSubmissionError(msg);
       toast.error('Blocked today', { description: msg });
       return;

@@ -810,12 +810,21 @@ export function PartnerProfile360() {
       .map((_, i) => i)
       .filter((i) => matrix.some((row) => row[i] !== ''));
 
-    const pdfSections = [{
-      name: 'Portfolio breakdown',
-      headers: keep.map((i) => statementCols[i].label),
-      rows: matrix.map((row) => keep.map((i) => row[i])),
-      rightAlign: keep.reduce<number[]>((acc, i, idx) => (statementCols[i].align === 'right' ? [...acc, idx] : acc), []),
-    }];
+    const pdfSections = [
+      {
+        name: 'Portfolio breakdown',
+        headers: keep.map((i) => statementCols[i].label),
+        rows: matrix.map((row) => keep.map((i) => row[i])),
+        rightAlign: keep.reduce<number[]>((acc, i, idx) => (statementCols[i].align === 'right' ? [...acc, idx] : acc), []),
+      },
+      // Every section the view itself shows, with the same columns and rows.
+      ...sections.map((s) => ({
+        name: s.name,
+        headers: s.cols.map((c) => c.label),
+        rows: s.rows.map((r) => s.cols.map((c) => (c.render ? c.render(r) : String(r[c.key] ?? '')))),
+        rightAlign: s.cols.reduce<number[]>((acc, c, idx) => (c.align === 'right' ? [...acc, idx] : acc), []),
+      })),
+    ];
 
 
 

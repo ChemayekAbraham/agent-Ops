@@ -1,0 +1,3 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.requisition_wallet_credits;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.staff_requisitions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.employee_requisitions;

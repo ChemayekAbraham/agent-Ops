@@ -11,7 +11,7 @@ export PGCLIENTENCODING=UTF8
 set -uo pipefail
 case "${PGHOST:-}" in 127.0.0.1|localhost) ;; *) echo "refusing: PGHOST must be local" >&2; exit 2;; esac
 [ -z "${PGHOSTADDR:-}${PGSERVICE:-}${DATABASE_URL:-}" ] || { echo "refusing: PGHOSTADDR/PGSERVICE/DATABASE_URL set" >&2; exit 2; }
-case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*) echo "refusing: production project" >&2; exit 2;; esac
+case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*|*byrzshwlentqvktcksem*) echo "refusing: production project" >&2; exit 2;; esac
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../../../.." && pwd)"; M="$root/supabase/migrations"
 db="food_iso_$$"
 P() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }

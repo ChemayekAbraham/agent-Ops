@@ -5,8 +5,8 @@ import { test, expect, Page, Route } from '@playwright/test';
  * Rent Plan's side panel. Read-only: the three am_new_tenant_first7 functions are answered from here; nothing is written.
  */
 
-const SUPABASE_HOST = 'wirntoujqoyjobfhyelc.supabase.co';
-const PROJECT_REF = 'wirntoujqoyjobfhyelc';
+const SUPABASE_HOST = 'byrzshwlentqvktcksem.supabase.co';
+const PROJECT_REF = 'byrzshwlentqvktcksem';
 const USER_ID = '00000000-0000-0000-0000-0000000000a7';
 const STORAGE_KEY = `sb-${PROJECT_REF}-auth-token`;
 

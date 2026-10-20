@@ -18,6 +18,7 @@
  * The detector is throttled to at most one attempt every 30 seconds to avoid
  * refresh storms if many concurrent requests fail at once.
  */
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { clearAllAuthStorage, clearSessionCache } from '@/lib/sessionCache';
 
@@ -186,6 +187,7 @@ async function handleStaleToken(reason: string): Promise<void> {
       // out on that — let a later attempt decide.
       const errMsg = ((error as any)?.message || '').toLowerCase();
       if (
+        isAuthRetryableFetchError(error) ||
         !errMsg ||
         errMsg.includes('failed to fetch') ||
         errMsg.includes('networkerror') ||
@@ -224,7 +226,8 @@ async function handleStaleToken(reason: string): Promise<void> {
         /* ignore */
       }
       try {
-        await supabase.auth.signOut();
+        // Local: the person's other devices hold their own sessions and must not be signed out by this one.
+        await supabase.auth.signOut({ scope: 'local' });
       } catch {
         /* ignore */
       }
@@ -234,7 +237,7 @@ async function handleStaleToken(reason: string): Promise<void> {
         const next = window.location.pathname + window.location.search;
         const alreadyOnAuth = window.location.pathname.startsWith('/auth');
         if (!alreadyOnAuth) {
-          const url = `/auth?next=${encodeURIComponent(next)}&reason=stale_session`;
+          const url = `/auth?redirect=${encodeURIComponent(next)}&reason=stale_session`;
           window.location.replace(url);
         }
       } catch {
