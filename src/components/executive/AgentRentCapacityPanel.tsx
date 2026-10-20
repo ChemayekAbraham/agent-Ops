@@ -679,6 +679,9 @@ function CapacityRow({
         // This row came back from get_agent_daily_eligibility, so the figures
         // below are measured, not missing.
         eligibility_unavailable: false,
+        // Staff grants are per-agent-per-day and are not carried on this
+        // report row; the PDF reflects the gate, not an override of it.
+        posting_exempt_today: false,
         can_post_rent_today: row.daily_status !== 'blocked',
         good_days_last_week: (row as any).good_days_last_week ?? 0,
         unlimited_posting: (row as any).unlimited_posting ?? false,

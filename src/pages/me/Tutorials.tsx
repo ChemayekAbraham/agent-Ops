@@ -24,7 +24,7 @@ export default function Tutorials() {
         if (cancelled) return;
         const v = c ?? {};
         setCaps(v);
-        const first = v.is_creator ? 'mine' : v.is_reviewer ? 'review' : v.is_staff ? 'library' : v.is_admin ? 'people' : v.can_set_rates ? 'rates' : 'library';
+        const first = v.is_creator ? 'mine' : v.is_reviewer ? 'review' : v.has_access ? 'library' : v.is_admin ? 'people' : v.can_set_rates ? 'rates' : 'library';
         setTab(first);
       })
       .catch(() => { if (!cancelled) { setFailed(true); setCaps(null); setTab('library'); } })
@@ -32,15 +32,17 @@ export default function Tutorials() {
     return () => { cancelled = true; };
   }, []);
 
-  const c: Caps = failed ? { is_staff: true } : caps ?? {};
+  const c: Caps = failed ? {} : caps ?? {};
+  const hasAccess = !failed && c.has_access === true;
   const show = {
     mine: !failed && !!c.is_creator,
     review: !failed && !!c.is_reviewer,
-    library: failed || !!c.is_staff,
+    library: hasAccess,
     people: !failed && !!c.is_admin,
     rates: !failed && !!c.can_set_rates,
   };
   const chips = [
+    hasAccess && !c.is_creator && !c.is_reviewer && !c.is_admin && 'Viewer',
     c.is_creator && 'Creator',
     c.is_reviewer && 'Reviewer',
     c.is_admin && 'HR',
@@ -57,8 +59,8 @@ export default function Tutorials() {
       </div>
       {!loaded ? (
         <p role="status" className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
-      ) : !failed && !c.is_staff ? (
-        <Card><CardContent className="p-6 text-center text-muted-foreground">Tutorials are for Welile staff.</CardContent></Card>
+      ) : !hasAccess ? (
+        <Card><CardContent className="p-6 text-center text-muted-foreground">You don't have access to Tutorial videos. HR adds people who work on tutorials.</CardContent></Card>
       ) : (
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="flex w-full flex-wrap h-auto justify-start">
@@ -72,7 +74,6 @@ export default function Tutorials() {
           {show.review && <TabsContent value="review" className="mt-4"><ReviewTab /></TabsContent>}
           {show.library && (
             <TabsContent value="library" className="mt-4">
-              {!c.is_creator && <p className="mb-3 text-sm text-muted-foreground">Making tutorials? Ask HR to add you as a creator.</p>}
               <LibraryTab />
             </TabsContent>
           )}

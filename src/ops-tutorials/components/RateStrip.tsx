@@ -19,7 +19,7 @@ export default function RateStrip({ refreshKey = 0 }: { refreshKey?: number }) {
       .then((r: any[]) => {
         if (cancelled) return;
         const map: Record<string, number> = {};
-        r.forEach((x) => { if (x.amount_ugx != null) map[x.tier] = Number(x.amount_ugx); });
+        r.forEach((x) => { if (x.amount_ugx != null && Number(x.amount_ugx) > 0) map[x.tier] = Number(x.amount_ugx); });
         setRates(map);
       })
       .catch((e) => { if (!cancelled) setError(e instanceof Error ? e.message : String(e)); });

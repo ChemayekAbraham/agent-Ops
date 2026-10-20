@@ -1,3 +1,4 @@
+import { landlordRejectedGate, landlordRejectedErrorText } from '@/lib/landlordRejectedGate';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   filterByRentDesk,
@@ -34,7 +35,7 @@ import {
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { calculateRentRepayment } from '@/lib/rentCalculations';
+import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 import { toast as sonnerToast } from 'sonner';
@@ -721,6 +722,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const handleQuickApprove = async (req: any, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user || quickProcessingId) return;
+    if (stage === 'tenant_ops_approved') {
+      const gate = landlordRejectedGate(req);
+      if (gate.blocked) {
+        toast({ title: gate.title, description: gate.description, variant: 'destructive' });
+        return;
+      }
+    }
     const isOutstanding = req.registration_type === 'outstanding_balance';
     // CFO stage needs payout ref, Tenant Ops may need agent — use dialog.
     // Outstanding-balance requests skip the agent-assignment requirement
@@ -805,7 +813,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         recordLandlordApprovalAudit(req, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      toast({ title: 'Error', description: landlordRejectedErrorText(err?.message) ?? err.message, variant: 'destructive' });
     } finally {
       setQuickProcessingId(null);
     }
@@ -854,7 +862,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         landlordIds.length > 0
           ? supabase
               .from('landlords')
-              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, registered_by')
+              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, verification_reason, registered_by')
               .in('id', landlordIds)
           : { data: [] },
         lc1Ids.length > 0
@@ -924,6 +932,9 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           // work to do, and when the agent's UGX 5,000 registration bonus is
           // still owed. A landlord already on file needs neither.
           landlord_is_new: !!landlord?.registered_by && landlord?.verification_status !== 'verified',
+          // Used by the Landlord Ops gate: a rejected landlord's Rent Plan cannot be verified (see landlordRejectedGate).
+          landlord_verification_status: landlord?.verification_status ?? null,
+          landlord_rejection_reason: landlord?.verification_reason ?? null,
           lc1_is_new: !!lc1?.registered_by && !lc1?.verified,
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
@@ -1124,6 +1135,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
     }
+    if (stage === 'tenant_ops_approved') {
+      const gate = landlordRejectedGate(selectedRequest);
+      if (gate.blocked) {
+        toast({ title: gate.title, description: gate.description, variant: 'destructive' });
+        return;
+      }
+    }
     const isOutstanding = selectedRequest.registration_type === 'outstanding_balance';
     if (config.showAgentSelector && !isOutstanding && !assignedAgentId && !selectedRequest.agent_id) {
       toast({ title: 'Please assign an agent', variant: 'destructive' });
@@ -1240,7 +1258,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         recordLandlordApprovalAudit(selectedRequest, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
-      toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
+      toast({ title: 'Error', description: landlordRejectedErrorText(err?.message) ?? landlordFloatErrorText(err), variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1354,18 +1372,46 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const fmt = (n: number) => Number(n || 0).toLocaleString();
 
+  /**
+   * COO step: the CFO's landlord float budget caps what can actually go through, so the split of the
+   * selection into "fits" and "over cap" is computed once per render (oldest first, so the budget goes
+   * to the requests that have waited longest) and drives the Approve button's label, its disabled state
+   * and the ids the approval call sends.
+   */
+  const cooBulkSplit = useMemo(() => {
+    const sortedSelected = rows
+      .filter(r => isCooStage && selectedIds.has(r.id))
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const { fits, overCap } = partitionByLandlordFloatRoom(sortedSelected, landlordFloatBudget.data);
+    const fitsTotal = fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
+    const selectedTotal = sortedSelected.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
+    return { fits, overCap, fitsTotal, selectedTotal };
+  }, [isCooStage, rows, selectedIds, landlordFloatBudget.data]);
+
+  /** COO stage only: an unticked card can be ticked only while it still fits the room left. Unticking is always allowed. */
+  const cooSelectBlocked = (req: any): boolean => {
+    if (!isCooStage || selectedIds.has(req.id)) return false;
+    const budget = landlordFloatBudget.data;
+    if (!budget || budget.blocked) return true;
+    return cooBulkSplit.selectedTotal + Number(req.rent_amount || 0) > Number(budget.room);
+  };
+
+  /** COO stage only: what "Select all" would pick — visible rows oldest first, only those that fit. */
+  const cooSelectAllFits = useMemo(() => {
+    if (!isCooStage) return { fits: [] as any[], total: 0 };
+    const sortedVisible = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const { fits } = partitionByLandlordFloatRoom(sortedVisible, landlordFloatBudget.data);
+    return { fits, total: fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0) };
+  }, [isCooStage, filtered, landlordFloatBudget.data]);
+
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
     setProcessing(true);
-    // COO step: the whole selection in one budget-aware call, oldest first, so the budget goes to the requests
-    // that have waited longest. Requests that do not fit stay selected and at the COO step.
+    // COO step: only the requests that fit inside the budget are sent, oldest first. The over-cap ones
+    // stay selected and at the COO step, where the operator can ask the CFO for a miscellaneous approval.
     if (isCooStage) {
       try {
-        const ordered = rows
-          .filter(r => selectedIds.has(r.id))
-          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          .map(r => r.id);
-        const res = await approveAtCooStage(ordered.length ? ordered : [...selectedIds]);
+        const res = await approveAtCooStage(cooBulkSplit.fits.map(r => r.id));
         toastCooApproval(res);
         const moved = new Set(res.approved.map(a => a.id));
         setSelectedIds(prev => new Set([...prev].filter(id => !moved.has(id))));
@@ -1381,7 +1427,15 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       const ids = [...selectedIds];
       const failures: string[] = [];
       let approved = 0;
+      // Landlord Ops: a Rent Plan whose landlord was rejected is skipped here and named in the message.
+      const rejectedLandlordIds = new Set<string>(
+        stage === 'tenant_ops_approved'
+          ? (requests ?? []).filter((r: any) => landlordRejectedGate(r).blocked).map((r: any) => r.id)
+          : [],
+      );
+      let skippedRejected = 0;
       for (const id of ids) {
+        if (rejectedLandlordIds.has(id)) { skippedRejected += 1; continue; }
         const stampedAt = new Date().toISOString();
         const { error } = await supabase
           .from('rent_requests')
@@ -1399,6 +1453,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       }
       if (approved > 0) {
         toast({ title: `✅ ${approved} request${approved === 1 ? '' : 's'} approved` });
+      }
+      if (skippedRejected > 0) {
+        toast({
+          title: `${skippedRejected} skipped: landlord was rejected`,
+          description: 'These Rent Plans cannot be verified until the landlord is verified again, or the Rent Plan is returned to the agent.',
+          variant: 'destructive',
+        });
       }
       if (failures.length > 0) {
         toast({
@@ -1484,6 +1545,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   };
 
   const toggleSelectAll = () => {
+    if (isCooStage) {
+      const allFitSelected = cooSelectAllFits.fits.length > 0
+        && selectedIds.size === cooSelectAllFits.fits.length
+        && cooSelectAllFits.fits.every(r => selectedIds.has(r.id));
+      setSelectedIds(allFitSelected ? new Set() : new Set(cooSelectAllFits.fits.map(r => r.id)));
+      return;
+    }
     if (selectedIds.size === filtered.length) {
       setSelectedIds(new Set());
     } else {
@@ -1553,10 +1621,19 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
               <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
                 <Checkbox
-                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  checked={isCooStage
+                    ? cooSelectAllFits.fits.length > 0 && cooSelectAllFits.fits.every(r => selectedIds.has(r.id)) && selectedIds.size === cooSelectAllFits.fits.length
+                    : selectedIds.size === filtered.length && filtered.length > 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                <span className="flex flex-col">
+                  <span>Selected ({selectedIds.size} of {filtered.length})</span>
+                  {isCooStage && landlordFloatBudget.data && (
+                    <span className="font-normal text-muted-foreground">
+                      {formatUGX(cooBulkSplit.selectedTotal)} of {formatUGX(Number(landlordFloatBudget.data.room))} left selected
+                    </span>
+                  )}
+                </span>
               </label>
               <div className="flex items-center gap-2">
                 <Button
@@ -1572,14 +1649,18 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
-                  disabled={processing || (isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0)}
-                  title={isCooStage && partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
+                  disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
+                  title={isCooStage && cooBulkSplit.fits.length === 0 ? 'Over the landlord float budget left today' : undefined}
                   onClick={handleBulkApprove}
                 >
                   {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                  Approve selected ({selectedIds.size})
+                  {isCooStage
+                    ? `Approve ${cooBulkSplit.fits.length} that fit (${formatUGX(cooBulkSplit.fitsTotal)})`
+                    : `Approve selected (${selectedIds.size})`}
                 </Button>
-                {isCooStage && <span className="text-xs text-muted-foreground">{partitionByLandlordFloatRoom(rows.filter(r => selectedIds.has(r.id)).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()), landlordFloatBudget.data).fits.length} of {selectedIds.size} will fit</span>}
+                {isCooStage && cooBulkSplit.overCap.length > 0 && (
+                  <span className="text-xs text-muted-foreground">{cooBulkSplit.overCap.length} over budget stay at the COO step</span>
+                )}
               </div>
             </div>
           ) : (
@@ -1587,9 +1668,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
               <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
                 <Checkbox
                   checked={false}
+                  disabled={isCooStage && cooSelectAllFits.fits.length === 0}
                   onCheckedChange={toggleSelectAll}
                 />
-                <span>Select all ({filtered.length})</span>
+                <span>
+                  {isCooStage
+                    ? `Select all that fit (${cooSelectAllFits.fits.length} · ${formatUGX(cooSelectAllFits.total)})`
+                    : `Select all (${filtered.length})`}
+                </span>
               </label>
             </div>
           )
@@ -1934,9 +2020,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
-                      <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 mt-0.5"
+                        title={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : undefined}
+                      >
                         <Checkbox
                           checked={selectedIds.has(req.id)}
+                          disabled={cooSelectBlocked(req)}
+                          aria-label={cooSelectBlocked(req) ? 'Over the landlord float budget left today' : `Select request ${req.id}`}
+                          data-request-id={req.id}
                           onCheckedChange={() => toggleSelect(req.id)}
                         />
                       </div>
@@ -2068,6 +2161,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     </Button>
                   </div>
                 </div>
+
+                {stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked && (
+                  <div role="alert" className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
+                    <p className="font-semibold">{landlordRejectedGate(req).title}</p>
+                    <p>{landlordRejectedGate(req).description}</p>
+                  </div>
+                )}
 
                 {/* Desk time: on your desk / before / total in system (server answer, one call for the desk). Tap the clock for the journey. */}
                 <RentTimingRow
@@ -2275,8 +2375,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
+                    disabled={quickProcessingId === req.id || (isCooStage && !requestFitsLandlordFloatBudget(req)) || (isLandlordStage && !checklistComplete) || (stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked) || isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)}
                     title={
+                      stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked ? landlordRejectedGate(req).title :
                       isCooStage && !requestFitsLandlordFloatBudget(req) ? 'Over the landlord float budget left today' : isRequestExpired(req.created_at, req.status, req.agent_verified, req.pending_window_reset_at)
                         ? "This rent request expired after 30 days without verification"
                         : isLandlordStage && !checklistComplete
@@ -2381,6 +2482,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <p className="text-xs text-muted-foreground mt-0.5">✉️ {selectedRequest.agent_email}</p>
                   )}
                 </div>
+                {stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked && (
+                  <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <p className="font-semibold">{landlordRejectedGate(selectedRequest).title}</p>
+                    <p className="mt-0.5">{landlordRejectedGate(selectedRequest).description}</p>
+                  </div>
+                )}
+
                 {/* Awareness call: phone the tenant / landlord / agent and record what they heard. Storage only; approve and reject below are unchanged.
                     The COO and CFO stages see it read-only. The agent name, phone and id all belong to the registering agent. */}
                 <div className="col-span-2">
@@ -2798,8 +2906,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <Button
                   size="sm"
                   onClick={() => void handleApprove()}
-                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest))}
-                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : undefined}
+                  disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest)) || (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked)}
+                  title={isCooStage && !requestFitsLandlordFloatBudget(selectedRequest) ? 'Over the landlord float budget left today' : (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked) ? landlordRejectedGate(selectedRequest).title : undefined}
                   className="gap-1"
                 >
                   {processing ? (
