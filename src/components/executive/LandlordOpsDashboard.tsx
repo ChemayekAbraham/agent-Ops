@@ -2608,12 +2608,13 @@ export function LandlordOpsDashboard({
 
   // ─── LANDLORDS VIEW ───
   if (view === 'landlords') {
-    type LandlordCategory = 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'has_tenants' | 'no_tenants' | 'funded' | 'paid_repaying' | 'completed';
+    type LandlordCategory = 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'paid_unverified' | 'has_tenants' | 'no_tenants' | 'funded' | 'paid_repaying' | 'completed';
     const LANDLORD_CATEGORIES: { value: LandlordCategory; label: string; color: string }[] = [
       { value: 'all', label: 'All', color: 'bg-muted text-foreground' },
       { value: 'verified', label: 'Verified', color: VERIFICATION_STATUS_META.verified.chipClass },
       { value: 'pending', label: 'Pending', color: VERIFICATION_STATUS_META.pending.chipClass },
       { value: 'rejected', label: 'Rejected', color: VERIFICATION_STATUS_META.rejected.chipClass },
+      { value: 'paid_unverified', label: 'Paid · Not verified', color: 'bg-muted text-foreground' },
       { value: 'resubmitted', label: 'Resubmitted', color: VERIFICATION_STATUS_META.resubmitted.chipClass },
       { value: 'funded', label: 'Funded', color: 'bg-emerald-100 text-emerald-700' },
       { value: 'paid_repaying', label: 'Paid & Repaying', color: 'bg-sky-100 text-sky-700' },
@@ -2643,6 +2644,7 @@ export function LandlordOpsDashboard({
       verified: scoped?.verified ?? landlordOpsTotals?.verified,
       pending: scoped?.pending ?? landlordOpsTotals?.pending,
       rejected: scoped?.rejected ?? landlordOpsTotals?.rejected,
+      paid_unverified: scoped?.paid_unverified,
       resubmitted: scoped?.resubmitted ?? landlordOpsTotals?.resubmitted,
       has_tenants: scoped?.has_tenants ?? landlordOpsTotals?.has_tenants,
       no_tenants: scoped?.no_tenants ?? landlordOpsTotals?.no_tenants,
@@ -2818,11 +2820,13 @@ export function LandlordOpsDashboard({
         {/* Category filter chips */}
         <div className="flex gap-1.5 flex-wrap">
           {LANDLORD_CATEGORIES.map((cat) => (
-            <button
+            <Button
               key={cat.value}
-              title={cat.value === 'funded' ? FUNDED_TAB_NOTE : undefined}
+              variant="outline"
+              disabled={cat.value === 'paid_unverified' && scoped?.paid_unverified === undefined}
+              title={cat.value === 'funded' ? FUNDED_TAB_NOTE : cat.value === 'paid_unverified' ? (scoped?.paid_unverified === undefined ? 'Awaiting the paid-landlord filter update' : 'Recorded payouts; pending, rejected or resubmitted verification') : undefined}
               onClick={() => { setLandlordCategory(cat.value); setLandlordPage(1); }}
-              className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+              className={`h-auto px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
                 categoryFilter === cat.value
                   ? `${cat.color} border-current shadow-sm`
                   : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -2830,9 +2834,9 @@ export function LandlordOpsDashboard({
             >
               {cat.label}
               <span className="ml-1 opacity-70">
-                ({categoryCounts[cat.value] === undefined ? '…' : categoryCounts[cat.value]!.toLocaleString()})
+                ({categoryCounts[cat.value]?.toLocaleString() ?? '…'})
               </span>
-            </button>
+            </Button>
           ))}
           {landlordFiltersDirty && (
             <button
@@ -3072,7 +3076,9 @@ export function LandlordOpsDashboard({
                           </div>
                           {/* Mobile-only extra info */}
                           <div className="sm:hidden flex flex-wrap gap-1 mt-1">
-                            {landlord.verified ? (
+                            {categoryFilter === 'paid_unverified' ? (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0">{VERIFICATION_STATUS_META[landlord.verification_status]?.label ?? 'Pending'}</Badge>
+                            ) : landlord.verified ? (
                               <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-emerald-100 text-emerald-700 border-0">Verified</Badge>
                             ) : (
                               <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-red-100 text-red-700 border-0 font-semibold">Not Verified</Badge>

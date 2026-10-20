@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       "pending",
       "rejected",
       "resubmitted",
+      "paid_unverified",
       "has_tenants",
       "no_tenants",
     ]);
@@ -124,16 +125,21 @@ Deno.serve(async (req) => {
 
     // Search/date-scoped counts for the landlord verification stats + chips.
     if (action === "scoped_counts") {
-      const res = await adminClient.rpc("ops_landlord_status_counts", {
+      const [res, paidUnverified] = await Promise.all([adminClient.rpc("ops_landlord_status_counts", {
         p_search: search || null,
         p_date_from: dateFromIso,
         p_date_to: dateToIso,
-      });
+      }), adminClient.rpc("ops_landlord_paid_unverified_count", {
+        p_search: search || null,
+        p_date_from: dateFromIso,
+        p_date_to: dateToIso,
+      })]);
       if (res.error) return json({ error: res.error.message }, 500);
       const r = (res.data && res.data[0]) || {};
       return json({
         counts: {
           all: Number(r.all_landlords ?? 0),
+          ...(paidUnverified.error ? {} : { paid_unverified: Number(paidUnverified.data ?? 0) }),
           verified: Number(r.verified ?? 0),
           pending: Number(r.pending ?? 0),
           rejected: Number(r.rejected ?? 0),
@@ -150,6 +156,14 @@ Deno.serve(async (req) => {
     }
 
     // Full report payload for the landlord verification PDF export.
+    if (category === "paid_unverified") {
+      const readiness = await adminClient.rpc("ops_landlord_paid_unverified_count", {
+        p_search: search || null,
+        p_date_from: dateFromIso,
+        p_date_to: dateToIso,
+      });
+      if (readiness.error) return json({ error: "The paid-but-unverified filter is awaiting its database update. Please try again after the update is applied." }, 503);
+    }
     if (action === "report") {
       const res = await adminClient.rpc("ops_landlord_report", {
         p_status: category,
