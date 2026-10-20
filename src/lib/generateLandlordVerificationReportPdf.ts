@@ -18,7 +18,7 @@ import type { LandlordReportRow } from '@/hooks/useLandlordOps';
  */
 
 export type LandlordReportScope =
-  | 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'has_tenants' | 'no_tenants';
+  | 'all' | 'verified' | 'pending' | 'rejected' | 'resubmitted' | 'paid_unverified' | 'has_tenants' | 'no_tenants';
 
 type SectionScope = 'verified' | 'rejected' | 'resubmitted' | 'pending';
 
@@ -40,6 +40,7 @@ const SECTION_BASIS: Record<SectionScope, string> = {
 
 const SCOPE_TITLE: Record<LandlordReportScope, string> = {
   all: 'All Landlords',
+  paid_unverified: 'Paid — Not Verified Landlords',
   verified: 'Verified Landlords',
   pending: 'Pending Verification',
   rejected: 'Rejected Landlords',
@@ -50,6 +51,7 @@ const SCOPE_TITLE: Record<LandlordReportScope, string> = {
 
 const SCOPE_DATE_BASIS: Record<LandlordReportScope, string> = {
   all: 'date the landlord entered its current state (registered / verified / rejected)',
+  paid_unverified: 'date the landlord entered its current verification state (not the payout date)',
   verified: 'date the landlord was verified by a reviewer',
   pending: 'date the landlord was registered',
   rejected: 'date the landlord was rejected',
@@ -67,6 +69,7 @@ const SECTION_ACCENT: Record<SectionScope, [number, number, number]> = {
 
 const SCOPE_ACCENT: Record<LandlordReportScope, [number, number, number]> = {
   pending: SECTION_ACCENT.pending,
+  paid_unverified: SECTION_ACCENT.pending,
   verified: SECTION_ACCENT.verified,
   rejected: SECTION_ACCENT.rejected,
   resubmitted: SECTION_ACCENT.resubmitted,
@@ -76,7 +79,7 @@ const SCOPE_ACCENT: Record<LandlordReportScope, [number, number, number]> = {
 };
 
 /** Multi-state scopes render one full section per state, like the "all" house report. */
-const MULTI_STATE: LandlordReportScope[] = ['all', 'has_tenants', 'no_tenants'];
+const MULTI_STATE: LandlordReportScope[] = ['all', 'has_tenants', 'no_tenants', 'paid_unverified'];
 
 const rowSection = (r: LandlordReportRow): SectionScope => {
   const s = (r.status || 'pending') as SectionScope;

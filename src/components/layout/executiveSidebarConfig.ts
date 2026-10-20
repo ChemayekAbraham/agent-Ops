@@ -119,6 +119,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
+        { label: 'Lunch Allowance', icon: Banknote, id: 'lunch-allowance' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
         { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },

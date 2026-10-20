@@ -1,0 +1,12 @@
+-- 2026-10-18 (doc 247, step 5): the ledger posting primitives were callable by anon and authenticated with no caller check.
+--   create_ledger_transaction(jsonb,text,boolean) and (uuid,jsonb,text,boolean): inserts arbitrary entries into general_ledger as the owner,
+--     sets ledger.authorized itself; only checks (debits = credits) and, for a user's withdrawable bucket, sufficient balance (skippable
+--     with the skip_balance_check argument).
+--   create_ledger_transaction_locked(...): the cross-bucket variant. apply_wallet_movement(...): moves a wallet bucket.
+-- Verified before closing: production code in src/ never calls them (the three "call sites" in CFOAdvanceRequestPayments, BucketTransferDialog and
+-- useMerchantFloat are comments/UI text; the only literal rpc call is in a test file); every edge function that calls them does so through a
+-- SERVICE-ROLE client (54 direct + the shared helper postBalancedLedgerGroup, whose four callers pass `adminClient`); the database wrappers
+-- (finops_post_* and others) are owner-rights functions and keep working. No dependency (policy, default, constraint, trigger, invoker function).
+-- Closed to service_role only. Already applied to production 2026-10-18. Needs _fn_lockdown.run from migration 20261017140000.
+-- Restore (only if proven necessary): grant execute on function <signature> to authenticated;
+select * from _fn_lockdown.run(array['create_ledger_transaction','create_ledger_transaction_locked','apply_wallet_movement'], true);

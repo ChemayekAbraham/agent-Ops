@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { FUNDED_TAB_NOTE, PAID_LIST_HELP, PAID_LIST_LABEL, PAID_LIST_TABS, isPaidListTab, paidListErrorMessage } from '../landlordPaidLists';
+import { FUNDED_TAB_NOTE, PAID_LIST_HELP, PAID_LIST_LABEL, PAID_LIST_TABS, isPaidListTab, paidListErrorMessage, matchesPaidVerification, type PaidListRow } from '../landlordPaidLists';
+
+describe('Paid & Repaying verification filters', () => {
+  const state = (verified: boolean | null, verification_status: string | null) => ({ verified, verification_status } as PaidListRow);
+  it('not verified includes pending, rejected and resubmitted but excludes verified', () => {
+    for (const status of ['pending', 'rejected', 'resubmitted', null]) expect(matchesPaidVerification(state(false, status), 'not_verified')).toBe(true);
+    expect(matchesPaidVerification(state(true, 'verified'), 'not_verified')).toBe(false);
+    expect(matchesPaidVerification(state(false, 'verified'), 'not_verified')).toBe(false);
+  });
+  it('rejected includes only rejected records', () => {
+    expect(matchesPaidVerification(state(false, 'rejected'), 'rejected')).toBe(true);
+    for (const status of ['pending', 'verified', 'resubmitted', null]) expect(matchesPaidVerification(state(false, status), 'rejected')).toBe(false);
+  });
+  it('all keeps every verification state', () => {
+    for (const status of ['pending', 'verified', 'rejected', null]) expect(matchesPaidVerification(state(false, status), 'all')).toBe(true);
+  });
+});
 
 describe('landlord paid list tabs', () => {
   it('has the two tabs, labelled as asked, each with a one-line explanation', () => {

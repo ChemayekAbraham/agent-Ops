@@ -597,13 +597,11 @@ export function ProxyPartnerFunds() {
             .limit(500),
         ),
         fetchChunks<any>(userScopeIds, (chunk) =>
-          supabase
-            .from('v_user_wallet_strict')
-            .select('user_id, withdrawable')
-            // Include the AGENT's own row so the managed-proxy clamp can use
-            // the agent's strict withdrawable (managed funds land in agent
-            // wallet, not partner wallet).
-            .in('user_id', chunk),
+          // Checked function (replaces the direct read of v_user_wallet_strict).
+          // Includes the AGENT's own row so the managed-proxy clamp can use
+          // the agent's strict withdrawable (managed funds land in agent
+          // wallet, not partner wallet).
+          supabase.rpc('wallet_strict_withdrawable_for_users' as any, { p_user_ids: chunk }) as any,
         ),
       ]);
 
