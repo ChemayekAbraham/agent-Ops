@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Utensils, RefreshCw } from 'lucide-react';
+import { Loader2, Utensils, RefreshCw, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 
 interface Row {
@@ -75,6 +77,30 @@ export function LunchAllowanceTracker() {
 
   const fmtDate = (s: string) => new Date(s).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' });
 
+  const downloadPdf = () => {
+    const doc = new jsPDF();
+    const n = (id: string | null) => (id ? data?.names[id] ?? 'Unknown' : 'System');
+    doc.setFontSize(14);
+    doc.text('Welile - Lunch Allowance', 14, 16);
+    doc.setFontSize(9);
+    const range = from || to ? `${from || 'start'} to ${to || 'today'}` : 'All time';
+    doc.text(`Period: ${range}${search ? ` | Staff: ${search}` : ''} | Generated ${fmtDate(new Date().toISOString())}`, 14, 22);
+    doc.text(`Total: ${formatUGX(total)} | Staff paid: ${perStaff.length} | Payments: ${filtered.length}`, 14, 27);
+    autoTable(doc, {
+      startY: 32,
+      head: [['Staff member', 'Payments', 'Last payment', 'Total']],
+      body: perStaff.map(([id, s]) => [n(id), String(s.count), fmtDate(s.last), formatUGX(s.total)]),
+      styles: { fontSize: 8 },
+    });
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 8,
+      head: [['Date', 'Staff member', 'Reference', 'Sent by', 'Amount']],
+      body: filtered.map((r) => [fmtDate(r.created_at), n(r.target_user_id), r.reference_id ?? '', n(r.created_by), formatUGX(signed(r)) + (r.operation === 'debit' ? ' (reversed)' : '')]),
+      styles: { fontSize: 8 },
+    });
+    doc.save(`lunch-allowance-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -82,9 +108,14 @@ export function LunchAllowanceTracker() {
           <Utensils className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Lunch Allowance</h2>
         </div>
+        <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={downloadPdf} disabled={isLoading || filtered.length === 0}>
+          <Download className="h-4 w-4 mr-1" /> Download PDF
+        </Button>
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
