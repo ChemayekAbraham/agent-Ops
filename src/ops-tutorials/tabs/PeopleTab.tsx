@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Check, X } from 'lucide-react';
+import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { listRates, listTopics, membersList, setMember } from '../api';
+import { eligiblePeople, listRates, listTopics, membersList, setMemberById } from '../api';
 import RateStrip, { RATE_TIERS } from '../components/RateStrip';
 
+const contact = (p: any) => p?.phone || p?.email || '—';
+const rolesText = (p: any) => {
+  const r = p?.tutorial_roles;
+  return Array.isArray(r) ? r.join(', ') : r ? String(r) : '';
+};
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates: boolean; onChangeRates: () => void }) {
@@ -17,7 +24,9 @@ export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates:
   const [topics, setTopics] = useState<any[]>([]);
   const [rates, setRates] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState('');
+  const [people, setPeople] = useState<any[]>([]);
+  const [personId, setPersonId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [role, setRole] = useState('creator');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -26,8 +35,8 @@ export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates:
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [m, t, r] = await Promise.all([membersList(), listTopics(), listRates()]);
-      setMembers(m ?? []); setTopics(t ?? []); setRates(r ?? []);
+      const [m, t, r, pp] = await Promise.all([membersList(), listTopics(), listRates(), eligiblePeople()]);
+      setMembers(m ?? []); setPeople(pp ?? []); setTopics(t ?? []); setRates(r ?? []);
       setRefreshKey((k) => k + 1);
     } catch (e) { setError(errText(e)); }
   }, []);
@@ -40,7 +49,9 @@ export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates:
     finally { setBusy(null); }
   }
 
-  const rateSet = new Set(rates.filter((r) => r.amount_ugx != null).map((r) => r.tier));
+  const selected = people.find((pp) => pp.user_id === personId) ?? null;
+
+  const rateSet = new Set(rates.filter((r) => Number(r.amount_ugx) > 0).map((r) => r.tier));
   const checklist = [
     { ok: members.some((m) => m.enabled && m.member_role === 'creator'), label: 'At least one active Creator', hint: 'HR adds them above' },
     { ok: members.some((m) => m.enabled && m.member_role === 'reviewer'), label: 'At least one active Reviewer', hint: 'HR adds them above' },
@@ -55,20 +66,49 @@ export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates:
       <section className="space-y-3">
         <h2 className="text-base font-semibold">People</h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_10rem_1fr_auto] sm:items-end">
-          <div className="space-y-1"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Person</Label>
+            <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={pickerOpen} className="w-full justify-between font-normal">
+                  <span className="truncate">{selected ? selected.full_name ?? contact(selected) : 'Choose an employee'}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[16rem] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search by name, phone or email" />
+                  <CommandList>
+                    <CommandEmpty>No matching employee.</CommandEmpty>
+                    <CommandGroup>
+                      {people.map((pp) => (
+                        <CommandItem key={pp.user_id} value={`${pp.full_name ?? ''} ${pp.phone ?? ''} ${pp.email ?? ''} ${pp.user_id}`}
+                          onSelect={() => { setPersonId(pp.user_id); setPickerOpen(false); }}>
+                          <Check className={`mr-2 h-4 w-4 ${personId === pp.user_id ? 'opacity-100' : 'opacity-0'}`} />
+                          <div className="min-w-0">
+                            <div className="truncate">{pp.full_name ?? '—'} <span className="text-muted-foreground">· {contact(pp)}</span></div>
+                            {rolesText(pp) && <div className="truncate text-xs text-muted-foreground">{rolesText(pp)}</div>}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover></div>
           <div className="space-y-1"><Label>Role</Label>
             <Select value={role} onValueChange={setRole}><SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="creator">Creator</SelectItem><SelectItem value="reviewer">Reviewer</SelectItem></SelectContent>
+              <SelectContent><SelectItem value="creator">Creator</SelectItem><SelectItem value="reviewer">Reviewer</SelectItem><SelectItem value="viewer">Viewer</SelectItem></SelectContent>
             </Select></div>
           <div className="space-y-1"><Label>Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
-          <Button disabled={!email.trim() || busy === 'add'}
-            onClick={async () => { if (await run('add', () => setMember({ p_email: email.trim(), p_role: role, p_enabled: true, p_note: note.trim() || null }), 'Member saved')) { setEmail(''); setNote(''); } }}>
+          <Button disabled={!personId || busy === 'add'}
+            onClick={async () => { if (personId && await run('add', () => setMemberById({ p_user_id: personId, p_role: role, p_enabled: true, p_note: note.trim() || null }), 'Member saved')) { setPersonId(null); setNote(''); } }}>
             Add
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">Viewer: can open the library (add COO/CFO as Viewer so they can reach Rates)</p>
         <div className="overflow-x-auto rounded-md border border-border">
           <Table>
-            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Role</TableHead><TableHead>Enabled</TableHead><TableHead>Note</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Phone/Email</TableHead><TableHead>Role</TableHead><TableHead>Enabled</TableHead><TableHead>Note</TableHead></TableRow></TableHeader>
             <TableBody>
               {!members.length && <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No members yet.</TableCell></TableRow>}
               {members.map((m) => {
@@ -76,11 +116,11 @@ export default function PeopleTab({ canSetRates, onChangeRates }: { canSetRates:
                 return (
                   <TableRow key={key}>
                     <TableCell>{m.full_name ?? '—'}</TableCell>
-                    <TableCell className="break-all">{m.email}</TableCell>
+                    <TableCell className="break-all">{contact(m)}</TableCell>
                     <TableCell className="capitalize">{m.member_role}</TableCell>
                     <TableCell>
-                      <Switch checked={!!m.enabled} disabled={busy === key || !m.email}
-                        onCheckedChange={() => run(key, () => setMember({ p_email: m.email, p_role: m.member_role, p_enabled: !m.enabled, p_note: m.note ?? null }), m.enabled ? 'Member disabled' : 'Member enabled')} />
+                      <Switch checked={!!m.enabled} disabled={busy === key}
+                        onCheckedChange={() => run(key, () => setMemberById({ p_user_id: m.user_id, p_role: m.member_role, p_enabled: !m.enabled, p_note: m.note ?? null }), m.enabled ? 'Member disabled' : 'Member enabled')} />
                     </TableCell>
                     <TableCell>{m.note ?? ''}</TableCell>
                   </TableRow>

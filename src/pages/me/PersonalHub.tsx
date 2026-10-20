@@ -10,6 +10,7 @@ import MyAdvanceCard from '@/hr/pay/MyAdvanceCard';
 import { getMyStaff } from '@/hr/api';
 import { supabase } from '@/hr/api/client';
 import type { Employee } from '@/hr/types';
+import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 
 interface HubBadge {
   label: string;
@@ -109,12 +110,13 @@ const PersonalHub = () => {
   // Food Management is only offered to someone holding the assignment.
   const { data: foodStatus } = useFoodCoordinatorStatus();
   const { data: canUseCanteen } = useFoodCanUseCanteen();
+  const { hasAccess: tutorialAccess } = useTutorialAccess();
 
   const visibleCards = CARDS.filter(
     (card) => (!card.requiresPsoOfficer || isPsoOfficer === true)
       && (!card.requiresStaff || !!staffRecord)
       && (!card.requiresFoodCoordinator || foodStatus?.isCoordinator === true)
-      && (!card.requiresCanteen || canUseCanteen === true),
+      && (!card.requiresCanteen || canUseCanteen === true) && (!card.requiresTutorialAccess || tutorialAccess === true),
   );
 
   return (
