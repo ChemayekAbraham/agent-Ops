@@ -24,9 +24,9 @@ export function AgentActionInsights({ agentId, hideDailyRent }: Props) {
         {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
         <AgentArrearsCard agentId={agentId} />
 
-        {/* Ended Rent Plans that still owe. These carry no pinned day, so they
-            appear nowhere under today's target. Renders nothing when there are
-            none. */}
+        {/* Ended Rent Plans that still owe. Folded into today's target, but
+            this card names the tenants behind them. Renders nothing when there
+            are none. */}
         <AgentExpiredCyclesCard agentId={agentId} />
 
 

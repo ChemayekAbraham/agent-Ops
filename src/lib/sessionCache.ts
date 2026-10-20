@@ -118,6 +118,64 @@ export function clearAllAuthStorage(): void {
   }
 }
 
+/** A signed-in session lasts at most this long from sign-in; then the person signs in again. */
+export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function decodeJwtPayload(token: string | undefined | null): Record<string, any> | null {
+  if (!token) return null;
+  try {
+    let part = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (part.length % 4) part += '=';
+    return JSON.parse(atob(part));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When this session was signed in, in ms. Read from the access token's `amr`
+ * timestamps (set at sign-in and carried unchanged through every refresh, so it
+ * is per-session, not per-account), falling back to the user's last_sign_in_at.
+ */
+export function sessionSignedInAtMs(
+  session: { access_token?: string; user?: { last_sign_in_at?: string | null } } | null | undefined,
+): number | null {
+  if (!session) return null;
+  const amr = decodeJwtPayload(session.access_token)?.amr;
+  if (Array.isArray(amr)) {
+    const stamps = amr.map((a: any) => Number(a?.timestamp)).filter((t) => Number.isFinite(t) && t > 0);
+    if (stamps.length) return Math.min(...stamps) * 1000;
+  }
+  const last = session.user?.last_sign_in_at ? Date.parse(session.user.last_sign_in_at) : NaN;
+  return Number.isFinite(last) ? last : null;
+}
+
+/** True once a session is older than SESSION_MAX_AGE_MS. Unknown age never counts as expired. */
+export function isSessionPastMaxAge(
+  session: { access_token?: string; user?: { last_sign_in_at?: string | null } } | null | undefined,
+): boolean {
+  const signedInAt = sessionSignedInAtMs(session);
+  return signedInAt !== null && Date.now() - signedInAt > SESSION_MAX_AGE_MS;
+}
+
+/**
+ * The session supabase-js has persisted for the current project, read straight
+ * from localStorage without taking the auth lock. Used only to keep a signed-in
+ * person on their dashboard while a slow token refresh finishes; it is never
+ * trusted for anything the server does not re-check.
+ */
+export function readStoredAuthSession(): { access_token: string; refresh_token: string; expires_at?: number; user: any } | null {
+  const key = AUTH_TOKEN_KEYS[0];
+  if (!key || !SUPABASE_PROJECT_REF) return null;
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+    if (parsed?.access_token && parsed?.refresh_token && parsed?.user?.id) return parsed;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 // Default role for all users - agent is always available offline
 const DEFAULT_OFFLINE_ROLES: string[] = ['agent'];
 

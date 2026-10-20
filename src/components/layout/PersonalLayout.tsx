@@ -9,6 +9,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { PERSONAL_NAV } from './personalNav';
 import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
+import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 
 const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
 const SIDEBAR_MIN = 200;
@@ -38,9 +39,11 @@ const getInitials = (name: string) => {
 interface PersonalLayoutProps {
   children: ReactNode;
   title?: string;
+  backTo?: string;
+  backLabel?: string;
 }
 
-const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
+const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutProps) => {
   const { user, roles, switchRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,6 +52,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const { data: foodStatus } = useFoodCoordinatorStatus();
   const isFoodCoordinator = foodStatus?.isCoordinator === true;
   const { data: canUseCanteen } = useFoodCanUseCanteen();
+  const { hasAccess: tutorialAccess } = useTutorialAccess();
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -124,10 +128,23 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
     navigate('/dashboard', { replace: true });
   };
 
+  const handleBack = () => {
+    if (backTo) {
+      navigate(backTo);
+    } else {
+      navigate('/me');
+    }
+  };
+
   const isOnHub = location.pathname === '/me';
 
-  const isActive = (to: string) =>
-    location.pathname === to || location.pathname.startsWith(to + '/');
+  const isActive = (to: string) => {
+    if (to === '/me') return location.pathname === '/me';
+    if (to === '/me/food') {
+      return location.pathname === '/me/food' || location.pathname === '/me/food/orders';
+    }
+    return location.pathname === to || location.pathname.startsWith(to + '/');
+  };
 
   /** One menu row. Mirrors the executive sidebar's row treatment so My Space
    *  reads as part of the same product. */
@@ -164,7 +181,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true))
+          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true) && (!item.requiresTutorialAccess || tutorialAccess === true))
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}
@@ -202,9 +219,9 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
             {!isOnHub && (
               <button
                 type="button"
-                onClick={() => navigate('/me')}
-                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
-                aria-label="Back to My space"
+                onClick={handleBack}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={backLabel || (backTo ? 'Go back' : 'Back to My space')}
               >
                 <ArrowLeft className="h-4 w-4" />
               </button>

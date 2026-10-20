@@ -135,9 +135,8 @@ const DashboardHeader = memo(function DashboardHeader({
   );
 
   const { data: isSpecialAgent = false } = useQuery({
-    queryKey: ['user-is-special-agent-header'],
+    queryKey: ['user-is-special-agent-header', user?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
       const { data, error } = await supabase
         .from('staff_permissions')
@@ -151,17 +150,18 @@ const DashboardHeader = memo(function DashboardHeader({
       return true;
     },
     staleTime: 30_000,
+    enabled: !!user?.id,
   });
 
   const { data: hasPhonePlan = false } = useQuery({
-    queryKey: ['user-has-active-smartphone-plan'],
+    queryKey: ['user-has-active-smartphone-plan', user?.id],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
       const { data } = await supabase.rpc('has_active_smartphone_plan', { p_user: user.id });
       return !!data;
     },
     staleTime: 60_000,
+    enabled: !!user?.id,
   });
 
   const canAccessAgentsSpace = isExecutive || isSpecialAgent || hasPhonePlan;

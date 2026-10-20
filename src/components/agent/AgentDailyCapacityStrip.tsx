@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD, type AgentCapacity } from '@/hooks/useAgentCapacityMap';
+import { useOwnExpectedSplit } from '@/hooks/useAgentExpectedSplit';
 import { formatUGX } from '@/lib/rentCalculations';
-import { CalendarCheck2, CheckCircle2, Lock, Loader2 } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Lock, Loader2, AlarmClock } from 'lucide-react';
 
 const RATING_TONE: Record<AgentCapacity['daily_rating'], string> = {
   'Very Good': 'bg-emerald-600/15 text-emerald-700 border-emerald-600/40',
@@ -15,14 +16,29 @@ const RATING_TONE: Record<AgentCapacity['daily_rating'], string> = {
 
 /**
  * Compact, agent-facing daily capacity strip for the Tenants screen.
- * Answers one question fast: "How am I doing on collections TODAY,
- * and can I still post new rent requests?"
+ * Keeps collection amounts separate from tenant-reach posting progress.
  */
+export function getTenantCoveragePresentation(cap: Pick<AgentCapacity,
+  'tenants_due' | 'tenants_paid_today' | 'coverage_today' | 'coverage_yesterday'
+>) {
+  const bestCoverage = Math.max(cap.coverage_today, cap.coverage_yesterday);
+  return {
+    progressPct: cap.tenants_due > 0 ? Math.min(100, Math.max(0, Math.round(bestCoverage * 100))) : 100,
+    todayRemaining: Math.max(0, Math.ceil(cap.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - cap.tenants_paid_today),
+    yesterdayCarrying: cap.coverage_today < DAILY_ELIGIBILITY_THRESHOLD
+      && cap.coverage_yesterday >= DAILY_ELIGIBILITY_THRESHOLD,
+    bestDay: cap.coverage_yesterday > cap.coverage_today ? 'yesterday' : 'today',
+  };
+}
+
 export function AgentDailyCapacityStrip() {
   const { user } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data, isLoading } = useAgentCapacityMap(ids);
   const cap = user?.id ? data?.get(user.id) : undefined;
+  // Splits the pinned target into in-term rent vs past-term arrears. One RPC,
+  // batched with any other agent on screen — never call per list row.
+  const { data: split } = useOwnExpectedSplit(user?.id ?? null);
 
   if (!user?.id) return null;
 
@@ -36,12 +52,9 @@ export function AgentDailyCapacityStrip() {
   }
   if (!cap) return null;
 
-  const todayPct = cap.expected_daily > 0
-    ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
-    : 0;
-  const barTone = todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 20 ? 'bg-amber-500' : 'bg-destructive';
+  const { progressPct, todayRemaining, yesterdayCarrying, bestDay } = getTenantCoveragePresentation(cap);
   const canPost = cap.can_post_rent_today;
-  const remaining = Math.max(0, cap.expected_daily - cap.paid_today);
+  const barTone = canPost ? 'bg-primary' : 'bg-destructive';
 
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-4 space-y-3">
@@ -52,7 +65,7 @@ export function AgentDailyCapacityStrip() {
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Today&apos;s capacity</p>
-            <p className="text-xs text-muted-foreground">Collect daily to keep posting rents</p>
+            <p className="text-xs text-muted-foreground">Reach at least half your tenants · any payment counts</p>
           </div>
         </div>
         <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border shrink-0 ${RATING_TONE[cap.daily_rating]}`}>
@@ -61,26 +74,60 @@ export function AgentDailyCapacityStrip() {
       </div>
 
       <div>
-        <div className="flex items-center justify-between text-sm font-bold tabular-nums mb-1.5">
+        <p className="text-xs text-muted-foreground mb-1">Money collected today</p>
+        <div className="flex flex-wrap items-center justify-between gap-x-2 text-sm font-bold tabular-nums mb-1.5">
           <span className="text-foreground">{formatUGX(cap.paid_today)}</span>
           <span className="text-muted-foreground">of {formatUGX(cap.expected_daily)}</span>
         </div>
-        <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
-          <div className={`h-full ${barTone} transition-all`} style={{ width: `${todayPct}%` }} />
+        {/* In-term vs past-term breakdown. Only appears when part of today's
+            target comes from Rent Plans already past their end date — routine
+            rent needs no callout. The big total above never changes. */}
+        {split && split.arrearsUgx > 0 && (
+          <div className="flex items-start gap-2 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 px-3 py-2">
+            <AlarmClock className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-muted-foreground leading-snug">
+              <strong className="text-foreground tabular-nums">{formatUGX(split.inTermUgx)}</strong> is today&apos;s rent
+              {' · '}
+              <strong className="text-amber-700 tabular-nums">{formatUGX(split.arrearsUgx)}</strong> is owed by{' '}
+              <strong className="text-foreground tabular-nums">{split.arrearsPlans}</strong>{' '}
+              {split.arrearsPlans === 1 ? 'tenant' : 'tenants'} past their Rent Plan end date — chase them too
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5 border-t border-border pt-3">
+        <p className="text-xs font-semibold text-foreground">Tenants reached · Rent Plan access</p>
+        <p className="text-sm text-foreground tabular-nums leading-snug">
+          {cap.tenants_paid_today} of {cap.tenants_due} tenants paid today
+          {' · '}{cap.tenants_paid_yesterday} of {cap.tenants_due} yesterday
+        </p>
+        {yesterdayCarrying && canPost && (
+          <p className="text-xs text-primary leading-snug">
+            Yesterday&apos;s {cap.tenants_paid_yesterday} of {cap.tenants_due} is keeping you unlocked.
+          </p>
+        )}
+        <div
+          role="progressbar"
+          aria-label="Tenants reached, best of today or yesterday"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPct}
+          className="h-3 w-full rounded-full bg-muted overflow-hidden"
+        >
+          <div className={`h-full ${barTone} transition-all motion-reduce:transition-none`} style={{ width: `${progressPct}%` }} />
         </div>
-        <div className="flex items-center justify-between gap-2 mt-1.5">
-          <p className="text-xs text-muted-foreground">
-            {cap.expected_daily <= 0 && cap.daily_gate_count > 0 ? (
-              <>Today&apos;s target is not set yet</>
-            ) : (
-              <>
-                {todayPct}% of today&apos;s target
-                {remaining > 0 && <> · <strong className="text-foreground">{formatUGX(remaining)}</strong> to go</>}
-              </>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <p className="text-xs text-muted-foreground leading-snug">
+            {cap.tenants_due <= 0 ? 'No tenants owing in the posting check' : (
+              <>{progressPct}% of tenants reached · {bestDay} counts</>
+            )}
+            {todayRemaining > 0 && (
+              <><br /><strong className="text-foreground">{todayRemaining} more {todayRemaining === 1 ? 'tenant' : 'tenants'}</strong> to reach half today</>
             )}
           </p>
           <p className="text-xs font-semibold text-muted-foreground shrink-0 tabular-nums">
-            {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+            {new Date().toLocaleDateString('en-GB', { timeZone: 'Africa/Kampala', weekday: 'short', day: 'numeric', month: 'short' })}
           </p>
         </div>
       </div>
@@ -109,16 +156,16 @@ export function AgentDailyCapacityStrip() {
         {canPost ? (
           <>
             <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>You can post new rent requests today</span>
+            <span>You can post new Rent Plans today</span>
           </>
         ) : (
           <>
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              {cap.expected_daily > 0 ? (
-                <>Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * DAILY_ELIGIBILITY_THRESHOLD) - cap.paid_today))}</strong> more today to unlock new rents</>
+              {todayRemaining > 0 ? (
+                <>Collect from <strong>{todayRemaining}</strong> more {todayRemaining === 1 ? 'tenant' : 'tenants'} to unlock new rents</>
               ) : (
-                <>Collect from your tenants with overdue balances to unlock new rents</>
+                <>Collect from your tenants with overdue balances to unlock new Rent Plans</>
               )}
             </span>
           </>

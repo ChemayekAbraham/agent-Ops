@@ -1,0 +1,11 @@
+-- Restore security_invoker on v_agent_daily_eligibility.
+--
+-- CREATE OR REPLACE VIEW does NOT carry reloptions forward, so the guarded
+-- rewrite in 20261019103000 silently dropped `security_invoker=on` and left the
+-- view running with its owner's rights. The view keeps its own row filter
+-- (CURRENT_USER <> 'authenticated' OR agent_id = auth.uid() OR
+-- can_view_staff_reports(auth.uid())), so a signed-in agent still only ever saw
+-- their own row — but with the option off, RLS on the underlying tables was no
+-- longer applied for direct selects, which is not the posture this view shipped
+-- with. Put it back.
+ALTER VIEW public.v_agent_daily_eligibility SET (security_invoker = on);

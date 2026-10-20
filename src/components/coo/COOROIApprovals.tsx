@@ -119,7 +119,11 @@ export function COOROIApprovals() {
               coo_approved_at: new Date().toISOString(),
             },
           })
-          .eq('id', opId);
+          .eq('id', opId)
+          // Only move rows still waiting for the COO — never pull back a
+          // payout the CFO already approved and paid.
+          .eq('status', 'pending_coo_approval')
+          .select('id');
         if (error) throw error;
       }
 

@@ -1,5 +1,5 @@
 {
-  "$comment": "Agent dashboard nudges. Copy only: numbers come from AgentNudgeStats (see index.ts). A nudge is eligible when every `when` rule holds AND every {placeholder} in its title/body has a value. Money placeholders render with the viewer's currency already attached (e.g. 'UGX 12,000'), so never write a currency before them. Rules: gt, gte, lt, lte, eq, ne take numbers; exists takes true/false. `hour` is the Kampala hour (0-23). Ranks are among agents with an agent_collections row today, ordered by amount collected today. Terminology: Rent Plan (never loan), Supporter (never lender), Returns (never interest/ROI).",
+  "$comment": "Agent dashboard nudges. Copy only: numbers come from AgentNudgeStats (see index.ts). A nudge is eligible when every `when` rule holds AND every {placeholder} in its title/body has a value. Money placeholders render with the viewer's currency already attached (e.g. 'UGX 12,000'), so never write a currency before them. Rules: gt, gte, lt, lte, eq, ne take numbers; exists takes true/false. `hour` is the Kampala hour (0-23). Ranks are among agents with an agent_collections row today, ordered by amount collected today. Never quote board-wide figures (how many agents collected, top-percent, other agents' totals): use the agent's own rank and numbers only. Terminology: Rent Plan (never loan), Supporter (never lender), Returns (never interest/ROI).",
   "nudges": [
     {
       "id": "morning-due-today",
@@ -22,23 +22,23 @@
       "cta": "collect"
     },
     {
-      "id": "morning-empty-board",
-      "category": "rank",
+      "id": "morning-streak-starter",
+      "category": "streak",
       "tone": "info",
-      "weight": 3,
-      "when": { "hour": { "gte": 5, "lt": 11 }, "active_agents_today": { "eq": 0 }, "due_today_count": { "gte": 1 } },
-      "title": "The board is empty 👀",
-      "body": "No agent has collected yet today. Collect first and you're #1 🥇, as simple as that.",
+      "weight": 2,
+      "when": { "hour": { "gte": 5, "lt": 12 }, "streak_days": { "eq": 0 }, "collected_today_count": { "eq": 0 }, "due_today_count": { "gte": 1 } },
+      "title": "Start a streak today 🔥",
+      "body": "Collect today and tomorrow and you've got a streak going. Day 1 starts now, {first_name}.",
       "cta": "collect"
     },
     {
-      "id": "morning-others-started",
-      "category": "rank",
+      "id": "morning-first-collection",
+      "category": "morning",
       "tone": "nudge",
       "weight": 2,
-      "when": { "hour": { "lt": 12 }, "rank_today": { "exists": false }, "active_agents_today": { "gte": 1 }, "due_today_count": { "gte": 1 } },
-      "title": "{active_agents_today} agents are already on the board 🏁",
-      "body": "They've started collecting, {first_name}. Your tenants are waiting. Get on the board today 💪",
+      "when": { "hour": { "gte": 8, "lt": 12 }, "collected_today_count": { "eq": 0 }, "due_today_count": { "gte": 1 } },
+      "title": "Your board is waiting, {first_name} 📋",
+      "body": "{due_today_count} tenants are due today and none collected yet. One visit gets you moving 💪",
       "cta": "collect"
     },
 
@@ -148,9 +148,8 @@
       "category": "rank",
       "tone": "info",
       "weight": 3,
-      "when": { "active_agents_today": { "gte": 2 } },
       "title": "Did you know? 🤔",
-      "body": "Today you are {rank_ordinal} of {active_agents_today} agents who've collected {rank_emoji}",
+      "body": "Today you're {rank_ordinal} on the collection board {rank_emoji}",
       "cta": "leaderboard"
     },
     {
@@ -158,9 +157,9 @@
       "category": "rank",
       "tone": "celebrate",
       "weight": 4,
-      "when": { "rank_today": { "eq": 1 }, "active_agents_today": { "gte": 2 } },
+      "when": { "rank_today": { "eq": 1 } },
       "title": "You're #1 today! 🥇👑",
-      "body": "Top of {active_agents_today} agents, {first_name}. Everyone is chasing you now. Keep collecting to hold the crown.",
+      "body": "Top of the board, {first_name}. Everyone is chasing you now. Keep collecting to hold the crown.",
       "cta": "collect"
     },
     {
@@ -180,7 +179,7 @@
       "weight": 4,
       "when": { "rank_today": { "eq": 3 } },
       "title": "You're on the podium! 🥉",
-      "body": "3rd of {active_agents_today} agents today. {gap_to_next_rank} more moves you to 2nd 🥈",
+      "body": "3rd today, {first_name}. {gap_to_next_rank} more moves you to 2nd 🥈",
       "cta": "collect"
     },
     {
@@ -204,13 +203,13 @@
       "cta": "collect"
     },
     {
-      "id": "rank-top-percent",
-      "category": "rank",
-      "tone": "celebrate",
-      "weight": 2,
-      "when": { "rank_today": { "gte": 11 }, "top_percent": { "lte": 25 } },
-      "title": "Top {top_percent}% today 🚀",
-      "body": "Out of {active_agents_today} agents collecting today, you're in the top {top_percent}%. Keep going, {first_name}!",
+      "id": "commission-clean-sweep",
+      "category": "commission",
+      "tone": "nudge",
+      "weight": 3,
+      "when": { "uncollected_count": { "gte": 2, "lte": 3 }, "collected_today_count": { "gte": 1 }, "missed_commission": { "gte": 1 } },
+      "title": "So close to a clean sweep 🧹",
+      "body": "Just {uncollected_count} tenants left and {missed_commission} in commission to grab. Finish it, Boss 😎",
       "cta": "collect"
     },
     {
@@ -234,13 +233,13 @@
       "cta": "collect"
     },
     {
-      "id": "rank-bottom-half",
-      "category": "rank",
+      "id": "collect-coverage-push",
+      "category": "collect",
       "tone": "nudge",
       "weight": 2,
-      "when": { "rank_today": { "gte": 4 }, "top_percent": { "gt": 50 }, "uncollected_count": { "gte": 1 } },
-      "title": "{rank_ordinal} of {active_agents_today} {rank_emoji}",
-      "body": "Other agents are pulling ahead today. You have {uncollected_count} tenants left, and each one moves you up.",
+      "when": { "coverage_pct": { "gte": 1, "lt": 50 }, "uncollected_count": { "gte": 2 } },
+      "title": "{coverage_pct}% of today done 📊",
+      "body": "You've collected for {collected_today_count} of {due_today_count} tenants. Let's push past halfway, {first_name}!",
       "cta": "collect"
     },
     {
@@ -248,9 +247,9 @@
       "category": "rank",
       "tone": "nudge",
       "weight": 3,
-      "when": { "hour": { "gte": 12 }, "rank_today": { "exists": false }, "active_agents_today": { "gte": 1 }, "due_today_count": { "gte": 1 } },
+      "when": { "hour": { "gte": 12 }, "rank_today": { "exists": false }, "due_today_count": { "gte": 1 } },
       "title": "You're not on today's board yet 😶",
-      "body": "{active_agents_today} agents have collected today. One collection puts you on it, {first_name}.",
+      "body": "One collection puts you on it, {first_name}. {uncollected_count} tenants are waiting.",
       "cta": "collect"
     },
 
