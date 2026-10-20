@@ -114,6 +114,8 @@ vi.mock('@/components/pipeline/AwarenessCallBadge', () => ({ AwarenessCallBadge:
 vi.mock('@/components/pipeline/MyAwarenessCallsCard', () => ({ MyAwarenessCallsCard: () => null }));
 
 import { RentPipelineQueue } from './RentPipelineQueue';
+import { TooltipProvider } from '@/components/ui/tooltip';
+
 
 const request = (id: string, rentAmount: number, createdAt: string) => ({
   id,
@@ -160,10 +162,13 @@ function renderQueue() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <RentPipelineQueue stage="partner_ops_approved" />
+      <TooltipProvider>
+        <RentPipelineQueue stage="partner_ops_approved" />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
 }
+
 
 beforeEach(() => {
   rpcMock.mockReset();
