@@ -1366,8 +1366,25 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     const { fits, overCap } = partitionByLandlordFloatRoom(sortedSelected, landlordFloatBudget.data);
     const fitsTotal = fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
-    return { fits, overCap, fitsTotal };
+    const selectedTotal = sortedSelected.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0);
+    return { fits, overCap, fitsTotal, selectedTotal };
   }, [isCooStage, rows, selectedIds, landlordFloatBudget.data]);
+
+  /** COO stage only: an unticked card can be ticked only while it still fits the room left. Unticking is always allowed. */
+  const cooSelectBlocked = (req: any): boolean => {
+    if (!isCooStage || selectedIds.has(req.id)) return false;
+    const budget = landlordFloatBudget.data;
+    if (!budget || budget.blocked) return true;
+    return cooBulkSplit.selectedTotal + Number(req.rent_amount || 0) > Number(budget.room);
+  };
+
+  /** COO stage only: what "Select all" would pick — visible rows oldest first, only those that fit. */
+  const cooSelectAllFits = useMemo(() => {
+    if (!isCooStage) return { fits: [] as any[], total: 0 };
+    const sortedVisible = [...filtered].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    const { fits } = partitionByLandlordFloatRoom(sortedVisible, landlordFloatBudget.data);
+    return { fits, total: fits.reduce((sum, r) => sum + Number(r.rent_amount || 0), 0) };
+  }, [isCooStage, filtered, landlordFloatBudget.data]);
 
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
