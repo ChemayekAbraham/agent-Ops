@@ -36,6 +36,8 @@ import {
   Smartphone,
   Signpost,
   Network,
+  PiggyBank,
+  Target,
 } from 'lucide-react';
 
 export type ActiveView =
