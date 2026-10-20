@@ -64743,6 +64743,14 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      agent_collection_rate_7d: {
+        Args: { p_agent_id: string }
+        Returns: {
+          collected: number
+          expected: number
+          rate_pct: number
+        }[]
+      }
       agent_collections_error_log: {
         Args: { p_days?: number; p_limit?: number; p_source?: string }
         Returns: {
@@ -72402,6 +72410,16 @@ export type Database = {
           verified: number
           verified_auto: number
           verified_human: number
+        }[]
+      }
+      get_landlord_payout_agent_rates: {
+        Args: never
+        Returns: {
+          agent_id: string
+          collected: number
+          expected: number
+          meets_minimum: boolean
+          rate_pct: number
         }[]
       }
       get_landlord_payout_block_queue: {
