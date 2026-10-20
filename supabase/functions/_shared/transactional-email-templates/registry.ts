@@ -38,6 +38,8 @@ import { template as cashWithdrawalCodeTemplate } from './cash-withdrawal-code.t
 import { template as cashDepositCodeTemplate } from './cash-deposit-code.tsx'
 import { template as cashDepositWalletConfirmationTemplate } from './cash-deposit-wallet-confirmation.tsx'
 import { template as twoFactorCodeTemplate } from './two-factor-code.tsx'
+import { template as newDeviceSignInTemplate } from './new-device-sign-in.tsx'
+import { template as passwordChangeTipTemplate } from './password-change-tip.tsx'
 import { template as smsFailureAlertTemplate } from './sms-failure-alert.tsx'
 import { template as dailyAgentCardTemplate } from './daily-agent-card.tsx'
 import { template as subAgentInviteTemplate } from './sub-agent-invite.tsx'
@@ -112,6 +114,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'cash-deposit-code': cashDepositCodeTemplate,
   'cash-deposit-wallet-confirmation': cashDepositWalletConfirmationTemplate,
   'two-factor-code': twoFactorCodeTemplate,
+  'new-device-sign-in': newDeviceSignInTemplate,
+  'password-change-tip': passwordChangeTipTemplate,
   'sms-failure-alert': smsFailureAlertTemplate,
   'daily-agent-card': dailyAgentCardTemplate,
   'sub-agent-invite': subAgentInviteTemplate,
