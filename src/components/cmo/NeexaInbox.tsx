@@ -12,6 +12,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNeexaInbox, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
 import { NeexaTemplateDialog } from './NeexaTemplateDialog';
 
+// Staff replies are hidden for now. Flip to true to bring back the "Write a reply…" box and Send button.
+const REPLY_COMPOSER_ENABLED = false;
+
 const platforms: { value: NeexaPlatform; label: string; icon: typeof MessageSquare }[] = [
   { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, { value: 'email', label: 'Email', icon: Mail },
   { value: 'facebook', label: 'Facebook', icon: Facebook }, { value: 'instagram', label: 'Instagram', icon: Instagram },
