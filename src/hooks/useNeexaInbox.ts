@@ -110,6 +110,15 @@ async function readConversations(): Promise<NeexaConversation[]> {
     offset += 500;
   }
 }
+// Local interface on purpose: generated schema types are protected by a build guard.
+async function readKpis(): Promise<NeexaInboxKpis> {
+  const { data, error } = await supabase.rpc('get_neexa_inbox_kpis' as any);
+  if (error) {
+    if (isNeexaKpiAccessDenied(error as { code?: string; message?: string })) throw new NeexaKpiAccessError('hidden');
+    throw new Error(error.message || "Couldn't load figures");
+  }
+  return data as unknown as NeexaInboxKpis;
+}
 async function readMessages(id: string): Promise<NeexaMessage[]> {
   const rows: NeexaMessage[] = [];
   let offset = 0;
