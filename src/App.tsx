@@ -864,15 +864,15 @@ function AppRoutes() {
           <Route path="/agent/transaction-history" element={<MerchantTransactionHistory />} />
            <Route path="/agent/float-breakdown" element={<AgentFloatBreakdownPage />} />
           <Route path="/agent/collection-league" element={<AgentCollectionLeaguePage />} />
-          <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
-          <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />
-          <Route path="/coo/tenants-balances" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><TenantsBalancesDetail /></RoleGuard>} />
-          <Route path="/coo/rent-requests" element={<RoleGuard allowedRoles={['manager']} requiredPermission={['coo', 'agent-ops']}><NewRentRequestsDetail /></RoleGuard>} />
-          <Route path="/coo/active-partners" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActivePartnersDetail /></RoleGuard>} />
-          <Route path="/coo/partner-requests" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><NewPartnerRequestsDetail /></RoleGuard>} />
-          <Route path="/coo/active-landlords" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActiveLandlordsDetail /></RoleGuard>} />
-          <Route path="/coo/pipeline-landlords" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><PipelineLandlordsDetail /></RoleGuard>} />
-          <Route path="/coo/rent-coverage" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><RentCoverageDetail /></RoleGuard>} />
+          <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
+          <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />
+          <Route path="/coo/tenants-balances" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><TenantsBalancesDetail /></RoleGuard>} />
+          <Route path="/coo/rent-requests" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission={['coo', 'agent-ops']}><NewRentRequestsDetail /></RoleGuard>} />
+          <Route path="/coo/active-partners" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActivePartnersDetail /></RoleGuard>} />
+          <Route path="/coo/partner-requests" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><NewPartnerRequestsDetail /></RoleGuard>} />
+          <Route path="/coo/active-landlords" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveLandlordsDetail /></RoleGuard>} />
+          <Route path="/coo/pipeline-landlords" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><PipelineLandlordsDetail /></RoleGuard>} />
+          <Route path="/coo/rent-coverage" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><RentCoverageDetail /></RoleGuard>} />
           {/* COO → Reports */}
           <Route path="/coo/reports/partner-ops"   element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOPartnerOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/agent-ops"     element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOAgentOpsReport /></RoleGuard>} />

@@ -91,6 +91,18 @@ describe('RoleGuard dashboard allowlist', () => {
     expect(await screen.findByTestId('not-found')).toBeInTheDocument();
   });
 
+  it('super_admin moves freely: explicit key with no grant rows', async () => {
+    auth.roles = ['super_admin'];
+    guard({ allowedRoles: ['manager', 'super_admin'], requiredPermission: 'coo' });
+    expect(await screen.findByTestId('page')).toBeInTheDocument();
+  });
+
+  it('super_admin moves freely: staff-only route with no key and no grant rows', async () => {
+    auth.roles = ['super_admin'];
+    guard({ allowedRoles: ['cfo', 'manager', 'super_admin'] });
+    expect(await screen.findByTestId('page')).toBeInTheDocument();
+  });
+
   it('super_admin and cto bypass the allowlist', async () => {
     auth.roles = ['cto'];
     guard({ allowedRoles: ['cto', 'cfo'] });
