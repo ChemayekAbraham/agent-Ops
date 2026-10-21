@@ -1,5 +1,5 @@
--- Dry run of 20261021120000_reapply_matovu_sadick_rent_plan_payments.sql: runs it, reports, then rolls everything back (the report is raised as an error).
--- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261021120000_reapply_matovu_sadick_rent_plan_payments.sql; cat supabase/tests/reapply_matovu_sadick_rent_plan_payments.sql) | supabase db query --linked
+-- Dry run of 20261021230000_reapply_matovu_sadick_rent_plan_payments.sql: runs it, reports, then rolls everything back (the report is raised as an error).
+-- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261021230000_reapply_matovu_sadick_rent_plan_payments.sql; cat supabase/tests/reapply_matovu_sadick_rent_plan_payments.sql) | supabase db query --linked
 DO $t$
 DECLARE
   r text := '';
