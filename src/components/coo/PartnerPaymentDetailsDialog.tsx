@@ -32,6 +32,17 @@ interface Props {
   onSaved?: () => void;
 }
 
+interface ExtraDest {
+  payout_method: 'mobile_money' | 'bank_transfer';
+  mobile_network: 'MTN' | 'Airtel';
+  mobile_money_number: string;
+  recipient_name: string;
+  bank_name: string;
+  account_number: string;
+}
+
+const MAX_EXTRA = 2; // main route + 2 extra = 3 numbers per portfolio
+
 export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partnerId, partnerName, portfolio, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<'mobile_money' | 'bank_transfer' | 'cash'>('mobile_money');
@@ -43,6 +54,7 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
   const [bankAccNumber, setBankAccNumber] = useState('');
   const [sending, setSending] = useState(false);
   const [previewEmail, setPreviewEmail] = useState('');
+  const [extras, setExtras] = useState<ExtraDest[]>([]);
 
   useEffect(() => {
     if (!open || !portfolio) return;
@@ -53,7 +65,28 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
     setBankName(portfolio.bank_name || '');
     setBankAccName(portfolio.bank_account_name || '');
     setBankAccNumber(portfolio.account_number || '');
+    setExtras([]);
+    let cancelled = false;
+    supabase
+      .from('portfolio_payout_destinations' as never)
+      .select('payout_method, mobile_network, mobile_money_number, recipient_name, bank_name, account_number')
+      .eq('portfolio_id', portfolio.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setExtras(((data ?? []) as any[]).map(d => ({
+          payout_method: d.payout_method,
+          mobile_network: d.mobile_network || 'MTN',
+          mobile_money_number: d.mobile_money_number || '',
+          recipient_name: d.recipient_name || '',
+          bank_name: d.bank_name || '',
+          account_number: d.account_number || '',
+        })));
+      });
+    return () => { cancelled = true; };
   }, [open, portfolio]);
+
+  const updateExtra = (i: number, patch: Partial<ExtraDest>) =>
+    setExtras(list => list.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
 
   const handleSendAgreement = async () => {
     setSending(true);
