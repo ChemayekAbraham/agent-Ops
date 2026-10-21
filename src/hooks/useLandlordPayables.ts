@@ -33,10 +33,15 @@ export type LandlordReceiptState =
   | 'receipt_duplicate'
   | 'receipt_alert_open';
 
-/** Review exceptions, most serious first. None of them changes an amount, a payout or a withdrawal. */
+/**
+ * Review exceptions, most serious first. None of them changes an amount, a payout or a withdrawal.
+ * landlord_receipt_reversed: the payout's CURRENT Welile landlord receipt (followed through replacements) is reversed or
+ * refunded with no valid replacement. That receipt is never payment evidence; the flag never changes the group.
+ */
 export type LandlordPayoutException =
   | 'failed_but_paid'
   | 'completed_without_payout'
+  | 'landlord_receipt_reversed'
   | 'receipt_contradicts'
   | 'receipt_unreadable'
   | 'receipt_incomplete'
@@ -114,6 +119,12 @@ export interface LandlordPayoutSettlement {
   /** Date as read from the receipt image (unverified) — never used as the payout date. */
   receipt_date_read: string | null;
   blocking_alerts: string[];
+  /** The Welile landlord payout receipt sent to the landlord (current one in its replacement chain). NOT payment evidence. */
+  landlord_receipt_number: string | null;
+  landlord_receipt_status: 'completed' | 'reversed' | 'refunded' | null;
+  landlord_receipt_reversed_at: string | null;
+  landlord_receipt_replaced: boolean;
+  landlord_receipt_reversed: boolean;
   receipt_state: LandlordReceiptState | null;
   receipt_verified: boolean;
   archive_from: string;
@@ -186,6 +197,9 @@ export interface LandlordPayablesReport {
     /** RECEIPT UPLOAD DATE — not the payout date. */
     receipt_uploaded_at: string | null;
     blocking_alerts: string[];
+    landlord_receipt_number: string | null;
+    landlord_receipt_status: string | null;
+    landlord_receipt_reversed_at: string | null;
   }>;
   evidence: {
     source: string;

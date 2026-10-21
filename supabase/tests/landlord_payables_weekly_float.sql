@@ -2,7 +2,7 @@
 --
 -- Run against the database AFTER the migration. It is READ-ONLY: it only SELECTs (no table, temp table or row is
 -- created or written) and can be run inside BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error
--- text IS the report: a JSON list of 9 steps, each with "pass": true/false. Checks:
+-- text IS the report: a JSON list of 10 steps, each with "pass": true/false. Checks:
 --   1  v_landlord_payout_settlement has exactly one row per landlord payout
 --   2  the landlord rows on v_payables_lines are exactly the PAYABLE payouts (state paid_unconfirmed), at their amounts
 --   3  landlord payment history holds exactly the confirmed payouts, dated by the payout record (never the upload time)
@@ -17,6 +17,9 @@
 --      confirmed + payable + historical_review + review_only + not_paid = all payouts; payable = under_review + awaiting
 --   8  the weekly rows add up to the same totals
 --   9  exceptions agree with the data (primary = first; paid_amount_differs, reference_unusable, shared_reference)
+--  10  landlord_receipt_reversed is set exactly when the payout's CURRENT Welile landlord receipt (its own receipt followed
+--      forward through replaces_receipt_id) is reversed or refunded; it is a flag only (a flagged confirmed payout stays
+--      confirmed, a flagged historical payout stays historical)
 DO $test$
 DECLARE
   r jsonb := '[]'::jsonb;
@@ -137,6 +140,30 @@ BEGIN
                                            <> (s1.paid_out AND NOT s1.receipt_verified AND s1.payout_reference IS NOT NULL
                                                AND (SELECT count(*) FROM s s2 WHERE s2.payout_reference = s1.payout_reference) > 1)),
     'flagged', (SELECT jsonb_object_agg(e, n) FROM (SELECT unnest(exceptions) e, count(*) n FROM s GROUP BY 1) x))
+    INTO v_json;
+  r := r || v_json;
+
+  -- 10: re-derive the current receipt of each payout independently (forward through replacements, cycle-guarded)
+  WITH RECURSIVE walk AS (
+    SELECT r0.payout_id, r0.id, 0 AS depth, ARRAY[r0.id] AS path FROM public.landlord_payout_receipts r0
+    UNION ALL
+    SELECT w.payout_id, n.id, w.depth + 1, w.path || n.id
+      FROM walk w JOIN public.landlord_payout_receipts n ON n.replaces_receipt_id = w.id
+     WHERE w.depth < 20 AND NOT (n.id = ANY (w.path))),
+  cur AS (
+    SELECT DISTINCT ON (w.payout_id) w.payout_id,
+           (r1.reversed_at IS NOT NULL OR r1.status IN ('reversed', 'refunded')) AS reversed
+      FROM walk w JOIN public.landlord_payout_receipts r1 ON r1.id = w.id
+     ORDER BY w.payout_id, w.depth DESC, r1.created_at DESC),
+  s AS (SELECT * FROM public.v_landlord_payout_settlement)
+  SELECT jsonb_build_object('step', 10, 'pass',
+        NOT EXISTS (SELECT 1 FROM s LEFT JOIN cur c ON c.payout_id = s.payout_id
+                     WHERE s.landlord_receipt_reversed <> COALESCE(c.reversed, false)
+                        OR ('landlord_receipt_reversed' = ANY (s.exceptions)) <> s.landlord_receipt_reversed)
+    AND NOT EXISTS (SELECT 1 FROM s WHERE landlord_receipt_reversed AND paid_out AND receipt_verified AND state <> 'confirmed')
+    AND NOT EXISTS (SELECT 1 FROM s WHERE landlord_receipt_reversed AND paid_out AND NOT receipt_verified
+                                        AND paid_date < archive_from AND state <> 'historical_review'),
+    'flagged', (SELECT count(*) FROM s WHERE landlord_receipt_reversed))
     INTO v_json;
   r := r || v_json;
 

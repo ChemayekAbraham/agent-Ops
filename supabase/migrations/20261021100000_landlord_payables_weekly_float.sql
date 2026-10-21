@@ -20,6 +20,9 @@
 --     payable_awaiting_receipt (no archive record, receipt missing, or never machine-checked). Payouts paid BEFORE the
 --     archive start (system_config.landlord_receipt_archive_from, default 2026-07-17) that the archive cannot verify
 --     are HISTORICAL REVIEW items for the CFO: neither confirmed nor payable.
+--   * landlord_receipt_reversed (review flag only): the payout's CURRENT Welile landlord receipt (landlord_payout_receipts,
+--     followed through replacements via replaces_receipt_id) is reversed or refunded and has no valid replacement.
+--     That receipt is never payment evidence; the flag never changes a group, an amount or a payout.
 --   * Groups do not overlap: confirmed + payable + historical_review + review_only + not_paid = all payouts.
 --   * Dates: the payout date is the payout record (withdrawal completed, or FinOps disbursement). The receipt upload time
 --     is shown only as the receipt upload date; the date read from a receipt image is shown, never used as a payout date.
@@ -58,7 +61,10 @@ BEGIN
                                 'extracted_tid', 'extracted_amount', 'extracted_date', 'created_at')) <> 8
      OR (SELECT count(*) FROM information_schema.columns
           WHERE table_schema = 'public' AND table_name = 'payout_proof_integrity_alerts'
-            AND column_name IN ('withdrawal_id', 'issue_type', 'resolved')) <> 3 THEN
+            AND column_name IN ('withdrawal_id', 'issue_type', 'resolved')) <> 3
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'landlord_payout_receipts'
+            AND column_name IN ('id', 'payout_id', 'receipt_number', 'status', 'reversed_at', 'replaces_receipt_id', 'created_at')) <> 7 THEN
     RAISE EXCEPTION 'precondition failed: a table, column or function this migration depends on is missing';
   END IF;
 END
@@ -147,6 +153,28 @@ alerts AS (                      -- open integrity alerts per withdrawal
    WHERE NOT a.resolved AND a.withdrawal_id IS NOT NULL
    GROUP BY a.withdrawal_id
 ),
+lpr_current AS (                 -- the CURRENT Welile landlord payout receipt (landlord_payout_receipts) of each payout:
+                                 -- its own receipt followed forward through replacements (a replacement points back via
+                                 -- replaces_receipt_id and, because payout_id is unique, may carry another payout_id).
+                                 -- The recursion is self-contained here, cycle- and depth-guarded.
+  SELECT q.* FROM (
+    WITH RECURSIVE lpr_walk AS (
+      SELECT r.payout_id, r.id AS receipt_id, 0 AS depth, ARRAY[r.id] AS path
+        FROM public.landlord_payout_receipts r
+      UNION ALL
+      SELECT w.payout_id, n.id, w.depth + 1, w.path || n.id
+        FROM lpr_walk w
+        JOIN public.landlord_payout_receipts n ON n.replaces_receipt_id = w.receipt_id
+       WHERE w.depth < 20 AND NOT (n.id = ANY (w.path))
+    )
+    SELECT DISTINCT ON (w.payout_id) w.payout_id, r.receipt_number, r.status, r.reversed_at,
+           (w.depth > 0) AS replaced,
+           (r.reversed_at IS NOT NULL OR r.status IN ('reversed', 'refunded')) AS reversed
+      FROM lpr_walk w
+      JOIN public.landlord_payout_receipts r ON r.id = w.receipt_id
+     ORDER BY w.payout_id, w.depth DESC, r.created_at DESC
+  ) q
+),
 rc0 AS (                         -- the Receipt Archive evidence of each payout, check by check
   SELECT b.*, o.check_id, o.checked_at, o.validation_result, o.validation_code, o.xtid, o.xamt, o.xdate,
          (b.receipt_token IS NOT NULL AND b.payout_proof_path IS NOT NULL) AS has_receipt,
@@ -154,13 +182,16 @@ rc0 AS (                         -- the Receipt Archive evidence of each payout,
           AND EXISTS (SELECT 1 FROM storage.objects so
                        WHERE so.bucket_id = b.proof_bucket AND so.name = b.payout_proof_path)) AS file_accessible,
          COALESCE(xu.uses, 0) AS xtid_uses, COALESCE(wu.uses, 0) AS ref_uses, COALESCE(ra.payouts, 0) AS ref_payouts,
-         al.issue_types AS open_alerts
+         al.issue_types AS open_alerts,
+         lc.receipt_number AS lpr_number, lc.status AS lpr_status, lc.reversed_at AS lpr_reversed_at,
+         lc.replaced AS lpr_replaced, lc.reversed AS lpr_reversed
     FROM base b
     LEFT JOIN ocr o ON o.withdrawal_request_id = b.withdrawal_id AND o.storage_path = b.payout_proof_path
     LEFT JOIN xtid_use xu ON xu.xtid = o.xtid
     LEFT JOIN wref_use wu ON wu.ref = b.ref_withdrawal
     LEFT JOIN ref_all ra ON ra.ref = COALESCE(b.ref_withdrawal, b.ref_finops)
     LEFT JOIN alerts al ON al.withdrawal_id = b.withdrawal_id
+    LEFT JOIN lpr_current lc ON lc.payout_id = b.payout_id
 ),
 rc AS (
   SELECT r.*,
@@ -196,6 +227,10 @@ SELECT r.payout_id, r.rent_request_id, r.landlord_id, r.landlord_name, r.landlor
        r.validation_result AS receipt_check_result, r.validation_code AS receipt_check_code,
        r.xtid AS receipt_tid_read, r.xamt AS receipt_amount_read, r.xdate AS receipt_date_read,
        r.blocking_alerts,
+       -- The Welile landlord payout receipt (sent to the landlord). NOT payment evidence: shown, and its reversal flagged.
+       r.lpr_number AS landlord_receipt_number, r.lpr_status AS landlord_receipt_status,
+       r.lpr_reversed_at AS landlord_receipt_reversed_at, COALESCE(r.lpr_replaced, false) AS landlord_receipt_replaced,
+       COALESCE(r.lpr_reversed, false) AS landlord_receipt_reversed,
        -- The first check the receipt fails (or receipt_verified when it passes them all).
        CASE
          WHEN NOT r.paid_out THEN NULL
@@ -231,6 +266,7 @@ SELECT s.*,
        array_remove(ARRAY[
          CASE WHEN s.paid_out AND s.payout_status = 'failed' THEN 'failed_but_paid' END,
          CASE WHEN NOT s.paid_out AND s.payout_status = 'completed' THEN 'completed_without_payout' END,
+         CASE WHEN s.landlord_receipt_reversed THEN 'landlord_receipt_reversed' END,
          CASE WHEN s.receipt_state IN ('receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete',
                                        'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate',
                                        'receipt_alert_open') THEN s.receipt_state END,
@@ -247,9 +283,9 @@ SELECT s.*,
 )
 SELECT ex.*,
        ex.exceptions[1] AS exception,
-       (ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[]) AS under_review,
+       (ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'landlord_receipt_reversed', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[]) AS under_review,
        CASE WHEN ex.state = 'paid_unconfirmed' THEN
-              CASE WHEN ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[] THEN 'under_review' ELSE 'awaiting_receipt' END
+              CASE WHEN ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'landlord_receipt_reversed', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[] THEN 'under_review' ELSE 'awaiting_receipt' END
        END AS payable_class
   FROM ex;
 
@@ -534,7 +570,7 @@ BEGIN
       LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float)
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'Evidence: the Receipt Archive only. A landlord payout is confirmed only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, the transaction ID read from the receipt equals the withdrawal reference (11 or 12 digits), the amount read equals the withdrawal and payout amounts, the ID and reference are used by no other payout, and no open integrity alert makes the receipt unreliable. SMS and provider statements never confirm a payout. Paid-out payouts not confirmed are payable, except those paid before the archive start date, which are historical review items for the CFO. Groups do not overlap; payable_under_review and payable_awaiting_receipt are the two parts of payable.',
+    'rule', 'Evidence: the Receipt Archive only (a reversed Welile landlord receipt is flagged for review, never used as evidence). A landlord payout is confirmed only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, the transaction ID read from the receipt equals the withdrawal reference (11 or 12 digits), the amount read equals the withdrawal and payout amounts, the ID and reference are used by no other payout, and no open integrity alert makes the receipt unreliable. SMS and provider statements never confirm a payout. Paid-out payouts not confirmed are payable, except those paid before the archive start date, which are historical review items for the CFO. Groups do not overlap; payable_under_review and payable_awaiting_receipt are the two parts of payable.',
     'archive_from', (SELECT max(archive_from) FROM s0),
     'totals', (SELECT jsonb_build_object(
         'payouts', count(*), 'payouts_amount', COALESCE(sum(amount), 0),
@@ -568,7 +604,9 @@ BEGIN
           'receipt_state', s.receipt_state, 'paid_amount', s.paid_amount, 'payout_reference', s.payout_reference,
           'receipt_token', s.receipt_token, 'receipt_check_result', s.receipt_check_result, 'receipt_check_code', s.receipt_check_code,
           'receipt_tid_read', s.receipt_tid_read, 'receipt_amount_read', s.receipt_amount_read,
-          'receipt_uploaded_at', s.receipt_uploaded_at, 'blocking_alerts', to_jsonb(s.blocking_alerts))
+          'receipt_uploaded_at', s.receipt_uploaded_at, 'blocking_alerts', to_jsonb(s.blocking_alerts),
+          'landlord_receipt_number', s.landlord_receipt_number, 'landlord_receipt_status', s.landlord_receipt_status,
+          'landlord_receipt_reversed_at', s.landlord_receipt_reversed_at)
           ORDER BY s.paid_at DESC NULLS LAST), '[]'::jsonb)
         FROM s0 s WHERE s.under_review),
     'evidence', jsonb_build_object(
