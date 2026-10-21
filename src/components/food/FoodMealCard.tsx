@@ -3,6 +3,7 @@ import { ChevronDown, CupSoda, Heart, Minus, Plus, ShoppingCart, UtensilsCrossed
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUgx, forgetFoodMealPhotoUrl, type FoodMenuMeal } from '@/hooks/useFoodService';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 interface FoodMealCardProps {
   meal: FoodMenuMeal;
@@ -34,6 +35,7 @@ export default function FoodMealCard({
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showImage = Boolean(meal.image_path) && meal.image_path !== failedUrl;
   const [isFavorite, setIsFavorite] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
 
   // Tapping anywhere on the card opens the meal's description. The quantity
   // stepper and "Add to order" stop the tap so they never open or close it.
@@ -71,17 +73,24 @@ export default function FoodMealCard({
       {/* Glovo-style rounded picture frame with badge and optional favorite toggle */}
       <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full overflow-hidden rounded-2xl bg-amber-500/5 dark:bg-muted/40">
         {showImage ? (
-          <img
-            src={meal.image_path as string}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-            onError={() => {
-              forgetFoodMealPhotoUrl(meal.image_path);
-              setFailedUrl(meal.image_path);
-            }}
-          />
+          <button
+            type="button"
+            aria-label={`View photo of ${meal.name}`}
+            className="h-full w-full cursor-zoom-in"
+            onClick={(e) => { e.stopPropagation(); setPhotoOpen(true); }}
+          >
+            <img
+              src={meal.image_path as string}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              onError={() => {
+                forgetFoodMealPhotoUrl(meal.image_path);
+                setFailedUrl(meal.image_path);
+              }}
+            />
+          </button>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-amber-500/5 text-amber-600/40 dark:bg-muted/30 dark:text-muted-foreground/40">
             <UtensilsCrossed className="h-10 w-10" aria-hidden="true" />
@@ -134,9 +143,9 @@ export default function FoodMealCard({
           </div>
         )}
 
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-3 pt-1">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold leading-snug text-card-foreground transition-colors group-hover:text-primary sm:text-lg">
+        <div className="mt-auto flex flex-col gap-3 pt-1">
+          <div className="min-w-0">
+            <h3 className="break-words text-base font-bold leading-snug text-card-foreground transition-colors group-hover:text-primary sm:text-lg">
               {meal.name}
             </h3>
             <p className="mt-0.5 text-base font-extrabold text-primary sm:text-lg tabular-nums">
@@ -144,10 +153,10 @@ export default function FoodMealCard({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex w-full min-w-0 items-center gap-2" onClick={(e) => e.stopPropagation()}>
             <div
               className={cn(
-                'flex h-9 items-center rounded-full border border-border/80 bg-muted/40 shadow-xs',
+                'flex h-9 shrink-0 items-center rounded-full border border-border/80 bg-muted/40 shadow-xs',
                 !canAdd && 'opacity-50',
               )}
             >
@@ -180,12 +189,12 @@ export default function FoodMealCard({
 
             <Button
               size="sm"
-              className="h-9 rounded-full bg-primary px-3.5 font-bold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 hover:shadow active:scale-95"
+              className="h-9 min-w-0 flex-1 truncate rounded-full bg-primary px-3 font-bold text-primary-foreground shadow-xs transition-all hover:bg-primary/90 hover:shadow active:scale-95"
               disabled={!canAdd}
               onClick={() => { onChange(quantity + picked); setPick(1); }}
             >
               <ShoppingCart className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to order'}
+              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to cart'}
             </Button>
           </div>
         </div>
@@ -237,6 +246,14 @@ export default function FoodMealCard({
           </p>
         )}
       </div>
+      {showImage && (
+        <Dialog open={photoOpen} onOpenChange={setPhotoOpen}>
+          <DialogContent className="max-w-3xl p-2" onClick={(e) => e.stopPropagation()}>
+            <DialogTitle className="sr-only">{meal.name}</DialogTitle>
+            <img src={meal.image_path as string} alt={meal.name} className="max-h-[80vh] w-full rounded-lg object-contain" />
+          </DialogContent>
+        </Dialog>
+      )}
     </article>
   );
 }

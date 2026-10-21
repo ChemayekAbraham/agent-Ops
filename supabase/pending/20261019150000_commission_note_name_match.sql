@@ -1,0 +1,1 @@
+-- Applied directly 2026-10-19: commission_resolve_earner gains unique full-name fallback for promissory notes (see live definition).

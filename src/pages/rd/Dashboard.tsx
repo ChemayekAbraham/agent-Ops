@@ -2,7 +2,7 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, Target, CheckSquare, Check, Gauge, ArrowRight, CalendarDays, MapPin,
+  ArrowLeft, Target, CheckSquare, Check, Gauge, 
   BarChart3, TrendingUp, Car, Gem, Cpu, Users, Wallet, Handshake, FileText, BookOpen, Layers,
   FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, type LucideIcon,
 } from 'lucide-react';
@@ -11,11 +11,11 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
-import { Download } from 'lucide-react';
+import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
-import { loadRdUpdates, RD_UPDATES_KEY, rdDateOffset, rdWeeklyUpdates, type RdUpdate, type RdWeekPeriod } from '@/lib/rdWeeklyUpdates';
+import { loadRdUpdates, RD_UPDATES_KEY, type RdUpdate } from '@/lib/rdWeeklyUpdates';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -72,6 +72,9 @@ const PROJECTS: Project[] = [
     nextSteps: ['Launch first cohort', 'Marketing campaign', 'Partner outreach'],
   },
 ];
+
+// Dowry stays in the cash table and exports but has no dashboard card.
+const CARD_PROJECTS = PROJECTS.filter((p) => p.cashId !== 'dowry');
 
 // Key metrics overview is generated live from the editable Business Ideas cash table.
 function overviewMetrics(rows: IdeaRow[]): Metric[] {
@@ -249,12 +252,6 @@ const SUMMARY: Metric[] = [
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
 
-const WEEK_COLS: { key: RdWeekPeriod; title: string; icon: LucideIcon }[] = [
-  { key: 'last', title: 'Last 7 days', icon: CalendarDays },
-  { key: 'today', title: 'Today', icon: MapPin },
-  { key: 'next', title: 'Next 7 days', icon: ArrowRight },
-];
-
 export default function RDDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -268,7 +265,6 @@ export default function RDDashboard() {
       setUpdateError('');
     } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
   };
-  const reportDay = kampalaTodayYmd();
   const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
     return DEFAULT_IDEAS;
@@ -299,6 +295,7 @@ export default function RDDashboard() {
       await downloadRdGeneralReport({
         projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
         ideas: ideaRows,
+        progress: PROJECTS.map((p) => ({ name: p.name, stage: p.stage, percent: p.progress })),
         recordedIdeas: (savedIdeas ?? []).map((idea) => ({
           title: idea.title, owner: idea.owner, date: idea.idea_date, summary: idea.summary,
           canvas: idea.canvas && typeof idea.canvas === 'object' && !Array.isArray(idea.canvas)
@@ -318,7 +315,10 @@ export default function RDDashboard() {
             <ArrowLeft className="h-4 w-4" />
             Back to dashboards
           </Button>
-          <Button size="sm" className="ml-auto gap-1.5" disabled={exporting} onClick={exportReport}>
+          <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={() => navigate('/me/requisitions')}>
+            <Paperclip className="h-4 w-4" />Attach receipts
+          </Button>
+          <Button size="sm" className="gap-1.5" disabled={exporting} onClick={exportReport}>
             <Download className="h-4 w-4" />{exporting ? 'Preparing…' : 'General report'}
           </Button>
           <WelileLogo showText={false} size="sm" linkToHome={false} />
@@ -350,57 +350,15 @@ export default function RDDashboard() {
 
         <IdeaCanvasBoard />
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
+        {/* Project cards are stacked one under the other, each full width. */}
+        <div className="grid gap-4">
+          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm lg:col-span-2">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <SectionTitle icon={CalendarDays}><span className="text-base">Weekly R&amp;D Report</span></SectionTitle>
-              <span className="text-xs text-muted-foreground">Key updates for each project</span>
-            </div>
-            <div className="mt-3 grid gap-3 md:grid-cols-3">
-              {WEEK_COLS.map((col) => (
-                <div key={col.key} className="rounded-xl bg-muted/50">
-                  <p className="flex items-center gap-2 rounded-t-xl bg-primary/10 px-3 py-2 text-xs font-bold uppercase tracking-wide text-foreground">
-                    <col.icon className="h-4 w-4 text-primary" />{col.title}
-                  </p>
-                  <div className="space-y-3 p-3">
-                    {PROJECTS.map((p) => (
-                      <div key={p.name} className="flex gap-2">
-                        <p.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-foreground">{p.name}</p>
-                          <div className="mt-1.5 space-y-2">
-                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).map((u) => (
-                              <div key={u.id} className="space-y-1">
-                                <Input type="date" aria-label={`${p.name} ${col.title} update date`} className="h-8 w-full text-xs" value={u.date}
-                                  onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, date: e.target.value } : x))} />
-                                <div className="flex items-center gap-1">
-                                  <Input aria-label={`${p.name} ${col.title} update text`} className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
-                                    onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, text: e.target.value } : x))} />
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${p.name} ${col.title} update`}
-                                    onClick={() => editUpdates(p.name, (projectUpdates[p.name] ?? []).filter((x) => x.id !== u.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
-                                </div>
-                              </div>
-                            ))}
-                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).length === 0 && <p className="text-xs text-muted-foreground">No updates recorded</p>}
-                            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" aria-label={`Add ${p.name} ${col.title} update`}
-                              onClick={() => editUpdates(p.name, [...(projectUpdates[p.name] ?? []), { id: safeUUID(), date: rdDateOffset(reportDay, col.key === 'last' ? -1 : col.key === 'next' ? 1 : 0), text: '' }])}>
-                              <Plus className="h-3 w-3" />Add update
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-4">
+        <div>
+          {/* Progress and key metrics stack: metrics sit below progress. */}
+          <div className="grid gap-4">
             <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <SectionTitle icon={BarChart3}>Project Progress</SectionTitle>
               <div className="mt-3 space-y-3">

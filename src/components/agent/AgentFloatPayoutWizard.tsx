@@ -1,3 +1,4 @@
+import { landlordPayoutNumberState } from '@/lib/landlordPayoutNumberState';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -252,7 +253,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
 
       const enriched = await Promise.all((data || []).map(async (r: any) => {
         const [{ data: landlord }, { data: tenant }, { data: existing }, { data: livePayout }] = await Promise.all([
-          supabase.from('landlords').select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verified').eq('id', r.landlord_id).single(),
+          supabase.from('landlords').select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verification_reason, verified').eq('id', r.landlord_id).single(),
           supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).single(),
           supabase.from('agent_float_withdrawals').select('id').eq('rent_request_id', r.id).eq('agent_id', user.id).maybeSingle(),
           // A landlord payout already in flight (or completed) for this rent
@@ -344,6 +345,16 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   // (database trigger), so it is the payout number; a different stored contact
   // number no longer blocks the OTP.
   const payoutNumberMatchesOnFile = !!landlordPhone;
+  // One state for every reason the payout number can be unusable (rejected landlord, unverified, no approved number...), so the
+  // screen says the true reason instead of "changed after approval" for all of them.
+  const payoutState = landlordPayoutNumberState({
+    verificationStatus: selectedRequest?.landlord?.verification_status,
+    verified: selectedRequest?.landlord?.verified,
+    verificationReason: selectedRequest?.landlord?.verification_reason,
+    approvedNumber: selectedRequest?.landlord?.verified_mobile_money_number,
+    onFileNumber: landlordPhoneOnFile,
+  });
+  const canRequestNumberReview = payoutState.state === 'approved_number_missing' || payoutState.state === 'ready_differs_from_record';
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
   const effectiveAmount =
@@ -369,13 +380,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
     if (!phoneValid) {
-      const msg = !landlordPhoneOnFile
-        ? 'This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it first.'
-        : defaultLandlordPhone && !payoutNumberMatchesOnFile
-          ? 'The landlord number on file has changed since approval. Ask Landlord Ops to verify the current number before sending an OTP.'
-          : defaultLandlordPhone
-            ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
-            : 'Landlord Ops has not approved the number currently on file. Ask them to (re-)verify the landlord first.';
+      const msg = !payoutState.canSendOtp
+        ? `${payoutState.title}. ${payoutState.detail}`
+        : 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.';
       toast.error(msg);
       setSendOtpError(msg);
       return;
@@ -469,12 +476,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     }
   };
 
-  const sendBlockedReason = !landlordPhoneOnFile
-    ? 'This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it.'
-    : !defaultLandlordPhone
-    ? 'Landlord Ops has not approved the number currently on file. Ask them to (re-)verify the landlord.'
-    : !payoutNumberMatchesOnFile
-    ? 'The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent.'
+  const sendBlockedReason = !payoutState.canSendOtp
+    ? `${payoutState.title}. ${payoutState.detail}`
     : !phoneValid
     ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
     : effectiveAmount <= 0
@@ -800,7 +803,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           allocation.landlord_id
             ? supabase
                 .from('landlords')
-                .select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verified')
+                .select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verification_reason, verified')
                 .eq('id', allocation.landlord_id)
                 .maybeSingle()
             : Promise.resolve({ data: null } as any),
@@ -1137,23 +1140,21 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />
                   <div className="space-y-1.5">
-                    {payoutNumberMatchesOnFile ? (
+                    {payoutState.tone === 'ok' ? (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3 text-success shrink-0" />
                         Matches the number approved by Landlord Ops — locked.
                       </p>
-                    ) : landlordPhoneOnFile ? (
-                      <p className="text-[11px] text-destructive flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3 shrink-0" />
-                        This number changed after approval. OTP is blocked until Landlord Ops verifies it.
-                      </p>
                     ) : (
-                      <p className="text-[11px] text-destructive flex items-center gap-1">
-                        <AlertTriangle className="h-3 w-3 shrink-0" />
-                        No mobile money number is currently recorded for this landlord.
-                      </p>
+                      <div className={payoutState.tone === 'info' ? 'text-[11px] text-muted-foreground space-y-0.5' : 'text-[11px] text-destructive space-y-0.5'}>
+                        <p className="flex items-center gap-1 font-medium">
+                          <AlertTriangle className="h-3 w-3 shrink-0" />
+                          {payoutState.title}
+                        </p>
+                        <p className="pl-4">{payoutState.detail}</p>
+                      </div>
                     )}
-                    {!showPhoneChangeReq && !payoutNumberMatchesOnFile ? (
+                    {!canRequestNumberReview ? null : !showPhoneChangeReq ? (
                       <button
                         type="button"
                         onClick={() => setShowPhoneChangeReq(true)}

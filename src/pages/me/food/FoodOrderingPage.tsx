@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle, CalendarOff, ChefHat, ChevronDown, ChevronLeft, ClipboardList, Clock, Flame, Heart, Info,
-  MapPin, Moon, Search, ShieldAlert, ShieldCheck, ShoppingBag, Sparkles, Star, Sun, Sunrise,
+  MapPin, Moon, Search, ShieldAlert, ShieldCheck, ShoppingBag, Sparkles, Star, Sun, Sunrise, Trash2,
   Utensils, UtensilsCrossed, X,
 } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -245,12 +245,6 @@ export default function FoodOrderingPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
 
-          {/* Location Picker Pill */}
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/90 px-3.5 py-1.5 text-xs font-bold text-foreground shadow-xs">
-            <span className="text-sm" aria-hidden="true">🏢</span>
-            <span>Staff Dining Hall</span>
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          </div>
 
           <div className="flex items-center gap-2">
             {isFoodCoordinator && (
@@ -456,7 +450,7 @@ export default function FoodOrderingPage() {
                 </span>
               </div>
               <h2 className="mt-1 text-base font-extrabold tracking-tight text-foreground sm:text-lg">
-                Zero meal fees &middot; Covered by daily staff allowance
+                Zero meal fees &middot; Partly covered by daily staff allowance
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Meals prepared fresh and ready for swift dining hall pickup.
@@ -503,11 +497,11 @@ export default function FoodOrderingPage() {
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                  Staff Dining Hall
+                  Welile restaurant
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                  Zero fees &middot; Deducted from payroll
+                  Zero cash &middot; Deducted from wallet
                 </span>
               </div>
             </div>
@@ -609,40 +603,6 @@ export default function FoodOrderingPage() {
 
           return (
             <section id={`period-${period.period_id}`} key={period.period_id} className="space-y-4">
-              {/* Glovo service-period panel: icon, name, status, window and limit, collection note */}
-              <div className="rounded-3xl border border-amber-200/70 bg-amber-50/60 p-4 dark:border-amber-500/15 dark:bg-amber-500/5 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                      <PeriodIcon name={period.name} />
-                    </span>
-                    <h3 className="text-base font-bold text-foreground sm:text-lg">{period.name}</h3>
-                    <span
-                      className={period.ordering_open
-                        ? 'inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success'
-                        : 'inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground'}
-                    >
-                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                      {period.ordering_open ? 'Ordering open' : 'Ordering closed'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground sm:text-sm">
-                    {isFoodAllDayWindow(period.ordering_opens_at, period.ordering_closes_at)
-                      ? 'Orders open all day'
-                      : <>Orders {clock(period.ordering_opens_at)} – {clock(period.ordering_closes_at)}</>}
-                    {period.max_qty_per_employee !== null && (
-                      <> &middot; up to {period.max_qty_per_employee} per person</>
-                    )}
-                  </p>
-                </div>
-
-                {period.collection_instructions && (
-                  <p className="mt-3 flex items-start gap-2 border-t border-amber-200/60 pt-3 text-xs leading-relaxed text-muted-foreground dark:border-amber-500/15 sm:text-sm">
-                    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>{period.collection_instructions}</span>
-                  </p>
-                )}
-              </div>
 
               {shown.length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
@@ -676,13 +636,13 @@ export default function FoodOrderingPage() {
       {/* Glovo Floating Sticky Bottom Cart Bar */}
       {cartCount > 0 && (
         <div className="sticky bottom-4 z-30 mx-auto w-full max-w-5xl px-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-300/80 bg-card/95 p-3.5 shadow-2xl backdrop-blur-md dark:border-amber-500/30">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-300/80 bg-card/95 p-3 shadow-2xl backdrop-blur-md dark:border-amber-500/30 sm:gap-3 sm:p-3.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-primary-foreground shadow-xs">
                 {cartCount}
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-foreground tabular-nums sm:text-base">
+                <p className="truncate text-sm font-bold text-foreground tabular-nums sm:text-base">
                   {cartCount} item{cartCount === 1 ? '' : 's'} &middot; {formatUgx(cartTotal)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -691,11 +651,21 @@ export default function FoodOrderingPage() {
               </div>
             </div>
             <Button
-              className="h-10 rounded-full bg-primary px-5 font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95"
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear order"
+              className="h-10 w-10 shrink-0 rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setCart({})}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button
+              className="h-10 shrink-0 rounded-full bg-primary px-3 font-bold text-primary-foreground shadow-md transition-all hover:bg-primary/90 hover:shadow-lg active:scale-95 sm:px-5"
               onClick={() => setCartOpen(true)}
             >
-              <ShoppingBag className="mr-2 h-4 w-4" aria-hidden="true" />
-              Review order
+              <ShoppingBag className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              Review<span className="hidden sm:inline">&nbsp;order</span>
             </Button>
           </div>
         </div>

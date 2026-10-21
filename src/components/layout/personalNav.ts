@@ -29,6 +29,7 @@ export interface PersonalNavItem {
   description: string;
   requiresPsoOfficer?: boolean;
   requiresStaff?: boolean;
+  requiresTutorialAccess?: boolean;
   /** Only shown to someone holding a Food Coordinator assignment. */
   requiresFoodCoordinator?: boolean;
   /** Only shown to someone the server admits to the canteen (staff or coordinator). */
@@ -82,5 +83,6 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     title: 'Tutorial videos',
     description: 'Watch operations tutorials. Creators upload and claim payment here',
     requiresStaff: true,
+    requiresTutorialAccess: true,
   },
 ];

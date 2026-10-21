@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Search, Phone, Users, UserPlus, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { AgentDailyCapacityStrip } from '@/components/agent/AgentDailyCapacityStrip';
+import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 
 interface Tenant {
   id: string;
@@ -305,6 +306,10 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
       </div>
 
       {/* Tenant List */}
+      {/* Rent Plans past their end date that still owe — sits directly above
+          the list so the agent meets it where they work the tenants. These
+          plans count in today's target; this card names who is behind. */}
+      {user?.id && <AgentExpiredCyclesCard agentId={user.id} />}
       <div className="space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">

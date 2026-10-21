@@ -6,7 +6,6 @@ import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CRMDashboard } from '@/components/executive/CRMDashboard';
 import { CRMSupportLogPanel } from '@/components/executive/CRMSupportLogPanel';
 import { CTOCommunicationOverview } from '@/components/executive/CTOCommunicationOverview';
-import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   CALL_SECTIONS,
@@ -74,8 +73,6 @@ export default function CRMDashboardPage() {
       case 'broadcast':
       case 'in-app-communications': // Preserves earlier links and saved tabs.
         return <Suspense fallback={<PanelFallback />}><CommunicationManager /></Suspense>;
-      case 'requisitions':
-        return <RequisitionsWorkspace />;
       // Pre-queue ids. Bookmarks, ?section= deep links and persisted tabs from
       // before the split still resolve — onto Tenants, the largest queue.
       case 'call-centre':

@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { GitCommit, ExternalLink, RefreshCw, AlertCircle, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import GitPushesPanel from './GitPushesPanel';
 
 interface CommitRow {
   sha: string;
@@ -57,6 +59,19 @@ function initials(name: string) {
 }
 
 export default function GitCommitsPanel() {
+  return (
+    <Tabs defaultValue="commits" className="min-w-0">
+      <TabsList aria-label="Git activity views">
+        <TabsTrigger value="commits">Commits</TabsTrigger>
+        <TabsTrigger value="pushes">Pushes</TabsTrigger>
+      </TabsList>
+      <TabsContent value="commits" forceMount className="data-[state=inactive]:hidden"><CommitsView /></TabsContent>
+      <TabsContent value="pushes"><GitPushesPanel windows={WINDOWS} /></TabsContent>
+    </Tabs>
+  );
+}
+
+function CommitsView() {
   const [days, setDays] = useState(30);
   const [page, setPage] = useState(1);
   const [author, setAuthor] = useState<string | null>(null);

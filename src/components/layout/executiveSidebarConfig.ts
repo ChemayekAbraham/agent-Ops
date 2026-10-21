@@ -119,6 +119,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
+        { label: 'Lunch Allowance', icon: Banknote, id: 'lunch-allowance' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
         { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },
@@ -308,6 +309,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Marketing',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        { label: 'Inbox', icon: MessageSquare, id: 'inbox' },
         { label: 'User Analytics', icon: BarChart3, id: 'user-analytics' },
         { label: 'Growth Metrics', icon: TrendingUp, id: 'growth' },
         { label: 'Signup Trends', icon: UserCheck, id: 'signups' },
@@ -315,7 +317,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Campaign Analytics', icon: Target, id: 'campaigns' },
         { label: 'Install Funnel', icon: Download, id: 'install-funnel' },
         { label: 'Merchandise', icon: ShoppingBag, id: 'merchandise' },
-        { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],
     },
@@ -338,7 +339,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
           id: 'user-behaviour',
           access: { roles: ['crm', 'cto', 'super_admin'] },
         },
-        { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],
     },

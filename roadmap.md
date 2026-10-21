@@ -1,4 +1,14 @@
 # Tasks
+- [x] Add recorded agent performance to product application details using the existing Agent Ops report; four tests and guards pass, preview build OK; approval rules unchanged.
+- [ ] Verify application performance with a live signed-in agent — blocked: external Supabase authentication cannot be restored by available browser tools.
+- [x] Add /portfolio-invite-test using the existing completion form; signed-out form/signature/submission verified, safety test and guards pass, build OK; no emails or live financial writes.
+- [x] Add Not verified and Rejected filters inside Paid & Repaying, preserving its paid/repaying scope across all pages; 28 tests, guards and preview compilation pass. Live authenticated check unavailable for externally managed authentication.
+- [x] Add Landlord Ops paid-but-unverified filter presentation, count contract, export support and four passing hook tests; guards and preview compilation pass, payments/verification unchanged.
+- [ ] Enable paid-but-unverified matching — blocked: migration service repeatedly fails with 42P10 and live functions remain absent; filter safely disabled, SQL parity test cannot run; authenticated browser check unavailable for external Supabase.
+- [x] Update AgentDailyCapacityStrip to best-day tenant coverage, both-day context and tenant shortfalls; money/arrears and all hooks/backend preserved. Four calculation tests and isolated desktop/mobile light/dark checks pass; build OK.
+- [ ] Verify tenant strip on live agent accounts — blocked: externally managed authentication is unavailable to browser testing; supplied NSUBUGA figures and a six-tenant shortfall were checked in isolation.
+- [x] Add CTO Git Pushes view; 3 filter/refresh tests pass, isolated desktop/mobile checks cover expanded details and both themes; Commits and protected push hook/backend preserved.
+- [ ] Verify CTO Pushes with live signed-in history — blocked: externally managed authentication is unavailable to browser testing.
 - [x] Patch dashboard auth-lock delays: bounded identity reads, duplicate startup role lookup removed, single-flight watchdog and header identity reuse; 28 tests and safety guards pass, public sign-in renders without runtime errors.
 - [ ] Verify patched dashboard with a real signed-in account — blocked: externally managed authentication cannot be restored by the available testing tools.
 - [x] Build CFO landlord float budget setter first, miscellaneous approvals and period history.
@@ -45,3 +55,15 @@
 - [x] Make CFO sidebar "Payroll Approvals" open as a CFO dashboard section instead of jumping to the HR shell; CFO click, breadcrumb and HR /approvals page verified in preview.
 
 - [x] Apply the approved agent dashboard nudge figures migration exactly as written; stored functions verified identical to the file, signed-in call returns figures, signed-out call refused.
+
+## CMO Inbox
+- [x] Add Neexa conversation list, live thread, reply composer and template dialog using only existing mirror tables and edge function; protected backend/generated types unchanged.
+- [x] Hide the staff reply box and Send button behind REPLY_COMPOSER_ENABLED=false in NeexaInbox.tsx; code and tests retained, template sending still available.
+- [x] Run 11 Inbox rule/interaction tests and isolated desktop/mobile light/dark checks; preview compilation and guards pass.
+- [ ] Verify live signed-in Neexa sync and customer send/readback — blocked: external Supabase authentication cannot be restored by available browser tools; no customer messages sent.
+- [x] Update Neexa Inbox KPI cards for agreement-based figures: Referred by Neexa card, contract-amount sub-lines and pending_agreements; 17 inbox tests pass, typecheck and build OK; no migrations or RPCs touched.
+
+## Verified email screens
+- [x] Polish email collection and self-editor presentation, preserving eligibility, verification and agent editing.
+- [x] Run 10 focused tests and isolated desktop/mobile checks; guards and preview compilation pass; deployed email backend, hooks and migrations untouched.
+- [ ] Verify email delivery and confirmation on a live signed-in account — blocked: external Supabase authentication is unavailable to browser tools; isolated flow checks passed without sending email.

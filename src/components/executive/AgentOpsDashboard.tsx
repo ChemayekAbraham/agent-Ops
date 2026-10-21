@@ -103,8 +103,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-
-type ActiveView = null | 'general-activities' | 'agents-rent' | 'agents-bikes' | 'welile-merchandise' | 'shopping-advance' | 'business-advance' | 'agent-marketplace' | 'welile-homes' | 'agents-hope' | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'first7-tracker' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
+import {
+  BUSINESS_AREAS,
+  ALL_DASHBOARD_FEATURES,
+  searchEntireDashboard,
+  type ActiveView,
+  type BusinessAreaItem,
+  type DashboardFeatureItem,
+} from './agentOpsFeatureRegistry';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
   { key: 'general-activities', icon: Activity, label: 'General Agents Activities', color: 'bg-primary' },
@@ -172,147 +178,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'feature-flags', icon: ToggleRight, label: 'Feature Flags', color: 'bg-indigo-600', priority: true },
 ];
 
-interface BusinessAreaItem {
-  num: string;
-  title: string;
-  icon: typeof Activity;
-  section: ActiveView;
-  highlight?: boolean;
-  category: 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports';
-  desc: string;
-  keywords: string[];
-  to?: string;
-}
 
-const BUSINESS_AREAS: BusinessAreaItem[] = [
-  {
-    num: '01',
-    title: 'General Agents Activities',
-    icon: Activity,
-    section: 'general-activities',
-    category: 'field',
-    desc: 'Agent roster, active status & field operations',
-    keywords: ['activity', 'field', 'overview', 'agents', 'status', 'monitoring', 'general'],
-  },
-  {
-    num: '02',
-    title: 'Agent Advances',
-    icon: HandCoins,
-    section: 'advance-requests',
-    category: 'advances',
-    desc: 'Emergency & operational advance requests & reviews',
-    keywords: ['advance', 'loans', 'credit', 'cash advance', 'requests', 'limits', 'repayments'],
-  },
-  {
-    num: '03',
-    title: 'Agents Rent',
-    icon: Banknote,
-    section: 'agents-rent',
-    category: 'rent-bikes',
-    desc: 'Agent rent plans, landlords & collections',
-    keywords: ['rent', 'landlords', 'tenants', 'rent plans', 'lease', 'collections', 'properties'],
-  },
-  {
-    num: '04',
-    title: 'Agents Bikes',
-    icon: Bike,
-    section: 'agents-bikes',
-    category: 'rent-bikes',
-    desc: 'Spiro bike lease orders, reviews & verification',
-    keywords: ['bikes', 'spiro', 'motorcycle', 'boda', 'lease', 'riders', 'dossier', 'delivery'],
-    to: '/agent-ops/products/motor-bikes',
-  },
-  {
-    num: '05',
-    title: 'Welile Merchandise',
-    icon: ShoppingBag,
-    section: 'welile-merchandise',
-    category: 'commerce',
-    desc: 'Boutique merchandise, branded apparel & orders',
-    keywords: ['merchandise', 'boutique', 'shop', 'goods', 'store', 'apparel', 'uniforms'],
-  },
-  {
-    num: '06',
-    title: 'Service Centre as a Service',
-    icon: Building2,
-    section: 'sc-overview',
-    category: 'field',
-    desc: 'Service center branches, kiosks & physical hubs',
-    keywords: ['service centre', 'sc', 'branches', 'kiosks', 'hubs', 'centers', 'physical'],
-  },
-  {
-    num: '07',
-    title: 'Welile Lending Agents',
-    icon: UsersRound,
-    section: 'lending-agents',
-    category: 'advances',
-    desc: 'Lending agents management, capital & vetting',
-    keywords: ['lending', 'agents', 'capital', 'allocations', 'credit', 'vetted'],
-  },
-  {
-    num: '08',
-    title: 'Welile Shopping Advance',
-    icon: ShoppingBag,
-    section: 'shopping-advance',
-    category: 'advances',
-    desc: 'Qualified agent shopping float advances',
-    keywords: ['shopping advance', 'advance', 'supermarket', 'retail', 'groceries', 'limits'],
-  },
-  {
-    num: '09',
-    title: 'Welile Business Advance',
-    icon: Briefcase,
-    section: 'business-advance',
-    category: 'advances',
-    desc: 'Merchant and enterprise commercial advances',
-    keywords: ['business advance', 'sme', 'commercial', 'enterprise', 'traders', 'merchants'],
-  },
-  {
-    num: '10',
-    title: 'Welile Marketplace',
-    icon: Store,
-    section: 'agent-marketplace',
-    category: 'commerce',
-    desc: 'Vendor portal and products marketplace',
-    keywords: ['marketplace', 'vendors', 'sellers', 'ecommerce', 'products', 'listings'],
-  },
-  {
-    num: '11',
-    title: 'Welile Wallet Business',
-    icon: Wallet,
-    section: 'balances',
-    category: 'commerce',
-    desc: 'Agent float balances, deposits and ledger',
-    keywords: ['wallet', 'balances', 'float', 'ledger', 'cash', 'deposits', 'withdrawals'],
-  },
-  {
-    num: '12',
-    title: 'Welile Homes',
-    icon: Building2,
-    section: 'welile-homes',
-    category: 'field',
-    desc: 'Housing pipeline, property acquisition & estates',
-    keywords: ['homes', 'real estate', 'housing', 'properties', 'land', 'plots'],
-  },
-  {
-    num: '13',
-    title: 'Welile Agents Hope',
-    icon: Sparkles,
-    section: 'agents-hope',
-    category: 'field',
-    desc: 'Community resilience and agent welfare programs',
-    keywords: ['hope', 'welfare', 'support', 'grants', 'charity', 'relief', 'benevolence'],
-  },
-  {
-    num: '14',
-    title: 'Welile Agents Ranks',
-    icon: Trophy,
-    section: 'leaderboard',
-    category: 'reports',
-    desc: 'Performance leaderboard & agent tier rankings',
-    keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings'],
-  },
-];
 
 type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7' | 'network' | 'metrics';
 
@@ -350,11 +216,14 @@ export function AgentOpsDashboard() {
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
-  // Keyboard shortcut '/' or Cmd+K to focus search bar (only on overview landing, never in inputs/editors/dialogs)
+  // Keyboard shortcut '/' or Cmd+K to focus search bar anywhere in Agent Ops dashboard
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept if an active sub-view is open (search bar is not displayed)
-      if (activeView !== null) return;
+      if (e.key === 'Escape' && searchQuery) {
+        e.preventDefault();
+        setSearchQuery('');
+        return;
+      }
 
       const isSearchShortcut =
         e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k');
@@ -381,7 +250,7 @@ export function AgentOpsDashboard() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeView]);
+  }, [searchQuery]);
 
   // Deep-linkable sections: /executive-hub?tab=agent-ops&section=products
   useEffect(() => {
@@ -720,57 +589,266 @@ export function AgentOpsDashboard() {
     { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
   ];
 
-  const filteredBusinessAreas = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return BUSINESS_AREAS.filter((area) => {
-      if (activeCategory !== 'all' && area.category !== activeCategory && !q) {
-        return false;
-      }
-      if (!q) return true;
-      const matchesNum = area.num.includes(q) || String(parseInt(area.num, 10)).includes(q);
-      const matchesTitle = area.title.toLowerCase().includes(q);
-      const matchesDesc = area.desc.toLowerCase().includes(q);
-      const matchesKeywords = area.keywords.some((k) => k.toLowerCase().includes(q));
-      const matchesKey = area.section?.toLowerCase().includes(q);
-      return matchesNum || matchesTitle || matchesDesc || matchesKeywords || matchesKey;
-    });
+  const searchResults = useMemo(() => {
+    return searchEntireDashboard(searchQuery, activeCategory);
   }, [searchQuery, activeCategory]);
 
-  const matchingNavItems = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return [];
-    const directBusinessSections = new Set(filteredBusinessAreas.map((b) => b.section));
-    return NAV_ITEMS.filter((item) => {
-      if (!item.key) return false;
-      if (directBusinessSections.has(item.key)) return false;
-      const label = item.label.toLowerCase();
-      const key = String(item.key).toLowerCase();
-      return label.includes(q) || key.includes(q);
-    });
-  }, [searchQuery, filteredBusinessAreas]);
+  const { matchingBusinessAreas, matchingFeatures, totalCount: totalResultsCount } = searchResults;
 
-  const totalResultsCount = filteredBusinessAreas.length + matchingNavItems.length;
+  const groupedMatchingFeatures = useMemo(() => {
+    const map = new Map<string, DashboardFeatureItem[]>();
+    matchingFeatures.forEach((feat) => {
+      const g = feat.categoryGroup;
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(feat);
+    });
+    return Array.from(map.entries()).map(([group, items]) => ({ group, items }));
+  }, [matchingFeatures]);
+
   // The First 7 Days tab replaces the business-area grid; typing in the search box goes back to search results.
   const showFirst7Tab = activeCategory === 'first7' && !searchQuery.trim();
   const showNetworkTab = activeCategory === 'network' && !searchQuery.trim();
   const showMetricsTab = activeCategory === 'metrics' && !searchQuery.trim();
 
+  const renderSearchResults = () => {
+    if (matchingBusinessAreas.length === 0 && matchingFeatures.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-border bg-card/60 text-center space-y-3">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+            <Search className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">No Agent Ops items found</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              We couldn&apos;t find any business areas or tools matching &ldquo;{searchQuery}&rdquo;. Try searching for &ldquo;advance&rdquo;, &ldquo;bikes&rdquo;, &ldquo;rent&rdquo;, &ldquo;calling&rdquo;, or &ldquo;merchandise&rdquo;.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-1 max-w-md">
+            {['advances', 'bikes', 'rent', 'calling', 'merchandise', 'kyc', 'whitelisting', 'first 7 days', 'payouts', 'balances'].map((term) => (
+              <Button
+                key={term}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery(term);
+                  searchInputRef.current?.focus();
+                }}
+                className="h-7 text-[11px] px-2.5 rounded-full capitalize"
+              >
+                {term}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setActiveCategory('all');
+              searchInputRef.current?.focus();
+            }}
+            className="text-xs gap-1.5 mt-2"
+          >
+            <X className="h-3.5 w-3.5" /> Clear search
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Core Business Areas Matches */}
+        {matchingBusinessAreas.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+                Core Business Areas ({matchingBusinessAreas.length})
+              </p>
+              <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-primary border-primary/30">
+                14 Business Areas
+              </Badge>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+              {matchingBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc, to }) => (
+                <Button
+                  key={title}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (to) navigate(to);
+                    else selectView(section);
+                    setSearchQuery('');
+                  }}
+                  aria-label={title}
+                  className={cn(
+                    'group relative h-auto min-h-24 w-full whitespace-normal justify-start gap-3.5 rounded-xl p-3.5 text-left transition-all',
+                    highlight
+                      ? [
+                          '!bg-primary !text-primary-foreground !border-primary-foreground/25',
+                          'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
+                          'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
+                        ]
+                      : 'border-border bg-card shadow-2xs hover:border-primary/50 hover:bg-muted/50 hover:-translate-y-0.5'
+                  )}
+                >
+                  {highlight && (
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 rounded-xl border-2 border-primary-foreground/55 animate-attention-halo"
+                    />
+                  )}
+                  <span className={cn(
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                    highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
+                  )}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block text-xs font-semibold tracking-wide', highlight ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
+                      {num}
+                    </span>
+                    <span className={cn('block text-sm font-bold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>
+                      {title}
+                    </span>
+                    {desc && (
+                      <span className={cn('block text-xs line-clamp-1 mt-0.5', highlight ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+                        {desc}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown className={cn('h-4 w-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dashboard Features & Tools grouped by Category */}
+        {groupedMatchingFeatures.length > 0 && (
+          <div className="space-y-5 pt-1">
+            {groupedMatchingFeatures.map(({ group, items }) => (
+              <div key={group} className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+                  {group} ({items.length})
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const showBadge = item.section === 'advance-requests' && pendingAdvanceCount > 0;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          if (item.to) navigate(item.to);
+                          else selectView(item.section);
+                          setSearchQuery('');
+                        }}
+                        className="flex items-start gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 active:scale-[0.99] transition-all text-left shadow-2xs group"
+                      >
+                        <span className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5', item.color)}>
+                          <Icon className="h-4 w-4 text-white" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="block text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                            {item.title}
+                          </span>
+                          <span className="block text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                            {item.desc}
+                          </span>
+                          <span className="inline-block text-[10px] text-muted-foreground/80 mt-1">
+                            {item.categoryGroup}
+                          </span>
+                        </div>
+                        {showBadge && (
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                            {pendingAdvanceCount > 99 ? '99+' : pendingAdvanceCount}
+                          </span>
+                        )}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 self-center group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
-      {activeView !== 'agents-space' && (
-        <>
-          <Button variant="ghost"
-            onClick={() => setActiveView(null)}
-            className="flex items-center gap-2 text-sm font-semibold text-primary lg:hidden"
+      {/* Universal search engine & navigation header in subview */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setActiveView(null);
+              setSearchQuery('');
+            }}
+            className="h-9 px-3 gap-1.5 text-xs font-semibold shrink-0"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back to Agent Ops Overview
+            <span className="hidden sm:inline">Overview</span>
+            <span className="sm:hidden">Back</span>
           </Button>
-          <h2 className="text-lg font-bold">{viewLabel}</h2>
-        </>
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-bold truncate leading-tight">{viewLabel}</h2>
+          </div>
+        </div>
+
+        {/* Search bar inside sub-view */}
+        <div className="relative w-full sm:w-80 md:w-96 shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            className="h-9 pl-9 pr-8 text-xs bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {searchQuery.trim() ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-muted/50 border border-border">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+              <Search className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="truncate">
+                Searching entire dashboard for <strong className="text-foreground">&ldquo;{searchQuery}&rdquo;</strong> ({totalResultsCount} found)
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSearchQuery('')}
+              className="h-7 text-xs px-2 text-primary hover:text-primary font-medium shrink-0"
+            >
+              Return to {viewLabel}
+            </Button>
+          </div>
+          {renderSearchResults()}
+        </div>
+      ) : (
+        renderSubView()
       )}
-      {renderSubView()}
     </div>
   ) : bottomTab !== 'more' ? (
     <div className="space-y-4">
@@ -850,132 +928,58 @@ export function AgentOpsDashboard() {
         <AgentNetworkStandalone />
       ) : showMetricsTab ? (
         <AgentMetricsStandalone />
-      ) : filteredBusinessAreas.length === 0 && matchingNavItems.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-border bg-card/60 text-center space-y-3">
-          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
-            <Search className="h-6 w-6" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">No Agent Ops items found</p>
-            <p className="text-xs text-muted-foreground max-w-sm">
-              We couldn&apos;t find any business areas or tools matching &ldquo;{searchQuery}&rdquo;. Try searching for &ldquo;advance&rdquo;, &ldquo;bikes&rdquo;, &ldquo;rent&rdquo;, &ldquo;calling&rdquo;, or &ldquo;merchandise&rdquo;.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setSearchQuery('');
-              setActiveCategory('all');
-              searchInputRef.current?.focus();
-            }}
-            className="text-xs gap-1.5"
-          >
-            <X className="h-3.5 w-3.5" /> Clear search
-          </Button>
-        </div>
+      ) : searchQuery.trim() ? (
+        renderSearchResults()
       ) : (
-        <>
-          {/* Business Areas Grid */}
-          {filteredBusinessAreas.length > 0 && (
-            <div className="space-y-2">
-              {searchQuery.trim() && (
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
-                  Core Business Areas ({filteredBusinessAreas.length})
-                </p>
+        /* Regular Business Areas Grid when no search */
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+          {matchingBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc, to }) => (
+            <Button
+              key={title}
+              type="button"
+              variant="outline"
+              onClick={() => (to ? navigate(to) : selectView(section))}
+              aria-label={title}
+              className={cn(
+                'group relative h-auto min-h-24 w-full whitespace-normal justify-start gap-3.5 rounded-xl p-3.5 text-left transition-all',
+                highlight
+                  ? [
+                      '!bg-primary !text-primary-foreground !border-primary-foreground/25',
+                      'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
+                      'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
+                    ]
+                  : 'border-border bg-card shadow-2xs hover:border-primary/50 hover:bg-muted/50 hover:-translate-y-0.5'
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                {filteredBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc, to }) => (
-                  <Button
-                    key={title}
-                    type="button"
-                    variant="outline"
-                    onClick={() => (to ? navigate(to) : selectView(section))}
-                    aria-label={title}
-                    className={cn(
-                      'group relative h-auto min-h-24 w-full whitespace-normal justify-start gap-3.5 rounded-xl p-3.5 text-left transition-all',
-                      highlight
-                        ? [
-                            '!bg-primary !text-primary-foreground !border-primary-foreground/25',
-                            'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
-                            'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
-                          ]
-                        : 'border-border bg-card shadow-2xs hover:border-primary/50 hover:bg-muted/50 hover:-translate-y-0.5'
-                    )}
-                  >
-                    {highlight && (
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -inset-1 rounded-xl border-2 border-primary-foreground/55 animate-attention-halo"
-                      />
-                    )}
-                    <span className={cn(
-                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
-                      highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
-                    )}>
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={cn('block text-xs font-semibold tracking-wide', highlight ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
-                        {num}
-                      </span>
-                      <span className={cn('block text-sm font-bold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>
-                        {title}
-                      </span>
-                      {desc && (
-                        <span className={cn('block text-xs line-clamp-1 mt-0.5', highlight ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
-                          {desc}
-                        </span>
-                      )}
-                    </span>
-                    <ChevronDown className={cn('h-4 w-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Related Tools & Detailed Sub-sections */}
-          {matchingNavItems.length > 0 && (
-            <div className="space-y-2.5 pt-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
-                Related Agent Ops Tools &amp; Reports ({matchingNavItems.length})
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
-                {matchingNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const showBadge = item.key === 'advance-requests' && pendingAdvanceCount > 0;
-                  return (
-                    <button
-                      key={item.key as string}
-                      type="button"
-                      onClick={() => selectView(item.key)}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 active:scale-[0.99] transition-all text-left shadow-2xs group"
-                    >
-                      <span className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0', item.color)}>
-                        <Icon className="h-4 w-4 text-white" />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <span className="block text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-                          {item.label}
-                        </span>
-                        <span className="block text-[10px] text-muted-foreground truncate">
-                          Direct view &bull; Agent Ops
-                        </span>
-                      </div>
-                      {showBadge && (
-                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {pendingAdvanceCount > 99 ? '99+' : pendingAdvanceCount}
-                        </span>
-                      )}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
+            >
+              {highlight && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-1 rounded-xl border-2 border-primary-foreground/55 animate-attention-halo"
+                />
+              )}
+              <span className={cn(
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
+              )}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={cn('block text-xs font-semibold tracking-wide', highlight ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
+                  {num}
+                </span>
+                <span className={cn('block text-sm font-bold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>
+                  {title}
+                </span>
+                {desc && (
+                  <span className={cn('block text-xs line-clamp-1 mt-0.5', highlight ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+                    {desc}
+                  </span>
+                )}
+              </span>
+              <ChevronDown className={cn('h-4 w-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
+            </Button>
+          ))}
+        </div>
       )}
     </div>
   ) : (

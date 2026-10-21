@@ -66,6 +66,7 @@ const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/no
 // and the <TwoFactorGate /> render below.
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
+const EmailCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/EmailCollectionGate"), "EmailCollectionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
 const CommunicationGate = optionalLazyWithRetry(() => import("@/components/communications/CommunicationGate"), "CommunicationGate");
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
@@ -73,6 +74,8 @@ const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/componen
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
 // Shared-device sign-in step-up: SMS code for the 3rd+ account on one phone (device-step-up edge fn).
 const DeviceStepUpGate = optionalLazyWithRetry(() => import("@/components/auth/DeviceStepUpGate"), "DeviceStepUpGate");
+// New-device sign-in alert: asks the owner, on their trusted devices, whether they know a new device.
+const NewDeviceSignInDialog = optionalLazyWithRetry(() => import("@/components/auth/NewDeviceSignInDialog"), "NewDeviceSignInDialog");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -341,6 +344,8 @@ const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
 const PartnersTerms = lazy(() => import('./pages/PartnersTerms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+// Confirm page for the new-device alert email's buttons (no sign-in needed; token-gated).
+const DeviceCheck = lazy(() => import('./pages/DeviceCheck'));
 const ShareLocation = lazy(() => import('./pages/ShareLocation'));
 const InvestorPortfolioPublic = lazy(() => import('./pages/InvestorPortfolioPublic'));
 const PortfolioActionRequest = lazy(() => import('./pages/PortfolioActionRequest'));
@@ -361,6 +366,7 @@ const LendingRepayments = lazy(() => import('./pages/LendingRepayments'));
 // Public funder signup (multi-step) — lives in pages/Onboarding.tsx and is exported as FunderOnboarding.
 const FunderOnboarding = lazy(() => import('./pages/Onboarding'));
 const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
+const PortfolioInviteTest = lazy(() => import('./pages/PortfolioInviteTest'));
 const ShareSigning = lazy(() => import('./pages/ShareSigning'));
 // Admin queue used by COO / Partner Ops to approve self-registered funders.
 const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
@@ -473,6 +479,7 @@ function GlobalOnboardingGates() {
       <PushNotificationGate />
       <PhoneCollectionGate />
       <NameCompletionGate />
+      <EmailCollectionGate />
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
@@ -523,6 +530,7 @@ function AppRoutes() {
           <Route path="/tenants-onboarding" element={<TenantsOnboarding />} />
           <Route path="/funder-onboarding" element={<FunderOnboarding />} />
           <Route path="/partner-onboarding" element={<PartnerOnboarding />} />
+          <Route path="/portfolio-invite-test" element={<PortfolioInviteTest />} />
           <Route path="/partners/:partnerId/portfolios/:portfolioId/complete" element={<PortfolioCompletion />} />
           <Route path="/shares/:requestId/sign" element={<ShareSigning />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
@@ -886,6 +894,7 @@ function AppRoutes() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/seo-results" element={<SeoResults />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/device-check" element={<DeviceCheck />} />
           <Route path="/partners-terms" element={<PartnersTerms />} />
           <Route path="/privacy-policy" element={<Privacy />} />
           <Route path="/share-location" element={<ShareLocation />} />
@@ -1080,6 +1089,7 @@ const App = () => {
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <DeviceStepUpGate />
+                          <NewDeviceSignInDialog />
                           <GlobalOnboardingGates />
                           <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />
