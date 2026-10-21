@@ -8193,6 +8193,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_cycle_notifications_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_cycle_notifications_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8325,6 +8332,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_department_notifications_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_department_notifications_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8447,6 +8461,13 @@ export type Database = {
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_disbursements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       budget_obligation_declines: {
@@ -8481,6 +8502,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_calls"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
           },
           {
             foreignKeyName: "budget_obligation_declines_department_id_fkey"
@@ -8535,11 +8563,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_submission_documents_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+          {
             foreignKeyName: "budget_submission_documents_submission_id_fkey"
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submission_documents_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -8585,6 +8627,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submission_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -8682,6 +8731,13 @@ export type Database = {
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_submission_lines_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       budget_submissions: {
@@ -8778,6 +8834,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_submissions_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_submissions_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8797,6 +8860,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_parent_submission_id_fkey"
+            columns: ["parent_submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "budget_submissions_submitted_by_position_fkey"
@@ -8968,11 +9038,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_supplements_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+          {
             foreignKeyName: "budget_supplements_submission_id_fkey"
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_supplements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -14743,6 +14827,13 @@ export type Database = {
             referencedRelation: "budget_submission_lines"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "director_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
         ]
       }
       disbursement_records: {
@@ -15663,6 +15754,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_submission_lines"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
           },
           {
             foreignKeyName: "employee_requisitions_link_id_fkey"
@@ -50329,6 +50427,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "staff_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+          {
             foreignKeyName: "staff_requisitions_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -61501,6 +61606,64 @@ export type Database = {
           },
         ]
       }
+      v_budget_payables_lines: {
+        Row: {
+          account_code: string | null
+          allowance_amount: number | null
+          approved_open_amount: number | null
+          approved_open_requisitions: number | null
+          call_id: string | null
+          call_title: string | null
+          category: string | null
+          credited_amount: number | null
+          credited_requisitions: number | null
+          department_id: string | null
+          department_name: string | null
+          description: string | null
+          in_progress_amount: number | null
+          in_progress_requisitions: number | null
+          lapsed_amount: number | null
+          line_approved: boolean | null
+          line_created_at: string | null
+          line_id: string | null
+          outstanding_amount: number | null
+          overspent: boolean | null
+          overspent_amount: number | null
+          period_end: string | null
+          period_ended: boolean | null
+          period_start: string | null
+          submission_id: string | null
+          submission_reference: string | null
+          submission_status: string | null
+          submitted_amount: number | null
+          supplement_amount: number | null
+          unproven_credit_amount: number | null
+          unproven_credit_requisitions: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_submission_lines_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "ledger_account_catalog"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       v_cc_call_queue: {
         Row: {
           active_capability_count: number | null
@@ -71693,6 +71856,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_budget_payables: { Args: never; Returns: Json }
       get_budget_vs_actual: {
         Args: { p_call_id: string; p_department_id?: string }
         Returns: Json
