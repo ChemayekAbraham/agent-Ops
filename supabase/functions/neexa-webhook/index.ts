@@ -60,28 +60,18 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
-  // DIAGNOSTIC (2026-10-21): records the SHAPE of any request that is not a stored
-  // message (method, header names, query keys, sizes, a short body preview), so a
-  // failed registration in the Neexa dashboard shows what Neexa actually sent. It never
-  // stores the secret or a computed MAC. Remove once registration works.
+  // Logs the shape of any request that is not a stored message (method, header names,
+  // query keys, sizes) to the function logs only, never the body, secret or a MAC. Kept
+  // out of the database so unsigned callers cannot fill a table.
+  // deno-lint-ignore require-await
   const diag = async (outcome: string, raw = "") => {
-    try {
-      await admin.from("neexa_webhook_events").insert({
-        event: `_diag:${req.method}:${outcome}`,
-        payload: {
-          query_keys: [...url.searchParams.keys()],
-          challenge_len: challengeFromQuery(url).length,
-          headers: [...req.headers.keys()],
-          content_type: req.headers.get("content-type"),
-          user_agent: req.headers.get("user-agent")?.slice(0, 120) ?? null,
-          signature_len: (req.headers.get("x-neexa-signature") ?? "").length,
-          body_len: raw.length,
-          body_preview: raw.slice(0, 300),
-        },
-      });
-    } catch (e) {
-      console.warn("neexa-webhook: diag insert failed", e instanceof Error ? e.message : e);
-    }
+    console.warn(`neexa-webhook: ${req.method} ${outcome}`, {
+      query_keys: [...url.searchParams.keys()],
+      headers: [...req.headers.keys()],
+      user_agent: req.headers.get("user-agent")?.slice(0, 120) ?? null,
+      signature_len: (req.headers.get("x-neexa-signature") ?? "").length,
+      body_len: raw.length,
+    });
   };
 
   if (req.method === "HEAD" || req.method === "OPTIONS") {
