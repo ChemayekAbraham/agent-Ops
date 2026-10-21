@@ -18,6 +18,7 @@ vi.mock('react-router-dom', async () => {
 const mockAuth = {
   user: { id: 'user-1' } as any,
   roles: ['supporter'] as string[],
+  rolesResolved: true,
 };
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => mockAuth,
@@ -63,6 +64,7 @@ beforeEach(() => {
   hasAppliedMock.mockReset().mockReturnValue(false);
   requestRoleMock.mockReset().mockResolvedValue({ error: null });
   mockAuth.roles = ['supporter'];
+  mockAuth.rolesResolved = true;
   applyDialogState.open = false;
   applyDialogState.role = null;
 });
@@ -193,5 +195,34 @@ describe('RoleSwitcher (prominent) — supporter-only user', () => {
     fireEvent.click(screen.getByText('Tenant'));
     expect(onRoleChange).toHaveBeenCalledWith('tenant');
     expect(screen.queryByTestId('apply-dialog')).not.toBeInTheDocument();
+  });
+});
+
+// ------------------------------------------------------------------------
+// Roles not loaded (lookup unresolved): agent stays usable
+// ------------------------------------------------------------------------
+
+describe('BottomRoleSwitcher — roles not loaded yet', () => {
+  it('lets the user switch to Agent instead of showing it locked', () => {
+    mockAuth.roles = [];
+    mockAuth.rolesResolved = false;
+    const onRoleChange = vi.fn();
+    renderWithRouter(
+      <BottomRoleSwitcher currentRole="tenant" onRoleChange={onRoleChange} />
+    );
+    fireEvent.click(screen.getByText('Agent'));
+    expect(onRoleChange).toHaveBeenCalledWith('agent');
+    expect(screen.queryByTestId('apply-dialog')).not.toBeInTheDocument();
+  });
+
+  it('a restricted account (roles loaded, none) still sees Agent locked', () => {
+    mockAuth.roles = [];
+    mockAuth.rolesResolved = true;
+    const onRoleChange = vi.fn();
+    renderWithRouter(
+      <BottomRoleSwitcher currentRole="tenant" onRoleChange={onRoleChange} />
+    );
+    fireEvent.click(screen.getByText('Agent'));
+    expect(onRoleChange).not.toHaveBeenCalled();
   });
 });
