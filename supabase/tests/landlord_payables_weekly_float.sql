@@ -2,9 +2,10 @@
 --
 -- Run against the database AFTER the migration. It is READ-ONLY: it only SELECTs (no table, temp table or row is
 -- created or written) and can be run inside BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error
--- text IS the report: a JSON list of 10 steps, each with "pass": true/false. Checks:
+-- text IS the report: a JSON list of 12 steps, each with "pass": true/false. Checks:
 --   1  v_landlord_payout_settlement has exactly one row per landlord payout
---   2  the landlord rows on v_payables_lines are exactly the PAYABLE payouts (state paid_unconfirmed), at their amounts
+--   2  the landlord rows on v_payables_lines are exactly the weekly floats with an outstanding allowance (or overspent),
+--      at outstanding_amount
 --   3  landlord payment history holds exactly the confirmed payouts, dated by the payout record (never the upload time)
 --   4  STRICT RULE, re-derived from the base tables: every confirmed payout has a completed linked withdrawal with a
 --      receipt token and an accessible file, whose latest check of that exact file is 'match', with a transaction ID
@@ -12,14 +13,20 @@
 --      amounts, no other payout or withdrawal using that ID or reference, and no blocking open alert
 --   5  only Receipt Archive evidence confirms: no confirmed payout lacks a withdrawal, receipt token, accessible file,
 --      'match' check, read ID or read amount
---   6  historical review: exactly the paid-out, unverified payouts paid before the archive start date
+--   6  historical review: exactly the paid-out, unverified payouts made without a weekly float
 --   7  get_landlord_payables_by_week groups do not overlap and reconcile by count and amount:
---      confirmed + payable + historical_review + review_only + not_paid = all payouts; payable = under_review + awaiting
---   8  the weekly rows add up to the same totals
+--      confirmed + in_float_unverified + historical_review + review_only + not_paid = all payouts;
+--      float_payable = the landlord rows on the payables list
+--   8  the floats array adds up to the same totals
 --   9  exceptions agree with the data (primary = first; paid_amount_differs, reference_unusable, shared_reference)
 --  10  landlord_receipt_reversed is set exactly when the payout's CURRENT Welile landlord receipt (its own receipt followed
 --      forward through replaces_receipt_id) is reversed or refunded; it is a flag only (a flagged confirmed payout stays
 --      confirmed, a flagged historical payout stays historical)
+--  11  scope: the payables list and history hold only Supporter Returns (partner), the landlord float payout budget,
+--      agent commissions and departmental budgets; no wallet, withdrawal-request, agent-float or payroll rows; the
+--      category frame lists exactly those four (and 'other')
+--  12  each float re-derived from the base tables: allowance = float + live miscellaneous allocations; verified = confirmed
+--      payouts allocated to that week; outstanding = max(allowance - verified, 0)
 DO $test$
 DECLARE
   r jsonb := '[]'::jsonb;
@@ -37,13 +44,13 @@ BEGIN
 
   -- 2
   SELECT count(*), COALESCE(sum(outstanding_amount), 0) INTO v_n, v_a FROM public.v_payables_lines WHERE category_key = 'landlord';
-  SELECT count(*), COALESCE(sum(GREATEST(amount, 0)), 0) INTO v_m, v_b
-    FROM public.v_landlord_payout_settlement WHERE state = 'paid_unconfirmed' AND amount > 0;
+  SELECT count(*), COALESCE(sum(outstanding_amount), 0) INTO v_m, v_b
+    FROM public.v_landlord_float_payables WHERE outstanding_amount > 0 OR overspent;
   r := r || jsonb_build_object('step', 2, 'pass', v_n = v_m AND v_a = v_b
         AND NOT EXISTS (SELECT 1 FROM public.v_payables_lines l
                          WHERE l.category_key = 'landlord'
-                           AND NOT EXISTS (SELECT 1 FROM public.v_landlord_payout_settlement s
-                                            WHERE s.payout_id = l.item_id AND s.state = 'paid_unconfirmed')),
+                           AND NOT EXISTS (SELECT 1 FROM public.v_landlord_float_payables f
+                                            WHERE f.float_id = l.item_id AND f.outstanding_amount = l.outstanding_amount)),
         'list_rows', v_n, 'list_amount', v_a);
 
   -- 3
@@ -96,7 +103,7 @@ BEGIN
 
   -- 6
   SELECT count(*) FILTER (WHERE state = 'historical_review'),
-         count(*) FILTER (WHERE (state = 'historical_review') <> (paid_out AND NOT receipt_verified AND paid_date < archive_from))
+         count(*) FILTER (WHERE (state = 'historical_review') <> (paid_out AND NOT receipt_verified AND NOT has_weekly_float))
     INTO v_n, v_m FROM public.v_landlord_payout_settlement;
   r := r || jsonb_build_object('step', 6, 'pass', v_m = 0, 'historical_review', v_n);
 
@@ -110,23 +117,21 @@ BEGIN
 
   -- 7
   r := r || jsonb_build_object('step', 7, 'pass', v_err IS NULL AND (
-          (v_t->>'confirmed_count')::bigint + (v_t->>'payable_count')::bigint + (v_t->>'historical_review_count')::bigint
+          (v_t->>'confirmed_count')::bigint + (v_t->>'in_float_unverified_count')::bigint + (v_t->>'historical_review_count')::bigint
             + (v_t->>'review_only_count')::bigint + (v_t->>'not_paid_count')::bigint = (v_t->>'payouts')::bigint
-      AND (v_t->>'confirmed')::numeric + (v_t->>'payable')::numeric + (v_t->>'historical_review')::numeric
+      AND (v_t->>'confirmed')::numeric + (v_t->>'in_float_unverified')::numeric + (v_t->>'historical_review')::numeric
             + (v_t->>'review_only')::numeric + (v_t->>'not_paid')::numeric = (v_t->>'payouts_amount')::numeric
-      AND (v_t->>'payable_under_review')::numeric + (v_t->>'payable_awaiting_receipt')::numeric = (v_t->>'payable')::numeric
-      AND (v_t->>'payable_under_review_count')::bigint + (v_t->>'payable_awaiting_receipt_count')::bigint = (v_t->>'payable_count')::bigint
-      AND (v_t->>'confirmed')::numeric + (v_t->>'payable')::numeric + (v_t->>'historical_review')::numeric = (v_t->>'paid_out')::numeric
-      AND (v_t->>'payable')::numeric = (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_payables_lines WHERE category_key = 'landlord')),
+      AND (v_t->>'payouts')::bigint = (SELECT count(*) FROM public.landlord_payouts)
+      AND (v_t->>'in_float_unverified')::numeric = (v_t->>'unverified_paid')::numeric
+      AND (v_t->>'float_payable')::numeric = (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_payables_lines WHERE category_key = 'landlord')),
       'totals', v_t, 'error', v_err);
 
   -- 8
   r := r || jsonb_build_object('step', 8, 'pass', v_err IS NULL AND (
-          (SELECT COALESCE(sum((x->>'payable')::numeric), 0) FROM jsonb_array_elements(v_json->'by_week') x) = (v_t->>'payable')::numeric
-      AND (SELECT COALESCE(sum((x->>'confirmed')::numeric), 0) FROM jsonb_array_elements(v_json->'by_week') x) = (v_t->>'confirmed')::numeric
-      AND (SELECT COALESCE(sum((x->>'historical_review')::numeric), 0) FROM jsonb_array_elements(v_json->'by_week') x) = (v_t->>'historical_review')::numeric
-      AND (SELECT COALESCE(sum((x->>'payable_under_review')::numeric + (x->>'payable_awaiting_receipt')::numeric), 0)
-             FROM jsonb_array_elements(v_json->'by_week') x) = (v_t->>'payable')::numeric),
+          (SELECT COALESCE(sum((x->>'outstanding_amount')::numeric), 0) FROM jsonb_array_elements(v_json->'floats') x) = (v_t->>'float_payable')::numeric
+      AND (SELECT COALESCE(sum((x->>'allowance')::numeric), 0) FROM jsonb_array_elements(v_json->'floats') x) = (v_t->>'allowance')::numeric
+      AND (SELECT COALESCE(sum((x->>'verified_paid')::numeric), 0) FROM jsonb_array_elements(v_json->'floats') x) = (v_t->>'verified_paid')::numeric
+      AND (SELECT COALESCE(sum((x->>'amount')::numeric), 0) FROM jsonb_array_elements(v_json->'historical_by_week') x) = (v_t->>'historical_review')::numeric),
       'error', v_err);
 
   -- 9
@@ -162,8 +167,36 @@ BEGIN
                         OR ('landlord_receipt_reversed' = ANY (s.exceptions)) <> s.landlord_receipt_reversed)
     AND NOT EXISTS (SELECT 1 FROM s WHERE landlord_receipt_reversed AND paid_out AND receipt_verified AND state <> 'confirmed')
     AND NOT EXISTS (SELECT 1 FROM s WHERE landlord_receipt_reversed AND paid_out AND NOT receipt_verified
-                                        AND paid_date < archive_from AND state <> 'historical_review'),
+                                        AND NOT has_weekly_float AND state <> 'historical_review'),
     'flagged', (SELECT count(*) FROM s WHERE landlord_receipt_reversed))
+    INTO v_json;
+  r := r || v_json;
+
+  -- 11
+  r := r || jsonb_build_object('step', 11, 'pass',
+        NOT EXISTS (SELECT 1 FROM public.v_payables_lines WHERE category_key NOT IN ('partner', 'landlord', 'agent', 'budget')
+                                                             OR product_key = 'agent_float_withdrawal')
+    AND NOT EXISTS (SELECT 1 FROM public.v_payables_payment_history WHERE category_key NOT IN ('partner', 'landlord', 'agent', 'budget')
+                                                                       OR product_key = 'agent_float_withdrawal')
+    AND (SELECT string_agg(category_key, ',' ORDER BY sort_order) FROM public.payables_category_frame()) = 'partner,landlord,agent,budget,other',
+    'categories', (SELECT jsonb_object_agg(category_key, n) FROM (SELECT category_key, count(*) n FROM public.v_payables_lines GROUP BY 1) x));
+
+  -- 12: re-derive each float from the base tables
+  WITH b AS (SELECT id, period_start, amount FROM public.landlord_float_budgets WHERE period_type = 'weekly' AND superseded_at IS NULL),
+  d AS (
+    SELECT b.id,
+           b.amount + COALESCE((SELECT sum(a.amount) FROM public.landlord_float_budget_allocations a
+                                 WHERE a.week_start = b.period_start AND a.kind = 'miscellaneous' AND a.released_at IS NULL), 0) AS allowance,
+           COALESCE((SELECT sum(s.amount) FROM public.v_landlord_payout_settlement s
+                      WHERE s.state = 'confirmed' AND s.has_weekly_float AND s.float_week_start = b.period_start), 0) AS verified
+      FROM b)
+  SELECT jsonb_build_object('step', 12, 'pass',
+        (SELECT count(*) FROM public.v_landlord_float_payables) = (SELECT count(*) FROM d)
+    AND NOT EXISTS (SELECT 1 FROM d LEFT JOIN public.v_landlord_float_payables f ON f.float_id = d.id
+                     WHERE f.float_id IS NULL OR f.allowance <> d.allowance OR f.verified_paid <> d.verified
+                        OR f.outstanding_amount <> GREATEST(d.allowance - d.verified, 0)
+                        OR f.overspent <> (d.verified > d.allowance)),
+    'floats', (SELECT count(*) FROM d))
     INTO v_json;
   r := r || v_json;
 

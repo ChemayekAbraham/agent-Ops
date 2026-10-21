@@ -2,16 +2,20 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Landlord payables under the CFO's weekly-float rule — data layer for the CFO weekly view
+ * Landlord Float Payout Budget — data layer for the CFO weekly view
  * (migration 20261021100000_landlord_payables_weekly_float).
+ *
+ * The landlord PAYABLE is each weekly landlord float the CFO sets, plus CFO-approved miscellaneous approvals above it,
+ * less landlord payouts made against it that the Receipt Archive has verified (`floats`, `totals.float_payable`).
  *
  * Evidence: the Receipt Archive on the Financial Operations dashboard ONLY. A payout is confirmed only when its
  * completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match,
  * with the transaction ID and amount read from the receipt equal to the withdrawal (and payout) — never because a
  * receipt merely exists, and never from SMS or provider statements.
  *
- * Groups never overlap: confirmed + payable + historical_review + review_only + not_paid = all payouts.
- * `payable_under_review` and `payable_awaiting_receipt` are the two PARTS of `payable` — never add them to it.
+ * Payout groups never overlap: confirmed + in_float_unverified + historical_review + review_only + not_paid = all payouts.
+ * `in_float_unverified` payouts are already inside their float's payable — never add them to it. Payouts paid without
+ * a weekly float and not verified are `historical_review`: neither confirmed nor payable.
  * Dates: `paid_date` is the payout record; `receipt_uploaded_at` is only the receipt upload date; `receipt_date_read`
  * is what the image says (unverified) and is never a payout date.
  */
@@ -53,32 +57,39 @@ export type LandlordPayoutException =
   | 'reference_unusable'
   | 'shared_reference';
 
-export interface LandlordPayablesWeek {
+/** One weekly landlord float (v_landlord_float_payables). */
+export interface LandlordFloatPayable {
+  float_id: string;
   week_start: string;
-  has_weekly_float: boolean;
-  float_set: number | null;
-  approved: number | null;
-  approved_not_paid: number | null;
-  approved_not_paid_count: number | null;
-  paid_out: number;
-  paid_out_count: number;
-  confirmed: number;
-  confirmed_count: number;
-  payable: number;
-  payable_count: number;
-  /** Part of `payable` with a review exception — never add to payable. */
-  payable_under_review: number;
-  payable_under_review_count: number;
-  /** Part of `payable` awaiting receipt evidence or checking — never add to payable. */
-  payable_awaiting_receipt: number;
-  payable_awaiting_receipt_count: number;
-  /** Paid before the archive start and not verifiable by it: neither confirmed nor payable (CFO decision). */
-  historical_review: number;
-  historical_review_count: number;
-  /** Not paid out but needing investigation (e.g. completed_without_payout). */
-  review_only: number;
-  review_only_count: number;
-  receipt_unchecked_count: number;
+  week_end: string;
+  float_set: number;
+  /** CFO-approved miscellaneous approvals above the float. */
+  misc_approved: number;
+  /** float_set + misc_approved. */
+  allowance: number;
+  within_cap_approved: number;
+  approved_count: number;
+  approved_not_paid: number;
+  approved_not_paid_count: number;
+  /** Payouts against this float verified by the Receipt Archive. */
+  verified_paid: number;
+  verified_count: number;
+  /** Paid out but not verified — still inside outstanding_amount. */
+  unverified_paid: number;
+  unverified_count: number;
+  /** The payable: allowance less verified_paid (never below 0). */
+  outstanding_amount: number;
+  overspent: boolean;
+  overspent_amount: number;
+  created_at: string;
+}
+
+/** Historical review (paid without a weekly float, not verified), by payout week. */
+export interface LandlordHistoricalWeek {
+  week_start: string;
+  payouts: number;
+  amount: number;
+  flagged: number;
 }
 
 export interface LandlordPayoutSettlement {
@@ -127,9 +138,8 @@ export interface LandlordPayoutSettlement {
   landlord_receipt_reversed: boolean;
   receipt_state: LandlordReceiptState | null;
   receipt_verified: boolean;
-  archive_from: string;
   state: LandlordPayoutState;
-  /** Within payable only: 'under_review' or 'awaiting_receipt'. */
+  /** In-float unverified payouts only: 'under_review' or 'awaiting_receipt'. */
   payable_class: 'under_review' | 'awaiting_receipt' | null;
   exceptions: LandlordPayoutException[];
   /** The most serious exception (first of `exceptions`). */
@@ -137,42 +147,46 @@ export interface LandlordPayoutSettlement {
   under_review: boolean;
 }
 
+export type LandlordPayoutGroup = 'confirmed' | 'in_float_unverified' | 'historical_review' | 'review_only' | 'not_paid';
+
 export interface LandlordPayablesReport {
   as_at: string;
   rule: string;
-  archive_from: string;
   totals: {
+    /** THE landlord payable: sum of the floats' outstanding_amount. */
+    float_payable: number;
+    floats: number;
+    floats_open: number;
+    float_set: number;
+    misc_approved: number;
+    allowance: number;
+    verified_paid: number;
+    /** Inside float_payable — never add to it. */
+    unverified_paid: number;
+    approved_not_paid: number;
+    overspent_floats: number;
+    overspent_amount: number;
     payouts: number;
     payouts_amount: number;
-    paid_out: number;
-    paid_out_count: number;
     confirmed: number;
     confirmed_count: number;
-    /** Part of confirmed carrying an exception (e.g. failed_but_paid). */
-    confirmed_flagged: number;
     confirmed_flagged_count: number;
-    payable: number;
-    payable_count: number;
-    /** Part of payable — never add to payable. */
-    payable_under_review: number;
-    payable_under_review_count: number;
-    /** Part of payable — never add to payable. */
-    payable_awaiting_receipt: number;
-    payable_awaiting_receipt_count: number;
-    payable_with_weekly_float: number;
-    payable_without_weekly_float: number;
+    /** Inside float_payable — never add to it. */
+    in_float_unverified: number;
+    in_float_unverified_count: number;
+    in_float_under_review_count: number;
     historical_review: number;
     historical_review_count: number;
     review_only: number;
     review_only_count: number;
     not_paid: number;
     not_paid_count: number;
-    approved_not_paid: number;
     exception_count: number;
   };
+  floats: LandlordFloatPayable[];
+  historical_by_week: LandlordHistoricalWeek[];
   /** Count and amount per `group:receipt_state`. */
   receipt_states: Record<string, { count: number; amount: number }>;
-  by_week: LandlordPayablesWeek[];
   exceptions: Array<{
     payout_id: string;
     landlord: string | null;
@@ -181,9 +195,8 @@ export interface LandlordPayablesReport {
     paid_date_source: string | null;
     payout_status: string;
     state: LandlordPayoutState;
-    group: 'confirmed' | 'payable' | 'historical_review' | 'review_only' | 'not_paid';
-    /** true = part of payable. */
-    is_payable: boolean;
+    group: LandlordPayoutGroup;
+    float_week_start: string | null;
     exception: LandlordPayoutException;
     exceptions: LandlordPayoutException[];
     receipt_state: LandlordReceiptState | null;

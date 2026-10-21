@@ -1,37 +1,39 @@
--- 2026-10-21: landlord payables under the CFO's weekly-float rule (payables part 3) — Receipt Archive evidence.
+-- 2026-10-21: payables part 3 — the payables the CFO records, with landlord payouts evidenced by the Receipt Archive.
 --
--- Decided by the CFO (2026-10-20/21):
---   * EVIDENCE: the Receipt Archive on the Financial Operations dashboard is the SOLE evidence source (receipt-copy-guard:
---     the archive has been Welile's sole record of payout receipts since 2026-07-16). Provider SMS, provider statements,
---     phone/amount/date matching and probable matches NEVER confirm a payout.
---   * A landlord payout is CONFIRMED only when ALL of these hold:
---       1. it was paid through a completed withdrawal linked by landlord_payout_id;
---       2. that withdrawal has a receipt token and a proof file that exists in storage;
---       3. the latest machine check (payout_proof_ocr_log) of THAT EXACT file is 'match';
---       4. the transaction ID read from the receipt equals the withdrawal reference, and
---       5. is 11 (MTN) or 12 (Airtel) digits (the provider cannot be established reliably, so no provider-specific length);
---       6. the amount read equals the withdrawal amount, which equals the payout amount;
---       7. no other payout or withdrawal has a receipt with that ID or the same reference;
---       8. no open integrity alert makes the receipt unreliable (invalid_storage_reference, missing_storage_object,
---          sms_image_field_mismatch, ...); 'proof_missing' never blocks on its own: it is raised only when no proof was
---          attached, so it is either stale (file now archived) or the same fact as receipt_missing;
---       9. a missing or unreadable ID or amount is never a match.
---   * A paid-out payout that is not confirmed is PAYABLE, split into payable_under_review (an exception) and
---     payable_awaiting_receipt (no archive record, receipt missing, or never machine-checked). Payouts paid BEFORE the
---     archive start (system_config.landlord_receipt_archive_from, default 2026-07-17) that the archive cannot verify
---     are HISTORICAL REVIEW items for the CFO: neither confirmed nor payable.
---   * landlord_receipt_reversed (review flag only): the payout's CURRENT Welile landlord receipt (landlord_payout_receipts,
---     followed through replacements via replaces_receipt_id) is reversed or refunded and has no valid replacement.
---     That receipt is never payment evidence; the flag never changes a group, an amount or a payout.
---   * Groups do not overlap: confirmed + payable + historical_review + review_only + not_paid = all payouts.
---   * Dates: the payout date is the payout record (withdrawal completed, or FinOps disbursement). The receipt upload time
---     is shown only as the receipt upload date; the date read from a receipt image is shown, never used as a payout date.
---   * Payouts are grouped by the CFO weekly landlord float; payouts without one by the week they were paid.
+-- Decided by the CFO (2026-10-21): the payables recorded in the system are
+--   1. Supporter Returns                (unchanged branch)
+--   2. the Landlord Float Payout Budget  (new: below)
+--   3. agent commission payouts          (unchanged branch)
+--   4. Departmental Budgets              (Part 2, unchanged branch)
+-- User wallet balances, withdrawal requests in flight, agent float withdrawals and payroll are NOT payables any more:
+-- their branches leave v_payables_lines and v_payables_payment_history, and payables_category_frame lists only the four.
+-- (Those balances still exist in wallets and the ledger; this changes only what the payables report records.)
+--
+-- LANDLORD FLOAT PAYOUT BUDGET (v_landlord_float_payables): each current weekly landlord float the CFO sets
+-- (landlord_float_budgets, weekly) is payable at its allowance = the float + CFO-approved miscellaneous approvals above it
+-- (landlord_float_budget_allocations kind 'miscellaneous'), less landlord payouts made against it (allocations by rent
+-- request) that the Receipt Archive has verified. Paid-out but unverified payouts stay inside it; verified payouts above
+-- the allowance flag the float as overspent. One payables line per float, due at the end of its week.
+--
+-- RECEIPT ARCHIVE VERIFICATION (v_landlord_payout_settlement): the Receipt Archive on the Financial Operations
+-- dashboard is the SOLE evidence. A landlord payout is CONFIRMED (verified) only when ALL of these hold:
+--   1. it was paid through a completed withdrawal linked by landlord_payout_id;
+--   2. that withdrawal has a receipt token and a proof file that exists in storage;
+--   3. the latest machine check (payout_proof_ocr_log) of THAT EXACT file is 'match';
+--   4. the transaction ID read from the receipt equals the withdrawal reference, and
+--   5. is 11 (MTN) or 12 (Airtel) digits (the provider cannot be established reliably, so no provider-specific length);
+--   6. the amount read equals the withdrawal amount, which equals the payout amount;
+--   7. no other payout or withdrawal has a receipt with that ID or the same reference;
+--   8. no open integrity alert makes the receipt unreliable ('proof_missing' never blocks on its own);
+--   9. a missing or unreadable ID or amount is never a match.
+-- Provider SMS, provider statements and probable matches never confirm.
+-- Landlord payouts paid out WITHOUT a weekly float (before the float regime) and not verified are HISTORICAL REVIEW items
+-- for the CFO: neither confirmed nor payable. landlord_receipt_reversed flags a payout whose current Welile landlord
+-- receipt is reversed or refunded (flag only). Payout dates come from the payout record, never the receipt upload time.
 --
 -- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt, allocation or status is written; no OCR or
--- approval is run. Requires 20261020210000_budget_payables (its v_payables_lines / v_payables_payment_history bodies are
--- pinned). The two status-based landlord branches of v_payables_lines and the two ledger-based landlord branches of
--- v_payables_payment_history are replaced; every other branch is verbatim.
+-- approval is run. Requires 20261020210000_budget_payables: its v_payables_lines / v_payables_payment_history bodies are
+-- pinned and its category frame is checked; every branch kept is verbatim.
 -- Rollback: supabase/rollbacks/20261021100000_landlord_payables_weekly_float.rollback.sql
 -- Verification (rolled back, read-only): supabase/tests/landlord_payables_weekly_float.sql
 
@@ -45,11 +47,12 @@ BEGIN
   IF md5(pg_get_viewdef('public.v_payables_payment_history'::regclass)) <> '3535fea07816f4dbec42b1a259e38835' THEN
     RAISE EXCEPTION 'precondition failed: v_payables_payment_history is not the definition 20261020210000 created (md5 %); regenerate this migration', md5(pg_get_viewdef('public.v_payables_payment_history'::regclass));
   END IF;
+  IF (SELECT string_agg(category_key || ':' || sort_order, ',' ORDER BY sort_order) FROM public.payables_category_frame()) IS DISTINCT FROM 'user:1,partner:2,landlord:3,agent:4,staff:5,budget:6,other:7' THEN
+    RAISE EXCEPTION 'precondition failed: payables_category_frame is not the one 20261020210000 created; regenerate this migration';
+  END IF;
   IF to_regclass('public.landlord_payouts') IS NULL OR to_regclass('public.withdrawal_requests') IS NULL
      OR to_regclass('public.payout_proof_ocr_log') IS NULL OR to_regclass('public.payout_proof_integrity_alerts') IS NULL
-     OR to_regclass('storage.objects') IS NULL
-     OR to_regclass('public.landlord_float_budget_allocations') IS NULL OR to_regclass('public.landlord_float_budgets') IS NULL
-     OR to_regclass('public.system_config') IS NULL OR to_regclass('public.profiles') IS NULL
+     OR to_regclass('storage.objects') IS NULL OR to_regclass('public.profiles') IS NULL
      OR to_regprocedure('public.landlord_float_week_start(date)') IS NULL OR to_regprocedure('public.payables_guard()') IS NULL
      OR (SELECT count(*) FROM information_schema.columns
           WHERE table_schema = 'public' AND table_name = 'withdrawal_requests'
@@ -64,24 +67,22 @@ BEGIN
             AND column_name IN ('withdrawal_id', 'issue_type', 'resolved')) <> 3
      OR (SELECT count(*) FROM information_schema.columns
           WHERE table_schema = 'public' AND table_name = 'landlord_payout_receipts'
-            AND column_name IN ('id', 'payout_id', 'receipt_number', 'status', 'reversed_at', 'replaces_receipt_id', 'created_at')) <> 7 THEN
+            AND column_name IN ('id', 'payout_id', 'receipt_number', 'status', 'reversed_at', 'replaces_receipt_id', 'created_at')) <> 7
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'landlord_float_budgets'
+            AND column_name IN ('id', 'period_type', 'period_start', 'period_end', 'amount', 'superseded_at', 'created_at')) <> 7
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'landlord_float_budget_allocations'
+            AND column_name IN ('rent_request_id', 'kind', 'amount', 'week_start', 'approved_at', 'released_at')) <> 6 THEN
     RAISE EXCEPTION 'precondition failed: a table, column or function this migration depends on is missing';
   END IF;
 END
 $pre$;
 
-INSERT INTO public.system_config (key, value, updated_at)
-VALUES ('landlord_receipt_archive_from', to_jsonb('2026-07-17'::text), now())
-ON CONFLICT (key) DO NOTHING;
-
 -- 1. One row per landlord payout: paid out?, which weekly float, its Receipt Archive evidence check by check,
 --    the group it belongs to and its exceptions.
 CREATE OR REPLACE VIEW public.v_landlord_payout_settlement AS
-WITH cfg AS (
-  SELECT COALESCE((SELECT (c.value #>> '{}')::date FROM public.system_config c WHERE c.key = 'landlord_receipt_archive_from'),
-                  DATE '2026-07-17') AS archive_from
-),
-wr AS (                          -- the completed withdrawal that paid the landlord: its Receipt Archive record
+WITH wr AS (                          -- the completed withdrawal that paid the landlord: its Receipt Archive record
   SELECT DISTINCT ON (w.landlord_payout_id)
          w.landlord_payout_id, w.id AS withdrawal_id, w.processed_at, w.amount AS paid_amount,
          w.receipt_token, w.payout_proof_path, COALESCE(w.payout_proof_bucket, 'payment-proofs') AS proof_bucket,
@@ -95,6 +96,9 @@ alloc AS (                       -- the CFO weekly landlord float that approved 
   SELECT DISTINCT ON (a.rent_request_id) a.rent_request_id, a.week_start, a.weekly_budget_id, a.kind
     FROM public.landlord_float_budget_allocations a
    WHERE a.released_at IS NULL AND a.rent_request_id IS NOT NULL
+     -- only a week that has a current weekly float: otherwise the payout would be in no float's payable
+     AND EXISTS (SELECT 1 FROM public.landlord_float_budgets b
+                  WHERE b.period_type = 'weekly' AND b.superseded_at IS NULL AND b.period_start = a.week_start)
    ORDER BY a.rent_request_id, a.approved_at DESC NULLS LAST
 ),
 base AS (
@@ -245,15 +249,14 @@ SELECT r.payout_id, r.rent_request_id, r.landlord_id, r.landlord_name, r.landlor
          WHEN r.duplicated THEN 'receipt_duplicate'
          WHEN cardinality(r.blocking_alerts) > 0 THEN 'receipt_alert_open'
          ELSE 'receipt_verified'
-       END AS receipt_state,
-       cfg.archive_from
-  FROM rc r CROSS JOIN cfg
+       END AS receipt_state
+  FROM rc r
 ),
 st AS (
 SELECT f.*,
        f.receipt_state = 'receipt_verified' AS receipt_verified,
        CASE WHEN f.paid_out AND f.receipt_state = 'receipt_verified' THEN 'confirmed'
-            WHEN f.paid_out AND f.paid_date < f.archive_from THEN 'historical_review'
+            WHEN f.paid_out AND NOT f.has_weekly_float THEN 'historical_review'
             WHEN f.paid_out THEN 'paid_unconfirmed'
             WHEN f.payout_status = 'failed' THEN 'failed'
             ELSE 'not_paid' END AS state
@@ -289,45 +292,66 @@ SELECT ex.*,
        END AS payable_class
   FROM ex;
 
--- 2. The payables list: every non-landlord branch verbatim (incl. Part 2's budget branch); the two status-based
---    landlord branches become one Receipt-Archive branch (payable only).
+-- 2. One row per weekly landlord float: allowance, verified and unverified payouts, the outstanding payable.
+CREATE OR REPLACE VIEW public.v_landlord_float_payables AS
+WITH fl AS (                     -- the CFO's current weekly landlord float, one per week
+  SELECT DISTINCT ON (b.period_start) b.id AS float_id, b.period_start AS week_start, b.period_end AS week_end, b.amount AS float_set, b.created_at
+    FROM public.landlord_float_budgets b
+   WHERE b.period_type = 'weekly' AND b.superseded_at IS NULL
+   ORDER BY b.period_start, b.created_at DESC, b.id
+),
+al AS (                          -- approvals against each float (live allocations); miscellaneous = CFO-approved above the cap
+  SELECT a.week_start, a.rent_request_id, a.kind, a.amount
+    FROM public.landlord_float_budget_allocations a
+   WHERE a.released_at IS NULL
+),
+paid_rr AS (                     -- rent requests whose landlord payout has been paid out
+  SELECT DISTINCT s.rent_request_id FROM public.v_landlord_payout_settlement s WHERE s.paid_out AND s.rent_request_id IS NOT NULL
+),
+agg_al AS (
+  SELECT al.week_start,
+         COALESCE(sum(al.amount) FILTER (WHERE al.kind = 'within_cap'), 0)    AS within_cap_approved,
+         COALESCE(sum(al.amount) FILTER (WHERE al.kind = 'miscellaneous'), 0) AS misc_approved,
+         count(*)                                                             AS approved_count,
+         COALESCE(sum(al.amount) FILTER (WHERE p.rent_request_id IS NULL), 0)  AS approved_not_paid,
+         count(*) FILTER (WHERE p.rent_request_id IS NULL)                    AS approved_not_paid_count
+    FROM al LEFT JOIN paid_rr p ON p.rent_request_id = al.rent_request_id
+   GROUP BY al.week_start
+),
+agg_pay AS (                     -- landlord payouts made against each float, by Receipt Archive verification
+  SELECT s.float_week_start AS week_start,
+         COALESCE(sum(s.amount) FILTER (WHERE s.state = 'confirmed'), 0)        AS verified_paid,
+         count(*) FILTER (WHERE s.state = 'confirmed')                          AS verified_count,
+         COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed'), 0) AS unverified_paid,
+         count(*) FILTER (WHERE s.state = 'paid_unconfirmed')                   AS unverified_count
+    FROM public.v_landlord_payout_settlement s
+   WHERE s.has_weekly_float
+   GROUP BY s.float_week_start
+)
+SELECT fl.float_id, fl.week_start, fl.week_end, fl.float_set,
+       COALESCE(a.misc_approved, 0)                               AS misc_approved,
+       fl.float_set + COALESCE(a.misc_approved, 0)                 AS allowance,
+       COALESCE(a.within_cap_approved, 0)                         AS within_cap_approved,
+       COALESCE(a.approved_count, 0)                              AS approved_count,
+       COALESCE(a.approved_not_paid, 0)                           AS approved_not_paid,
+       COALESCE(a.approved_not_paid_count, 0)                     AS approved_not_paid_count,
+       COALESCE(p.verified_paid, 0)                               AS verified_paid,
+       COALESCE(p.verified_count, 0)                              AS verified_count,
+       COALESCE(p.unverified_paid, 0)                             AS unverified_paid,
+       COALESCE(p.unverified_count, 0)                            AS unverified_count,
+       -- The payable: the allowance (float + CFO-approved miscellaneous) less payouts the Receipt Archive has verified.
+       -- Paid-out but unverified payouts stay inside it.
+       GREATEST(fl.float_set + COALESCE(a.misc_approved, 0) - COALESCE(p.verified_paid, 0), 0) AS outstanding_amount,
+       (COALESCE(p.verified_paid, 0) > fl.float_set + COALESCE(a.misc_approved, 0))           AS overspent,
+       GREATEST(COALESCE(p.verified_paid, 0) - fl.float_set - COALESCE(a.misc_approved, 0), 0) AS overspent_amount,
+       fl.created_at
+  FROM fl
+  LEFT JOIN agg_al a ON a.week_start = fl.week_start
+  LEFT JOIN agg_pay p ON p.week_start = fl.week_start;
+
+-- 3. The payables list: Supporter Returns, the landlord float payout budget, agent commission payouts and
+--    departmental budgets. Kept branches are verbatim; out-of-scope branches are removed.
 CREATE OR REPLACE VIEW public.v_payables_lines AS
-SELECT 'user'::text AS category_key,
-    'User Wallets & Withdrawals'::text AS category_label,
-    'withdrawal_request'::text AS product_key,
-    'Withdrawal Requests In Flight'::text AS product_label,
-    'withdrawal_requests'::text AS source_table,
-    w.id AS item_id,
-    w.user_id AS counterparty_id,
-    COALESCE(p.full_name, 'Unknown user'::text) AS counterparty_name,
-    GREATEST(COALESCE(w.amount, 0::numeric), 0::numeric) AS outstanding_amount,
-    (w.created_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS due_date,
-    'scheduled'::text AS due_kind,
-    0::numeric AS daily_amount,
-    w.status,
-    w.created_at
-   FROM withdrawal_requests w
-     LEFT JOIN profiles p ON p.id = w.user_id
-  WHERE (w.status = ANY (ARRAY['pending'::text, 'approved'::text, 'processing'::text, 're_approved_for_recovery'::text])) AND COALESCE(w.amount, 0::numeric) > 0::numeric
-UNION ALL
- SELECT 'user'::text AS category_key,
-    'User Wallets & Withdrawals'::text AS category_label,
-    'wallet_balance'::text AS product_key,
-    'Withdrawable Wallet Balances'::text AS product_label,
-    'wallets'::text AS source_table,
-    wl.id AS item_id,
-    wl.user_id AS counterparty_id,
-    COALESCE(p.full_name, 'Unknown user'::text) AS counterparty_name,
-    GREATEST(COALESCE(wl.withdrawable_balance, 0::numeric), 0::numeric) AS outstanding_amount,
-    NULL::date AS due_date,
-    'projected'::text AS due_kind,
-    0::numeric AS daily_amount,
-    'available'::text AS status,
-    wl.created_at
-   FROM wallets wl
-     LEFT JOIN profiles p ON p.id = wl.user_id
-  WHERE COALESCE(wl.withdrawable_balance, 0::numeric) > 0::numeric
-UNION ALL
  SELECT 'partner'::text AS category_key,
     'Supporter Returns & Capital'::text AS category_label,
     'supporter_returns'::text AS product_key,
@@ -347,22 +371,25 @@ UNION ALL
   WHERE ip.status = 'active'::text AND ip.next_roi_date IS NOT NULL AND (COALESCE(ip.investment_amount, 0::numeric) * COALESCE(ip.roi_percentage, 0::numeric)) > 0::numeric
 UNION ALL
  SELECT 'landlord'::text AS category_key,
-    'Landlord Rent Payouts'::text AS category_label,
-    'landlord_payout'::text AS product_key,
-    'Landlord Payouts — paid out, receipt not yet verified in the Receipt Archive'::text AS product_label,
-    'landlord_payouts'::text AS source_table,
-    s.payout_id AS item_id,
-    s.landlord_id AS counterparty_id,
-    COALESCE(NULLIF(s.landlord_name, ''::text), 'Unknown landlord'::text) AS counterparty_name,
-    GREATEST(COALESCE(s.amount, 0::numeric), 0::numeric) AS outstanding_amount,
-    s.paid_date AS due_date,
+    'Landlord Float Payout Budget'::text AS category_label,
+    CASE WHEN f.overspent THEN 'landlord_float_overspent'::text ELSE 'landlord_float_budget'::text END AS product_key,
+    CASE WHEN f.overspent THEN 'Landlord float — overspent (verified payouts above the float)'::text
+         ELSE 'Weekly Landlord Float Budget'::text END AS product_label,
+    'landlord_float_budgets'::text AS source_table,
+    f.float_id AS item_id,
+    NULL::uuid AS counterparty_id,
+    ('Landlord float, week of '::text || to_char(f.week_start::timestamp without time zone, 'DD Mon YYYY'::text)) AS counterparty_name,
+    f.outstanding_amount,
+    f.week_end AS due_date,
     'scheduled'::text AS due_kind,
     0::numeric AS daily_amount,
-    COALESCE(s.exception, s.receipt_state) AS status,
-    s.created_at
-   FROM public.v_landlord_payout_settlement s
-  -- Paid out (after the archive start) and not verified by the Receipt Archive: the landlord payable.
-  WHERE s.state = 'paid_unconfirmed'::text AND COALESCE(s.amount, 0::numeric) > 0::numeric
+    CASE WHEN f.overspent THEN 'overspent'::text
+         WHEN f.unverified_count > 0 THEN 'receipts_pending'::text
+         ELSE 'open'::text END AS status,
+    f.created_at
+   FROM public.v_landlord_float_payables f
+  -- Each weekly landlord float is payable until landlord payouts made against it are verified by the Receipt Archive.
+  WHERE f.outstanding_amount > 0::numeric OR f.overspent
 UNION ALL
  SELECT 'agent'::text AS category_key,
     'Agent Payables'::text AS category_label,
@@ -381,42 +408,6 @@ UNION ALL
    FROM agent_commission_payouts cp
      LEFT JOIN profiles p ON p.id = cp.agent_id
   WHERE (cp.status = ANY (ARRAY['pending'::text, 'approved'::text])) AND COALESCE(cp.amount, 0::numeric) > 0::numeric
-UNION ALL
- SELECT 'agent'::text AS category_key,
-    'Agent Payables'::text AS category_label,
-    'agent_float_withdrawal'::text AS product_key,
-    'Agent Float Withdrawals In Flight'::text AS product_label,
-    'agent_float_withdrawals'::text AS source_table,
-    fw.id AS item_id,
-    fw.agent_id AS counterparty_id,
-    COALESCE(p.full_name, 'Unknown agent'::text) AS counterparty_name,
-    GREATEST(COALESCE(fw.amount, 0::numeric), 0::numeric) AS outstanding_amount,
-    (fw.created_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS due_date,
-    'scheduled'::text AS due_kind,
-    0::numeric AS daily_amount,
-    fw.status,
-    fw.created_at
-   FROM agent_float_withdrawals fw
-     LEFT JOIN profiles p ON p.id = fw.agent_id
-  WHERE (fw.status = ANY (ARRAY['pending'::text, 'agent_ops_approved'::text, 'manager_approved'::text, 'processing'::text])) AND COALESCE(fw.amount, 0::numeric) > 0::numeric
-UNION ALL
- SELECT 'staff'::text AS category_key,
-    'Payroll & Staff'::text AS category_label,
-    'payroll_disbursement'::text AS product_key,
-    'Payroll Disbursements Pending'::text AS product_label,
-    'hr_pay_disbursements'::text AS source_table,
-    d.id AS item_id,
-    d.user_id AS counterparty_id,
-    COALESCE(p.full_name, 'Staff member'::text) AS counterparty_name,
-    GREATEST(COALESCE(d.amount, 0::numeric), 0::numeric) AS outstanding_amount,
-    (d.created_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS due_date,
-    'scheduled'::text AS due_kind,
-    0::numeric AS daily_amount,
-    d.status,
-    d.created_at
-   FROM hr_pay_disbursements d
-     LEFT JOIN profiles p ON p.id = d.user_id
-  WHERE (COALESCE(d.status, ''::text) <> ALL (ARRAY['posted'::text, 'cancelled'::text, 'reversed'::text])) AND COALESCE(d.amount, 0::numeric) > 0::numeric
 UNION ALL
  SELECT 'budget'::text AS category_key,
     'Departmental Budgets'::text AS category_label,
@@ -439,15 +430,8 @@ UNION ALL
   -- B3: an overspent line stays on the report (amount 0, its own product and status) instead of vanishing.
   WHERE b.outstanding_amount > 0::numeric OR b.overspent;
 
--- 3. Paid history: landlord payouts verified by the Receipt Archive, dated by the payout record.
+-- 4. Paid history for the same categories; landlord payouts verified by the Receipt Archive, dated by the payout record.
 CREATE OR REPLACE VIEW public.v_payables_payment_history AS
-SELECT 'user'::text AS category_key,
-    'withdrawal_request'::text AS product_key,
-    (COALESCE(w.processed_at, w.updated_at) AT TIME ZONE 'Africa/Nairobi'::text)::date AS d,
-    COALESCE(w.amount, 0::numeric) AS amount
-   FROM withdrawal_requests w
-  WHERE (w.status = ANY (ARRAY['completed'::text, 'paid'::text])) AND COALESCE(w.processed_at, w.updated_at) IS NOT NULL
-UNION ALL
  SELECT 'partner'::text AS category_key,
     'supporter_returns'::text AS product_key,
     (g.transaction_date AT TIME ZONE 'Africa/Nairobi'::text)::date AS d,
@@ -470,13 +454,6 @@ UNION ALL
    FROM general_ledger g
   WHERE g.direction = 'cash_out'::text AND g.ledger_scope = 'platform'::text AND g.category = 'agent_commission_payable'::text
 UNION ALL
- SELECT 'staff'::text AS category_key,
-    'payroll_disbursement'::text AS product_key,
-    (g.transaction_date AT TIME ZONE 'Africa/Nairobi'::text)::date AS d,
-    COALESCE(g.amount, 0::numeric) AS amount
-   FROM general_ledger g
-  WHERE g.direction = 'cash_out'::text AND g.ledger_scope = 'platform'::text AND g.category = 'salary_payout'::text
-UNION ALL
  SELECT 'budget'::text AS category_key,
     'department_budget'::text AS product_key,
     (w.credited_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS d,
@@ -495,7 +472,23 @@ UNION ALL
                    WHEN 'director_requisitions' THEN (SELECT d.budget_line_id FROM public.director_requisitions d WHERE d.id = w.requisition_id)
                  END);
 
--- 4. The CFO weekly view (and, with p_week_start, that week's payouts).
+-- 5. The categories the payables reporting functions group by: the four payables (and 'other').
+CREATE OR REPLACE FUNCTION public.payables_category_frame()
+ RETURNS TABLE(category_key text, category_label text, sort_order integer)
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT * FROM (VALUES
+    ('partner','Supporter Returns & Capital',1),
+    ('landlord','Landlord Float Payout Budget',2),
+    ('agent','Agent Commissions',3),
+    ('budget','Departmental Budgets',4),
+    ('other','Unclassified / Other',5)
+  ) f(category_key, category_label, sort_order)
+$function$;
+
+-- 6. The CFO weekly view (and, with p_week_start, that week's payouts).
 CREATE OR REPLACE FUNCTION public.get_landlord_payables_by_week(p_week_start date DEFAULT NULL, p_weekly_float boolean DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -506,101 +499,60 @@ DECLARE
   v jsonb;
 BEGIN
   PERFORM public.payables_guard();
-  -- Every payout is in exactly ONE top-level group, so groups can be added: confirmed + payable + historical_review +
-  -- review_only + not_paid = all payouts. payable = payable_under_review + payable_awaiting_receipt (its two parts,
-  -- never added to payable again). confirmed_flagged is a part of confirmed.
+  -- The landlord PAYABLE is each weekly float's outstanding allowance (v_landlord_float_payables).
+  -- Landlord payouts are in exactly ONE group: confirmed + in_float_unverified + historical_review + review_only +
+  -- not_paid = all payouts. in_float_unverified payouts are already inside their float's payable: never add them to it.
   WITH s0 AS MATERIALIZED (
     SELECT s.*,
            CASE WHEN s.state = 'confirmed' THEN 'confirmed'
-                WHEN s.state = 'paid_unconfirmed' THEN 'payable'
+                WHEN s.state = 'paid_unconfirmed' THEN 'in_float_unverified'
                 WHEN s.state = 'historical_review' THEN 'historical_review'
                 WHEN s.under_review THEN 'review_only'
                 ELSE 'not_paid' END AS grp
       FROM public.v_landlord_payout_settlement s),
-  al AS (
-    SELECT a.week_start, sum(a.amount) AS allocated, count(*) AS allocated_count,
-           COALESCE(sum(a.amount) FILTER (WHERE NOT EXISTS (SELECT 1 FROM s0 s WHERE s.rent_request_id = a.rent_request_id AND s.paid_out)), 0) AS approved_not_paid,
-           count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM s0 s WHERE s.rent_request_id = a.rent_request_id AND s.paid_out)) AS approved_not_paid_count
-      FROM public.landlord_float_budget_allocations a
-     WHERE a.released_at IS NULL
-     GROUP BY a.week_start),
-  fl AS (
-    SELECT DISTINCT ON (b.period_start) b.period_start, b.amount
-      FROM public.landlord_float_budgets b
-     WHERE b.period_type = 'weekly' AND b.superseded_at IS NULL
-     ORDER BY b.period_start, b.created_at DESC),
-  pw AS (
-    SELECT s.report_week_start AS week_start, s.has_weekly_float,
-           COALESCE(sum(s.amount) FILTER (WHERE s.paid_out), 0) AS paid_out, count(*) FILTER (WHERE s.paid_out) AS paid_out_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'confirmed'), 0) AS confirmed, count(*) FILTER (WHERE s.grp = 'confirmed') AS confirmed_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'payable'), 0) AS payable, count(*) FILTER (WHERE s.grp = 'payable') AS payable_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.payable_class = 'under_review'), 0) AS payable_under_review,
-           count(*) FILTER (WHERE s.payable_class = 'under_review') AS payable_under_review_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.payable_class = 'awaiting_receipt'), 0) AS payable_awaiting_receipt,
-           count(*) FILTER (WHERE s.payable_class = 'awaiting_receipt') AS payable_awaiting_receipt_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'historical_review'), 0) AS historical_review,
-           count(*) FILTER (WHERE s.grp = 'historical_review') AS historical_review_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'review_only'), 0) AS review_only,
-           count(*) FILTER (WHERE s.grp = 'review_only') AS review_only_count,
-           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.receipt_state = 'receipt_unchecked') AS receipt_unchecked_count
-      FROM s0 s
-     GROUP BY 1, 2
-    HAVING count(*) FILTER (WHERE s.paid_out) > 0 OR count(*) FILTER (WHERE s.grp = 'review_only') > 0),
-  wk AS (
-    SELECT week_start, true AS has_weekly_float FROM al
-    UNION SELECT period_start, true FROM fl
-    UNION SELECT week_start, has_weekly_float FROM pw),
-  rows AS (
-    SELECT w.week_start, w.has_weekly_float,
-           CASE WHEN w.has_weekly_float THEN f.amount END AS float_set,
-           CASE WHEN w.has_weekly_float THEN COALESCE(a.allocated, 0) END AS approved,
-           CASE WHEN w.has_weekly_float THEN COALESCE(a.approved_not_paid, 0) END AS approved_not_paid,
-           CASE WHEN w.has_weekly_float THEN COALESCE(a.approved_not_paid_count, 0) END AS approved_not_paid_count,
-           COALESCE(p.paid_out, 0) AS paid_out, COALESCE(p.paid_out_count, 0) AS paid_out_count,
-           COALESCE(p.confirmed, 0) AS confirmed, COALESCE(p.confirmed_count, 0) AS confirmed_count,
-           COALESCE(p.payable, 0) AS payable, COALESCE(p.payable_count, 0) AS payable_count,
-           COALESCE(p.payable_under_review, 0) AS payable_under_review, COALESCE(p.payable_under_review_count, 0) AS payable_under_review_count,
-           COALESCE(p.payable_awaiting_receipt, 0) AS payable_awaiting_receipt, COALESCE(p.payable_awaiting_receipt_count, 0) AS payable_awaiting_receipt_count,
-           COALESCE(p.historical_review, 0) AS historical_review, COALESCE(p.historical_review_count, 0) AS historical_review_count,
-           COALESCE(p.review_only, 0) AS review_only, COALESCE(p.review_only_count, 0) AS review_only_count,
-           COALESCE(p.receipt_unchecked_count, 0) AS receipt_unchecked_count
-      FROM wk w
-      LEFT JOIN al a ON w.has_weekly_float AND a.week_start = w.week_start
-      LEFT JOIN fl f ON w.has_weekly_float AND f.period_start = w.week_start
-      LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float)
+  f0 AS MATERIALIZED (SELECT * FROM public.v_landlord_float_payables)
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'Evidence: the Receipt Archive only (a reversed Welile landlord receipt is flagged for review, never used as evidence). A landlord payout is confirmed only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, the transaction ID read from the receipt equals the withdrawal reference (11 or 12 digits), the amount read equals the withdrawal and payout amounts, the ID and reference are used by no other payout, and no open integrity alert makes the receipt unreliable. SMS and provider statements never confirm a payout. Paid-out payouts not confirmed are payable, except those paid before the archive start date, which are historical review items for the CFO. Groups do not overlap; payable_under_review and payable_awaiting_receipt are the two parts of payable.',
-    'archive_from', (SELECT max(archive_from) FROM s0),
-    'totals', (SELECT jsonb_build_object(
-        'payouts', count(*), 'payouts_amount', COALESCE(sum(amount), 0),
-        'paid_out', COALESCE(sum(amount) FILTER (WHERE paid_out), 0), 'paid_out_count', count(*) FILTER (WHERE paid_out),
-        'confirmed', COALESCE(sum(amount) FILTER (WHERE grp = 'confirmed'), 0), 'confirmed_count', count(*) FILTER (WHERE grp = 'confirmed'),
-        'confirmed_flagged', COALESCE(sum(amount) FILTER (WHERE grp = 'confirmed' AND under_review), 0),
-        'confirmed_flagged_count', count(*) FILTER (WHERE grp = 'confirmed' AND under_review),
-        'payable', COALESCE(sum(amount) FILTER (WHERE grp = 'payable'), 0), 'payable_count', count(*) FILTER (WHERE grp = 'payable'),
-        'payable_under_review', COALESCE(sum(amount) FILTER (WHERE payable_class = 'under_review'), 0),
-        'payable_under_review_count', count(*) FILTER (WHERE payable_class = 'under_review'),
-        'payable_awaiting_receipt', COALESCE(sum(amount) FILTER (WHERE payable_class = 'awaiting_receipt'), 0),
-        'payable_awaiting_receipt_count', count(*) FILTER (WHERE payable_class = 'awaiting_receipt'),
-        'payable_with_weekly_float', COALESCE(sum(amount) FILTER (WHERE grp = 'payable' AND has_weekly_float), 0),
-        'payable_without_weekly_float', COALESCE(sum(amount) FILTER (WHERE grp = 'payable' AND NOT has_weekly_float), 0),
-        'historical_review', COALESCE(sum(amount) FILTER (WHERE grp = 'historical_review'), 0),
-        'historical_review_count', count(*) FILTER (WHERE grp = 'historical_review'),
-        'review_only', COALESCE(sum(amount) FILTER (WHERE grp = 'review_only'), 0), 'review_only_count', count(*) FILTER (WHERE grp = 'review_only'),
-        'not_paid', COALESCE(sum(amount) FILTER (WHERE grp = 'not_paid'), 0), 'not_paid_count', count(*) FILTER (WHERE grp = 'not_paid'),
-        'approved_not_paid', (SELECT COALESCE(sum(approved_not_paid), 0) FROM al),
-        'exception_count', count(*) FILTER (WHERE under_review))
-      FROM s0),
+    'rule', 'The landlord payable is each weekly landlord float the CFO sets (plus CFO-approved miscellaneous approvals above it), less landlord payouts made against it that the Receipt Archive has verified. A payout is verified only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, with the transaction ID (11 or 12 digits) and amount read from it equal to the withdrawal and payout, used by no other payout, with no blocking alert. SMS and provider statements never verify. Payouts paid without a weekly float and not verified are historical review items, outside the payable. Groups never overlap.',
+    'totals', jsonb_build_object(
+        'float_payable', (SELECT COALESCE(sum(outstanding_amount), 0) FROM f0),
+        'floats', (SELECT count(*) FROM f0),
+        'floats_open', (SELECT count(*) FROM f0 WHERE outstanding_amount > 0 OR overspent),
+        'float_set', (SELECT COALESCE(sum(float_set), 0) FROM f0),
+        'misc_approved', (SELECT COALESCE(sum(misc_approved), 0) FROM f0),
+        'allowance', (SELECT COALESCE(sum(allowance), 0) FROM f0),
+        'verified_paid', (SELECT COALESCE(sum(verified_paid), 0) FROM f0),
+        'unverified_paid', (SELECT COALESCE(sum(unverified_paid), 0) FROM f0),
+        'approved_not_paid', (SELECT COALESCE(sum(approved_not_paid), 0) FROM f0),
+        'overspent_floats', (SELECT count(*) FROM f0 WHERE overspent),
+        'overspent_amount', (SELECT COALESCE(sum(overspent_amount), 0) FROM f0),
+        'payouts', (SELECT count(*) FROM s0), 'payouts_amount', (SELECT COALESCE(sum(amount), 0) FROM s0),
+        'confirmed', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'confirmed'),
+        'confirmed_count', (SELECT count(*) FROM s0 WHERE grp = 'confirmed'),
+        'confirmed_flagged_count', (SELECT count(*) FROM s0 WHERE grp = 'confirmed' AND under_review),
+        'in_float_unverified', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'in_float_unverified'),
+        'in_float_unverified_count', (SELECT count(*) FROM s0 WHERE grp = 'in_float_unverified'),
+        'in_float_under_review_count', (SELECT count(*) FROM s0 WHERE grp = 'in_float_unverified' AND under_review),
+        'historical_review', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'historical_review'),
+        'historical_review_count', (SELECT count(*) FROM s0 WHERE grp = 'historical_review'),
+        'review_only', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'review_only'),
+        'review_only_count', (SELECT count(*) FROM s0 WHERE grp = 'review_only'),
+        'not_paid', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'not_paid'),
+        'not_paid_count', (SELECT count(*) FROM s0 WHERE grp = 'not_paid'),
+        'exception_count', (SELECT count(*) FROM s0 WHERE under_review)),
+    'floats', (SELECT COALESCE(jsonb_agg(to_jsonb(f) ORDER BY f.week_start DESC), '[]'::jsonb) FROM f0 f),
+    'historical_by_week', (SELECT COALESCE(jsonb_agg(to_jsonb(h) ORDER BY h.week_start DESC), '[]'::jsonb) FROM (
+        SELECT report_week_start AS week_start, count(*) AS payouts, sum(amount) AS amount,
+               count(*) FILTER (WHERE under_review) AS flagged
+          FROM s0 WHERE grp = 'historical_review' GROUP BY 1) h),
     'receipt_states', (SELECT COALESCE(jsonb_object_agg(k, x), '{}'::jsonb) FROM (
         SELECT grp || ':' || COALESCE(receipt_state, 'not_paid_out') AS k,
                jsonb_build_object('count', count(*), 'amount', COALESCE(sum(amount), 0)) AS x
           FROM s0 GROUP BY 1) q),
-    'by_week', (SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.week_start DESC, r.has_weekly_float DESC), '[]'::jsonb) FROM rows r),
     'exceptions', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
           'payout_id', s.payout_id, 'landlord', s.landlord_name, 'amount', s.amount, 'paid_date', s.paid_date,
           'paid_date_source', s.paid_date_source, 'payout_status', s.payout_status, 'state', s.state, 'group', s.grp,
-          'is_payable', s.grp = 'payable', 'exception', s.exception, 'exceptions', to_jsonb(s.exceptions),
+          'float_week_start', s.float_week_start, 'exception', s.exception, 'exceptions', to_jsonb(s.exceptions),
           'receipt_state', s.receipt_state, 'paid_amount', s.paid_amount, 'payout_reference', s.payout_reference,
           'receipt_token', s.receipt_token, 'receipt_check_result', s.receipt_check_result, 'receipt_check_code', s.receipt_check_code,
           'receipt_tid_read', s.receipt_tid_read, 'receipt_amount_read', s.receipt_amount_read,
@@ -624,9 +576,11 @@ BEGIN
 END;
 $function$;
 
--- 5. Grants. The view stays service_role only; the RPC checks roles itself (payables_guard).
+-- 7. Grants. Views stay service_role only; the RPC checks roles itself (payables_guard).
 REVOKE ALL ON public.v_landlord_payout_settlement FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_landlord_payout_settlement TO service_role;
+REVOKE ALL ON public.v_landlord_float_payables FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.v_landlord_float_payables TO service_role;
 REVOKE ALL ON public.v_payables_lines FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_payables_lines TO service_role;
 REVOKE ALL ON public.v_payables_payment_history FROM PUBLIC, anon, authenticated;

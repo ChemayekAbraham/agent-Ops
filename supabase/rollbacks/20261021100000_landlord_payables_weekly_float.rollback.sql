@@ -1,13 +1,14 @@
 -- Rollback for 20261021100000_landlord_payables_weekly_float.sql
--- Restores v_payables_lines and v_payables_payment_history to the exact bodies 20261020210000 created and removes the
--- settlement view, the weekly function and the archive-start setting. Nothing else was created by this migration.
+-- Restores v_payables_lines, v_payables_payment_history and payables_category_frame to exactly what 20261020210000
+-- created, and removes the float view, the settlement view and the weekly function. Nothing else was created.
 -- ORDER: roll this back BEFORE 20261020210000_budget_payables.
 
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
-  IF position('v_landlord_payout_settlement' IN pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
-     OR position('v_landlord_payout_settlement' IN pg_get_viewdef('public.v_payables_payment_history'::regclass)) = 0 THEN
+  IF position('v_landlord_float_payables' IN pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
+     OR position('v_landlord_payout_settlement' IN pg_get_viewdef('public.v_payables_payment_history'::regclass)) = 0
+     OR (SELECT string_agg(category_key || ':' || sort_order, ',' ORDER BY sort_order) FROM public.payables_category_frame()) IS DISTINCT FROM 'partner:1,landlord:2,agent:3,budget:4,other:5' THEN
     RAISE EXCEPTION 'precondition failed: the payables views are no longer the ones 20261021100000 created; reverse it by hand';
   END IF;
 END
@@ -240,9 +241,26 @@ UNION ALL
                    WHEN 'director_requisitions' THEN (SELECT d.budget_line_id FROM public.director_requisitions d WHERE d.id = w.requisition_id)
                  END);
 
+CREATE OR REPLACE FUNCTION public.payables_category_frame()
+ RETURNS TABLE(category_key text, category_label text, sort_order integer)
+ LANGUAGE sql
+ IMMUTABLE
+ SET search_path TO 'public'
+AS $function$
+  SELECT * FROM (VALUES
+    ('user','User Wallets & Withdrawals',1),
+    ('partner','Supporter Returns & Capital',2),
+    ('landlord','Landlord Rent Payouts',3),
+    ('agent','Agent Payables',4),
+    ('staff','Payroll & Staff',5),
+    ('budget','Departmental Budgets',6),
+    ('other','Unclassified / Other',7)
+  ) f(category_key, category_label, sort_order)
+$function$;
+
 DROP FUNCTION IF EXISTS public.get_landlord_payables_by_week(date, boolean);
+DROP VIEW IF EXISTS public.v_landlord_float_payables;
 DROP VIEW IF EXISTS public.v_landlord_payout_settlement;
-DELETE FROM public.system_config WHERE key = 'landlord_receipt_archive_from';
 
 REVOKE ALL ON public.v_payables_lines FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_payables_lines TO service_role;
