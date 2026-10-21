@@ -55,7 +55,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // Page access: staff (manager), COO and Partner Ops. Countersign
   // authority itself is still decided server-side by the agreement
   // generator (operations/manager/coo/partner_ops with active roles).
-  const canManageOnboarding = ['manager', 'partner_ops', 'coo'].some(r => roles.includes(r));
+  const canManageOnboarding = (['manager', 'partner_ops', 'coo'] as const).some(r => roles.includes(r));
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
