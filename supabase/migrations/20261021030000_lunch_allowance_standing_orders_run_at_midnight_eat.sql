@@ -33,6 +33,8 @@ BEGIN
 END;
 $function$;
 
+DROP TRIGGER IF EXISTS trg_snap_lunch_allowance_next_run ON public.scheduled_payouts;
+
 CREATE TRIGGER trg_snap_lunch_allowance_next_run
   BEFORE INSERT ON public.scheduled_payouts
   FOR EACH ROW EXECUTE FUNCTION public.snap_lunch_allowance_next_run();
