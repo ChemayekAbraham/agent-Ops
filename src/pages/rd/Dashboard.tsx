@@ -9,7 +9,7 @@ import {
 import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Save, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
@@ -182,7 +182,7 @@ const DEFAULT_IDEAS: IdeaRow[] = [
 ];
 const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
 
-function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> }) {
+function BusinessIdeasCashTable({ rows, setRows, onSave, saving, dirty }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>>; onSave: () => void; saving: boolean; dirty: boolean }) {
   const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
   const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
@@ -193,12 +193,17 @@ function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: R
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <SectionTitle icon={Wallet}><span className="text-base">Business Ideas: Cash Position</span></SectionTitle>
-          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Tap any figure to edit. Net position = cash in minus cash out. Saved on this device.</p>
+          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Tap any figure to edit, then press Save. Net position = cash in minus cash out.{dirty ? ' You have unsaved changes.' : ''}</p>
         </div>
-        <Button size="sm" variant="outline" className="gap-1.5"
-          onClick={() => setRows((r) => [...r, { id: safeUUID(), name: 'New idea', customers: 0, cashIn: 0, cashOut: 0 }])}>
-          <Plus className="h-4 w-4" />Add idea
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="gap-1.5"
+            onClick={() => setRows((r) => [...r, { id: safeUUID(), name: 'New idea', customers: 0, cashIn: 0, cashOut: 0 }])}>
+            <Plus className="h-4 w-4" />Add idea
+          </Button>
+          <Button size="sm" className="gap-1.5" onClick={onSave} disabled={saving}>
+            <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
       </div>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[640px] text-xs">
@@ -280,6 +285,33 @@ export default function RDDashboard() {
       return next;
     });
   };
+  const [ideasDirty, setIdeasDirty] = useState(false);
+  const [savingIdeas, setSavingIdeas] = useState(false);
+  const editIdeaRowsTracked: React.Dispatch<React.SetStateAction<IdeaRow[]>> = (edit) => { setIdeasDirty(true); editIdeaRows(edit); };
+  useEffect(() => {
+    let alive = true;
+    supabase.from('rd_cash_position' as never).select('rows').eq('key', 'business_ideas').maybeSingle()
+      .then(({ data }) => {
+        const saved = (data as { rows?: IdeaRow[] } | null)?.rows;
+        if (alive && Array.isArray(saved)) editIdeaRows(saved);
+      });
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const saveIdeaRows = async () => {
+    setSavingIdeas(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error('Please sign in again.');
+      const { error } = await supabase.from('rd_cash_position' as never)
+        .upsert({ key: 'business_ideas', rows: ideaRows, updated_by: u.user.id, updated_at: new Date().toISOString() } as never);
+      if (error) throw error;
+      setIdeasDirty(false);
+      toast({ title: 'Saved', description: 'Cash position figures are saved and will show on every device.' });
+    } catch (e) {
+      toast({ title: 'Could not save', description: e instanceof Error ? e.message : 'Please try again.', variant: 'destructive' });
+    } finally { setSavingIdeas(false); }
+  };
   const OVERVIEW = overviewMetrics(ideaRows);
   const [summaryText, setSummaryText] = useState<{ value: string; label: string }[]>(() => {
     try { const v = localStorage.getItem(SUMMARY_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
@@ -346,7 +378,7 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRowsTracked} onSave={saveIdeaRows} saving={savingIdeas} dirty={ideasDirty} />
 
         <IdeaCanvasBoard />
 
