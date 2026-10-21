@@ -43,7 +43,7 @@ const PROJECTS: Project[] = [
   },
   {
     cashId: 'dowry', name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
-    stage: 'Development', progress: 40,
+    stage: 'Paused', progress: 40,
     objective: 'Help families prepare for dowry expenses through structured financing.',
     progressItems: ['Business model finalized', 'Partnership discussions ongoing', 'Early customer interest and inquiries'],
     metrics: [
@@ -252,12 +252,6 @@ const SUMMARY: Metric[] = [
   { icon: PieChart, value: `${avg}%`, label: 'Average progress across all projects' },
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
-
-const WEEK_COLS: { key: RdWeekPeriod; title: string; icon: LucideIcon }[] = [
-  { key: 'last', title: 'Last 7 days', icon: CalendarDays },
-  { key: 'today', title: 'Today', icon: MapPin },
-  { key: 'next', title: 'Next 7 days', icon: ArrowRight },
-];
 
 export default function RDDashboard() {
   const navigate = useNavigate();
