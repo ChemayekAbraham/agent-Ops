@@ -48,9 +48,10 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   const mg = 12;
   const lastY = () => (doc as any).lastAutoTable?.finalY ?? 40;
   const ensure = (y: number, need = 30) => { if (y + need > 280) { doc.addPage(); return 18; } return y; };
-  const heading = (t: string, y: number) => {
+  const heading = (t: string, y: number, plain = false) => {
     y = ensure(y);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...PRIMARY);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.setTextColor(...(plain ? ([15, 23, 42] as const) : PRIMARY));
     doc.text(t, mg, y); doc.setTextColor(15, 23, 42);
     return y + 3;
   };
@@ -71,7 +72,7 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   const totals = rdCashTotals(d.ideas);
   let y = heading('Business Ideas: Cash Position', 36);
   table(['Business idea', 'Customers', 'Cash in', 'Cash out', 'Net position'],
-    d.ideas.map((r) => [r.name, r.customers.toLocaleString('en-US'), formatUGX(r.cashIn),
+    d.ideas.map((r) => [r.paused ? `${r.name} (On pause)` : r.name, r.customers.toLocaleString('en-US'), formatUGX(r.cashIn),
       formatUGX(r.cashOut), formatUGX(r.cashIn - r.cashOut)]), y, {
       foot: [['Total', totals.customers.toLocaleString('en-US'), formatUGX(totals.cashIn),
         formatUGX(totals.cashOut), formatUGX(totals.net)]],
@@ -81,7 +82,7 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
     });
   y = lastY() + 10;
   for (const p of recordedRdProjects(d.projects)) {
-    y = heading(p.name, y);
+    y = heading(isPaused(p) ? `${p.name} (On pause)` : p.name, y, isPaused(p));
     table(['Date', 'Recorded update'], p.updates.length
       ? p.updates.map((u) => [u.date || '—', u.text])
       : [['—', 'No updates recorded']], y,
