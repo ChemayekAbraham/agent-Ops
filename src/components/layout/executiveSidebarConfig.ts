@@ -309,6 +309,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Marketing',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        { label: 'Inbox', icon: MessageSquare, id: 'inbox' },
         { label: 'User Analytics', icon: BarChart3, id: 'user-analytics' },
         { label: 'Growth Metrics', icon: TrendingUp, id: 'growth' },
         { label: 'Signup Trends', icon: UserCheck, id: 'signups' },

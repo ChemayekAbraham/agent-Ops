@@ -52,3 +52,8 @@
 - [x] Make CFO sidebar "Payroll Approvals" open as a CFO dashboard section instead of jumping to the HR shell; CFO click, breadcrumb and HR /approvals page verified in preview.
 
 - [x] Apply the approved agent dashboard nudge figures migration exactly as written; stored functions verified identical to the file, signed-in call returns figures, signed-out call refused.
+
+## CMO Inbox
+- [x] Add Neexa conversation list, live thread, reply composer and template dialog using only existing mirror tables and edge function; protected backend/generated types unchanged.
+- [x] Run 11 Inbox rule/interaction tests and isolated desktop/mobile light/dark checks; preview compilation and guards pass.
+- [ ] Verify live signed-in Neexa sync and customer send/readback — blocked: external Supabase authentication cannot be restored by available browser tools; no customer messages sent.

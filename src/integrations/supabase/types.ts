@@ -34509,6 +34509,161 @@ export type Database = {
         }
         Relationships: []
       }
+      neexa_conversations: {
+        Row: {
+          created_at: string
+          customer_address: string | null
+          description: string | null
+          details_synced_at: string | null
+          id: string
+          label: string | null
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          neexa_created_at: string | null
+          neexa_updated_at: string | null
+          platform: string | null
+          platform_id: string | null
+          sentiment: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_address?: string | null
+          description?: string | null
+          details_synced_at?: string | null
+          id: string
+          label?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          neexa_created_at?: string | null
+          neexa_updated_at?: string | null
+          platform?: string | null
+          platform_id?: string | null
+          sentiment?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_address?: string | null
+          description?: string | null
+          details_synced_at?: string | null
+          id?: string
+          label?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          neexa_created_at?: string | null
+          neexa_updated_at?: string | null
+          platform?: string | null
+          platform_id?: string | null
+          sentiment?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      neexa_messages: {
+        Row: {
+          body: string | null
+          channel: string | null
+          conversation_id: string
+          created_at: string
+          creator_type: string | null
+          customer_address: string | null
+          direction: string
+          id: string
+          message_type: string | null
+          platform_id: string | null
+          platform_message_id: string | null
+          sent_at: string | null
+          sent_by: string | null
+          source: string
+          status: string | null
+          template_public_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string | null
+          conversation_id: string
+          created_at?: string
+          creator_type?: string | null
+          customer_address?: string | null
+          direction: string
+          id: string
+          message_type?: string | null
+          platform_id?: string | null
+          platform_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source: string
+          status?: string | null
+          template_public_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string | null
+          conversation_id?: string
+          created_at?: string
+          creator_type?: string | null
+          customer_address?: string | null
+          direction?: string
+          id?: string
+          message_type?: string | null
+          platform_id?: string | null
+          platform_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string | null
+          template_public_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "neexa_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "neexa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      neexa_webhook_events: {
+        Row: {
+          error: string | null
+          event: string
+          id: number
+          message_id: string | null
+          payload: Json
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          error?: string | null
+          event: string
+          id?: never
+          message_id?: string | null
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          error?: string | null
+          event?: string
+          id?: never
+          message_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -42730,6 +42885,27 @@ export type Database = {
           new_value?: string | null
           old_value?: string | null
           op?: string
+        }
+        Relationships: []
+      }
+      rd_cash_position: {
+        Row: {
+          key: string
+          rows: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          key: string
+          rows?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          key?: string
+          rows?: Json
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -67011,6 +67187,7 @@ export type Database = {
         Args: { _uid: string }
         Returns: boolean
       }
+      can_view_neexa_inbox: { Args: { _uid: string }; Returns: boolean }
       can_view_payout_reconciliation: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -76985,6 +77162,26 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      neexa_ingest_message: {
+        Args: {
+          _body: string
+          _channel?: string
+          _conversation_id: string
+          _creator_type?: string
+          _customer_address?: string
+          _direction: string
+          _message_id: string
+          _message_type?: string
+          _platform_id?: string
+          _platform_message_id?: string
+          _sent_at: string
+          _sent_by?: string
+          _source: string
+          _status?: string
+          _template_public_id?: string
+        }
+        Returns: undefined
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
