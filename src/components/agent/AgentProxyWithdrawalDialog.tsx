@@ -62,6 +62,17 @@ interface PayoutRoute {
   portfolio_code?: string | null;
 }
 
+interface ExtraDest {
+  id: string;
+  portfolio_id: string;
+  payout_method: 'mobile_money' | 'bank_transfer';
+  mobile_network: string | null;
+  mobile_money_number: string | null;
+  recipient_name: string;
+  bank_name: string | null;
+  account_number: string | null;
+}
+
 interface AgentProxyWithdrawalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -82,6 +93,9 @@ export function AgentProxyWithdrawalDialog({
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [routes, setRoutes] = useState<PayoutRoute[]>([]);
   const [selectedRouteKey, setSelectedRouteKey] = useState<string | null>(null);
+  const [extras, setExtras] = useState<Record<string, ExtraDest[]>>({});
+  const [splits, setSplits] = useState<Record<string, number>>({});
+  useEffect(() => { setSplits({}); }, [selectedRouteKey]);
   const [confirming, setConfirming] = useState(false);
   const isSubmittingRef = useRef(false);
 
@@ -160,6 +174,22 @@ export function AgentProxyWithdrawalDialog({
           });
         }
 
+        // Extra payout numbers saved by Partner Ops for each portfolio.
+        const pfIds = ((portfoliosRes.data ?? []) as any[]).map(p => p.id);
+        const extraMap: Record<string, ExtraDest[]> = {};
+        if (pfIds.length) {
+          const { data: ex } = await supabase
+            .from('portfolio_payout_destinations' as never)
+            .select('id, portfolio_id, payout_method, mobile_network, mobile_money_number, recipient_name, bank_name, account_number')
+            .in('portfolio_id', pfIds)
+            .order('created_at', { ascending: true });
+          for (const e of ((ex ?? []) as any[])) {
+            (extraMap[e.portfolio_id] ||= []).push(e);
+          }
+        }
+        if (cancelled) return;
+        setExtras(extraMap);
+
         setRoutes(list);
         const preferred = list.find(r => r.is_default) ?? list[0] ?? null;
         setSelectedRouteKey(preferred?.key ?? null);
@@ -173,12 +203,42 @@ export function AgentProxyWithdrawalDialog({
   }, [open, funderId]);
 
   const selectedRoute = routes.find(r => r.key === selectedRouteKey) ?? null;
+  const routeExtras = selectedRoute?.source === 'portfolio' && selectedRoute.portfolio_id
+    ? (extras[selectedRoute.portfolio_id] ?? []) : [];
+  const splitMode = routeExtras.length > 0;
+  const splitLines = splitMode && selectedRoute ? [
+    { key: 'primary', label: selectedRoute.sublabel },
+    ...routeExtras.map(e => ({
+      key: e.id,
+      label: e.payout_method === 'mobile_money'
+        ? `${e.mobile_network ?? 'MoMo'} · ${e.mobile_money_number ?? '—'} · ${e.recipient_name}`
+        : `${e.bank_name ?? 'Bank'} · ${e.account_number ?? '—'} · ${e.recipient_name}`,
+    })),
+  ] : [];
+  const usedSplits = splitLines.filter(l => (splits[l.key] || 0) > 0);
+  const effectiveAmount = splitMode ? usedSplits.reduce((s, l) => s + (splits[l.key] || 0), 0) : amount;
 
   const isValid =
-    amount >= 500 &&
-    amount <= walletBalance &&
+    effectiveAmount >= 500 &&
+    effectiveAmount <= walletBalance &&
     reason.trim().length >= 10 &&
-    !!selectedRoute;
+    !!selectedRoute &&
+    (!splitMode || (usedSplits.length > 0 && usedSplits.every(l => splits[l.key] >= 500)));
+
+  const handleSplitSubmit = async () => {
+    const { data, error } = await supabase.rpc('submit_proxy_split_withdrawal' as never, {
+      p_portfolio_id: selectedRoute!.portfolio_id,
+      p_allocations: usedSplits.map(l => ({ destination: l.key, amount: Math.round(splits[l.key]) })),
+      p_reason: reason.trim(),
+    } as never);
+    if (error) throw error;
+    const n = ((data as any)?.request_ids ?? []).length;
+    toast.success('Withdrawal requests submitted', {
+      description: `${formatUGX(effectiveAmount)} for ${funderName} split into ${n} request${n === 1 ? '' : 's'}, pending Financial Ops approval`,
+    });
+    onOpenChange(false);
+    onSuccess?.();
+  };
 
   const handleSubmit = async () => {
     if (!user || !isValid) return;
@@ -186,6 +246,7 @@ export function AgentProxyWithdrawalDialog({
     isSubmittingRef.current = true;
     setLoading(true);
     try {
+      if (splitMode) { await handleSplitSubmit(); return; }
       const route = selectedRoute!;
       const clientRequestId = await computeProxyWithdrawalKey({
         agentId: user.id,
