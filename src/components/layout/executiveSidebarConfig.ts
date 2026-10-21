@@ -85,6 +85,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Broadcast Status', icon: Megaphone, id: 'broadcast-status' },
         { label: 'Security Logs', icon: Lock, id: 'security' },
         { label: 'Platform Controls', icon: SlidersHorizontal, id: 'platform-controls' },
+        { label: 'Dashboard Access', icon: KeyRound, id: 'dashboard-access' },
         { label: 'Agent Freeze', icon: Snowflake, id: 'agent-freeze' },
         { label: 'KYC & ID Overrides', icon: ShieldCheck, id: 'kyc-level' },
         { label: 'Reset Password', icon: KeyRound, id: 'password-reset' },
@@ -309,6 +310,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Marketing',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        { label: 'Inbox', icon: MessageSquare, id: 'inbox' },
         { label: 'User Analytics', icon: BarChart3, id: 'user-analytics' },
         { label: 'Growth Metrics', icon: TrendingUp, id: 'growth' },
         { label: 'Signup Trends', icon: UserCheck, id: 'signups' },
@@ -488,6 +490,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Platform Users', icon: UserCog, id: 'user-management', route: '/platform-users', access: HR_ACCESS },
         { label: 'Audit Trail', icon: FileText, id: 'audit', access: HR_ACCESS },
         { label: 'Approval History', icon: History, id: 'approval-history', access: HR_ACCESS },
+        { label: 'Dashboard Access', icon: KeyRound, id: 'dashboard-access', access: HR_ACCESS },
       ],
     },
   ],
@@ -555,7 +558,6 @@ export const roleLabels: Record<AppRole, string> = {
   hr: 'HR',
   operations: 'Operations',
   super_admin: 'Super Admin',
-  access_admin: 'Access Admin',
   rd: 'R&D',
 };
 

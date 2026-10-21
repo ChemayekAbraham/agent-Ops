@@ -14,6 +14,9 @@ const ALLOWED = new Set([
 ]);
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENTS = 10;
+// A usage report carries every receipt plus refund proof on the same requisition,
+// and phone photos add up, so it gets a higher ceiling than a plain attachment.
+const MAX_USAGE_REPORT_ATTACHMENTS = 30;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -60,7 +63,10 @@ Deno.serve(async (req) => {
     if (row.requester_id !== userId) return json({ error: "not_your_requisition" }, 403);
 
     const existing: string[] = Array.isArray(row.attachment_urls) ? row.attachment_urls : [];
-    if (existing.length >= MAX_ATTACHMENTS) return json({ error: "attachment_limit_reached" }, 400);
+    const limit = String(form.get("purpose") ?? "") === "usage_report" ? MAX_USAGE_REPORT_ATTACHMENTS : MAX_ATTACHMENTS;
+    if (existing.length >= limit) {
+      return json({ error: "attachment_limit_reached", limit }, 400);
+    }
 
     const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
     const path = `staff/${row.id}/${crypto.randomUUID()}.${ext}`;
@@ -76,7 +82,11 @@ Deno.serve(async (req) => {
       .from("staff_requisitions")
       .update({ attachment_urls: nextAttachments })
       .eq("id", row.id);
-    if (updateErr) throw updateErr;
+    if (updateErr) {
+      // The file is stored but not tracked on the requisition; remove it so it is not orphaned.
+      await admin.storage.from("requisition-attachments").remove([path]);
+      throw updateErr;
+    }
 
     await admin.from("staff_requisition_events").insert({
       requisition_id: row.id,

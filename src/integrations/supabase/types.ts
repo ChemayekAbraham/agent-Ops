@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rls_policy_backup_20261021: {
+        Row: {
+          backed_up_at: string | null
+          cmd: string | null
+          permissive: string | null
+          policyname: unknown
+          qual: string | null
+          restore_sql: string | null
+          roles: unknown[] | null
+          schemaname: unknown
+          tablename: unknown
+          with_check: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          restore_sql?: string | null
+          roles?: unknown[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          restore_sql?: string | null
+          roles?: unknown[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Relationships: []
+      }
       access_surface_positions: {
         Row: {
           created_at: string
@@ -15404,6 +15443,63 @@ export type Database = {
           id?: string
           token?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      email_verification_challenges: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          failure_reason: string | null
+          id: string
+          ip_address: string | null
+          last_sent_at: string
+          max_attempts: number
+          new_email: string
+          old_email: string
+          send_count: number
+          user_agent: string | null
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          last_sent_at?: string
+          max_attempts?: number
+          new_email: string
+          old_email: string
+          send_count?: number
+          user_agent?: string | null
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          last_sent_at?: string
+          max_attempts?: number
+          new_email?: string
+          old_email?: string
+          send_count?: number
+          user_agent?: string | null
+          user_id?: string
+          verified_at?: string | null
         }
         Relationships: []
       }
@@ -34470,6 +34566,161 @@ export type Database = {
         }
         Relationships: []
       }
+      neexa_conversations: {
+        Row: {
+          created_at: string
+          customer_address: string | null
+          description: string | null
+          details_synced_at: string | null
+          id: string
+          label: string | null
+          last_inbound_at: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          neexa_created_at: string | null
+          neexa_updated_at: string | null
+          platform: string | null
+          platform_id: string | null
+          sentiment: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_address?: string | null
+          description?: string | null
+          details_synced_at?: string | null
+          id: string
+          label?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          neexa_created_at?: string | null
+          neexa_updated_at?: string | null
+          platform?: string | null
+          platform_id?: string | null
+          sentiment?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_address?: string | null
+          description?: string | null
+          details_synced_at?: string | null
+          id?: string
+          label?: string | null
+          last_inbound_at?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          neexa_created_at?: string | null
+          neexa_updated_at?: string | null
+          platform?: string | null
+          platform_id?: string | null
+          sentiment?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      neexa_messages: {
+        Row: {
+          body: string | null
+          channel: string | null
+          conversation_id: string
+          created_at: string
+          creator_type: string | null
+          customer_address: string | null
+          direction: string
+          id: string
+          message_type: string | null
+          platform_id: string | null
+          platform_message_id: string | null
+          sent_at: string | null
+          sent_by: string | null
+          source: string
+          status: string | null
+          template_public_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string | null
+          conversation_id: string
+          created_at?: string
+          creator_type?: string | null
+          customer_address?: string | null
+          direction: string
+          id: string
+          message_type?: string | null
+          platform_id?: string | null
+          platform_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source: string
+          status?: string | null
+          template_public_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string | null
+          conversation_id?: string
+          created_at?: string
+          creator_type?: string | null
+          customer_address?: string | null
+          direction?: string
+          id?: string
+          message_type?: string | null
+          platform_id?: string | null
+          platform_message_id?: string | null
+          sent_at?: string | null
+          sent_by?: string | null
+          source?: string
+          status?: string | null
+          template_public_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "neexa_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "neexa_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      neexa_webhook_events: {
+        Row: {
+          error: string | null
+          event: string
+          id: number
+          message_id: string | null
+          payload: Json
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          error?: string | null
+          event: string
+          id?: never
+          message_id?: string | null
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          error?: string | null
+          event?: string
+          id?: never
+          message_id?: string | null
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -39233,6 +39484,70 @@ export type Database = {
           },
         ]
       }
+      portfolio_payout_destinations: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          mobile_money_number: string | null
+          mobile_network: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method?: string
+          portfolio_id?: string
+          recipient_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -42691,6 +43006,27 @@ export type Database = {
           new_value?: string | null
           old_value?: string | null
           op?: string
+        }
+        Relationships: []
+      }
+      rd_cash_position: {
+        Row: {
+          key: string
+          rows: Json
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          key: string
+          rows?: Json
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          key?: string
+          rows?: Json
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -64167,6 +64503,10 @@ export type Database = {
         Args: { p_day: string; p_meal_id: string }
         Returns: undefined
       }
+      _funder_nudge_stats: {
+        Args: { p_day: string; p_partner_id: string }
+        Returns: Json
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -65734,6 +66074,10 @@ export type Database = {
           registration_fee_component: number
         }[]
       }
+      allow_landlord_payouts_with_exception: {
+        Args: { p_reason: string; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       am_detect_clock_drift: { Args: { p_as_at?: string }; Returns: Json }
       am_new_tenant_first7: {
         Args: { p_paid_on?: string }
@@ -66911,6 +67255,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_manage_dashboard_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_manage_deleted_accounts: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -66968,6 +67316,7 @@ export type Database = {
         Args: { _uid: string }
         Returns: boolean
       }
+      can_view_neexa_inbox: { Args: { _uid: string }; Returns: boolean }
       can_view_payout_reconciliation: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -68264,6 +68613,10 @@ export type Database = {
         }
         Returns: string
       }
+      confirm_email_verification: {
+        Args: { p_challenge_id: string; p_code_hash: string; p_user_id: string }
+        Returns: Json
+      }
       confirm_field_collection: {
         Args: {
           p_field_collection_id: string
@@ -68986,6 +69339,8 @@ export type Database = {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
       }
+      dashboard_access_keys: { Args: never; Returns: string[] }
+      dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -69482,12 +69837,10 @@ export type Database = {
       expire_partner_self_claims: { Args: never; Returns: Json }
       expire_stale_bonus_restrictions: { Args: never; Returns: number }
       expire_stale_cash_deposit_codes: { Args: never; Returns: number }
-      export_users_with_password_hashes: { Args: never; Returns: string }
       extract_operational_float_allocations: {
         Args: { p_notes: string }
         Returns: Json
       }
-      extract_public_schema_sql: { Args: never; Returns: string }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
       fin_correction_review_flags: {
         Args: { p: Json; p_collection_id: string }
@@ -71998,6 +72351,7 @@ export type Database = {
           signups: number
         }[]
       }
+      get_dashboard_access_overview: { Args: never; Returns: Json }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -72224,6 +72578,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_funder_nudge_stats: { Args: never; Returns: Json }
       get_geo_user_coverage: {
         Args: {
           p_city?: string
@@ -72977,6 +73332,7 @@ export type Database = {
           region: string
         }[]
       }
+      get_neexa_inbox_kpis: { Args: never; Returns: Json }
       get_next_day_payout_projection: {
         Args: { p_date?: string }
         Returns: Json
@@ -74833,6 +75189,10 @@ export type Database = {
       grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
       grant_agent_registration_override: {
         Args: { p_agent_id: string; p_days?: number; p_reason: string }
+        Returns: Json
+      }
+      grant_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
         Returns: Json
       }
       growth_commission_next_window: {
@@ -76944,6 +77304,26 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      neexa_ingest_message: {
+        Args: {
+          _body: string
+          _channel?: string
+          _conversation_id: string
+          _creator_type?: string
+          _customer_address?: string
+          _direction: string
+          _message_id: string
+          _message_type?: string
+          _platform_id?: string
+          _platform_message_id?: string
+          _sent_at: string
+          _sent_by?: string
+          _source: string
+          _status?: string
+          _template_public_id?: string
+        }
+        Returns: undefined
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
@@ -79704,6 +80084,7 @@ export type Database = {
         Args: {
           p_device_fp: string
           p_hw_fp?: string
+          p_ip?: string
           p_session_id?: string
           p_user_agent?: string
           p_user_id: string
@@ -80381,6 +80762,10 @@ export type Database = {
         Args: { p_override_id: string; p_reason: string }
         Returns: Json
       }
+      revoke_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       revoke_merchant_capacity_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: boolean
@@ -80400,6 +80785,7 @@ export type Database = {
         Returns: Json
       }
       run_layer_a_bulk: { Args: { p_dry_run?: boolean }; Returns: Json }
+      run_lunch_allowance_payouts: { Args: never; Returns: number }
       run_payout_acceptance_checks: {
         Args: { p_window_days?: number }
         Returns: {
@@ -80529,6 +80915,16 @@ export type Database = {
           subcounty_id: number
           total: number
           ward: string
+        }[]
+      }
+      search_people_for_dashboard_access: {
+        Args: { p_term: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          roles: string[]
         }[]
       }
       search_profiles: {
@@ -80750,6 +81146,10 @@ export type Database = {
           p_village: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      set_portfolio_payout_destinations: {
+        Args: { p_destinations: Json; p_portfolio_id: string }
         Returns: Json
       }
       set_proxy_agent_target: {
@@ -81406,6 +81806,10 @@ export type Database = {
           p_sex: string
           p_surname: string
         }
+        Returns: Json
+      }
+      submit_proxy_split_withdrawal: {
+        Args: { p_allocations: Json; p_portfolio_id: string; p_reason: string }
         Returns: Json
       }
       submit_requisition_usage_report: {

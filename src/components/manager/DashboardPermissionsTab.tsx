@@ -107,49 +107,27 @@ export default function DashboardPermissionsTab({ userId }: DashboardPermissions
     if (!user) return;
     setToggling(dashboard);
 
+    // Grants go through SECURITY DEFINER functions (migration 20261021180000):
+    // only super_admin, CTO or HR may call them, and they write the audit row
+    // themselves. The table no longer accepts writes from the browser.
     try {
       if (checked) {
-        const { data: inserted, error: insertError } = await supabase
-          .from('staff_permissions')
-          .insert({
-            user_id: userId,
-            permitted_dashboard: dashboard,
-            granted_by: user.id,
-          } as any)
-          .select('id')
-          .single();
-        if (insertError) throw insertError;
-
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          action_type: 'permission_granted',
-          table_name: 'staff_permissions',
-          record_id: userId,
-          metadata: { dashboard, granted_to: userId, reason: reason.trim() },
+        const { data, error } = await (supabase.rpc as any)('grant_dashboard_access', {
+          p_user_id: userId,
+          p_dashboard: dashboard,
+          p_reason: reason.trim() || null,
         });
+        if (error) throw error;
 
-        setGranted(prev => ({ ...prev, [dashboard]: (inserted as any).id }));
+        setGranted(prev => ({ ...prev, [dashboard]: (data as any)?.id ?? prev[dashboard] ?? dashboard }));
         toast.success(`Access granted: ${dashboard}`);
       } else {
-        const rowId = granted[dashboard];
-        if (!rowId) throw new Error('No active grant found to revoke. Reopen this tab and try again.');
-        const { error: revokeError } = await supabase
-          .from('staff_permissions')
-          .update({
-            revoked_at: new Date().toISOString(),
-            revoked_by: user.id,
-            revoke_reason: reason.trim() || null,
-          } as any)
-          .eq('id', rowId);
-        if (revokeError) throw revokeError;
-
-        await supabase.from('audit_logs').insert({
-          user_id: user.id,
-          action_type: 'permission_revoked',
-          table_name: 'staff_permissions',
-          record_id: userId,
-          metadata: { dashboard, revoked_from: userId, reason: reason.trim() },
+        const { error } = await (supabase.rpc as any)('revoke_dashboard_access', {
+          p_user_id: userId,
+          p_dashboard: dashboard,
+          p_reason: reason.trim() || null,
         });
+        if (error) throw error;
 
         setGranted(prev => {
           const next = { ...prev };

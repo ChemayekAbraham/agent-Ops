@@ -38,7 +38,33 @@ const REAL_PROVIDER_DOMAINS = new Set([
 ]);
 // Big consumer providers whose near-misses are almost always typos.
 const TYPO_TARGETS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "protonmail.com"];
-const NEVER_DELIVERABLE_DOMAINS = ["mailinator.com", "gmail.ug.com"];
+const NEVER_DELIVERABLE_DOMAINS = [
+  "mailinator.com", "mailinator.net", "mailinator2.com", "notmailinator.com",
+  "guerrillamail.com", "guerrillamail.net", "guerrillamail.org", "guerrillamail.biz",
+  "guerrillamail.de", "guerrillamailblock.com", "sharklasers.com", "grr.la",
+  "spam4.me", "pokemail.net", "10minutemail.com", "10minutemail.net",
+  "10minutemail.org", "20minutemail.com", "minutemail.com", "tempmail.com",
+  "temp-mail.org", "temp-mail.io", "tempmailo.com", "tempmail.net",
+  "tempmail.plus", "tempmailaddress.com", "tmpmail.org", "tempr.email",
+  "tempinbox.com", "tempemail.net", "mytemp.email", "throwawaymail.com",
+  "throwaway.email", "trashmail.com", "trashmail.de", "trashmail.net",
+  "trash-mail.com", "wegwerfmail.de", "wegwerfmail.net", "yopmail.com",
+  "yopmail.fr", "yopmail.net", "cool.fr.nf", "jetable.fr.nf",
+  "maildrop.cc", "mailnesia.com", "mailcatch.com", "mailnull.com",
+  "dispostable.com", "discard.email", "discardmail.com", "spambog.com",
+  "spambog.de", "spamgourmet.com", "spamex.com", "mailexpire.com",
+  "getnada.com", "nada.email", "inboxkitten.com", "mintemail.com",
+  "emailondeck.com", "moakt.com", "mohmal.com", "mailtemp.net",
+  "fakeinbox.com", "fakemail.net", "burnermail.io", "emailfake.com",
+  "crazymailing.com", "luxusmail.org", "mailpoof.com", "mailsac.com",
+  "mail7.io", "inboxbear.com", "harakirimail.com", "tmail.ws",
+  "einrot.com", "cuvox.de", "dayrep.com", "armyspy.com",
+  "fleckens.hu", "gustr.com", "jourrapide.com", "rhyta.com",
+  "superrito.com", "teleworm.us", "mvrht.net", "33mail.com",
+  "incognitomail.org", "deadaddress.com", "e4ward.com", "mailmetrash.com",
+  "sogetthis.com", "spamherelots.com", "tempsky.com", "mailbox92.biz",
+  "linshiyouxiang.net", "0box.eu", "gmail.ug.com",
+];
 
 function editDistance(a: string, b: string): number {
   const dp = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);

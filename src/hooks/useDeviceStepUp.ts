@@ -49,6 +49,13 @@ export function useDeviceStepUp(userId: string | undefined) {
       setState({ required: false, phoneMasked: null, loading: false });
       return;
     }
+    // The periodic re-check can fire after sign-out or while the token is
+    // missing; calling the function then only produces a 401 "Not signed in".
+    const { data: sess } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+    if (!sess?.session?.access_token) {
+      setState({ required: false, phoneMasked: null, loading: false });
+      return;
+    }
     const hw = await getHardwareFingerprint().catch(() => null);
     const { data } = await invokeEdgeFunction<{ required: boolean; phone_masked?: string; revoked?: boolean }>('device-step-up', {
       body: {

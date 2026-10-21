@@ -107,13 +107,22 @@ describe('useStaffPermissions', () => {
     expect(result.current.hasPermission('tenant-ops')).toBe(true);
   });
 
-  it('with no answer yet, a failed lookup fails closed: only the roles\' own dashboards', async () => {
+  it('with no answer yet, a failed lookup fails closed: nothing, not even the role\'s own dashboard', async () => {
     grantError = { message: 'network down' };
     setAuth({ roles: ['supporter', 'ceo'] });
     const { result } = renderHook(() => useStaffPermissions());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.hasPermission('ceo')).toBe(true);        // the role's own dashboard
+    // Since 2026-10-21 holding a role is not being on the allowlist.
+    expect(result.current.hasPermission('ceo')).toBe(false);
     expect(result.current.hasPermission('tenant-ops')).toBe(false); // never widened
+  });
+
+  it('a role alone does not grant its dashboard: only an allowlist row does', async () => {
+    grantRows = [];
+    setAuth({ roles: ['cfo'] });
+    const { result } = renderHook(() => useStaffPermissions());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.hasPermission('cfo')).toBe(false);
   });
 
   it('another person is a real change: loading again, and never answered from the first person\'s grants', async () => {
