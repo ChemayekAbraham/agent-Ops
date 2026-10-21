@@ -282,6 +282,8 @@ export function useNeexaInbox() {
     finally { templateLock.current = false; if (mounted.current) setTemplateSending(false); }
   };
   return { conversations: conversationsQuery.data || [], loading: conversationsQuery.isLoading,
+    kpis: kpisQuery.data || null, kpisLoading: kpisQuery.isLoading, kpisError: kpisQuery.error?.message || null,
+    kpisHidden: kpisQuery.error instanceof NeexaKpiAccessError, refetchKpis: () => kpisQuery.refetch(),
     listError: conversationsQuery.error?.message, selected, selectedId, openConversation: setSelectedId,
     messages: messagesQuery.data || [], messagesLoading: messagesQuery.isLoading, messagesError: messagesQuery.error?.message,
     actionError, syncing, syncResult, syncConversations, sending, sendMessage,
