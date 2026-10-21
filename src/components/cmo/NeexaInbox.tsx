@@ -119,12 +119,12 @@ export default function NeexaInbox() {
             {!inbox.messagesLoading && !inbox.historyBusy && !inbox.messages.length && <p className="text-center text-sm text-muted-foreground">No messages yet</p>}
             {inbox.messages.map(message => {
               const outbound = message.direction === 'outbound';
-              const caption = message.source === 'echo' ? 'Neexa AI / Neexa dashboard' : message.source === 'api' ? 'Sent from Welile' : message.source === 'sync' && message.creator_type === 'business' ? 'Business' : '';
+              const caption = message.source === 'echo' ? 'Neexa AI / Neexa dashboard' : message.source === 'api' ? 'Sent from Welile' : message.source === 'sync' ? 'Synced from Neexa' : '';
               return <div key={message.id} className={cn('flex', outbound ? 'justify-end' : 'justify-start')}><div className="max-w-[90%] space-y-1 md:max-w-[80%]">
                 <div className={cn('rounded-lg border px-3 py-2.5 text-sm whitespace-pre-wrap [overflow-wrap:anywhere]', outbound ? 'border-primary/20 bg-primary/10 text-foreground' : 'border-border bg-background text-foreground')}>{message.body || (message.template_public_id ? 'WhatsApp template' : 'Attachment')}</div>
                 <div className={cn('flex flex-wrap gap-x-2 gap-y-1 text-[10px] text-muted-foreground', outbound && 'justify-end')}>
                   {outbound && caption && <span>{caption}</span>}<time dateTime={message.sent_at || undefined}>{messageTime(message.sent_at)}</time>
-                  {outbound && (message.source === 'api' || message.sent_by) && message.status && <span>{message.status.replace(/_/g, ' ')}</span>}
+                  {outbound && message.status && <span>{message.status.replace(/_/g, ' ')}</span>}
                 </div>
               </div></div>;
             })}
