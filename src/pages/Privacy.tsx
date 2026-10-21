@@ -48,7 +48,7 @@ export default function Privacy() {
           <section>
             <h2 className="text-lg font-semibold">3. Data Sharing</h2>
             <p className="text-muted-foreground leading-relaxed">
-              We share relevant information with other platform users as necessary for transactions (e.g., landlord details with tenants, agent information with managers). We do not sell your personal data to third parties.
+              We share relevant information with other platform users as necessary for transactions (e.g., landlord details with tenants, agent information with managers). We do not sell your personal data to third parties. To estimate the approximate location of a sign-in, we send the sign-in's IP address to an IP location service (ipwho.is); it receives the IP address only, never your name or account details.
             </p>
           </section>
 
@@ -67,28 +67,35 @@ export default function Privacy() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">6. Data Retention</h2>
+            <h2 className="text-lg font-semibold">6. Sign-in Security and Device Information</h2>
+            <p className="text-muted-foreground leading-relaxed">
+              To protect your account, each time you sign in we record the device used: its type (for example iPhone, Android, Windows, Mac or Linux), browser, IP address and approximate location (city and country, estimated from the IP address). When your account is signed in to on a device it has not used before, we alert you by email (if your account has an email address) and in the app on your other devices, and you can confirm the device or sign it out. We use this information only for account security and fraud prevention. It is visible to you and to authorised security staff. IP addresses and locations are deleted 90 days after a device was last used.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-semibold">7. Data Retention</h2>
             <p className="text-muted-foreground leading-relaxed">
               We retain your data for as long as your account is active and as required by applicable laws. You may request deletion of your account by contacting support.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">7. Your Rights</h2>
+            <h2 className="text-lg font-semibold">8. Your Rights</h2>
             <p className="text-muted-foreground leading-relaxed">
               You have the right to access, correct, or request deletion of your personal data. Contact us at support for any privacy-related inquiries.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">8. Updates to This Policy</h2>
+            <h2 className="text-lg font-semibold">9. Updates to This Policy</h2>
             <p className="text-muted-foreground leading-relaxed">
               We may update this Privacy Policy from time to time. We will notify users of significant changes through the platform.
             </p>
           </section>
 
           <p className="text-xs text-muted-foreground pt-4 border-t">
-            Last updated: February 2026 · Welile Receipts Ltd, Uganda
+            Last updated: October 2026 · Welile Receipts Ltd, Uganda
           </p>
         </div>
       </div>

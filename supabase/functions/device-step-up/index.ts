@@ -22,6 +22,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { generateCode, hashCode } from "../_shared/twoFactorEmail.ts";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
+import { sendNewDeviceAlert, sessionIdFromJwt } from "../_shared/newDeviceAlert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,10 +96,24 @@ Deno.serve(async (req) => {
         p_device_fp: deviceFp,
         p_hw_fp: FP_RE.test(hwFp) ? hwFp : null,
         p_user_agent: String(body?.user_agent ?? "").slice(0, 300) || null,
+        p_session_id: sessionIdFromJwt(token),
       });
       if (error) {
         console.error("[device-step-up] register_login_device failed:", error.message);
         return json(NOT_REQUIRED);
+      }
+      const r = (result ?? {}) as { new_device_alert?: boolean; revoked?: boolean };
+      // The owner said they don't know this device: the app signs itself out.
+      if (r.revoked) return json({ ...NOT_REQUIRED, revoked: true });
+      // First sign-in on a device this account never used: tell the owner, in the
+      // background so the app is not held up by the location lookup or the email.
+      if (r.new_device_alert) {
+        const alert = sendNewDeviceAlert(admin, req, user, deviceFp, String(body?.user_agent ?? "") || null)
+          .catch((e) => console.error("[device-step-up] new-device alert failed:", e));
+        // deno-lint-ignore no-explicit-any
+        const runtime = (globalThis as any).EdgeRuntime;
+        if (runtime?.waitUntil) runtime.waitUntil(alert);
+        else await alert;
       }
       const needed = Boolean((result as { step_up_required?: boolean })?.step_up_required);
       if (!needed || !(await enforced(admin))) return json({ ...NOT_REQUIRED, observed: needed });
