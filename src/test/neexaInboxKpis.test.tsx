@@ -1,5 +1,6 @@
 import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), invoke: vi.fn(), rpc: vi.fn(), channel: vi.fn(), removeChannel: vi.fn(), handlers: [] as { filter: { event: string; table: string }; callback: (payload: { new: unknown }) => void }[] }));
