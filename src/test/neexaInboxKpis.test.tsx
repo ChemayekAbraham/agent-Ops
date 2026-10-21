@@ -76,7 +76,7 @@ describe('Neexa inbox KPIs', () => {
     // Card 1 is referred_signups (9), not came_in_users (12).
     expect(screen.getByText('9')).toBeInTheDocument();
     expect(screen.queryByText('12')).not.toBeInTheDocument();
-    expect(screen.getByText('12 came in via Neexa links · 5 new sign-ups')).toBeInTheDocument();
+    expect(screen.getByText('12 account holders clicked a Neexa link · 5 of them newly signed up')).toBeInTheDocument();
     expect(screen.getByText('Contract amount of active Neexa Supporters')).toBeInTheDocument();
     expect(screen.getByText('Agreement awaiting countersign')).toBeInTheDocument();
     expect(screen.getByText('4 agreements awaiting countersign')).toBeInTheDocument();

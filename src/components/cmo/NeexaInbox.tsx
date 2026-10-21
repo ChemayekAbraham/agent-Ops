@@ -52,7 +52,7 @@ export function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<
   );
   const cards = [
     { title: 'Referred by Neexa', value: kpis.referred_signups.toLocaleString('en-US'), icon: Users,
-      subtitle: `${kpis.came_in_users.toLocaleString('en-US')} came in via Neexa links · ${kpis.came_in_new_signups.toLocaleString('en-US')} new sign-ups` },
+      subtitle: `${kpis.came_in_users.toLocaleString('en-US')} account holders clicked a Neexa link · ${kpis.came_in_new_signups.toLocaleString('en-US')} of them newly signed up` },
     { title: 'Active Supporters', value: kpis.active_partners.toLocaleString('en-US'), icon: UserCheck,
       subtitle: `${kpis.active_portfolios.toLocaleString('en-US')} active portfolios` },
     { title: 'Active volume', value: formatNeexaVolume(kpis.active_volume), icon: Wallet,
