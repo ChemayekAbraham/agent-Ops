@@ -31,6 +31,7 @@ const SupporterDashboard = lazyWithRetry(() => import('@/components/dashboards/S
 const LandlordDashboard = lazyWithRetry(() => import('@/components/dashboards/LandlordDashboard'));
 const ManagerDashboard = lazyWithRetry(() => import('@/components/dashboards/ManagerDashboard'));
 import { DashboardErrorBoundary } from '@/components/dashboards/DashboardErrorBoundary';
+import { effectiveRoles, landingWithoutRoles } from '@/lib/roleFallback';
 
 // Minimal loading skeleton - memoized for performance
 const DashboardLoadingFallback = memo(() => <ScreenLoader label="Loading..." />);
@@ -62,7 +63,7 @@ const OfflineFallback = ({ cachedRole, onRetry }: { cachedRole?: AppRole | null;
 );
 
 function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
-  const { user, role, roles, loading, signOut, switchRole, addRole } = useAuth();
+  const { user, role, roles, loading, rolesResolved, signOut, switchRole, addRole } = useAuth();
   // 2026-10-13: /dashboard/agent reverted to the pre-12-Oct design (same as /dashboard/agent-bk).
   // The reworked AgentDashboard is kept on disk; swap back here to restore it.
   void variant;
@@ -91,7 +92,8 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
     // Public roles are NO LONGER auto-granted on tap — that was a silent
     // privilege escalation. Users must apply via ApplyForRoleDialog (handled
     // by the switcher components).
-    if (!roles.includes(newRole)) {
+    // While roles have not loaded, the agent role is usable (roleFallback).
+    if (!effectiveRoles(roles, rolesResolved).includes(newRole)) {
       console.warn('[Dashboard] Blocked switch to unowned role:', newRole);
       return;
     }
@@ -104,7 +106,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
     // also update the address bar to the matching route.
     const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
     navigate(targetRoute, { replace: true });
-  }, [role, roles, pendingRole, switchRole, navigate]);
+  }, [role, roles, rolesResolved, pendingRole, switchRole, navigate]);
 
   const { profile } = useProfile();
   const location = useLocation();
@@ -250,12 +252,13 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
       const timeout = setTimeout(() => {
         // Re-check: roles may have arrived during the wait
         if (roles.length === 0 && cachedRoles.length === 0) {
-          navigate('/select-role', { replace: true });
+          // Roles not loaded → agent dashboard; truly none → /select-role.
+          navigate(landingWithoutRoles(rolesResolved), { replace: true });
         }
       }, 1500);
       return () => clearTimeout(timeout);
     }
-  }, [user, loading, roles, cachedRoles, navigate]);
+  }, [user, loading, roles, rolesResolved, cachedRoles, navigate]);
 
   // URL is the source of truth. Fall back to auth.role only when URL doesn't
   // map to a persona (shouldn't normally happen on persona routes).
@@ -270,7 +273,10 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   const displayRole = urlRole
     || role
     || (showCachedUI && cachedRoles.length > 0 ? getDefaultRole(cachedRoles) : null);
-  const displayRoles = roles.length > 0 ? roles : cachedRoles;
+  // Roles not loaded: offer what this device last knew plus the agent fallback.
+  const displayRoles = roles.length > 0
+    ? roles
+    : Array.from(new Set([...cachedRoles, ...effectiveRoles(roles, rolesResolved)]));
 
   // PERF: once the visible dashboard has mounted, quietly warm the JS chunks
   // for the other personas this user holds so tapping them renders instantly

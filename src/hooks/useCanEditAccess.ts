@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
-const EDIT_ROLES = ['access_admin', 'super_admin'] as const;
+// Who may grant/revoke dashboard access. Must match
+// can_manage_dashboard_access() on the server (migration 20261021180000).
+const EDIT_ROLES = ['super_admin', 'cto', 'hr'] as const;
 
 export function useCanEditAccess() {
   const { user } = useAuth();

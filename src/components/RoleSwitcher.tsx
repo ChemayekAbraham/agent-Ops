@@ -26,7 +26,7 @@ import ApplyForRoleDialog from '@/components/ApplyForRoleDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useRoleAccessRequests } from '@/hooks/useRoleAccessRequests';
 
-type AppRole = 'tenant' | 'agent' | 'landlord' | 'supporter' | 'manager' | 'ceo' | 'coo' | 'cfo' | 'cto' | 'cmo' | 'crm' | 'employee' | 'operations' | 'super_admin' | 'hr' | 'access_admin' | 'rd';
+type AppRole = 'tenant' | 'agent' | 'landlord' | 'supporter' | 'manager' | 'ceo' | 'coo' | 'cfo' | 'cto' | 'cmo' | 'crm' | 'employee' | 'operations' | 'super_admin' | 'hr' | 'rd';
 
 const MANAGER_ACCESS_CODE = 'Manager@welile';
 
@@ -54,7 +54,6 @@ const roleConfig: Record<AppRole, { label: string; shortLabel: string; icon: Rea
   operations: { label: 'Operations', shortLabel: 'Ops', icon: <Shield className="h-3.5 w-3.5" />, emoji: '🔧' },
   super_admin: { label: 'Super Admin', shortLabel: 'S.Admin', icon: <Shield className="h-3.5 w-3.5" />, emoji: '🔑' },
   hr: { label: 'HR', shortLabel: 'HR', icon: <Users className="h-3.5 w-3.5" />, emoji: '👤' },
-  access_admin: { label: 'Access Admin', shortLabel: 'Access', icon: <Shield className="h-3.5 w-3.5" />, emoji: '🔐' },
   rd: { label: 'R&D', shortLabel: 'R&D', icon: <Shield className="h-3.5 w-3.5" />, emoji: '🔬' },
 };
 

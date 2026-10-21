@@ -8,6 +8,7 @@ import { fetchServerRoutingPrefs } from '@/lib/routingPrefsServer';
 import { Loader2 } from 'lucide-react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { toast } from 'sonner';
+import { FALLBACK_ROUTE, NO_ROLES_ROUTE } from '@/lib/roleFallback';
 
 /**
  * Catch-all redirect for the legacy `/dashboard` URL.
@@ -57,20 +58,20 @@ export default function DashboardRedirect() {
       } catch {}
     };
 
-    // No roles at all → onboarding picker. This is the lost-roles case.
+    // No roles in hand.
     //
-    // Only act on a DEFINITIVE empty answer. A transient failure right after
-    // sign-in (token refresh in flight, slow first request) used to land users
-    // with full roles on the "Dashboard not available" picker. While the role
-    // lookup is unresolved we hold on the loading screen; if it never resolves
-    // we fall through to the picker after a bounded wait.
+    // A DEFINITIVE empty answer (lookup resolved, every role disabled) is a
+    // restricted account → onboarding picker. A lookup that never resolved
+    // (token refresh in flight right after sign-in) is NOT "no roles": hold
+    // briefly on the loading screen, then land on the agent dashboard, the
+    // role every account holds. See roleFallback.
     if (roles.length === 0) {
       if (rolesResolved) {
-        navigate('/select-role', { replace: true, state: { reason: 'no-roles' } });
+        navigate(NO_ROLES_ROUTE, { replace: true, state: { reason: 'no-roles' } });
         return;
       }
       const unresolvedTimer = setTimeout(() => {
-        navigate('/select-role', { replace: true, state: { reason: 'no-roles' } });
+        navigate(FALLBACK_ROUTE, { replace: true });
       }, 6000);
       return () => clearTimeout(unresolvedTimer);
     }

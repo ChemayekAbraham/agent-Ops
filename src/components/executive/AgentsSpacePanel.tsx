@@ -330,55 +330,47 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   };
 
   // Toggle or Grant permission for an agent (Ops mode only)
+  // Grants/revokes go through the SECURITY DEFINER functions from migration
+  // 20261021180000 (super_admin, CTO or HR only); the table refuses direct writes.
   const handleTogglePermission = async (agentId: string, enable: boolean) => {
     setTogglingAgentId(agentId);
     const existing = authorizedAgents.find((a) => a.user_id === agentId);
 
-    if (existing) {
-      const { error } = await supabase
-        .from('staff_permissions')
-        .update({
-          ...(enable
-            ? { revoked_at: null, revoked_by: null, revoke_reason: null, granted_at: new Date().toISOString(), granted_by: user?.id }
-            : { revoked_at: new Date().toISOString(), revoked_by: user?.id, revoke_reason: 'Revoked in Agents Space Hub' }),
-        })
-        .eq('id', existing.id);
+    const { error } = await (supabase.rpc as any)(
+      enable ? 'grant_dashboard_access' : 'revoke_dashboard_access',
+      {
+        p_user_id: agentId,
+        p_dashboard: AGENTS_SPACE_DASHBOARD_KEY,
+        p_reason: enable ? 'Granted in Agents Space Hub' : 'Revoked in Agents Space Hub',
+      },
+    );
 
-      if (error) {
-        toast.error('Failed to update agent permission', { description: error.message });
-      } else {
-        toast.success(enable ? 'Permission granted for Agents\' Space' : 'Permission revoked');
-        await fetchPermissions();
-      }
-    } else if (enable) {
-      const { error } = await supabase
-        .from('staff_permissions')
-        .insert({
-          user_id: agentId,
-          permitted_dashboard: AGENTS_SPACE_DASHBOARD_KEY,
-          granted_by: user?.id,
-          granted_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        toast.error('Failed to assign permission', { description: error.message });
-      } else {
-        toast.success('Agent granted permission to access Agents\' Space');
+    if (error) {
+      toast.error(enable ? 'Failed to assign permission' : 'Failed to update agent permission', { description: error.message });
+    } else {
+      toast.success(enable ? 'Permission granted for Agents\' Space' : 'Permission revoked');
+      if (enable && !existing) {
         setOpenAddAgent(false);
         setAgentSearchTerm('');
         setAgentSearchResults([]);
-        await fetchPermissions();
       }
+      await fetchPermissions();
     }
     setTogglingAgentId(null);
   };
 
+  // Records are never deleted (the grant history is kept); removing an agent
+  // revokes their active grant.
   const handleDeletePermission = async (permissionId: string) => {
     setDeletingPermId(permissionId);
-    const { error } = await supabase
-      .from('staff_permissions')
-      .delete()
-      .eq('id', permissionId);
+    const row = authorizedAgents.find((a) => a.id === permissionId);
+    const { error } = row
+      ? await (supabase.rpc as any)('revoke_dashboard_access', {
+          p_user_id: row.user_id,
+          p_dashboard: AGENTS_SPACE_DASHBOARD_KEY,
+          p_reason: 'Removed in Agents Space Hub',
+        })
+      : { error: { message: 'Record not found. Refresh and try again.' } };
 
     if (error) {
       toast.error('Failed to remove permission record', { description: error.message });
