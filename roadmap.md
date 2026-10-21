@@ -1,4 +1,6 @@
 # Tasks
+- [x] Add recorded agent performance to product application details using the existing Agent Ops report; four tests and guards pass, preview build OK; approval rules unchanged.
+- [ ] Verify application performance with a live signed-in agent — blocked: external Supabase authentication cannot be restored by available browser tools.
 - [x] Add /portfolio-invite-test using the existing completion form; signed-out form/signature/submission verified, safety test and guards pass, build OK; no emails or live financial writes.
 - [x] Add Not verified and Rejected filters inside Paid & Repaying, preserving its paid/repaying scope across all pages; 28 tests, guards and preview compilation pass. Live authenticated check unavailable for externally managed authentication.
 - [x] Add Landlord Ops paid-but-unverified filter presentation, count contract, export support and four passing hook tests; guards and preview compilation pass, payments/verification unchanged.
