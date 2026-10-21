@@ -322,8 +322,8 @@ export default function RDDashboard() {
         .select('title,owner,idea_date,summary,canvas').order('created_at', { ascending: false });
       if (error) throw error;
       await downloadRdGeneralReport({
-        projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
-        ideas: ideaRows,
+        projects: PROJECTS.map((p) => ({ name: p.name, stage: p.stage, updates: projectUpdates[p.name] ?? [] })),
+        ideas: ideaRows.map((r) => ({ ...r, paused: PROJECTS.find((p) => p.cashId === r.id)?.stage === 'Paused' })),
         recordedIdeas: (savedIdeas ?? []).map((idea) => ({
           title: idea.title, owner: idea.owner, date: idea.idea_date, summary: idea.summary,
           canvas: idea.canvas && typeof idea.canvas === 'object' && !Array.isArray(idea.canvas)
