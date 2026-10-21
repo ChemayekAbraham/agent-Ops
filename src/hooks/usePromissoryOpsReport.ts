@@ -177,6 +177,31 @@ const EMPTY: PromissoryOpsReport = {
 };
 
 /**
+ * A note is fulfilled by the partner who came in through it: the money they put into
+ * portfolios counts toward the note (capped at the promised amount). Notes are marked
+ * "fulfilled" once that reaches the promised amount. Display-only; no money moves.
+ */
+export function applyCameInFulfilment(notes: PromissoryNoteRow[]): PromissoryNoteRow[] {
+  return notes.map((n) => {
+    const amount = Number(n.amount) || 0;
+    const viaPortfolio = n.came_in ? Math.max(0, Number(n.portfolio_amount) || 0) : 0;
+    const collected = Math.min(amount, Math.max(Number(n.total_collected) || 0, viaPortfolio));
+    const fulfilled = amount > 0 && collected >= amount && ['pending', 'activated'].includes(n.status);
+    return { ...n, total_collected: collected, outstanding: Math.max(0, amount - collected),
+      status: fulfilled ? 'fulfilled' : n.status };
+  });
+}
+
+export function fulfilmentKpis(notes: PromissoryNoteRow[]) {
+  let fulfilled_total = 0; let receivable = 0;
+  for (const n of notes) {
+    fulfilled_total += Number(n.total_collected) || 0;
+    if (['pending', 'activated'].includes(n.status)) receivable += Number(n.outstanding) || 0;
+  }
+  return { fulfilled_total, receivable };
+}
+
+/**
  * Single round-trip report powering the Promissory Notes tab
  * (KPIs + notes list + proxy agent performance). No N+1 client fetches.
  */
@@ -193,9 +218,10 @@ export function usePromissoryOpsReport() {
       });
       if (error) throw error;
       const res = (data as any) || {};
+      const notes = applyCameInFulfilment((res.notes || []) as PromissoryNoteRow[]);
       return {
-        kpis: { ...EMPTY.kpis, ...(res.kpis || {}) },
-        notes: (res.notes || []) as PromissoryNoteRow[],
+        kpis: { ...EMPTY.kpis, ...(res.kpis || {}), ...fulfilmentKpis(notes) },
+        notes,
         proxy_agents: (res.proxy_agents || []) as ProxyAgentRow[],
       };
     },
