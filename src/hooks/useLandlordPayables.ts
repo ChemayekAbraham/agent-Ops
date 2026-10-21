@@ -1,17 +1,52 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Landlord payables under the CFO's weekly-float rule — data layer for the CFO weekly view and the
- * FinOps provider-statement upload (migration 20261021100000_landlord_payables_weekly_float).
+ * Landlord payables under the CFO's weekly-float rule — data layer for the CFO weekly view
+ * (migration 20261021100000_landlord_payables_weekly_float).
  *
- * Rule (server-side, get_landlord_payables_by_week): a landlord payout is payable once it has been paid
- * out, and stays payable until a provider statement line confirms it (same transaction ID and amount).
- * Approval, the "completed" status, receipt codes and FinOps screenshots are not evidence. Payouts are
- * grouped by the CFO weekly landlord float; payouts without one are grouped by the week they were paid.
+ * Evidence: the Receipt Archive on the Financial Operations dashboard ONLY. A payout is confirmed only when its
+ * completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match,
+ * with the transaction ID and amount read from the receipt equal to the withdrawal (and payout) — never because a
+ * receipt merely exists, and never from SMS or provider statements.
  *
- * Statement upload writes evidence only — no ledger entry, wallet or payout status changes.
+ * Groups never overlap: confirmed + payable + historical_review + review_only + not_paid = all payouts.
+ * `payable_under_review` and `payable_awaiting_receipt` are the two PARTS of `payable` — never add them to it.
+ * Dates: `paid_date` is the payout record; `receipt_uploaded_at` is only the receipt upload date; `receipt_date_read`
+ * is what the image says (unverified) and is never a payout date.
  */
+
+/** Top-level state of a payout (exactly one). */
+export type LandlordPayoutState = 'confirmed' | 'paid_unconfirmed' | 'historical_review' | 'not_paid' | 'failed';
+
+/** The first Receipt Archive check a paid-out payout fails, or `receipt_verified`. */
+export type LandlordReceiptState =
+  | 'receipt_verified'
+  | 'no_archive_record'
+  | 'receipt_missing'
+  | 'receipt_unchecked'
+  | 'receipt_contradicts'
+  | 'receipt_unreadable'
+  | 'receipt_incomplete'
+  | 'receipt_reference_differs'
+  | 'receipt_amount_differs'
+  | 'receipt_duplicate'
+  | 'receipt_alert_open';
+
+/** Review exceptions, most serious first. None of them changes an amount, a payout or a withdrawal. */
+export type LandlordPayoutException =
+  | 'failed_but_paid'
+  | 'completed_without_payout'
+  | 'receipt_contradicts'
+  | 'receipt_unreadable'
+  | 'receipt_incomplete'
+  | 'receipt_reference_differs'
+  | 'receipt_amount_differs'
+  | 'receipt_duplicate'
+  | 'receipt_alert_open'
+  | 'paid_amount_differs'
+  | 'reference_unusable'
+  | 'shared_reference';
 
 export interface LandlordPayablesWeek {
   week_start: string;
@@ -26,37 +61,20 @@ export interface LandlordPayablesWeek {
   confirmed_count: number;
   payable: number;
   payable_count: number;
-  /** Part of `payable` carrying a review exception — never add to payable. */
+  /** Part of `payable` with a review exception — never add to payable. */
   payable_under_review: number;
   payable_under_review_count: number;
-  /** Under review but NOT payable (confirmed or never paid out) — never add to payable. */
+  /** Part of `payable` awaiting receipt evidence or checking — never add to payable. */
+  payable_awaiting_receipt: number;
+  payable_awaiting_receipt_count: number;
+  /** Paid before the archive start and not verifiable by it: neither confirmed nor payable (CFO decision). */
+  historical_review: number;
+  historical_review_count: number;
+  /** Not paid out but needing investigation (e.g. completed_without_payout). */
   review_only: number;
   review_only_count: number;
-  probable_count: number;
-  screenshot_matched_count: number;
+  receipt_unchecked_count: number;
 }
-
-export type LandlordPayoutState = 'confirmed' | 'paid_unconfirmed' | 'not_paid' | 'failed';
-/**
- * Most serious first. All but probable_match are review exceptions; none of them changes an amount or a state.
- * - evidence_conflict: a statement line says the transaction failed, was reversed or is pending. The original
- *   provider SMS stays the primary evidence: a confirmation is never removed and a payable never reopened by it.
- * - statement_match_unreliable: a statement line points at the payout but cannot confirm it (shared or invalid
- *   reference, several payouts on the line, an unresolved contradictory status, or an amount outside the allowance).
- * - paid_amount_differs: the completed withdrawal paid another amount than the payout records
- * - reference_unusable: paid out, unconfirmed, reference is not an 11-digit MTN or 12-digit Airtel transaction ID
- * - shared_reference: paid out, unconfirmed, another payout carries the same reference
- */
-export type LandlordPayoutException =
-  | 'failed_but_paid'
-  | 'completed_without_payout'
-  | 'evidence_conflict'
-  | 'statement_match_unreliable'
-  | 'paid_amount_differs'
-  | 'reference_unusable'
-  | 'shared_evidence'
-  | 'shared_reference'
-  | 'probable_match';
 
 export interface LandlordPayoutSettlement {
   payout_id: string;
@@ -64,141 +82,126 @@ export interface LandlordPayoutSettlement {
   landlord_id: string | null;
   landlord_name: string | null;
   landlord_phone: string | null;
+  mobile_money_provider: string | null;
   amount: number;
-  /** What the completed withdrawal actually paid (null when paid by FinOps directly). */
-  paid_amount: number | null;
-  /** Statuses of statement lines contradicting this payout (failed / reversed / pending), for review. */
-  conflict_statuses: string[] | null;
-  conflict_line_ids: string[] | null;
   payout_status: string;
+  created_at: string;
+  withdrawal_id: string | null;
+  payout_reference: string | null;
   paid_out: boolean;
   paid_at: string | null;
-  payout_reference: string | null;
+  /** The payout date, from the payout record. */
+  paid_date: string | null;
+  paid_date_source: 'withdrawal_completed' | 'finops_disbursed' | null;
   has_weekly_float: boolean;
   float_week_start: string | null;
+  weekly_budget_id: string | null;
+  allocation_kind: string | null;
   report_week_start: string;
-  provider_confirmed: boolean;
-  confirmed_at: string | null;
-  evidence_source: 'statement' | 'provider_email' | null;
-  screenshot_result: string | null;
+  /** What the completed withdrawal actually paid. */
+  paid_amount: number | null;
+  receipt_token: string | null;
+  receipt_file_path: string | null;
+  receipt_file_accessible: boolean;
+  /** RECEIPT UPLOAD DATE — not the payout date. */
+  receipt_uploaded_at: string | null;
+  receipt_check_id: string | null;
+  receipt_checked_at: string | null;
+  receipt_check_result: 'match' | 'mismatch' | 'unverifiable' | string | null;
+  receipt_check_code: string | null;
+  receipt_tid_read: string | null;
+  receipt_amount_read: number | null;
+  /** Date as read from the receipt image (unverified) — never used as the payout date. */
+  receipt_date_read: string | null;
+  blocking_alerts: string[];
+  receipt_state: LandlordReceiptState | null;
+  receipt_verified: boolean;
+  archive_from: string;
   state: LandlordPayoutState;
+  /** Within payable only: 'under_review' or 'awaiting_receipt'. */
+  payable_class: 'under_review' | 'awaiting_receipt' | null;
+  exceptions: LandlordPayoutException[];
   /** The most serious exception (first of `exceptions`). */
   exception: LandlordPayoutException | null;
-  exceptions: LandlordPayoutException[];
+  under_review: boolean;
 }
 
 export interface LandlordPayablesReport {
   as_at: string;
   rule: string;
+  archive_from: string;
   totals: {
-    payable: number;
-    payable_count: number;
-    payable_with_weekly_float: number;
-    payable_without_weekly_float: number;
+    payouts: number;
+    payouts_amount: number;
+    paid_out: number;
+    paid_out_count: number;
     confirmed: number;
     confirmed_count: number;
-    approved_not_paid: number;
-    probable_count: number;
-    screenshot_matched_count: number;
-    /**
-     * Review figures. NEVER add them to `payable`:
-     * - payable_under_review is PART of payable (paid out, unconfirmed, carrying a review exception);
-     * - review_only is NOT payable (confirmed, e.g. SMS-confirmed with a conflicting statement, or never paid out).
-     */
+    /** Part of confirmed carrying an exception (e.g. failed_but_paid). */
+    confirmed_flagged: number;
+    confirmed_flagged_count: number;
+    payable: number;
+    payable_count: number;
+    /** Part of payable — never add to payable. */
     payable_under_review: number;
     payable_under_review_count: number;
+    /** Part of payable — never add to payable. */
+    payable_awaiting_receipt: number;
+    payable_awaiting_receipt_count: number;
+    payable_with_weekly_float: number;
+    payable_without_weekly_float: number;
+    historical_review: number;
+    historical_review_count: number;
     review_only: number;
     review_only_count: number;
-    confirmed_under_review: number;
-    confirmed_under_review_count: number;
-    not_paid_under_review: number;
-    not_paid_under_review_count: number;
+    not_paid: number;
+    not_paid_count: number;
+    approved_not_paid: number;
     exception_count: number;
-    evidence_conflict_count: number;
-    statement_match_unreliable_count: number;
-    unlinked_statement_exception_count: number;
   };
+  /** Count and amount per `group:receipt_state`. */
+  receipt_states: Record<string, { count: number; amount: number }>;
   by_week: LandlordPayablesWeek[];
   exceptions: Array<{
     payout_id: string;
     landlord: string | null;
     amount: number;
-    paid_at: string | null;
+    paid_date: string | null;
+    paid_date_source: string | null;
     payout_status: string;
+    state: LandlordPayoutState;
+    group: 'confirmed' | 'payable' | 'historical_review' | 'review_only' | 'not_paid';
+    /** true = part of payable. */
+    is_payable: boolean;
     exception: LandlordPayoutException;
     exceptions: LandlordPayoutException[];
-    state: LandlordPayoutState;
-    /** true = part of payable; false = review only (not payable). */
-    is_payable: boolean;
+    receipt_state: LandlordReceiptState | null;
     paid_amount: number | null;
     payout_reference: string | null;
-    evidence_source: 'statement' | 'provider_email' | null;
-    conflict_statuses: string[] | null;
-    conflict_line_ids: string[] | null;
+    receipt_token: string | null;
+    receipt_check_result: string | null;
+    receipt_check_code: string | null;
+    receipt_tid_read: string | null;
+    receipt_amount_read: number | null;
+    /** RECEIPT UPLOAD DATE — not the payout date. */
+    receipt_uploaded_at: string | null;
+    blocking_alerts: string[];
   }>;
-  /** Failed / reversed / pending statement lines that match no payout reference (e.g. a reversal issued under a new ID). */
-  unlinked_statement_exceptions: Array<{
-    id: string; channel: string; account_ref: string; direction: string; status: string;
-    transaction_id: string; amount: number; tx_at: string;
-  }>;
-  evidence: { statement_imports: number; last_statement_line_at: string | null; last_provider_email_out: string | null };
+  evidence: {
+    source: string;
+    receipts_verified: number;
+    receipts_unchecked: number;
+    last_receipt_uploaded_at: string | null;
+  };
   /** Present only when a week was requested. */
   lines: LandlordPayoutSettlement[] | null;
 }
 
-/** One statement line as the import function expects it (the upload screen maps CSV columns to this). */
-export interface ProviderStatementLine {
-  transaction_id: string;
-  direction: 'out' | 'in';
-  /**
-   * The provider's status. Only successful lines count as evidence; a reversed line cancels the same transaction.
-   * Accepted wordings: successful/success/succeeded/completed, failed/failure/declined/rejected,
-   * reversed/reversal/refunded, pending/processing/initiated. Anything else is rejected.
-   */
-  status: string;
-  amount: number;
-  fee?: number | null;
-  counterparty?: string | null;
-  counterparty_name?: string | null;
-  /** ISO timestamp with offset, e.g. 2026-10-20T14:05:00+03:00 */
-  tx_at: string;
-}
-
-export interface ImportProviderStatementInput {
-  channel: 'mtn_momo' | 'airtel_money' | 'bank';
-  accountRef: string;
-  file: File;
-  lines: ProviderStatementLine[];
-  periodFrom?: string | null;
-  periodTo?: string | null;
-  notes?: string | null;
-}
-
-export interface ImportProviderStatementResult {
-  ok: boolean;
-  already_imported: boolean;
-  import_id: string;
-  lines: number;
-  inserted: number;
-  /** Kept lines whose status is not successful (failed, reversed or pending): stored as record, never evidence. */
-  not_successful: number;
-  duplicates: number;
-  rejected: number;
-  rejected_lines?: Array<{ line: number; reason: string }>;
-  voided?: boolean;
-}
-
 export const LANDLORD_PAYABLES_KEY = ['landlord-payables'] as const;
 
-// The generated Database types do not know these functions until Lovable regenerates them after the migration.
+// The generated Database types do not know this function until Lovable regenerates them after the migration.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const rpc = (fn: string, args?: Record<string, unknown>) => supabase.rpc(fn as any, args as any);
-
-/** SHA-256 of the uploaded file's bytes, hex — the server uses it to refuse importing the same file twice. */
-export async function sha256Hex(file: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 /**
  * @param weekStart  with `weeklyFloat`, also returns that week's payouts (`lines`)
@@ -217,41 +220,5 @@ export function useLandlordPayablesByWeek(weekStart?: string | null, weeklyFloat
       if (error) throw new Error(error.message);
       return data as unknown as LandlordPayablesReport;
     },
-  });
-}
-
-/** FinOps / CFO: import a provider statement (evidence only). Importing the same file again is a no-op. */
-export function useImportProviderStatement() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: ImportProviderStatementInput): Promise<ImportProviderStatementResult> => {
-      const fileSha = await sha256Hex(input.file);
-      const { data, error } = await rpc('import_provider_statement', {
-        p_channel: input.channel,
-        p_account_ref: input.accountRef,
-        p_file_name: input.file.name,
-        p_file_sha256: fileSha,
-        p_lines: input.lines,
-        p_period_from: input.periodFrom ?? null,
-        p_period_to: input.periodTo ?? null,
-        p_notes: input.notes ?? null,
-      });
-      if (error) throw new Error(error.message);
-      return data as unknown as ImportProviderStatementResult;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: LANDLORD_PAYABLES_KEY }),
-  });
-}
-
-/** CFO only: void a wrong import (reason of at least 10 characters). Its lines stop counting; nothing is deleted. */
-export function useVoidProviderStatementImport() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ importId, reason }: { importId: string; reason: string }) => {
-      const { data, error } = await rpc('void_provider_statement_import', { p_import_id: importId, p_reason: reason });
-      if (error) throw new Error(error.message);
-      return data as unknown as { ok: boolean; import_id: string; lines_voided: number };
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: LANDLORD_PAYABLES_KEY }),
   });
 }

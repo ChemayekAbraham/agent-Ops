@@ -1,40 +1,36 @@
--- 2026-10-21: landlord payables under the CFO's weekly-float rule (payables part 3).
+-- 2026-10-21: landlord payables under the CFO's weekly-float rule (payables part 3) — Receipt Archive evidence.
 --
 -- Decided by the CFO (2026-10-20/21):
---   * A landlord payout is a PAYABLE once it has been PAID OUT (its withdrawal request completed, or FinOps
---     recorded a disbursement with a reference) and stays payable until a PROVIDER STATEMENT LINE confirms it:
---     the same transaction ID and amount (up to 5,000 above, for the provider fee). Approval alone, the
---     'completed' status, the agent's receipt code, a FinOps screenshot and the ledger funding entry are NOT
---     evidence. Approved but not yet paid payouts are not payables (shown as float committed).
---   * Payouts are grouped by the CFO weekly landlord float (landlord_float_budget_allocations, by rent request);
---     payouts without a weekly float (before 19 Oct 2026) are grouped by the week they were paid.
---   * A match on phone number + amount within 3 days, without a transaction ID, is only "probable": it does
---     not clear the payable. A screenshot match is shown as a label. An evidence line that matches more than
---     one payout confirms none of them.
---   * Exceptions for CFO review (a payout can carry several; 'exception' is the most serious): failed_but_paid,
---     completed_without_payout, evidence_conflict (a statement line says the transaction failed, was reversed or is
---     pending), paid_amount_differs (the withdrawal paid another amount than the payout records),
---     reference_unusable (not an 11-digit MTN or 12-digit Airtel transaction ID), shared_evidence, shared_reference (another payout has the same
---     reference). probable_match is a hint, not an exception. Exceptions never change an amount or a state.
---   * Evidence: the original provider SMS (provider e-mail feed) is the PRIMARY evidence. Provider statements imported
---     by FinOps/CFO (import_provider_statement) are SUPPLEMENTARY: each line carries the provider's status; a
---     successful outgoing line can confirm a payout that has no SMS only when the match is RELIABLE (one payout on the
---     line, a valid 11/12-digit reference used by no other payout, an amount within the allowance, and no unresolved
---     contradictory status; a pending line followed by a success on the same channel and account is resolved).
---     A reversal cancels a statement success only when reliably linked (same transaction ID, channel and account,
---     compatible amount). Anything less is kept for CFO review (statement_match_unreliable / evidence_conflict).
---     Reversals issued under a NEW transaction ID cannot be linked (no official export sample shows an
---     original-transaction column yet); unlinked failed/reversed/pending statement lines are listed for review. A failed, reversed or pending statement line NEVER removes an SMS confirmation or
---     reopens a payable: it raises evidence_conflict for the CFO. Statement lines are immutable; a wrong file can be
---     voided by the CFO, never deleted.
+--   * EVIDENCE: the Receipt Archive on the Financial Operations dashboard is the SOLE evidence source (receipt-copy-guard:
+--     the archive has been Welile's sole record of payout receipts since 2026-07-16). Provider SMS, provider statements,
+--     phone/amount/date matching and probable matches NEVER confirm a payout.
+--   * A landlord payout is CONFIRMED only when ALL of these hold:
+--       1. it was paid through a completed withdrawal linked by landlord_payout_id;
+--       2. that withdrawal has a receipt token and a proof file that exists in storage;
+--       3. the latest machine check (payout_proof_ocr_log) of THAT EXACT file is 'match';
+--       4. the transaction ID read from the receipt equals the withdrawal reference, and
+--       5. is 11 (MTN) or 12 (Airtel) digits (the provider cannot be established reliably, so no provider-specific length);
+--       6. the amount read equals the withdrawal amount, which equals the payout amount;
+--       7. no other payout or withdrawal has a receipt with that ID or the same reference;
+--       8. no open integrity alert makes the receipt unreliable (invalid_storage_reference, missing_storage_object,
+--          sms_image_field_mismatch, ...); 'proof_missing' never blocks on its own: it is raised only when no proof was
+--          attached, so it is either stale (file now archived) or the same fact as receipt_missing;
+--       9. a missing or unreadable ID or amount is never a match.
+--   * A paid-out payout that is not confirmed is PAYABLE, split into payable_under_review (an exception) and
+--     payable_awaiting_receipt (no archive record, receipt missing, or never machine-checked). Payouts paid BEFORE the
+--     archive start (system_config.landlord_receipt_archive_from, default 2026-07-17) that the archive cannot verify
+--     are HISTORICAL REVIEW items for the CFO: neither confirmed nor payable.
+--   * Groups do not overlap: confirmed + payable + historical_review + review_only + not_paid = all payouts.
+--   * Dates: the payout date is the payout record (withdrawal completed, or FinOps disbursement). The receipt upload time
+--     is shown only as the receipt upload date; the date read from a receipt image is shown, never used as a payout date.
+--   * Payouts are grouped by the CFO weekly landlord float; payouts without one by the week they were paid.
 --
--- REPORTING AND EVIDENCE ONLY. No ledger entry, wallet, payout, withdrawal or status is written. The ledger
--- still posts rent at CFO funding; recording a landlord payable balance in the ledger is a separate decision.
--- Requires 20261020210000_budget_payables (its v_payables_lines / v_payables_payment_history bodies are pinned).
--- The two status-based landlord branches of v_payables_lines (landlord_payouts, agent_landlord_payouts) and the
--- two ledger-based landlord branches of v_payables_payment_history are replaced; every other branch is verbatim.
+-- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt, allocation or status is written; no OCR or
+-- approval is run. Requires 20261020210000_budget_payables (its v_payables_lines / v_payables_payment_history bodies are
+-- pinned). The two status-based landlord branches of v_payables_lines and the two ledger-based landlord branches of
+-- v_payables_payment_history are replaced; every other branch is verbatim.
 -- Rollback: supabase/rollbacks/20261021100000_landlord_payables_weekly_float.rollback.sql
--- Verification (rolled back): supabase/tests/landlord_payables_weekly_float.sql
+-- Verification (rolled back, read-only): supabase/tests/landlord_payables_weekly_float.sql
 
 -- 0. Safety: fail fast on locks; refuse unless Part 2's definitions are exactly the ones embedded below.
 SET lock_timeout = '5s';
@@ -47,253 +43,43 @@ BEGIN
     RAISE EXCEPTION 'precondition failed: v_payables_payment_history is not the definition 20261020210000 created (md5 %); regenerate this migration', md5(pg_get_viewdef('public.v_payables_payment_history'::regclass));
   END IF;
   IF to_regclass('public.landlord_payouts') IS NULL OR to_regclass('public.withdrawal_requests') IS NULL
-     OR to_regclass('public.gmail_transactions') IS NULL OR to_regclass('public.landlord_float_budget_allocations') IS NULL
-     OR to_regclass('public.landlord_float_budgets') IS NULL OR to_regclass('public.payout_proof_ocr_log') IS NULL
-     OR to_regclass('public.audit_logs') IS NULL
+     OR to_regclass('public.payout_proof_ocr_log') IS NULL OR to_regclass('public.payout_proof_integrity_alerts') IS NULL
+     OR to_regclass('storage.objects') IS NULL
+     OR to_regclass('public.landlord_float_budget_allocations') IS NULL OR to_regclass('public.landlord_float_budgets') IS NULL
+     OR to_regclass('public.system_config') IS NULL OR to_regclass('public.profiles') IS NULL
      OR to_regprocedure('public.landlord_float_week_start(date)') IS NULL OR to_regprocedure('public.payables_guard()') IS NULL
-     OR to_regprocedure('public.is_financial_ops_staff(uuid)') IS NULL OR to_regprocedure('public.has_role(uuid,app_role)') IS NULL
-     OR to_regprocedure('public.is_cfo_approver(uuid)') IS NULL
-     OR NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
-                     AND table_name = 'withdrawal_requests' AND column_name = 'landlord_payout_id') THEN
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'withdrawal_requests'
+            AND column_name IN ('landlord_payout_id', 'receipt_token', 'payout_proof_path', 'payout_proof_bucket',
+                                'payout_proof_uploaded_at', 'transaction_id', 'fin_ops_reference', 'processed_at')) <> 8
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'payout_proof_ocr_log'
+            AND column_name IN ('withdrawal_request_id', 'storage_path', 'validation_result', 'validation_code',
+                                'extracted_tid', 'extracted_amount', 'extracted_date', 'created_at')) <> 8
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public' AND table_name = 'payout_proof_integrity_alerts'
+            AND column_name IN ('withdrawal_id', 'issue_type', 'resolved')) <> 3 THEN
     RAISE EXCEPTION 'precondition failed: a table, column or function this migration depends on is missing';
   END IF;
 END
 $pre$;
 
--- 1. Provider evidence store. Lines are immutable; a wrong import is voided (with its lines), never deleted.
-CREATE TABLE IF NOT EXISTS public.provider_statement_imports (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  channel         text NOT NULL CHECK (channel IN ('mtn_momo', 'airtel_money', 'bank')),
-  account_ref     text NOT NULL CHECK (length(btrim(account_ref)) > 0),
-  file_name       text,
-  file_sha256     text NOT NULL UNIQUE CHECK (file_sha256 ~ '^[0-9a-f]{64}$'),
-  period_from     date,
-  period_to       date,
-  line_count      integer NOT NULL DEFAULT 0,
-  inserted_count  integer NOT NULL DEFAULT 0,
-  duplicate_count integer NOT NULL DEFAULT 0,
-  rejected_count  integer NOT NULL DEFAULT 0,
-  not_successful_count integer NOT NULL DEFAULT 0,
-  notes           text,
-  imported_by     uuid NOT NULL,
-  imported_at     timestamptz NOT NULL DEFAULT now(),
-  voided_at       timestamptz,
-  voided_by       uuid,
-  void_reason     text
-);
+INSERT INTO public.system_config (key, value, updated_at)
+VALUES ('landlord_receipt_archive_from', to_jsonb('2026-07-17'::text), now())
+ON CONFLICT (key) DO NOTHING;
 
-CREATE TABLE IF NOT EXISTS public.provider_statement_lines (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  import_id         uuid NOT NULL REFERENCES public.provider_statement_imports(id),
-  channel           text NOT NULL,
-  account_ref       text NOT NULL,
-  direction         text NOT NULL CHECK (direction IN ('out', 'in')),
-  -- Only 'successful' lines are evidence. Failed/pending lines are kept as record; a 'reversed' line cancels
-  -- the evidence of the same transaction ID.
-  status            text NOT NULL CHECK (status IN ('successful', 'failed', 'reversed', 'pending')),
-  transaction_id    text NOT NULL CHECK (length(regexp_replace(transaction_id, '[^0-9]', '', 'g')) >= 6),
-  tid_normalized    text GENERATED ALWAYS AS (regexp_replace(transaction_id, '[^0-9]', '', 'g')) STORED,
-  amount            numeric NOT NULL CHECK (amount > 0),
-  fee               numeric,
-  counterparty      text,
-  counterparty_name text,
-  counterparty9     text GENERATED ALWAYS AS (right(regexp_replace(COALESCE(counterparty, ''), '[^0-9]', '', 'g'), 9)) STORED,
-  tx_at             timestamptz NOT NULL,
-  raw               jsonb,
-  created_at        timestamptz NOT NULL DEFAULT now(),
-  voided_at         timestamptz
-);
--- One live line per provider transaction and status (a voided import's lines can be imported again from the
--- right file; a reversal of a transaction is its own line).
-CREATE UNIQUE INDEX IF NOT EXISTS provider_statement_lines_live_tid_uq
-  ON public.provider_statement_lines (channel, direction, tid_normalized, status) WHERE voided_at IS NULL;
-CREATE INDEX IF NOT EXISTS provider_statement_lines_tid_idx ON public.provider_statement_lines (tid_normalized);
-CREATE INDEX IF NOT EXISTS provider_statement_lines_cp9_idx ON public.provider_statement_lines (counterparty9);
-CREATE INDEX IF NOT EXISTS provider_statement_lines_import_idx ON public.provider_statement_lines (import_id);
-
-CREATE OR REPLACE FUNCTION public.trg_provider_statement_lines_immutable()
-RETURNS trigger
-LANGUAGE plpgsql
-SET search_path TO 'public'
-AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'Provider statement lines are evidence and cannot be deleted; void the import instead.' USING ERRCODE = 'check_violation';
-  END IF;
-  -- The only permitted change: voiding (voided_at NULL -> a timestamp), everything else stays as imported.
-  -- (Generated columns are not yet computed in NEW inside a BEFORE trigger; they derive from compared columns.)
-  IF OLD.voided_at IS NULL AND NEW.voided_at IS NOT NULL
-     AND (to_jsonb(NEW) - 'voided_at' - 'tid_normalized' - 'counterparty9')
-       = (to_jsonb(OLD) - 'voided_at' - 'tid_normalized' - 'counterparty9') THEN
-    RETURN NEW;
-  END IF;
-  RAISE EXCEPTION 'Provider statement lines are evidence and cannot be changed; void the import instead.' USING ERRCODE = 'check_violation';
-END;
-$$;
-DROP TRIGGER IF EXISTS trg_provider_statement_lines_immutable ON public.provider_statement_lines;
-CREATE TRIGGER trg_provider_statement_lines_immutable
-  BEFORE UPDATE OR DELETE ON public.provider_statement_lines
-  FOR EACH ROW EXECUTE FUNCTION public.trg_provider_statement_lines_immutable();
-
-ALTER TABLE public.provider_statement_imports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.provider_statement_lines ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.provider_statement_imports, public.provider_statement_lines FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.provider_statement_imports, public.provider_statement_lines TO service_role;
-
--- 2. Import (FinOps or CFO). Idempotent per file (SHA-256); a transaction already on file is skipped, not
---    duplicated. Bad lines are rejected and reported, the rest are kept. Writes evidence only.
-CREATE OR REPLACE FUNCTION public.import_provider_statement(
-  p_channel text, p_account_ref text, p_file_name text, p_file_sha256 text, p_lines jsonb,
-  p_period_from date DEFAULT NULL, p_period_to date DEFAULT NULL, p_notes text DEFAULT NULL)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_sha text := lower(btrim(COALESCE(p_file_sha256, '')));
-  v_imp public.provider_statement_imports%ROWTYPE;
-  v_line jsonb;
-  v_idx int := 0;
-  v_tid text; v_dir text; v_status text; v_amt numeric; v_fee numeric; v_at timestamptz;
-  v_n int;
-  v_ins int := 0; v_dup int := 0; v_notok int := 0;
-  v_rej jsonb := '[]'::jsonb;
-BEGIN
-  IF v_uid IS NULL OR NOT (public.is_financial_ops_staff(v_uid) OR public.has_role(v_uid, 'financial_ops')) THEN
-    RAISE EXCEPTION 'Only Financial Operations or the CFO can import provider statements' USING ERRCODE = '42501';
-  END IF;
-  IF p_channel IS NULL OR p_channel NOT IN ('mtn_momo', 'airtel_money', 'bank') THEN
-    RAISE EXCEPTION 'Channel must be mtn_momo, airtel_money or bank';
-  END IF;
-  IF NULLIF(btrim(COALESCE(p_account_ref, '')), '') IS NULL THEN
-    RAISE EXCEPTION 'Name the account this statement belongs to';
-  END IF;
-  IF v_sha !~ '^[0-9a-f]{64}$' THEN
-    RAISE EXCEPTION 'The file fingerprint (SHA-256) is missing or malformed';
-  END IF;
-  IF p_lines IS NULL OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) = 0 THEN
-    RAISE EXCEPTION 'The statement has no lines';
-  END IF;
-  IF jsonb_array_length(p_lines) > 20000 THEN
-    RAISE EXCEPTION 'A statement may carry at most 20,000 lines; split the period';
-  END IF;
-
-  SELECT * INTO v_imp FROM public.provider_statement_imports WHERE file_sha256 = v_sha;
-  IF FOUND THEN
-    RETURN jsonb_build_object('ok', true, 'already_imported', true, 'import_id', v_imp.id, 'voided', v_imp.voided_at IS NOT NULL,
-                              'lines', v_imp.line_count, 'inserted', v_imp.inserted_count, 'not_successful', v_imp.not_successful_count,
-                              'duplicates', v_imp.duplicate_count, 'rejected', v_imp.rejected_count);
-  END IF;
-
-  INSERT INTO public.provider_statement_imports (channel, account_ref, file_name, file_sha256, period_from, period_to, notes, imported_by)
-  VALUES (p_channel, btrim(p_account_ref), NULLIF(btrim(COALESCE(p_file_name, '')), ''), v_sha, p_period_from, p_period_to,
-          NULLIF(btrim(COALESCE(p_notes, '')), ''), v_uid)
-  RETURNING * INTO v_imp;
-
-  FOR v_line IN SELECT value FROM jsonb_array_elements(p_lines) LOOP
-    v_idx := v_idx + 1;
-    v_tid := btrim(COALESCE(v_line->>'transaction_id', ''));
-    v_dir := lower(btrim(COALESCE(v_line->>'direction', '')));
-    IF v_dir NOT IN ('out', 'in') THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason', 'direction must be out or in'); CONTINUE;
-    END IF;
-    IF length(regexp_replace(v_tid, '[^0-9]', '', 'g')) < 6 THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason', 'transaction ID missing or too short'); CONTINUE;
-    END IF;
-    -- The provider's own status wording, mapped; anything unrecognised is rejected rather than guessed.
-    v_status := CASE lower(btrim(COALESCE(v_line->>'status', '')))
-                  WHEN 'successful' THEN 'successful' WHEN 'success' THEN 'successful' WHEN 'succeeded' THEN 'successful'
-                  WHEN 'completed' THEN 'successful' WHEN 'complete' THEN 'successful'
-                  WHEN 'failed' THEN 'failed' WHEN 'failure' THEN 'failed' WHEN 'declined' THEN 'failed' WHEN 'rejected' THEN 'failed'
-                  WHEN 'reversed' THEN 'reversed' WHEN 'reversal' THEN 'reversed' WHEN 'refunded' THEN 'reversed'
-                  WHEN 'pending' THEN 'pending' WHEN 'processing' THEN 'pending' WHEN 'initiated' THEN 'pending'
-                END;
-    IF v_status IS NULL THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason',
-                 CASE WHEN NULLIF(btrim(COALESCE(v_line->>'status', '')), '') IS NULL THEN 'status missing'
-                      ELSE 'status not recognised: ' || left(v_line->>'status', 40) END); CONTINUE;
-    END IF;
-    BEGIN
-      v_amt := (v_line->>'amount')::numeric;
-      v_fee := NULLIF(v_line->>'fee', '')::numeric;
-      v_at := (v_line->>'tx_at')::timestamptz;
-    EXCEPTION WHEN OTHERS THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason', 'unreadable amount, fee or date'); CONTINUE;
-    END;
-    IF v_amt IS NULL OR v_amt <= 0 THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason', 'amount must be above zero'); CONTINUE;
-    END IF;
-    IF v_at IS NULL THEN
-      v_rej := v_rej || jsonb_build_object('line', v_idx, 'reason', 'date missing'); CONTINUE;
-    END IF;
-    INSERT INTO public.provider_statement_lines (import_id, channel, account_ref, direction, status, transaction_id, amount, fee,
-                                                 counterparty, counterparty_name, tx_at, raw)
-    VALUES (v_imp.id, p_channel, btrim(p_account_ref), v_dir, v_status, v_tid, v_amt, v_fee,
-            NULLIF(btrim(COALESCE(v_line->>'counterparty', '')), ''), NULLIF(btrim(COALESCE(v_line->>'counterparty_name', '')), ''),
-            v_at, v_line)
-    ON CONFLICT (channel, direction, tid_normalized, status) WHERE voided_at IS NULL DO NOTHING;
-    GET DIAGNOSTICS v_n = ROW_COUNT;
-    IF v_n = 1 THEN
-      v_ins := v_ins + 1;
-      IF v_status <> 'successful' THEN v_notok := v_notok + 1; END IF;
-    ELSE
-      v_dup := v_dup + 1;
-    END IF;
-  END LOOP;
-
-  UPDATE public.provider_statement_imports
-     SET line_count = v_idx, inserted_count = v_ins, duplicate_count = v_dup, rejected_count = jsonb_array_length(v_rej),
-         not_successful_count = v_notok
-   WHERE id = v_imp.id;
-  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, metadata)
-  VALUES (v_uid, 'provider_statement_imported', 'provider_statement_imports', v_imp.id::text,
-          jsonb_build_object('channel', p_channel, 'account_ref', btrim(p_account_ref), 'file_sha256', v_sha,
-                             'lines', v_idx, 'inserted', v_ins, 'not_successful', v_notok, 'duplicates', v_dup,
-                             'rejected', jsonb_array_length(v_rej)));
-  RETURN jsonb_build_object('ok', true, 'already_imported', false, 'import_id', v_imp.id, 'lines', v_idx,
-                            'inserted', v_ins, 'not_successful', v_notok, 'duplicates', v_dup, 'rejected', jsonb_array_length(v_rej),
-                            'rejected_lines', (SELECT COALESCE(jsonb_agg(x), '[]'::jsonb) FROM (SELECT x FROM jsonb_array_elements(v_rej) x LIMIT 200) s));
-END;
-$$;
-
--- 3. Void a wrong import (CFO only). Its lines stop counting as evidence; nothing is deleted.
-CREATE OR REPLACE FUNCTION public.void_provider_statement_import(p_import_id uuid, p_reason text)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_imp public.provider_statement_imports%ROWTYPE;
-  v_n int;
-BEGIN
-  IF v_uid IS NULL OR NOT public.is_cfo_approver(v_uid) THEN
-    RAISE EXCEPTION 'Only the CFO can void a provider statement import' USING ERRCODE = '42501';
-  END IF;
-  IF p_reason IS NULL OR length(btrim(p_reason)) < 10 THEN
-    RAISE EXCEPTION 'Give a reason of at least 10 characters';
-  END IF;
-  SELECT * INTO v_imp FROM public.provider_statement_imports WHERE id = p_import_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Import not found'; END IF;
-  IF v_imp.voided_at IS NOT NULL THEN RAISE EXCEPTION 'This import is already void'; END IF;
-  UPDATE public.provider_statement_imports SET voided_at = now(), voided_by = v_uid, void_reason = btrim(p_reason) WHERE id = p_import_id;
-  UPDATE public.provider_statement_lines SET voided_at = now() WHERE import_id = p_import_id AND voided_at IS NULL;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
-  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, metadata)
-  VALUES (v_uid, 'provider_statement_voided', 'provider_statement_imports', p_import_id::text,
-          jsonb_build_object('reason', btrim(p_reason), 'lines_voided', v_n));
-  RETURN jsonb_build_object('ok', true, 'import_id', p_import_id, 'lines_voided', v_n);
-END;
-$$;
-
--- 4. One row per landlord payout: paid out?, which weekly float, provider confirmation, labels, exceptions.
+-- 1. One row per landlord payout: paid out?, which weekly float, its Receipt Archive evidence check by check,
+--    the group it belongs to and its exceptions.
 CREATE OR REPLACE VIEW public.v_landlord_payout_settlement AS
-WITH wr AS (                     -- the completed withdrawal that paid the landlord (the route since July 2026)
+WITH cfg AS (
+  SELECT COALESCE((SELECT (c.value #>> '{}')::date FROM public.system_config c WHERE c.key = 'landlord_receipt_archive_from'),
+                  DATE '2026-07-17') AS archive_from
+),
+wr AS (                          -- the completed withdrawal that paid the landlord: its Receipt Archive record
   SELECT DISTINCT ON (w.landlord_payout_id)
          w.landlord_payout_id, w.id AS withdrawal_id, w.processed_at, w.amount AS paid_amount,
+         w.receipt_token, w.payout_proof_path, COALESCE(w.payout_proof_bucket, 'payment-proofs') AS proof_bucket,
+         w.payout_proof_uploaded_at,
          NULLIF(regexp_replace(COALESCE(NULLIF(w.transaction_id, ''), w.fin_ops_reference, ''), '[^0-9]', '', 'g'), '') AS ref
     FROM public.withdrawal_requests w
    WHERE w.landlord_payout_id IS NOT NULL AND w.status = 'completed'
@@ -309,189 +95,166 @@ base AS (
   SELECT lp.id AS payout_id, lp.rent_request_id, lp.landlord_id,
          COALESCE(NULLIF(lp.landlord_name, ''), pr.full_name) AS landlord_name,
          lp.landlord_phone, lp.mobile_money_provider, lp.amount, lp.status AS payout_status, lp.created_at,
-         wr.withdrawal_id, wr.ref AS ref_withdrawal, wr.paid_amount,
+         wr.withdrawal_id, wr.ref AS ref_withdrawal, wr.paid_amount, wr.receipt_token, wr.payout_proof_path,
+         wr.proof_bucket, wr.payout_proof_uploaded_at,
          NULLIF(regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g'), '') AS ref_finops,
-         right(regexp_replace(COALESCE(lp.landlord_phone, ''), '[^0-9]', '', 'g'), 9) AS phone9,
          (wr.withdrawal_id IS NOT NULL
           OR (NULLIF(regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
               AND lp.finops_disbursed_at IS NOT NULL)) AS paid_out,
          COALESCE(wr.processed_at, lp.finops_disbursed_at) AS paid_at,
+         CASE WHEN wr.processed_at IS NOT NULL THEN 'withdrawal_completed'
+              WHEN lp.finops_disbursed_at IS NOT NULL THEN 'finops_disbursed' END AS paid_date_source,
          al.week_start AS float_week_start, al.weekly_budget_id, al.kind AS allocation_kind
     FROM public.landlord_payouts lp
     LEFT JOIN wr ON wr.landlord_payout_id = lp.id
     LEFT JOIN alloc al ON al.rent_request_id = lp.rent_request_id
     LEFT JOIN public.profiles pr ON pr.id = lp.landlord_id
 ),
-sl AS (                          -- live (not voided) statement lines
-  SELECT l.id, l.channel, l.account_ref, l.direction, l.status, l.tid_normalized AS tid, l.amount, l.counterparty9 AS cp9, l.tx_at
-    FROM public.provider_statement_lines l
-   WHERE l.voided_at IS NULL
+ocr AS (                         -- the latest machine check of each archived proof file
+  SELECT DISTINCT ON (o.withdrawal_request_id, o.storage_path)
+         o.withdrawal_request_id, o.storage_path, o.id AS check_id, o.created_at AS checked_at,
+         o.validation_result, o.validation_code,
+         NULLIF(regexp_replace(COALESCE(o.extracted_tid, ''), '[^0-9]', '', 'g'), '') AS xtid,
+         o.extracted_amount AS xamt, o.extracted_date AS xdate
+    FROM public.payout_proof_ocr_log o
+   ORDER BY o.withdrawal_request_id, o.storage_path, o.created_at DESC
 ),
-st_ok AS (                       -- successful outgoing statement lines and how reliable they are
-                                 -- (one equi-join on transaction ID, aggregated per line: linear, not per-row scans)
-  SELECT s.id, s.channel, s.account_ref, s.direction, s.status, s.tid, s.amount, s.cp9, s.tx_at,
-         -- A reversal cancels this line only when reliably linked: same transaction ID, channel and account, and an
-         -- amount within the fee allowance. Any other reversal is a contradiction for CFO review, never a cancellation.
-         COALESCE(bool_or(x.status = 'reversed' AND x.channel = s.channel
-                          AND x.account_ref = s.account_ref AND abs(x.amount - s.amount) <= 5000), false) AS reliably_reversed,
-         -- Unresolved contradiction: another line for the same transaction ID that is failed; reversed but not reliably
-         -- linked; pending unless it is the same channel and account and earlier than this success (pending-then-
-         -- successful); or a second successful outgoing line (a duplicate in another channel).
-         COALESCE(bool_or(x.status = 'failed'
-                      OR (x.status = 'reversed' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
-                                                         AND abs(x.amount - s.amount) <= 5000))
-                      OR (x.status = 'pending' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
-                                                        AND x.tx_at <= s.tx_at))
-                      OR (x.status = 'successful' AND x.direction = 'out')), false) AS contradicted
-    FROM sl s
-    LEFT JOIN sl x ON x.tid = s.tid AND x.id <> s.id
-   WHERE s.direction = 'out' AND s.status = 'successful'
-   GROUP BY s.id, s.channel, s.account_ref, s.direction, s.status, s.tid, s.amount, s.cp9, s.tx_at
+xtid_use AS (                    -- how many payouts / withdrawals have a current receipt showing each transaction ID
+  SELECT o.xtid, count(DISTINCT COALESCE(w.landlord_payout_id, w.id)) AS uses
+    FROM public.withdrawal_requests w
+    JOIN ocr o ON o.withdrawal_request_id = w.id AND o.storage_path = w.payout_proof_path
+   WHERE w.status = 'completed' AND o.xtid IS NOT NULL
+   GROUP BY o.xtid
 ),
-pending_resolved AS (            -- pending lines followed by a success on the same transaction ID, channel and account
-  SELECT DISTINCT p.id
-    FROM sl p
-    JOIN sl s2 ON s2.tid = p.tid AND s2.channel = p.channel AND s2.account_ref = p.account_ref
-   WHERE p.status = 'pending' AND s2.status = 'successful' AND s2.direction = 'out' AND s2.tx_at >= p.tx_at
+wref_use AS (                    -- the same reference recorded on completed withdrawals of other payouts / users
+  SELECT x.ref, count(DISTINCT x.owner) AS uses
+    FROM (SELECT NULLIF(regexp_replace(COALESCE(NULLIF(w.transaction_id, ''), w.fin_ops_reference, ''), '[^0-9]', '', 'g'), '') AS ref,
+                 COALESCE(w.landlord_payout_id, w.id) AS owner
+            FROM public.withdrawal_requests w WHERE w.status = 'completed') x
+   WHERE x.ref IS NOT NULL
+   GROUP BY x.ref
 ),
-ev AS (                          -- provider evidence: the original provider SMS (primary) and statement lines (supplementary)
-  SELECT 'statement'::text AS source, s.id AS source_id, s.tid, s.amount, s.cp9, s.tx_at, s.contradicted
-    FROM st_ok s
-   WHERE NOT s.reliably_reversed
-  UNION ALL
-  SELECT 'provider_email'::text, g.id, regexp_replace(COALESCE(g.transaction_id, ''), '[^0-9]', '', 'g'), g.amount,
-         right(regexp_replace(COALESCE(g.counterparty, ''), '[^0-9]', '', 'g'), 9),
-         COALESCE(g.tx_date::timestamp AT TIME ZONE 'Africa/Kampala', g.internal_date), false
-    FROM public.gmail_transactions g
-   WHERE g.direction = 'out' AND g.amount > 0
-),
-refs AS (                        -- each paid-out payout's provider reference(s)
-  SELECT payout_id, amount, ref_withdrawal AS ref FROM base WHERE paid_out AND ref_withdrawal IS NOT NULL
-  UNION
-  SELECT payout_id, amount, ref_finops FROM base WHERE paid_out AND ref_finops IS NOT NULL
-),
-ref_all AS (                     -- how many payouts (any state) carry each reference, in either field
+ref_all AS (                     -- how many landlord payouts carry each reference, in either field
   SELECT x.ref, count(DISTINCT x.payout_id) AS payouts
     FROM (SELECT payout_id, ref_withdrawal AS ref FROM base WHERE ref_withdrawal IS NOT NULL
           UNION ALL
           SELECT payout_id, ref_finops FROM base WHERE ref_finops IS NOT NULL) x
    GROUP BY x.ref
 ),
-tid_match AS (                   -- same transaction ID and amount (up to 5,000 above, for the provider fee)
-  SELECT r.payout_id, r.ref, e.source, e.source_id, e.tx_at, e.contradicted,
-         count(*) OVER (PARTITION BY e.source, e.source_id) AS payouts_on_line
-    FROM refs r
-    JOIN ev e ON e.tid = r.ref AND length(e.tid) >= 6
-   WHERE e.amount BETWEEN r.amount AND r.amount + 5000
+alerts AS (                      -- open integrity alerts per withdrawal
+  SELECT a.withdrawal_id, array_agg(DISTINCT a.issue_type ORDER BY a.issue_type) AS issue_types
+    FROM public.payout_proof_integrity_alerts a
+   WHERE NOT a.resolved AND a.withdrawal_id IS NOT NULL
+   GROUP BY a.withdrawal_id
 ),
-tid_ok AS (                      -- may this match confirm? The original SMS: as before (one payout on the line).
-                                 -- A statement line, without SMS: only when RELIABLE: one payout on the line, a valid
-                                 -- 11/12-digit reference used by no other payout, and no unresolved contradiction.
-  SELECT t.*,
-         (t.payouts_on_line = 1
-          AND (t.source = 'provider_email'
-               OR (length(t.ref) IN (11, 12) AND COALESCE(ra.payouts, 0) = 1 AND NOT t.contradicted))) AS reliable
-    FROM tid_match t
-    LEFT JOIN ref_all ra ON ra.ref = t.ref
-),
-confirmed AS (                   -- the original provider SMS is the primary evidence, a statement line supplementary
-  SELECT DISTINCT ON (t.payout_id) t.payout_id, t.source, t.source_id, t.tx_at
-    FROM tid_ok t WHERE t.reliable
-   ORDER BY t.payout_id, (t.source = 'provider_email') DESC, t.tx_at
-),
-st_unreliable AS (               -- statement lines that point at a payout but cannot confirm it: kept for CFO review
-  SELECT t.payout_id FROM tid_ok t WHERE t.source = 'statement' AND NOT t.reliable
-  UNION
-  SELECT r.payout_id                                   -- same transaction ID, amount outside the allowance
-    FROM refs r JOIN st_ok s ON s.tid = r.ref AND length(r.ref) >= 6
-   WHERE NOT s.reliably_reversed AND NOT (s.amount BETWEEN r.amount AND r.amount + 5000)
-),
-shared AS (SELECT DISTINCT t.payout_id FROM tid_match t WHERE t.payouts_on_line > 1),
-phone_match AS (                 -- same number and amount within 3 days, but no transaction ID: probable only
-  SELECT DISTINCT ON (b.payout_id) b.payout_id, e.source_id
+rc0 AS (                         -- the Receipt Archive evidence of each payout, check by check
+  SELECT b.*, o.check_id, o.checked_at, o.validation_result, o.validation_code, o.xtid, o.xamt, o.xdate,
+         (b.receipt_token IS NOT NULL AND b.payout_proof_path IS NOT NULL) AS has_receipt,
+         (b.payout_proof_path IS NOT NULL
+          AND EXISTS (SELECT 1 FROM storage.objects so
+                       WHERE so.bucket_id = b.proof_bucket AND so.name = b.payout_proof_path)) AS file_accessible,
+         COALESCE(xu.uses, 0) AS xtid_uses, COALESCE(wu.uses, 0) AS ref_uses, COALESCE(ra.payouts, 0) AS ref_payouts,
+         al.issue_types AS open_alerts
     FROM base b
-    JOIN ev e ON e.cp9 = b.phone9 AND length(b.phone9) = 9
-   WHERE b.paid_out AND e.amount BETWEEN b.amount AND b.amount + 5000
-     AND abs((e.tx_at AT TIME ZONE 'Africa/Kampala')::date - (b.paid_at AT TIME ZONE 'Africa/Kampala')::date) <= 3
-   ORDER BY b.payout_id, abs(extract(epoch FROM e.tx_at - b.paid_at))
+    LEFT JOIN ocr o ON o.withdrawal_request_id = b.withdrawal_id AND o.storage_path = b.payout_proof_path
+    LEFT JOIN xtid_use xu ON xu.xtid = o.xtid
+    LEFT JOIN wref_use wu ON wu.ref = b.ref_withdrawal
+    LEFT JOIN ref_all ra ON ra.ref = COALESCE(b.ref_withdrawal, b.ref_finops)
+    LEFT JOIN alerts al ON al.withdrawal_id = b.withdrawal_id
 ),
-shot AS (                        -- FinOps screenshot check (Welile-side capture: a label, never evidence)
-  SELECT DISTINCT ON (o.withdrawal_request_id) o.withdrawal_request_id, o.validation_result
-    FROM public.payout_proof_ocr_log o
-   ORDER BY o.withdrawal_request_id, o.created_at DESC
-),
-conflict AS (                    -- statement lines saying the payout's transaction failed, was reversed or is pending.
-                                 -- They never remove an SMS confirmation or reopen a payable: they are shown for review.
-                                 -- A pending line later resolved by a success on the same channel and account is not one.
-  SELECT r.payout_id,
-         array_agg(DISTINCT l.status ORDER BY l.status) AS statuses,
-         array_agg(l.id ORDER BY l.tx_at) AS line_ids
-    FROM refs r
-    JOIN sl l ON l.tid = r.ref AND length(r.ref) >= 6 AND l.status IN ('failed', 'reversed', 'pending')
-    LEFT JOIN pending_resolved pr ON pr.id = l.id
-   WHERE pr.id IS NULL
-   GROUP BY r.payout_id
-),
-ref_use AS (                     -- how many payouts carry the same provider reference
-  SELECT COALESCE(ref_withdrawal, ref_finops) AS ref, count(*) AS payouts
-    FROM base WHERE COALESCE(ref_withdrawal, ref_finops) IS NOT NULL
-   GROUP BY 1
+rc AS (
+  SELECT r.*,
+         -- Every open alert blocks except 'proof_missing': detect_payout_proof_integrity raises it only when no proof was
+         -- attached, so it is either stale (the file is now archived and accessible) or the same fact as receipt_missing.
+         ARRAY(SELECT t FROM unnest(COALESCE(r.open_alerts, '{}'::text[])) t
+                WHERE t <> 'proof_missing') AS blocking_alerts,
+         (r.xtid IS NOT NULL AND r.xamt IS NOT NULL) AS fields_read,
+         -- 11 (MTN) or 12 (Airtel) digits. The provider cannot be established reliably from the payout or the
+         -- withdrawal, so a provider-specific length is not enforced.
+         (r.xtid IS NOT NULL AND length(r.xtid) IN (11, 12) AND r.xtid = r.ref_withdrawal) AS ref_ok,
+         (r.xamt IS NOT NULL AND round(r.xamt) = round(r.paid_amount) AND round(r.paid_amount) = round(r.amount)) AS amount_ok,
+         (r.xtid_uses > 1 OR r.ref_uses > 1 OR r.ref_payouts > 1) AS duplicated
+    FROM rc0 r
 ),
 fin AS (
-SELECT b.payout_id, b.rent_request_id, b.landlord_id, b.landlord_name, b.landlord_phone, b.mobile_money_provider,
-       b.amount, b.payout_status, b.created_at, b.withdrawal_id,
-       COALESCE(b.ref_withdrawal, b.ref_finops) AS payout_reference,
-       b.paid_out, b.paid_at,
-       (b.float_week_start IS NOT NULL) AS has_weekly_float,
-       b.float_week_start, b.weekly_budget_id, b.allocation_kind,
-       COALESCE(b.float_week_start,
-                public.landlord_float_week_start((COALESCE(b.paid_at, b.created_at) AT TIME ZONE 'Africa/Kampala')::date)) AS report_week_start,
-       c.payout_id IS NOT NULL AS provider_confirmed,
-       c.tx_at AS confirmed_at, c.source AS evidence_source, c.source_id AS evidence_id,
-       pm.source_id AS probable_evidence_id,
-       sh.validation_result AS screenshot_result,
-       CASE WHEN b.paid_out AND c.payout_id IS NOT NULL THEN 'confirmed'
-            WHEN b.paid_out THEN 'paid_unconfirmed'
-            WHEN b.payout_status = 'failed' THEN 'failed'
-            ELSE 'not_paid' END AS state,
-       b.paid_amount,
-       cf.statuses AS conflict_statuses,
-       cf.line_ids AS conflict_line_ids,
-       -- Every exception that applies, most serious first; 'exception' (below) is the first one.
-       --   paid_amount_differs  the completed withdrawal paid a different amount than the payout records
-       --   evidence_conflict    a statement line says this payout's transaction failed, was reversed or is pending
-       --                        (an SMS confirmation stays; the CFO investigates)
-       --   statement_match_unreliable  a statement line points at this payout but cannot confirm it: shared or invalid
-       --                        reference, several payouts on the line, an unresolved contradictory status, or an amount
-       --                        outside the allowance
-       --   reference_unusable   paid out, unconfirmed, and its reference is not an MTN (11-digit) or Airtel (12-digit)
-       --                        transaction ID, so it can never match a provider line exactly
-       --   shared_reference     paid out, unconfirmed, and another payout carries the same reference
+SELECT r.payout_id, r.rent_request_id, r.landlord_id, r.landlord_name, r.landlord_phone, r.mobile_money_provider,
+       r.amount, r.payout_status, r.created_at, r.withdrawal_id,
+       COALESCE(r.ref_withdrawal, r.ref_finops) AS payout_reference,
+       r.paid_out, r.paid_at,
+       (r.paid_at AT TIME ZONE 'Africa/Kampala')::date AS paid_date,
+       r.paid_date_source,
+       (r.float_week_start IS NOT NULL) AS has_weekly_float,
+       r.float_week_start, r.weekly_budget_id, r.allocation_kind,
+       COALESCE(r.float_week_start,
+                public.landlord_float_week_start((COALESCE(r.paid_at, r.created_at) AT TIME ZONE 'Africa/Kampala')::date)) AS report_week_start,
+       r.paid_amount,
+       -- Receipt Archive evidence, shown as recorded (the upload time is the RECEIPT UPLOAD DATE, never a payout date;
+       -- the date read from the image is unverified and never used as a payout date).
+       r.receipt_token, r.payout_proof_path AS receipt_file_path, r.file_accessible AS receipt_file_accessible,
+       r.payout_proof_uploaded_at AS receipt_uploaded_at,
+       r.check_id AS receipt_check_id, r.checked_at AS receipt_checked_at,
+       r.validation_result AS receipt_check_result, r.validation_code AS receipt_check_code,
+       r.xtid AS receipt_tid_read, r.xamt AS receipt_amount_read, r.xdate AS receipt_date_read,
+       r.blocking_alerts,
+       -- The first check the receipt fails (or receipt_verified when it passes them all).
+       CASE
+         WHEN NOT r.paid_out THEN NULL
+         WHEN r.withdrawal_id IS NULL THEN 'no_archive_record'
+         WHEN NOT r.has_receipt OR NOT r.file_accessible THEN 'receipt_missing'
+         WHEN r.check_id IS NULL THEN 'receipt_unchecked'
+         WHEN r.validation_result = 'mismatch' THEN 'receipt_contradicts'
+         WHEN r.validation_result IS DISTINCT FROM 'match' THEN 'receipt_unreadable'
+         WHEN NOT r.fields_read THEN 'receipt_incomplete'
+         WHEN NOT r.ref_ok THEN 'receipt_reference_differs'
+         WHEN NOT r.amount_ok THEN 'receipt_amount_differs'
+         WHEN r.duplicated THEN 'receipt_duplicate'
+         WHEN cardinality(r.blocking_alerts) > 0 THEN 'receipt_alert_open'
+         ELSE 'receipt_verified'
+       END AS receipt_state,
+       cfg.archive_from
+  FROM rc r CROSS JOIN cfg
+),
+st AS (
+SELECT f.*,
+       f.receipt_state = 'receipt_verified' AS receipt_verified,
+       CASE WHEN f.paid_out AND f.receipt_state = 'receipt_verified' THEN 'confirmed'
+            WHEN f.paid_out AND f.paid_date < f.archive_from THEN 'historical_review'
+            WHEN f.paid_out THEN 'paid_unconfirmed'
+            WHEN f.payout_status = 'failed' THEN 'failed'
+            ELSE 'not_paid' END AS state
+  FROM fin f
+),
+ex AS (
+SELECT s.*,
+       -- Every exception that applies, most serious first; 'exception' is the first one. Exceptions never change an
+       -- amount, a payout or a withdrawal.
        array_remove(ARRAY[
-         CASE WHEN b.paid_out AND b.payout_status = 'failed' THEN 'failed_but_paid' END,
-         CASE WHEN NOT b.paid_out AND b.payout_status = 'completed' THEN 'completed_without_payout' END,
-         CASE WHEN cf.payout_id IS NOT NULL THEN 'evidence_conflict' END,
-         CASE WHEN b.paid_out AND c.payout_id IS NULL AND su.payout_id IS NOT NULL THEN 'statement_match_unreliable' END,
-         CASE WHEN b.paid_out AND b.paid_amount IS NOT NULL AND b.paid_amount <> b.amount THEN 'paid_amount_differs' END,
-         CASE WHEN b.paid_out AND c.payout_id IS NULL
-               AND length(COALESCE(b.ref_withdrawal, b.ref_finops, '')) NOT IN (11, 12) THEN 'reference_unusable' END,
-         CASE WHEN b.paid_out AND c.payout_id IS NULL AND s.payout_id IS NOT NULL THEN 'shared_evidence' END,
-         CASE WHEN b.paid_out AND c.payout_id IS NULL AND ru.payouts > 1 THEN 'shared_reference' END,
-         CASE WHEN b.paid_out AND c.payout_id IS NULL AND pm.payout_id IS NOT NULL THEN 'probable_match' END
+         CASE WHEN s.paid_out AND s.payout_status = 'failed' THEN 'failed_but_paid' END,
+         CASE WHEN NOT s.paid_out AND s.payout_status = 'completed' THEN 'completed_without_payout' END,
+         CASE WHEN s.receipt_state IN ('receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete',
+                                       'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate',
+                                       'receipt_alert_open') THEN s.receipt_state END,
+         CASE WHEN s.paid_out AND NOT s.receipt_verified AND s.receipt_state <> 'receipt_duplicate'
+                   AND s.receipt_tid_read IS NOT NULL AND r2.duplicated THEN 'receipt_duplicate' END,
+         CASE WHEN s.paid_out AND NOT s.receipt_verified AND s.receipt_state <> 'receipt_alert_open'
+                   AND cardinality(s.blocking_alerts) > 0 THEN 'receipt_alert_open' END,
+         CASE WHEN s.paid_out AND s.paid_amount IS NOT NULL AND s.paid_amount <> s.amount THEN 'paid_amount_differs' END,
+         CASE WHEN s.paid_out AND NOT s.receipt_verified
+                   AND length(COALESCE(s.payout_reference, '')) NOT IN (11, 12) THEN 'reference_unusable' END,
+         CASE WHEN s.paid_out AND NOT s.receipt_verified AND r2.ref_payouts > 1 THEN 'shared_reference' END
        ]::text[], NULL) AS exceptions
-  FROM base b
-  LEFT JOIN confirmed c ON c.payout_id = b.payout_id
-  LEFT JOIN shared s ON s.payout_id = b.payout_id
-  LEFT JOIN phone_match pm ON pm.payout_id = b.payout_id
-  LEFT JOIN shot sh ON sh.withdrawal_request_id = b.withdrawal_id
-  LEFT JOIN ref_use ru ON ru.ref = COALESCE(b.ref_withdrawal, b.ref_finops)
-  LEFT JOIN conflict cf ON cf.payout_id = b.payout_id
-  LEFT JOIN (SELECT DISTINCT payout_id FROM st_unreliable) su ON su.payout_id = b.payout_id
+  FROM st s JOIN rc r2 ON r2.payout_id = s.payout_id
 )
-SELECT fin.*, fin.exceptions[1] AS exception FROM fin;
+SELECT ex.*,
+       ex.exceptions[1] AS exception,
+       (ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[]) AS under_review,
+       CASE WHEN ex.state = 'paid_unconfirmed' THEN
+              CASE WHEN ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[] THEN 'under_review' ELSE 'awaiting_receipt' END
+       END AS payable_class
+  FROM ex;
 
--- 5. The payables list: every non-landlord branch verbatim (incl. Part 2's budget branch); the two
---    status-based landlord branches become one rule-based branch.
+-- 2. The payables list: every non-landlord branch verbatim (incl. Part 2's budget branch); the two status-based
+--    landlord branches become one Receipt-Archive branch (payable only).
 CREATE OR REPLACE VIEW public.v_payables_lines AS
 SELECT 'user'::text AS category_key,
     'User Wallets & Withdrawals'::text AS category_label,
@@ -550,19 +313,19 @@ UNION ALL
  SELECT 'landlord'::text AS category_key,
     'Landlord Rent Payouts'::text AS category_label,
     'landlord_payout'::text AS product_key,
-    'Landlord Payouts — paid out, receipt not yet provider-confirmed'::text AS product_label,
+    'Landlord Payouts — paid out, receipt not yet verified in the Receipt Archive'::text AS product_label,
     'landlord_payouts'::text AS source_table,
     s.payout_id AS item_id,
     s.landlord_id AS counterparty_id,
     COALESCE(NULLIF(s.landlord_name, ''::text), 'Unknown landlord'::text) AS counterparty_name,
     GREATEST(COALESCE(s.amount, 0::numeric), 0::numeric) AS outstanding_amount,
-    (s.paid_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS due_date,
+    s.paid_date AS due_date,
     'scheduled'::text AS due_kind,
     0::numeric AS daily_amount,
-    COALESCE(s.exception, 'paid_unconfirmed'::text) AS status,
+    COALESCE(s.exception, s.receipt_state) AS status,
     s.created_at
    FROM public.v_landlord_payout_settlement s
-  -- Paid out and not yet confirmed by a provider statement line: the CFO's landlord payable rule.
+  -- Paid out (after the archive start) and not verified by the Receipt Archive: the landlord payable.
   WHERE s.state = 'paid_unconfirmed'::text AND COALESCE(s.amount, 0::numeric) > 0::numeric
 UNION ALL
  SELECT 'agent'::text AS category_key,
@@ -640,7 +403,7 @@ UNION ALL
   -- B3: an overspent line stays on the report (amount 0, its own product and status) instead of vanishing.
   WHERE b.outstanding_amount > 0::numeric OR b.overspent;
 
--- 6. Paid history: landlord payments are dated by the provider statement line, not by CFO funding.
+-- 3. Paid history: landlord payouts verified by the Receipt Archive, dated by the payout record.
 CREATE OR REPLACE VIEW public.v_payables_payment_history AS
 SELECT 'user'::text AS category_key,
     'withdrawal_request'::text AS product_key,
@@ -658,10 +421,10 @@ UNION ALL
 UNION ALL
  SELECT 'landlord'::text AS category_key,
     'landlord_payout'::text AS product_key,
-    (s.confirmed_at AT TIME ZONE 'Africa/Nairobi'::text)::date AS d,
+    s.paid_date AS d,
     COALESCE(s.amount, 0::numeric) AS amount
    FROM public.v_landlord_payout_settlement s
-  -- Paid = confirmed by the provider, dated by the provider's statement line (not by CFO funding).
+  -- Paid = verified by the Receipt Archive, dated by the payout record (never the receipt upload time).
   WHERE s.state = 'confirmed'::text
 UNION ALL
  SELECT 'agent'::text AS category_key,
@@ -696,7 +459,7 @@ UNION ALL
                    WHEN 'director_requisitions' THEN (SELECT d.budget_line_id FROM public.director_requisitions d WHERE d.id = w.requisition_id)
                  END);
 
--- 7. The CFO weekly view (and, with p_week_start, that week's payouts).
+-- 4. The CFO weekly view (and, with p_week_start, that week's payouts).
 CREATE OR REPLACE FUNCTION public.get_landlord_payables_by_week(p_week_start date DEFAULT NULL, p_weekly_float boolean DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -707,13 +470,16 @@ DECLARE
   v jsonb;
 BEGIN
   PERFORM public.payables_guard();
-  -- Amounts are reported in two NON-OVERLAPPING groups, so they can never be added together by mistake:
-  --   payable              paid out, not confirmed (the outstanding landlord payable). "payable_under_review" is
-  --                        the part of it carrying a review exception: a SUBSET of payable, never added to it.
-  --   review_only          carries a review exception but is NOT payable: confirmed payouts (e.g. confirmed by
-  --                        the original SMS with a conflicting statement line) and payouts never paid out.
+  -- Every payout is in exactly ONE top-level group, so groups can be added: confirmed + payable + historical_review +
+  -- review_only + not_paid = all payouts. payable = payable_under_review + payable_awaiting_receipt (its two parts,
+  -- never added to payable again). confirmed_flagged is a part of confirmed.
   WITH s0 AS MATERIALIZED (
-    SELECT s.*, (s.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'evidence_conflict', 'statement_match_unreliable', 'paid_amount_differs', 'reference_unusable', 'shared_evidence', 'shared_reference']::text[]) AS under_review
+    SELECT s.*,
+           CASE WHEN s.state = 'confirmed' THEN 'confirmed'
+                WHEN s.state = 'paid_unconfirmed' THEN 'payable'
+                WHEN s.state = 'historical_review' THEN 'historical_review'
+                WHEN s.under_review THEN 'review_only'
+                ELSE 'not_paid' END AS grp
       FROM public.v_landlord_payout_settlement s),
   al AS (
     SELECT a.week_start, sum(a.amount) AS allocated, count(*) AS allocated_count,
@@ -729,21 +495,21 @@ BEGIN
      ORDER BY b.period_start, b.created_at DESC),
   pw AS (
     SELECT s.report_week_start AS week_start, s.has_weekly_float,
-           COALESCE(sum(s.amount) FILTER (WHERE s.paid_out), 0)                  AS paid_out,
-           count(*) FILTER (WHERE s.paid_out)                                    AS paid_out_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.state = 'confirmed'), 0)        AS confirmed,
-           count(*) FILTER (WHERE s.state = 'confirmed')                          AS confirmed_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed'), 0) AS payable,
-           count(*) FILTER (WHERE s.state = 'paid_unconfirmed')                   AS payable_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.under_review), 0) AS payable_under_review,
-           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.under_review) AS payable_under_review_count,
-           COALESCE(sum(s.amount) FILTER (WHERE s.state <> 'paid_unconfirmed' AND s.under_review), 0) AS review_only,
-           count(*) FILTER (WHERE s.state <> 'paid_unconfirmed' AND s.under_review) AS review_only_count,
-           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND 'probable_match' = ANY (s.exceptions)) AS probable_count,
-           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.screenshot_result = 'match') AS screenshot_matched_count
+           COALESCE(sum(s.amount) FILTER (WHERE s.paid_out), 0) AS paid_out, count(*) FILTER (WHERE s.paid_out) AS paid_out_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'confirmed'), 0) AS confirmed, count(*) FILTER (WHERE s.grp = 'confirmed') AS confirmed_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'payable'), 0) AS payable, count(*) FILTER (WHERE s.grp = 'payable') AS payable_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.payable_class = 'under_review'), 0) AS payable_under_review,
+           count(*) FILTER (WHERE s.payable_class = 'under_review') AS payable_under_review_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.payable_class = 'awaiting_receipt'), 0) AS payable_awaiting_receipt,
+           count(*) FILTER (WHERE s.payable_class = 'awaiting_receipt') AS payable_awaiting_receipt_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'historical_review'), 0) AS historical_review,
+           count(*) FILTER (WHERE s.grp = 'historical_review') AS historical_review_count,
+           COALESCE(sum(s.amount) FILTER (WHERE s.grp = 'review_only'), 0) AS review_only,
+           count(*) FILTER (WHERE s.grp = 'review_only') AS review_only_count,
+           count(*) FILTER (WHERE s.state = 'paid_unconfirmed' AND s.receipt_state = 'receipt_unchecked') AS receipt_unchecked_count
       FROM s0 s
      GROUP BY 1, 2
-    HAVING count(*) FILTER (WHERE s.paid_out) > 0 OR count(*) FILTER (WHERE s.under_review) > 0),
+    HAVING count(*) FILTER (WHERE s.paid_out) > 0 OR count(*) FILTER (WHERE s.grp = 'review_only') > 0),
   wk AS (
     SELECT week_start, true AS has_weekly_float FROM al
     UNION SELECT period_start, true FROM fl
@@ -757,63 +523,59 @@ BEGIN
            COALESCE(p.paid_out, 0) AS paid_out, COALESCE(p.paid_out_count, 0) AS paid_out_count,
            COALESCE(p.confirmed, 0) AS confirmed, COALESCE(p.confirmed_count, 0) AS confirmed_count,
            COALESCE(p.payable, 0) AS payable, COALESCE(p.payable_count, 0) AS payable_count,
-           COALESCE(p.payable_under_review, 0) AS payable_under_review,
-           COALESCE(p.payable_under_review_count, 0) AS payable_under_review_count,
+           COALESCE(p.payable_under_review, 0) AS payable_under_review, COALESCE(p.payable_under_review_count, 0) AS payable_under_review_count,
+           COALESCE(p.payable_awaiting_receipt, 0) AS payable_awaiting_receipt, COALESCE(p.payable_awaiting_receipt_count, 0) AS payable_awaiting_receipt_count,
+           COALESCE(p.historical_review, 0) AS historical_review, COALESCE(p.historical_review_count, 0) AS historical_review_count,
            COALESCE(p.review_only, 0) AS review_only, COALESCE(p.review_only_count, 0) AS review_only_count,
-           COALESCE(p.probable_count, 0) AS probable_count, COALESCE(p.screenshot_matched_count, 0) AS screenshot_matched_count
+           COALESCE(p.receipt_unchecked_count, 0) AS receipt_unchecked_count
       FROM wk w
       LEFT JOIN al a ON w.has_weekly_float AND a.week_start = w.week_start
       LEFT JOIN fl f ON w.has_weekly_float AND f.period_start = w.week_start
-      LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float),
-  unlinked AS (                  -- failed / reversed / pending statement lines that match no payout reference
-    SELECT l.id, l.channel, l.account_ref, l.direction, l.status, l.transaction_id, l.amount, l.tx_at
-      FROM public.provider_statement_lines l
-     WHERE l.voided_at IS NULL AND l.status IN ('failed', 'reversed', 'pending')
-       AND NOT EXISTS (SELECT 1 FROM s0 s WHERE s.payout_reference = l.tid_normalized)
-       AND NOT EXISTS (SELECT 1 FROM public.landlord_payouts lp
-                        WHERE regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g') = l.tid_normalized))
+      LEFT JOIN pw p ON p.week_start = w.week_start AND p.has_weekly_float = w.has_weekly_float)
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'A landlord payout is payable once it has been paid out, until provider evidence confirms it: the original provider SMS (primary) or a reliably matched official statement line (same transaction ID and amount, no contradiction). Grouped by the CFO weekly landlord float; payouts without a weekly float are grouped by the week they were paid. Amounts under review are reported separately: payable_under_review is part of payable; review_only is not payable. Never add review amounts to payable.',
+    'rule', 'Evidence: the Receipt Archive only. A landlord payout is confirmed only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, the transaction ID read from the receipt equals the withdrawal reference (11 or 12 digits), the amount read equals the withdrawal and payout amounts, the ID and reference are used by no other payout, and no open integrity alert makes the receipt unreliable. SMS and provider statements never confirm a payout. Paid-out payouts not confirmed are payable, except those paid before the archive start date, which are historical review items for the CFO. Groups do not overlap; payable_under_review and payable_awaiting_receipt are the two parts of payable.',
+    'archive_from', (SELECT max(archive_from) FROM s0),
     'totals', (SELECT jsonb_build_object(
-        'payable', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed'), 0),
-        'payable_count', count(*) FILTER (WHERE state = 'paid_unconfirmed'),
-        'payable_with_weekly_float', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND has_weekly_float), 0),
-        'payable_without_weekly_float', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND NOT has_weekly_float), 0),
-        'payable_under_review', COALESCE(sum(amount) FILTER (WHERE state = 'paid_unconfirmed' AND under_review), 0),
-        'payable_under_review_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND under_review),
-        'review_only', COALESCE(sum(amount) FILTER (WHERE state <> 'paid_unconfirmed' AND under_review), 0),
-        'review_only_count', count(*) FILTER (WHERE state <> 'paid_unconfirmed' AND under_review),
-        'confirmed_under_review', COALESCE(sum(amount) FILTER (WHERE state = 'confirmed' AND under_review), 0),
-        'confirmed_under_review_count', count(*) FILTER (WHERE state = 'confirmed' AND under_review),
-        'not_paid_under_review', COALESCE(sum(amount) FILTER (WHERE state IN ('not_paid', 'failed') AND under_review), 0),
-        'not_paid_under_review_count', count(*) FILTER (WHERE state IN ('not_paid', 'failed') AND under_review),
-        'confirmed', COALESCE(sum(amount) FILTER (WHERE state = 'confirmed'), 0),
-        'confirmed_count', count(*) FILTER (WHERE state = 'confirmed'),
+        'payouts', count(*), 'payouts_amount', COALESCE(sum(amount), 0),
+        'paid_out', COALESCE(sum(amount) FILTER (WHERE paid_out), 0), 'paid_out_count', count(*) FILTER (WHERE paid_out),
+        'confirmed', COALESCE(sum(amount) FILTER (WHERE grp = 'confirmed'), 0), 'confirmed_count', count(*) FILTER (WHERE grp = 'confirmed'),
+        'confirmed_flagged', COALESCE(sum(amount) FILTER (WHERE grp = 'confirmed' AND under_review), 0),
+        'confirmed_flagged_count', count(*) FILTER (WHERE grp = 'confirmed' AND under_review),
+        'payable', COALESCE(sum(amount) FILTER (WHERE grp = 'payable'), 0), 'payable_count', count(*) FILTER (WHERE grp = 'payable'),
+        'payable_under_review', COALESCE(sum(amount) FILTER (WHERE payable_class = 'under_review'), 0),
+        'payable_under_review_count', count(*) FILTER (WHERE payable_class = 'under_review'),
+        'payable_awaiting_receipt', COALESCE(sum(amount) FILTER (WHERE payable_class = 'awaiting_receipt'), 0),
+        'payable_awaiting_receipt_count', count(*) FILTER (WHERE payable_class = 'awaiting_receipt'),
+        'payable_with_weekly_float', COALESCE(sum(amount) FILTER (WHERE grp = 'payable' AND has_weekly_float), 0),
+        'payable_without_weekly_float', COALESCE(sum(amount) FILTER (WHERE grp = 'payable' AND NOT has_weekly_float), 0),
+        'historical_review', COALESCE(sum(amount) FILTER (WHERE grp = 'historical_review'), 0),
+        'historical_review_count', count(*) FILTER (WHERE grp = 'historical_review'),
+        'review_only', COALESCE(sum(amount) FILTER (WHERE grp = 'review_only'), 0), 'review_only_count', count(*) FILTER (WHERE grp = 'review_only'),
+        'not_paid', COALESCE(sum(amount) FILTER (WHERE grp = 'not_paid'), 0), 'not_paid_count', count(*) FILTER (WHERE grp = 'not_paid'),
         'approved_not_paid', (SELECT COALESCE(sum(approved_not_paid), 0) FROM al),
-        'probable_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND 'probable_match' = ANY (exceptions)),
-        'screenshot_matched_count', count(*) FILTER (WHERE state = 'paid_unconfirmed' AND screenshot_result = 'match'),
-        'evidence_conflict_count', count(*) FILTER (WHERE 'evidence_conflict' = ANY (exceptions)),
-        'statement_match_unreliable_count', count(*) FILTER (WHERE 'statement_match_unreliable' = ANY (exceptions)),
-        'exception_count', count(*) FILTER (WHERE under_review),
-        'unlinked_statement_exception_count', (SELECT count(*) FROM unlinked))
+        'exception_count', count(*) FILTER (WHERE under_review))
       FROM s0),
+    'receipt_states', (SELECT COALESCE(jsonb_object_agg(k, x), '{}'::jsonb) FROM (
+        SELECT grp || ':' || COALESCE(receipt_state, 'not_paid_out') AS k,
+               jsonb_build_object('count', count(*), 'amount', COALESCE(sum(amount), 0)) AS x
+          FROM s0 GROUP BY 1) q),
     'by_week', (SELECT COALESCE(jsonb_agg(to_jsonb(r) ORDER BY r.week_start DESC, r.has_weekly_float DESC), '[]'::jsonb) FROM rows r),
     'exceptions', (SELECT COALESCE(jsonb_agg(jsonb_build_object(
-          'payout_id', s.payout_id, 'landlord', s.landlord_name, 'amount', s.amount, 'paid_at', s.paid_at,
-          'payout_status', s.payout_status, 'exception', s.exception, 'exceptions', to_jsonb(s.exceptions),
-          'state', s.state, 'is_payable', s.state = 'paid_unconfirmed', 'paid_amount', s.paid_amount,
-          'payout_reference', s.payout_reference,
-          'evidence_source', s.evidence_source, 'conflict_statuses', to_jsonb(s.conflict_statuses),
-          'conflict_line_ids', to_jsonb(s.conflict_line_ids))
+          'payout_id', s.payout_id, 'landlord', s.landlord_name, 'amount', s.amount, 'paid_date', s.paid_date,
+          'paid_date_source', s.paid_date_source, 'payout_status', s.payout_status, 'state', s.state, 'group', s.grp,
+          'is_payable', s.grp = 'payable', 'exception', s.exception, 'exceptions', to_jsonb(s.exceptions),
+          'receipt_state', s.receipt_state, 'paid_amount', s.paid_amount, 'payout_reference', s.payout_reference,
+          'receipt_token', s.receipt_token, 'receipt_check_result', s.receipt_check_result, 'receipt_check_code', s.receipt_check_code,
+          'receipt_tid_read', s.receipt_tid_read, 'receipt_amount_read', s.receipt_amount_read,
+          'receipt_uploaded_at', s.receipt_uploaded_at, 'blocking_alerts', to_jsonb(s.blocking_alerts))
           ORDER BY s.paid_at DESC NULLS LAST), '[]'::jsonb)
         FROM s0 s WHERE s.under_review),
-    'unlinked_statement_exceptions', (SELECT COALESCE(jsonb_agg(to_jsonb(u) ORDER BY u.tx_at DESC), '[]'::jsonb)
-        FROM (SELECT * FROM unlinked ORDER BY tx_at DESC LIMIT 200) u),
     'evidence', jsonb_build_object(
-        'statement_imports', (SELECT count(*) FROM public.provider_statement_imports WHERE voided_at IS NULL),
-        'last_statement_line_at', (SELECT max(tx_at) FROM public.provider_statement_lines WHERE voided_at IS NULL),
-        'last_provider_email_out', (SELECT max(COALESCE(tx_date, internal_date::date)) FROM public.gmail_transactions WHERE direction = 'out')),
+        'source', 'Receipt Archive (withdrawal_requests receipts, payout_proof_ocr_log, payout_proof_integrity_alerts)',
+        'receipts_verified', (SELECT count(*) FROM s0 WHERE receipt_verified),
+        'receipts_unchecked', (SELECT count(*) FROM s0 WHERE receipt_state = 'receipt_unchecked'),
+        'last_receipt_uploaded_at', (SELECT max(receipt_uploaded_at) FROM s0)),
     'lines', CASE WHEN p_week_start IS NULL THEN NULL ELSE
         (SELECT COALESCE(jsonb_agg(to_jsonb(s) ORDER BY s.paid_at DESC NULLS LAST), '[]'::jsonb)
            FROM s0 s
@@ -824,19 +586,14 @@ BEGIN
 END;
 $function$;
 
--- 8. Grants. Views and evidence tables stay service_role only; the RPCs check roles themselves.
+-- 5. Grants. The view stays service_role only; the RPC checks roles itself (payables_guard).
 REVOKE ALL ON public.v_landlord_payout_settlement FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_landlord_payout_settlement TO service_role;
 REVOKE ALL ON public.v_payables_lines FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_payables_lines TO service_role;
 REVOKE ALL ON public.v_payables_payment_history FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_payables_payment_history TO service_role;
-REVOKE ALL ON FUNCTION public.trg_provider_statement_lines_immutable() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.import_provider_statement(text, text, text, text, jsonb, date, date, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.void_provider_statement_import(uuid, text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.get_landlord_payables_by_week(date, boolean) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.import_provider_statement(text, text, text, text, jsonb, date, date, text) TO authenticated, service_role;
-GRANT EXECUTE ON FUNCTION public.void_provider_statement_import(uuid, text) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.get_landlord_payables_by_week(date, boolean) TO authenticated, service_role;
 
 RESET lock_timeout;

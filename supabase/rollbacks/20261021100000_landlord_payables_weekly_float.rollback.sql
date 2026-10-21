@@ -1,8 +1,6 @@
 -- Rollback for 20261021100000_landlord_payables_weekly_float.sql
--- Restores v_payables_lines and v_payables_payment_history to the exact bodies 20261020210000 created and
--- removes the settlement view and the RPCs. The provider evidence tables (provider_statement_imports,
--- provider_statement_lines) are KEPT with their data: imported statements are evidence. Drop them by hand only
--- after exporting them, and only if they are empty or the CFO agrees.
+-- Restores v_payables_lines and v_payables_payment_history to the exact bodies 20261020210000 created and removes the
+-- settlement view, the weekly function and the archive-start setting. Nothing else was created by this migration.
 -- ORDER: roll this back BEFORE 20261020210000_budget_payables.
 
 SET lock_timeout = '5s';
@@ -243,9 +241,8 @@ UNION ALL
                  END);
 
 DROP FUNCTION IF EXISTS public.get_landlord_payables_by_week(date, boolean);
-DROP FUNCTION IF EXISTS public.import_provider_statement(text, text, text, text, jsonb, date, date, text);
-DROP FUNCTION IF EXISTS public.void_provider_statement_import(uuid, text);
 DROP VIEW IF EXISTS public.v_landlord_payout_settlement;
+DELETE FROM public.system_config WHERE key = 'landlord_receipt_archive_from';
 
 REVOKE ALL ON public.v_payables_lines FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_payables_lines TO service_role;
