@@ -122,53 +122,13 @@ export default function EmailEditor({ mode, userId, currentEmail, onSaved }: Pro
         <CardTitle className="text-sm flex items-center gap-2"><Mail className="h-4 w-4 text-primary" /> Email Address</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {step === 'email' ? (
-          <>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="h-11 rounded-xl" />
-              {false && (
-                <p className="text-[11px] text-muted-foreground">
-                  We will email you a 6-digit code to confirm the address is yours.
-                </p>
-              )}
-            </div>
-            <Button
-              onClick={saveAsAgent}
-              disabled={saving || sending || !email.trim()}
-              className="w-full gap-2 h-11 rounded-xl text-sm font-bold"
-            >
-              {saving || sending
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : false ? <ShieldCheck className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-              {'Save Email'}
-            </Button>
-          </>
-        ) : (
-          <>
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">6-digit code</Label>
-              <Input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                className="h-11 rounded-xl text-center tracking-[0.3em]"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Sent to {sentTo}.{attemptsLeft !== null ? ' ' + attemptsLeft + ' attempt(s) left.' : ''}
-              </p>
-            </div>
-            <Button onClick={submitCode} disabled={confirming || code.length !== 6} className="w-full gap-2 h-11 rounded-xl text-sm font-bold">
-              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Confirm email
-            </Button>
-            <Button variant="ghost" onClick={resetToEmailStep} disabled={confirming} className="w-full h-9 rounded-xl text-xs">
-              Use a different address
-            </Button>
-          </>
-        )}
+        <div className="space-y-1.5">
+          <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email</Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="h-11 rounded-xl" />
+        </div>
+        <Button onClick={saveAsAgent} disabled={saving || sending || !email.trim()} className="w-full gap-2 h-11 rounded-xl text-sm font-bold">
+          {saving || sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save Email
+        </Button>
       </CardContent>
     </Card>
   );
