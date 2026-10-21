@@ -1,4 +1,22 @@
 import { formatDynamic } from '@/lib/currencyFormat';
+import {
+  canShowNudgeWith,
+  isNudgeEligible,
+  kampalaHour,
+  ordinal,
+  pickTemplate,
+  placeholdersOf,
+  recordNudgeWith,
+  renderNudge as renderWith,
+  tidyName,
+  type NudgeHistory,
+  type NudgePacing,
+  type NudgeRule,
+  type NudgeTemplate as Template,
+  type NudgeTone,
+  type NudgeValue,
+  type RenderedNudge as Rendered,
+} from '@/lib/nudges/engine';
 import nudgeFile from './nudges.json';
 
 /**
@@ -56,32 +74,12 @@ export interface AgentNudgeStats {
   days_since_new_tenant: number | null;
 }
 
-export type NudgeTone = 'nudge' | 'celebrate' | 'info';
+export type { NudgeHistory, NudgeRule, NudgeTone };
+export { isNudgeEligible, kampalaHour, ordinal, placeholdersOf, tidyName };
+
 export type NudgeCta = 'collect' | 'add_tenant' | 'leaderboard';
-
-export type NudgeRule = Partial<Record<'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne', number>> & {
-  exists?: boolean;
-};
-
-export interface NudgeTemplate {
-  id: string;
-  category: string;
-  tone: NudgeTone;
-  weight?: number;
-  when?: Record<string, NudgeRule>;
-  title: string;
-  body: string;
-  cta?: NudgeCta;
-}
-
-export interface RenderedNudge {
-  id: string;
-  category: string;
-  tone: NudgeTone;
-  title: string;
-  body: string;
-  cta?: NudgeCta;
-}
+export type NudgeTemplate = Template<NudgeCta>;
+export type RenderedNudge = Rendered<NudgeCta>;
 
 export const NUDGES: NudgeTemplate[] = (nudgeFile as { nudges: NudgeTemplate[] }).nudges;
 
@@ -96,18 +94,7 @@ const MONEY_KEYS = new Set([
   'gap_to_next_rank',
 ]);
 
-type Value = string | number | null;
-
-export function ordinal(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1: return `${n}st`;
-    case 2: return `${n}nd`;
-    case 3: return `${n}rd`;
-    default: return `${n}th`;
-  }
-}
+type Value = NudgeValue;
 
 export function rankEmoji(rank: number, total: number): string {
   if (rank === 1) return '🥇';
@@ -118,20 +105,6 @@ export function rankEmoji(rank: number, total: number): string {
   if (pct <= 25) return '🚀';
   if (pct <= 50) return '💪';
   return '📈';
-}
-
-export function kampalaHour(now: Date): number {
-  return Number(
-    new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Africa/Kampala' }).format(now),
-  );
-}
-
-/** "SHAFEEQ" / "nakasagga juliet" → "Shafeeq" / "Nakasagga Juliet"; mixed case is kept. */
-export function tidyName(name: string | null | undefined): string | null {
-  const s = name?.trim().replace(/\s+/g, ' ');
-  if (!s) return null;
-  if (s !== s.toUpperCase() && s !== s.toLowerCase()) return s;
-  return s.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, c: string) => sep + c.toUpperCase());
 }
 
 /** Raw values every rule and placeholder can reference: the stats plus derived fields. */
@@ -171,48 +144,12 @@ export const NUDGE_VALUE_KEYS: ReadonlySet<string> = new Set(
   })),
 );
 
-const PLACEHOLDER = /\{(\w+)\}/g;
-
-export function placeholdersOf(t: NudgeTemplate): string[] {
-  return [...`${t.title} ${t.body}`.matchAll(PLACEHOLDER)].map((m) => m[1]);
-}
-
-function ruleHolds(value: Value, rule: NudgeRule): boolean {
-  const present = value != null && value !== '';
-  if (rule.exists !== undefined && rule.exists !== present) return false;
-  const numeric = Object.keys(rule).some((k) => k !== 'exists');
-  if (!numeric) return true;
-  if (typeof value !== 'number' || !Number.isFinite(value)) return false;
-  if (rule.gt !== undefined && !(value > rule.gt)) return false;
-  if (rule.gte !== undefined && !(value >= rule.gte)) return false;
-  if (rule.lt !== undefined && !(value < rule.lt)) return false;
-  if (rule.lte !== undefined && !(value <= rule.lte)) return false;
-  if (rule.eq !== undefined && value !== rule.eq) return false;
-  if (rule.ne !== undefined && value === rule.ne) return false;
-  return true;
-}
-
-/** A nudge fits when all its rules hold and every placeholder has a value. */
-export function isNudgeEligible(t: NudgeTemplate, values: Record<string, Value>): boolean {
-  for (const [key, rule] of Object.entries(t.when ?? {})) {
-    if (!ruleHolds(values[key] ?? null, rule)) return false;
-  }
-  return placeholdersOf(t).every((k) => values[k] != null && values[k] !== '');
-}
-
 export function renderNudge(
   t: NudgeTemplate,
   values: Record<string, Value>,
   formatMoney: (amount: number) => string = formatDynamic,
 ): RenderedNudge {
-  const fill = (s: string) =>
-    s.replace(PLACEHOLDER, (_, key: string) => {
-      const v = values[key];
-      if (v == null) return '';
-      if (MONEY_KEYS.has(key)) return formatMoney(Number(v));
-      return typeof v === 'number' ? v.toLocaleString('en-US') : v;
-    });
-  return { id: t.id, category: t.category, tone: t.tone, title: fill(t.title), body: fill(t.body), cta: t.cta };
+  return renderWith(t, values, { moneyKeys: MONEY_KEYS, formatMoney });
 }
 
 /** How often nudges may appear: at most one per COOLDOWN, only in waking hours. */
@@ -220,23 +157,14 @@ export const NUDGE_COOLDOWN_MS = 3 * 60 * 60 * 1000;
 export const NUDGE_HOURS = { from: 6, to: 21 } as const; // Kampala, [from, to)
 export const NUDGE_RECENT_LIMIT = 6;
 
-export interface NudgeHistory {
-  lastShownAt: number | null;
-  /** Most recent first. */
-  recent: string[];
-}
+const PACING: NudgePacing = { cooldownMs: NUDGE_COOLDOWN_MS, hours: NUDGE_HOURS, recentLimit: NUDGE_RECENT_LIMIT };
 
 export function canShowNudge(history: NudgeHistory, now: Date = new Date()): boolean {
-  const h = kampalaHour(now);
-  if (h < NUDGE_HOURS.from || h >= NUDGE_HOURS.to) return false;
-  return history.lastShownAt == null || now.getTime() - history.lastShownAt >= NUDGE_COOLDOWN_MS;
+  return canShowNudgeWith(PACING, history, now);
 }
 
 export function recordNudge(history: NudgeHistory, id: string, now: Date = new Date()): NudgeHistory {
-  return {
-    lastShownAt: now.getTime(),
-    recent: [id, ...history.recent.filter((r) => r !== id)].slice(0, NUDGE_RECENT_LIMIT),
-  };
+  return recordNudgeWith(PACING, history, id, now);
 }
 
 export interface PickOptions {
@@ -252,19 +180,6 @@ export interface PickOptions {
 /** Weighted-random pick among the nudges that fit right now; null when none fit. */
 export function pickNudge(stats: AgentNudgeStats, opts: PickOptions = {}): RenderedNudge | null {
   const values = buildNudgeValues(stats, opts.now);
-  const eligible = (opts.templates ?? NUDGES).filter((t) => isNudgeEligible(t, values));
-  if (eligible.length === 0) return null;
-
-  const skip = new Set(opts.exclude ?? []);
-  const fresh = eligible.filter((t) => !skip.has(t.id));
-  const pool = fresh.length > 0 ? fresh : eligible;
-
-  const total = pool.reduce((sum, t) => sum + Math.max(t.weight ?? 1, 0), 0);
-  let r = (opts.random ?? Math.random)() * total;
-  let chosen = pool[pool.length - 1];
-  for (const t of pool) {
-    r -= Math.max(t.weight ?? 1, 0);
-    if (r < 0) { chosen = t; break; }
-  }
-  return renderNudge(chosen, values, opts.formatMoney);
+  const chosen = pickTemplate(opts.templates ?? NUDGES, values, opts);
+  return chosen ? renderNudge(chosen, values, opts.formatMoney) : null;
 }

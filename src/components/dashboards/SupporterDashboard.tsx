@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 // Agreement
 import { useSupporterAgreement } from '@/hooks/useSupporterAgreement';
 import { useTrackSection } from '@/hooks/useTrackSection';
+import { useFunderNudges } from '@/hooks/useFunderNudges';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { 
   SupporterAgreementModal, 
@@ -94,6 +95,9 @@ export default function SupporterDashboard({
 }: SupporterDashboardProps) {
   // Track user presence and dwell time in Supporter dashboard
   useTrackSection('supporter-overview', 'supporter');
+  // Personal nudge toasts about this partner's own portfolios and Returns.
+  // Copy in src/lib/funderNudges/nudges.json; paced inside the hook.
+  useFunderNudges(user?.id);
 
   const navigate = useNavigate();
   const location = useLocation();
