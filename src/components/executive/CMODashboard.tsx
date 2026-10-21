@@ -18,6 +18,7 @@ import { ReferralPerformanceView } from './ReferralPerformanceView';
 import { UserAnalyticsView } from './UserAnalyticsView';
 import { InstallFunnelView } from './InstallFunnelView';
 import { WebTrafficAnalyticsSection } from './WebTrafficAnalyticsSection';
+import NeexaInbox from '@/components/cmo/NeexaInbox';
 
 type ReferralStatus = 'all' | 'pending' | 'completed';
 type DatePreset = '6months' | 'today' | 'yesterday' | 'last_week' | 'last_30' | 'last_90' | 'mtd' | 'ytd' | 'custom';
@@ -50,6 +51,7 @@ function presetBounds(preset: DatePreset, customStart: Date, customEnd: Date): {
 }
 
 export function CMODashboard({ activeTab }: { activeTab?: string } = {}) {
+  if (activeTab === 'inbox') return <NeexaInbox />;
   if (activeTab === 'merchandise') {
     return <MerchandiseManager />;
   }
