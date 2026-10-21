@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { evaluateUsageMatching, type RefundStatus } from '@/lib/usageReportMatching';
+import { pruneCache, uploadAllResumable, type UploadCache } from '@/lib/resumableUpload';
 
 /**
  * RequisitionUsageReportGate — mandatory accountability popup.
@@ -38,6 +39,9 @@ const MAX_DEFERRALS_MSG = 'Maximum deferrals reached. This accountability report
 /** Mirrors the limits enforced by the staff-requisition-add-attachment function. */
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 10 * 1024 * 1024;
+/** Per-report file limits. The server allows 30 attachments per requisition for usage reports. */
+const MAX_RECEIPT_FILES = 15;
+const MAX_REFUND_FILES = 5;
 
 interface PendingReq {
   id: string;
@@ -73,6 +77,9 @@ export function RequisitionUsageReportGate() {
   const [deferring, setDeferring] = useState(false);
   const [deferError, setDeferError] = useState<string | null>(null);
   const loadedOnceRef = useRef(false);
+  // Paths of files already uploaded, so a retry after a failed submit does not
+  // upload (and attach) the same receipts again.
+  const uploadedRef = useRef<UploadCache>(new Map());
   const [receiptTotal, setReceiptTotal] = useState('');
   const [mismatchExplanation, setMismatchExplanation] = useState('');
   const [unspentExplanation, setUnspentExplanation] = useState('');
@@ -83,6 +90,7 @@ export function RequisitionUsageReportGate() {
 
   const pickReceipts = (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    let count = receipts.length;
     for (const file of Array.from(files)) {
       if (!ALLOWED_TYPES.includes(file.type)) {
         toast.error(`"${file.name}" is not a PDF or photo (JPG, PNG or WebP)`);
@@ -92,6 +100,11 @@ export function RequisitionUsageReportGate() {
         toast.error(`"${file.name}" is larger than 10MB`);
         continue;
       }
+      if (count >= MAX_RECEIPT_FILES) {
+        toast.error(`You can attach up to ${MAX_RECEIPT_FILES} receipts. "${file.name}" was not added.`);
+        continue;
+      }
+      count += 1;
       setReceipts((prev) => [...prev, file]);
     }
   };
@@ -174,29 +187,33 @@ export function RequisitionUsageReportGate() {
     if (summary.trim().length < 20) { toast.error('Explain how the funds were used (at least 20 characters)'); return; }
     if (receipts.length === 0) { toast.error('Attach at least one receipt or proof of payment'); return; }
     if (matching.problems.length > 0) { toast.error(matching.problems[0]); return; }
+    if (refundEvidence.length > MAX_REFUND_FILES) { toast.error(`Attach at most ${MAX_REFUND_FILES} files as proof of refund`); return; }
 
     setSaving(true);
 
     // Upload files first (existing storage + auth path) so we never save a
-    // report that claims an attachment it does not have.
-    const upload = async (files: File[]) => {
-      const paths: string[] = [];
-      for (const file of files) {
-        const form = new FormData();
-        form.append('requisition_id', current.id);
-        form.append('file', file);
-        const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
-          'staff-requisition-add-attachment',
-          { body: form, errorTitle: `Could not attach "${file.name}"` },
-        );
-        if (upErr || !up?.path) return null;
-        paths.push(up.path);
-      }
-      return paths;
+    // report that claims an attachment it does not have. Files that already
+    // uploaded on an earlier attempt are reused, not sent again.
+    const uploadOne = async (file: File) => {
+      const form = new FormData();
+      form.append('requisition_id', current.id);
+      form.append('purpose', 'usage_report');
+      form.append('file', file);
+      const { data: up, error: upErr } = await invokeEdgeFunction<{ path: string }>(
+        'staff-requisition-add-attachment',
+        { body: form, errorTitle: `Could not attach "${file.name}"` },
+      );
+      return upErr || !up?.path ? null : up.path;
     };
-    const attachmentPaths = await upload(receipts);
+    const receiptScope = `receipt:${current.id}`;
+    const refundScope = `refund:${current.id}`;
+    pruneCache(uploadedRef.current, receiptScope, receipts);
+    pruneCache(uploadedRef.current, refundScope, refundEvidence);
+    const attachmentPaths = await uploadAllResumable(receipts, receiptScope, uploadedRef.current, uploadOne);
     if (!attachmentPaths) { setSaving(false); return; }
-    const refundPaths = matching.hasUnspent && refundStatus === 'made' ? await upload(refundEvidence) : [];
+    const refundPaths = matching.hasUnspent && refundStatus === 'made'
+      ? await uploadAllResumable(refundEvidence, refundScope, uploadedRef.current, uploadOne)
+      : [];
     if (!refundPaths) { setSaving(false); return; }
 
     // Server re-checks every matching rule and writes the audit trail.
@@ -223,6 +240,7 @@ export function RequisitionUsageReportGate() {
         setAmountUsed('');
         setSummary('');
         setReceipts([]);
+        uploadedRef.current.clear();
         resetMatching();
         setShowForm(false);
         setOpen(false);
@@ -240,6 +258,7 @@ export function RequisitionUsageReportGate() {
     setAmountUsed('');
     setSummary('');
     setReceipts([]);
+    uploadedRef.current.clear();
     resetMatching();
     setShowForm(false);
     setOpen(false);
