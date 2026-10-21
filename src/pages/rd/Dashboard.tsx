@@ -353,7 +353,8 @@ export default function RDDashboard() {
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
         <div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          {/* Progress and key metrics stack: metrics sit below progress. */}
+          <div className="grid gap-4">
             <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
               <SectionTitle icon={BarChart3}>Project Progress</SectionTitle>
               <div className="mt-3 space-y-3">
