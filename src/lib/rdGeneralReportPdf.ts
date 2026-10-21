@@ -23,6 +23,14 @@ export interface RdCashRow {
 
 const isPaused = (p: RdReportProject) => p.stage === 'Paused';
 
+/** Paused projects are labelled plainly in the report, never highlighted or dropped. */
+export const rdReportProjectTitle = (p: Pick<RdReportProject, 'name' | 'stage'>): string =>
+  isPaused(p as RdReportProject) ? `${p.name} (On pause)` : p.name;
+
+export const rdCashRowLabel = (r: Pick<RdCashRow, 'name' | 'paused'>): string =>
+  r.paused ? `${r.name} (On pause)` : r.name;
+
+
 export function rdCashTotals(rows: RdCashRow[]) {
   const totals = rows.reduce((a, r) => ({ customers: a.customers + r.customers,
     cashIn: a.cashIn + r.cashIn, cashOut: a.cashOut + r.cashOut }),
