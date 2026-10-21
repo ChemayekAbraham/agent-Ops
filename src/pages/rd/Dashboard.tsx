@@ -2,7 +2,7 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, Target, CheckSquare, Check, Gauge, ArrowRight, CalendarDays, MapPin,
+  ArrowLeft, Target, CheckSquare, Check, Gauge,
   BarChart3, TrendingUp, Car, Gem, Cpu, Users, Wallet, Handshake, FileText, BookOpen, Layers,
   FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, type LucideIcon,
 } from 'lucide-react';
@@ -14,8 +14,7 @@ import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
-import { kampalaTodayYmd } from '@/lib/kampalaDays';
-import { loadRdUpdates, RD_UPDATES_KEY, rdDateOffset, rdWeeklyUpdates, type RdUpdate, type RdWeekPeriod } from '@/lib/rdWeeklyUpdates';
+import { loadRdUpdates, RD_UPDATES_KEY, type RdUpdate } from '@/lib/rdWeeklyUpdates';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
