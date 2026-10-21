@@ -7,7 +7,7 @@
 --   3  every allocation's week is the Thursday week of its approval date and is its weekly float's week
 --   4  the CFO float position for today reports a Thursday–Wednesday week
 --   5  the table rules and the set-float message are the Thursday ones
---   6  if the payables reporting (20261021235000) is present: every float line is due on a Wednesday, and payouts made
+--   6  if the payables reporting (20261021235100) is present: every float line is due on a Wednesday, and payouts made
 --      without a weekly float are grouped by Thursday weeks
 DO $test$
 DECLARE

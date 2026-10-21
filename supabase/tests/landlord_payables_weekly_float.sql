@@ -1,4 +1,4 @@
--- Rolled-back verification for 20261021235000_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
+-- Rolled-back verification for 20261021235100_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
 --
 -- Run against the database AFTER the migration. It is READ-ONLY: it only SELECTs (no table, temp table or row is
 -- created or written) and can be run inside BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error
