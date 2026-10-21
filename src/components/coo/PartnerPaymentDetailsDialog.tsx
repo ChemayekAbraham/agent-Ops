@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
-import { Loader2, Save, Wallet, FileText } from 'lucide-react';
+import { Loader2, Save, Wallet, FileText, Plus, Trash2 } from 'lucide-react';
 
 interface PortfolioRow {
   id: string;
