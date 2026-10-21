@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recordedRdProjects, rdCashTotals } from '../lib/rdGeneralReportPdf';
+import { rdCashRowLabel, rdCashTotals, rdReportProjectTitle, recordedRdProjects } from '../lib/rdGeneralReportPdf';
 import { rdReportIdeaRows } from '../lib/rdReportIdeas';
 
 describe('R&D recorded report data', () => {
@@ -28,6 +28,20 @@ describe('R&D recorded report data', () => {
     expect(rdCashTotals(rows)).toEqual({ customers: 70, cashIn: 21570000,
       cashOut: 45247000, net: -23677000 });
     expect(rows).toEqual(before);
+  });
+  it('labels the paused project "On pause" and keeps active names unchanged', () => {
+    expect(rdReportProjectTitle({ name: 'Welile Dowry', stage: 'Paused' })).toBe('Welile Dowry (On pause)');
+    expect(rdReportProjectTitle({ name: 'Welile Car', stage: 'Pilot' })).toBe('Welile Car');
+    expect(rdCashRowLabel({ name: 'Welile Dowry', paused: true })).toBe('Welile Dowry (On pause)');
+    expect(rdCashRowLabel({ name: 'Welile Car', paused: false })).toBe('Welile Car');
+  });
+  it('carries the pause stage through recorded projects so the report can label it', () => {
+    expect(recordedRdProjects([{ name: 'Welile Dowry', stage: 'Paused', updates: [] }]))
+      .toEqual([{ name: 'Welile Dowry', stage: 'Paused', updates: [] }]);
+  });
+  it('includes paused projects in the cash totals instead of dropping them', () => {
+    expect(rdCashTotals([{ name: 'Welile Dowry', paused: true, customers: 4, cashIn: 470000, cashOut: 1065000 }]))
+      .toEqual({ customers: 4, cashIn: 470000, cashOut: 1065000, net: -595000 });
   });
   it('retains recorded updates and excludes preset project fields', () => {
     const project = { name: 'Welile Car', progress: 65, cashIn: 4000000,
