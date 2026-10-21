@@ -35,7 +35,7 @@ function relativeTime(time: string | null) {
 function messageTime(time: string | null) {
   return time && Number.isFinite(Date.parse(time)) ? format(new Date(time), 'dd MMM, HH:mm') : '';
 }
-function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<typeof useNeexaInbox>; canOpenPartnerOnboarding: boolean }) {
+export function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<typeof useNeexaInbox>; canOpenPartnerOnboarding: boolean }) {
   const navigate = useNavigate();
   if (inbox.kpisHidden) return null;
   if (inbox.kpisLoading) return (
@@ -51,17 +51,17 @@ function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<typeof 
     </div>
   );
   const cards = [
-    { title: 'Came in via Neexa', value: kpis.came_in_users.toLocaleString('en-US'), icon: Users,
-      subtitle: `${kpis.came_in_new_signups.toLocaleString('en-US')} new sign-ups · ${kpis.referred_signups.toLocaleString('en-US')} referred` },
+    { title: 'Referred by Neexa', value: kpis.referred_signups.toLocaleString('en-US'), icon: Users,
+      subtitle: `${kpis.came_in_users.toLocaleString('en-US')} came in via Neexa links · ${kpis.came_in_new_signups.toLocaleString('en-US')} new sign-ups` },
     { title: 'Active Supporters', value: kpis.active_partners.toLocaleString('en-US'), icon: UserCheck,
       subtitle: `${kpis.active_portfolios.toLocaleString('en-US')} active portfolios` },
     { title: 'Active volume', value: formatNeexaVolume(kpis.active_volume), icon: Wallet,
-      subtitle: 'Brought in by Neexa Supporters' },
+      subtitle: 'Contract amount of active Neexa Supporters' },
     { title: 'Pending Supporters', value: kpis.pending_partners.toLocaleString('en-US'), icon: Hourglass,
-      subtitle: 'Awaiting review in Partner Onboarding',
+      subtitle: 'Agreement awaiting countersign',
       onClick: canOpenPartnerOnboarding ? () => navigate('/partner-onboarding') : undefined },
     { title: 'Pending volume', value: formatNeexaVolume(kpis.pending_volume), icon: Clock3,
-      subtitle: `${kpis.pending_portfolios.toLocaleString('en-US')} portfolios awaiting details or approval` },
+      subtitle: `${kpis.pending_agreements.toLocaleString('en-US')} agreements awaiting countersign` },
   ];
   return <div className="space-y-1.5">
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">

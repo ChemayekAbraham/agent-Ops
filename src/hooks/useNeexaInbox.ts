@@ -55,6 +55,7 @@ export interface NeexaInboxKpis {
   active_volume: number;
   pending_partners: number;
   pending_portfolios: number;
+  pending_agreements: number;
   pending_volume: number;
   currency: string;
   as_of: string;

@@ -58,3 +58,4 @@
 - [x] Hide the staff reply box and Send button behind REPLY_COMPOSER_ENABLED=false in NeexaInbox.tsx; code and tests retained, template sending still available.
 - [x] Run 11 Inbox rule/interaction tests and isolated desktop/mobile light/dark checks; preview compilation and guards pass.
 - [ ] Verify live signed-in Neexa sync and customer send/readback — blocked: external Supabase authentication cannot be restored by available browser tools; no customer messages sent.
+- [x] Update Neexa Inbox KPI cards for agreement-based figures: Referred by Neexa card, contract-amount sub-lines and pending_agreements; 17 inbox tests pass, typecheck and build OK; no migrations or RPCs touched.
