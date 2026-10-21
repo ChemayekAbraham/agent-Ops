@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rls_policy_backup_20261021: {
+        Row: {
+          backed_up_at: string | null
+          cmd: string | null
+          permissive: string | null
+          policyname: unknown
+          qual: string | null
+          restore_sql: string | null
+          roles: unknown[] | null
+          schemaname: unknown
+          tablename: unknown
+          with_check: string | null
+        }
+        Insert: {
+          backed_up_at?: string | null
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          restore_sql?: string | null
+          roles?: unknown[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Update: {
+          backed_up_at?: string | null
+          cmd?: string | null
+          permissive?: string | null
+          policyname?: unknown
+          qual?: string | null
+          restore_sql?: string | null
+          roles?: unknown[] | null
+          schemaname?: unknown
+          tablename?: unknown
+          with_check?: string | null
+        }
+        Relationships: []
+      }
       access_surface_positions: {
         Row: {
           created_at: string
@@ -65734,6 +65773,10 @@ export type Database = {
           registration_fee_component: number
         }[]
       }
+      allow_landlord_payouts_with_exception: {
+        Args: { p_reason: string; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       am_detect_clock_drift: { Args: { p_as_at?: string }; Returns: Json }
       am_new_tenant_first7: {
         Args: { p_paid_on?: string }
@@ -69482,12 +69525,10 @@ export type Database = {
       expire_partner_self_claims: { Args: never; Returns: Json }
       expire_stale_bonus_restrictions: { Args: never; Returns: number }
       expire_stale_cash_deposit_codes: { Args: never; Returns: number }
-      export_users_with_password_hashes: { Args: never; Returns: string }
       extract_operational_float_allocations: {
         Args: { p_notes: string }
         Returns: Json
       }
-      extract_public_schema_sql: { Args: never; Returns: string }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
       fin_correction_review_flags: {
         Args: { p: Json; p_collection_id: string }
