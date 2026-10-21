@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import { ArrowLeft, Facebook, Globe, Instagram, Loader2, Mail, MessageSquare, RefreshCw, Search, Send } from 'lucide-react';
+import { ArrowLeft, Clock3, Facebook, Globe, Hourglass, Instagram, Loader2, Mail, MessageSquare, RefreshCw, Search, Send, UserCheck, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { KPICard } from '@/components/executive/KPICard';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNeexaInbox, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
+import { useNeexaInbox, formatNeexaVolume, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
 import { NeexaTemplateDialog } from './NeexaTemplateDialog';
 
 // Staff replies are hidden for now. Flip to true to bring back the "Write a reply…" box and Send button.
