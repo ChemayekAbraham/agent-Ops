@@ -73,6 +73,7 @@ function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<typeof 
 export default function NeexaInbox() {
   const inbox = useNeexaInbox();
   const mobile = useIsMobile();
+  const { roles } = useAuth();
   const [search, setSearch] = useState('');
   const [platform, setPlatform] = useState('all');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
