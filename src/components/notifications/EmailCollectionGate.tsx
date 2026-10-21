@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, FileText, Loader2, Mail, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +63,7 @@ export default function EmailCollectionGate() {
   const [code, setCode] = useState('');
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const { requestCode, confirmCode, sending, confirming, attemptsLeft } = useEmailVerification();
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function EmailCollectionGate() {
   }, []);
 
   const sendCode = async () => {
+    setFormError(null);
     const parsed = EmailSchema.safeParse(email);
     if (!parsed.success) { toast.error('Enter a valid email address'); return; }
     try {
@@ -100,11 +102,14 @@ export default function EmailCollectionGate() {
         description: 'Check ' + parsed.data.toLowerCase() + ' for a 6-digit code.',
       });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send the code');
+      const message = e instanceof Error ? e.message : 'Could not send the code';
+      setFormError(message);
+      toast.error(message);
     }
   };
 
   const submitCode = async () => {
+    setFormError(null);
     if (!challengeId) return;
     try {
       const res = await confirmCode(challengeId, code);
@@ -117,7 +122,9 @@ export default function EmailCollectionGate() {
       markDismissed();
       setOpen(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not confirm the code');
+      const message = e instanceof Error ? e.message : 'Could not confirm the code';
+      setFormError(message);
+      toast.error(message);
     }
   };
 
@@ -125,69 +132,70 @@ export default function EmailCollectionGate() {
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Mail className="h-4 w-4 text-primary" /> Add your email address
-          </DialogTitle>
-          <DialogDescription>
-            We do not have an email address that can reach you. Add one so we can
-            send receipts, statements and account notices.
-          </DialogDescription>
-        </DialogHeader>
-
-        {step === 'email' ? (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Email</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="h-11 rounded-xl"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                We will email you a 6-digit code to confirm the address is yours.
-              </p>
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-y-auto rounded-2xl p-0 max-h-[calc(100dvh-2rem)]">
+        <div className="border-b border-primary/15 bg-primary/5 px-6 pb-5 pt-6">
+          <DialogHeader className="space-y-3 text-left">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              {step === 'email' ? <Mail className="h-6 w-6" aria-hidden="true" /> : <ShieldCheck className="h-6 w-6" aria-hidden="true" />}
             </div>
-            <Button onClick={sendCode} disabled={sending || !email.trim()} className="w-full gap-2 h-11 rounded-xl text-sm font-bold">
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Send code
-            </Button>
-            <Button variant="ghost" onClick={dismiss} className="w-full h-9 rounded-xl text-xs">
-              Not now
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">6-digit code</Label>
-              <Input
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                className="h-11 rounded-xl text-center tracking-[0.3em]"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Sent to {sentTo}.{attemptsLeft !== null ? ' ' + attemptsLeft + ' attempt(s) left.' : ''}
-              </p>
+            <DialogTitle className="pr-5 text-xl leading-tight">
+              {step === 'email' ? 'Add your email address' : 'Check your inbox'}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed">
+              {step === 'email'
+                ? 'We do not have an email address that can reach you. Add one for receipts, statements and account notices.'
+                : 'Enter the 6-digit code we emailed you to confirm the address is yours.'}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="space-y-5 px-6 py-5">
+          <ol aria-label="Email verification progress" className="flex items-center gap-3 text-xs">
+            <li aria-current={step === 'email' ? 'step' : undefined} className="flex items-center gap-2 text-primary">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 font-semibold">1</span> Email address
+            </li>
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            <li aria-current={step === 'code' ? 'step' : undefined} className={step === 'code' ? 'flex items-center gap-2 text-primary' : 'flex items-center gap-2 text-muted-foreground'}>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted font-semibold">2</span> Confirm
+            </li>
+          </ol>
+          {step === 'email' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="collection-email" className="text-sm font-medium">Email address</Label>
+                <Input id="collection-email" type="email" autoComplete="email" value={email}
+                  onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" className="h-12 rounded-lg text-base" />
+                <p className="text-xs leading-relaxed text-muted-foreground">We will send a 6-digit code to this address.</p>
+              </div>
+              {formError && <p role="alert" className="break-words text-sm text-destructive">{formError}</p>}
+              <Button onClick={sendCode} disabled={sending || !email.trim()} className="h-12 w-full gap-2 rounded-lg">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />} {sending ? 'Sending code…' : 'Send code'}
+              </Button>
+              <Button variant="ghost" onClick={dismiss} className="h-10 w-full rounded-lg text-muted-foreground">Not now</Button>
             </div>
-            <Button onClick={submitCode} disabled={confirming || code.length !== 6} className="w-full gap-2 h-11 rounded-xl text-sm font-bold">
-              {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Confirm email
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => { setStep('email'); setCode(''); setChallengeId(null); }}
-              disabled={confirming}
-              className="w-full h-9 rounded-xl text-xs"
-            >
-              Use a different address
-            </Button>
-          </div>
-        )}
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 border-b border-border pb-4">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <div className="min-w-0"><p className="text-xs text-muted-foreground">Code sent to</p><p className="break-all text-sm font-medium">{sentTo}</p></div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="collection-email-code" className="text-sm font-medium">6-digit code</Label>
+                <Input id="collection-email-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000" className="h-14 rounded-lg text-center font-mono text-2xl" aria-invalid={!!formError} />
+                {attemptsLeft !== null && <p className="text-xs text-muted-foreground">{attemptsLeft} attempt(s) left.</p>}
+              </div>
+              {formError && <p role="alert" className="break-words text-sm text-destructive">{formError}</p>}
+              <Button onClick={submitCode} disabled={confirming || code.length !== 6} className="h-12 w-full gap-2 rounded-lg">
+                {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} {confirming ? 'Confirming…' : 'Confirm email'}
+              </Button>
+              <Button variant="ghost" onClick={() => { setStep('email'); setCode(''); setChallengeId(null); setFormError(null); }} disabled={confirming} className="h-10 w-full rounded-lg text-muted-foreground">Use a different address</Button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 border-t border-border px-6 py-4 text-xs text-muted-foreground">
+          <FileText className="h-4 w-4 shrink-0" aria-hidden="true" /> Receipts, statements and account notices
+        </div>
       </DialogContent>
     </Dialog>
   );

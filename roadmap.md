@@ -59,3 +59,8 @@
 - [x] Run 11 Inbox rule/interaction tests and isolated desktop/mobile light/dark checks; preview compilation and guards pass.
 - [ ] Verify live signed-in Neexa sync and customer send/readback — blocked: external Supabase authentication cannot be restored by available browser tools; no customer messages sent.
 - [x] Update Neexa Inbox KPI cards for agreement-based figures: Referred by Neexa card, contract-amount sub-lines and pending_agreements; 17 inbox tests pass, typecheck and build OK; no migrations or RPCs touched.
+
+## Verified email screens
+- [x] Polish email collection and self-editor presentation, preserving eligibility, verification and agent editing.
+- [x] Run 10 focused tests and isolated desktop/mobile checks; guards and preview compilation pass; deployed email backend, hooks and migrations untouched.
+- [ ] Verify email delivery and confirmation on a live signed-in account — blocked: external Supabase authentication is unavailable to browser tools; isolated flow checks passed without sending email.
