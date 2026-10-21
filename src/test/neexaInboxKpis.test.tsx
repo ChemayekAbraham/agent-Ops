@@ -60,8 +60,6 @@ describe('Neexa inbox KPIs', () => {
     const { result } = renderHook(() => useNeexaInbox(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current.kpisError).toBe('boom'));
     expect(result.current.kpisHidden).toBe(false);
-    await act: {
-    }
   });
   it('classifies permission denials without changing ordinary failures', () => {
     expect(isNeexaKpiAccessDenied({ code: '42501', message: 'permission denied' })).toBe(true);
