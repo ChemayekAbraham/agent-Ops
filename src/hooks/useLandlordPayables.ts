@@ -3,12 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Landlord Float Payout Budget — data layer for the CFO weekly view
- * (migration 20261021190000_landlord_payables_weekly_float).
+ * (migration 20261021235000_landlord_payables_weekly_float).
  *
  * The landlord PAYABLE is each weekly landlord float the CFO sets, plus CFO-approved miscellaneous approvals above it,
  * less landlord payouts made against it that the Receipt Archive has verified (`floats`, `totals.float_payable`).
  * After a float's week ends (CFO decision 2026-10-21) only its approvals not yet verified stay payable
  * (`open_obligation`); the unused allowance lapses (`lapsed_unused`) and is never payable.
+ * Payouts approved but not yet paid out that sit in no weekly float are payable on their own (`approved_no_float`);
+ * `totals.landlord_payable` = `float_payable` + `approved_no_float`.
  *
  * Evidence: the Receipt Archive on the Financial Operations dashboard ONLY. A payout is confirmed only when its
  * completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match,
@@ -153,6 +155,8 @@ export interface LandlordPayoutSettlement {
   /** The most serious exception (first of `exceptions`). */
   exception: LandlordPayoutException | null;
   under_review: boolean;
+  /** Approved, not yet paid out, in no weekly float: payable on its own (never completed or failed). */
+  approved_no_float: boolean;
 }
 
 export type LandlordPayoutGroup = 'confirmed' | 'in_float_unverified' | 'historical_review' | 'review_only' | 'not_paid';
@@ -161,7 +165,7 @@ export interface LandlordPayablesReport {
   as_at: string;
   rule: string;
   totals: {
-    /** THE landlord payable: sum of the floats' outstanding_amount. */
+    /** The floats' share of the landlord payable: sum of their outstanding_amount (see landlord_payable). */
     float_payable: number;
     floats: number;
     floats_open: number;
@@ -193,6 +197,11 @@ export interface LandlordPayablesReport {
     review_only_count: number;
     not_paid: number;
     not_paid_count: number;
+    /** Approved payouts not yet paid out in no weekly float (part of not_paid): payable on their own. */
+    approved_no_float: number;
+    approved_no_float_count: number;
+    /** THE landlord payable: float_payable + approved_no_float. */
+    landlord_payable: number;
     exception_count: number;
   };
   floats: LandlordFloatPayable[];

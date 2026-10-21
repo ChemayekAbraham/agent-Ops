@@ -1,4 +1,4 @@
--- Rollback for 20261021190000_landlord_payables_weekly_float.sql
+-- Rollback for 20261021235000_landlord_payables_weekly_float.sql
 -- Restores v_payables_lines, v_payables_payment_history and payables_category_frame to exactly what 20261020210000
 -- created, get_payables_predictive_forecast to production's definition, and removes the float view, the settlement view and the weekly function. Nothing else was created.
 -- ORDER: roll this back BEFORE 20261020210000_budget_payables.
@@ -10,7 +10,7 @@ BEGIN
      OR position('v_landlord_payout_settlement' IN pg_get_viewdef('public.v_payables_payment_history'::regclass)) = 0
      OR (SELECT string_agg(category_key || ':' || sort_order, ',' ORDER BY sort_order) FROM public.payables_category_frame()) IS DISTINCT FROM 'partner:1,landlord:2,agent:3,budget:4,other:5'
      OR position('Payables scope (CFO, 2026-10-21)' IN (SELECT prosrc FROM pg_proc WHERE oid = 'public.get_payables_predictive_forecast(text,integer,date)'::regprocedure)) = 0 THEN
-    RAISE EXCEPTION 'precondition failed: the payables views are no longer the ones 20261021190000 created; reverse it by hand';
+    RAISE EXCEPTION 'precondition failed: the payables views are no longer the ones 20261021235000 created; reverse it by hand';
   END IF;
 END
 $pre$;

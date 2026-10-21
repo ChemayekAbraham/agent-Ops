@@ -1,11 +1,13 @@
--- Rolled-back verification for 20261021190000_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
+-- Rolled-back verification for 20261021235000_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
 --
 -- Run against the database AFTER the migration. It is READ-ONLY: it only SELECTs (no table, temp table or row is
 -- created or written) and can be run inside BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error
 -- text IS the report: a JSON list of 13 steps, each with "pass": true/false. Checks:
 --   1  v_landlord_payout_settlement has exactly one row per landlord payout
---   2  the landlord rows on v_payables_lines are exactly the weekly floats with an outstanding allowance (or overspent),
---      at outstanding_amount
+--   2  the landlord rows on v_payables_lines are exactly (a) the weekly floats with an outstanding allowance (or
+--      overspent), at outstanding_amount, and (b) one row per payout approved but not yet paid out that sits in no weekly
+--      float, at its amount; (b) is re-derived from the base tables (no completed withdrawal, no FinOps disbursement with
+--      a reference, no live allocation in a week that has a current weekly float, status neither completed nor failed)
 --   3  landlord payment history holds exactly the confirmed payouts, dated by the payout record (never the upload time)
 --   4  STRICT RULE, re-derived from the base tables: every confirmed payout has a completed linked withdrawal with a
 --      receipt token and an accessible file, whose latest check of that exact file is 'match', with a transaction ID
@@ -16,7 +18,7 @@
 --   6  historical review: exactly the paid-out, unverified payouts made without a weekly float
 --   7  get_landlord_payables_by_week groups do not overlap and reconcile by count and amount:
 --      confirmed + in_float_unverified + historical_review + review_only + not_paid = all payouts;
---      float_payable = the landlord rows on the payables list
+--      float_payable + approved_no_float = landlord_payable = the landlord rows on the payables list
 --   8  the floats array adds up to the same totals
 --   9  exceptions agree with the data (primary = first; paid_amount_differs, reference_unusable, shared_reference)
 --  10  landlord_receipt_reversed is set exactly when the payout's CURRENT Welile landlord receipt (its own receipt followed
@@ -50,13 +52,28 @@ BEGIN
   -- 2
   SELECT count(*), COALESCE(sum(outstanding_amount), 0) INTO v_n, v_a FROM public.v_payables_lines WHERE category_key = 'landlord';
   SELECT count(*), COALESCE(sum(outstanding_amount), 0) INTO v_m, v_b
-    FROM public.v_landlord_float_payables WHERE outstanding_amount > 0 OR overspent;
+    FROM (SELECT outstanding_amount FROM public.v_landlord_float_payables WHERE outstanding_amount > 0 OR overspent
+          UNION ALL
+          -- approved, not yet paid out, in no weekly float: re-derived from the base tables, not from the view's flag
+          SELECT lp.amount FROM public.landlord_payouts lp
+           WHERE COALESCE(lp.status, '') NOT IN ('completed', 'failed') AND lp.amount > 0
+             AND NOT EXISTS (SELECT 1 FROM public.withdrawal_requests w WHERE w.landlord_payout_id = lp.id AND w.status = 'completed')
+             AND NOT (NULLIF(regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                      AND lp.finops_disbursed_at IS NOT NULL)
+             AND NOT EXISTS (SELECT 1 FROM public.landlord_float_budget_allocations a
+                              JOIN public.landlord_float_budgets b ON b.period_type = 'weekly' AND b.superseded_at IS NULL
+                                                                  AND b.period_start = a.week_start
+                              WHERE a.rent_request_id = lp.rent_request_id AND a.released_at IS NULL)) x;
   r := r || jsonb_build_object('step', 2, 'pass', v_n = v_m AND v_a = v_b
         AND NOT EXISTS (SELECT 1 FROM public.v_payables_lines l
                          WHERE l.category_key = 'landlord'
                            AND NOT EXISTS (SELECT 1 FROM public.v_landlord_float_payables f
-                                            WHERE f.float_id = l.item_id AND f.outstanding_amount = l.outstanding_amount)),
-        'list_rows', v_n, 'list_amount', v_a);
+                                            WHERE l.product_key IN ('landlord_float_budget', 'landlord_float_overspent')
+                                              AND f.float_id = l.item_id AND f.outstanding_amount = l.outstanding_amount)
+                           AND NOT EXISTS (SELECT 1 FROM public.v_landlord_payout_settlement s
+                                            WHERE l.product_key = 'landlord_approved_no_float' AND s.approved_no_float
+                                              AND NOT s.has_weekly_float AND s.payout_id = l.item_id AND s.amount = l.outstanding_amount)),
+        'list_rows', v_n, 'list_amount', v_a, 'expected_rows', v_m, 'expected_amount', v_b);
 
   -- 3
   WITH s AS (SELECT * FROM public.v_landlord_payout_settlement)
@@ -128,7 +145,9 @@ BEGIN
             + (v_t->>'review_only')::numeric + (v_t->>'not_paid')::numeric = (v_t->>'payouts_amount')::numeric
       AND (v_t->>'payouts')::bigint = (SELECT count(*) FROM public.landlord_payouts)
       AND (v_t->>'in_float_unverified')::numeric = (v_t->>'unverified_paid')::numeric
-      AND (v_t->>'float_payable')::numeric = (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_payables_lines WHERE category_key = 'landlord')),
+      AND (v_t->>'float_payable')::numeric + (v_t->>'approved_no_float')::numeric = (v_t->>'landlord_payable')::numeric
+      AND (v_t->>'landlord_payable')::numeric = (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_payables_lines WHERE category_key = 'landlord')
+      AND (v_t->>'approved_no_float_count')::bigint = (SELECT count(*) FROM public.v_payables_lines WHERE product_key = 'landlord_approved_no_float')),
       'totals', v_t, 'error', v_err);
 
   -- 8

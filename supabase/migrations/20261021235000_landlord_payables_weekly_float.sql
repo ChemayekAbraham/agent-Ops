@@ -39,7 +39,7 @@
 -- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt, allocation or status is written; no OCR or
 -- approval is run. Requires 20261020210000_budget_payables: its v_payables_lines / v_payables_payment_history bodies are
 -- pinned and its category frame is checked; every branch kept is verbatim.
--- Rollback: supabase/rollbacks/20261021190000_landlord_payables_weekly_float.rollback.sql
+-- Rollback: supabase/rollbacks/20261021235000_landlord_payables_weekly_float.rollback.sql
 -- Verification (rolled back, read-only): supabase/tests/landlord_payables_weekly_float.sql
 
 -- 0. Safety: fail fast on locks; refuse unless Part 2's definitions are exactly the ones embedded below.
@@ -298,7 +298,11 @@ SELECT ex.*,
        (ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'landlord_receipt_reversed', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[]) AS under_review,
        CASE WHEN ex.state = 'paid_unconfirmed' THEN
               CASE WHEN ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'landlord_receipt_reversed', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[] THEN 'under_review' ELSE 'awaiting_receipt' END
-       END AS payable_class
+       END AS payable_class,
+       -- Approved and not yet paid out, in no weekly float: owed to the landlord but inside no float's payable, so the
+       -- payables list carries it on its own until it is paid out. Never a completed or failed payout.
+       (ex.state = 'not_paid' AND NOT ex.has_weekly_float
+        AND COALESCE(ex.payout_status, '') NOT IN ('completed', 'failed')) AS approved_no_float
   FROM ex;
 
 -- 2. One row per weekly landlord float: allowance, verified and unverified payouts, the outstanding payable.
@@ -413,6 +417,24 @@ UNION ALL
   -- Each weekly landlord float is payable until landlord payouts made against it are verified by the Receipt Archive.
   WHERE f.outstanding_amount > 0::numeric OR f.overspent
 UNION ALL
+ SELECT 'landlord'::text AS category_key,
+    'Landlord Float Payout Budget'::text AS category_label,
+    'landlord_approved_no_float'::text AS product_key,
+    'Landlord payouts approved outside a weekly float'::text AS product_label,
+    'landlord_payouts'::text AS source_table,
+    s.payout_id AS item_id,
+    s.landlord_id AS counterparty_id,
+    COALESCE(s.landlord_name, 'Unknown landlord'::text) AS counterparty_name,
+    s.amount AS outstanding_amount,
+    (s.created_at AT TIME ZONE 'Africa/Kampala'::text)::date AS due_date,
+    'scheduled'::text AS due_kind,
+    0::numeric AS daily_amount,
+    s.payout_status AS status,
+    s.created_at
+   FROM public.v_landlord_payout_settlement s
+  -- Approved, not yet paid out, in no weekly float: owed, and in no float's payable. Leaves the list once paid out.
+  WHERE s.approved_no_float AND s.amount > 0::numeric
+UNION ALL
  SELECT 'agent'::text AS category_key,
     'Agent Payables'::text AS category_label,
     'agent_commission_payout'::text AS product_key,
@@ -521,7 +543,8 @@ DECLARE
   v jsonb;
 BEGIN
   PERFORM public.payables_guard();
-  -- The landlord PAYABLE is each weekly float's outstanding allowance (v_landlord_float_payables).
+  -- The landlord PAYABLE is each weekly float's outstanding allowance (v_landlord_float_payables) plus approved payouts
+  -- not yet paid out that sit in no weekly float (approved_no_float): landlord_payable = float_payable + approved_no_float.
   -- Landlord payouts are in exactly ONE group: confirmed + in_float_unverified + historical_review + review_only +
   -- not_paid = all payouts. in_float_unverified payouts are already inside their float's payable: never add them to it.
   WITH s0 AS MATERIALIZED (
@@ -535,7 +558,7 @@ BEGIN
   f0 AS MATERIALIZED (SELECT * FROM public.v_landlord_float_payables)
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'The landlord payable is each weekly landlord float the CFO sets (plus CFO-approved miscellaneous approvals above it), less landlord payouts made against it that the Receipt Archive has verified. A payout is verified only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, with the transaction ID (11 or 12 digits) and amount read from it equal to the withdrawal and payout, used by no other payout, with no blocking alert. SMS and provider statements never verify. After a float''s week ends its unused allowance lapses (lapsed_unused, never payable) and only approved payouts not yet verified stay payable. Payouts paid without a weekly float and not verified are historical review items, outside the payable. Groups never overlap.',
+    'rule', 'The landlord payable is each weekly landlord float the CFO sets (plus CFO-approved miscellaneous approvals above it), less landlord payouts made against it that the Receipt Archive has verified. A payout is verified only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, with the transaction ID (11 or 12 digits) and amount read from it equal to the withdrawal and payout, used by no other payout, with no blocking alert. SMS and provider statements never verify. After a float''s week ends its unused allowance lapses (lapsed_unused, never payable) and only approved payouts not yet verified stay payable. Payouts approved but not yet paid out that sit in no weekly float are payable on their own (approved_no_float) until paid out; landlord_payable = float_payable + approved_no_float. Payouts paid without a weekly float and not verified are historical review items, outside the payable. Groups never overlap.',
     'totals', jsonb_build_object(
         'float_payable', (SELECT COALESCE(sum(outstanding_amount), 0) FROM f0),
         'floats', (SELECT count(*) FROM f0),
@@ -564,6 +587,10 @@ BEGIN
         'review_only_count', (SELECT count(*) FROM s0 WHERE grp = 'review_only'),
         'not_paid', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE grp = 'not_paid'),
         'not_paid_count', (SELECT count(*) FROM s0 WHERE grp = 'not_paid'),
+        'approved_no_float', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE approved_no_float),
+        'approved_no_float_count', (SELECT count(*) FROM s0 WHERE approved_no_float),
+        'landlord_payable', (SELECT COALESCE(sum(outstanding_amount), 0) FROM f0)
+                            + (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE approved_no_float),
         'exception_count', (SELECT count(*) FROM s0 WHERE under_review)),
     'floats', (SELECT COALESCE(jsonb_agg(to_jsonb(f) ORDER BY f.week_start DESC), '[]'::jsonb) FROM f0 f),
     'historical_by_week', (SELECT COALESCE(jsonb_agg(to_jsonb(h) ORDER BY h.week_start DESC), '[]'::jsonb) FROM (
@@ -1011,7 +1038,7 @@ SELECT jsonb_build_object(
   'landlord_coverage', (
     SELECT jsonb_build_object(
              'basis', 'weekly_landlord_float',
-             'note', 'Landlord payables are recorded per weekly landlord float set by the CFO. A week without a weekly float carries no landlord amount in this forecast: its landlord obligations are not estimated, which does not mean there are none. A float whose week has ended stays in the forecast, carried into the current period as overdue, until its payouts are verified or it is otherwise resolved. After a float''s week ends only its approved payouts not yet verified stay payable; its unused allowance lapses (lapsed_unused_float_allowance) and is never payable. Landlord payouts made without a weekly float and not verified by the Receipt Archive are held for CFO review (historical review) and are outside the payables and this forecast.',
+             'note', 'Landlord payables are recorded per weekly landlord float set by the CFO. A week without a weekly float carries no landlord amount in this forecast: its landlord obligations are not estimated, which does not mean there are none. A float whose week has ended stays in the forecast, carried into the current period as overdue, until its payouts are verified or it is otherwise resolved. After a float''s week ends only its approved payouts not yet verified stay payable; its unused allowance lapses (lapsed_unused_float_allowance) and is never payable. Payouts approved but not yet paid out that sit in no weekly float are owed: they are carried on their own (approved_no_float_outstanding) from their approval date until paid out. Landlord payouts made without a weekly float and not verified by the Receipt Archive are held for CFO review (historical review) and are outside the payables and this forecast.',
              'weeks_in_horizon', (c.j->>'weeks')::int,
              'weeks_with_float', (c.j->>'weeks_with_float')::int,
              'weeks_without_float', c.j->'weeks_without_float',
@@ -1024,7 +1051,9 @@ SELECT jsonb_build_object(
                                   FROM v_landlord_float_payables ovf WHERE ovf.week_end < (SELECT today FROM params) AND ovf.outstanding_amount > 0),
              'overdue_float_outstanding', (SELECT COALESCE(sum(ovf.outstanding_amount), 0) FROM v_landlord_float_payables ovf
                                             WHERE ovf.week_end < (SELECT today FROM params)),
-             'lapsed_unused_float_allowance', (SELECT COALESCE(sum(ovf.lapsed_unused), 0) FROM v_landlord_float_payables ovf))
+             'lapsed_unused_float_allowance', (SELECT COALESCE(sum(ovf.lapsed_unused), 0) FROM v_landlord_float_payables ovf),
+             'approved_no_float_count', (SELECT count(*) FROM v_landlord_payout_settlement WHERE approved_no_float),
+             'approved_no_float_outstanding', (SELECT COALESCE(sum(amount), 0) FROM v_landlord_payout_settlement WHERE approved_no_float))
       FROM (SELECT (SELECT jsonb_build_object(
         'weeks', count(*),
         'weeks_with_float', count(lf.week_start),
