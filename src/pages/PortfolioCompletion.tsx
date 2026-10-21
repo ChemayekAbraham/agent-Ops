@@ -56,7 +56,7 @@ interface AgreementSnapshot {
  * the invited partner only. No client-side partner search — the page reads
  * only the signed-in user's own data.
  */
-export default function PortfolioCompletion() {
+export default function PortfolioCompletion({ preview = false }: { preview?: boolean }) {
   const { partnerId = '', portfolioId = '' } = useParams();
   const [sp] = useSearchParams();
   const token = sp.get('token') || '';
@@ -142,6 +142,12 @@ export default function PortfolioCompletion() {
 
   // ─── Load: gate access and hydrate snapshots ───
   useEffect(() => {
+    if (preview) {
+      setPortfolio({ portfolio_code: 'TEST-PORTFOLIO', investment_amount: 50000, roi_percentage: 0, duration_months: 6, roi_mode: 'monthly_payout', status: 'awaiting_partner_details' });
+      setProfile({ full_name: 'Test Supporter', email: 'pexpert46@gmail.com', phone: 'Not provided', national_id: null, mobile_money_name: null, landmark: null });
+      setStatus('ready');
+      return;
+    }
     if (authLoading) return;
     let cancelled = false;
 
@@ -251,7 +257,7 @@ export default function PortfolioCompletion() {
       }
     });
     return () => { cancelled = true; };
-  }, [authLoading, user, partnerId, portfolioId, token]);
+  }, [preview, authLoading, user, partnerId, portfolioId, token]);
 
   const submit = async () => {
     if (!portfolio) return;
@@ -310,6 +316,10 @@ export default function PortfolioCompletion() {
     }
 
     setStatus('submitting');
+    if (preview) {
+      setStatus('done');
+      return;
+    }
     try {
       const { data, error } = await supabase.functions.invoke('submit-portfolio-completion', {
         body: {
@@ -343,7 +353,7 @@ export default function PortfolioCompletion() {
     }
   };
 
-  if (authLoading || status === 'loading') {
+  if ((!preview && authLoading) || status === 'loading') {
     return (
       <ScreenLoader />
     );
@@ -396,8 +406,9 @@ export default function PortfolioCompletion() {
     return (
       <FullScreenNotice
         icon={<CheckCircle2 className="h-8 w-8 text-primary" />}
-        title="Submitted for approval"
-        message="Thank you. Welile Partner Operations has been notified and will approve your portfolio shortly. You'll receive the final signed agreement by email."
+        title={preview ? 'Test submission complete' : 'Submitted for approval'}
+        message={preview ? 'This was a simulation. No details were saved, no email was sent, and no money moved.' : "Thank you. Welile Partner Operations has been notified and will approve your portfolio shortly. You'll receive the final signed agreement by email."}
+        cta={preview ? { label: 'Try again', onClick: () => window.location.reload() } : undefined}
       />
     );
   }
@@ -407,6 +418,7 @@ export default function PortfolioCompletion() {
   return (
     <div className="min-h-screen bg-muted/30 pb-28">
       <div className="max-w-lg mx-auto px-4 sm:px-6 pt-6 sm:pt-10 space-y-5">
+        {preview && <p role="status" className="border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">Test invitation · Sample details only. Nothing is saved or sent.</p>}
         {/* Hero */}
         <div>
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Portfolio addendum</p>
@@ -421,13 +433,13 @@ export default function PortfolioCompletion() {
           <CardContent className="p-4 sm:p-5 space-y-3">
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase">Amount</p>
-              <p className="text-xl sm:text-2xl font-black text-primary">{formatUGX(portfolio!.investment_amount)}</p>
+              <p className="text-xl sm:text-2xl font-black text-primary">{formatUGX(portfolio?.investment_amount ?? 0)}</p>
             </div>
             <div className="grid grid-cols-2 gap-3 text-xs">
-              <SummaryRow label="Monthly ROI" value={`${portfolio!.roi_percentage}%`} />
-              <SummaryRow label="Duration" value={`${portfolio!.duration_months} months`} />
-              <SummaryRow label="Mode" value={portfolio!.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly payout'} />
-              <SummaryRow label="Reference" value={portfolio!.portfolio_code} mono />
+              <SummaryRow label="Monthly Returns" value={preview ? 'Sample terms' : `${portfolio?.roi_percentage ?? 0}%`} />
+              <SummaryRow label="Duration" value={`${portfolio?.duration_months ?? 0} months`} />
+              <SummaryRow label="Mode" value={portfolio?.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly payout'} />
+              <SummaryRow label="Reference" value={portfolio?.portfolio_code ?? ''} mono />
             </div>
           </CardContent>
         </Card>
@@ -611,7 +623,7 @@ export default function PortfolioCompletion() {
         </div>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          By submitting, you confirm the details above are accurate and consent to the Welile Portfolio Addendum for reference {portfolio!.portfolio_code}. {portfolio!.portfolio_code?.startsWith('WSR') ? 'This portfolio is funded from your salary reinvestment. Nothing will be charged to your wallet.' : 'No wallet is charged yet — Partner Operations will contact you to fund the portfolio after approval.'}
+          {preview ? 'Sample Portfolio Addendum. Submitting this test does not sign a real agreement or charge a wallet.' : <>By submitting, you confirm the details above are accurate and consent to the Welile Portfolio Addendum for reference {portfolio?.portfolio_code}. {portfolio?.portfolio_code?.startsWith('WSR') ? 'This portfolio is funded from your salary reinvestment. Nothing will be charged to your wallet.' : 'No wallet is charged yet — Partner Operations will contact you to fund the portfolio after approval.'}</>}
         </p>
       </div>
 
@@ -629,7 +641,7 @@ export default function PortfolioCompletion() {
           >
             {status === 'submitting'
               ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting…</>
-              : <>Submit for approval</>
+              : <>{preview ? 'Submit test' : 'Submit for approval'}</>
             }
           </Button>
         </div>

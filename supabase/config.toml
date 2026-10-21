@@ -278,3 +278,10 @@ verify_jwt = false
 
 [functions.lending-payment-reminders]
 verify_jwt = false
+
+# Neexa POSTs signed webhook events (and a GET ownership challenge) with no JWT.
+# The gate is the X-Neexa-Signature HMAC checked against NEEXA_WEBHOOK_SECRET.
+# NOTE: neexa-api is deliberately NOT listed. It is staff-initiated and keeps
+# verify_jwt = true plus its own cmo/super_admin/cto role check.
+[functions.neexa-webhook]
+verify_jwt = false
