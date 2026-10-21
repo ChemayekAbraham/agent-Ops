@@ -39,27 +39,102 @@ interface NeexaEvent {
   };
 }
 
+// Echo a challenge only if it looks like one (URL-safe or base64 characters), so this
+// endpoint cannot reflect arbitrary content.
+const CHALLENGE_RE = /^[A-Za-z0-9._~+/=-]{1,512}$/;
+
+function challengeResponse(challenge: string) {
+  return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+}
+
+function challengeFromQuery(url: URL): string {
+  return url.searchParams.get("challenge") ?? url.searchParams.get("hub.challenge") ??
+    url.searchParams.get("hub_challenge") ?? "";
+}
+
 Deno.serve(async (req) => {
-  if (req.method === "GET") {
-    // Echo the challenge only if it looks like one, so this cannot reflect arbitrary content.
-    const challenge = new URL(req.url).searchParams.get("challenge") ?? "";
-    if (!/^[A-Za-z0-9_-]{1,256}$/.test(challenge)) return json({ error: "invalid_challenge" }, 400);
-    return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });
+  const url = new URL(req.url);
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
+
+  // DIAGNOSTIC (2026-10-21): records the SHAPE of any request that is not a stored
+  // message (method, header names, query keys, sizes, a short body preview), so a
+  // failed registration in the Neexa dashboard shows what Neexa actually sent. It never
+  // stores the secret or a computed MAC. Remove once registration works.
+  const diag = async (outcome: string, raw = "") => {
+    try {
+      await admin.from("neexa_webhook_events").insert({
+        event: `_diag:${req.method}:${outcome}`,
+        payload: {
+          query_keys: [...url.searchParams.keys()],
+          challenge_len: challengeFromQuery(url).length,
+          headers: [...req.headers.keys()],
+          content_type: req.headers.get("content-type"),
+          user_agent: req.headers.get("user-agent")?.slice(0, 120) ?? null,
+          signature_len: (req.headers.get("x-neexa-signature") ?? "").length,
+          body_len: raw.length,
+          body_preview: raw.slice(0, 300),
+        },
+      });
+    } catch (e) {
+      console.warn("neexa-webhook: diag insert failed", e instanceof Error ? e.message : e);
+    }
+  };
+
+  if (req.method === "HEAD" || req.method === "OPTIONS") {
+    await diag("probe");
+    return new Response(null, { status: 200 });
   }
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  if (req.method === "GET") {
+    const challenge = challengeFromQuery(url);
+    if (!challenge) {
+      await diag("no_challenge");
+      return json({ ok: true });
+    }
+    if (!CHALLENGE_RE.test(challenge)) {
+      await diag("invalid_challenge");
+      return json({ error: "invalid_challenge" }, 400);
+    }
+    await diag("challenge_ok");
+    return challengeResponse(challenge);
+  }
+  if (req.method !== "POST") {
+    await diag("method_not_allowed");
+    return json({ error: "method_not_allowed" }, 405);
+  }
+
+  const raw = await req.text();
+
+  // Some providers verify with a POST carrying only a challenge. Echoing it stores nothing.
+  const queryChallenge = challengeFromQuery(url);
+  let bodyChallenge = "";
+  try {
+    const b = JSON.parse(raw);
+    if (b && typeof b === "object" && !("event" in b) && typeof b.challenge === "string") bodyChallenge = b.challenge;
+  } catch { /* not JSON; handled below */ }
+  const postChallenge = bodyChallenge || queryChallenge;
+  if (postChallenge && CHALLENGE_RE.test(postChallenge)) {
+    await diag("post_challenge", raw);
+    return challengeResponse(postChallenge);
+  }
 
   const secret = Deno.env.get("NEEXA_WEBHOOK_SECRET")?.trim();
   if (!secret) {
     console.error("NEEXA_WEBHOOK_SECRET is not set");
+    await diag("not_configured", raw);
     return json({ error: "not_configured" }, 500);
   }
 
-  const raw = await req.text();
   const header = req.headers.get("x-neexa-signature") ?? "";
   if (!(await verifyNeexaSignature(secret, raw, header))) {
     // Log the header's shape (never the secret or a computed MAC) so a format mismatch
     // can be told apart from a forged call.
     console.warn("neexa-webhook: invalid signature", { header_len: header.length, header_prefix: header.slice(0, 8) });
+    await diag("invalid_signature", raw);
     return json({ error: "invalid_signature" }, 401);
   }
 
@@ -67,6 +142,7 @@ Deno.serve(async (req) => {
   try {
     p = JSON.parse(raw);
   } catch {
+    await diag("invalid_json", raw);
     return json({ error: "invalid_json" }, 400);
   }
 
@@ -75,12 +151,6 @@ Deno.serve(async (req) => {
   const d = p?.data ?? {};
   const messageId = d.message_id != null ? String(d.message_id) : "";
   const conversationId = d.conversation_id != null ? String(d.conversation_id) : "";
-
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } },
-  );
 
   const { data: logged, error: logErr } = await admin
     .from("neexa_webhook_events")
