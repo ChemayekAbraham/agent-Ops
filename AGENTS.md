@@ -35,3 +35,4 @@
 - Supplementary budgets live only in `budget_supplements` and its `budget_supplement_*` RPCs; the original approved line is never edited, revised = original + CFO-approved supplements via `budget_revised_position`, and supplements never touch disbursements, ledger or wallets (keeps them separate from reallocations and money movement).
 - Staff requisitions: COO → CEO → CFO, except the active Product R&D budget head (CEO → CFO via `staff_requisition_ceo_direct`, enforced in the database).
 - Approved `pending_wallet_operations` never return to waiting (`trg_guard_pwo_approved_not_reopened`); stage approvals filter on expected current status.
+- Background device checks send an explicit fresh token for the current account, coalesce overlapping calls and retry authentication once; failures preserve any known verification requirement without becoming page crashes.
