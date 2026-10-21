@@ -15449,19 +15449,17 @@ export type Database = {
       email_verification_challenges: {
         Row: {
           attempts: number
-          bonus_credited_at: string | null
-          bonus_skipped_reason: string | null
           code_hash: string
           consumed_at: string | null
           created_at: string
           expires_at: string
+          failure_reason: string | null
           id: string
           ip_address: string | null
           last_sent_at: string
           max_attempts: number
           new_email: string
           old_email: string
-          old_email_eligible: boolean
           send_count: number
           user_agent: string | null
           user_id: string
@@ -15469,19 +15467,17 @@ export type Database = {
         }
         Insert: {
           attempts?: number
-          bonus_credited_at?: string | null
-          bonus_skipped_reason?: string | null
           code_hash: string
           consumed_at?: string | null
           created_at?: string
           expires_at: string
+          failure_reason?: string | null
           id?: string
           ip_address?: string | null
           last_sent_at?: string
           max_attempts?: number
           new_email: string
           old_email: string
-          old_email_eligible?: boolean
           send_count?: number
           user_agent?: string | null
           user_id: string
@@ -15489,19 +15485,17 @@ export type Database = {
         }
         Update: {
           attempts?: number
-          bonus_credited_at?: string | null
-          bonus_skipped_reason?: string | null
           code_hash?: string
           consumed_at?: string | null
           created_at?: string
           expires_at?: string
+          failure_reason?: string | null
           id?: string
           ip_address?: string | null
           last_sent_at?: string
           max_attempts?: number
           new_email?: string
           old_email?: string
-          old_email_eligible?: boolean
           send_count?: number
           user_agent?: string | null
           user_id?: string
@@ -69492,7 +69486,6 @@ export type Database = {
       }
       elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
-      email_verification_bonus_go_live: { Args: never; Returns: string }
       empty_house_opportunity_summary: { Args: never; Returns: Json }
       end_ledger_maintenance: {
         Args: { p_reason?: string }
@@ -80707,6 +80700,7 @@ export type Database = {
         Returns: Json
       }
       run_layer_a_bulk: { Args: { p_dry_run?: boolean }; Returns: Json }
+      run_lunch_allowance_payouts: { Args: never; Returns: number }
       run_payout_acceptance_checks: {
         Args: { p_window_days?: number }
         Returns: {

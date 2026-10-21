@@ -23,7 +23,6 @@ interface Row {
 
 /** Read-only tracker of Lunch Allowance payments made through CFO Send Money. */
 export function LunchAllowanceTracker() {
-  const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [search, setSearch] = useState('');
 
@@ -38,7 +37,28 @@ export function LunchAllowanceTracker() {
         .order('created_at', { ascending: false })
         .limit(1000);
       if (error) throw error;
-      const list = (rows ?? []) as Row[];
+      // Automated lunch allowance payouts post straight to the ledger (no
+      // platform_wallet_corrections row), so read their user wallet legs too.
+      const { data: autoRows, error: autoErr } = await supabase
+        .from('general_ledger')
+        .select('id,user_id,amount,created_at')
+        .eq('category', 'wallet_deposit')
+        .ilike('description', '%automated%')
+        .ilike('description', '%lunch allowance%')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (autoErr) throw autoErr;
+      const automated: Row[] = (autoRows ?? []).map((r: any) => ({
+        id: r.id,
+        target_user_id: r.user_id,
+        amount: r.amount,
+        operation: 'credit',
+        created_at: r.created_at,
+        created_by: null,
+        reference_id: 'Automated',
+        evidence: null,
+      }));
+      const list = [...((rows ?? []) as Row[]), ...automated].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       const ids = [...new Set(list.flatMap((r) => [r.target_user_id, r.created_by]).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
       if (ids.length) {
@@ -53,12 +73,11 @@ export function LunchAllowanceTracker() {
     const q = search.trim().toLowerCase();
     return (data?.list ?? []).filter((r) => {
       const d = r.created_at.slice(0, 10);
-      if (from && d < from) return false;
       if (to && d > to) return false;
       if (q && !(data?.names[r.target_user_id] ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data, from, to, search]);
+  }, [data, to, search]);
 
   const signed = (r: Row) => (r.operation === 'debit' ? -1 : 1) * Number(r.amount);
   const total = filtered.reduce((s, r) => s + signed(r), 0);
@@ -83,7 +102,7 @@ export function LunchAllowanceTracker() {
     doc.setFontSize(14);
     doc.text('Welile - Lunch Allowance', 14, 16);
     doc.setFontSize(9);
-    const range = from || to ? `${from || 'start'} to ${to || 'today'}` : 'All time';
+    const range = to ? `Up to ${to}` : 'All time';
     doc.text(`Period: ${range}${search ? ` | Staff: ${search}` : ''} | Generated ${fmtDate(new Date().toISOString())}`, 14, 22);
     doc.text(`Total: ${formatUGX(total)} | Staff paid: ${perStaff.length} | Payments: ${filtered.length}`, 14, 27);
     autoTable(doc, {
@@ -126,9 +145,8 @@ export function LunchAllowanceTracker() {
 
       <div className="flex flex-wrap gap-2">
         <Input placeholder="Search staff name" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-56" />
-        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" aria-label="From" />
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" aria-label="To" />
-        {(from || to || search) && <Button variant="ghost" size="sm" onClick={() => { setFrom(''); setTo(''); setSearch(''); }}>Clear</Button>}
+        {(to || search) && <Button variant="ghost" size="sm" onClick={() => { setTo(''); setSearch(''); }}>Clear</Button>}
       </div>
 
       {isLoading ? (
