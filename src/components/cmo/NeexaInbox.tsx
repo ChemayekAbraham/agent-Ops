@@ -12,6 +12,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNeexaInbox, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
 import { NeexaTemplateDialog } from './NeexaTemplateDialog';
 
+// Staff replies are hidden for now. Flip to true to bring back the "Write a reply…" box and Send button.
+const REPLY_COMPOSER_ENABLED = false;
+
 const platforms: { value: NeexaPlatform; label: string; icon: typeof MessageSquare }[] = [
   { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, { value: 'email', label: 'Email', icon: Mail },
   { value: 'facebook', label: 'Facebook', icon: Facebook }, { value: 'instagram', label: 'Instagram', icon: Instagram },
@@ -130,14 +133,16 @@ export default function NeexaInbox() {
             })}
             <div ref={bottomRef} />
           </div>
-          <div className="shrink-0 space-y-3 border-t border-border bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {(REPLY_COMPOSER_ENABLED || closed || inbox.actionError) && <div className="shrink-0 space-y-3 border-t border-border bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {closed && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3"><p className="text-xs">The 24-hour reply window has closed. Send an approved template instead.</p><Button variant="outline" size="sm" onClick={() => openTemplate(selected.customer_address || '')}>Send approved template</Button></div>}
             {inbox.actionError && <p role="alert" className="text-sm text-destructive">{inbox.actionError}</p>}
-            <Textarea aria-label="Reply message" placeholder="Write a reply…" rows={3} className="min-h-[76px] max-h-40 resize-none" disabled={closed || inbox.sending} value={draft}
-              onChange={event => { const id = inbox.selectedId; if (id) setDrafts(old => ({ ...old, [id]: event.target.value })); }}
-              onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
-            <div className="flex items-center justify-between gap-3"><span className={cn('text-xs', draft.length > NEEXA_MESSAGE_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>{draft.length.toLocaleString()} / {NEEXA_MESSAGE_LIMIT.toLocaleString()}</span><Button size="sm" disabled={!canSend} onClick={() => void send()}>{inbox.sending ? <Loader2 className="animate-spin" /> : <Send />}{inbox.sending ? 'Sending…' : 'Send'}</Button></div>
-          </div>
+            {REPLY_COMPOSER_ENABLED && <>
+              <Textarea aria-label="Reply message" placeholder="Write a reply…" rows={3} className="min-h-[76px] max-h-40 resize-none" disabled={closed || inbox.sending} value={draft}
+                onChange={event => { const id = inbox.selectedId; if (id) setDrafts(old => ({ ...old, [id]: event.target.value })); }}
+                onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
+              <div className="flex items-center justify-between gap-3"><span className={cn('text-xs', draft.length > NEEXA_MESSAGE_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>{draft.length.toLocaleString()} / {NEEXA_MESSAGE_LIMIT.toLocaleString()}</span><Button size="sm" disabled={!canSend} onClick={() => void send()}>{inbox.sending ? <Loader2 className="animate-spin" /> : <Send />}{inbox.sending ? 'Sending…' : 'Send'}</Button></div>
+            </>}
+          </div>}
         </> : <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground"><MessageSquare className="h-10 w-10" /><p className="text-sm">Select a conversation</p>{inbox.selectedId && <Button variant="outline" className="md:hidden" onClick={() => inbox.openConversation(null)}>Back to conversations</Button>}</div>}
       </div>
     </div>
