@@ -51,7 +51,7 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   const heading = (t: string, y: number, plain = false) => {
     y = ensure(y);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.setTextColor(...(plain ? ([15, 23, 42] as const) : PRIMARY));
+    if (plain) doc.setTextColor(15, 23, 42); else doc.setTextColor(PRIMARY[0], PRIMARY[1], PRIMARY[2]);
     doc.text(t, mg, y); doc.setTextColor(15, 23, 42);
     return y + 3;
   };
