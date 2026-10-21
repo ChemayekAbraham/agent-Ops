@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/sheet';
 import { UserAvatar } from '@/components/UserAvatar';
 import { AgentProductDetailDialog } from './AgentProductDetailDialog';
-import { AgentApplicationPerformance } from './AgentApplicationPerformance';
 import { formatUGX } from '@/lib/rentCalculations';
 import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProductRow } from '@/lib/agentProductsInFieldPdf';
 import { archivePdfBlob } from '@/lib/pdfVault';
@@ -1467,7 +1466,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   )}
                 </div>
 
-                {appDetail.agent_id && <AgentApplicationPerformance key={appDetail.agent_id} agentId={appDetail.agent_id} />}
+
 
                 {/* Order specs & Profitability metrics */}
                 <div className="rounded-xl border border-border divide-y divide-border text-xs overflow-hidden">
