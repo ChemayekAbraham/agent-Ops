@@ -10,7 +10,7 @@ SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regclass('public.v_landlord_payout_settlement') IS NOT NULL THEN
-    RAISE EXCEPTION 'precondition failed: roll back 20261021140000_landlord_payables_weekly_float before this migration';
+    RAISE EXCEPTION 'precondition failed: roll back 20261021190000_landlord_payables_weekly_float before this migration';
   END IF;
   IF position('v_budget_payables_lines' IN pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
      OR position('v_budget_payables_lines' IN pg_get_viewdef('public.v_payables_payment_history'::regclass)) = 0

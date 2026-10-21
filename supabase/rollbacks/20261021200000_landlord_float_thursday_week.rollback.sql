@@ -1,4 +1,4 @@
--- Rollback for 20261021150000_landlord_float_thursday_week.sql: landlord float weeks back to Monday–Sunday.
+-- Rollback for 20261021200000_landlord_float_thursday_week.sql: landlord float weeks back to Monday–Sunday.
 -- Re-keys every weekly float Thu T..Wed T+6 -> Mon T+4..Sun T+10 (the inverse of the migration) and every allocation to
 -- the Monday of its approval date, restores the Monday rules, the Monday week function and production's set-float
 -- function, with an audit row per float. REFUSES if any allocation would leave its float (approved Thursday–Sunday of
@@ -9,7 +9,7 @@ LOCK TABLE public.landlord_float_budgets, public.landlord_float_budget_allocatio
 DO $pre$
 BEGIN
   IF (SELECT md5(prosrc) FROM pg_proc WHERE oid = 'public.landlord_float_week_start(date)'::regprocedure) <> '70e7f84031ee9ecde35818af1789cc9b' THEN
-    RAISE EXCEPTION 'precondition failed: landlord_float_week_start is not the Thursday definition 20261021150000 created; reverse it by hand';
+    RAISE EXCEPTION 'precondition failed: landlord_float_week_start is not the Thursday definition 20261021200000 created; reverse it by hand';
   END IF;
   IF EXISTS (SELECT 1 FROM public.landlord_float_budgets WHERE period_type = 'weekly' AND extract(isodow FROM period_start) <> 4)
      OR EXISTS (SELECT 1 FROM public.landlord_float_budget_allocations a
@@ -39,10 +39,10 @@ WITH moved AS (
 )
 INSERT INTO public.audit_logs (action_type, table_name, record_id, reason, old_values, new_values, metadata)
 SELECT 'landlord_float_week_rekey', 'landlord_float_budgets', m.id::text,
-       'Rollback of 20261021150000_landlord_float_thursday_week: landlord float weeks back to Monday to Sunday',
+       'Rollback of 20261021200000_landlord_float_thursday_week: landlord float weeks back to Monday to Sunday',
        jsonb_build_object('period_start', m.period_start - 4, 'period_end', m.period_start + 2),
        jsonb_build_object('period_start', m.period_start, 'period_end', m.period_end),
-       jsonb_build_object('amount', m.amount, 'superseded', m.superseded_at IS NOT NULL, 'migration', '20261021150000_landlord_float_thursday_week', 'rollback', true)
+       jsonb_build_object('amount', m.amount, 'superseded', m.superseded_at IS NOT NULL, 'migration', '20261021200000_landlord_float_thursday_week', 'rollback', true)
   FROM moved m;
 
 WITH moved AS (
@@ -53,8 +53,8 @@ WITH moved AS (
 )
 INSERT INTO public.audit_logs (action_type, table_name, reason, metadata)
 SELECT 'landlord_float_week_rekey', 'landlord_float_budget_allocations',
-       'Rollback of 20261021150000_landlord_float_thursday_week: allocation weeks back to Monday to Sunday',
-       jsonb_build_object('allocations', count(*), 'migration', '20261021150000_landlord_float_thursday_week', 'rollback', true)
+       'Rollback of 20261021200000_landlord_float_thursday_week: allocation weeks back to Monday to Sunday',
+       jsonb_build_object('allocations', count(*), 'migration', '20261021200000_landlord_float_thursday_week', 'rollback', true)
   FROM moved HAVING count(*) > 0;
 
 ALTER TABLE public.landlord_float_budgets ADD CONSTRAINT landlord_float_budgets_period_shape

@@ -39,7 +39,7 @@
 -- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt, allocation or status is written; no OCR or
 -- approval is run. Requires 20261020210000_budget_payables: its v_payables_lines / v_payables_payment_history bodies are
 -- pinned and its category frame is checked; every branch kept is verbatim.
--- Rollback: supabase/rollbacks/20261021140000_landlord_payables_weekly_float.rollback.sql
+-- Rollback: supabase/rollbacks/20261021190000_landlord_payables_weekly_float.rollback.sql
 -- Verification (rolled back, read-only): supabase/tests/landlord_payables_weekly_float.sql
 
 -- 0. Safety: fail fast on locks; refuse unless Part 2's definitions are exactly the ones embedded below.

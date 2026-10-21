@@ -23,7 +23,7 @@
 -- two float tables. The screens show the week dates the server returns; no client-side week arithmetic exists.
 -- OPERATIONAL NOTE: from the first Thursday after this is applied, COO approvals need a weekly float for the new
 -- Thursday week (NO_BUDGET until the CFO sets one), exactly as at the start of every week today.
--- Rollback: supabase/rollbacks/20261021150000_landlord_float_thursday_week.rollback.sql
+-- Rollback: supabase/rollbacks/20261021200000_landlord_float_thursday_week.rollback.sql
 -- Verification (read-only): supabase/tests/landlord_float_thursday_week.sql
 
 SET lock_timeout = '5s';
@@ -87,10 +87,10 @@ WITH moved AS (
 )
 INSERT INTO public.audit_logs (action_type, table_name, record_id, reason, old_values, new_values, metadata)
 SELECT 'landlord_float_week_rekey', 'landlord_float_budgets', m.id::text,
-       'Landlord float weeks run Thursday to Wednesday (CFO rule 2026-10-21); migration 20261021150000_landlord_float_thursday_week',
+       'Landlord float weeks run Thursday to Wednesday (CFO rule 2026-10-21); migration 20261021200000_landlord_float_thursday_week',
        jsonb_build_object('period_start', m.period_start + 4, 'period_end', m.period_start + 10),
        jsonb_build_object('period_start', m.period_start, 'period_end', m.period_end),
-       jsonb_build_object('amount', m.amount, 'superseded', m.superseded_at IS NOT NULL, 'migration', '20261021150000_landlord_float_thursday_week')
+       jsonb_build_object('amount', m.amount, 'superseded', m.superseded_at IS NOT NULL, 'migration', '20261021200000_landlord_float_thursday_week')
   FROM moved m;
 
 WITH moved AS (
@@ -101,8 +101,8 @@ WITH moved AS (
 )
 INSERT INTO public.audit_logs (action_type, table_name, reason, metadata)
 SELECT 'landlord_float_week_rekey', 'landlord_float_budget_allocations',
-       'Allocation weeks re-keyed to Thursday–Wednesday; migration 20261021150000_landlord_float_thursday_week',
-       jsonb_build_object('allocations', count(*), 'migration', '20261021150000_landlord_float_thursday_week')
+       'Allocation weeks re-keyed to Thursday–Wednesday; migration 20261021200000_landlord_float_thursday_week',
+       jsonb_build_object('allocations', count(*), 'migration', '20261021200000_landlord_float_thursday_week')
   FROM moved HAVING count(*) > 0;
 
 -- 4. The rules again, Thursday-based (both are validated against every row).

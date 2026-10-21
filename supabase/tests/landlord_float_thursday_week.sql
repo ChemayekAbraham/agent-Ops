@@ -1,4 +1,4 @@
--- Read-only verification for 20261021150000_landlord_float_thursday_week.sql (run AFTER the migration). It only SELECTs and can run inside
+-- Read-only verification for 20261021200000_landlord_float_thursday_week.sql (run AFTER the migration). It only SELECTs and can run inside
 -- BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error text IS the report: a JSON list of 6 steps,
 -- each with "pass": true/false.
 --   1  landlord_float_week_start maps every day to the Thursday on or before it (Thu -> itself, Wed -> the Thursday
@@ -7,7 +7,7 @@
 --   3  every allocation's week is the Thursday week of its approval date and is its weekly float's week
 --   4  the CFO float position for today reports a Thursday–Wednesday week
 --   5  the table rules and the set-float message are the Thursday ones
---   6  if the payables reporting (20261021140000) is present: every float line is due on a Wednesday, and payouts made
+--   6  if the payables reporting (20261021190000) is present: every float line is due on a Wednesday, and payouts made
 --      without a weekly float are grouped by Thursday weeks
 DO $test$
 DECLARE

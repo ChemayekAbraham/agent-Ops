@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Landlord Float Payout Budget — data layer for the CFO weekly view
- * (migration 20261021140000_landlord_payables_weekly_float).
+ * (migration 20261021190000_landlord_payables_weekly_float).
  *
  * The landlord PAYABLE is each weekly landlord float the CFO sets, plus CFO-approved miscellaneous approvals above it,
  * less landlord payouts made against it that the Receipt Archive has verified (`floats`, `totals.float_payable`).
