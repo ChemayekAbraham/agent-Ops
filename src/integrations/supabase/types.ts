@@ -14673,6 +14673,7 @@ export type Database = {
           amount: number
           approver_id: string | null
           approver_name: string | null
+          budget_line_id: string | null
           created_at: string
           credited_at: string | null
           credited_by: string | null
@@ -14694,6 +14695,7 @@ export type Database = {
           amount: number
           approver_id?: string | null
           approver_name?: string | null
+          budget_line_id?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
@@ -14715,6 +14717,7 @@ export type Database = {
           amount?: number
           approver_id?: string | null
           approver_name?: string | null
+          budget_line_id?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
@@ -14732,7 +14735,15 @@ export type Database = {
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "director_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       disbursement_records: {
         Row: {
@@ -15543,6 +15554,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string
           coo_decided_at: string | null
           coo_decided_by: string | null
@@ -15578,6 +15590,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category: string
           coo_decided_at?: string | null
           coo_decided_by?: string | null
@@ -15613,6 +15626,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string
           coo_decided_at?: string | null
           coo_decided_by?: string | null
@@ -15643,6 +15657,13 @@ export type Database = {
           workflow_stage?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "employee_requisitions_link_id_fkey"
             columns: ["link_id"]
@@ -50159,6 +50180,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null
@@ -50206,6 +50228,7 @@ export type Database = {
           amount: number
           approved_amount?: number | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string | null
           ceo_decided_at?: string | null
           ceo_decided_by?: string | null
@@ -50253,6 +50276,7 @@ export type Database = {
           amount?: number
           approved_amount?: number | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string | null
           ceo_decided_at?: string | null
           ceo_decided_by?: string | null
@@ -50297,6 +50321,13 @@ export type Database = {
           wallet_transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_requisitions_department_id_fkey"
             columns: ["department_id"]
@@ -79232,6 +79263,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null
@@ -80553,6 +80585,51 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      requisition_budget_line_committed: {
+        Args: {
+          p_exclude_id?: string
+          p_exclude_table?: string
+          p_line_id: string
+        }
+        Returns: number
+      }
+      requisition_budget_line_evaluate: {
+        Args: {
+          p_amount: number
+          p_department_ids?: string[]
+          p_exclude_id?: string
+          p_exclude_table?: string
+          p_line_id: string
+          p_on_date: string
+          p_room_only?: boolean
+        }
+        Returns: Json
+      }
+      requisition_budget_line_required_from: { Args: never; Returns: string }
+      requisition_budget_line_supplements: {
+        Args: { p_line_id: string }
+        Returns: number
+      }
+      requisition_budget_lines_available: {
+        Args: { p_department_id?: string }
+        Returns: {
+          account_code: string
+          allowance: number
+          call_id: string
+          call_title: string
+          category: string
+          committed: number
+          department_id: string
+          department_name: string
+          description: string
+          line_id: string
+          line_total: number
+          period_end: string
+          period_start: string
+          remaining: number
+          supplements: number
+        }[]
+      }
       reseed_anchored_balance: {
         Args: { p_reason: string; p_user_id: string }
         Returns: Json
@@ -81164,6 +81241,10 @@ export type Database = {
         Args: { p_accept: boolean; p_agent_id?: string }
         Returns: Json
       }
+      set_requisition_budget_line_required_from: {
+        Args: { p_from: string }
+        Returns: Json
+      }
       set_service_center_vetting_policy: {
         Args: {
           p_effective_from?: string
@@ -81423,6 +81504,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null
