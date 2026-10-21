@@ -15446,6 +15446,69 @@ export type Database = {
         }
         Relationships: []
       }
+      email_verification_challenges: {
+        Row: {
+          attempts: number
+          bonus_credited_at: string | null
+          bonus_skipped_reason: string | null
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          last_sent_at: string
+          max_attempts: number
+          new_email: string
+          old_email: string
+          old_email_eligible: boolean
+          send_count: number
+          user_agent: string | null
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          bonus_credited_at?: string | null
+          bonus_skipped_reason?: string | null
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          last_sent_at?: string
+          max_attempts?: number
+          new_email: string
+          old_email: string
+          old_email_eligible?: boolean
+          send_count?: number
+          user_agent?: string | null
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          bonus_credited_at?: string | null
+          bonus_skipped_reason?: string | null
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          last_sent_at?: string
+          max_attempts?: number
+          new_email?: string
+          old_email?: string
+          old_email_eligible?: boolean
+          send_count?: number
+          user_agent?: string | null
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       employee_agreement_acceptance: {
         Row: {
           accepted_at: string
@@ -68484,6 +68547,10 @@ export type Database = {
         }
         Returns: string
       }
+      confirm_email_verification: {
+        Args: { p_challenge_id: string; p_code_hash: string; p_user_id: string }
+        Returns: Json
+      }
       confirm_field_collection: {
         Args: {
           p_field_collection_id: string
@@ -69425,6 +69492,7 @@ export type Database = {
       }
       elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
+      email_verification_bonus_go_live: { Args: never; Returns: string }
       empty_house_opportunity_summary: { Args: never; Returns: Json }
       end_ledger_maintenance: {
         Args: { p_reason?: string }
