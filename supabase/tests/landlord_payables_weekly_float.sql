@@ -1,8 +1,8 @@
--- Rolled-back verification for 20261021100000_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
+-- Rolled-back verification for 20261021140000_landlord_payables_weekly_float.sql (needs Parts 1 and 2 first).
 --
 -- Run against the database AFTER the migration. It is READ-ONLY: it only SELECTs (no table, temp table or row is
 -- created or written) and can be run inside BEGIN TRANSACTION READ ONLY. The block ends in RAISE EXCEPTION; the error
--- text IS the report: a JSON list of 12 steps, each with "pass": true/false. Checks:
+-- text IS the report: a JSON list of 13 steps, each with "pass": true/false. Checks:
 --   1  v_landlord_payout_settlement has exactly one row per landlord payout
 --   2  the landlord rows on v_payables_lines are exactly the weekly floats with an outstanding allowance (or overspent),
 --      at outstanding_amount
@@ -26,7 +26,12 @@
 --      agent commissions and departmental budgets; no wallet, withdrawal-request, agent-float or payroll rows; the
 --      category frame lists exactly those four (and 'other')
 --  12  each float re-derived from the base tables: allowance = float + live miscellaneous allocations; verified = confirmed
---      payouts allocated to that week; outstanding = max(allowance - verified, 0)
+--      payouts allocated to that week; while the week is open outstanding = max(allowance - verified, 0); after it
+--      ends outstanding = max(live approvals - verified, 0) and the rest of the allowance is lapsed_unused (never payable)
+--  13  the payables forecast models new obligations only for the four payables: no withdrawal-request, payroll or
+--      per-payout landlord stream in its definition or its output, and no landlord originations on top of the float lines;
+--      no landlord run-off stream; every period flags weeks without a weekly float as not estimated (never a covered zero);
+--      landlord_coverage carries that note and the historical-review totals
 DO $test$
 DECLARE
   r jsonb := '[]'::jsonb;
@@ -182,9 +187,11 @@ BEGIN
     'categories', (SELECT jsonb_object_agg(category_key, n) FROM (SELECT category_key, count(*) n FROM public.v_payables_lines GROUP BY 1) x));
 
   -- 12: re-derive each float from the base tables
-  WITH b AS (SELECT id, period_start, amount FROM public.landlord_float_budgets WHERE period_type = 'weekly' AND superseded_at IS NULL),
+  WITH b AS (SELECT id, period_start, period_end, amount FROM public.landlord_float_budgets WHERE period_type = 'weekly' AND superseded_at IS NULL),
   d AS (
-    SELECT b.id,
+    SELECT b.id, b.period_end < (now() AT TIME ZONE 'Africa/Kampala')::date AS ended,
+           COALESCE((SELECT sum(a.amount) FROM public.landlord_float_budget_allocations a
+                      WHERE a.week_start = b.period_start AND a.released_at IS NULL), 0) AS approved,
            b.amount + COALESCE((SELECT sum(a.amount) FROM public.landlord_float_budget_allocations a
                                  WHERE a.week_start = b.period_start AND a.kind = 'miscellaneous' AND a.released_at IS NULL), 0) AS allowance,
            COALESCE((SELECT sum(s.amount) FROM public.v_landlord_payout_settlement s
@@ -194,9 +201,53 @@ BEGIN
         (SELECT count(*) FROM public.v_landlord_float_payables) = (SELECT count(*) FROM d)
     AND NOT EXISTS (SELECT 1 FROM d LEFT JOIN public.v_landlord_float_payables f ON f.float_id = d.id
                      WHERE f.float_id IS NULL OR f.allowance <> d.allowance OR f.verified_paid <> d.verified
-                        OR f.outstanding_amount <> GREATEST(d.allowance - d.verified, 0)
+                        OR f.outstanding_amount <> CASE WHEN d.ended THEN GREATEST(d.approved - d.verified, 0)
+                                                        ELSE GREATEST(d.allowance - d.verified, 0) END
+                        OR f.lapsed_unused <> CASE WHEN d.ended THEN GREATEST(d.allowance - GREATEST(d.approved, d.verified), 0) ELSE 0 END
+                        OR f.week_ended <> d.ended
                         OR f.overspent <> (d.verified > d.allowance)),
     'floats', (SELECT count(*) FROM d))
+    INTO v_json;
+  r := r || v_json;
+
+  -- 13
+  BEGIN
+    v_json := public.get_payables_predictive_forecast('week', 8);
+    v_err := NULL;
+  EXCEPTION WHEN OTHERS THEN
+    v_json := NULL; v_err := SQLERRM;
+  END;
+  WITH src AS (SELECT s FROM jsonb_array_elements(COALESCE(v_json->'periods', '[]'::jsonb)) p, jsonb_array_elements(p->'sources') s)
+  SELECT jsonb_build_object('step', 13, 'pass', v_err IS NULL
+    AND (SELECT position('Payables scope (CFO, 2026-10-21)' IN prosrc) > 0
+                AND prosrc !~ '''(withdrawal_request|payroll_disbursement|agent_landlord_payout)'''
+           FROM pg_proc WHERE oid = 'public.get_payables_predictive_forecast(text,integer,date)'::regprocedure)
+    AND NOT EXISTS (SELECT 1 FROM src WHERE s->>'category_key' NOT IN ('partner', 'landlord', 'agent', 'budget')
+                                         OR s->>'product_key' IN ('withdrawal_request', 'payroll_disbursement', 'agent_float_withdrawal'))
+    AND NOT EXISTS (SELECT 1 FROM src WHERE s->>'category_key' = 'landlord' AND (s->>'new_origination')::numeric <> 0)
+    AND NOT EXISTS (SELECT 1 FROM src WHERE s->>'product_key' IN ('landlord_payout', 'agent_landlord_payout'))
+    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_json->'streams') x WHERE x->>'category_key' = 'landlord')
+    -- every period says whether its landlord weeks are covered by a weekly float; uncovered weeks are flagged, not zero
+    AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(v_json->'periods') p
+                     WHERE p->'landlord_float' IS NULL
+                        OR (p->'landlord_float'->>'landlord_not_estimated')::boolean
+                           <> (jsonb_array_length(p->'landlord_float'->'weeks_without_float') > 0)
+                        OR EXISTS (SELECT 1 FROM jsonb_array_elements_text(p->'landlord_float'->'weeks_without_float') w
+                                    WHERE EXISTS (SELECT 1 FROM public.v_landlord_float_payables f WHERE f.week_start = w::date)))
+    AND v_json->'landlord_coverage'->>'note' LIKE '%not estimated%'
+    -- forecast reconciles to the payables list, and every ended float still outstanding is carried (overdue) and listed
+    AND (v_json->'reconciliation'->>'difference')::numeric = 0
+    AND (v_json->'reconciliation'->>'payables_total')::numeric = (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_payables_lines)
+    AND (SELECT COALESCE(sum(outstanding_amount), 0) FROM public.v_landlord_float_payables
+          WHERE week_end < (now() AT TIME ZONE 'Africa/Nairobi')::date)
+        = (SELECT COALESCE(sum((s->>'amount')::numeric), 0) FROM src WHERE s->>'product_key' = 'landlord_float_budget' AND s->>'basis' = 'overdue')
+    AND (SELECT count(*) FROM public.v_landlord_float_payables
+          WHERE week_end < (now() AT TIME ZONE 'Africa/Nairobi')::date AND outstanding_amount > 0)
+        = jsonb_array_length(v_json->'landlord_coverage'->'overdue_floats')
+    AND (v_json->'landlord_coverage'->>'historical_review_amount')::numeric
+        = (SELECT COALESCE(sum(amount), 0) FROM public.v_landlord_payout_settlement WHERE state = 'historical_review'),
+    'sources', (SELECT jsonb_object_agg(k, n) FROM (SELECT (s->>'category_key') || ':' || (s->>'product_key') || ':' || (s->>'basis') k, count(*) n FROM src GROUP BY 1) x),
+    'error', v_err)
     INTO v_json;
   r := r || v_json;
 

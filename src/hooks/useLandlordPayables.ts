@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Landlord Float Payout Budget — data layer for the CFO weekly view
- * (migration 20261021100000_landlord_payables_weekly_float).
+ * (migration 20261021140000_landlord_payables_weekly_float).
  *
  * The landlord PAYABLE is each weekly landlord float the CFO sets, plus CFO-approved miscellaneous approvals above it,
  * less landlord payouts made against it that the Receipt Archive has verified (`floats`, `totals.float_payable`).
+ * After a float's week ends (CFO decision 2026-10-21) only its approvals not yet verified stay payable
+ * (`open_obligation`); the unused allowance lapses (`lapsed_unused`) and is never payable.
  *
  * Evidence: the Receipt Archive on the Financial Operations dashboard ONLY. A payout is confirmed only when its
  * completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match,
@@ -77,10 +79,16 @@ export interface LandlordFloatPayable {
   /** Paid out but not verified — still inside outstanding_amount. */
   unverified_paid: number;
   unverified_count: number;
-  /** The payable: allowance less verified_paid (never below 0). */
+  /** The payable: while the week is open, allowance less verified_paid; after it ends, open_obligation (never below 0). */
   outstanding_amount: number;
   overspent: boolean;
   overspent_amount: number;
+  /** The float's week (Thursday–Wednesday) has ended. */
+  week_ended: boolean;
+  /** Approvals (within the cap + miscellaneous) not yet verified: the actual open obligation. */
+  open_obligation: number;
+  /** After the week ends: allowance never approved. Lapsed, never payable — never add it to the payable. */
+  lapsed_unused: number;
   created_at: string;
 }
 
@@ -166,6 +174,10 @@ export interface LandlordPayablesReport {
     approved_not_paid: number;
     overspent_floats: number;
     overspent_amount: number;
+    floats_ended: number;
+    open_obligation: number;
+    /** Lapsed allowance of ended weeks — reported, never payable. */
+    lapsed_unused: number;
     payouts: number;
     payouts_amount: number;
     confirmed: number;

@@ -6,6 +6,10 @@
 --     SUBMITTED amount. Rejected / cancelled / superseded budgets and lines rejected by the CFO or COO
 --     are excluded. Only WEEKLY calls ('5days') whose period ends on or after 20 Oct 2026 count
 --     (system_config.budget_payables_from).
+--   * AFTER THE PERIOD ENDS (CFO decision 2026-10-21): no requisition can use the line any more (it must fall inside the
+--     call period), so an approved line is payable only for its approved requisitions not yet credited (ledger-proven);
+--     a line the CFO has not approved no longer counts; the unused remainder lapses and is reported as lapsed_amount,
+--     never as a payable.
 --   * Supplementary budgets (budget_supplements) raise a line's payable by the same rule: once a supplement
 --     has reached the CFO (pending_cfo or approved, past the COO step) at the amount requested. Pending-COO,
 --     rejected and cancelled supplements do not count. The rule lives in requisition_budget_line_supplements()
@@ -65,15 +69,18 @@ WITH cfg AS (
 ),
 linked AS (                      -- every requisition that references a budget line
   SELECT s.budget_line_id, 'staff_requisitions'::text AS src, s.id,
-         COALESCE(s.approved_amount, s.amount) AS amount, COALESCE(s.stage, '') NOT IN ('rejected', 'cancelled') AS live
+         COALESCE(s.approved_amount, s.amount) AS amount, COALESCE(s.stage, '') NOT IN ('rejected', 'cancelled') AS live,
+         COALESCE(s.stage, '') = 'approved' AS approved
     FROM public.staff_requisitions s WHERE s.budget_line_id IS NOT NULL
   UNION ALL
   SELECT e.budget_line_id, 'employee_requisitions', e.id,
-         COALESCE(e.approved_amount, e.amount), COALESCE(e.status, '') NOT IN ('rejected', 'cancelled')
+         COALESCE(e.approved_amount, e.amount), COALESCE(e.status, '') NOT IN ('rejected', 'cancelled'),
+         COALESCE(e.status, '') IN ('approved', 'paid')            -- 'paid' alone is not proof: open until a ledger-proven credit
     FROM public.employee_requisitions e WHERE e.budget_line_id IS NOT NULL
   UNION ALL
   SELECT d.budget_line_id, 'director_requisitions', d.id,
-         d.amount, COALESCE(d.status, '') NOT IN ('rejected', 'cancelled')
+         d.amount, COALESCE(d.status, '') NOT IN ('rejected', 'cancelled'),
+         COALESCE(d.status, '') = 'approved'
     FROM public.director_requisitions d WHERE d.budget_line_id IS NOT NULL
 ),
 -- B1: a credit only counts when the wallet ledger proves it: requisition_wallet_credits.wallet_transaction_id
@@ -96,7 +103,10 @@ per_line AS (
          COALESCE(SUM(c.amount) FILTER (WHERE c.requisition_id IS NOT NULL AND NOT c.ledger_proven), 0) AS unproven_credit_amount,
          COUNT(*) FILTER (WHERE c.requisition_id IS NOT NULL AND NOT c.ledger_proven)                AS unproven_credit_count,
          COALESCE(SUM(k.amount) FILTER (WHERE k.live AND c.requisition_id IS NULL), 0)                AS in_progress_amount,
-         COUNT(*) FILTER (WHERE k.live AND c.requisition_id IS NULL)                                  AS in_progress_count
+         COUNT(*) FILTER (WHERE k.live AND c.requisition_id IS NULL)                                  AS in_progress_count,
+         -- approved requisitions without a ledger-proven credit: the line's actual open obligation
+         COALESCE(SUM(k.amount) FILTER (WHERE k.approved AND NOT COALESCE(c.ledger_proven, false)), 0)   AS approved_open_amount,
+         COUNT(*) FILTER (WHERE k.approved AND NOT COALESCE(c.ledger_proven, false))                   AS approved_open_count
     FROM linked k
     LEFT JOIN credits c ON c.source_table = k.src AND c.requisition_id = k.id
    GROUP BY k.budget_line_id
@@ -126,9 +136,24 @@ SELECT l.id                                    AS line_id,
        COALESCE(p.in_progress_count, 0)        AS in_progress_requisitions,
        -- Unproven credits do NOT reduce the payable (conservative); they are flagged instead.
        -- The allowance is the submitted amount plus supplements that reached the CFO (requisition_budget_line_supplements).
-       GREATEST(COALESCE(l.line_total, 0) + sup.amount - COALESCE(p.credited_amount, 0), 0) AS outstanding_amount,
+       -- While the period is open: allowance less ledger-proven credits (approved or not). After the period ends
+       -- (CFO decision 2026-10-21) no requisition can use the line any more, so: an approved line is payable only for its
+       -- approved requisitions not yet credited; an unapproved line no longer counts; the rest lapses (lapsed_amount).
+       CASE WHEN c.period_end >= (now() AT TIME ZONE 'Africa/Kampala')::date
+            THEN GREATEST(COALESCE(l.line_total, 0) + sup.amount - COALESCE(p.credited_amount, 0), 0)
+            WHEN COALESCE(l.status, '') = 'approved' THEN COALESCE(p.approved_open_amount, 0)
+            ELSE 0 END                                                                       AS outstanding_amount,
        (COALESCE(p.credited_amount, 0) > COALESCE(l.line_total, 0) + sup.amount)            AS overspent,
-       GREATEST(COALESCE(p.credited_amount, 0) - COALESCE(l.line_total, 0) - sup.amount, 0) AS overspent_amount
+       GREATEST(COALESCE(p.credited_amount, 0) - COALESCE(l.line_total, 0) - sup.amount, 0) AS overspent_amount,
+       c.period_end < (now() AT TIME ZONE 'Africa/Kampala')::date                           AS period_ended,
+       COALESCE(l.status, '') = 'approved'                                                  AS line_approved,
+       COALESCE(p.approved_open_amount, 0)                                                  AS approved_open_amount,
+       COALESCE(p.approved_open_count, 0)                                                   AS approved_open_requisitions,
+       -- unused budget after the period ends: never payable, reported so it does not silently disappear
+       CASE WHEN c.period_end >= (now() AT TIME ZONE 'Africa/Kampala')::date THEN 0
+            ELSE GREATEST(COALESCE(l.line_total, 0) + sup.amount - COALESCE(p.credited_amount, 0)
+                          - CASE WHEN COALESCE(l.status, '') = 'approved' THEN COALESCE(p.approved_open_amount, 0) ELSE 0 END, 0)
+       END                                                                                  AS lapsed_amount
   FROM public.budget_submission_lines l
   JOIN public.budget_submissions s ON s.id = l.submission_id
   JOIN public.budget_calls c       ON c.id = s.call_id
