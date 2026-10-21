@@ -161,6 +161,8 @@ export function useNeexaInbox() {
   const messageKey = (id: string) => ['neexa-messages', user?.id, id] as const;
   const conversationsQuery = useQuery({ queryKey: listKey, queryFn: readConversations, enabled: !!user,
     staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
+  const kpisQuery = useQuery({ queryKey: ['neexa-inbox-kpis'], queryFn: readKpis, enabled: !!user,
+    staleTime: 60_000, retry: false, refetchOnWindowFocus: false });
   const messagesQuery = useQuery({ queryKey: messageKey(selectedId || ''),
     queryFn: () => selectedId ? readMessages(selectedId) : Promise.resolve([]), enabled: !!user && !!selectedId,
     staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
