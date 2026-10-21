@@ -34,6 +34,7 @@ export function rdCashTotals(rows: RdCashRow[]) {
 export function recordedRdProjects(projects: RdReportProject[]): RdReportProject[] {
   return projects.map((p) => ({
     name: p.name,
+    stage: p.stage,
     updates: p.updates.filter((u) => u.text.trim()).map((u) => ({ date: u.date, text: u.text })),
   }));
 }
