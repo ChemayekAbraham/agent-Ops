@@ -1,4 +1,5 @@
 # Tasks
+- [x] Add /portfolio-invite-test using the existing completion form; signed-out form/signature/submission verified, safety test and guards pass, build OK; no emails or live financial writes.
 - [x] Add Not verified and Rejected filters inside Paid & Repaying, preserving its paid/repaying scope across all pages; 28 tests, guards and preview compilation pass. Live authenticated check unavailable for externally managed authentication.
 - [x] Add Landlord Ops paid-but-unverified filter presentation, count contract, export support and four passing hook tests; guards and preview compilation pass, payments/verification unchanged.
 - [ ] Enable paid-but-unverified matching — blocked: migration service repeatedly fails with 42P10 and live functions remain absent; filter safely disabled, SQL parity test cannot run; authenticated browser check unavailable for external Supabase.
