@@ -1,1 +1,5 @@
-Synced to 870500555c (GitHub's new tip). The new migration file 20261018120000 (manual intake for two MTN rent payments) is present. No changes planned: the migration is left unedited and unapplied, and there are no code edits, database changes or deploys.
+Sync confirmation only — no changes.
+
+- Project is at commit `e4b1be88a8` with a clean working tree.
+- `supabase/migrations/20261021130000_neexa_inbox_kpis.sql` is present and will not be re-run or edited.
+- No code, migration or deployment work is planned.
