@@ -107,18 +107,18 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
     table(['Date', 'Recorded update'], p.updates.length
       ? p.updates.map((u) => [u.date || '—', u.text])
       : [['—', 'No updates recorded']], y,
-      { columnStyles: { 0: { cellWidth: 30 } } });
+      { columnStyles: { 0: { cellWidth: 30 } }, margin: { left: mg, right: mg, bottom: 18 } });
     y = lastY() + 10;
   }
 
   if (d.recordedIdeas?.length) {
     for (const idea of d.recordedIdeas) {
-      doc.addPage();
-      y = heading('New Ideas & Business Model Canvas', 18);
+      y = heading('New Ideas & Business Model Canvas', y);
       table(['Field', 'Recorded details'], rdReportIdeaRows(idea), y, {
         columnStyles: { 0: { cellWidth: 42, fontStyle: 'bold' } },
         margin: { left: mg, right: mg, bottom: 18 },
       });
+      y = lastY() + 10;
     }
   } else {
     y = heading('New Ideas & Business Model Canvas', y);
