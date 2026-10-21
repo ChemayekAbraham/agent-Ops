@@ -64503,6 +64503,10 @@ export type Database = {
         Args: { p_day: string; p_meal_id: string }
         Returns: undefined
       }
+      _funder_nudge_stats: {
+        Args: { p_day: string; p_partner_id: string }
+        Returns: Json
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -72574,6 +72578,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_funder_nudge_stats: { Args: never; Returns: Json }
       get_geo_user_coverage: {
         Args: {
           p_city?: string
