@@ -73263,6 +73263,7 @@ export type Database = {
           region: string
         }[]
       }
+      get_neexa_inbox_kpis: { Args: never; Returns: Json }
       get_next_day_payout_projection: {
         Args: { p_date?: string }
         Returns: Json
