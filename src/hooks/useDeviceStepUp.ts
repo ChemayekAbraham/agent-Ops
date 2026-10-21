@@ -63,7 +63,7 @@ export function useDeviceStepUp(userId: string | undefined) {
       if (!fp || !stillCurrent()) return;
       const hw = await getHardwareFingerprint().catch(() => null);
 
-      const sessionForCheck = async (refresh = false) => {
+      const sessionForCheck = async (refresh = false): Promise<{ access_token: string } | null> => {
         const { data, error } = refresh
           ? await supabase.auth.refreshSession()
           : await supabase.auth.getSession();
