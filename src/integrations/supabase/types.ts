@@ -80700,6 +80700,7 @@ export type Database = {
         Returns: Json
       }
       run_layer_a_bulk: { Args: { p_dry_run?: boolean }; Returns: Json }
+      run_lunch_allowance_payouts: { Args: never; Returns: number }
       run_payout_acceptance_checks: {
         Args: { p_window_days?: number }
         Returns: {
