@@ -138,18 +138,20 @@ export function useNeexaInbox() {
     mounted.current = true;
     if (!user) return;
     const channel = supabase.channel(`neexa-inbox:${user.id}`);
-    for (const event of ['INSERT', 'UPDATE'] as const) {
-      channel.on('postgres_changes', { event, schema: 'public', table: 'neexa_conversations' }, payload => {
+    const mergeConversation = (payload: { new: unknown }) => {
         const row = payload.new as NeexaConversation;
         client.setQueryData<NeexaConversation[]>(['neexa-conversations', user.id], old => sortNeexaConversations(mergeNeexaRows(old || [], [row])));
-      });
-      channel.on('postgres_changes', { event, schema: 'public', table: 'neexa_messages' }, payload => {
+    };
+    const mergeMessage = (payload: { new: unknown }) => {
         const row = payload.new as NeexaMessage;
         const key = ['neexa-messages', user.id, row.conversation_id];
         // Cache only threads already opened, avoiding a growing cache for every customer.
         if (client.getQueryState(key)) client.setQueryData<NeexaMessage[]>(key, old => sortMessages(mergeNeexaRows(old || [], [row])));
-      });
-    }
+    };
+    channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'neexa_conversations' }, mergeConversation)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'neexa_conversations' }, mergeConversation)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'neexa_messages' }, mergeMessage)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'neexa_messages' }, mergeMessage);
     channel.subscribe(status => {
       if (status === 'SUBSCRIBED') {
         void client.invalidateQueries({ queryKey: ['neexa-conversations', user.id] });
