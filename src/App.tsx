@@ -66,6 +66,7 @@ const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/no
 // and the <TwoFactorGate /> render below.
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
 const NameCompletionGate = optionalLazyWithRetry(() => import("@/components/notifications/NameCompletionGate"), "NameCompletionGate");
+const EmailCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/EmailCollectionGate"), "EmailCollectionGate");
 const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/notifications/RejectionAlertGate"), "RejectionAlertGate");
 const CommunicationGate = optionalLazyWithRetry(() => import("@/components/communications/CommunicationGate"), "CommunicationGate");
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
@@ -477,6 +478,7 @@ function GlobalOnboardingGates() {
       <PushNotificationGate />
       <PhoneCollectionGate />
       <NameCompletionGate />
+      <EmailCollectionGate />
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
