@@ -9,7 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
  * less landlord payouts made against it that the Receipt Archive has verified (`floats`, `totals.float_payable`).
  * After a float's week ends (CFO decision 2026-10-21) only its approvals not yet verified stay payable
  * (`open_obligation`); the unused allowance lapses (`lapsed_unused`) and is never payable.
- * Payouts approved but not yet paid out that sit in no weekly float are payable on their own (`approved_no_float`);
+ * Payouts approved but not yet paid out that sit in no weekly float are payable on their own (`approved_no_float`),
+ * including a still-funded rent request whose last payout attempt failed (`retry_due`): a failed attempt is not a payment.
  * `totals.landlord_payable` = `float_payable` + `approved_no_float`.
  *
  * Evidence: the Receipt Archive on the Financial Operations dashboard ONLY. A payout is confirmed only when its
@@ -155,8 +156,13 @@ export interface LandlordPayoutSettlement {
   /** The most serious exception (first of `exceptions`). */
   exception: LandlordPayoutException | null;
   under_review: boolean;
-  /** Approved, not yet paid out, in no weekly float: payable on its own (never completed or failed). */
+  /** Owed outside every weekly float: payable on its own until a payout is made (see no_float_basis). */
   approved_no_float: boolean;
+  /**
+   * Why approved_no_float is set: an approval still in flight, or the last attempt on a rent request still funded or
+   * repaying (agent allocation open) ended unpaid — a failed attempt is not a payment. Null when not set.
+   */
+  no_float_basis: 'approved_unpaid' | 'attempt_ended_unpaid' | null;
 }
 
 export type LandlordPayoutGroup = 'confirmed' | 'in_float_unverified' | 'historical_review' | 'review_only' | 'not_paid';
@@ -197,9 +203,12 @@ export interface LandlordPayablesReport {
     review_only_count: number;
     not_paid: number;
     not_paid_count: number;
-    /** Approved payouts not yet paid out in no weekly float (part of not_paid): payable on their own. */
+    /** Payouts owed outside every weekly float (within not_paid / review_only): payable on their own. */
     approved_no_float: number;
     approved_no_float_count: number;
+    /** Part of approved_no_float: rent requests whose last payout attempt failed unpaid (retry due). */
+    retry_due: number;
+    retry_due_count: number;
     /** THE landlord payable: float_payable + approved_no_float. */
     landlord_payable: number;
     exception_count: number;

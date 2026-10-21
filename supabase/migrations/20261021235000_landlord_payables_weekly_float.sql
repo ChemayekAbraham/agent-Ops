@@ -299,11 +299,32 @@ SELECT ex.*,
        CASE WHEN ex.state = 'paid_unconfirmed' THEN
               CASE WHEN ex.exceptions && ARRAY['failed_but_paid', 'completed_without_payout', 'landlord_receipt_reversed', 'receipt_contradicts', 'receipt_unreadable', 'receipt_incomplete', 'receipt_reference_differs', 'receipt_amount_differs', 'receipt_duplicate', 'receipt_alert_open', 'paid_amount_differs', 'reference_unusable', 'shared_reference']::text[] THEN 'under_review' ELSE 'awaiting_receipt' END
        END AS payable_class,
-       -- Approved and not yet paid out, in no weekly float: owed to the landlord but inside no float's payable, so the
-       -- payables list carries it on its own until it is paid out. Never a completed or failed payout.
-       (ex.state = 'not_paid' AND NOT ex.has_weekly_float
-        AND COALESCE(ex.payout_status, '') NOT IN ('completed', 'failed')) AS approved_no_float
-  FROM ex;
+       -- Owed to the landlord outside every weekly float, so the payables list carries it on its own until a payout is
+       -- paid out (and, inside the float rules, verified). A payout is paid only when the Receipt Archive verifies it; a
+       -- failed attempt proves only that the money did not arrive. Two cases (no_float_basis):
+       --   approved_unpaid       an approval still in flight (not completed, not failed)
+       --   attempt_ended_unpaid  the LAST attempt on a rent request still funded or repaying, whose agent allocation is
+       --                         still open, ended (failed, or marked completed) with no payment; no other attempt on the
+       --                         request is paid out, in a weekly float or still in flight. One line per rent request.
+       nf.basis IS NOT NULL AS approved_no_float,
+       nf.basis AS no_float_basis
+  FROM ex
+  LEFT JOIN LATERAL (
+    SELECT CASE
+             WHEN COALESCE(ex.payout_status, '') NOT IN ('completed', 'failed') THEN 'approved_unpaid'
+             WHEN EXISTS (SELECT 1 FROM public.rent_requests rq
+                           WHERE rq.id = ex.rent_request_id AND rq.status IN ('funded', 'repaying'))
+              AND EXISTS (SELECT 1 FROM public.agent_landlord_float_allocations aa
+                           WHERE aa.rent_request_id = ex.rent_request_id AND aa.status = 'open')
+              AND NOT EXISTS (SELECT 1 FROM ex e2
+                               WHERE e2.rent_request_id = ex.rent_request_id AND e2.payout_id <> ex.payout_id
+                                 AND (e2.paid_out OR e2.has_weekly_float
+                                      OR COALESCE(e2.payout_status, '') NOT IN ('completed', 'failed')
+                                      OR (e2.created_at, e2.payout_id) > (ex.created_at, ex.payout_id)))
+             THEN 'attempt_ended_unpaid'
+           END AS basis
+     WHERE NOT ex.paid_out AND NOT ex.has_weekly_float
+  ) nf ON true;
 
 -- 2. One row per weekly landlord float: allowance, verified and unverified payouts, the outstanding payable.
 CREATE OR REPLACE VIEW public.v_landlord_float_payables AS
@@ -429,10 +450,13 @@ UNION ALL
     (s.created_at AT TIME ZONE 'Africa/Kampala'::text)::date AS due_date,
     'scheduled'::text AS due_kind,
     0::numeric AS daily_amount,
-    s.payout_status AS status,
+    CASE WHEN s.no_float_basis = 'attempt_ended_unpaid' AND s.payout_status = 'failed' THEN 'payout_failed_unpaid'::text
+         WHEN s.no_float_basis = 'attempt_ended_unpaid' THEN 'completed_without_payment'::text
+         ELSE s.payout_status END AS status,
     s.created_at
    FROM public.v_landlord_payout_settlement s
-  -- Approved, not yet paid out, in no weekly float: owed, and in no float's payable. Leaves the list once paid out.
+  -- Approved, not yet paid out, in no weekly float (including a rent request whose last payout attempt failed with no
+  -- payment): owed, and in no float's payable. Leaves the list once a payout is paid out.
   WHERE s.approved_no_float AND s.amount > 0::numeric
 UNION ALL
  SELECT 'agent'::text AS category_key,
@@ -558,7 +582,7 @@ BEGIN
   f0 AS MATERIALIZED (SELECT * FROM public.v_landlord_float_payables)
   SELECT jsonb_build_object(
     'as_at', now(),
-    'rule', 'The landlord payable is each weekly landlord float the CFO sets (plus CFO-approved miscellaneous approvals above it), less landlord payouts made against it that the Receipt Archive has verified. A payout is verified only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, with the transaction ID (11 or 12 digits) and amount read from it equal to the withdrawal and payout, used by no other payout, with no blocking alert. SMS and provider statements never verify. After a float''s week ends its unused allowance lapses (lapsed_unused, never payable) and only approved payouts not yet verified stay payable. Payouts approved but not yet paid out that sit in no weekly float are payable on their own (approved_no_float) until paid out; landlord_payable = float_payable + approved_no_float. Payouts paid without a weekly float and not verified are historical review items, outside the payable. Groups never overlap.',
+    'rule', 'The landlord payable is each weekly landlord float the CFO sets (plus CFO-approved miscellaneous approvals above it), less landlord payouts made against it that the Receipt Archive has verified. A payout is verified only when its completed withdrawal has an archived, accessible receipt whose latest machine check of that exact file is a match, with the transaction ID (11 or 12 digits) and amount read from it equal to the withdrawal and payout, used by no other payout, with no blocking alert. SMS and provider statements never verify. After a float''s week ends its unused allowance lapses (lapsed_unused, never payable) and only approved payouts not yet verified stay payable. Payouts approved but not yet paid out that sit in no weekly float are payable on their own (approved_no_float) until paid out; landlord_payable = float_payable + approved_no_float. A failed payout attempt is not a payment: while its rent request is still funded or repaying and its agent allocation open, the last attempt stays payable (no_float_basis attempt_ended_unpaid, counted under retry_due) until a payout is made. Payouts paid without a weekly float and not verified are historical review items, outside the payable. Groups never overlap.',
     'totals', jsonb_build_object(
         'float_payable', (SELECT COALESCE(sum(outstanding_amount), 0) FROM f0),
         'floats', (SELECT count(*) FROM f0),
@@ -589,6 +613,8 @@ BEGIN
         'not_paid_count', (SELECT count(*) FROM s0 WHERE grp = 'not_paid'),
         'approved_no_float', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE approved_no_float),
         'approved_no_float_count', (SELECT count(*) FROM s0 WHERE approved_no_float),
+        'retry_due', (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE no_float_basis = 'attempt_ended_unpaid'),
+        'retry_due_count', (SELECT count(*) FROM s0 WHERE no_float_basis = 'attempt_ended_unpaid'),
         'landlord_payable', (SELECT COALESCE(sum(outstanding_amount), 0) FROM f0)
                             + (SELECT COALESCE(sum(amount), 0) FROM s0 WHERE approved_no_float),
         'exception_count', (SELECT count(*) FROM s0 WHERE under_review)),
@@ -1038,7 +1064,7 @@ SELECT jsonb_build_object(
   'landlord_coverage', (
     SELECT jsonb_build_object(
              'basis', 'weekly_landlord_float',
-             'note', 'Landlord payables are recorded per weekly landlord float set by the CFO. A week without a weekly float carries no landlord amount in this forecast: its landlord obligations are not estimated, which does not mean there are none. A float whose week has ended stays in the forecast, carried into the current period as overdue, until its payouts are verified or it is otherwise resolved. After a float''s week ends only its approved payouts not yet verified stay payable; its unused allowance lapses (lapsed_unused_float_allowance) and is never payable. Payouts approved but not yet paid out that sit in no weekly float are owed: they are carried on their own (approved_no_float_outstanding) from their approval date until paid out. Landlord payouts made without a weekly float and not verified by the Receipt Archive are held for CFO review (historical review) and are outside the payables and this forecast.',
+             'note', 'Landlord payables are recorded per weekly landlord float set by the CFO. A week without a weekly float carries no landlord amount in this forecast: its landlord obligations are not estimated, which does not mean there are none. A float whose week has ended stays in the forecast, carried into the current period as overdue, until its payouts are verified or it is otherwise resolved. After a float''s week ends only its approved payouts not yet verified stay payable; its unused allowance lapses (lapsed_unused_float_allowance) and is never payable. Payouts approved but not yet paid out that sit in no weekly float are owed: they are carried on their own (approved_no_float_outstanding) from their approval date until paid out, including a still-funded rent request whose last payout attempt failed (a failed attempt is not a payment). Landlord payouts made without a weekly float and not verified by the Receipt Archive are held for CFO review (historical review) and are outside the payables and this forecast.',
              'weeks_in_horizon', (c.j->>'weeks')::int,
              'weeks_with_float', (c.j->>'weeks_with_float')::int,
              'weeks_without_float', c.j->'weeks_without_float',

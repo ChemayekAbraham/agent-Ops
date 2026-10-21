@@ -7,7 +7,10 @@
 --   2  the landlord rows on v_payables_lines are exactly (a) the weekly floats with an outstanding allowance (or
 --      overspent), at outstanding_amount, and (b) one row per payout approved but not yet paid out that sits in no weekly
 --      float, at its amount; (b) is re-derived from the base tables (no completed withdrawal, no FinOps disbursement with
---      a reference, no live allocation in a week that has a current weekly float, status neither completed nor failed)
+--      a reference, no live allocation in a week that has a current weekly float, status neither completed nor failed),
+--      plus (c) one row per rent request still funded or repaying, with an open agent allocation, whose LAST payout
+--      attempt ended (failed, or marked completed) unpaid and no other attempt is paid out, in a float or in flight
+--      (a failed attempt is not a payment: only a verified receipt is)
 --   3  landlord payment history holds exactly the confirmed payouts, dated by the payout record (never the upload time)
 --   4  STRICT RULE, re-derived from the base tables: every confirmed payout has a completed linked withdrawal with a
 --      receipt token and an accessible file, whose latest check of that exact file is 'match', with a transaction ID
@@ -63,7 +66,27 @@ BEGIN
              AND NOT EXISTS (SELECT 1 FROM public.landlord_float_budget_allocations a
                               JOIN public.landlord_float_budgets b ON b.period_type = 'weekly' AND b.superseded_at IS NULL
                                                                   AND b.period_start = a.week_start
-                              WHERE a.rent_request_id = lp.rent_request_id AND a.released_at IS NULL)) x;
+                              WHERE a.rent_request_id = lp.rent_request_id AND a.released_at IS NULL)
+          UNION ALL
+          -- the last payout attempt on a still-funded rent request ended unpaid (re-derived from the base tables)
+          SELECT lp.amount FROM public.landlord_payouts lp
+           WHERE lp.status IN ('completed', 'failed') AND lp.amount > 0
+             AND NOT (EXISTS (SELECT 1 FROM public.withdrawal_requests w WHERE w.landlord_payout_id = lp.id AND w.status = 'completed')
+                       OR (NULLIF(regexp_replace(COALESCE(lp.finops_momo_reference, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                           AND lp.finops_disbursed_at IS NOT NULL))
+             AND NOT EXISTS (SELECT 1 FROM public.landlord_float_budget_allocations a
+                              JOIN public.landlord_float_budgets b ON b.period_type = 'weekly' AND b.superseded_at IS NULL
+                                                                  AND b.period_start = a.week_start
+                              WHERE a.rent_request_id = lp.rent_request_id AND a.released_at IS NULL)
+             AND EXISTS (SELECT 1 FROM public.rent_requests rq WHERE rq.id = lp.rent_request_id AND rq.status IN ('funded', 'repaying'))
+             AND EXISTS (SELECT 1 FROM public.agent_landlord_float_allocations aa WHERE aa.rent_request_id = lp.rent_request_id AND aa.status = 'open')
+             AND NOT EXISTS (SELECT 1 FROM public.landlord_payouts l2
+                              WHERE l2.rent_request_id = lp.rent_request_id AND l2.id <> lp.id
+                                AND (COALESCE(l2.status, '') NOT IN ('completed', 'failed')
+                                     OR (l2.created_at, l2.id) > (lp.created_at, lp.id)
+                                     OR (EXISTS (SELECT 1 FROM public.withdrawal_requests w WHERE w.landlord_payout_id = l2.id AND w.status = 'completed')
+                       OR (NULLIF(regexp_replace(COALESCE(l2.finops_momo_reference, ''), '[^0-9]', '', 'g'), '') IS NOT NULL
+                           AND l2.finops_disbursed_at IS NOT NULL))))) x;
   r := r || jsonb_build_object('step', 2, 'pass', v_n = v_m AND v_a = v_b
         AND NOT EXISTS (SELECT 1 FROM public.v_payables_lines l
                          WHERE l.category_key = 'landlord'
