@@ -39484,6 +39484,70 @@ export type Database = {
           },
         ]
       }
+      portfolio_payout_destinations: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          mobile_money_number: string | null
+          mobile_network: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method?: string
+          portfolio_id?: string
+          recipient_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -81066,6 +81130,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_portfolio_payout_destinations: {
+        Args: { p_destinations: Json; p_portfolio_id: string }
+        Returns: Json
+      }
       set_proxy_agent_target: {
         Args: { p_agent_id?: string; p_target: number }
         Returns: Json
@@ -81720,6 +81788,10 @@ export type Database = {
           p_sex: string
           p_surname: string
         }
+        Returns: Json
+      }
+      submit_proxy_split_withdrawal: {
+        Args: { p_allocations: Json; p_portfolio_id: string; p_reason: string }
         Returns: Json
       }
       submit_requisition_usage_report: {
