@@ -52,6 +52,12 @@ type ViewTab = 'funders' | 'invited';
 
 export default function FunderOnboarding({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, roles, loading, role } = useAuth();
+  // Page access: staff (manager), COO and Partner Ops. Countersign
+  // authority itself is still decided server-side by the agreement
+  // generator (operations/manager/coo/partner_ops with active roles).
+  // 'partner_ops' exists in the database app_role enum but not yet in the
+  // client AppRole union, so match by string.
+  const canManageOnboarding = ['manager', 'partner_ops', 'coo'].some(r => (roles as string[]).includes(r));
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -85,7 +91,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // One-shot fetch for the focused partner so the page works even when
   // the row isn't on the current page (search/pagination independent).
   useEffect(() => {
-    if (!focusUserId || !user || !roles.includes('manager')) return;
+    if (!focusUserId || !user || !canManageOnboarding) return;
     // Friendly guard: the focus param must look like a UUID. Anything
     // else is almost certainly a stale/copied link and we shouldn't
     // even bother round-tripping the DB for it.
@@ -165,7 +171,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // Gate: managers only
   useEffect(() => {
     if (loading) return;
-    if (!user || !roles.includes('manager')) {
+    if (!user || !canManageOnboarding) {
       navigate(roleToSlug(role));
     }
   }, [user, loading, roles, role, navigate]);
@@ -178,7 +184,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // ops-created partners), otherwise the countersign step is unreachable.
   const { data: awaitingSignOffIds } = useQuery({
     queryKey: ['partner-agreements-awaiting-countersign-ids'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canManageOnboarding,
     queryFn: async () => {
       const { data: ags, error } = await (supabase.from('partner_agreements') as any)
         .select('partner_id, status, countersigned_at')
@@ -199,7 +205,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['funder-onboarding-self-registered', page, trimmedSearch, sourceFilter, awaitingIdsKey],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canManageOnboarding,
     queryFn: async () => {
       const extraIds = awaitingSignOffIds || [];
       let query = supabase
@@ -236,7 +242,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // Lightweight KPI counts (independent of pagination/search)
   const { data: kpis } = useQuery({
     queryKey: ['funder-onboarding-kpis'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canManageOnboarding,
     queryFn: async () => {
       const [
         { count: total }, { count: pending }, { count: verified }, { count: rejected },
@@ -264,7 +270,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // separately in the KPI header.
   const { data: invitedKpis } = useQuery({
     queryKey: ['invited-portfolios-kpis'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canManageOnboarding,
     queryFn: async () => {
       const [{ count: awaiting }, { count: pendingApproval }] = await Promise.all([
         supabase.from('investor_portfolios').select('id', { count: 'exact', head: true }).eq('status', 'awaiting_partner_details'),
@@ -322,7 +328,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   // Per-share analytics: top sharers by clicks + converted signups
   const { data: shareStats } = useQuery({
     queryKey: ['funder-onboarding-share-stats'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canManageOnboarding,
     queryFn: async () => {
       const { data: links } = await supabase
         .from('short_links')
