@@ -69336,6 +69336,7 @@ export type Database = {
         Returns: boolean
       }
       dashboard_access_keys: { Args: never; Returns: string[] }
+      dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -72346,6 +72347,7 @@ export type Database = {
           signups: number
         }[]
       }
+      get_dashboard_access_overview: { Args: never; Returns: Json }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -80907,6 +80909,16 @@ export type Database = {
           subcounty_id: number
           total: number
           ward: string
+        }[]
+      }
+      search_people_for_dashboard_access: {
+        Args: { p_term: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          roles: string[]
         }[]
       }
       search_profiles: {

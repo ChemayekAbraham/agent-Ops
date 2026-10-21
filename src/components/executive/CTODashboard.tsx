@@ -22,6 +22,7 @@ import ExtractSchemaCard from '@/components/cto/ExtractSchemaCard';
 import ExportUsersWithHashesCard from '@/components/cto/ExportUsersWithHashesCard';
 import { CTOPasswordResetPanel } from '@/components/cto/CTOPasswordResetPanel';
 import PlatformControlsPanel from '@/components/cto/PlatformControlsPanel';
+import DashboardAccessView from '@/components/access/DashboardAccessView';
 import { CTOAgentFreezePanel } from '@/components/cto/CTOAgentFreezePanel';
 import { CTOKycLevelPanel } from '@/components/cto/CTOKycLevelPanel';
 import InviteMerchantAgentCard from '@/components/agent/InviteMerchantAgentCard';
@@ -74,6 +75,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   }
   if (activeTab === 'password-reset') {
     return <CTOPasswordResetPanel />;
+  }
+  if (activeTab === 'dashboard-access') {
+    return <DashboardAccessView />;
   }
   if (activeTab === 'platform-controls') {
     return <PlatformControlsPanel />;
