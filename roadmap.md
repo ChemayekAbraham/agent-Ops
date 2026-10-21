@@ -61,5 +61,6 @@
 - [x] Update Neexa Inbox KPI cards for agreement-based figures: Referred by Neexa card, contract-amount sub-lines and pending_agreements; 17 inbox tests pass, typecheck and build OK; no migrations or RPCs touched.
 
 ## Verified email screens
-- [ ] Polish email collection and self-editor presentation, preserving eligibility, verification and agent editing.
-- [ ] Run focused tests and desktop/mobile checks; leave deployed email backend and migrations untouched.
+- [x] Polish email collection and self-editor presentation, preserving eligibility, verification and agent editing.
+- [x] Run 10 focused tests and isolated desktop/mobile checks; guards and preview compilation pass; deployed email backend, hooks and migrations untouched.
+- [ ] Verify email delivery and confirmation on a live signed-in account — blocked: external Supabase authentication is unavailable to browser tools; isolated flow checks passed without sending email.
