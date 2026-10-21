@@ -38,7 +38,28 @@ export function LunchAllowanceTracker() {
         .order('created_at', { ascending: false })
         .limit(1000);
       if (error) throw error;
-      const list = (rows ?? []) as Row[];
+      // Automated lunch allowance payouts post straight to the ledger (no
+      // platform_wallet_corrections row), so read their user wallet legs too.
+      const { data: autoRows, error: autoErr } = await supabase
+        .from('general_ledger')
+        .select('id,user_id,amount,created_at')
+        .eq('category', 'wallet_deposit')
+        .ilike('description', '%automated%')
+        .ilike('description', '%lunch allowance%')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (autoErr) throw autoErr;
+      const automated: Row[] = (autoRows ?? []).map((r: any) => ({
+        id: r.id,
+        target_user_id: r.user_id,
+        amount: r.amount,
+        operation: 'credit',
+        created_at: r.created_at,
+        created_by: null,
+        reference_id: 'Automated',
+        evidence: null,
+      }));
+      const list = [...((rows ?? []) as Row[]), ...automated].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
       const ids = [...new Set(list.flatMap((r) => [r.target_user_id, r.created_by]).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
       if (ids.length) {
