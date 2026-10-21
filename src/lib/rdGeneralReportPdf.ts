@@ -13,6 +13,7 @@ export interface RdReportData {
   projects: RdReportProject[];
   ideas: RdCashRow[];
   recordedIdeas?: RdReportIdea[];
+  progress?: { name: string; stage: string; percent: number }[];
 }
 
 export interface RdCashRow {
@@ -24,6 +25,12 @@ export function rdCashTotals(rows: RdCashRow[]) {
     cashIn: a.cashIn + r.cashIn, cashOut: a.cashOut + r.cashOut }),
     { customers: 0, cashIn: 0, cashOut: 0 });
   return { ...totals, net: totals.cashIn - totals.cashOut };
+}
+
+/** Key Metrics Overview row, matching the R&D page. */
+export function rdKeyMetrics(rows: RdCashRow[]): string[] {
+  const t = rdCashTotals(rows);
+  return [t.customers.toLocaleString('en-US'), formatUGX(t.cashIn), formatUGX(t.net)];
 }
 
 /** Only explicitly recorded updates may supply report content. */
@@ -65,7 +72,26 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   doc.text(`Generated ${format(at, 'dd MMM yyyy, HH:mm')}`, mg, 20);
 
   const totals = rdCashTotals(d.ideas);
-  let y = heading('Business Ideas: Cash Position', 36);
+  let y = 36;
+  if (d.progress?.length) {
+    y = heading('Project Progress', y);
+    table(['Project', 'Stage', 'Progress', ''], d.progress.map((p) => [p.name, p.stage, `${p.percent}%`, '']), y, {
+      columnStyles: { 0: { cellWidth: 50 }, 1: { cellWidth: 30 }, 2: { cellWidth: 20, halign: 'right' } },
+      didDrawCell: (c: any) => {
+        if (c.section !== 'body' || c.column.index !== 3) return;
+        const pct = Math.max(0, Math.min(100, d.progress![c.row.index].percent));
+        const bw = c.cell.width - 4, bh = 3, bx = c.cell.x + 2, by = c.cell.y + c.cell.height / 2 - bh / 2;
+        doc.setFillColor(230, 230, 236); doc.rect(bx, by, bw, bh, 'F');
+        doc.setFillColor(...PRIMARY); doc.rect(bx, by, (bw * pct) / 100, bh, 'F');
+      },
+    });
+    y = lastY() + 10;
+  }
+  y = heading('Key Metrics Overview', y);
+  table(['Total customers (across projects)', 'Total cash in', 'Net position (cash in − out)'],
+    [rdKeyMetrics(d.ideas)], y, { columnStyles: { 0: { halign: 'center' }, 1: { halign: 'center' }, 2: { halign: 'center' } } });
+  y = lastY() + 10;
+  y = heading('Business Ideas: Cash Position', y);
   table(['Business idea', 'Customers', 'Cash in', 'Cash out', 'Net position'],
     d.ideas.map((r) => [r.name, r.customers.toLocaleString('en-US'), formatUGX(r.cashIn),
       formatUGX(r.cashOut), formatUGX(r.cashIn - r.cashOut)]), y, {
