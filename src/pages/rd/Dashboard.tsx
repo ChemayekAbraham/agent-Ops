@@ -73,6 +73,9 @@ const PROJECTS: Project[] = [
   },
 ];
 
+// Dowry stays in the cash table, weekly report and exports but has no dashboard card.
+const CARD_PROJECTS = PROJECTS.filter((p) => p.cashId !== 'dowry');
+
 // Key metrics overview is generated live from the editable Business Ideas cash table.
 function overviewMetrics(rows: IdeaRow[]): Metric[] {
   const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
@@ -351,7 +354,7 @@ export default function RDDashboard() {
         <IdeaCanvasBoard />
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
+          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
