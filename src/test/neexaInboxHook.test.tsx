@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ from: vi.fn(), invoke: vi.fn(), channel: vi.fn(), removeChannel: vi.fn(), handlers: [] as { filter: { event: string; table: string }; callback: (payload: { new: unknown }) => void }[] }));
-vi.mock('@/integrations/supabase/client', () => ({ supabase: mocks }));
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { ...mocks, functions: { invoke: mocks.invoke } } }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'staff' } }) }));
 import { useNeexaInbox } from '@/hooks/useNeexaInbox';
 let conversations: unknown[];
