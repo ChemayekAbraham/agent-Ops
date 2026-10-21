@@ -328,25 +328,31 @@ sl AS (                          -- live (not voided) statement lines
    WHERE l.voided_at IS NULL
 ),
 st_ok AS (                       -- successful outgoing statement lines and how reliable they are
-  SELECT s.*,
+                                 -- (one equi-join on transaction ID, aggregated per line: linear, not per-row scans)
+  SELECT s.id, s.channel, s.account_ref, s.direction, s.status, s.tid, s.amount, s.cp9, s.tx_at,
          -- A reversal cancels this line only when reliably linked: same transaction ID, channel and account, and an
          -- amount within the fee allowance. Any other reversal is a contradiction for CFO review, never a cancellation.
-         EXISTS (SELECT 1 FROM sl r
-                  WHERE r.status = 'reversed' AND r.tid = s.tid AND r.channel = s.channel
-                    AND r.account_ref = s.account_ref AND abs(r.amount - s.amount) <= 5000) AS reliably_reversed,
+         COALESCE(bool_or(x.status = 'reversed' AND x.channel = s.channel
+                          AND x.account_ref = s.account_ref AND abs(x.amount - s.amount) <= 5000), false) AS reliably_reversed,
          -- Unresolved contradiction: another line for the same transaction ID that is failed; reversed but not reliably
          -- linked; pending unless it is the same channel and account and earlier than this success (pending-then-
          -- successful); or a second successful outgoing line (a duplicate in another channel).
-         EXISTS (SELECT 1 FROM sl x
-                  WHERE x.tid = s.tid AND x.id <> s.id
-                    AND (x.status = 'failed'
+         COALESCE(bool_or(x.status = 'failed'
                       OR (x.status = 'reversed' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
                                                          AND abs(x.amount - s.amount) <= 5000))
                       OR (x.status = 'pending' AND NOT (x.channel = s.channel AND x.account_ref = s.account_ref
                                                         AND x.tx_at <= s.tx_at))
-                      OR (x.status = 'successful' AND x.direction = 'out'))) AS contradicted
+                      OR (x.status = 'successful' AND x.direction = 'out')), false) AS contradicted
     FROM sl s
+    LEFT JOIN sl x ON x.tid = s.tid AND x.id <> s.id
    WHERE s.direction = 'out' AND s.status = 'successful'
+   GROUP BY s.id, s.channel, s.account_ref, s.direction, s.status, s.tid, s.amount, s.cp9, s.tx_at
+),
+pending_resolved AS (            -- pending lines followed by a success on the same transaction ID, channel and account
+  SELECT DISTINCT p.id
+    FROM sl p
+    JOIN sl s2 ON s2.tid = p.tid AND s2.channel = p.channel AND s2.account_ref = p.account_ref
+   WHERE p.status = 'pending' AND s2.status = 'successful' AND s2.direction = 'out' AND s2.tx_at >= p.tx_at
 ),
 ev AS (                          -- provider evidence: the original provider SMS (primary) and statement lines (supplementary)
   SELECT 'statement'::text AS source, s.id AS source_id, s.tid, s.amount, s.cp9, s.tx_at, s.contradicted
@@ -422,10 +428,8 @@ conflict AS (                    -- statement lines saying the payout's transact
          array_agg(l.id ORDER BY l.tx_at) AS line_ids
     FROM refs r
     JOIN sl l ON l.tid = r.ref AND length(r.ref) >= 6 AND l.status IN ('failed', 'reversed', 'pending')
-   WHERE NOT (l.status = 'pending'
-              AND EXISTS (SELECT 1 FROM sl s2
-                           WHERE s2.tid = l.tid AND s2.status = 'successful' AND s2.direction = 'out'
-                             AND s2.channel = l.channel AND s2.account_ref = l.account_ref AND s2.tx_at >= l.tx_at))
+    LEFT JOIN pending_resolved pr ON pr.id = l.id
+   WHERE pr.id IS NULL
    GROUP BY r.payout_id
 ),
 ref_use AS (                     -- how many payouts carry the same provider reference
