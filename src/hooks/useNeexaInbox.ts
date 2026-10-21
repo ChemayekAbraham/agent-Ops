@@ -202,6 +202,7 @@ export function useNeexaInbox() {
       const result = await callNeexa({ action: 'sync_conversations', max_pages: 20 });
       await conversationsQuery.refetch({ throwOnError: true });
       if (mounted.current) setSyncResult(`${result.synced ?? 0} conversations synced${result.complete ? '' : ' · Neexa has additional conversations beyond this sync limit'}`);
+      void client.invalidateQueries({ queryKey: ['neexa-inbox-kpis'] });
     } catch (error) { if (mounted.current) setActionError(error instanceof Error ? error.message : 'Sync failed.'); }
     finally { syncLock.current = false; if (mounted.current) setSyncing(false); }
   };
