@@ -420,11 +420,19 @@ export function AgentProxyWithdrawalDialog({
             </div>
 
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-center">
-              <p className="text-2xl font-black text-primary tracking-tight">{formatUGX(amount)}</p>
+              <p className="text-2xl font-black text-primary tracking-tight">{formatUGX(effectiveAmount)}</p>
               <p className="text-sm font-semibold">to {funderName}</p>
+              {splitMode ? (
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  {usedSplits.map(l => (
+                    <p key={l.key}>{formatUGX(splits[l.key])} → {maskDestination(l.label)}</p>
+                  ))}
+                </div>
+              ) : (
               <p className="text-xs text-muted-foreground">
                 via {selectedRoute.label} · {maskDestination(selectedRoute.sublabel)}
               </p>
+              )}
             </div>
 
             <div className="rounded-lg bg-warning/10 p-2.5 text-[10px] text-warning">
@@ -511,6 +519,29 @@ export function AgentProxyWithdrawalDialog({
           </div>
 
           {/* Amount */}
+          {splitMode ? (
+            <div className="space-y-2">
+              <Label className="text-xs">How much goes to each number (UGX) *</Label>
+              {splitLines.map(l => (
+                <div key={l.key} className="rounded-md border border-border p-2 space-y-1">
+                  <p className="text-[11px] text-muted-foreground truncate">{l.label}</p>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={splits[l.key] || ''}
+                    onChange={e => setSplits(s => ({ ...s, [l.key]: Number(e.target.value) }))}
+                    min={0}
+                  />
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground">
+                Total {formatUGX(effectiveAmount)} · each number used must get at least UGX 500. One withdraw request is made per number.
+              </p>
+              {effectiveAmount > walletBalance && (
+                <p className="text-[10px] text-destructive">Exceeds available balance</p>
+              )}
+            </div>
+          ) : (
           <div>
             <Label className="text-xs">Amount (UGX) *</Label>
             <Input
@@ -525,6 +556,7 @@ export function AgentProxyWithdrawalDialog({
               <p className="text-[10px] text-destructive mt-1">Exceeds available balance</p>
             )}
           </div>
+          )}
 
           {/* Reason */}
           <div>
