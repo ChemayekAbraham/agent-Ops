@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
-import { Download } from 'lucide-react';
+import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
@@ -314,7 +314,10 @@ export default function RDDashboard() {
             <ArrowLeft className="h-4 w-4" />
             Back to dashboards
           </Button>
-          <Button size="sm" className="ml-auto gap-1.5" disabled={exporting} onClick={exportReport}>
+          <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={() => navigate('/me/requisitions')}>
+            <Paperclip className="h-4 w-4" />Attach receipts
+          </Button>
+          <Button size="sm" className="gap-1.5" disabled={exporting} onClick={exportReport}>
             <Download className="h-4 w-4" />{exporting ? 'Preparing…' : 'General report'}
           </Button>
           <WelileLogo showText={false} size="sm" linkToHome={false} />
