@@ -55,5 +55,6 @@
 
 ## CMO Inbox
 - [x] Add Neexa conversation list, live thread, reply composer and template dialog using only existing mirror tables and edge function; protected backend/generated types unchanged.
+- [x] Hide the staff reply box and Send button behind REPLY_COMPOSER_ENABLED=false in NeexaInbox.tsx; code and tests retained, template sending still available.
 - [x] Run 11 Inbox rule/interaction tests and isolated desktop/mobile light/dark checks; preview compilation and guards pass.
 - [ ] Verify live signed-in Neexa sync and customer send/readback — blocked: external Supabase authentication cannot be restored by available browser tools; no customer messages sent.
