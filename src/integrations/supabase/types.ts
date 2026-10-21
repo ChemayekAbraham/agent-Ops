@@ -80084,6 +80084,7 @@ export type Database = {
         Args: {
           p_device_fp: string
           p_hw_fp?: string
+          p_ip?: string
           p_session_id?: string
           p_user_agent?: string
           p_user_id: string
