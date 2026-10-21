@@ -556,7 +556,6 @@ export const roleLabels: Record<AppRole, string> = {
   hr: 'HR',
   operations: 'Operations',
   super_admin: 'Super Admin',
-  access_admin: 'Access Admin',
   rd: 'R&D',
 };
 

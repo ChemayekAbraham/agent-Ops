@@ -203,7 +203,7 @@ SMS (\`sms_delivery_log\`, \`sms_opt_outs\`, \`sms_message_exceptions\`, \`sms_b
 
 ## 2.19 Administration
 
-\`/admin/dashboard\`, \`/admin/users\`, \`/admin/financial-ops\`, \`/admin/kyc\`, \`/admin/access-audit\`, \`/admin/archived-accounts\`, \`/admin/account-conflicts\`, \`/admin/referrals\`, \`/admin/recovery-sms-log\`, \`/admin/oauth-failures\`. Backed by \`audit_logs\` (mandatory ≥10-char reason), \`shadow_audit_logs\`, \`admin_purge_*\` RPCs, \`delete-user\`, \`restore-archived-account\`.
+\`/admin/dashboard\`, \`/admin/users\`, \`/admin/financial-ops\`, \`/admin/kyc\`, \`/admin/archived-accounts\`, \`/admin/account-conflicts\`, \`/admin/referrals\`, \`/admin/recovery-sms-log\`, \`/admin/oauth-failures\`. Backed by \`audit_logs\` (mandatory ≥10-char reason), \`shadow_audit_logs\`, \`admin_purge_*\` RPCs, \`delete-user\`, \`restore-archived-account\`.
 
 ## 2.20 CFO operations
 
@@ -654,7 +654,7 @@ Inngest carries fire-and-forget SMS (\`app/payment.sms.requested\`). \`agent_cap
 | hr | \`/hr/dashboard\`, \`/hr/pay/*\` | staffing, payroll, requisitions |
 | manager | manager surfaces | escalations, deletions on sensitive tables |
 | operations / employee | \`/operations\` | day-to-day ops tasks |
-| admin / access_admin / super_admin | \`/admin/*\` | user administration, access grants, full bypass |
+| admin / super_admin | \`/admin/*\` | user administration, access grants, full bypass |
 
 Single-role focus: the UI renders for the **active** role; \`switchRole\` performs an atomic state transition in \`useAuth\`. Separation of powers: CFO handles inbound/strategic/approval, FinOps handles outbound/verification; payroll prepare/approve/release are three distinct positions.
 
@@ -697,7 +697,7 @@ Executive dashboards are single routes rendering tabs by id with \`usePersistedA
 # 14. Administration
 
 - **User administration:** \`/admin/users\` (search, role grant, archive, restore), \`delete-user\`, \`admin_purge_user_dependencies\`, \`restore-archived-account\`, \`/admin/account-conflicts\` for duplicate resolution.
-- **Access administration:** \`staff_permissions\` grants per dashboard; \`/admin/access-audit\` shows who has what; \`access_admin\` role manages grants.
+- **Access administration:** \`staff_permissions\` is the per-dashboard allowlist. A staff member needs an allowed role AND an active grant to open a staff dashboard (holding a role alone no longer counts; super_admin and cto bypass). Grants and revokes go only through \`grant_dashboard_access\` / \`revoke_dashboard_access\` (super_admin, cto, hr), from \`/platform-users\`. The \`access_admin\` role is retired (2026-10-21).
 - **KYC administration:** \`/admin/kyc\` — \`admin_set_kyc_level\`, \`admin_freeze_kyc_account\`, \`admin_resolve_kyc_flag\`, with \`kyc_level_change_audit\`.
 - **Financial administration:** §2.20 and §3.16; every action requires a ≥10-char reason and writes \`audit_logs\` (\`action_type\`, \`table_name\`, \`record_id\`, \`reason\`).
 - **HR administration:** \`hr_staff\`, \`hr_positions\`, \`hr_departments\`, \`hr_assignments\`; payroll runs (\`hr_pay_runs\`) move draft → calculated → in_review → approved → paid → locked with prepare/approve/release authorities held by **positions**; \`employee_requisitions\` and \`director_requisitions\` credit the requester's wallet on CFO approval (CFO may edit the amount).

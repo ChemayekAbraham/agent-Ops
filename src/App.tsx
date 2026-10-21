@@ -296,7 +296,6 @@ const LandlordOpsPage = lazy(() => import('./pages/landlord-ops/LandlordOpsPage'
 const LandlordPrincipalRecoveredPage = lazy(() => import('./pages/landlord-ops/principal/PrincipalRecovered'));
 
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
-const AdminAccessAuditPage = lazy(() => import('./pages/admin/AccessAudit'));
 const AdminFinancialOpsPage = lazy(() => import('./pages/admin/FinancialOps'));
 const MerchantDeskFundingPage = lazy(() => import('./pages/admin/MerchantDeskFundingPage'));
 const AdminReferralsPage = lazy(() => import('./pages/admin/Referrals'));
@@ -713,7 +712,7 @@ function AppRoutes() {
           <Route path="/record-rent" element={<RecordRent />} />
           <Route path="/calculator" element={<Calculator />} />
           <Route path="/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
-          <Route path="/platform-users" element={<RoleGuard allowedRoles={['super_admin', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'manager', 'operations', 'employee', 'access_admin']}><UserManagement /></RoleGuard>} />
+          <Route path="/platform-users" element={<RoleGuard skipAllowlist allowedRoles={['super_admin', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'manager', 'operations', 'employee']}><UserManagement /></RoleGuard>} />
           <Route path="/supporter-earnings" element={<SupporterEarnings />} />
           <Route path="/reinvestment-history" element={<ReinvestmentHistory />} />
           <Route path="/investment-portfolio" element={<InvestmentPortfolio />} />
@@ -819,10 +818,9 @@ function AppRoutes() {
           <Route path="/hr/dashboard/executive-brief" element={<HRSignedInRoute><HRExecutiveBriefPage /></HRSignedInRoute>} />
           <Route path="/hr/dashboard/scorecard/:staffId" element={<HRSignedInRoute><HRStaffScorecardPage /></HRSignedInRoute>} />
           <Route path="/hr/profiles/:userId" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HREmployeeProfilePage /></RoleGuard>} />
-          <Route path="/admin/dashboard" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'employee']}><AdminDashboardPage /></RoleGuard>} />
+          <Route path="/admin/dashboard" element={<RoleGuard skipAllowlist allowedRoles={['super_admin', 'manager', 'employee']}><AdminDashboardPage /></RoleGuard>} />
           <Route path="/director/dashboard" element={<RoleGuard allowedRoles={['ceo', 'super_admin', 'manager']} requiredPermission="director"><DirectorDashboardPage /></RoleGuard>} />
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
-          <Route path="/admin/access-audit" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']}><AdminAccessAuditPage /></RoleGuard>} />
           <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
           <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops' as AppRole, 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
@@ -837,13 +835,13 @@ function AppRoutes() {
           <Route path="/admin/archived-accounts" element={<RoleGuard allowedRoles={['super_admin', 'manager']}><AdminArchivedAccountsPage /></RoleGuard>} />
           <Route path="/admin/account-conflicts" element={<RoleGuard allowedRoles={['super_admin', 'manager']}><AdminAccountConflictsPage /></RoleGuard>} />
           <Route path="/admin/recommendation-audit" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto', 'coo', 'operations']}><AgentRecommendationAuditPage /></RoleGuard>} />
-          <Route path="/admin/kyc" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cfo', 'operations']}><AdminKycConsolePage /></RoleGuard>} />
+          <Route path="/admin/kyc" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cfo', 'operations']} requiredPermission="kyc"><AdminKycConsolePage /></RoleGuard>} />
           <Route path="/operations" element={<RoleGuard allowedRoles={['operations', 'super_admin', 'manager']}><OperationsDashboardPage /></RoleGuard>} />
           {/* Legacy redirects */}
           <Route path="/coo-dashboard" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto']} requiredPermission="coo"><COODashboardPage /></RoleGuard>} />
           <Route path="/cfo-dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
-          <Route path="/executive-hub" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><ExecutiveHubPage /></RoleGuard>} />
-          <Route path="/landlord-ops" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><LandlordOpsPage /></RoleGuard>}>
+          <Route path="/executive-hub" element={<RoleGuard skipAllowlist allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><ExecutiveHubPage /></RoleGuard>} />
+          <Route path="/landlord-ops" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="landlord-ops"><LandlordOpsPage /></RoleGuard>}>
             {LANDLORD_OPS_ROUTES.map(({ path, Component: RouteView }) => (
               <Route
                 key={path || 'index'}
@@ -854,9 +852,9 @@ function AppRoutes() {
             <Route path="principal-recovered" element={<LandlordPrincipalRecoveredPage />} />
           </Route>
           <Route path="/agents-space" element={<AgentsSpacePage />} />
-          <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
+          <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
-          <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><AgentProductCategoryPage /></RoleGuard>} />
+          <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
            <Route path="/agent-advances" element={<AgentAdvances />} />
@@ -866,22 +864,22 @@ function AppRoutes() {
           <Route path="/agent/transaction-history" element={<MerchantTransactionHistory />} />
            <Route path="/agent/float-breakdown" element={<AgentFloatBreakdownPage />} />
           <Route path="/agent/collection-league" element={<AgentCollectionLeaguePage />} />
-          <Route path="/coo/active-users" element={<ActiveUsersDetail />} />
-          <Route path="/coo/earning-agents" element={<EarningAgentsDetail />} />
-          <Route path="/coo/tenants-balances" element={<TenantsBalancesDetail />} />
-          <Route path="/coo/rent-requests" element={<NewRentRequestsDetail />} />
-          <Route path="/coo/active-partners" element={<ActivePartnersDetail />} />
-          <Route path="/coo/partner-requests" element={<NewPartnerRequestsDetail />} />
-          <Route path="/coo/active-landlords" element={<ActiveLandlordsDetail />} />
-          <Route path="/coo/pipeline-landlords" element={<PipelineLandlordsDetail />} />
-          <Route path="/coo/rent-coverage" element={<RentCoverageDetail />} />
+          <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
+          <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />
+          <Route path="/coo/tenants-balances" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><TenantsBalancesDetail /></RoleGuard>} />
+          <Route path="/coo/rent-requests" element={<RoleGuard allowedRoles={['manager']} requiredPermission={['coo', 'agent-ops']}><NewRentRequestsDetail /></RoleGuard>} />
+          <Route path="/coo/active-partners" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActivePartnersDetail /></RoleGuard>} />
+          <Route path="/coo/partner-requests" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><NewPartnerRequestsDetail /></RoleGuard>} />
+          <Route path="/coo/active-landlords" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><ActiveLandlordsDetail /></RoleGuard>} />
+          <Route path="/coo/pipeline-landlords" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><PipelineLandlordsDetail /></RoleGuard>} />
+          <Route path="/coo/rent-coverage" element={<RoleGuard allowedRoles={['manager']} requiredPermission="coo"><RentCoverageDetail /></RoleGuard>} />
           {/* COO → Reports */}
           <Route path="/coo/reports/partner-ops"   element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOPartnerOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/agent-ops"     element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOAgentOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/tenant-ops"    element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOTenantOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><TppoPortfolioPerformanceReport /></RoleGuard>} />
-          <Route path="/tenant-ops/notifications" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager', 'ceo', 'cmo', 'crm', 'cfo', 'operations', 'employee']}><TenantNotificationAnalyticsPage /></RoleGuard>} />
-          <Route path="/tenant-ops/workspace" element={<RoleGuard allowedRoles={(['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'] as any)}><TenantOpsWorkspacePage /></RoleGuard>} />
+          <Route path="/tenant-ops/notifications" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager', 'ceo', 'cmo', 'crm', 'cfo', 'operations', 'employee']} requiredPermission="tenant-ops"><TenantNotificationAnalyticsPage /></RoleGuard>} />
+          <Route path="/tenant-ops/workspace" element={<RoleGuard allowedRoles={(['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'] as any)} requiredPermission="tenant-ops"><TenantOpsWorkspacePage /></RoleGuard>} />
           <Route path="/coo/reports/tenant-notifications" element={<Navigate to="/tenant-ops/notifications" replace />} />
           <Route path="/admin/tenant-notification-analytics" element={<Navigate to="/tenant-ops/notifications" replace />} />
           <Route path="/coo/reports/financial-ops" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFinancialOpsReport /></RoleGuard>} />

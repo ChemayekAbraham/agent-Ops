@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Lock, ArrowLeft, Send, Clock, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useRoleAccessRequests } from '@/hooks/useRoleAccessRequests';
-import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import { useStaffPermissions, ROLE_DASHBOARD_KEY } from '@/hooks/useStaffPermissions';
 import { isStaffRole, isPublicRole } from '@/lib/roleConstants';
 import { useToast } from '@/hooks/use-toast';
 import PhoneVerificationGate from '@/components/auth/PhoneVerificationGate';
@@ -24,10 +24,20 @@ interface RoleGuardProps {
    * key. Denial renders the 404 page rather than an access-denied screen, so
    * an ungranted route is indistinguishable from one that does not exist.
    *
-   * When omitted, behaviour is unchanged: role check only, with the existing
-   * explanatory screen and "apply for access" flow.
+   * A list means any one of those keys is enough.
+   *
+   * When omitted on a STAFF-ONLY route (no public role in `allowedRoles`), the
+   * allowlist still applies: the person must hold one of the route's roles AND
+   * be granted that role's dashboard (ROLE_DASHBOARD_KEY). Routes that admit a
+   * public role (tenant, agent, landlord, supporter) are never allowlisted.
    */
-  requiredPermission?: string;
+  requiredPermission?: string | string[];
+  /**
+   * Opt a staff-only route out of the allowlist (role check only). For pages
+   * that gate their own content per key (Executive Hub tabs, admin dashboard
+   * cards) and for /platform-users, where access is granted.
+   */
+  skipAllowlist?: boolean;
 }
 
 export default function RoleGuard({
@@ -35,17 +45,30 @@ export default function RoleGuard({
   children,
   redirectTo = '/dashboard/tenant',
   requiredPermission,
+  skipAllowlist = false,
 }: RoleGuardProps) {
   const { user, roles, loading } = useAuth();
-  const { hasPermission, loading: permsLoading } = useStaffPermissions();
+  const { hasPermission, isBypassed, loading: permsLoading } = useStaffPermissions();
   const loggedRef = useRef(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { requests, requestRole, loading: reqLoading } = useRoleAccessRequests(user?.id);
   const [submitting, setSubmitting] = useState<AppRole | null>(null);
 
+  const requiredKeys = requiredPermission
+    ? (Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission])
+    : [];
+  const requiredKeysKey = requiredKeys.join(',');
+  const isStaffOnlyRoute = allowedRoles.length > 0 && allowedRoles.every((r) => !isPublicRole(r));
+  const allowlistApplies = !skipAllowlist && (requiredKeys.length > 0 || isStaffOnlyRoute);
+
   const hasRoleAccess = roles.some((r) => allowedRoles.includes(r));
-  const hasGrant = !requiredPermission || hasPermission(requiredPermission);
+  const hasGrant = !allowlistApplies
+    ? true
+    : requiredKeys.length > 0
+      ? requiredKeys.some((k) => hasPermission(k))
+      : isBypassed ||
+        roles.some((r) => allowedRoles.includes(r) && !!ROLE_DASHBOARD_KEY[r] && hasPermission(ROLE_DASHBOARD_KEY[r]));
   const hasAccess = hasRoleAccess && hasGrant;
 
   // One-shot telemetry when the guard resolves: which path we ended on.
@@ -71,7 +94,7 @@ export default function RoleGuard({
       },
       hasAccess ? 'ok' : 'denied',
     );
-  }, [loading, user?.id, hasAccess, roles.join(','), allowedRoles.join(','), requiredPermission]);
+  }, [loading, user?.id, hasAccess, roles.join(','), allowedRoles.join(','), requiredKeysKey]);
 
   // Log unauthorized access attempts
   useEffect(() => {
@@ -83,7 +106,7 @@ export default function RoleGuard({
       action_type: 'unauthorized_access_attempt',
       metadata: {
         attempted_roles: allowedRoles,
-        required_permission: requiredPermission ?? null,
+        required_permission: requiredKeysKey || null,
         // Distinguishes "wrong role" from "right role, no grant" — the second
         // is the case worth reviewing, because it is a member of staff probing
         // a dashboard they were deliberately not given.
@@ -93,9 +116,9 @@ export default function RoleGuard({
         timestamp: new Date().toISOString(),
       },
     });
-  }, [loading, permsLoading, user, hasAccess, hasRoleAccess, allowedRoles, requiredPermission, roles]);
+  }, [loading, permsLoading, user, hasAccess, hasRoleAccess, allowedRoles, requiredKeysKey, roles]);
 
-  if (loading || (requiredPermission && permsLoading)) {
+  if (loading || (allowlistApplies && permsLoading)) {
     return <StalledLoaderWatchdog label="Signing you in\u2026" />;
   }
 
@@ -103,10 +126,11 @@ export default function RoleGuard({
     return <Navigate to="/auth" replace />;
   }
 
-  // Grant-gated route, access denied for any reason -> behave as if the route
-  // does not exist. No role names, no "request access" button, no signal that
-  // there is anything here to find.
-  if (requiredPermission && !hasAccess) {
+  // Allowlisted route, access denied -> behave as if the route does not exist.
+  // No role names, no "request access" button, no signal that there is
+  // anything here to find. (A staff-only route with no explicit key keeps the
+  // explanatory screen below for someone who lacks the role entirely.)
+  if (allowlistApplies && !hasAccess && (requiredKeys.length > 0 || hasRoleAccess)) {
     return <NotFound />;
   }
 

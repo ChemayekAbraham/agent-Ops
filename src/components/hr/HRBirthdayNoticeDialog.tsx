@@ -19,7 +19,7 @@ const POLL_MS = 10 * 60 * 1000;
 
 const INTERNAL_STAFF_ROLES = [
   'hr', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'manager',
-  'operations', 'super_admin', 'admin', 'access_admin',
+  'operations', 'super_admin', 'admin',
   'tenant_ops', 'landlord_ops', 'agent_ops', 'financial_ops', 'partner_ops',
 ] as const;
 
