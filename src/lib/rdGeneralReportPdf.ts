@@ -7,6 +7,7 @@ const STRIPE: [number, number, number] = [243, 238, 252];
 
 export interface RdReportProject {
   name: string;
+  stage?: string;
   updates: { date: string; text: string }[];
 }
 export interface RdReportData {
@@ -17,7 +18,10 @@ export interface RdReportData {
 
 export interface RdCashRow {
   name: string; customers: number; cashIn: number; cashOut: number;
+  paused?: boolean;
 }
+
+const isPaused = (p: RdReportProject) => p.stage === 'Paused';
 
 export function rdCashTotals(rows: RdCashRow[]) {
   const totals = rows.reduce((a, r) => ({ customers: a.customers + r.customers,
