@@ -32,6 +32,17 @@ interface Props {
   onSaved?: () => void;
 }
 
+interface ExtraDest {
+  payout_method: 'mobile_money' | 'bank_transfer';
+  mobile_network: 'MTN' | 'Airtel';
+  mobile_money_number: string;
+  recipient_name: string;
+  bank_name: string;
+  account_number: string;
+}
+
+const MAX_EXTRA = 2; // main route + 2 extra = 3 numbers per portfolio
+
 export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partnerId, partnerName, portfolio, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [mode, setMode] = useState<'mobile_money' | 'bank_transfer' | 'cash'>('mobile_money');
@@ -43,6 +54,7 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
   const [bankAccNumber, setBankAccNumber] = useState('');
   const [sending, setSending] = useState(false);
   const [previewEmail, setPreviewEmail] = useState('');
+  const [extras, setExtras] = useState<ExtraDest[]>([]);
 
   useEffect(() => {
     if (!open || !portfolio) return;
@@ -53,7 +65,28 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
     setBankName(portfolio.bank_name || '');
     setBankAccName(portfolio.bank_account_name || '');
     setBankAccNumber(portfolio.account_number || '');
+    setExtras([]);
+    let cancelled = false;
+    supabase
+      .from('portfolio_payout_destinations' as never)
+      .select('payout_method, mobile_network, mobile_money_number, recipient_name, bank_name, account_number')
+      .eq('portfolio_id', portfolio.id)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (!cancelled) setExtras(((data ?? []) as any[]).map(d => ({
+          payout_method: d.payout_method,
+          mobile_network: d.mobile_network || 'MTN',
+          mobile_money_number: d.mobile_money_number || '',
+          recipient_name: d.recipient_name || '',
+          bank_name: d.bank_name || '',
+          account_number: d.account_number || '',
+        })));
+      });
+    return () => { cancelled = true; };
   }, [open, portfolio]);
+
+  const updateExtra = (i: number, patch: Partial<ExtraDest>) =>
+    setExtras(list => list.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
 
   const handleSendAgreement = async () => {
     setSending(true);
@@ -110,6 +143,19 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
         .maybeSingle();
       if (error) throw error;
       if (!saved) throw new Error('Save returned no rows — check permissions');
+      // Extra numbers are validated and saved by the server (Admin / Partner Ops only).
+      const { error: exErr } = await supabase.rpc('set_portfolio_payout_destinations' as never, {
+        p_portfolio_id: portfolio.id,
+        p_destinations: extras.map(e => ({
+          payout_method: e.payout_method,
+          mobile_network: e.payout_method === 'mobile_money' ? e.mobile_network : null,
+          mobile_money_number: e.payout_method === 'mobile_money' ? e.mobile_money_number.trim() : null,
+          recipient_name: e.recipient_name.trim(),
+          bank_name: e.payout_method === 'bank_transfer' ? e.bank_name.trim() : null,
+          account_number: e.payout_method === 'bank_transfer' ? e.account_number.trim() : null,
+        })),
+      } as never);
+      if (exErr) throw new Error(`Main route saved, but extra numbers were not: ${exErr.message}`);
       toast.success('Portfolio payment route saved', {
         description: portfolio.portfolio_code || portfolio.account_name || 'Portfolio',
       });
@@ -191,6 +237,61 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
               </div>
             </>
           )}
+        </div>
+
+        <div className="rounded-md border border-border p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Extra payout numbers ({extras.length}/{MAX_EXTRA})</Label>
+            <Button
+              type="button" variant="outline" size="sm" className="h-7 gap-1"
+              disabled={extras.length >= MAX_EXTRA}
+              onClick={() => setExtras(l => [...l, { payout_method: 'mobile_money', mobile_network: 'MTN', mobile_money_number: '', recipient_name: '', bank_name: '', account_number: '' }])}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            The proxy agent can split a withdrawal between the main route above and these numbers.
+          </p>
+          {extras.map((e, i) => (
+            <div key={i} className="rounded border border-border p-2 space-y-2">
+              <div className="flex gap-2">
+                <Select value={e.payout_method} onValueChange={(v: any) => updateExtra(i, { payout_method: v })}>
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mobile_money">📱 Mobile Money</SelectItem>
+                    <SelectItem value="bank_transfer">🏦 Bank</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Remove number"
+                  onClick={() => setExtras(l => l.filter((_, idx) => idx !== i))}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              {e.payout_method === 'mobile_money' ? (
+                <div className="flex gap-2">
+                  <Select value={e.mobile_network} onValueChange={(v: any) => updateExtra(i, { mobile_network: v })}>
+                    <SelectTrigger className="h-8 w-24"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MTN">MTN</SelectItem>
+                      <SelectItem value="Airtel">Airtel</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input className="h-8" value={e.mobile_money_number} inputMode="tel" placeholder="07XXXXXXXX"
+                    onChange={ev => updateExtra(i, { mobile_money_number: ev.target.value })} />
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input className="h-8" value={e.bank_name} placeholder="Bank name"
+                    onChange={ev => updateExtra(i, { bank_name: ev.target.value })} />
+                  <Input className="h-8" value={e.account_number} inputMode="numeric" placeholder="Account number"
+                    onChange={ev => updateExtra(i, { account_number: ev.target.value })} />
+                </div>
+              )}
+              <Input className="h-8" value={e.recipient_name} placeholder="Registered recipient name"
+                onChange={ev => updateExtra(i, { recipient_name: ev.target.value })} />
+            </div>
+          ))}
         </div>
 
         <div className="rounded-md border border-border p-3 space-y-2">

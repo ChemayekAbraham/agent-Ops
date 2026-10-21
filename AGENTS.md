@@ -1,7 +1,7 @@
 # Architecture Decisions
 - The new agent dashboard rent-request card opens the existing lazily loaded AgentRentRequestDialog; promotional presentation never duplicates submission or financial logic.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
-- Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown, preventing double counting.
+- Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
@@ -29,7 +29,7 @@
 - Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
 - Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
-- Subdirectories have their own `AGENTS.md` to read before changing files there: `src/lib/AGENTS.md` (R&D reports), `src/components/requisitions/AGENTS.md` (usage-report deferrals and amount matching), `src/components/executive/agent-ops/AGENTS.md` (First 7 Days files are maintained upstream — don't restyle them) and `supabase/AGENTS.md` carries the payout-clock, tenant-classification, payment-score, desk-ordering and smartphone-usage rules — one named function is the only definition and the client never recomputes it.
+- Subdirectories have their own `AGENTS.md` to read before changing files there: `src/lib/`, `src/components/requisitions/`, `src/components/executive/agent-ops/` (First 7 Days files maintained upstream — do not restyle) and `supabase/` (one named server function is the only definition; the client never recomputes it).
 
 - Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
 - Supplementary budgets live only in `budget_supplements` and its `budget_supplement_*` RPCs; the original approved line is never edited, revised = original + CFO-approved supplements via `budget_revised_position`, and supplements never touch disbursements, ledger or wallets (keeps them separate from reallocations and money movement).
