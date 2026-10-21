@@ -295,6 +295,7 @@ export default function RDDashboard() {
       await downloadRdGeneralReport({
         projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
         ideas: ideaRows,
+        progress: PROJECTS.map((p) => ({ name: p.name, stage: p.stage, percent: p.progress })),
         recordedIdeas: (savedIdeas ?? []).map((idea) => ({
           title: idea.title, owner: idea.owner, date: idea.idea_date, summary: idea.summary,
           canvas: idea.canvas && typeof idea.canvas === 'object' && !Array.isArray(idea.canvas)
