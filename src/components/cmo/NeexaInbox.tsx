@@ -124,6 +124,7 @@ export default function NeexaInbox() {
         <Button size="sm" onClick={() => openTemplate()}><MessageSquare />New WhatsApp message</Button>
       </div>
     </header>
+    <KpiRow inbox={inbox} canOpenPartnerOnboarding={roles.includes('manager')} />
     {inbox.syncResult && <p role="status" className="text-xs text-muted-foreground">{inbox.syncResult}</p>}
     {inbox.pendingConversation && <p role="status" className="text-sm text-muted-foreground">Template sent. Waiting for the conversation to appear…</p>}
     {!selected && inbox.actionError && <p role="alert" className="text-sm text-destructive">{inbox.actionError}</p>}
