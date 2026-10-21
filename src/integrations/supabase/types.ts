@@ -67187,6 +67187,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_manage_dashboard_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_manage_deleted_accounts: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -69267,6 +69271,7 @@ export type Database = {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
       }
+      dashboard_access_keys: { Args: never; Returns: string[] }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -75115,6 +75120,10 @@ export type Database = {
         Args: { p_agent_id: string; p_days?: number; p_reason: string }
         Returns: Json
       }
+      grant_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       growth_commission_next_window: {
         Args: { _user_id?: string }
         Returns: {
@@ -80679,6 +80688,10 @@ export type Database = {
       }
       revoke_agent_registration_override: {
         Args: { p_override_id: string; p_reason: string }
+        Returns: Json
+      }
+      revoke_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
         Returns: Json
       }
       revoke_merchant_capacity_override: {
