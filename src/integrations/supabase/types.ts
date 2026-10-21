@@ -9119,6 +9119,13 @@ export type Database = {
             foreignKeyName: "bulk_bank_payout_allocations_withdrawal_request_id_fkey"
             columns: ["withdrawal_request_id"]
             isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "bulk_bank_payout_allocations_withdrawal_request_id_fkey"
+            columns: ["withdrawal_request_id"]
+            isOneToOne: true
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -10345,6 +10352,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashout_claim_comments_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "cashout_claim_comments_withdrawal_id_fkey"
@@ -27408,6 +27422,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "landlord_float_budget_allocations_daily_budget_id_fkey"
+            columns: ["daily_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
+          {
             foreignKeyName: "landlord_float_budget_allocations_misc_request_id_fkey"
             columns: ["misc_request_id"]
             isOneToOne: false
@@ -27498,6 +27519,13 @@ export type Database = {
             referencedRelation: "landlord_float_budgets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
         ]
       }
       landlord_float_budgets: {
@@ -27547,6 +27575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlord_float_budgets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budgets_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
           },
         ]
       }
@@ -28437,6 +28472,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlord_payouts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_payout_otp_challenges_resulting_payout_id_fkey"
+            columns: ["resulting_payout_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["payout_id"]
           },
         ]
       }
@@ -33317,6 +33359,13 @@ export type Database = {
             foreignKeyName: "merchant_commission_awards_withdrawal_id_fkey"
             columns: ["withdrawal_id"]
             isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "merchant_commission_awards_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -34023,6 +34072,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
@@ -37748,6 +37804,13 @@ export type Database = {
             foreignKeyName: "payout_codes_withdrawal_request_id_fkey"
             columns: ["withdrawal_request_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "payout_codes_withdrawal_request_id_fkey"
+            columns: ["withdrawal_request_id"]
+            isOneToOne: false
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -37840,6 +37903,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_delivery_disputes_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "payout_delivery_disputes_withdrawal_id_fkey"
@@ -59240,6 +59310,13 @@ export type Database = {
             foreignKeyName: "withdrawal_payment_evidence_withdrawal_id_fkey"
             columns: ["withdrawal_id"]
             isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_payment_evidence_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -59702,6 +59779,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
@@ -62200,6 +62284,32 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_float_payables: {
+        Row: {
+          allowance: number | null
+          approved_count: number | null
+          approved_not_paid: number | null
+          approved_not_paid_count: number | null
+          created_at: string | null
+          float_id: string | null
+          float_set: number | null
+          lapsed_unused: number | null
+          misc_approved: number | null
+          open_obligation: number | null
+          outstanding_amount: number | null
+          overspent: boolean | null
+          overspent_amount: number | null
+          unverified_count: number | null
+          unverified_paid: number | null
+          verified_count: number | null
+          verified_paid: number | null
+          week_end: string | null
+          week_ended: boolean | null
+          week_start: string | null
+          within_cap_approved: number | null
+        }
+        Relationships: []
+      }
       v_landlord_ops_status: {
         Row: {
           has_smartphone: boolean | null
@@ -62211,6 +62321,73 @@ export type Database = {
           tenant_count: number | null
         }
         Relationships: []
+      }
+      v_landlord_payout_settlement: {
+        Row: {
+          allocation_kind: string | null
+          amount: number | null
+          approved_no_float: boolean | null
+          blocking_alerts: string[] | null
+          created_at: string | null
+          exception: string | null
+          exceptions: string[] | null
+          float_week_start: string | null
+          has_weekly_float: boolean | null
+          landlord_id: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
+          landlord_receipt_number: string | null
+          landlord_receipt_replaced: boolean | null
+          landlord_receipt_reversed: boolean | null
+          landlord_receipt_reversed_at: string | null
+          landlord_receipt_status: string | null
+          mobile_money_provider: string | null
+          no_float_basis: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          paid_date: string | null
+          paid_date_source: string | null
+          paid_out: boolean | null
+          payable_class: string | null
+          payout_id: string | null
+          payout_reference: string | null
+          payout_status: string | null
+          receipt_amount_read: number | null
+          receipt_check_code: string | null
+          receipt_check_id: string | null
+          receipt_check_result: string | null
+          receipt_checked_at: string | null
+          receipt_date_read: string | null
+          receipt_file_accessible: boolean | null
+          receipt_file_path: string | null
+          receipt_state: string | null
+          receipt_tid_read: string | null
+          receipt_token: string | null
+          receipt_uploaded_at: string | null
+          receipt_verified: boolean | null
+          rent_request_id: string | null
+          report_week_start: string | null
+          state: string | null
+          under_review: boolean | null
+          weekly_budget_id: string | null
+          withdrawal_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
+        ]
       }
       v_landlord_pool_legacy_missed: {
         Row: {
@@ -62692,6 +62869,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
@@ -73046,6 +73230,10 @@ export type Database = {
           verified_auto: number
           verified_human: number
         }[]
+      }
+      get_landlord_payables_by_week: {
+        Args: { p_week_start?: string; p_weekly_float?: boolean }
+        Returns: Json
       }
       get_landlord_payout_agent_rates: {
         Args: never
