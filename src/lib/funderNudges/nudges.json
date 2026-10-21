@@ -1,0 +1,141 @@
+{
+  "$comment": "Funder/partner dashboard nudges (dashboard/funder). Same format as src/lib/agentNudges/nudges.json: a nudge is eligible when every `when` rule holds AND every {placeholder} in its title/body has a value. Rules: gt, gte, lt, lte, eq, ne take numbers; exists takes true/false. `hour` is the Kampala hour (0-23), `day_of_week` is 1 (Monday) to 7 (Sunday), `day_of_month` is 1-31 (both Kampala). Money placeholders render with the viewer's currency already attached, so never write a currency before them. Only the signed-in Supporter's own numbers: never quote other Supporters or platform-wide totals. No tenant or agent data in any nudge: no names, no repayments, no amounts collected; the only house-related figures allowed are houses_supported (a count of homes held for the Supporter's own portfolios) and landlord_rent_paid (always null for now: no per-partner source exists). When the Supporter has no houses supported on file, houses_supported is 0 and that nudge is skipped. Facts about Welile must describe how the system actually works; add a dated, approved source before quoting any company-wide figure. Never pressure to invest ('missing out', 'act now'), never promise future Returns. Terminology: Rent Plan (never loan), Supporter (never lender/investor in copy), Returns (never interest/ROI). Stats contract (to be returned by get_funder_nudge_stats): first_name, active_portfolios, total_principal, next_payout_date, days_to_next_payout, returns_last_amount, hours_since_last_returns, total_returns_received, returns_milestone_reached (1 when total Returns crossed a round milestone in the last 7 days), portfolio_label, maturity_date, days_to_maturity (soonest-maturing portfolio), is_compounding, growth_portfolio_label, start_amount, current_value, growth_amount, houses_supported, landlord_rent_paid, returns_this_month, days_as_supporter, years_as_supporter, years_as_supporter_label ('1 year' / '2 years'), is_anniversary_today, wallet_balance, wallet_idle_days, referrals_30d. Money keys: total_principal, returns_last_amount, total_returns_received, returns_this_month, start_amount, current_value, growth_amount, landlord_rent_paid, wallet_balance. Date keys (rendered like '7 Nov'): next_payout_date, maturity_date. Sources and isolation rules: see supabase/migrations/20261021200000_funder_nudge_stats.sql.",
+  "nudges": [
+    {
+      "id": "portfolio-weekly-snapshot",
+      "category": "portfolio",
+      "tone": "info",
+      "weight": 2,
+      "when": { "day_of_week": { "eq": 1 }, "hour": { "gte": 6, "lt": 12 }, "active_portfolios": { "gte": 1 } },
+      "title": "Good morning {first_name} ☀️",
+      "body": "You have {active_portfolios} active portfolios worth {total_principal}, all working for you today."
+    },
+    {
+      "id": "payout-coming-soon",
+      "category": "payout",
+      "tone": "info",
+      "weight": 3,
+      "when": { "days_to_next_payout": { "gte": 0, "lte": 3 } },
+      "title": "Returns on the way 📅",
+      "body": "Your next Returns are scheduled for {next_payout_date}, {first_name}."
+    },
+    {
+      "id": "payout-credited",
+      "category": "payout",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "hours_since_last_returns": { "gte": 0, "lte": 24 } },
+      "title": "Payday 💸",
+      "body": "{returns_last_amount} just landed in your wallet, {first_name}. Enjoy it!"
+    },
+    {
+      "id": "returns-milestone",
+      "category": "payout",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "returns_milestone_reached": { "eq": 1 } },
+      "title": "Milestone unlocked 🎉",
+      "body": "You've now received {total_returns_received} in Returns since you joined Welile. Thank you for backing tenants, {first_name}."
+    },
+    {
+      "id": "maturity-countdown",
+      "category": "portfolio",
+      "tone": "info",
+      "weight": 3,
+      "when": { "days_to_maturity": { "gte": 1, "lte": 30 } },
+      "title": "{days_to_maturity} days to maturity ⏳",
+      "body": "Your portfolio {portfolio_label} matures on {maturity_date}. Your final Returns payout comes first, then you can renew."
+    },
+    {
+      "id": "compounding-growth",
+      "category": "portfolio",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "is_compounding": { "eq": 1 }, "growth_amount": { "gte": 1 } },
+      "title": "Your money is growing 🌱",
+      "body": "{growth_portfolio_label} has grown from {start_amount} to {current_value} by keeping its Returns growing."
+    },
+
+    {
+      "id": "impact-families-housed",
+      "category": "impact",
+      "tone": "celebrate",
+      "weight": 3,
+      "when": { "houses_supported": { "gte": 1 } },
+      "title": "Homes backed by you 🏠❤️",
+      "body": "Right now your portfolios are backing {houses_supported} homes. Thank you, {first_name}."
+    },
+    {
+      "id": "impact-rent-paid",
+      "category": "impact",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "landlord_rent_paid": { "gte": 1 } },
+      "title": "Rent paid, homes kept 🔑",
+      "body": "Through Welile, your portfolios have paid {landlord_rent_paid} in rent straight to landlords."
+    },
+    {
+      "id": "returns-this-month",
+      "category": "payout",
+      "tone": "celebrate",
+      "weight": 2,
+      "when": { "day_of_month": { "gte": 25 }, "returns_this_month": { "gte": 1 } },
+      "title": "{returns_this_month} in Returns this month 📈",
+      "body": "That's what your portfolios have paid you so far this month, {first_name}."
+    },
+
+    {
+      "id": "fact-daily-repayment",
+      "category": "welile_fact",
+      "tone": "info",
+      "weight": 1,
+      "title": "Did you know? 🤔",
+      "body": "Every Rent Plan starts repaying the day after it's funded. Tenants pay in small daily amounts, not one big monthly bill."
+    },
+    {
+      "id": "fact-rent-to-landlord",
+      "category": "welile_fact",
+      "tone": "info",
+      "weight": 1,
+      "title": "Did you know? 💡",
+      "body": "Welile pays rent directly to the landlord, so your money goes into a real home, not into a tenant's pocket."
+    },
+    {
+      "id": "welcome-new-supporter",
+      "category": "relationship",
+      "tone": "celebrate",
+      "weight": 4,
+      "when": { "days_as_supporter": { "gte": 0, "lte": 7 }, "active_portfolios": { "gte": 1 } },
+      "title": "Welcome to Welile, {first_name} 👋",
+      "body": "Your portfolio is set up. We'll let you know each time Returns land in your wallet."
+    },
+
+    {
+      "id": "relationship-anniversary",
+      "category": "relationship",
+      "tone": "celebrate",
+      "weight": 5,
+      "when": { "is_anniversary_today": { "eq": 1 }, "years_as_supporter": { "gte": 1 } },
+      "title": "Happy Welile anniversary 🥳",
+      "body": "{years_as_supporter_label} as a Supporter today, {first_name}. Thank you for backing tenants."
+    },
+    {
+      "id": "relationship-idle-wallet",
+      "category": "relationship",
+      "tone": "info",
+      "weight": 1,
+      "when": { "wallet_balance": { "gte": 50000 }, "wallet_idle_days": { "gte": 7 } },
+      "title": "{wallet_balance} is sitting in your wallet 👛",
+      "body": "Withdraw it, or put it into a portfolio whenever you're ready. No rush."
+    },
+    {
+      "id": "relationship-referral",
+      "category": "relationship",
+      "tone": "info",
+      "weight": 1,
+      "when": { "referrals_30d": { "eq": 0 }, "active_portfolios": { "gte": 1 } },
+      "title": "Know someone who'd back tenants? 🤝",
+      "body": "Share your Welile link and help more families get a Rent Plan."
+    }
+  ]
+}

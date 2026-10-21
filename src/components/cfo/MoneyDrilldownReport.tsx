@@ -55,6 +55,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   const [params, setParams] = useState<Record<string, string> | null>(null);
   const [active, setActive] = useState<DrilldownPreset | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [projecting, setProjecting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -153,6 +154,33 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
       toast.error(errText(e));
     } finally { setExporting(false); }
   };
+  // Next-7-days projection: average daily confirmed amount over the past 28 Kampala days × 7.
+  // Read-only estimate from the same server totals aggregate; nothing is stored.
+  const projQ = useQuery({
+    queryKey: [config.kind, 'projection', type, method, person, kampalaDate()],
+    enabled: open && projecting,
+    queryFn: async () => {
+      const today = kampalaDate();
+      const start = new Date(today + 'T00:00:00Z'); start.setUTCDate(start.getUTCDate() - 28);
+      const args: any = {
+        p_kind: config.kind,
+        p_from: new Date(start.toISOString().slice(0, 10) + 'T00:00:00+03:00').toISOString(),
+        p_to: new Date(today + 'T00:00:00+03:00').toISOString(),
+        p_type: type || null, p_person: person.trim() || null,
+      };
+      if (config.kind !== 'credits') { args.p_status = null; args.p_method = method || null; }
+      const { data, error } = await (supabase.rpc as any)('get_cfo_money_drilldown_totals', args);
+      if (error) throw error;
+      const r = (data ?? [])[0] ?? {};
+      const amt = Number(r.confirmed_amount ?? 0), cnt = Number(r.confirmed_count ?? 0);
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + i + 1);
+        return d.toISOString().slice(0, 10);
+      });
+      return { daily: amt / 28, dailyCount: cnt / 28, total: (amt / 28) * 7, count: Math.round((cnt / 28) * 7), days };
+    },
+  });
+
   const loading = q.isFetching || totalsQ.isFetching;
 
   return (
@@ -173,15 +201,37 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             const ago = (k: number) => { const dt = new Date(); dt.setDate(dt.getDate() - k); return kampalaDate(dt); };
             const rf = r.f === -1 ? monthStart() : ago(r.f);
             const rt = ago(r.t);
-            const on = from === rf && to === rt;
+            const on = !projecting && from === rf && to === rt;
             return (
               <Button key={r.label} type="button" size="sm" variant={on ? 'default' : 'outline'}
-                onClick={() => { setFrom(rf); setTo(rt); setActive(null); setParams({ from: rf, to: rt, status, method, type, person }); }}>
+                onClick={() => { setProjecting(false); setFrom(rf); setTo(rt); setActive(null); setParams({ from: rf, to: rt, status, method, type, person }); }}>
                 {r.label}
               </Button>
             );
           })}
+          <Button type="button" size="sm" variant={projecting ? 'default' : 'outline'} onClick={() => setProjecting(true)}>
+            Next 7 days (projection)
+          </Button>
         </div>
+
+        {projecting && (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm space-y-2">
+            {projQ.error ? <p className="text-destructive">{errText(projQ.error)}</p>
+              : !projQ.data ? <p className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Calculating projection…</p>
+              : <>
+                  <p>Projected next 7 days: <b className="text-primary">{formatUGX(projQ.data.total)}</b> · about {projQ.data.count.toLocaleString()} transactions</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2 text-xs">
+                    {projQ.data.days.map(d => (
+                      <div key={d} className="rounded border bg-background p-2">
+                        <div className="text-muted-foreground">{d.slice(5)}</div>
+                        <div className="font-medium">{formatUGX(projQ.data!.daily)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Estimate based on the daily average of confirmed amounts over the past 28 days, using the Type{config.kind !== 'credits' ? ', Method' : ''} and name filters above. Not actual money movement.</p>
+                </>}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
           <label className="text-xs flex flex-col">Type

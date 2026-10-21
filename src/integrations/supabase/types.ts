@@ -39484,6 +39484,70 @@ export type Database = {
           },
         ]
       }
+      portfolio_payout_destinations: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          mobile_money_number: string | null
+          mobile_network: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at: string
+        }
+        Insert: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method: string
+          portfolio_id: string
+          recipient_name: string
+          updated_at?: string
+        }
+        Update: {
+          account_number?: string | null
+          bank_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mobile_money_number?: string | null
+          mobile_network?: string | null
+          payout_method?: string
+          portfolio_id?: string
+          recipient_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_payout_destinations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -64439,6 +64503,10 @@ export type Database = {
         Args: { p_day: string; p_meal_id: string }
         Returns: undefined
       }
+      _funder_nudge_stats: {
+        Args: { p_day: string; p_partner_id: string }
+        Returns: Json
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -67187,6 +67255,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_manage_dashboard_access: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_manage_deleted_accounts: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -69267,6 +69339,8 @@ export type Database = {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
       }
+      dashboard_access_keys: { Args: never; Returns: string[] }
+      dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -72277,6 +72351,7 @@ export type Database = {
           signups: number
         }[]
       }
+      get_dashboard_access_overview: { Args: never; Returns: Json }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -72503,6 +72578,7 @@ export type Database = {
           status: string
         }[]
       }
+      get_funder_nudge_stats: { Args: never; Returns: Json }
       get_geo_user_coverage: {
         Args: {
           p_city?: string
@@ -75113,6 +75189,10 @@ export type Database = {
       grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
       grant_agent_registration_override: {
         Args: { p_agent_id: string; p_days?: number; p_reason: string }
+        Returns: Json
+      }
+      grant_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
         Returns: Json
       }
       growth_commission_next_window: {
@@ -80004,6 +80084,7 @@ export type Database = {
         Args: {
           p_device_fp: string
           p_hw_fp?: string
+          p_ip?: string
           p_session_id?: string
           p_user_agent?: string
           p_user_id: string
@@ -80681,6 +80762,10 @@ export type Database = {
         Args: { p_override_id: string; p_reason: string }
         Returns: Json
       }
+      revoke_dashboard_access: {
+        Args: { p_dashboard: string; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
       revoke_merchant_capacity_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: boolean
@@ -80830,6 +80915,16 @@ export type Database = {
           subcounty_id: number
           total: number
           ward: string
+        }[]
+      }
+      search_people_for_dashboard_access: {
+        Args: { p_term: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+          roles: string[]
         }[]
       }
       search_profiles: {
@@ -81051,6 +81146,10 @@ export type Database = {
           p_village: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      set_portfolio_payout_destinations: {
+        Args: { p_destinations: Json; p_portfolio_id: string }
         Returns: Json
       }
       set_proxy_agent_target: {
@@ -81707,6 +81806,10 @@ export type Database = {
           p_sex: string
           p_surname: string
         }
+        Returns: Json
+      }
+      submit_proxy_split_withdrawal: {
+        Args: { p_allocations: Json; p_portfolio_id: string; p_reason: string }
         Returns: Json
       }
       submit_requisition_usage_report: {

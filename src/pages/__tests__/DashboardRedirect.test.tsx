@@ -18,6 +18,7 @@ const authState = {
   role: 'tenant' as string,
   roles: ['tenant', 'supporter', 'agent'] as string[],
   loading: false,
+  rolesResolved: true,
 };
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => authState,
@@ -73,6 +74,7 @@ beforeEach(() => {
   authState.user = { id: 'u1' };
   authState.role = 'tenant';
   authState.roles = ['tenant', 'supporter', 'agent'];
+  authState.rolesResolved = true;
   preferredDefault = 'auto';
   agentAutoDefaultDisabled = false;
   rentRequestsCount = 0;
@@ -255,5 +257,31 @@ describe('DashboardRedirect — server-side prefs fallback', () => {
     );
     await flush();
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard/agent', { replace: true });
+  });
+});
+
+describe('DashboardRedirect — roles not loaded vs. no roles', () => {
+  it('roles NOT loaded (lookup unresolved) → agent dashboard, never the role picker', async () => {
+    vi.useFakeTimers();
+    try {
+      authState.roles = [];
+      authState.rolesResolved = false;
+      render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+      expect(mockNavigate).not.toHaveBeenCalled();
+      await act(async () => { vi.advanceTimersByTime(6000); });
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard/agent', { replace: true });
+      expect(mockNavigate).not.toHaveBeenCalledWith('/select-role', expect.anything());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('roles loaded and EMPTY (restricted account) → role picker, not the agent fallback', async () => {
+    authState.roles = [];
+    authState.rolesResolved = true;
+    render(<MemoryRouter initialEntries={['/dashboard']}><DashboardRedirect /></MemoryRouter>);
+    await flush();
+    expect(mockNavigate).toHaveBeenCalledWith('/select-role', { replace: true, state: { reason: 'no-roles' } });
+    expect(mockNavigate).not.toHaveBeenCalledWith('/dashboard/agent', expect.anything());
   });
 });

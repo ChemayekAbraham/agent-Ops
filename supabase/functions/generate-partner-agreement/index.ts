@@ -93,13 +93,15 @@ Deno.serve(async (req) => {
     if (countersign && !pdfBase64) return json({ error: 'pdfBase64 is required to countersign' }, 400);
 
     // Permission: partner can store own draft; ops/manager can store & countersign.
-    const [{ data: isOps }, { data: isManager }] = await Promise.all([
+    const [{ data: isOps }, { data: isManager }, { data: partnerOpsRows }] = await Promise.all([
       admin.rpc('is_ops_role', { _user_id: callerId }),
       admin.rpc('has_role', { _user_id: callerId, _role: 'manager' }),
+      admin.from('user_roles').select('role').eq('user_id', callerId).eq('role', 'partner_ops').eq('enabled', true).limit(1),
     ]);
-    const isStaff = isOps === true || isManager === true;
+    const isPartnerOps = Array.isArray(partnerOpsRows) && partnerOpsRows.length > 0;
+    const isStaff = isOps === true || isManager === true || isPartnerOps;
     if (countersign && !isStaff) {
-      return json({ error: 'Only operations/manager staff can countersign.' }, 403);
+      return json({ error: 'Only operations, Partner Ops or manager staff can countersign.' }, 403);
     }
     if (!isStaff && callerId !== partnerId) {
       return json({ error: 'You can only generate your own agreement.' }, 403);
