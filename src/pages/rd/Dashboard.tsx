@@ -15,6 +15,7 @@ import { Download } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 import { loadRdUpdates, RD_UPDATES_KEY, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
