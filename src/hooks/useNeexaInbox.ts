@@ -46,6 +46,28 @@ export function normalizeNeexaPhone(phone: string): string | null {
   if (/^256[37]\d{8}$/.test(compact)) return `+${compact}`;
   return /^\+[1-9]\d{7,14}$/.test(compact) ? compact : null;
 }
+export interface NeexaInboxKpis {
+  came_in_users: number;
+  came_in_new_signups: number;
+  referred_signups: number;
+  active_partners: number;
+  active_portfolios: number;
+  active_volume: number;
+  pending_partners: number;
+  pending_portfolios: number;
+  pending_volume: number;
+  currency: string;
+  as_of: string;
+}
+// Raised when the signed-in staff member simply may not read these figures; the KPI row hides instead of erroring.
+export class NeexaKpiAccessError extends Error {}
+export function isNeexaKpiAccessDenied(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  return error.code === '403' || error.code === '42501' || /not_authorized|don't have access/i.test(error.message || '');
+}
+export function formatNeexaVolume(amount: number): string {
+  return `UGX ${Math.round(Number(amount) || 0).toLocaleString('en-US')}`;
+}
 export function neexaErrorMessage(payload: { error?: string; message?: string; term?: string }, status?: number) {
   if (status === 403 || payload.error === 'not_authorized') return "You don't have access to the inbox.";
   if (status === 502) return "Neexa couldn't deliver this right now.";
@@ -87,6 +109,15 @@ async function readConversations(): Promise<NeexaConversation[]> {
     if (page.length < 500) return rows;
     offset += 500;
   }
+}
+// Local interface on purpose: generated schema types are protected by a build guard.
+async function readKpis(): Promise<NeexaInboxKpis> {
+  const { data, error } = await supabase.rpc('get_neexa_inbox_kpis' as any);
+  if (error) {
+    if (isNeexaKpiAccessDenied(error as { code?: string; message?: string })) throw new NeexaKpiAccessError('hidden');
+    throw new Error(error.message || "Couldn't load figures");
+  }
+  return data as unknown as NeexaInboxKpis;
 }
 async function readMessages(id: string): Promise<NeexaMessage[]> {
   const rows: NeexaMessage[] = [];
@@ -130,6 +161,8 @@ export function useNeexaInbox() {
   const messageKey = (id: string) => ['neexa-messages', user?.id, id] as const;
   const conversationsQuery = useQuery({ queryKey: listKey, queryFn: readConversations, enabled: !!user,
     staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
+  const kpisQuery = useQuery({ queryKey: ['neexa-inbox-kpis'], queryFn: readKpis, enabled: !!user,
+    staleTime: 60_000, retry: false, refetchOnWindowFocus: false });
   const messagesQuery = useQuery({ queryKey: messageKey(selectedId || ''),
     queryFn: () => selectedId ? readMessages(selectedId) : Promise.resolve([]), enabled: !!user && !!selectedId,
     staleTime: Infinity, retry: false, refetchOnWindowFocus: false });
@@ -169,6 +202,7 @@ export function useNeexaInbox() {
       const result = await callNeexa({ action: 'sync_conversations', max_pages: 20 });
       await conversationsQuery.refetch({ throwOnError: true });
       if (mounted.current) setSyncResult(`${result.synced ?? 0} conversations synced${result.complete ? '' : ' · Neexa has additional conversations beyond this sync limit'}`);
+      void client.invalidateQueries({ queryKey: ['neexa-inbox-kpis'] });
     } catch (error) { if (mounted.current) setActionError(error instanceof Error ? error.message : 'Sync failed.'); }
     finally { syncLock.current = false; if (mounted.current) setSyncing(false); }
   };
@@ -248,6 +282,8 @@ export function useNeexaInbox() {
     finally { templateLock.current = false; if (mounted.current) setTemplateSending(false); }
   };
   return { conversations: conversationsQuery.data || [], loading: conversationsQuery.isLoading,
+    kpis: kpisQuery.data || null, kpisLoading: kpisQuery.isLoading, kpisError: kpisQuery.error?.message || null,
+    kpisHidden: kpisQuery.error instanceof NeexaKpiAccessError, refetchKpis: () => kpisQuery.refetch(),
     listError: conversationsQuery.error?.message, selected, selectedId, openConversation: setSelectedId,
     messages: messagesQuery.data || [], messagesLoading: messagesQuery.isLoading, messagesError: messagesQuery.error?.message,
     actionError, syncing, syncResult, syncConversations, sending, sendMessage,

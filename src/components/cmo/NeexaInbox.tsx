@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import { ArrowLeft, Facebook, Globe, Instagram, Loader2, Mail, MessageSquare, RefreshCw, Search, Send } from 'lucide-react';
+import { ArrowLeft, Clock3, Facebook, Globe, Hourglass, Instagram, Loader2, Mail, MessageSquare, RefreshCw, Search, Send, UserCheck, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { KPICard } from '@/components/executive/KPICard';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNeexaInbox, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
+import { useNeexaInbox, formatNeexaVolume, canSendNeexaReply, whatsappWindowClosed, NEEXA_MESSAGE_LIMIT, type NeexaPlatform } from '@/hooks/useNeexaInbox';
 import { NeexaTemplateDialog } from './NeexaTemplateDialog';
+
+// Staff replies are hidden for now. Flip to true to bring back the "Write a reply…" box and Send button.
+const REPLY_COMPOSER_ENABLED = false;
 
 const platforms: { value: NeexaPlatform; label: string; icon: typeof MessageSquare }[] = [
   { value: 'whatsapp', label: 'WhatsApp', icon: MessageSquare }, { value: 'email', label: 'Email', icon: Mail },
@@ -29,9 +35,45 @@ function relativeTime(time: string | null) {
 function messageTime(time: string | null) {
   return time && Number.isFinite(Date.parse(time)) ? format(new Date(time), 'dd MMM, HH:mm') : '';
 }
+function KpiRow({ inbox, canOpenPartnerOnboarding }: { inbox: ReturnType<typeof useNeexaInbox>; canOpenPartnerOnboarding: boolean }) {
+  const navigate = useNavigate();
+  if (inbox.kpisHidden) return null;
+  if (inbox.kpisLoading) return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-busy="true" aria-label="Loading figures">
+      {[0, 1, 2, 3, 4].map(row => <div key={row} className="rounded-2xl border border-border bg-card p-3 sm:p-4 space-y-2"><div className="h-5 w-24 rounded bg-muted animate-pulse" /><div className="h-8 w-20 rounded bg-muted animate-pulse" /><div className="h-3 w-28 rounded bg-muted animate-pulse" /></div>)}
+    </div>
+  );
+  const kpis = inbox.kpis;
+  if (!kpis) return (
+    <div className="flex items-center gap-3">
+      <p role="alert" className="text-sm text-destructive">Couldn&apos;t load figures</p>
+      <Button variant="outline" size="sm" onClick={() => void inbox.refetchKpis()}>Retry</Button>
+    </div>
+  );
+  const cards = [
+    { title: 'Came in via Neexa', value: kpis.came_in_users.toLocaleString('en-US'), icon: Users,
+      subtitle: `${kpis.came_in_new_signups.toLocaleString('en-US')} new sign-ups · ${kpis.referred_signups.toLocaleString('en-US')} referred` },
+    { title: 'Active Supporters', value: kpis.active_partners.toLocaleString('en-US'), icon: UserCheck,
+      subtitle: `${kpis.active_portfolios.toLocaleString('en-US')} active portfolios` },
+    { title: 'Active volume', value: formatNeexaVolume(kpis.active_volume), icon: Wallet,
+      subtitle: 'Brought in by Neexa Supporters' },
+    { title: 'Pending Supporters', value: kpis.pending_partners.toLocaleString('en-US'), icon: Hourglass,
+      subtitle: 'Awaiting review in Partner Onboarding',
+      onClick: canOpenPartnerOnboarding ? () => navigate('/partner-onboarding') : undefined },
+    { title: 'Pending volume', value: formatNeexaVolume(kpis.pending_volume), icon: Clock3,
+      subtitle: `${kpis.pending_portfolios.toLocaleString('en-US')} portfolios awaiting details or approval` },
+  ];
+  return <div className="space-y-1.5">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      {cards.map(card => <KPICard key={card.title} {...card} />)}
+    </div>
+    <p className="text-xs text-muted-foreground">as of {relativeTime(kpis.as_of)}</p>
+  </div>;
+}
 export default function NeexaInbox() {
   const inbox = useNeexaInbox();
   const mobile = useIsMobile();
+  const { roles } = useAuth();
   const [search, setSearch] = useState('');
   const [platform, setPlatform] = useState('all');
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -82,6 +124,7 @@ export default function NeexaInbox() {
         <Button size="sm" onClick={() => openTemplate()}><MessageSquare />New WhatsApp message</Button>
       </div>
     </header>
+    <KpiRow inbox={inbox} canOpenPartnerOnboarding={roles.includes('manager')} />
     {inbox.syncResult && <p role="status" className="text-xs text-muted-foreground">{inbox.syncResult}</p>}
     {inbox.pendingConversation && <p role="status" className="text-sm text-muted-foreground">Template sent. Waiting for the conversation to appear…</p>}
     {!selected && inbox.actionError && <p role="alert" className="text-sm text-destructive">{inbox.actionError}</p>}
@@ -130,14 +173,16 @@ export default function NeexaInbox() {
             })}
             <div ref={bottomRef} />
           </div>
-          <div className="shrink-0 space-y-3 border-t border-border bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          {(REPLY_COMPOSER_ENABLED || closed || inbox.actionError) && <div className="shrink-0 space-y-3 border-t border-border bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {closed && <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3"><p className="text-xs">The 24-hour reply window has closed. Send an approved template instead.</p><Button variant="outline" size="sm" onClick={() => openTemplate(selected.customer_address || '')}>Send approved template</Button></div>}
             {inbox.actionError && <p role="alert" className="text-sm text-destructive">{inbox.actionError}</p>}
-            <Textarea aria-label="Reply message" placeholder="Write a reply…" rows={3} className="min-h-[76px] max-h-40 resize-none" disabled={closed || inbox.sending} value={draft}
-              onChange={event => { const id = inbox.selectedId; if (id) setDrafts(old => ({ ...old, [id]: event.target.value })); }}
-              onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
-            <div className="flex items-center justify-between gap-3"><span className={cn('text-xs', draft.length > NEEXA_MESSAGE_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>{draft.length.toLocaleString()} / {NEEXA_MESSAGE_LIMIT.toLocaleString()}</span><Button size="sm" disabled={!canSend} onClick={() => void send()}>{inbox.sending ? <Loader2 className="animate-spin" /> : <Send />}{inbox.sending ? 'Sending…' : 'Send'}</Button></div>
-          </div>
+            {REPLY_COMPOSER_ENABLED && <>
+              <Textarea aria-label="Reply message" placeholder="Write a reply…" rows={3} className="min-h-[76px] max-h-40 resize-none" disabled={closed || inbox.sending} value={draft}
+                onChange={event => { const id = inbox.selectedId; if (id) setDrafts(old => ({ ...old, [id]: event.target.value })); }}
+                onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter' && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
+              <div className="flex items-center justify-between gap-3"><span className={cn('text-xs', draft.length > NEEXA_MESSAGE_LIMIT ? 'text-destructive' : 'text-muted-foreground')}>{draft.length.toLocaleString()} / {NEEXA_MESSAGE_LIMIT.toLocaleString()}</span><Button size="sm" disabled={!canSend} onClick={() => void send()}>{inbox.sending ? <Loader2 className="animate-spin" /> : <Send />}{inbox.sending ? 'Sending…' : 'Send'}</Button></div>
+            </>}
+          </div>}
         </> : <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground"><MessageSquare className="h-10 w-10" /><p className="text-sm">Select a conversation</p>{inbox.selectedId && <Button variant="outline" className="md:hidden" onClick={() => inbox.openConversation(null)}>Back to conversations</Button>}</div>}
       </div>
     </div>
