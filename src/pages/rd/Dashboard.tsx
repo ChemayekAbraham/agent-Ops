@@ -346,7 +346,8 @@ export default function RDDashboard() {
 
         <IdeaCanvasBoard />
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        {/* Project cards are stacked one under the other, each full width. */}
+        <div className="grid gap-4">
           {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
