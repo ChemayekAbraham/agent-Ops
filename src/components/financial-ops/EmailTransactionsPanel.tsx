@@ -181,6 +181,27 @@ export function EmailTransactionsPanel() {
   } = useEmailTransactionsPanel();
   return (
     <div className="space-y-3.5">
+      {/* ── Page header + at-a-glance summary (all figures follow the current
+          date range and search, same as the list below). ── */}
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold tracking-tight">Email Transactions</h2>
+        <p className="text-sm text-muted-foreground">Live transactions extracted from connected Gmail</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { label: 'Emails in view', value: filteredRows.length.toLocaleString(), note: 'Read from connected Gmail' },
+          { label: 'Money in', value: `UGX ${Math.round(totalIn).toLocaleString()}`, note: 'Deposits read from email' },
+          { label: 'Awaiting routing', value: (unmatchedInCount + unmatchedOutCount).toLocaleString(), note: 'Need a wallet match' },
+          { label: 'Could not read', value: unparsedRows.length.toLocaleString(), note: 'A person needs to look' },
+        ].map((s) => (
+          <div key={s.label} className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-sm">
+            <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
+            <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{s.value}</span>
+            <span className="text-xs text-muted-foreground">{s.note}</span>
+          </div>
+        ))}
+      </div>
+
       {/* ── Top Workspace Tab Navigation ── */}
       <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
         <button
@@ -433,7 +454,7 @@ export function EmailTransactionsPanel() {
             key={p.label}
             type="button"
             onClick={() => applyRecentWindow(p.days)}
-            className="shrink-0 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-full border bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
           >
             {p.label}
           </button>
@@ -767,8 +788,8 @@ export function EmailTransactionsPanel() {
         ) : (
           <div className="divide-y max-h-[calc(100vh-16rem)] min-h-[420px] overflow-y-auto">
             {selectedIds.size > 0 && (
-              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 backdrop-blur px-3 py-2 shadow-sm">
-                <div className="text-xs font-medium">
+              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 bg-primary/10 backdrop-blur px-3.5 py-2.5 shadow-sm">
+                <div className="text-sm font-semibold">
                   <span className="text-primary">{selectedIds.size}</span> selected
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
