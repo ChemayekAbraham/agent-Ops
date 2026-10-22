@@ -16,7 +16,7 @@ import type { AppRole } from '@/hooks/auth/types';
  *
  * See ROLLOUT.md, step 4.
  */
-const BYPASS_ROLES: AppRole[] = ['super_admin', 'cto'];
+export const BYPASS_ROLES: AppRole[] = ['super_admin', 'cto'];
 
 /**
  * Roles that implicitly grant their own dashboard.
