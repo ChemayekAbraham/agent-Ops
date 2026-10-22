@@ -5,7 +5,7 @@ DO $pre$
 BEGIN
   IF position('dm(department_key, category_key' in pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
      OR position('Partner Products and Services' in pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.payables_category_frame()'::regprocedure) IS DISTINCT FROM 'ec19898ccbfb19daa956dc332cf5152b' THEN
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.payables_category_frame()'::regprocedure) IS DISTINCT FROM 'd68d7533a2a3a955f06a66959be32246' THEN
     RAISE EXCEPTION 'precondition failed: the payables list or category frame is not the one 20261022160000_payables_categories_v2 created; nothing was changed. Reverse by hand';
   END IF;
 END

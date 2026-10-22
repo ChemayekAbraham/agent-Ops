@@ -4,9 +4,10 @@
 --     partner   Supporter Returns & Capital   -> Partner Products and Services
 --     landlord  Landlord Float Payout Budget  -> Land Products and Services
 --     budget    Departmental Budgets          -> Operational Expenses
---     agent     Agent Commissions             -> Agent Commissions (unchanged; the list rows said "Agent Payables")
+--     agent     Agent Commissions             -> Agent Products and Services (CFO correction 2026-10-22: one unified agent
+--               category; the list rows said "Agent Payables"). Agent commission payables keep their records, amounts and
+--               product line (agent_commission_payout, "Agent Commission Payouts") inside it.
 --   Added:
---     agent_products  Agent Products and Services (kept separate from commissions; no record maps to it until a source is approved)
 --     marketing       Marketing Expenses: departmental budget lines of the Marketing department
 --     rnd             R&D (Research and Development): departmental budget lines of Product Research and Development
 --   Every other departmental budget line stays Operational Expenses. The department -> category list is in one place
@@ -44,12 +45,11 @@ AS $function$
   SELECT * FROM (VALUES
     ('partner','Partner Products and Services',1),
     ('landlord','Land Products and Services',2),
-    ('agent','Agent Commissions',3),
-    ('agent_products','Agent Products and Services',4),
-    ('budget','Operational Expenses',5),
-    ('marketing','Marketing Expenses',6),
-    ('rnd','R&D (Research and Development)',7),
-    ('other','Unclassified / Other',8)
+    ('agent','Agent Products and Services',3),
+    ('budget','Operational Expenses',4),
+    ('marketing','Marketing Expenses',5),
+    ('rnd','R&D (Research and Development)',6),
+    ('other','Unclassified / Other',7)
   ) f(category_key, category_label, sort_order)
 $function$;
 
@@ -123,7 +123,7 @@ UNION ALL
   WHERE s.approved_no_float AND s.amount > 0::numeric
 UNION ALL
  SELECT 'agent'::text AS category_key,
-    'Agent Commissions'::text AS category_label,
+    'Agent Products and Services'::text AS category_label,
     'agent_commission_payout'::text AS product_key,
     'Agent Commission Payouts'::text AS product_label,
     'agent_commission_payouts'::text AS source_table,
