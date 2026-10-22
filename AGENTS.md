@@ -1,4 +1,5 @@
 # Architecture Decisions
+- Automated Calls UI lives in crm/autocall behind useCanUseAutocall and uses the existing voice-autocall hook exclusively for calling state and playback; no UI mutations bypass the server seam.
 - Payables forecast hooks do not automatically replay deterministic database timeout/permission failures; server reporting remains the sole authority for amounts, so retries cannot change financial rules.
 - The new agent dashboard rent-request card opens the existing lazily loaded AgentRentRequestDialog; promotional presentation never duplicates submission or financial logic.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
