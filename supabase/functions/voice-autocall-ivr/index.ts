@@ -1,8 +1,9 @@
 /**
  * Automated call centre — Africa's Talking voice callback (PUBLIC endpoint).
  *
- * Set as the callback URL of the AUTOMATED-CALLS virtual number only
- * (AFRICASTALKING_AUTOCALL_NUMBER), never the CRM Call Centre number.
+ * Reached two ways: directly (the GetDigits / Record callbackUrls we render, or
+ * a dedicated AFRICASTALKING_AUTOCALL_NUMBER pointed here), or forwarded by
+ * crm-voice-callback when the shared CRM number carries a robot call.
  *
  * Africa's Talking posts here when the person answers, after each key press
  * (kind=digits), when a menu times out (kind=noinput), after a voice message

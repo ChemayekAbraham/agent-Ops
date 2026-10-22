@@ -286,7 +286,8 @@ export function AgentRentCapacitySelfCard() {
             {/* Paid vs Expected — today + this week */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(() => {
-                const expectedWeek = cap.expected_daily * 7;
+                // Real summed bill for the last 7 days, from the server.
+                const expectedWeek = cap.expected_weekly;
                 const todayPct = cap.expected_daily > 0
                   ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
                   : 0;
