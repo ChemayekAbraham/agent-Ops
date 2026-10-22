@@ -80,7 +80,7 @@ describe('Agent Directory default view', () => {
     expect(screen.getByRole('button', { name: /^Central region/ })).toBeInTheDocument();
 
     // The flat register (its search box and row filters) is NOT the landing view.
-    expect(screen.queryByPlaceholderText(/Search by name, phone, email/)).toBeNull();
+    expect(screen.queryByPlaceholderText(/Search by name, phone, district/)).toBeNull();
     expect(screen.queryByText('Any status')).toBeNull();
   });
 
@@ -90,7 +90,7 @@ describe('Agent Directory default view', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /List/ }));
 
-    expect(await screen.findByPlaceholderText(/Search by name, phone, email/)).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText(/Search by name, phone, district/)).toBeInTheDocument();
     expect(screen.queryByPlaceholderText('Search agents, regions or districts…')).toBeNull();
   });
 
