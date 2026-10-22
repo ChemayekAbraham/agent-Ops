@@ -11,6 +11,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+
+// Radix primitives need these in jsdom.
+Object.assign(window.HTMLElement.prototype, {
+  hasPointerCapture: () => false,
+  setPointerCapture: () => {},
+  releasePointerCapture: () => {},
+  scrollIntoView: () => {},
+});
 
 const pauseMock = vi.fn(() => ({ data: { paused: false, reason: null, paused_at: null } }));
 
@@ -25,7 +34,7 @@ vi.mock('@/hooks/useCrmCallCentre', () => ({
   useCallHistoryFor: () => ({ data: [], isLoading: false }),
 }));
 
-const renderNode = (ui: React.ReactElement) =>
+const renderNode = (ui: ReactElement) =>
   render(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 
 const bodyText = () => document.body.textContent ?? '';
