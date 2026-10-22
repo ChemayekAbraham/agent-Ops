@@ -163,20 +163,18 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     );
   }, [data?.items]);
 
-  // Only display valid active recovery plans matching actual active items
+  // Only display live recovery plans. The RPC already scopes plans to this agent's sales and
+  // category; plan amounts include charges (e.g. phone price + monthly charge), so they are
+  // not matched against item prices.
   const plans = useMemo(() => {
     return (data?.plans ?? []).filter((p) => {
       const st = (p.status || '').toLowerCase();
       if (['cancelled', 'terminated', 'inactive', 'rejected'].includes(st)) return false;
       // Exclude zero-deduction duplicate/abandoned plans from rejected attempts
       if (Number(p.daily_deduction_amount || 0) === 0 && Number(p.amount_recovered || 0) === 0) return false;
-      if (items.length > 0) {
-        const itemAmounts = new Set(items.map((it) => Number(it.amount || 0)));
-        if (!itemAmounts.has(Number(p.original_amount || 0))) return false;
-      }
       return true;
     });
-  }, [data?.plans, items]);
+  }, [data?.plans]);
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
