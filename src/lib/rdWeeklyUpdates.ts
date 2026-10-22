@@ -23,6 +23,21 @@ export function rdReportUpdatesForPeriod(updates: RdUpdate[], period: RdReportPe
   return period === 'all' ? updates : rdWeeklyUpdates(updates, period, today);
 }
 
+export type RdPeriodRange = { start: string; end: string };
+
+/** Calendar window of a report period; null when the whole record is included. */
+export function rdPeriodRange(period: RdReportPeriod, today = kampalaTodayYmd()): RdPeriodRange | null {
+  if (period === 'all') return null;
+  const start = period === 'last' ? rdDateOffset(today, -7) : period === 'next' ? rdDateOffset(today, 1) : today;
+  const end = period === 'last' ? rdDateOffset(today, -1) : period === 'next' ? rdDateOffset(today, 7) : today;
+  return { start, end };
+}
+
+/** Default date for a newly recorded update so it falls inside the chosen period. */
+export function rdNewUpdateDate(period: RdReportPeriod, today = kampalaTodayYmd()): string {
+  return rdPeriodRange(period, today)?.start ?? today;
+}
+
 export function loadRdUpdates(): Record<string, RdUpdate[]> {
   try {
     const saved: unknown = JSON.parse(localStorage.getItem(RD_UPDATES_KEY) || '{}');

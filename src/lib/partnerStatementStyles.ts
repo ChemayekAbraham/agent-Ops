@@ -806,5 +806,24 @@ export const PARTNER_STATEMENT_CSS = `
       }
     }
 
+
+    /* Partner Statement only (partnerStatement.ts adds .statement-theme to its
+       pages): the whole document is set in Outfit, the app's display font, and
+       every rule, table border and double line is drawn in the system primary
+       colour, hsl(271 100% 40%) from src/index.css. All borders above go
+       through the --rule-* variables, so redefining them here reaches every
+       line on the page; row hairlines use a tint of the same colour.
+       The other partner PDFs share this stylesheet and keep Inter and the
+       black rules. */
+    .statement-theme {
+      --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      --font-mono: var(--font-sans);
+      font-family: var(--font-sans);
+      --rule-strong: #6900CC;
+      --rule-medium: #6900CC;
+      --rule-table: #6900CC;
+      --rule-light: rgba(105, 0, 204, 0.22);
+    }
+
   
 `;

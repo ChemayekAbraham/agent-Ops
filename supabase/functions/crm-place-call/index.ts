@@ -48,6 +48,19 @@ Deno.serve(async (req) => {
   const { data: allowed } = await admin.rpc('crm_call_centre_authorized', { _user_id: staff.id });
   if (allowed !== true) return json({ error: 'not_authorized' }, 403);
 
+  // The line is used by automated calls while human calling is paused.
+  const { data: sys } = await admin
+    .from('voice_autocall_system_status')
+    .select('human_calling_paused')
+    .eq('id', 1)
+    .maybeSingle();
+  if (sys?.human_calling_paused === true) {
+    return json(
+      { error: 'call_centre_paused', message: 'Calling from the app is paused. This line is now used for automated calls.' },
+      423,
+    );
+  }
+
   // ---- input ----
   let body: Record<string, unknown>;
   try {

@@ -8,7 +8,7 @@
  */
 export type PayoutNumberState =
   | 'ready'
-  | 'ready_differs_from_record'
+  | 'ready_differs_from_record' // name kept for existing callers; this state now blocks the payout
   | 'landlord_rejected'
   | 'landlord_unverified'
   | 'approved_number_missing'
@@ -69,12 +69,14 @@ export function landlordPayoutNumberState(i: PayoutNumberStateInput): PayoutNumb
     };
   }
   if (onFile && last9(onFile) !== last9(approved)) {
+    // A payout may only go to the number the landlord is registered with. The database refuses it too
+    // (enforce_landlord_payout_eligibility), so the screen stops before an OTP is sent.
     return {
       state: 'ready_differs_from_record',
-      tone: 'info',
-      title: 'The approved number differs from the number on the landlord record',
-      detail: 'The payout goes to the number Landlord Ops approved. If the landlord says it is wrong, ask Landlord Ops to confirm which number is correct before sending the OTP.',
-      canSendOtp: true,
+      tone: 'blocked',
+      title: 'The approved payout number does not match the number registered for this landlord',
+      detail: 'A payout can only go to the number the landlord is registered with. Landlord Ops must confirm the correct number before you can send the OTP.',
+      canSendOtp: false,
     };
   }
   return {

@@ -14,8 +14,8 @@ import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
-import { kampalaTodayYmd } from '@/lib/kampalaDays';
-import { loadRdUpdates, RD_UPDATES_KEY, rdReportUpdatesForPeriod, type RdReportPeriod, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReportUpdatesForPeriod, type RdReportPeriod, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -150,7 +150,7 @@ function ProjectCard({ p, cashRows, updates, period, onUpdates }: { p: Project; 
           <div className="flex items-center justify-between gap-2">
             <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
-              onClick={() => onUpdates([...updates, { id: safeUUID(), date: kampalaTodayYmd(), text: '' }])}>
+              onClick={() => onUpdates([...updates, { id: safeUUID(), date: rdNewUpdateDate(period), text: '' }])}>
               <Plus className="h-3 w-3" />Add update
             </Button>
           </div>
@@ -299,8 +299,23 @@ export default function RDDashboard() {
   const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
     setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
   const [exporting, setExporting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
   const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
+  const periodRange = rdPeriodRange(reportPeriod);
+  const rangeLabel = periodRange ? `${periodRange.start} – ${periodRange.end}` : '';
+  const extractReport = async () => {
+    setExtracting(true);
+    try {
+      await downloadRdPeriodReport({
+        periodLabel,
+        rangeLabel,
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: rdReportUpdatesForPeriod(projectUpdates[p.name] ?? [], reportPeriod) })),
+      });
+    } catch {
+      toast({ title: 'Could not prepare the report', description: 'Please try again.', variant: 'destructive' });
+    } finally { setExtracting(false); }
+  };
   const exportReport = async () => {
     setExporting(true);
     try {
@@ -378,7 +393,12 @@ export default function RDDashboard() {
               </Button>
             ))}
           </div>
-          <span className="text-[11px] text-muted-foreground">The general report includes updates from the chosen period.</span>
+          <span className="text-[11px] text-muted-foreground">
+            {rangeLabel ? `Updates from ${rangeLabel}. New updates are dated inside this period.` : 'The general report includes updates from the chosen period.'}
+          </span>
+          <Button size="sm" className="ml-auto h-7 gap-1 px-2.5 text-xs" disabled={extracting} onClick={extractReport}>
+            <Download className="h-3 w-3" />{extracting ? 'Preparing…' : 'Extract report'}
+          </Button>
         </div>
 
         {/* Project cards are stacked one under the other, each full width. */}

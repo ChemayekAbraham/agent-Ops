@@ -7029,6 +7029,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_weekly_performance_snapshots: {
+        Row: {
+          agent_id: string
+          collected: number
+          expected: number
+          frozen_at: string
+          pct: number | null
+          status: string
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          agent_id: string
+          collected: number
+          expected: number
+          frozen_at?: string
+          pct?: number | null
+          status: string
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          agent_id?: string
+          collected?: number
+          expected?: number
+          frozen_at?: string
+          pct?: number | null
+          status?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       ai_chat_messages: {
         Row: {
           content: string
@@ -27840,6 +27873,33 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_float_withdrawal_exceptions: {
+        Row: {
+          agent_id: string
+          granted_at: string
+          granted_by: string
+          rate_pct: number | null
+          reason: string
+          week_start: string
+        }
+        Insert: {
+          agent_id: string
+          granted_at?: string
+          granted_by: string
+          rate_pct?: number | null
+          reason: string
+          week_start: string
+        }
+        Update: {
+          agent_id?: string
+          granted_at?: string
+          granted_by?: string
+          rate_pct?: number | null
+          reason?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       landlord_funder_links: {
         Row: {
           active: boolean
@@ -44814,6 +44874,117 @@ export type Database = {
           },
         ]
       }
+      rent_disbursement_rate_exceptions: {
+        Row: {
+          agent_id: string
+          collected: number | null
+          expected: number | null
+          granted_at: string
+          granted_by: string
+          rate_pct: number | null
+          reason: string
+          rent_request_id: string
+        }
+        Insert: {
+          agent_id: string
+          collected?: number | null
+          expected?: number | null
+          granted_at?: string
+          granted_by: string
+          rate_pct?: number | null
+          reason: string
+          rent_request_id: string
+        }
+        Update: {
+          agent_id?: string
+          collected?: number | null
+          expected?: number | null
+          granted_at?: string
+          granted_by?: string
+          rate_pct?: number | null
+          reason?: string
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_disbursement_rate_exceptions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       rent_fee_collection_exceptions: {
         Row: {
           collection_id: string | null
@@ -47244,6 +47415,27 @@ export type Database = {
           resolved_by?: string | null
           severity?: string
           source_table?: string
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
         }
         Relationships: []
       }
@@ -49743,6 +49935,27 @@ export type Database = {
             referencedColumns: ["requisition_id"]
           },
         ]
+      }
+      staff_mfa_config: {
+        Row: {
+          id: boolean
+          mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       staff_permissions: {
         Row: {
@@ -57421,6 +57634,575 @@ export type Database = {
           reversible_amount?: number
           transaction_group_ids?: string[]
           unrecovered_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_autocall_campaigns: {
+        Row: {
+          audience_kind: string
+          category: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          days_of_week: number[]
+          description: string | null
+          id: string
+          max_attempts: number
+          name: string
+          record_calls: boolean
+          retry_minutes: number
+          schedule_kind: string
+          script_id: string
+          start_at: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          audience_kind: string
+          category: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          id?: string
+          max_attempts?: number
+          name: string
+          record_calls?: boolean
+          retry_minutes?: number
+          schedule_kind: string
+          script_id: string
+          start_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          audience_kind?: string
+          category?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          id?: string
+          max_attempts?: number
+          name?: string
+          record_calls?: boolean
+          retry_minutes?: number
+          schedule_kind?: string
+          script_id?: string
+          start_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_campaigns_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_category_settings: {
+        Row: {
+          category: string
+          pause_reason: string | null
+          paused: boolean
+          paused_at: string | null
+          paused_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_autocall_events: {
+        Row: {
+          at_session_id: string | null
+          attempt: number | null
+          created_at: string
+          id: number
+          job_id: string
+          kind: string
+          payload: Json | null
+          step: string | null
+        }
+        Insert: {
+          at_session_id?: string | null
+          attempt?: number | null
+          created_at?: string
+          id?: never
+          job_id: string
+          kind: string
+          payload?: Json | null
+          step?: string | null
+        }
+        Update: {
+          at_session_id?: string | null
+          attempt?: number | null
+          created_at?: string
+          id?: never
+          job_id?: string
+          kind?: string
+          payload?: Json | null
+          step?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_jobs: {
+        Row: {
+          answered_at: string | null
+          at_session_id: string | null
+          attempts: number
+          callback_count: number
+          campaign_id: string | null
+          category: string
+          cost_amount: number | null
+          cost_currency: string | null
+          created_at: string
+          current_step: string | null
+          current_tries: number
+          duration_seconds: number | null
+          ended_at: string | null
+          expires_at: string
+          failure_reason: string | null
+          hangup_cause: string | null
+          id: string
+          is_test: boolean
+          last_attempt_at: string | null
+          last_render_at: string | null
+          max_attempts: number
+          next_attempt_at: string
+          outcome: string | null
+          person_id: string | null
+          person_name: string | null
+          phone: string
+          provider_recording_url: string | null
+          record_calls: boolean
+          recording_path: string | null
+          requested_by: string | null
+          retry_minutes: number
+          run_id: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status: string
+          total_cost: number
+          total_duration_seconds: number
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          answered_at?: string | null
+          at_session_id?: string | null
+          attempts?: number
+          callback_count?: number
+          campaign_id?: string | null
+          category: string
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          current_step?: string | null
+          current_tries?: number
+          duration_seconds?: number | null
+          ended_at?: string | null
+          expires_at: string
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          last_render_at?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          person_id?: string | null
+          person_name?: string | null
+          phone: string
+          provider_recording_url?: string | null
+          record_calls?: boolean
+          recording_path?: string | null
+          requested_by?: string | null
+          retry_minutes?: number
+          run_id?: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status?: string
+          total_cost?: number
+          total_duration_seconds?: number
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          answered_at?: string | null
+          at_session_id?: string | null
+          attempts?: number
+          callback_count?: number
+          campaign_id?: string | null
+          category?: string
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          current_step?: string | null
+          current_tries?: number
+          duration_seconds?: number | null
+          ended_at?: string | null
+          expires_at?: string
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          last_render_at?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          person_id?: string | null
+          person_name?: string | null
+          phone?: string
+          provider_recording_url?: string | null
+          record_calls?: boolean
+          recording_path?: string | null
+          requested_by?: string | null
+          retry_minutes?: number
+          run_id?: string | null
+          script_id?: string
+          script_snapshot?: Json
+          script_version?: number
+          status?: string
+          total_cost?: number
+          total_duration_seconds?: number
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_autocall_jobs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_autocall_jobs_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_person_pauses: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lifted_at: string | null
+          lifted_by: string | null
+          paused_until: string | null
+          person_id: string | null
+          phone: string | null
+          reason: string
+          source: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          paused_until?: string | null
+          person_id?: string | null
+          phone?: string | null
+          reason: string
+          source?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          paused_until?: string | null
+          person_id?: string | null
+          phone?: string | null
+          reason?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      voice_autocall_responses: {
+        Row: {
+          attempt: number | null
+          created_at: string
+          digits: string | null
+          id: number
+          job_id: string
+          outcome: string | null
+          provider_recording_url: string | null
+          recording_path: string | null
+          step: string
+        }
+        Insert: {
+          attempt?: number | null
+          created_at?: string
+          digits?: string | null
+          id?: never
+          job_id: string
+          outcome?: string | null
+          provider_recording_url?: string | null
+          recording_path?: string | null
+          step: string
+        }
+        Update: {
+          attempt?: number | null
+          created_at?: string
+          digits?: string | null
+          id?: never
+          job_id?: string
+          outcome?: string | null
+          provider_recording_url?: string | null
+          recording_path?: string | null
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_runs: {
+        Row: {
+          audience_count: number
+          built_at: string
+          campaign_id: string
+          expires_at: string
+          id: string
+          run_date: string
+          skipped_count: number
+        }
+        Insert: {
+          audience_count?: number
+          built_at?: string
+          campaign_id: string
+          expires_at: string
+          id?: string
+          run_date: string
+          skipped_count?: number
+        }
+        Update: {
+          audience_count?: number
+          built_at?: string
+          campaign_id?: string
+          expires_at?: string
+          id?: string
+          run_date?: string
+          skipped_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_runs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_script_versions: {
+        Row: {
+          description: string | null
+          id: string
+          name: string
+          occasion: string
+          saved_at: string
+          saved_by: string | null
+          script_id: string
+          steps: Json
+          version: number
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          name: string
+          occasion: string
+          saved_at?: string
+          saved_by?: string | null
+          script_id: string
+          steps: Json
+          version: number
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          name?: string
+          occasion?: string
+          saved_at?: string
+          saved_by?: string | null
+          script_id?: string
+          steps?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_script_versions_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_scripts: {
+        Row: {
+          category: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          language: string
+          name: string
+          occasion: string
+          steps: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          category: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name: string
+          occasion?: string
+          steps: Json
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          category?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name?: string
+          occasion?: string
+          steps?: Json
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      voice_autocall_system_status: {
+        Row: {
+          balance_amount: number | null
+          balance_checked_at: string | null
+          balance_currency: string | null
+          channels: number | null
+          configured: boolean
+          human_calling_pause_reason: string | null
+          human_calling_paused: boolean
+          human_calling_paused_at: string | null
+          human_calling_paused_by: string | null
+          id: number
+          last_error: string | null
+          last_tick_at: string | null
+          last_tick_result: Json | null
+          low_balance: boolean
+          updated_at: string
+        }
+        Insert: {
+          balance_amount?: number | null
+          balance_checked_at?: string | null
+          balance_currency?: string | null
+          channels?: number | null
+          configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
+          id?: number
+          last_error?: string | null
+          last_tick_at?: string | null
+          last_tick_result?: Json | null
+          low_balance?: boolean
+          updated_at?: string
+        }
+        Update: {
+          balance_amount?: number | null
+          balance_checked_at?: string | null
+          balance_currency?: string | null
+          channels?: number | null
+          configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
+          id?: number
+          last_error?: string | null
+          last_tick_at?: string | null
+          last_tick_result?: Json | null
+          low_balance?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -65635,6 +66417,28 @@ export type Database = {
           total_ugx: number
         }[]
       }
+      agent_expected_week: {
+        Args: { p_agent_ids: string[]; p_days?: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
+      agent_expected_week__impl: {
+        Args: { p_agent_ids: string[]; p_days: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
         Args: { p_agent_id: string }
@@ -66126,6 +66930,18 @@ export type Database = {
         Args: { p_amount: number; p_plan_id: string }
         Returns: Json
       }
+      agent_payout_collection_rate: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          collected: number
+          expected: number
+          rate_pct: number
+          shortfall_to_50: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_performance_home_basis_range: {
         Args: { p_end: string; p_start: string }
@@ -66437,6 +67253,21 @@ export type Database = {
         Returns: Json
       }
       agent_wallet_network_ids: { Args: { _agent: string }; Returns: string[] }
+      agent_weekly_performance: {
+        Args: { p_agent_id: string; p_week_start?: string }
+        Returns: {
+          basis: string
+          collected: number
+          days_elapsed: number
+          expected_full_week: number
+          expected_to_date: number
+          pct: number
+          shortfall_to_50: number
+          status: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       allocate_company_managed_portfolio: {
         Args: { p_portfolio_id: string }
         Returns: Json
@@ -66451,6 +67282,10 @@ export type Database = {
           principal_component: number
           registration_fee_component: number
         }[]
+      }
+      allow_agent_landlord_float_withdrawal: {
+        Args: { p_agent_id: string; p_reason: string }
+        Returns: string
       }
       allow_landlord_payouts_with_exception: {
         Args: { p_reason: string; p_withdrawal_ids: string[] }
@@ -68171,6 +69006,10 @@ export type Database = {
       }
       ceo_valuation_baseline: { Args: never; Returns: Json }
       cfo_agent_lending_summary: { Args: never; Returns: Json }
+      cfo_allow_rent_disbursement_exception: {
+        Args: { p_reason: string; p_rent_request_ids: string[] }
+        Returns: number
+      }
       cfo_approve_float_request: {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
         Returns: Json
@@ -68410,6 +69249,10 @@ export type Database = {
           redeemed_amount: number
           scope: string
         }[]
+      }
+      cfo_notify_agent_rent_not_disbursed: {
+        Args: { p_message?: string; p_rent_request_ids: string[] }
+        Returns: number
       }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
@@ -69498,6 +70341,7 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_human_calling_paused: { Args: never; Returns: Json }
       crm_mark_call_answered: {
         Args: { p_session_id: string }
         Returns: undefined
@@ -69717,6 +70561,7 @@ export type Database = {
         Args: { _roles: Database["public"]["Enums"]["app_role"][] }
         Returns: boolean
       }
+      current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
       decide_error_correction_approval: {
@@ -70999,6 +71844,10 @@ export type Database = {
         Args: { p_type: string; p_value: string }
         Returns: string
       }
+      freeze_agent_weekly_performance: {
+        Args: { p_week_start: string }
+        Returns: number
+      }
       funder_booked_houses: { Args: never; Returns: Json }
       funder_create_pending_portfolio: {
         Args: {
@@ -71565,6 +72414,23 @@ export type Database = {
       get_agent_guarantor_float_preview: {
         Args: { p_as_of?: string; p_baseline_date?: string }
         Returns: Json
+      }
+      get_agent_landlord_float_status: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          agent_id: string
+          basis: string
+          can_withdraw: boolean
+          collected: number
+          exception_reason: string
+          expected: number
+          meets_minimum: boolean
+          message: string
+          rate_pct: number
+          shortfall_to_50: number
+          week_end: string
+          week_start: string
+        }[]
       }
       get_agent_leaderboard_stats: {
         Args: { p_period?: string }
@@ -72731,6 +73597,10 @@ export type Database = {
         }[]
       }
       get_dashboard_access_overview: { Args: never; Returns: Json }
+      get_dashboard_effective_access: {
+        Args: { p_bypass_roles: string[]; p_rules: Json }
+        Returns: Json
+      }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -74218,6 +75088,22 @@ export type Database = {
           impressions: number
           surface: string
           unique_tenants: number
+        }[]
+      }
+      get_rent_disbursement_agent_rates: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          collected: number
+          exception_at: string
+          exception_by: string
+          exception_reason: string
+          expected: number
+          meets_minimum: boolean
+          rate_pct: number
+          rent_amount: number
+          rent_request_id: string
         }[]
       }
       get_rent_disbursement_report: {
@@ -76458,6 +77344,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      landlord_float_blocked_message: {
+        Args: { p_agent_id: string; p_amount: number }
+        Returns: string
       }
       landlord_float_budget_can_view: {
         Args: { _user_id: string }
@@ -79134,6 +80024,156 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_profiles: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          address_complete: boolean
+          address_completed_at: string | null
+          agent_tier: Database["public"]["Enums"]["agent_tier"] | null
+          agent_type: string | null
+          always_share_location: boolean | null
+          avatar_url: string | null
+          borrower_landlord_id: string | null
+          borrower_lc1_id: string | null
+          business_advance_notify_email: boolean
+          business_advance_notify_sms: boolean
+          city: string | null
+          continent: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          dashboard_access_count: number
+          dashboard_activated: boolean
+          dashboard_first_access_at: string | null
+          dashboard_last_access_at: string | null
+          date_of_birth: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
+          district: string | null
+          district_id: number | null
+          easy_read_size: number
+          email: string
+          evicted_at: string | null
+          evicted_from_landlord_id: string | null
+          forced_default_role: string | null
+          forced_default_role_set_at: string | null
+          forced_default_role_set_by: string | null
+          frozen_at: string | null
+          frozen_reason: string | null
+          full_name: string
+          funder_reference: string | null
+          funder_rejected_at: string | null
+          funder_rejection_reason: string | null
+          funder_verified_at: string | null
+          funder_verified_by: string | null
+          has_smartphone: boolean
+          id: string
+          id_image_hash: string | null
+          id_name_change_consent_at: string | null
+          identity_photos_submitted_at: string | null
+          is_frozen: boolean
+          is_seller: boolean
+          is_test: boolean
+          landmark: string | null
+          last_active_at: string | null
+          last_continuous_location_at: string | null
+          linked_national_id: string | null
+          linked_national_id_request_id: string | null
+          location_source: string | null
+          managed_by_agent: boolean
+          managing_agent_id: string | null
+          merchant_agent_referrer_id: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          mobile_money_provider: string | null
+          monthly_rent: number | null
+          must_change_password: boolean | null
+          national_id: string | null
+          national_id_back_photo_path: string | null
+          national_id_card_number: string | null
+          national_id_given_name: string | null
+          national_id_name: string | null
+          national_id_photo_path: string | null
+          national_id_surname: string | null
+          occupation: string | null
+          ops_note: string | null
+          parish: string | null
+          pending_merchant_agent: boolean
+          phone: string | null
+          phone_verified: boolean
+          phone_verified_at: string | null
+          preferred_language: string | null
+          prefers_easy_read: boolean
+          previous_full_name: string | null
+          primary_persona: string | null
+          referrer_id: string | null
+          referrer_locked: boolean
+          referrer_override_at: string | null
+          region: string | null
+          rent_discount_active: boolean
+          residence_lat: number | null
+          residence_lng: number | null
+          residence_updated_at: string | null
+          routing_preferences: Json
+          selfie_image_hash: string | null
+          selfie_photo_path: string | null
+          seller_application_status: string | null
+          sex: string | null
+          signup_channel: string | null
+          signup_device_fp: string | null
+          signup_source: string | null
+          smartphone_source: string | null
+          smartphone_status: string
+          smartphone_verified_at: string | null
+          sub_county: string | null
+          tenant_details_updated_at: string | null
+          tenant_electricity_meter: string | null
+          tenant_house_category: string | null
+          tenant_house_listing_id: string | null
+          tenant_status: string
+          tenant_water_meter: string | null
+          territory: string | null
+          town: string | null
+          ug_village_id: number | null
+          updated_at: string
+          verification_notify_email: boolean
+          verification_notify_sms: boolean
+          verified: boolean
+          village: string | null
+          wallet_id: string | null
+          whatsapp_verified: boolean | null
+          whatsapp_verified_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_wallets: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          advance_balance: number | null
+          balance: number | null
+          created_at: string | null
+          currency: string | null
+          float_balance: number | null
+          id: string | null
+          locked_balance: number | null
+          updated_at: string | null
+          user_id: string | null
+          withdrawable_balance: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       pause_agent_advance: {
         Args: { p_advance_id: string; p_reason: string }
         Returns: Json
@@ -79464,6 +80504,10 @@ export type Database = {
         Returns: number
       }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_held_for_partner_available: {
+        Args: { p_agent: string; p_partner: string }
+        Returns: number
+      }
       proxy_pv_agent_rows: {
         Args: { p_month: string }
         Returns: {
@@ -81839,6 +82883,20 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_access_review: {
+        Args: never
+        Returns: {
+          days_since_sign_in: number
+          email_2fa_enabled: boolean
+          flags: string[]
+          full_name: string
+          has_staff_permission: boolean
+          last_sign_in_at: string
+          password_change_recorded: boolean
+          roles: string[]
+          user_id: string
+        }[]
+      }
       staff_create_redemption_request: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
@@ -81985,6 +83043,13 @@ export type Database = {
           loan_id: string
           recovered: number
         }[]
+      }
+      staff_mfa_gate: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       staff_requisition_assert_signer: {
         Args: {
@@ -84463,6 +85528,234 @@ export type Database = {
           _rejection_reason?: string
         }
         Returns: Json
+      }
+      voice_autocall_add_people: {
+        Args: { p_campaign_id: string; p_person_ids: string[] }
+        Returns: number
+      }
+      voice_autocall_assert: { Args: never; Returns: undefined }
+      voice_autocall_audience_tenant_due_today: {
+        Args: { p_day: string }
+        Returns: {
+          person_id: string
+          person_name: string
+          phone: string
+          variables: Json
+        }[]
+      }
+      voice_autocall_audience_tenant_missed_yesterday: {
+        Args: { p_day: string }
+        Returns: {
+          person_id: string
+          person_name: string
+          phone: string
+          variables: Json
+        }[]
+      }
+      voice_autocall_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      voice_autocall_build_run: {
+        Args: { p_campaign: string; p_day: string }
+        Returns: string
+      }
+      voice_autocall_call_detail: { Args: { p_job_id: string }; Returns: Json }
+      voice_autocall_calls_feed: {
+        Args: {
+          p_campaign_id?: string
+          p_category?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_outcome?: string
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      voice_autocall_campaign_save: {
+        Args: {
+          p_audience_kind: string
+          p_category: string
+          p_days_of_week: number[]
+          p_description: string
+          p_id: string
+          p_max_attempts?: number
+          p_name: string
+          p_record_calls?: boolean
+          p_retry_minutes?: number
+          p_schedule_kind: string
+          p_script_id: string
+          p_start_at: string
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: string
+      }
+      voice_autocall_campaign_set_status: {
+        Args: { p_cancel_queued?: boolean; p_id: string; p_status: string }
+        Returns: undefined
+      }
+      voice_autocall_campaigns_list: {
+        Args: { p_category?: string }
+        Returns: Json
+      }
+      voice_autocall_cancel_job: {
+        Args: { p_job_id: string }
+        Returns: undefined
+      }
+      voice_autocall_claim: {
+        Args: { p_channels: number }
+        Returns: {
+          answered_at: string | null
+          at_session_id: string | null
+          attempts: number
+          callback_count: number
+          campaign_id: string | null
+          category: string
+          cost_amount: number | null
+          cost_currency: string | null
+          created_at: string
+          current_step: string | null
+          current_tries: number
+          duration_seconds: number | null
+          ended_at: string | null
+          expires_at: string
+          failure_reason: string | null
+          hangup_cause: string | null
+          id: string
+          is_test: boolean
+          last_attempt_at: string | null
+          last_render_at: string | null
+          max_attempts: number
+          next_attempt_at: string
+          outcome: string | null
+          person_id: string | null
+          person_name: string | null
+          phone: string
+          provider_recording_url: string | null
+          record_calls: boolean
+          recording_path: string | null
+          requested_by: string | null
+          retry_minutes: number
+          run_id: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status: string
+          total_cost: number
+          total_duration_seconds: number
+          updated_at: string
+          variables: Json
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "voice_autocall_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      voice_autocall_demo_call: {
+        Args: { p_script_id: string }
+        Returns: string
+      }
+      voice_autocall_demo_config: { Args: never; Returns: Json }
+      voice_autocall_demo_phone: { Args: never; Returns: string }
+      voice_autocall_e164: { Args: { p_raw: string }; Returns: string }
+      voice_autocall_finish_attempt: {
+        Args: {
+          p_cost?: number
+          p_currency?: string
+          p_duration?: number
+          p_failure_reason?: string
+          p_hangup_cause?: string
+          p_job: string
+          p_provider_recording_url?: string
+          p_status: string
+        }
+        Returns: string
+      }
+      voice_autocall_first_name: { Args: { p_full: string }; Returns: string }
+      voice_autocall_is_blocked: {
+        Args: { p_category: string; p_person: string; p_phone: string }
+        Returns: boolean
+      }
+      voice_autocall_lift_pause: {
+        Args: { p_pause_id: string }
+        Returns: undefined
+      }
+      voice_autocall_mask_phone: { Args: { p_phone: string }; Returns: string }
+      voice_autocall_overview: { Args: never; Returns: Json }
+      voice_autocall_pause_person: {
+        Args: {
+          p_category?: string
+          p_person_id: string
+          p_phone?: string
+          p_reason?: string
+          p_until?: string
+        }
+        Returns: string
+      }
+      voice_autocall_pauses_list: {
+        Args: {
+          p_category?: string
+          p_include_lifted?: boolean
+          p_search?: string
+        }
+        Returns: Json
+      }
+      voice_autocall_record_response: {
+        Args: {
+          p_action?: string
+          p_digits: string
+          p_job: string
+          p_outcome: string
+          p_provider_recording_url?: string
+          p_step: string
+        }
+        Returns: undefined
+      }
+      voice_autocall_script_save: {
+        Args: {
+          p_category: string
+          p_description: string
+          p_id: string
+          p_name: string
+          p_occasion: string
+          p_steps: Json
+        }
+        Returns: Json
+      }
+      voice_autocall_script_set_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      voice_autocall_script_versions: {
+        Args: { p_script_id: string }
+        Returns: Json
+      }
+      voice_autocall_scripts_list: {
+        Args: { p_category?: string; p_include_inactive?: boolean }
+        Returns: Json
+      }
+      voice_autocall_set_category_paused: {
+        Args: { p_category: string; p_paused: boolean; p_reason?: string }
+        Returns: undefined
+      }
+      voice_autocall_set_human_calling_paused: {
+        Args: { p_paused: boolean; p_reason?: string }
+        Returns: undefined
+      }
+      voice_autocall_test_call: {
+        Args: { p_person_id?: string; p_script_id: string }
+        Returns: string
+      }
+      voice_autocall_tick: { Args: never; Returns: Json }
+      voice_autocall_validate_steps: {
+        Args: { p_steps: Json }
+        Returns: undefined
       }
       voice_call_log_authorized: {
         Args: { _user_id: string }

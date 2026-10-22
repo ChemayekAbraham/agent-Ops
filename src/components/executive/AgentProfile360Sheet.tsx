@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AgentAvatar } from './AgentAvatar';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
-import { Loader2, Phone, MapPin, ShieldCheck } from 'lucide-react';
+import { Loader2, Phone, MapPin, ShieldCheck, MessageSquare, MessageCircle, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,29 @@ type Period = 'today' | 'weekly' | 'monthly' | 'yearly';
 function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0; }
 
 function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTarget: number }) {
+  // The weekly target is the PINNED bill for the last 7 days, summed
+  // server-side. It used to be `dailyTarget * 7`, which extrapolated today
+  // across six days that had already happened — so when an agent's book grew,
+  // the target for those finished days grew with it and their week fell
+  // without them doing anything differently.
+  const { data: week7 } = useQuery({
+    queryKey: ['agent-expected-week', agentId],
+    enabled: !!agentId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_expected_week', {
+        p_agent_ids: [agentId as string],
+        p_days: 7,
+      });
+      if (error) throw error;
+      const r = (data ?? [])[0] as { expected_week: number; collected_week: number } | undefined;
+      return {
+        expected: Number(r?.expected_week ?? 0),
+        collected: Number(r?.collected_week ?? 0),
+      };
+    },
+  });
+
   const { data: rows = [] } = useQuery({
     queryKey: ['agent-target-cards', agentId],
     enabled: !!agentId,
@@ -61,13 +84,13 @@ function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTa
     return { today, yesterday, week };
   }, [rows]);
 
-  const weekTarget = dailyTarget * 7;
+  const weekTarget = week7?.expected ?? 0;
   const todayPct = pct(today, dailyTarget);
 
   const cards = [
     { label: 'Today', value: today, target: dailyTarget, sub: `${todayPct}% of daily target` },
     { label: 'Yesterday', value: yesterday, target: dailyTarget, sub: `${pct(yesterday, dailyTarget)}% of daily target` },
-    { label: 'This week (7d)', value: week, target: weekTarget, sub: `${pct(week, weekTarget)}% of weekly target` },
+    { label: 'This week (7d)', value: week7?.collected ?? week, target: weekTarget, sub: `${pct(week7?.collected ?? week, weekTarget)}% of weekly target` },
   ];
 
   return (
@@ -355,7 +378,7 @@ function CollectionsLedger({ agentId }: { agentId: string | null }) {
   );
 }
 
-function Table({ head, rows, empty }: { head: string[]; rows: (string | number)[][]; empty: string }) {
+function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; empty: string }) {
   if (!rows.length) return <p className="text-xs text-muted-foreground py-4 text-center">{empty}</p>;
   return (
     <div className="overflow-x-auto">
@@ -452,8 +475,11 @@ function RentRequestsTable({ rows }: { rows: any[] }) {
   );
 }
 
-export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: Props) {
+export function AgentProfile360Sheet({ agentId: rootAgentId, onOpenChange, inline = false }: Props) {
   const [tab, setTab] = useState('overview');
+  const [profilePath, setProfilePath] = useState<{ id: string; tab: string }[]>([]);
+  const agentId = profilePath.at(-1)?.id ?? rootAgentId;
+  useEffect(() => { setProfilePath([]); }, [rootAgentId]);
   const [tenantPage, setTenantPage] = useState(0);
   const TENANTS_PER_PAGE = 15;
   useEffect(() => { setTenantPage(0); }, [agentId]);
@@ -488,6 +514,15 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
 
   const body = (
     <>
+        {profilePath.length > 0 && (
+          <Button variant="outline" size="sm" className="min-h-11" onClick={() => {
+            const previous = profilePath.at(-1);
+            setProfilePath((path) => path.slice(0, -1));
+            setTab(previous?.tab ?? 'network');
+          }}>
+            <ArrowLeft className="h-4 w-4" /> Back to recruiting agent
+          </Button>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -515,6 +550,24 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
                   )}
                   <span>Joined {dt(bio.created_at)}</span>
                 </div>
+                {bio.phone && (() => {
+                  const raw = String(bio.phone).replace(/[^\d+]/g, '');
+                  const intl = raw.startsWith('+') ? raw.slice(1) : raw.startsWith('0') ? `256${raw.slice(1)}` : raw;
+                  const name = bio.full_name || 'agent';
+                  return (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button asChild size="sm" className="min-h-10">
+                        <a href={`tel:+${intl}`} aria-label={`Call ${name}`}><Phone className="h-4 w-4" />Call</a>
+                      </Button>
+                      <Button asChild size="sm" variant="outline" className="min-h-10">
+                        <a href={`sms:+${intl}`} aria-label={`Send SMS to ${name}`}><MessageSquare className="h-4 w-4" />SMS</a>
+                      </Button>
+                      <Button asChild size="sm" variant="outline" className="min-h-10">
+                        <a href={`https://wa.me/${intl}`} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${name}`}><MessageCircle className="h-4 w-4" />WhatsApp</a>
+                      </Button>
+                    </div>
+                  );
+                })()}
                 {bio.parent_agent && (
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Recruited by <strong className="text-foreground">{bio.parent_agent.full_name}</strong>
@@ -585,7 +638,13 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
                 </div>
                 <Table
                   head={['Name', 'Phone', 'Status', 'Joined']}
-                  rows={(rec.sub_agents ?? []).map((s: any) => [s.full_name ?? '—', s.phone ?? '—', s.status ?? '—', dt(s.created_at)])}
+                  rows={(rec.sub_agents ?? []).map((s: any) => [
+                    s.id ? <Button key={s.id} variant="link" className="min-h-11 h-auto max-w-64 whitespace-normal px-0 text-left justify-start" aria-label={`Open profile for ${s.full_name ?? 'sub-agent'}`} onClick={() => {
+                      setProfilePath((path) => [...path, { id: s.id, tab }]);
+                      setTab('profile');
+                    }}>{s.full_name ?? 'Unnamed sub-agent'}</Button> : s.full_name ?? '—',
+                    s.phone ?? '—', s.status ?? '—', dt(s.created_at),
+                  ])}
                   empty="No sub-agents recruited"
                 />
               </TabsContent>
@@ -665,7 +724,7 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
   if (inline) return <div className="space-y-3">{body}</div>;
 
   return (
-    <Sheet open={!!agentId} onOpenChange={onOpenChange}>
+    <Sheet open={!!rootAgentId} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto p-4">
         <SheetHeader className="mb-3">
           <SheetTitle className="text-base">Agent profile</SheetTitle>
