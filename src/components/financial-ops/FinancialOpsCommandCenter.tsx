@@ -168,7 +168,6 @@ const OpportunitySummaryForm = lz(() => import('@/components/manager/Opportunity
 const AgentRequisitionForm = lz(() => import('./AgentRequisitionForm'), 'AgentRequisitionForm');
 const EmployeeRequisitionLinksPanel = lz(() => import('./EmployeeRequisitionLinksPanel'), 'EmployeeRequisitionLinksPanel');
 const ManualRequisitionQueuePanel = lz(() => import('./ManualRequisitionQueuePanel'), 'ManualRequisitionQueuePanel');
-const FinancialOpsPulseStrip = lz(() => import('./FinancialOpsPulseStrip'), 'FinancialOpsPulseStrip');
 const LiquidityForecastPanel = lz(() => import('./LiquidityForecastPanel'), 'LiquidityForecastPanel');
 const DailyWalletReportsPanel = lz(() => import('./DailyWalletReportsPanel'), 'DailyWalletReportsPanel');
 const StaleWithdrawalHoldsPanel = lz(() => import('@/components/cfo/StaleWithdrawalHoldsPanel'), 'StaleWithdrawalHoldsPanel');
@@ -182,10 +181,13 @@ import {
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
   , Bell, HandCoins, MessageSquare
   , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock,
-  Smartphone
+  Smartphone, LayoutGrid
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Switch } from '@/components/ui/switch';
+import welileWordmark from '@/assets/welile-wordmark.png';
+import { useFinOpsAutoRefresh, setFinOpsAutoRefresh } from '@/hooks/useFinOpsAutoRefresh';
 import { supabase } from '@/integrations/supabase/client';
 
 type View = 'home' | 'deposits' | 'offline_collections';
@@ -611,6 +613,16 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   ];
   const [sidebarQuery, setSidebarQuery] = useState('');
   const q = sidebarQuery.trim().toLowerCase();
+  // Sidebar groups are collapsed accordions; the group holding the open tool
+  // is expanded by default, and any search expands every group with a match.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const groupIcons: Record<string, typeof Wallet> = {
+    'Daily Operations': CalendarClock,
+    'Balances & Reconciliation': Wallet,
+    'Merchant Network & Cash-Out': Store,
+    'Ledger & Audit': FileText,
+  };
+  const totalNavLinks = sidebarGroups.reduce((n, g) => n + g.items.length, 0) + 1;
   // Sidebar attention badges (stale withdrawal holds). Same lightweight
   // count query FinOpsHome uses — React Query dedupes by key.
   const { data: sidebarStaleHolds } = useQuery({
@@ -732,16 +744,13 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       {!emailTxFullscreen && (
       <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-2xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
         {/* Sidebar header */}
-        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-gradient-to-br from-primary/5 via-card to-card`}>
+        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
-            <div className={`flex items-center gap-2 min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground leading-none">Financial Ops</p>
-                <p className="text-sm font-semibold text-foreground mt-1 leading-none">Command Center</p>
-              </div>
+            <div className={`min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
+              <img src={welileWordmark} alt="Welile" className="h-7 w-auto" />
+              <p className="mt-2.5 flex items-center gap-2 text-sm font-semibold text-foreground leading-none">
+                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Financial Ops
+              </p>
             </div>
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -754,102 +763,132 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           </div>
           {/* Search — hidden when collapsed */}
           {!sidebarCollapsed && (
-            <div className="mt-3 relative">
-              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={sidebarQuery}
-                onChange={(e) => setSidebarQuery(e.target.value)}
-                placeholder="Search tools…"
-                className="w-full h-8 pl-8 pr-2.5 rounded-md bg-background border border-border text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
-              />
-            </div>
+            <>
+              <div className="mt-4 relative">
+                <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={sidebarQuery}
+                  onChange={(e) => setSidebarQuery(e.target.value)}
+                  placeholder="Search tools…"
+                  aria-label="Search all tools"
+                  className="w-full h-10 pl-9 pr-2.5 rounded-xl bg-background border border-border text-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">Search all tools</p>
+            </>
           )}
         </div>
 
         {/* Home shortcut */}
-        <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-2'} pt-2`}>
+        <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-3'} pt-3`}>
           <button
             onClick={() => { setActiveTool(null); setView('home'); }}
-            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'} py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               activeId === null
                 ? 'bg-primary/10 text-primary font-semibold'
                 : 'text-foreground hover:bg-muted/60'
             }`}
             title="Overview"
           >
-            <HomeIcon className={`h-4 w-4 shrink-0 ${activeId === null ? 'text-primary' : 'text-muted-foreground'}`} />
-            {!sidebarCollapsed && <span className="text-[13px] font-semibold">Overview</span>}
+            <HomeIcon className={`h-5 w-5 shrink-0 ${activeId === null ? 'text-primary' : 'text-muted-foreground'}`} />
+            {!sidebarCollapsed && <span className="text-sm font-semibold">Overview</span>}
           </button>
         </div>
 
         {/* Grouped navigation */}
-        <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'px-1.5' : 'px-2'} pb-3 pt-1 scrollbar-thin`}>
+        <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'px-1.5' : 'px-3'} pb-3 pt-1 scrollbar-thin`}>
           {!sidebarCollapsed && filteredGroups.length === 0 && (
             <p className="px-2.5 py-6 text-center text-xs text-muted-foreground">
               No tools match "{sidebarQuery}"
             </p>
           )}
-          {(sidebarCollapsed ? sidebarGroups : filteredGroups).map((group, gi) => (
-            <div key={group.title} className={`mt-3 first:mt-2 ${sidebarCollapsed && gi > 0 ? 'pt-2 border-t border-border/60' : ''}`}>
-              {!sidebarCollapsed && (
-                <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                  {group.title}
-                </p>
-              )}
-              <div className="flex flex-col gap-0.5">
-                {group.items.map((a) => {
-                  const isActive = activeId === a.id;
-                  const badgeCount = badgeCounts[a.id as string];
-                  return (
-                    <button
-                      key={`${a.kind}-${a.id}`}
-                      onClick={() => openMoreAction(a)}
-                      className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-md text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
-                        isActive
-                          ? 'bg-primary/10 text-primary font-semibold'
-                          : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
-                      }`}
-                      title={sidebarCollapsed ? `${a.label}${badgeCount ? ` (${badgeCount})` : ''}` : a.desc}
-                    >
-                      {isActive && !sidebarCollapsed && (
-                        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
-                      )}
-                      <span className="relative shrink-0">
-                        <a.icon className={`h-3.5 w-3.5 transition-colors ${
-                          isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                        }`} />
-                        {!!badgeCount && sidebarCollapsed && (
-                          <span className="absolute -top-1.5 -right-1.5 h-3.5 min-w-[0.875rem] px-0.5 rounded-full bg-amber-500 text-[9px] font-bold text-white flex items-center justify-center leading-none">
-                            {badgeCount > 9 ? '9+' : badgeCount}
+          {(sidebarCollapsed ? sidebarGroups : filteredGroups).map((group, gi) => {
+            const GroupIcon = groupIcons[group.title] ?? FileText;
+            const holdsActive = group.items.some((a) => a.id === activeId);
+            const expanded = !!q || (openGroups[group.title] ?? holdsActive);
+            const groupBadge = group.items.reduce((n, a) => n + (badgeCounts[a.id as string] ?? 0), 0);
+            return (
+              <div key={group.title} className={`mt-1.5 ${sidebarCollapsed && gi > 0 ? 'pt-2 border-t border-border/60' : ''}`}>
+                {!sidebarCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroups((g) => ({ ...g, [group.title]: !expanded }))}
+                    aria-expanded={expanded}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <GroupIcon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="flex-1 text-sm font-medium leading-tight">{group.title}</span>
+                    {groupBadge > 0 && <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-label="Needs attention" />}
+                    <span className="shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 tabular-nums">{group.items.length}</span>
+                    {expanded
+                      ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                  </button>
+                )}
+                {(sidebarCollapsed || expanded) && (
+                  <div className={`flex flex-col gap-0.5 ${sidebarCollapsed ? '' : 'mt-0.5 mb-1.5 pl-3'}`}>
+                    {group.items.map((a) => {
+                      const isActive = activeId === a.id;
+                      const badgeCount = badgeCounts[a.id as string];
+                      return (
+                        <button
+                          key={`${a.kind}-${a.id}`}
+                          onClick={() => openMoreAction(a)}
+                          className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-md text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
+                            isActive
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
+                          }`}
+                          title={sidebarCollapsed ? `${a.label}${badgeCount ? ` (${badgeCount})` : ''}` : a.desc}
+                        >
+                          {isActive && !sidebarCollapsed && (
+                            <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
+                          )}
+                          <span className="relative shrink-0">
+                            <a.icon className={`h-3.5 w-3.5 transition-colors ${
+                              isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                            }`} />
+                            {!!badgeCount && sidebarCollapsed && (
+                              <span className="absolute -top-1.5 -right-1.5 h-3.5 min-w-[0.875rem] px-0.5 rounded-full bg-amber-500 text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                                {badgeCount > 9 ? '9+' : badgeCount}
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
-                      {!sidebarCollapsed && (
-                        <span className="text-[13px] leading-tight truncate flex-1">{a.label}</span>
-                      )}
-                      {!!badgeCount && !sidebarCollapsed && (
-                        <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
-                          {badgeCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                          {!sidebarCollapsed && (
+                            <span className="text-[13px] leading-tight truncate flex-1">{a.label}</span>
+                          )}
+                          {!!badgeCount && !sidebarCollapsed && (
+                            <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
+                              {badgeCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
-        {/* Footer status pill */}
-        <div className={`border-t border-border ${sidebarCollapsed ? 'px-2 py-2 flex justify-center' : 'px-3 py-2.5'} bg-muted/20`}>
-          <div className={`flex items-center gap-2 text-[11px] text-muted-foreground ${sidebarCollapsed ? 'justify-center' : ''}`}>
-            <span className="relative flex h-1.5 w-1.5">
+        {/* Footer */}
+        <div className={`border-t border-border ${sidebarCollapsed ? 'px-2 py-2 flex justify-center' : 'px-4 py-3'}`}>
+          {sidebarCollapsed ? (
+            <span className="relative flex h-1.5 w-1.5" title="Live · syncing ledger">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
             </span>
-            {!sidebarCollapsed && <span className="font-medium">Live · syncing ledger</span>}
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <LayoutGrid className="h-6 w-6 shrink-0 text-foreground" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground leading-tight">{totalNavLinks} navigation links</p>
+                <p className="text-xs text-muted-foreground leading-tight">Overview + {totalNavLinks - 1} grouped links</p>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
       )}
@@ -992,6 +1031,7 @@ function FinOpsHome({
   moreSheet, setMoreSheet, openMoreAction, onOpenMobileDrawer,
 }: FinOpsHomeProps) {
   const qc = useQueryClient();
+  const autoRefresh = useFinOpsAutoRefresh();
   const [exploreQuery, setExploreQuery] = useState('');
 
   const { data: totals, isLoading: totalsLoading } = useQuery({
@@ -1037,6 +1077,7 @@ function FinOpsHome({
       };
     },
     staleTime: 15_000,
+    refetchInterval: autoRefresh ? 20_000 : false,
   });
 
   // Broadly-visible count so a stale withdrawal hold can't sit unnoticed for
@@ -1072,126 +1113,89 @@ function FinOpsHome({
     : moreActions;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header row */}
       <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
+          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
             Verify deposits, approve withdrawals and keep the platform balanced.
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           {onOpenMobileDrawer && (
             <button
               type="button"
               onClick={onOpenMobileDrawer}
-              className="lg:hidden inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+              className="lg:hidden inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors min-h-[44px]"
             >
               <Menu className="h-3.5 w-3.5" /> All Tools
             </button>
           )}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" /> Live
-          </span>
           <button
+            type="button"
             onClick={refreshAll}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 sm:px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs"
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs min-h-[44px] sm:min-h-[40px]"
           >
-            <ArrowRightLeft className="h-3.5 w-3.5" /> Refresh
+            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Refresh
           </button>
+          <label
+            className="inline-flex items-center gap-2.5 text-sm font-medium text-foreground cursor-pointer select-none min-h-[44px] sm:min-h-[40px]"
+            title={
+              autoRefresh
+                ? 'Auto-refresh is on. Turn it off to keep the screen stable while you review.'
+                : 'Auto-refresh is off. Numbers will not update until you turn it back on.'
+            }
+          >
+            Auto-refresh
+            <Switch
+              checked={autoRefresh}
+              onCheckedChange={setFinOpsAutoRefresh}
+              aria-label="Toggle auto-refresh"
+            />
+          </label>
         </div>
       </div>
 
       {/* Verified payout destinations — nobody is paid to an unverified number */}
       <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
-      {/* Above-the-fold highest frequency daily operations */}
+      {/* Daily tools */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        <MajorActionButton
-          onClick={() => onOpenTool('cash_codes')}
-          icon={KeyRound}
-          tone="amber"
-          title="Cash Deposit Codes"
-          desc="Read pending codes back to depositors — codes expire in 2 min."
+        <QuickAction onClick={() => onOpenTool('cash_codes')} icon={KeyRound} label="Cash Deposit Codes" />
+        <QuickAction onClick={() => onOpenTool('email_tx')} icon={Mail} label="Email Transactions" />
+        <QuickAction onClick={() => onOpenTool('wallet_buckets')} icon={Wallet} label="Wallet Buckets" />
+        <QuickAction onClick={() => onOpenTool('withdrawals')} icon={Banknote} label="Payout Queue" />
+        <QuickAction onClick={() => onOpenTool('merchant_float')} icon={HandCoins} label="Merchant Float" />
+      </div>
+
+      {/* Queues that need a person */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <ActionStatTile
+          onClick={() => onView('deposits')}
+          icon={ShieldCheck}
+          count={queues?.depositsPending ?? 0}
+          countLabel="Pending verification"
+          title="Verify Deposits"
         />
-        <MajorActionButton
-          onClick={() => onOpenTool('email_tx')}
-          icon={Mail}
-          tone="blue"
-          title="Email Transactions"
-          desc="Live transaction inbox extracted from Gmail."
-        />
-        <MajorActionButton
-          onClick={() => onOpenTool('wallet_buckets')}
-          icon={Wallet}
-          tone="primary"
-          title="Wallet Buckets"
-          desc="Withdrawable, float & advance balances per wallet — spot drift, open the ledger."
-        />
-        <MajorActionButton
+        <ActionStatTile
           onClick={() => onOpenTool('withdrawals')}
-          icon={Banknote}
-          tone="blue"
-          title="Payout Queue"
-          desc={`${queues?.payoutsPending ?? 0} withdrawal${(queues?.payoutsPending ?? 0) === 1 ? '' : 's'} pending payout.`}
-          badgeCount={queues?.payoutsPending}
+          icon={ArrowRightLeft}
+          count={queues?.payoutsPending ?? 0}
+          countLabel="Payout requests"
+          title="Withdrawal Approvals"
         />
-        <MajorActionButton
-          onClick={() => onOpenTool('merchant_float')}
+        <ActionStatTile
+          onClick={() => onOpenTool('merchant_claims')}
           icon={HandCoins}
-          tone="amber"
-          title="Merchant Float"
-          desc={`${queues?.activeClaims ?? 0} active claim${(queues?.activeClaims ?? 0) === 1 ? '' : 's'} & float requests.`}
-          badgeCount={queues?.activeClaims}
+          count={queues?.activeClaims ?? 0}
+          countLabel="Active claims"
+          title="Merchant Claims"
         />
       </div>
 
-      {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
-        <button
-          type="button"
-          onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <Search className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
-                <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Read Only
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                Search every wallet by name, phone, or balance range.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
-              {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
-            </span>
-            {walletBreakdownOpen ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-            )}
-          </div>
-        </button>
-        {walletBreakdownOpen && (
-          <div className="px-4 pb-4 border-t border-border bg-muted/5">
-            <WalletBreakdownReadOnly
-              focusBucket={focusBucket}
-              onClearFocus={onClearFocus}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Hero + Phone Money */}
+      {/* Where the money is */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
         <div className="min-w-0 h-full">
           <WalletOverviewCard
@@ -1205,70 +1209,62 @@ function FinOpsHome({
         </div>
       </div>
 
-      {/* Company money sitting with merchant agents — directly below ACTUAL MONEY */}
+      {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
+      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+              <Search className="h-5 w-5 text-primary" aria-hidden="true" />
+            </div>
+            <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
+            aria-label="Search every wallet by name, phone or balance range"
+            className="flex-1 min-w-[12rem] h-10 inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm text-muted-foreground hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">Search by name, phone or balance range</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
+            aria-expanded={walletBreakdownOpen}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-0"
+          >
+            {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
+            {walletBreakdownOpen ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
+          </button>
+        </div>
+        {walletBreakdownOpen && (
+          <div className="px-4 pb-4 pt-3 border-t border-border bg-muted/5">
+            <WalletBreakdownReadOnly
+              focusBucket={focusBucket}
+              onClearFocus={onClearFocus}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Company money sitting with merchant agents */}
       <MoneyWithAgentsCard onOpenTimeline={() => onOpenTool('cashout_settlement')} />
 
-      {/* Performance, Disputes & Verification */}
-      <div className="space-y-4">
-        {/* Who to give more float, who to cut back — measured from real withdrawals */}
+      {/* Float allocation + merchant balance disputes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
         <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
-
-        {/* Merchant agents reporting a wrong balance — fix it right here */}
         <MerchantBalanceDisputesPanel />
-
-        <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
       </div>
 
-      {/* Flagship action tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ActionStatTile
-          onClick={() => onView('deposits')}
-          icon={ShieldCheck}
-          tone="primary"
-          count={queues?.depositsPending ?? 0}
-          countLabel="Pending Verification"
-          title="Verify Deposits"
-          desc="User top-ups & agent field cash — one place."
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('withdrawals')}
-          icon={Banknote}
-          tone="secondary"
-          count={queues?.payoutsPending ?? 0}
-          countLabel="Payout Requests"
-          title="Withdrawal Approvals"
-          desc="Review and release user withdrawable funds."
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('merchant_claims')}
-          icon={HandCoins}
-          tone="tertiary"
-          count={queues?.activeClaims ?? 0}
-          countLabel="Active Claims"
-          title="Merchant Claims"
-          desc="Operational settlements for cash-out agents."
-        />
-      </div>
+      <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
 
-      {/* Pulse strip — dense KPI row (kept for operators) */}
-      <FinancialOpsPulseStrip
-        onSelect={(key) => {
-          switch (key) {
-            case 'deposits': onView('deposits'); break;
-            case 'cash_out':
-            case 'wallet_ops':
-            case 'invest_wd': onOpenTool('withdrawals'); break;
-            case 'today': onOpenTool('audit'); break;
-          }
-        }}
-      />
-
-      {/* Quick-access footer row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-border">
-        <QuickTile icon={Activity} label="Bridge Health" desc="API connectivity status." onClick={() => onOpenTool('bridge_health')} />
-        <QuickTile icon={Archive} label="Receipt Archive" desc="Every payout receipt." onClick={() => onOpenTool('receipt_archive')} />
-        <QuickTile icon={ArrowRightLeft} label="Cash-Out Timeline" desc="Agent settlement flow." onClick={() => onOpenTool('cashout_settlement')} />
-        <QuickTile icon={MoreHorizontal} label="Explore Tools" desc="Audit & review logs." onClick={onOpenMore} />
+      {/* Quick tools */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-card px-4 py-1.5 shadow-2xs">
+        <span className="text-xs font-bold text-foreground">Quick Tools</span>
+        <QuickLink icon={Activity} label="Bridge Health" onClick={() => onOpenTool('bridge_health')} />
+        <QuickLink icon={Archive} label="Receipt Archive" onClick={() => onOpenTool('receipt_archive')} />
+        <QuickLink icon={ArrowRightLeft} label="Cash-Out Timeline" onClick={() => onOpenTool('cashout_settlement')} />
+        <QuickLink icon={MoreHorizontal} label="Explore Tools" onClick={onOpenMore} />
       </div>
 
       {/* "More" Sheet */}
@@ -1330,145 +1326,70 @@ function FinOpsHome({
 }
 
 function ActionStatTile({
-  onClick, icon: Icon, tone, count, countLabel, title, desc,
+  onClick, icon: Icon, count, countLabel, title,
 }: {
   onClick: () => void;
   icon: typeof ShieldCheck;
-  tone: 'primary' | 'secondary' | 'tertiary';
   count: number;
   countLabel: string;
   title: string;
-  desc: string;
 }) {
-  const toneClass =
-    tone === 'primary'
-      ? 'bg-primary/15 text-primary border-primary/25'
-      : tone === 'secondary'
-      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
-      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25';
-
-  const gradientBg =
-    tone === 'primary'
-      ? 'bg-gradient-to-br from-primary/8 via-card to-card hover:border-primary/50'
-      : tone === 'secondary'
-      ? 'bg-gradient-to-br from-purple-500/8 via-card to-card hover:border-purple-500/50'
-      : 'bg-gradient-to-br from-amber-500/8 via-card to-card hover:border-amber-500/50';
-
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
+      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5 text-left shadow-2xs transition-all hover:border-primary/40 hover:shadow-md min-h-[96px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <div className="flex items-start justify-between gap-3 w-full">
-        <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center shrink-0 border ${toneClass}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="text-right">
-          <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none text-foreground tracking-tight">
-            {count.toLocaleString()}
-          </p>
-          <p className="mt-1 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            {countLabel}
-          </p>
-        </div>
-      </div>
-      <div className="mt-3 sm:mt-4">
-        <p className="font-bold text-sm sm:text-base tracking-tight text-foreground group-hover:text-primary transition-colors flex items-center justify-between">
-          <span>{title}</span>
-          <ChevronRight className="h-4 w-4 text-muted-foreground/60 group-hover:text-foreground group-hover:translate-x-0.5 transition-transform" />
-        </p>
-        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed line-clamp-2">{desc}</p>
-      </div>
+      <span className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+        <Icon className="h-7 w-7" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">{title}</span>
+        <span className="block text-3xl font-black tabular-nums leading-tight text-foreground">{count.toLocaleString()}</span>
+        <span className="block text-sm text-muted-foreground">{countLabel}</span>
+      </span>
+      <ChevronRight className="h-5 w-5 text-muted-foreground/60 shrink-0 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
     </button>
   );
 }
 
-function QuickTile({
-  icon: Icon, label, desc, onClick,
+function QuickAction({
+  icon: Icon, label, onClick,
+}: {
+  icon: typeof KeyRound;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3 py-2.5 text-left shadow-2xs transition-all hover:border-primary/40 hover:shadow-md min-h-[60px] min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <span className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+        <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+      </span>
+      <span className="flex-1 min-w-0 text-[13px] leading-tight font-semibold text-foreground group-hover:text-primary transition-colors">{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 group-hover:text-foreground group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+    </button>
+  );
+}
+
+function QuickLink({
+  icon: Icon, label, onClick,
 }: {
   icon: typeof Activity;
   label: string;
-  desc: string;
   onClick: () => void;
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="group text-left rounded-xl border border-border/80 bg-card p-3.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-xs transition-all min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary flex items-start gap-3"
+      className="inline-flex items-center gap-2 rounded-lg px-2 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <div className="h-8.5 w-8.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4 text-primary" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-1">
-          <p className="text-xs sm:text-sm font-semibold truncate text-foreground group-hover:text-primary transition-colors">{label}</p>
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />
-        </div>
-        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{desc}</p>
-      </div>
+      <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+      {label}
     </button>
   );
 }
-
-function MajorActionButton({
-  onClick, icon: Icon, tone, title, desc, badgeCount,
-}: {
-  onClick: () => void;
-  icon: typeof KeyRound;
-  tone: 'amber' | 'blue' | 'primary' | 'rose';
-  title: string;
-  desc: string;
-  badgeCount?: number;
-}) {
-  const toneBadge =
-    tone === 'amber'
-      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
-      : tone === 'primary'
-      ? 'bg-primary/10 text-primary border-primary/25'
-      : tone === 'rose'
-      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
-      : 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25';
-
-  const accentBorder =
-    tone === 'amber'
-      ? 'hover:border-amber-500/50'
-      : tone === 'primary'
-      ? 'hover:border-primary/50'
-      : tone === 'rose'
-      ? 'hover:border-rose-500/50'
-      : 'hover:border-sky-500/50';
-
-  return (
-    <button
-      onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-2xs ${accentBorder}`}
-    >
-      <div className="flex items-start justify-between gap-2.5 w-full">
-        <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border ${toneBadge}`}>
-          <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
-        </div>
-        <div className="flex items-center gap-1.5">
-          {typeof badgeCount === 'number' && badgeCount > 0 && (
-            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums border ${
-              tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30' :
-              tone === 'primary' ? 'bg-primary/15 text-primary border-primary/30' :
-              tone === 'rose' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30' :
-              'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
-            }`}>
-              {badgeCount}
-            </span>
-          )}
-          <div className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 group-hover:text-foreground group-hover:bg-muted/80 transition-colors">
-            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </div>
-        </div>
-      </div>
-      <div className="mt-3">
-        <p className="font-bold text-sm sm:text-base tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-1">{title}</p>
-        <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed line-clamp-2">{desc}</p>
-      </div>
-    </button>
-  );
-}
-
-

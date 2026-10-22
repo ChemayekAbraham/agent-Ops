@@ -6,6 +6,7 @@ import {
   Minus,
   HelpCircle,
   RefreshCw,
+  FileText,
   ArrowRightLeft,
   AlertTriangle,
   ChevronDown,
@@ -373,43 +374,30 @@ export function MerchantAgentFloatAllocationPanel({
         <button
           type="button"
           onClick={toggleOpen}
-          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           aria-expanded={open}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <TrendingUp className="h-4.5 w-4.5 text-primary" />
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base font-bold tracking-tight text-foreground">Merchant Float Allocation</h2>
-                {!isLoading && withData.length > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                    {increase.length} to increase · {reduce.length} to cut
-                  </span>
-                )}
-              </div>
+              <h2 className="text-sm font-bold tracking-tight text-foreground">Float Allocation Report</h2>
               <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                Who to give more float, who to cut back — based on the last {days} days of withdrawals.
+                Review reliability &amp; float efficiency
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                qc.invalidateQueries({ queryKey: ['merchant-agent-float-allocation'] });
-              }}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+            {!isLoading && withData.length > 0 && (
+              <span className="hidden sm:inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {increase.length} to increase · {reduce.length} to cut
+              </span>
+            )}
             {open ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
             )}
           </div>
         </button>

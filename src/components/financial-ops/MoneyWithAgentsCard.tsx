@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge, History } from 'lucide-react';
+import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge, History, Coins, Smartphone, Undo2, Info, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -48,6 +48,8 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const qc = useQueryClient();
   const [sweeping, setSweeping] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(false);
+  // The overview shows the three headline figures; the working tools sit behind this.
+  const [showDetails, setShowDetails] = useState(false);
   const { canEdit: canEditFloat, readOnlyReason } = useFinancialOpsEditAccess();
 
   // Performance-based capacity: ledger-verified payout record per merchant desk.
@@ -184,96 +186,89 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
     <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 min-w-0 shadow-2xs">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
-            <HandCoins className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+          <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+            <HandCoins className="h-5 w-5 text-primary" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">
-                Money With Merchant Agents
-              </p>
-              <span className="hidden sm:inline-flex items-center rounded-md bg-amber-500/10 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                Float Reconciliation
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Our cash sitting on their phones vs money they already spent for us
+            <h2 className="text-base font-bold tracking-tight text-foreground">Money With Merchant Agents</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Company funds held by agents and reimbursements owed
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={runFloatSweep}
-            disabled={sweeping}
-            className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1 disabled:opacity-50"
-            title="Post the company-float deduction for any payout that completed without one (last 7 days)"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${sweeping ? 'animate-spin' : ''}`} />
-            {sweeping ? 'Repairing…' : 'Repair payout deductions'}
-          </button>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
           {onOpenTimeline && (
             <button
               type="button"
               onClick={onOpenTimeline}
-              className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0"
             >
-              <ArrowRightLeft className="h-3.5 w-3.5" /> Settlement timeline
+              <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" /> Settlement timeline <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            aria-expanded={showDetails}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-0"
+          >
+            {showDetails ? 'Hide details' : 'Show details'}
+            {showDetails ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+          </button>
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Float they can spend now
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold tabular-nums text-primary break-all">
-            {isLoading ? '—' : formatUGX(floatTotal)}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Only float backed by a matching MTN/Airtel record. Unverified amounts are listed
-            separately below and are not counted here.
-          </p>
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
+        <div className="flex items-center gap-3 py-3 sm:py-0 sm:pr-5 min-w-0">
+          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Coins className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Float they can spend now</p>
+            <p className="text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
+              {isLoading ? '—' : formatUGX(floatTotal)}
+            </p>
+          </div>
         </div>
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Our cash still on their phones
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold tabular-nums text-warning break-all">
-            {isLoading ? '—' : formatUGX(heldTotal)}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            Money we sent them that they have not used yet — evidenced portion only
-          </p>
+        <div className="flex items-center gap-3 py-3 sm:py-0 sm:px-5 min-w-0">
+          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Smartphone className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">Our cash still on their phones</p>
+            <p className="text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
+              {isLoading ? '—' : formatUGX(heldTotal)}
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setDebtsOpen(true)}
-          className="rounded-xl border border-border bg-muted/30 p-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/60"
+          className="flex items-center gap-3 py-3 sm:py-0 sm:pl-5 min-w-0 text-left rounded-lg hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           title="See what each agent is owed, the transactions behind it, and download a settlement PDF"
         >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Money we must send back to them
-          </p>
-          <p className="mt-1 font-mono text-xl font-bold tabular-nums text-foreground break-all">
-            {isLoading ? '—' : formatUGX(owedTotal)}
-          </p>
-          <p className="text-[10px] text-muted-foreground mt-1">
-            They used their own phone money to pay our customers. We have not refunded them yet.
-          </p>
-          {!isLoading && underReviewTotal > 0 && (
-            <p className="mt-1 text-[10px] font-semibold text-warning">
-              + {formatUGX(underReviewTotal)} filed but not supported by the books across{' '}
-              {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'} — not payable
-            </p>
-          )}
-          <p className="mt-1 text-[10px] font-medium text-primary">
-            Tap for the per-agent settlement schedule →
-          </p>
+          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Undo2 className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs text-muted-foreground">Money we must send back to them</span>
+            <span className="block text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
+              {isLoading ? '—' : formatUGX(owedTotal)}
+            </span>
+            {!isLoading && underReviewTotal > 0 && (
+              <span className="block mt-0.5 text-[11px] font-semibold text-warning">
+                + {formatUGX(underReviewTotal)} filed but not supported by the books across{' '}
+                {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'} — not payable
+              </span>
+            )}
+          </span>
         </button>
       </div>
+
+      <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+        Only evidenced amounts included. Unverified claims remain separate.
+      </p>
 
       {deficitTotal > 0 && (
         <div className="mt-4 rounded-2xl border-2 border-dashed border-destructive/60 bg-destructive/10 p-3">
@@ -309,6 +304,20 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         </div>
       )}
 
+      {showDetails && (
+        <>
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={runFloatSweep}
+              disabled={sweeping}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1 disabled:opacity-50"
+              title="Post the company-float deduction for any payout that completed without one (last 7 days)"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${sweeping ? 'animate-spin' : ''}`} />
+              {sweeping ? 'Repairing…' : 'Repair payout deductions'}
+            </button>
+          </div>
       {!error && (
         <div className="mt-4 border-t border-border pt-3 space-y-2">
           {isLoading && <p className="text-xs text-muted-foreground">Loading merchant positions…</p>}
@@ -730,6 +739,9 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         </p>
       </div>
 
+        </>
+      )}
+
       <MerchantReconcileDialog
         position={reconciling}
         open={!!reconciling}
@@ -782,13 +794,17 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
 
 
-      <div className="mt-4">
-        <MerchantOwnMoneyReviewPanel />
-      </div>
+      {showDetails && (
+        <>
+          <div className="mt-4">
+            <MerchantOwnMoneyReviewPanel />
+          </div>
 
-      <div className="mt-4">
-        <MerchantDeskFundingSummaryCard />
-      </div>
+          <div className="mt-4">
+            <MerchantDeskFundingSummaryCard />
+          </div>
+        </>
+      )}
     </div>
   );
 }

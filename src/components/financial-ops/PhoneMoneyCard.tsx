@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Smartphone, Info, Banknote, ChevronRight } from 'lucide-react';
+import { Smartphone, Banknote, ChevronRight, ArrowRight } from 'lucide-react';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -69,80 +69,68 @@ export function PhoneMoneyCard() {
   ];
 
   return (
-    <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-card to-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
-      <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
+    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
+      <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Smartphone className="h-5 w-5" />
+          <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
+            <Smartphone className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-                Actual Money
-              </p>
-              <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                Phone Lines + Cash
-              </span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/80 mt-0.5">
-              Real float available on mobile money lines
-            </p>
+            <h2
+              className="text-base font-bold tracking-tight text-foreground truncate"
+              title="Live float confirmed from provider transaction feeds and physically verified cash awaiting banking."
+            >
+              Actual Money
+            </h2>
+            <p className="text-xs text-muted-foreground">Phone lines + cash</p>
           </div>
         </div>
-
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Verified Float
-        </span>
       </div>
 
-      <div className="my-1">
-        <p className={`font-mono text-3xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground break-all ${loading ? 'animate-pulse text-muted-foreground' : ''}`}>
-          {loading ? '—' : formatUGX(total)}
-        </p>
-      </div>
+      <p className={`mt-4 font-mono text-3xl sm:text-4xl font-black tabular-nums tracking-tight text-foreground break-all ${loading ? 'animate-pulse text-muted-foreground' : ''}`}>
+        {loading ? '—' : formatUGX(total)}
+      </p>
 
-      <div className="mt-4 pt-3.5 border-t border-border/80 space-y-2">
+      <div className="mt-5 border-t border-border/80">
         {rows.map((r) => (
           <button
             key={r.label}
             type="button"
             onClick={() => setOpenLine(r.line)}
             aria-label={`View ${r.label} detailed statement`}
-            className="w-full flex items-center justify-between gap-3 min-w-0 rounded-xl p-2.5 text-left bg-background/70 hover:bg-muted/70 active:bg-muted border border-border/70 transition-all hover:border-emerald-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-full flex items-center justify-between gap-3 min-w-0 min-h-[52px] py-2 text-left border-b border-border/60 hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               {r.logo ? (
-                <span className="h-7 w-7 rounded-lg overflow-hidden shrink-0 border border-border bg-background p-0.5 flex items-center justify-center">
-                  <img src={r.logo} alt={r.label} className="w-full h-full object-contain" loading="lazy" />
+                <span className="h-8 w-8 rounded-full overflow-hidden shrink-0 border border-border bg-background flex items-center justify-center">
+                  <img src={r.logo} alt="" className="w-full h-full object-contain" loading="lazy" />
                 </span>
               ) : (
-                <span className="h-7 w-7 rounded-lg shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
-                  <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="h-8 w-8 rounded-full shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
+                  <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 </span>
               )}
-              <div className="min-w-0">
-                <span className="text-sm font-semibold text-foreground truncate block">{r.label}</span>
-                <span className="text-[10px] text-muted-foreground block">Tap for line statement</span>
-              </div>
+              <span className="text-sm font-medium text-foreground truncate">{r.label}</span>
             </div>
             <span className="flex items-center gap-2 shrink-0">
-              <span className="font-mono text-sm font-bold tabular-nums text-foreground">
+              <span className="font-mono text-sm tabular-nums text-foreground">
                 {loading ? '—' : formatUGX(r.amount)}
               </span>
-              <ChevronRight className="h-4 w-4 text-muted-foreground/70" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground/70" aria-hidden="true" />
             </span>
           </button>
         ))}
       </div>
 
-      <div className="flex-1 min-h-[1rem]" />
+      <div className="flex-1 min-h-[0.5rem]" />
 
-      <div className="mt-4 rounded-xl bg-emerald-500/5 border border-emerald-500/15 p-3 flex gap-2.5">
-        <Info className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Live float confirmed from provider transaction feeds and physically verified cash awaiting banking.
-        </p>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpenLine('mtn_momo')}
+        className="mt-3 inline-flex items-center justify-center gap-1.5 self-center rounded-lg px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        View line statements <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
 
       <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
     </div>
