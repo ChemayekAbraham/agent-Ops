@@ -69,6 +69,8 @@ import {
 } from './useTenantCallCenterDialer';
 import { useAuth } from '@/hooks/useAuth';
 import { useSave30mAwareness } from '@/hooks/use30mAwareness';
+import { useHumanCallingPaused } from '@/hooks/useCrmVoiceCall';
+import { CallingPausedNotice } from '@/components/executive/crm/call-centre/CallingPausedNotice';
 
 type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
