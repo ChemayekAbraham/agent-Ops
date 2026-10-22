@@ -21,7 +21,7 @@ export function ScriptFlow({ steps, raw = false }: {steps:ScriptSteps;raw?:boole
 }
 type Draft = {id?:string|null;category:AutocallCategory;name:string;occasion:string;description?:string|null;steps:ScriptSteps};
 function ScriptEditor({ script, category, onClose }: {script:AutocallScript|null;category:AutocallCategory;onClose:()=>void}) {
- const [v,setV] = useState<Draft>(script ? {id:script.id,category:script.category,name:script.name,occasion:script.occasion,description:script.description,steps:structuredClone(script.steps)} : {category,name:'',occasion:'',description:'',steps:structuredClone(blank)});
+ const [v,setV] = useState<Draft>(script ? {id:script.id || null,category:script.category,name:script.name,occasion:script.occasion,description:script.description,steps:structuredClone(script.steps)} : {category,name:'',occasion:'',description:'',steps:structuredClone(blank)});
  const mutation = useSaveScript(); const [warning,setWarning] = useState(false); const issues = checkScript(v.steps);
  const patchStep = (key:string,patch:Partial<ScriptStep>) => setV(prev => ({...prev,steps:{...prev.steps,steps:{...prev.steps.steps,[key]:{...prev.steps.steps[key],...patch}}}}));
  const keys = Object.keys(v.steps.steps); const targets = keys.map(value => ({value,label:value.replace(/_/g,' ')}));
