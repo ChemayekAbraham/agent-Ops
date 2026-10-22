@@ -227,7 +227,7 @@ export function AgentDirectory() {
       </div>
 
       {viewMode === 'region' ? (
-        <AgentRegionBreakdown verifiedOnly={false} />
+        <AgentRegionBreakdown verifiedOnly={false} onOpenAgent={setOpenAgentId} />
       ) : (
         <>
           {/* Search */}
