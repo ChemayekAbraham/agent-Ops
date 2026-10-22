@@ -345,7 +345,7 @@ export function AgentDirectory() {
           className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'region' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
-          <Map className="h-3.5 w-3.5" /> By Region
+          <MapIcon className="h-3.5 w-3.5" /> By Region
         </Button>
       </div>
 
