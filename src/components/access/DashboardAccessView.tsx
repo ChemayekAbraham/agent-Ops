@@ -15,13 +15,26 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
   useDashboardAccess,
   useDashboardAccessSearch,
-  type DashboardAccessGrant,
+  type DashboardEffectivePerson,
   type DashboardAccessPerson,
 } from '@/hooks/useDashboardAccess';
 import { cn } from '@/lib/utils';
 
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : (e as { message?: string })?.message) || 'Something went wrong';
 const roleLabel = (r: string) => r.replace(/_/g, ' ');
+const howLabels: Record<string, string> = {
+  on_list: 'On the list', bypass_cto: 'CTO bypass', bypass_super_admin: 'Super admin bypass',
+  super_admin: 'Super admin', hr_position: 'HR position', role: 'Role',
+};
+const reasonLabels: Record<string, string> = {
+  role_switched_off: 'Role switched off', no_matching_role: "Doesn't hold this dashboard's role",
+  not_on_list: 'Not on the list', needs_manager: 'Needs the manager role to open the page',
+  not_platform_user_admin: 'Page opens but user data is refused',
+};
+const fmtTime = (d: string | null) => {
+  if (!d) return '—';
+  try { return format(new Date(d), 'd MMM yyyy, HH:mm:ss'); } catch { return '—'; }
+};
 const fmtDate = (d: string | null) => {
   if (!d) return '—';
   try { return format(new Date(d), 'd MMM yyyy'); } catch { return '—'; }
@@ -40,11 +53,14 @@ function RoleBadges({ roles }: { roles: string[] }) {
 
 export default function DashboardAccessView() {
   const { toast } = useToast();
-  const { canManage, loading, error, byDashboard, totals, grant, revoke, refresh } = useDashboardAccess();
+  const access = useDashboardAccess();
+  const { canManage, effectiveByDashboard: byDashboard, effectiveTotals: totals, grant, revoke, refresh,
+    bypass_holders, generated_at } = access;
+  const loading = access.loading || access.effectiveLoading;
+  const error = access.error || access.effectiveError;
   const [selectedKey, setSelectedKey] = useState<string>(byDashboard[0]?.key ?? '');
-  const [revokeTarget, setRevokeTarget] = useState<DashboardAccessGrant | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<DashboardEffectivePerson | null>(null);
   const [revokeReason, setRevokeReason] = useState('');
-  const [pendingGrantId, setPendingGrantId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
@@ -66,7 +82,6 @@ export default function DashboardAccessView() {
 
   const doGrant = async (userId: string, reason: string) => {
     if (!selected) return false;
-    setPendingGrantId(userId);
     try {
       const res = await grant.mutateAsync({ userId, dashboard: selected.key, reason });
       toast({ title: res?.already_granted ? 'Already on the list' : 'Access granted', description: selected.label });
@@ -74,8 +89,6 @@ export default function DashboardAccessView() {
     } catch (e) {
       toast({ title: 'Could not grant access', description: errMsg(e), variant: 'destructive' });
       return false;
-    } finally {
-      setPendingGrantId(null);
     }
   };
 
@@ -101,11 +114,14 @@ export default function DashboardAccessView() {
               <KeyRound className="h-5 w-5 text-primary" /> Dashboard Access
             </h2>
             <p className="text-sm text-muted-foreground">
-              Staff can open a staff dashboard only if they are on its list. super_admin and CTO see everything.
+              super_admin and CTO skip the lists on dashboards that admit those roles. Right now: {bypass_holders.length
+                ? bypass_holders.map((p) => `${p.fullName ?? 'Unnamed'} (${p.roles.join(', ')})`).join(', ')
+                : generated_at ? 'No active bypass holders.' : 'Awaiting live access data.'}
             </p>
+            {generated_at && <p className="text-xs text-muted-foreground">Updated {fmtTime(generated_at)}</p>}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="px-3 py-1">On lists: {totals.grants}</Badge>
+            <Badge variant="outline" className="px-3 py-1">Can open: {totals.canOpen}</Badge>
             <Badge
               variant="outline"
               className={cn('px-3 py-1', totals.lockedOut > 0 && 'border-warning text-warning')}
@@ -142,7 +158,7 @@ export default function DashboardAccessView() {
               <SelectContent>
                 {byDashboard.map((d) => (
                   <SelectItem key={d.key} value={d.key}>
-                    {d.label} · {d.grants.length}{d.missing.length > 0 ? ` · ${d.missing.length} locked out` : ''}
+                    {d.label} · {d.can_open.length}{d.locked_out.length + d.listed_cannot_open.length > 0 ? ` · ${d.locked_out.length + d.listed_cannot_open.length} cannot open` : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -152,7 +168,8 @@ export default function DashboardAccessView() {
             <CardContent className="p-2">
               <nav className="flex flex-col gap-1">
                 {byDashboard.map((d) => (
-                  <button
+                  <Button
+                    variant="ghost"
                     key={d.key}
                     onClick={() => setSelectedKey(d.key)}
                     className={cn(
@@ -162,12 +179,12 @@ export default function DashboardAccessView() {
                   >
                     <span className="truncate">{d.label}</span>
                     <span className="flex shrink-0 items-center gap-1">
-                      <Badge variant="secondary">{d.grants.length}</Badge>
-                      {d.missing.length > 0 && (
-                        <Badge variant="outline" className="border-warning text-warning">{d.missing.length}</Badge>
+                      <Badge variant="secondary">{d.can_open.length}</Badge>
+                      {(d.locked_out.length + d.listed_cannot_open.length) > 0 && (
+                        <Badge variant="outline" className="border-warning text-warning">{(d.locked_out.length + d.listed_cannot_open.length)}</Badge>
                       )}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </nav>
             </CardContent>
@@ -183,32 +200,26 @@ export default function DashboardAccessView() {
               </div>
 
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-base">Has access ({selected.grants.length})</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base">Can open ({selected.can_open.length})</CardTitle></CardHeader>
                 <CardContent className="overflow-x-auto p-0">
-                  {selected.grants.length === 0 ? (
-                    <p className="p-4 text-sm text-muted-foreground">Nobody is on this list yet.</p>
+                  {selected.can_open.length === 0 ? (
+                    <p className="p-4 text-sm text-muted-foreground">Nobody can open this dashboard.</p>
                   ) : (
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Phone</TableHead>
-                          <TableHead>Granted by</TableHead>
-                          <TableHead>Granted</TableHead>
-                          <TableHead className="text-right" />
-                        </TableRow>
-                      </TableHeader>
+                      <TableHeader><TableRow>
+                        <TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>How</TableHead>
+                        <TableHead>Granted by</TableHead><TableHead>Granted</TableHead><TableHead className="text-right" />
+                      </TableRow></TableHeader>
                       <TableBody>
-                        {selected.grants.map((g) => (
-                          <TableRow key={g.grantId}>
+                        {selected.can_open.map((g) => (
+                          <TableRow key={g.userId}>
                             <TableCell className="font-medium">{g.fullName ?? 'Unnamed'}</TableCell>
                             <TableCell className="whitespace-nowrap">{g.phone ?? '—'}</TableCell>
+                            <TableCell>{g.how ? howLabels[g.how] ?? '—' : '—'}</TableCell>
                             <TableCell>{g.grantedByName ?? '—'}</TableCell>
                             <TableCell className="whitespace-nowrap">{fmtDate(g.grantedAt)}</TableCell>
                             <TableCell className="text-right">
-                              <Button size="sm" variant="outline" onClick={() => { setRevokeTarget(g); setRevokeReason(''); }}>
-                                Revoke
-                              </Button>
+                              {g.grantId && <Button size="sm" variant="outline" onClick={() => { setRevokeTarget(g); setRevokeReason(''); }}>Revoke</Button>}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -219,36 +230,52 @@ export default function DashboardAccessView() {
               </Card>
 
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-base">Holds the role but locked out ({selected.missing.length})</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-base">On the list but can't open ({selected.listed_cannot_open.length})</CardTitle></CardHeader>
                 <CardContent className="overflow-x-auto p-0">
-                  {selected.missing.length === 0 ? (
+                  {selected.listed_cannot_open.length === 0 ? (
+                    <p className="p-4 text-sm text-muted-foreground">Nobody on this list is blocked.</p>
+                  ) : (
+                    <Table>
+                      <TableHeader><TableRow>
+                        <TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Reason</TableHead>
+                        <TableHead>Granted by</TableHead><TableHead>Granted</TableHead><TableHead className="text-right" />
+                      </TableRow></TableHeader>
+                      <TableBody>
+                        {selected.listed_cannot_open.map((g) => (
+                          <TableRow key={g.userId}>
+                            <TableCell className="font-medium">{g.fullName ?? 'Unnamed'}</TableCell>
+                            <TableCell className="whitespace-nowrap">{g.phone ?? '—'}</TableCell>
+                            <TableCell>{g.reason ? reasonLabels[g.reason] ?? '—' : '—'}</TableCell>
+                            <TableCell>{g.grantedByName ?? '—'}</TableCell>
+                            <TableCell className="whitespace-nowrap">{fmtDate(g.grantedAt)}</TableCell>
+                            <TableCell className="text-right">
+                              {g.grantId && <Button size="sm" variant="outline" onClick={() => { setRevokeTarget(g); setRevokeReason(''); }}>Revoke</Button>}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">Holds the role but locked out ({selected.locked_out.length})</CardTitle></CardHeader>
+                <CardContent className="overflow-x-auto p-0">
+                  {selected.locked_out.length === 0 ? (
                     <p className="p-4 text-sm text-muted-foreground">Everyone with this role has access.</p>
                   ) : (
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Phone</TableHead>
-                          <TableHead>Roles</TableHead>
-                          <TableHead className="text-right" />
-                        </TableRow>
-                      </TableHeader>
+                      <TableHeader><TableRow>
+                        <TableHead>Name</TableHead><TableHead>Phone</TableHead><TableHead>Roles</TableHead><TableHead>Reason</TableHead>
+                      </TableRow></TableHeader>
                       <TableBody>
-                        {selected.missing.map((m) => (
+                        {selected.locked_out.map((m) => (
                           <TableRow key={m.userId}>
                             <TableCell className="font-medium">{m.fullName ?? 'Unnamed'}</TableCell>
                             <TableCell className="whitespace-nowrap">{m.phone ?? '—'}</TableCell>
                             <TableCell><RoleBadges roles={m.roles} /></TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                disabled={grant.isPending}
-                                onClick={() => doGrant(m.userId, 'Granted from Dashboard Access')}
-                              >
-                                {pendingGrantId === m.userId && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                                Grant access
-                              </Button>
-                            </TableCell>
+                            <TableCell>{m.reason ? reasonLabels[m.reason] ?? '—' : '—'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
