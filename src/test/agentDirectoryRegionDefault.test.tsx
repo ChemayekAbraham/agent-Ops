@@ -77,7 +77,7 @@ describe('Agent Directory default view', () => {
     await waitFor(() =>
       expect(document.body.textContent).toMatch(/185 agents across 2 regions/),
     );
-    expect(screen.getByRole('button', { name: /Central/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Central region/ })).toBeInTheDocument();
 
     // The flat register (its search box and row filters) is NOT the landing view.
     expect(screen.queryByPlaceholderText(/Search by name, phone, email/)).toBeNull();

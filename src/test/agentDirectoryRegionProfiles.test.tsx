@@ -117,8 +117,8 @@ const renderDirectory = () =>
 
 const openDistrict = async (district: string) => {
   await screen.findByPlaceholderText('Filter by region or district…');
-  await userEvent.click(screen.getByRole('button', { name: /Central/ }));
-  await userEvent.click(await screen.findByRole('button', { name: new RegExp(district) }));
+  await userEvent.click(screen.getByRole('button', { name: /^Central region/ }));
+  await userEvent.click(await screen.findByRole('button', { name: new RegExp(`^${district} district`) }));
 };
 
 describe('Agent profiles from the By Region view', () => {
@@ -170,7 +170,7 @@ describe('Agent profiles from the By Region view', () => {
   it('keeps the district list closed until it is asked for', async () => {
     renderDirectory();
     await screen.findByPlaceholderText('Filter by region or district…');
-    await userEvent.click(screen.getByRole('button', { name: /Central/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Central region/ }));
 
     // Expanding the region shows district counts only — no register request yet.
     await waitFor(() => expect(screen.getByText('Kyoga')).toBeInTheDocument());

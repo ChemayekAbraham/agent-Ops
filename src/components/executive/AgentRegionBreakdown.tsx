@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronRight, MapPin, Users, ShieldCheck, Activity, Search, X, FileDown, Loader2, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -53,6 +54,10 @@ interface DistrictAgent {
 // of profiles in a single click; past it the reader is sent to the search box.
 const RAW_PAGE = 100;
 const MAX_RAW_PAGES = 10;
+
+// Radix Select cannot use an empty string as an item value, so the "no district
+// chosen" entry in the dropdown gets its own sentinel instead.
+const ALL_DISTRICTS = '__all_districts__';
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-700 border-emerald-300',
@@ -233,6 +238,41 @@ function DistrictAgents({
   );
 }
 
+/**
+ * A region as a one-tap filter. The agent count rides on the chip itself so
+ * the reader can see where the field force actually sits before clicking —
+ * typing "Central" into a box only helps once you already know the name.
+ */
+function AreaChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`${label}: ${count.toLocaleString()} agents${active ? ', selected' : ''}`}
+      className={cn(
+        'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors whitespace-nowrap',
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border text-muted-foreground hover:bg-muted',
+      )}
+    >
+      <span className="truncate">{label}</span>
+      <span className="font-semibold tabular-nums">{count.toLocaleString()}</span>
+    </button>
+  );
+}
+
 export function AgentRegionBreakdown({
   verifiedOnly = false,
   onOpenAgent,
@@ -243,6 +283,8 @@ export function AgentRegionBreakdown({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [openDistrict, setOpenDistrict] = useState<string | null>(null);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [districtKey, setDistrictKey] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<Row[]>({
     queryKey: ['agent-region-breakdown', verifiedOnly],
@@ -276,19 +318,107 @@ export function AgentRegionBreakdown({
   }, [data]);
 
   const term = search.trim().toLowerCase();
+
+  // Region chips, the district dropdown and the text box narrow the same list,
+  // so they compose: pick Central, then a district, and only that district's
+  // row is left standing. The counts below always describe what is on screen.
   const filtered = useMemo(() => {
-    if (!term) return groups;
-    return groups
-      .map((g) => ({
-        ...g,
-        districts: g.districts.filter(
-          (d) => d.district.toLowerCase().includes(term) || g.region.toLowerCase().includes(term),
-        ),
-      }))
-      .filter((g) => g.districts.length > 0 || g.region.toLowerCase().includes(term));
-  }, [groups, term]);
+    let out = regionFilter ? groups.filter((g) => g.region === regionFilter) : groups;
+
+    if (term) {
+      out = out
+        .map((g) => {
+          const regionMatches = g.region.toLowerCase().includes(term);
+          return {
+            ...g,
+            districts: regionMatches ? g.districts : g.districts.filter((d) => d.district.toLowerCase().includes(term)),
+          };
+        })
+        .filter((g) => g.districts.length > 0 || g.region.toLowerCase().includes(term));
+    }
+
+    if (districtKey) {
+      out = out
+        .map((g) => ({ ...g, districts: g.districts.filter((d) => `${g.region}::${d.district}` === districtKey) }))
+        .filter((g) => g.districts.length > 0);
+    }
+
+    return out;
+  }, [groups, regionFilter, districtKey, term]);
 
   const grandTotal = groups.reduce((s, g) => s + g.total, 0);
+
+  // Districts the dropdown can offer: the chosen region's own, or every
+  // region's when "All regions" is active. Biggest first — that is where the
+  // field force actually is.
+  const districtOptions = useMemo(() => {
+    const source = regionFilter ? groups.filter((g) => g.region === regionFilter) : groups;
+    return source
+      .flatMap((g) =>
+        g.districts.map((d) => ({
+          key: `${g.region}::${d.district}`,
+          district: d.district,
+          region: g.region,
+          count: d.agent_count,
+        })),
+      )
+      .sort((a, b) => b.count - a.count);
+  }, [groups, regionFilter]);
+
+  const selectedDistrict = useMemo(
+    () => districtOptions.find((o) => o.key === districtKey) ?? null,
+    [districtOptions, districtKey],
+  );
+
+  // Totals for the current view. A region matched by the text box keeps all of
+  // its districts, so the region's own total is the truthful number there.
+  const scope = useMemo(
+    () =>
+      filtered.reduce(
+        (s, g) => {
+          const ds = g.districts.length ? g.districts : null;
+          return {
+            agents: s.agents + (ds ? ds.reduce((t, d) => t + d.agent_count, 0) : g.total),
+            verified: s.verified + (ds ? ds.reduce((t, d) => t + d.verified_count, 0) : g.verified),
+            active: s.active + (ds ? ds.reduce((t, d) => t + d.active_30d, 0) : g.active),
+          };
+        },
+        { agents: 0, verified: 0, active: 0 },
+      ),
+    [filtered],
+  );
+
+  const filtering = !!regionFilter || !!districtKey || !!term;
+  const scopeLabel = selectedDistrict
+    ? `in ${selectedDistrict.district}, ${selectedDistrict.region}`
+    : regionFilter
+      ? `in ${regionFilter}`
+      : `across ${groups.length} region${groups.length === 1 ? '' : 's'}`;
+
+  const pickRegion = (region: string | null) => {
+    setRegionFilter(region);
+    setDistrictKey(null);
+    setOpenDistrict(null);
+    if (region) setExpanded((prev) => (prev.has(region) ? prev : new Set(prev).add(region)));
+  };
+
+  const pickDistrict = (key: string) => {
+    if (key === ALL_DISTRICTS) {
+      setDistrictKey(null);
+      setOpenDistrict(null);
+      return;
+    }
+    setDistrictKey(key);
+    setOpenDistrict(key);
+    const region = key.slice(0, key.indexOf('::'));
+    setExpanded((prev) => (prev.has(region) ? prev : new Set(prev).add(region)));
+  };
+
+  const clearAreaFilters = () => {
+    setRegionFilter(null);
+    setDistrictKey(null);
+    setOpenDistrict(null);
+  };
 
   const toggle = (region: string) => {
     setExpanded((prev) => {
@@ -405,9 +535,59 @@ export function AgentRegionBreakdown({
         </Button>
       </div>
 
+      {/* Area filters. The region chips carry their own agent count, so the
+          reader can see where the field force sits before clicking anything,
+          and the dropdown goes straight to a district inside the chosen area. */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by region">
+          <AreaChip label="All regions" count={grandTotal} active={!regionFilter} onClick={() => pickRegion(null)} />
+          {groups.map((g) => (
+            <AreaChip
+              key={g.region}
+              label={g.region}
+              count={g.total}
+              active={regionFilter === g.region}
+              onClick={() => pickRegion(g.region)}
+            />
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={districtKey ?? ALL_DISTRICTS} onValueChange={pickDistrict}>
+            <SelectTrigger className="h-9 w-[280px] max-w-full text-xs">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_DISTRICTS}>All districts</SelectItem>
+              {districtOptions.map((o) => (
+                <SelectItem key={o.key} value={o.key}>
+                  {o.district}
+                  {!regionFilter && <span className="text-muted-foreground"> · {o.region}</span>}
+                  <span className="ml-2 tabular-nums text-muted-foreground">{o.count.toLocaleString()}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {filtering && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={clearAreaFilters}>
+              <X className="h-3.5 w-3.5 mr-1" />
+              Clear area
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">{grandTotal.toLocaleString()}</span> agents across{' '}
-        <span className="font-semibold text-foreground">{groups.length}</span> region{groups.length === 1 ? '' : 's'}
+        <span className="font-semibold text-foreground">{scope.agents.toLocaleString()}</span> agents {scopeLabel}
+        {filtering && (
+          <>
+            {' · '}
+            <span className="font-semibold text-foreground">{scope.verified.toLocaleString()}</span> verified
+            {' · '}
+            <span className="font-semibold text-foreground">{scope.active.toLocaleString()}</span> active in 30 days
+          </>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -421,6 +601,7 @@ export function AgentRegionBreakdown({
                 onClick={() => toggle(g.region)}
                 className="w-full flex items-center gap-2 p-2.5 hover:bg-muted/50 transition-colors text-left"
                 aria-expanded={isOpen}
+                aria-label={`${g.region} region, ${g.total.toLocaleString()} agents`}
               >
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -471,6 +652,7 @@ export function AgentRegionBreakdown({
                             type="button"
                             onClick={() => setOpenDistrict(districtOpen ? null : key)}
                             aria-expanded={districtOpen}
+                            aria-label={`${d.district} district, ${d.agent_count.toLocaleString()} agents`}
                             className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted/60 transition-colors text-left"
                           >
                             {onOpenAgent ? (
