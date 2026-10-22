@@ -129,16 +129,16 @@ describe('Region filters in the By Region directory', () => {
     await screen.findByPlaceholderText('Filter by region or district…');
 
     // Counts come from the server's own rows: Central 120 + 40, Eastern 25.
-    expect(await screen.findByRole('button', { name: 'Show Central, 160 agents' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show Eastern, 25 agents' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show All regions, 185 agents' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Central: 160 agents' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eastern: 25 agents' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All regions: 185 agents, selected' })).toBeInTheDocument();
   });
 
   it('narrows the view to one region and recounts when its chip is clicked', async () => {
     renderDirectory();
     await screen.findByPlaceholderText('Filter by region or district…');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show Central, 160 agents' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
 
     // Only Central is left standing; Eastern's card is gone.
     await waitFor(() => expect(screen.queryByRole('button', { name: /^Mbale district/ })).toBeNull());
@@ -155,7 +155,7 @@ describe('Region filters in the By Region directory', () => {
     renderDirectory();
     await screen.findByPlaceholderText('Filter by region or district…');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show Central, 160 agents' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
 
     // The dropdown is scoped to Central — Mbale is not on offer.
     await userEvent.click(screen.getByRole('combobox'));
@@ -182,7 +182,7 @@ describe('Region filters in the By Region directory', () => {
     renderDirectory();
     await screen.findByPlaceholderText('Filter by region or district…');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show Central, 160 agents' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
     await waitFor(() => expect(bodyText()).toMatch(/160 agents in Central/));
 
     await userEvent.click(screen.getByRole('button', { name: 'Clear area' }));
