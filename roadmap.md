@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Make every Agent Directory name visibly clickable in List and By Region, preserving existing profiles and actions.
+- [x] Make every Agent Directory name visibly clickable in List and By Region; 13 tests, safety guards and sample phone/desktop profile-opening checks pass. Existing profiles/actions unchanged; live signed-in verification unavailable with external authentication.
 - [x] Optimize Agent Directory for smartphones: large touch controls, readable contact/activity details and fitting area filters; ten directory tests and isolated 320/390/430px plus desktop navigation checks pass, preview build OK. Live signed-in verification remains unavailable with external authentication; data and actions unchanged.
 - [x] Build Automated Calls Overview, Campaigns, Scripts, Call Log and Paused People using existing hooks; thirteen safeguard tests and guards pass, isolated desktop/phone/light/dark interaction and audio playback checks pass; protected backend/hooks unchanged, no calls placed.
 - [ ] Verify Automated Calls with a live signed-in CRM/CTO/super-admin account — blocked: externally managed authentication cannot be restored by browser tools; live campaign changes and real test calls were not attempted.
