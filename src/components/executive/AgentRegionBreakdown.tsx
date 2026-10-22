@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -303,6 +303,15 @@ export function AgentRegionBreakdown({
   const [regionFilter, setRegionFilter] = useState<string | null>(null);
   const [districtKey, setDistrictKey] = useState<string | null>(null);
 
+  // The same box also searches the register itself, so an agent can be found
+  // by name or phone without knowing their area. Debounced so every keystroke
+  // doesn't hit the server.
+  const [agentTerm, setAgentTerm] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAgentTerm(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<Row[]>({
     queryKey: ['agent-region-breakdown', verifiedOnly],
     queryFn: async () => {
@@ -319,6 +328,28 @@ export function AgentRegionBreakdown({
       }));
     },
     staleTime: 5 * 60_000,
+  });
+
+  // Up to ten agents whose name, phone, district or region matches the term,
+  // read through the same guarded register RPC the List view uses.
+  const agentSearch = useQuery({
+    queryKey: ['agent-region-agent-search', agentTerm],
+    enabled: agentTerm.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+        p_search: agentTerm,
+        p_type: 'all',
+        p_status: 'all',
+        p_limit: 10,
+        p_offset: 0,
+      });
+      if (error) throw error;
+      const json = (data ?? {}) as any;
+      const rows = ((json.rows ?? []) as DistrictAgent[]).filter((a) => !verifiedOnly || a.verified);
+      return { total: Number(json.total_matched ?? 0), rows };
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const groups: RegionGroup[] = useMemo(() => {
@@ -563,10 +594,10 @@ export function AgentRegionBreakdown({
         <div className="relative col-span-2 min-w-0 sm:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Filter by region or district…"
+            placeholder="Search agents, regions or districts…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Filter by region or district"
+            aria-label="Search agents by name, phone, district or region"
             className="pl-10 pr-12 h-12 text-base sm:h-11 sm:text-sm"
           />
           {search && (
@@ -643,6 +674,73 @@ export function AgentRegionBreakdown({
           </>
         )}
       </div>
+
+      {/* Agents matched by the search term itself — by name, phone, district
+          or region. Clicking one opens the same profile the List view opens. */}
+      {agentTerm.length >= 2 && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden" aria-label="Matching agents">
+          <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              Matching agents
+            </span>
+            {agentSearch.isFetching && <Loader2 className="h-3 w-3 animate-spin" />}
+          </div>
+          {agentSearch.error ? (
+            <p className="px-3 py-3 text-xs text-destructive">
+              Couldn&apos;t search agents. {(agentSearch.error as any)?.message}
+            </p>
+          ) : (agentSearch.data?.rows.length ?? 0) === 0 ? (
+            <p className="px-3 py-3 text-xs text-muted-foreground">No agents match &ldquo;{agentTerm}&rdquo;.</p>
+          ) : (
+            <>
+              <div className="divide-y divide-border/40">
+                {agentSearch.data!.rows.map((a) => (
+                  <Button
+                    key={a.id}
+                    variant="ghost"
+                    aria-label={`Open profile for ${a.full_name || 'Unknown Agent'}`}
+                    onClick={() => onOpenAgent?.(a.id)}
+                    className="flex h-auto min-h-11 w-full items-center gap-2 rounded-none px-3 py-2 text-left font-normal whitespace-normal active:scale-100"
+                  >
+                    <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-8 w-8 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-semibold text-primary underline underline-offset-4 break-words">
+                          {a.full_name || 'Unknown Agent'}
+                        </span>
+                        {a.verified && <ShieldCheck className="h-3 w-3 text-success shrink-0" aria-label="Verified" />}
+                      </span>
+                      <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground break-all">
+                        <Phone className="h-3 w-3 shrink-0" />{a.phone || '—'}
+                      </span>
+                    </span>
+                    <span className="hidden shrink-0 items-center gap-1 text-xs text-muted-foreground sm:flex">
+                      <MapPin className="h-3 w-3" />
+                      {[a.district, a.region].filter(Boolean).join(', ') || 'No location'}
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 text-xs px-2 py-0.5 rounded-full border capitalize',
+                        STATUS_STYLE[a.status] ?? STATUS_STYLE.inactive,
+                      )}
+                    >
+                      {a.status}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  </Button>
+                ))}
+              </div>
+              {agentSearch.data!.total > agentSearch.data!.rows.length && (
+                <p className="border-t border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                  Showing the first {agentSearch.data!.rows.length} of{' '}
+                  {agentSearch.data!.total.toLocaleString()} matches — refine the search to narrow it, or use the List
+                  view.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="space-y-1.5">
         {filtered.map((g) => {

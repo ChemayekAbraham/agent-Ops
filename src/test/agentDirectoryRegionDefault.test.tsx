@@ -72,7 +72,7 @@ describe('Agent Directory default view', () => {
     renderDirectory();
 
     // Regional grouping is on screen with the server's own totals.
-    const regionFilter = await screen.findByPlaceholderText('Filter by region or district…');
+    const regionFilter = await screen.findByPlaceholderText('Search agents, regions or districts…');
     expect(regionFilter).toBeInTheDocument();
     await waitFor(() =>
       expect(document.body.textContent).toMatch(/185 agents across 2 regions/),
@@ -80,23 +80,23 @@ describe('Agent Directory default view', () => {
     expect(screen.getByRole('button', { name: /^Central region/ })).toBeInTheDocument();
 
     // The flat register (its search box and row filters) is NOT the landing view.
-    expect(screen.queryByPlaceholderText(/Search by name, phone, email/)).toBeNull();
+    expect(screen.queryByPlaceholderText(/Search by name, phone, district/)).toBeNull();
     expect(screen.queryByText('Any status')).toBeNull();
   });
 
   it('still lets the user switch to the flat list', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     await userEvent.click(screen.getByRole('button', { name: /List/ }));
 
-    expect(await screen.findByPlaceholderText(/Search by name, phone, email/)).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('Filter by region or district…')).toBeNull();
+    expect(await screen.findByPlaceholderText(/Search by name, phone, district/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search agents, regions or districts…')).toBeNull();
   });
 
   it('asks the server for the regional breakdown on open', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     expect(rpcMock).toHaveBeenCalledWith(
       'get_agent_directory_region_breakdown',

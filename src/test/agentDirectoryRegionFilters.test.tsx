@@ -126,7 +126,7 @@ describe('Region filters in the By Region directory', () => {
 
   it('shows each region with its own agent count', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     // Counts come from the server's own rows: Central 120 + 40, Eastern 25.
     expect(await screen.findByRole('button', { name: 'Central: 160 agents' })).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe('Region filters in the By Region directory', () => {
 
   it('narrows the view to one region and recounts when its chip is clicked', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
 
@@ -153,7 +153,7 @@ describe('Region filters in the By Region directory', () => {
 
   it('offers only the chosen region’s districts and loads them when picked', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
 
@@ -180,7 +180,7 @@ describe('Region filters in the By Region directory', () => {
 
   it('brings every region back when the area filter is cleared', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
 
     await userEvent.click(screen.getByRole('button', { name: 'Central: 160 agents' }));
     await waitFor(() => expect(bodyText()).toMatch(/160 agents in Central/));
