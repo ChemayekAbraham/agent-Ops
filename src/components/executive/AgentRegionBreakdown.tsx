@@ -535,9 +535,59 @@ export function AgentRegionBreakdown({
         </Button>
       </div>
 
+      {/* Area filters. The region chips carry their own agent count, so the
+          reader can see where the field force sits before clicking anything,
+          and the dropdown goes straight to a district inside the chosen area. */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by region">
+          <AreaChip label="All regions" count={grandTotal} active={!regionFilter} onClick={() => pickRegion(null)} />
+          {groups.map((g) => (
+            <AreaChip
+              key={g.region}
+              label={g.region}
+              count={g.total}
+              active={regionFilter === g.region}
+              onClick={() => pickRegion(g.region)}
+            />
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={districtKey ?? ALL_DISTRICTS} onValueChange={pickDistrict}>
+            <SelectTrigger className="h-9 w-[280px] max-w-full text-xs">
+              <SelectValue placeholder="All districts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_DISTRICTS}>All districts</SelectItem>
+              {districtOptions.map((o) => (
+                <SelectItem key={o.key} value={o.key}>
+                  {o.district}
+                  {!regionFilter && <span className="text-muted-foreground"> · {o.region}</span>}
+                  <span className="ml-2 tabular-nums text-muted-foreground">{o.count.toLocaleString()}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {filtering && (
+            <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={clearAreaFilters}>
+              <X className="h-3.5 w-3.5 mr-1" />
+              Clear area
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">{grandTotal.toLocaleString()}</span> agents across{' '}
-        <span className="font-semibold text-foreground">{groups.length}</span> region{groups.length === 1 ? '' : 's'}
+        <span className="font-semibold text-foreground">{scope.agents.toLocaleString()}</span> agents {scopeLabel}
+        {filtering && (
+          <>
+            {' · '}
+            <span className="font-semibold text-foreground">{scope.verified.toLocaleString()}</span> verified
+            {' · '}
+            <span className="font-semibold text-foreground">{scope.active.toLocaleString()}</span> active in 30 days
+          </>
+        )}
       </div>
 
       <div className="space-y-1.5">
