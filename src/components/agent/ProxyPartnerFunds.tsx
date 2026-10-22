@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
+import { AgentProxyWithdrawalDialog } from '@/components/agent/AgentProxyWithdrawalDialog';
 import { sharePayoutCardViaWhatsApp, type PayoutCardData } from '@/lib/payoutShareCard';
 import { toast } from 'sonner';
 import {
@@ -162,6 +163,7 @@ export function ProxyPartnerFunds() {
   // obvious the number is the partner's saved one and not something typed here.
   const [payoutSourceLabel, setPayoutSourceLabel] = useState<string | undefined>(undefined);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [splitTarget, setSplitTarget] = useState<{ funderId: string; funderName: string; portfolioId: string; available: number } | null>(null);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [partnerWithdrawalStatus, setPartnerWithdrawalStatus] = useState<Record<string, string>>({});
   const [partnerWithdrawalIds, setPartnerWithdrawalIds] = useState<Record<string, string>>({});
@@ -1147,7 +1149,26 @@ export function ProxyPartnerFunds() {
       return;
     }
 
-    setWithdrawOpen(true);
+    // Portfolios with extra payout numbers (set by Partner Ops) must be split
+    // across those numbers — open the split dialog instead of the single one.
+    let hasExtras = false;
+    if (partner.portfolioId) {
+      const { count } = await supabase
+        .from('portfolio_payout_destinations' as never)
+        .select('id', { count: 'exact', head: true })
+        .eq('portfolio_id', partner.portfolioId);
+      hasExtras = (count ?? 0) > 0;
+    }
+    if (hasExtras) {
+      setSplitTarget({
+        funderId: partner.partnerId,
+        funderName: partner.partnerName,
+        portfolioId: partner.portfolioId!,
+        available: partner.available,
+      });
+    } else {
+      setWithdrawOpen(true);
+    }
 
     try {
       await supabase.from('audit_logs').insert({
