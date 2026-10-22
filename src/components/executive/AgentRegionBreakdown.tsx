@@ -279,19 +279,107 @@ export function AgentRegionBreakdown({
   }, [data]);
 
   const term = search.trim().toLowerCase();
+
+  // Region chips, the district dropdown and the text box narrow the same list,
+  // so they compose: pick Central, then a district, and only that district's
+  // row is left standing. The counts below always describe what is on screen.
   const filtered = useMemo(() => {
-    if (!term) return groups;
-    return groups
-      .map((g) => ({
-        ...g,
-        districts: g.districts.filter(
-          (d) => d.district.toLowerCase().includes(term) || g.region.toLowerCase().includes(term),
-        ),
-      }))
-      .filter((g) => g.districts.length > 0 || g.region.toLowerCase().includes(term));
-  }, [groups, term]);
+    let out = regionFilter ? groups.filter((g) => g.region === regionFilter) : groups;
+
+    if (term) {
+      out = out
+        .map((g) => {
+          const regionMatches = g.region.toLowerCase().includes(term);
+          return {
+            ...g,
+            districts: regionMatches ? g.districts : g.districts.filter((d) => d.district.toLowerCase().includes(term)),
+          };
+        })
+        .filter((g) => g.districts.length > 0 || g.region.toLowerCase().includes(term));
+    }
+
+    if (districtKey) {
+      out = out
+        .map((g) => ({ ...g, districts: g.districts.filter((d) => `${g.region}::${d.district}` === districtKey) }))
+        .filter((g) => g.districts.length > 0);
+    }
+
+    return out;
+  }, [groups, regionFilter, districtKey, term]);
 
   const grandTotal = groups.reduce((s, g) => s + g.total, 0);
+
+  // Districts the dropdown can offer: the chosen region's own, or every
+  // region's when "All regions" is active. Biggest first — that is where the
+  // field force actually is.
+  const districtOptions = useMemo(() => {
+    const source = regionFilter ? groups.filter((g) => g.region === regionFilter) : groups;
+    return source
+      .flatMap((g) =>
+        g.districts.map((d) => ({
+          key: `${g.region}::${d.district}`,
+          district: d.district,
+          region: g.region,
+          count: d.agent_count,
+        })),
+      )
+      .sort((a, b) => b.count - a.count);
+  }, [groups, regionFilter]);
+
+  const selectedDistrict = useMemo(
+    () => districtOptions.find((o) => o.key === districtKey) ?? null,
+    [districtOptions, districtKey],
+  );
+
+  // Totals for the current view. A region matched by the text box keeps all of
+  // its districts, so the region's own total is the truthful number there.
+  const scope = useMemo(
+    () =>
+      filtered.reduce(
+        (s, g) => {
+          const ds = g.districts.length ? g.districts : null;
+          return {
+            agents: s.agents + (ds ? ds.reduce((t, d) => t + d.agent_count, 0) : g.total),
+            verified: s.verified + (ds ? ds.reduce((t, d) => t + d.verified_count, 0) : g.verified),
+            active: s.active + (ds ? ds.reduce((t, d) => t + d.active_30d, 0) : g.active),
+          };
+        },
+        { agents: 0, verified: 0, active: 0 },
+      ),
+    [filtered],
+  );
+
+  const filtering = !!regionFilter || !!districtKey || !!term;
+  const scopeLabel = selectedDistrict
+    ? `in ${selectedDistrict.district}, ${selectedDistrict.region}`
+    : regionFilter
+      ? `in ${regionFilter}`
+      : `across ${groups.length} region${groups.length === 1 ? '' : 's'}`;
+
+  const pickRegion = (region: string | null) => {
+    setRegionFilter(region);
+    setDistrictKey(null);
+    setOpenDistrict(null);
+    if (region) setExpanded((prev) => (prev.has(region) ? prev : new Set(prev).add(region)));
+  };
+
+  const pickDistrict = (key: string) => {
+    if (key === ALL_DISTRICTS) {
+      setDistrictKey(null);
+      setOpenDistrict(null);
+      return;
+    }
+    setDistrictKey(key);
+    setOpenDistrict(key);
+    const region = key.slice(0, key.indexOf('::'));
+    setExpanded((prev) => (prev.has(region) ? prev : new Set(prev).add(region)));
+  };
+
+  const clearAreaFilters = () => {
+    setRegionFilter(null);
+    setDistrictKey(null);
+    setOpenDistrict(null);
+  };
 
   const toggle = (region: string) => {
     setExpanded((prev) => {
