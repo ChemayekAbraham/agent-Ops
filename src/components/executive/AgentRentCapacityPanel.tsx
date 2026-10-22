@@ -37,6 +37,8 @@ type AgentRow = {
   responding_tenant_days: number;
   expected_tenant_days: number;
   paid_last_week: number;
+  /** Summed PINNED bill for the last 7 days — not expected_daily * 7. */
+  expected_weekly: number;
   paid_today: number;
   paid_yesterday: number;
   expected_daily: number;
@@ -303,6 +305,26 @@ export function AgentRentCapacityPanel({
         });
       }
 
+      // 2c) The real 7-day bill. `expected_daily * 7` extrapolated today
+      //     across six finished days, so the target was restated whenever an
+      //     agent's book changed — one more tenant silently raised the target
+      //     for days already worked. This sums the PINNED bill for those days
+      //     and returns the collections answering it, both server-side.
+      const weekByAgent = new Map<string, { expected: number; collected: number }>();
+      {
+        const { data: weekRows, error: weekErr } = await supabase.rpc(
+          'agent_expected_week',
+          { p_agent_ids: agentIds, p_days: 7 },
+        );
+        if (weekErr) console.error('[AgentRentCapacityPanel] weekly bill RPC failed', weekErr);
+        (weekRows || []).forEach((r: any) => {
+          weekByAgent.set(r.agent_id, {
+            expected: Number(r.expected_week) || 0,
+            collected: Number(r.collected_week) || 0,
+          });
+        });
+      }
+
       // 3) Batch fetch profiles
       const profileMap = new Map<string, { name: string; phone: string | null }>();
       const BATCH = 50;
@@ -318,7 +340,14 @@ export function AgentRentCapacityPanel({
 
       const rows: AgentRow[] = agentIds.map((id) => {
         const exp = exposureMap.get(id) || { used: 0, count: 0 };
-        const paid_last_week = paidByAgent.get(id) || 0;
+        // `paidByAgent` reads `repayments`, which held 145 rows platform-wide
+        // over seven days against 1,547 in `agent_collections` — and none at
+        // all for some agents, so this bar read zero while they were
+        // collecting. Prefer the server figure; keep the old map only as a
+        // fallback if the RPC failed outright.
+        const wk = weekByAgent.get(id);
+        const paid_last_week = wk?.collected ?? (paidByAgent.get(id) || 0);
+        const expected_weekly = wk?.expected ?? 0;
         const expected_tenant_days = exp.count * 7;
         const responding_tenant_days = Math.min(
           respondingDaysByAgent.get(id) || 0,
@@ -355,6 +384,7 @@ export function AgentRentCapacityPanel({
           responding_tenant_days,
           expected_tenant_days,
           paid_last_week,
+          expected_weekly,
           paid_today: paid_today_val,
           paid_yesterday,
           expected_daily,
@@ -630,7 +660,7 @@ function CapacityRow({
 
   const bar =
     pct >= 95 ? 'bg-destructive' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500';
-  const expectedWeek = row.expected_daily * 7;
+  const expectedWeek = row.expected_weekly;
   const todayPct = row.expected_daily > 0
     ? Math.min(100, Math.round((row.paid_today / row.expected_daily) * 100))
     : 0;
@@ -692,7 +722,7 @@ function CapacityRow({
         weekly_lapsed_count: (row as any).weekly_lapsed_count ?? 0,
         weekly_expected_week: (row as any).weekly_expected_week ?? 0,
         repayment_rate: row.response_rate,
-        expected_weekly: 0,
+        expected_weekly: row.expected_weekly,
         headroom,
         pct,
         tier: row.tier,

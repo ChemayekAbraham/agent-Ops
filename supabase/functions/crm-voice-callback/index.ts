@@ -105,6 +105,40 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
+  // ---- automated calls share this number: hand their callbacks to the IVR ----
+  // The number's callback URL points here, so the answer, post-transfer and
+  // terminal events of a robot call arrive here too. Match only on our own job
+  // id or the AT session the dialer stored, then forward the request untouched.
+  {
+    let autocallJob: string | null = null;
+    if (UUID_RE.test(clientRequestId)) {
+      const { data } = await admin.from('voice_autocall_jobs').select('id').eq('id', clientRequestId).maybeSingle();
+      autocallJob = data?.id ?? null;
+    }
+    if (!autocallJob && atSessionId) {
+      const { data } = await admin.from('voice_autocall_jobs').select('id').eq('at_session_id', atSessionId).maybeSingle();
+      autocallJob = data?.id ?? null;
+    }
+    if (autocallJob) {
+      const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/voice-autocall-ivr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(p),
+      });
+      return xml((await res.text()).replace(/^<\?xml[^>]*\?>/, ''));
+    }
+  }
+
+  // ---- human calling paused (the line belongs to automated calls) ----
+  // Refusing at the token / place-call step is not enough: a browser may still
+  // hold a voice token for up to an hour. Any live human leg is ended here.
+  const { data: sys } = await admin
+    .from('voice_autocall_system_status')
+    .select('human_calling_paused')
+    .eq('id', 1)
+    .maybeSingle();
+  const humanPaused = sys?.human_calling_paused === true;
+
   const COLS =
     'id, target_phone, status, at_session_id, cancel_requested_at, transport, answered_at, ended_at, at_client_name';
 
@@ -149,6 +183,17 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     session = data ?? null;
+  }
+
+  if (humanPaused && (p.isActive ?? '').trim() === '1') {
+    console.warn('[crm-voice-callback] human calling paused — ending leg', { atSessionId, clientRequestId });
+    if (session && !session.ended_at) {
+      await admin
+        .from('crm_call_sessions')
+        .update({ cancel_requested_at: new Date().toISOString(), failure_reason: 'human_calling_paused' })
+        .eq('id', session.id);
+    }
+    return hangup();
   }
 
   if (!session) {

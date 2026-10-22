@@ -54,6 +54,22 @@ export interface WeeklyForwardingInput {
   perDayBreakdown: { day: string; made: number; received: number; total: number; share: string }[];
   note: string;
   /**
+   * Every call made and taken in the week (all sources). Optional: the two tables are left out when it is not given.
+   * Rows are already arranged by `pivotAllCalls`; the PDF only prints them.
+   */
+  allCalls?: {
+    staff: {
+      name: string;
+      perDay: number[];
+      total: number;
+      kinds: { label: string; perDay: number[]; total: number }[];
+    }[];
+    dailyTotals: number[];
+    grandTotal: number;
+    /** One line per source, then answered / not answered. */
+    summary: string[];
+  } | null;
+  /**
    * 30M Rent Plan awareness stats for the week.
    * Optional: omitted from the PDF section when null (no tracking yet).
    */
@@ -81,6 +97,14 @@ async function loadLogoBase64(): Promise<string | null> {
     return null;
   }
 }
+
+/** The few autotable cell-hook fields the 4b / 4c tables use. */
+type ParseCellData = {
+  section: string;
+  row: { index: number };
+  column: { index: number };
+  cell: { styles: Record<string, unknown> };
+};
 
 const stamp = (d: Date) =>
   d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -343,6 +367,75 @@ export async function generateWeeklyForwardingPdf(
       ]),
       columnStyles: { 0: { cellWidth: 70 } },
     });
+  }
+
+  // ============================ 4b / 4c. All calls made and taken (every source)
+  if (input.allCalls) {
+    const ac = input.allCalls;
+    const cell = (n: number) => (n ? String(n) : '—');
+    const dayCols: Record<number, Record<string, unknown>> = {};
+    input.dayLabels.forEach((_, i) => {
+      dayCols[i + 1] = { halign: 'center', cellWidth: 20 };
+    });
+
+    section('4b · All calls made and taken this week', 60);
+    note(ac.summary.join('  ·  '));
+    if (!ac.staff.length) {
+      note('No call was recorded in this week.');
+    } else {
+      const body: string[][] = ac.staff.map((r) => [r.name, ...r.perDay.map(cell), String(r.total)]);
+      body.push(['Daily total — all calls', ...ac.dailyTotals.map(String), String(ac.grandTotal)]);
+      const lastRow = body.length - 1;
+      table({
+        head: [['Staff member', ...input.dayLabels, 'Weekly total']],
+        body,
+        styles: { ...tableBase.styles, fontSize: 8 },
+        headStyles: { ...tableBase.headStyles, fontSize: 7.5, halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left' },
+          ...dayCols,
+          [input.dayLabels.length + 1]: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
+        },
+        didParseCell: (data: ParseCellData) => {
+          if (data.section === 'head' && data.column.index === 0) data.cell.styles.halign = 'left';
+          if (data.section === 'body' && data.row.index === lastRow) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [237, 229, 249];
+            if (data.column.index === 0) data.cell.styles.halign = 'left';
+          }
+        },
+      });
+
+      section('4c · Who was called', 60);
+      const whoBody: string[][] = [];
+      const subtotalRows = new Set<number>();
+      ac.staff.forEach((r) => {
+        r.kinds.forEach((k, i) => whoBody.push([i === 0 ? r.name : '', k.label, ...k.perDay.map(cell), String(k.total)]));
+        subtotalRows.add(whoBody.length);
+        whoBody.push(['', 'Subtotal', ...r.perDay.map(String), String(r.total)]);
+      });
+      subtotalRows.add(whoBody.length);
+      whoBody.push(['All staff', 'Total', ...ac.dailyTotals.map(String), String(ac.grandTotal)]);
+      table({
+        head: [['Staff member', 'Who was called', ...input.dayLabels, 'Total']],
+        body: whoBody,
+        styles: { ...tableBase.styles, fontSize: 8 },
+        headStyles: { ...tableBase.headStyles, fontSize: 7.5, halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left', fontStyle: 'bold' },
+          1: { cellWidth: 26, halign: 'left' },
+          ...Object.fromEntries(input.dayLabels.map((_, i) => [i + 2, { halign: 'center', cellWidth: 18 }])),
+          [input.dayLabels.length + 2]: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
+        },
+        didParseCell: (data: ParseCellData) => {
+          if (data.section === 'head' && data.column.index <= 1) data.cell.styles.halign = 'left';
+          if (data.section === 'body' && subtotalRows.has(data.row.index)) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [237, 229, 249];
+          }
+        },
+      });
+    }
   }
 
   // ===================================== 5. 30M Rent Plan Awareness Statistics

@@ -344,6 +344,26 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // failed. A successful empty result is a valid zero target.
         console.error('[useAgentCapacityMap] eligibility RPC failed', eligErr);
       }
+
+      // ----- The real 7-day bill, not today's bill multiplied by seven -----
+      // `expected_daily * 7` extrapolates today across six days that already
+      // happened, so it was restated whenever an agent's book changed: taking
+      // on one more tenant silently raised the target for finished days and
+      // dropped the agent's week. agent_expected_week sums the PINNED bill for
+      // the days themselves, and returns the collections answering it from
+      // `agent_collections` — the same book today/yesterday come from.
+      const weekByAgent = new Map<string, { expected: number; collected: number }>();
+      const { data: weekRows, error: weekErr } = await supabase.rpc(
+        'agent_expected_week',
+        { p_agent_ids: agentIds, p_days: 7 },
+      );
+      if (weekErr) console.error('[useAgentCapacityMap] weekly bill RPC failed', weekErr);
+      (weekRows || []).forEach((r: any) => {
+        weekByAgent.set(r.agent_id, {
+          expected: Number(r.expected_week) || 0,
+          collected: Number(r.collected_week) || 0,
+        });
+      });
       const eligByAgent = new Map<string, {
         active_count: number;
         expected_daily: number;
@@ -559,8 +579,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const dailyExpected = eligibilityRpcSucceeded
           ? (elig?.expected_daily ?? 0)
           : 0;
-        const expected_weekly = dailyExpected * 7;
-        const paid_last_week = paidByAgent.get(id) || 0;
+        // Server-side weekly figures. Falls back to 0 (an unmeasured week
+        // looks unmeasured) rather than to dailyExpected * 7, which is the
+        // extrapolation this replaces. `paidByAgent` still backs the DRR cell
+        // counting below, which is a per-day presence measure, not an amount.
+        const wk = weekByAgent.get(id);
+        const expected_weekly = wk?.expected ?? 0;
+        const paid_last_week = wk?.collected ?? (paidByAgent.get(id) || 0);
         const expected_tenant_days = exp.count * 7;
         const responding_tenant_days = Math.min(
           respondingDaysByAgent.get(id) || 0,

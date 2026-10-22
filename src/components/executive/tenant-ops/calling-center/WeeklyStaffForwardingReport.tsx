@@ -29,6 +29,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { KPICard } from '../../KPICard';
 import { generateWeeklyForwardingPdf } from '@/lib/callingCenterWeeklyForwardingPdf';
 import { use30mAwarenessStats } from '@/hooks/use30mAwareness';
+import { CALL_KINDS, pivotAllCalls, type AllCallsRow } from '@/lib/callingCenterAllCalls';
+import { AllCallsWeeklySections } from './AllCallsWeeklySections';
 
 const anyDb = supabase as any;
 
@@ -174,6 +176,21 @@ export function WeeklyStaffForwardingReport() {
     },
     staleTime: 60_000,
   });
+
+  // ---- All calls made and taken this week (additive, read-only) ---------------
+  const allCallsQ = useQuery({
+    queryKey: ['cc-weekly-all-calls', win.fromIso, win.toIso],
+    queryFn: async () => {
+      const { data: rows, error: rpcError } = await anyDb.rpc('cc_weekly_all_calls_report', {
+        p_from: win.fromIso,
+        p_to: win.toIso,
+      });
+      if (rpcError) throw new Error(rpcError.message);
+      return (rows ?? []) as AllCallsRow[];
+    },
+    staleTime: 60_000,
+  });
+  const allCalls = useMemo(() => pivotAllCalls(allCallsQ.data ?? [], win.days.map(isoDay)), [allCallsQ.data, win.days]);
 
   const report = useMemo(() => {
     const rows = data?.forwarded ?? [];
@@ -335,6 +352,28 @@ export function WeeklyStaffForwardingReport() {
           })),
           note:
             'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. The "Resolved by call center" block lists the person who handled and closed the call at the Calling Center with nothing forwarded on, so every call appears either as forwarded or as resolved — never in both. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week.',
+
+          // All calls made and taken — additive tables for the PDF (left out until the figures have loaded).
+          allCalls: allCallsQ.data
+            ? {
+                staff: allCalls.staff.map((s) => ({
+                  name: s.name,
+                  perDay: s.perDay,
+                  total: s.total,
+                  kinds: CALL_KINDS.map((k) => ({ label: k.label, perDay: s.kinds[k.kind].perDay, total: s.kinds[k.kind].total })),
+                })),
+                dailyTotals: allCalls.dailyTotals,
+                grandTotal: allCalls.grandTotal,
+                summary: [
+                  ...(allCalls.bySource.length
+                    ? allCalls.bySource.map((x) => `${x.label}: ${x.calls.toLocaleString()}`)
+                    : ['No call was recorded in this week.']),
+                  ...(allCalls.grandTotal
+                    ? [`Answered: ${allCalls.answered.toLocaleString()}`, `Not answered: ${allCalls.notAnswered.toLocaleString()}`]
+                    : []),
+                ],
+              }
+            : null,
 
           // 30M awareness stats — additive section for the PDF.
           // Pass null if the stats were not yet loaded.
@@ -566,6 +605,12 @@ export function WeeklyStaffForwardingReport() {
             </table>
           )}
         </div>
+        <AllCallsWeeklySections
+          dayLabels={report.dayLabels}
+          pivot={allCalls}
+          isLoading={allCallsQ.isLoading}
+          error={allCallsQ.error}
+        />
         {/* ------------------------------------------------ 30M Awareness stats
              Additive section. The existing forwarding table above is untouched.
         */}

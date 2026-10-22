@@ -12,13 +12,17 @@ import {
 import { toast } from 'sonner';
 import {
   Search, Users, Phone, X, Loader2, UserPlus, Activity,
-  ChevronLeft, ChevronRight, LayoutList, Map, ChevronRight as Chevron,
-  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff,
+  // MapIcon, not Map: the plain name would shadow JavaScript's Map constructor here.
+  ChevronLeft, ChevronRight, LayoutList, Map as MapIcon, ChevronRight as Chevron,
+  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentAvatar } from './AgentAvatar';
 import { AgentRegionBreakdown } from './AgentRegionBreakdown';
 import { AgentProfile360Sheet } from './AgentProfile360Sheet';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 interface DirectoryRow {
   id: string;
@@ -51,6 +55,14 @@ interface DirectoryResponse {
 }
 
 const PAGE_SIZE = 50;
+// Area filters: the register lookup has no area parameter of its own, so an area is
+// fetched by paging its search 100 rows at a time and keeping only true matches.
+const AREA_PAGE_SIZE = 100;
+const AREA_MAX_PAGES = 10;
+const ALL_AREAS = '__all__';
+
+interface AreaRow { region: string; district: string; agent_count: number | string; }
+interface AreaMatch { rows: DirectoryRow[]; truncated: boolean; }
 const TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'agent', label: 'Agents' },
@@ -94,6 +106,14 @@ export function AgentDirectory() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | 'agent' | 'sub_agent'>('all');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('active');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [districtKey, setDistrictKey] = useState<string | null>(null);
+  const activeFilterCount =
+    (type !== 'all' ? 1 : 0) +
+    (status !== 'active' ? 1 : 0) +
+    (regionFilter ? 1 : 0) +
+    (districtKey ? 1 : 0);
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'region'>('region');
@@ -135,7 +155,7 @@ export function AgentDirectory() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  useEffect(() => { setPage(0); }, [type, status]);
+  useEffect(() => { setPage(0); }, [type, status, regionFilter, districtKey]);
 
   const { data, isLoading, isFetching, error } = useQuery<DirectoryResponse>({
     queryKey: ['agent-directory-v2', search, type, status, page],
@@ -154,12 +174,113 @@ export function AgentDirectory() {
     placeholderData: keepPreviousData,
   });
 
-  const rows = data?.rows ?? [];
+  // Area choices come from the same server-side region/district count lookup the
+  // By Region view uses, so the two views can never disagree about what exists.
+  const { data: areaRows = [] } = useQuery<AreaRow[]>({
+    enabled: viewMode === 'list',
+    queryKey: ['agent-region-breakdown', false],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_directory_region_breakdown', {
+        _verified_only: false,
+      });
+      if (error) throw error;
+      return (data ?? []) as unknown as AreaRow[];
+    },
+    staleTime: 300_000,
+  });
+
+  const regionOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of areaRows) m.set(r.region, (m.get(r.region) ?? 0) + Number(r.agent_count || 0));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [areaRows]);
+
+  const districtPick = useMemo(() => {
+    if (!districtKey) return null;
+    const i = districtKey.indexOf('::');
+    return i < 0 ? null : { region: districtKey.slice(0, i), district: districtKey.slice(i + 2) };
+  }, [districtKey]);
+
+  const districtOptions = useMemo(() => {
+    const m = new Map<string, { region: string; district: string; count: number }>();
+    for (const r of areaRows) {
+      if (regionFilter && r.region !== regionFilter) continue;
+      const key = `${r.region}::${r.district}`;
+      m.set(key, {
+        region: r.region,
+        district: r.district,
+        count: (m.get(key)?.count ?? 0) + Number(r.agent_count || 0),
+      });
+    }
+    return [...m.values()].sort(
+      (a, b) => a.district.localeCompare(b.district) || a.region.localeCompare(b.region),
+    );
+  }, [areaRows, regionFilter]);
+
+  const pickRegion = (v: string) => {
+    setRegionFilter(v === ALL_AREAS ? null : v);
+    // District choices are scoped to the region, so a stale pick cannot outlive it.
+    setDistrictKey(null);
+  };
+  const pickDistrict = (v: string) => setDistrictKey(v === ALL_AREAS ? null : v);
+  const clearAreas = () => { setRegionFilter(null); setDistrictKey(null); };
+  const resetFilters = () => { setType('all'); setStatus('active'); clearAreas(); };
+
+  const wantRegion = districtPick ? districtPick.region : regionFilter;
+  const wantDistrict = districtPick ? districtPick.district : null;
+  const areaTerm = wantDistrict ?? wantRegion;
+  const areaMode = Boolean(areaTerm);
+
+  const {
+    data: areaData, isLoading: areaLoading, isFetching: areaFetching, error: areaError,
+  } = useQuery<AreaMatch>({
+    enabled: viewMode === 'list' && areaMode,
+    queryKey: ['agent-directory-area', wantRegion, wantDistrict, type, status],
+    queryFn: async () => {
+      // Ask the register for the area by name (its search already covers region and
+      // district), page it to the end, then keep only rows whose own area fields
+      // really match — a name that merely contains the area word is not in that area.
+      const raw: DirectoryRow[] = [];
+      let truncated = false;
+      for (let i = 0; i < AREA_MAX_PAGES; i++) {
+        const { data: pageData, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+          p_search: areaTerm,
+          p_type: type,
+          p_status: status,
+          p_limit: AREA_PAGE_SIZE,
+          p_offset: i * AREA_PAGE_SIZE,
+        });
+        if (error) throw error;
+        const chunk = (pageData as unknown as DirectoryResponse)?.rows ?? [];
+        raw.push(...chunk);
+        if (chunk.length < AREA_PAGE_SIZE) break;
+        if (i === AREA_MAX_PAGES - 1) truncated = true;
+      }
+      return {
+        rows: raw.filter(r =>
+          (!wantRegion || r.region === wantRegion) &&
+          (!wantDistrict || r.district === wantDistrict),
+        ),
+        truncated,
+      };
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const areaList = areaData?.rows ?? [];
+  const rows = areaMode
+    ? areaList.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+    : (data?.rows ?? []);
   const kpis = data?.kpis;
-  const totalMatched = data?.total_matched ?? 0;
+  const totalMatched = areaMode ? areaList.length : (data?.total_matched ?? 0);
   const totalPages = Math.max(1, Math.ceil(totalMatched / PAGE_SIZE));
   const showingFrom = totalMatched === 0 ? 0 : page * PAGE_SIZE + 1;
   const showingTo = Math.min((page + 1) * PAGE_SIZE, totalMatched);
+  const listBusy = areaMode ? (areaLoading && !areaData) : (isLoading && !data);
+  const listError = areaMode ? areaError : error;
+  const fetching = areaMode ? areaFetching : isFetching;
+  const areaLabel = districtPick ? `${districtPick.district}, ${districtPick.region}` : regionFilter;
 
   const kpiCards = useMemo(() => ([
     { label: 'Total Agents', value: kpis ? fmt(kpis.total_agents) : '—', icon: Users, color: 'text-primary' },
@@ -224,7 +345,7 @@ export function AgentDirectory() {
           className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'region' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
-          <Map className="h-3.5 w-3.5" /> By Region
+          <MapIcon className="h-3.5 w-3.5" /> By Region
         </Button>
       </div>
 
@@ -232,8 +353,9 @@ export function AgentDirectory() {
         <AgentRegionBreakdown verifiedOnly={false} onOpenAgent={setOpenAgentId} />
       ) : (
         <>
-          {/* Search */}
-          <div className="relative">
+          {/* Search + compact filter toggle (phone) */}
+          <div className="flex gap-2">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, phone, district, email, or ID…"
@@ -253,9 +375,47 @@ export function AgentDirectory() {
               </Button>
             )}
           </div>
+            <Button
+              variant="outline"
+              onClick={() => setFiltersOpen(o => !o)}
+              aria-expanded={filtersOpen}
+              aria-label="Show filters"
+              className="sm:hidden h-12 px-3 gap-1.5 shrink-0"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="h-5 min-w-5 px-1.5 text-[10px]">{activeFilterCount}</Badge>
+              )}
+            </Button>
+          </div>
+
+          {/* Active filter summary (phone, collapsed) */}
+          {!filtersOpen && (
+            <div className="sm:hidden flex flex-wrap items-center gap-1.5 text-xs">
+              <Badge variant="secondary">{TYPE_FILTERS.find(t => t.value === type)?.label}</Badge>
+              <Badge variant="secondary">{STATUS_FILTERS.find(s => s.value === status)?.label}</Badge>
+              {(regionFilter || districtKey) && (
+                <Badge variant="secondary" className="gap-1">
+                  {areaLabel}
+                  <button type="button" onClick={clearAreas} aria-label="Clear area filter"
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-muted">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {activeFilterCount > 0 && (
+                <Button variant="link" size="sm" className="h-8 px-1 text-xs"
+                  onClick={resetFilters}>
+                  Reset
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Filters */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className={cn('flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center rounded-xl sm:rounded-none border sm:border-0 border-border p-2 sm:p-0',
+            filtersOpen ? 'flex' : 'hidden')}>
             <div className="grid grid-cols-3 gap-2 sm:flex" role="group" aria-label="Agent type">
               {TYPE_FILTERS.map(t => (
                 <Button variant="outline"
@@ -284,22 +444,63 @@ export function AgentDirectory() {
                 </Button>
               ))}
             </div>
+            {/* Area: region first, then districts scoped to the chosen region */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:ml-auto"
+              role="group" aria-label="Agent area">
+              <Select value={regionFilter ?? ALL_AREAS} onValueChange={pickRegion}>
+                <SelectTrigger aria-label="Filter by region"
+                  className="h-11 w-full min-w-0 rounded-lg sm:w-48">
+                  <SelectValue placeholder="All regions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_AREAS}>All regions</SelectItem>
+                  {regionOptions.map(([r, n]) => (
+                    <SelectItem key={r} value={r}>{r} ({fmt(n)})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={districtKey ?? ALL_AREAS} onValueChange={pickDistrict}>
+                <SelectTrigger aria-label="Filter by district"
+                  className="h-11 w-full min-w-0 rounded-lg sm:w-52">
+                  <SelectValue placeholder="All districts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_AREAS}>All districts</SelectItem>
+                  {districtOptions.map(d => (
+                    <SelectItem key={`${d.region}::${d.district}`} value={`${d.region}::${d.district}`}>
+                      {d.district} ({fmt(d.count)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-            <span>Showing {fmt(totalMatched)} agents &amp; sub-agents</span>
+            <span>
+              {areaMode
+                ? `Showing ${fmt(totalMatched)} agents in ${areaLabel}`
+                : `Showing ${fmt(totalMatched)} agents & sub-agents`}
+            </span>
             {totalMatched > 0 && (
               <span>{showingFrom.toLocaleString()}–{showingTo.toLocaleString()} of {totalMatched.toLocaleString()}</span>
             )}
           </div>
 
-          {error && (
+          {areaMode && areaData?.truncated && (
+            <p className="text-xs text-muted-foreground">
+              This area is large — showing the first {fmt(areaList.length)} agents. Pick a district
+              for the full list.
+            </p>
+          )}
+
+          {listError && (
             <div className="text-center py-6 text-sm text-destructive">
-              Failed to load agents. {(error as any)?.message}
+              Failed to load agents. {(listError as any)?.message}
             </div>
           )}
 
-          {isLoading && !data ? (
+          {listBusy ? (
             <div className="divide-y divide-border border-y border-border">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="h-16 bg-muted/40 animate-pulse" />
@@ -446,12 +647,12 @@ export function AgentDirectory() {
           {totalMatched > PAGE_SIZE && (
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
               <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
-                disabled={page === 0 || isFetching} onClick={() => setPage(p => Math.max(0, p - 1))}>
+                disabled={page === 0 || fetching} onClick={() => setPage(p => Math.max(0, p - 1))}>
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
               </Button>
               <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages.toLocaleString()}</span>
               <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
-                disabled={page >= totalPages - 1 || isFetching} onClick={() => setPage(p => p + 1)}>
+                disabled={page >= totalPages - 1 || fetching} onClick={() => setPage(p => p + 1)}>
                 Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
