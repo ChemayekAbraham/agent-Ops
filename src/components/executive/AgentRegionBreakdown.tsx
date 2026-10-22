@@ -330,6 +330,28 @@ export function AgentRegionBreakdown({
     staleTime: 5 * 60_000,
   });
 
+  // Up to ten agents whose name, phone, district or region matches the term,
+  // read through the same guarded register RPC the List view uses.
+  const agentSearch = useQuery({
+    queryKey: ['agent-region-agent-search', agentTerm],
+    enabled: agentTerm.length >= 2,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+        p_search: agentTerm,
+        p_type: 'all',
+        p_status: 'all',
+        p_limit: 10,
+        p_offset: 0,
+      });
+      if (error) throw error;
+      const json = (data ?? {}) as any;
+      const rows = ((json.rows ?? []) as DistrictAgent[]).filter((a) => !verifiedOnly || a.verified);
+      return { total: Number(json.total_matched ?? 0), rows };
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+
   const groups: RegionGroup[] = useMemo(() => {
     const map = new Map<string, RegionGroup>();
     (data ?? []).forEach((r) => {
