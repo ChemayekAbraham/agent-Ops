@@ -70,8 +70,8 @@
 [data-workspace="finops"] label:not(:has(input[type="checkbox"], input[type="radio"], [role="switch"])) { font-size: 0.8125rem; font-weight: 500; letter-spacing: 0; }
 [data-workspace="finops"] :is(input, select, textarea):focus-visible { outline: 2px solid hsl(var(--ring) / 0.45); outline-offset: 2px; }
 [data-workspace="finops"] [data-finops-part="button"] { border-radius: 0.5rem; box-shadow: none; font-weight: 600; }
-[data-workspace="finops"] [data-finops-part="button"][data-variant="default"] { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: var(--finops-shadow); }
-[data-workspace="finops"] [data-finops-part="button"][data-variant="default"]:hover { background: hsl(var(--primary) / 0.9); }
+[data-workspace="finops"] [data-finops-part="button"][data-variant="default"]:not([class*="bg-destructive"]):not([class*="bg-rose-"]):not([class*="bg-red-"]) { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); box-shadow: var(--finops-shadow); }
+[data-workspace="finops"] [data-finops-part="button"][data-variant="default"]:not([class*="bg-destructive"]):not([class*="bg-rose-"]):not([class*="bg-red-"]):hover { background: hsl(var(--primary) / 0.9); }
 [data-workspace="finops"] [data-finops-part="button"][data-variant="outline"] { background: hsl(var(--card)); border-color: hsl(var(--border)); }
 [data-workspace="finops"] [data-finops-part="button"][data-variant="outline"]:hover { background: hsl(var(--accent)); }
 [data-workspace="finops"] [data-finops-part="button"][data-variant="secondary"] { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
@@ -104,4 +104,21 @@
 }
 @media (prefers-reduced-motion: reduce) {
   [data-workspace="finops"] *, [data-workspace="finops"][data-finops-part="portal"] { animation: none; transition: none; }
+}
+/* Legacy handmade surfaces and tool headers follow the same opt-in contract.
+   Status indicators, diagrams and the exported confirmation artwork are excluded. */
+[data-workspace="finops"] :is(div, section)[class*="rounded"][class*="border"]:not([class*="border-destructive"]):not([class*="border-warning"]):not([class*="border-success"]):not([class*="border-amber"]):not([class*="border-emerald"]):not([class*="border-rose"]):not([class*="border-orange"]):not([class*="border-green"]):not([class*="border-red"]):not([style]) {
+  border-radius: var(--radius);
+  border-color: hsl(var(--border));
+}
+[data-workspace="finops"] div[class*="border-b"][class*="bg-gradient"] { background: hsl(var(--card)); }
+[data-workspace="finops"] [data-finops-part="card"][class*="border-warning"] { border-color: hsl(var(--warning) / 0.6); }
+[data-workspace="finops"] [data-finops-part="card"][class*="border-success"] { border-color: hsl(var(--success) / 0.4); }
+[data-workspace="finops"] [data-finops-part="card"][class*="border-destructive"] { border-color: hsl(var(--destructive) / 0.4); }
+[data-workspace="finops"] .finops-inbox > div:first-child { background: hsl(var(--muted)); border-color: hsl(var(--border)); }
+[data-workspace="finops"] .finops-inbox > div:first-child button[class*="bg-background"] { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
+[data-workspace="finops"] [role="dialog"] h2, [data-workspace="finops"][role="dialog"] h2, [data-workspace="finops"][role="alertdialog"] h2 { font-size: 1.125rem; padding-right: 1.75rem; }
+[data-workspace="finops"][data-finops-part="tooltip"] { font-size: 0.8125rem; letter-spacing: 0; }
+@media (max-width: 639px) {
+  [data-workspace="finops"] nav button, [data-workspace="finops"] .finops-inbox > div:first-child button { min-height: 2.75rem; }
 }

@@ -69,7 +69,7 @@ export function PhoneMoneyCard() {
   ];
 
   return (
-    <div className="rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/8 via-card to-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
       <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-10 w-10 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">

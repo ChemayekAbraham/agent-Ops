@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { FinOpsScope } from './FinOpsScope';
 import { Component, useEffect, useState, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 // Eagerly imported: only what's needed on the Home view.
@@ -391,12 +392,9 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
 
   // Shared back button — bigger tap target, consistent label & spacing.
   const SubBack = ({ onClick }: { onClick: () => void }) => (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors h-10 -ml-2 px-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
+    <Button variant="outline" size="sm" onClick={onClick} className="gap-2">
       <ArrowLeft className="h-4 w-4" /> Back to Financial Ops
-    </button>
+    </Button>
   );
 
   // Sub-view: Verify Deposits (unified — user TIDs + field/agent cash)
@@ -1354,10 +1352,10 @@ function ActionStatTile({
 
   const gradientBg =
     tone === 'primary'
-      ? 'bg-gradient-to-br from-primary/8 via-card to-card hover:border-primary/50'
+      ? 'bg-card hover:border-primary/50'
       : tone === 'secondary'
-      ? 'bg-gradient-to-br from-purple-500/8 via-card to-card hover:border-purple-500/50'
-      : 'bg-gradient-to-br from-amber-500/8 via-card to-card hover:border-amber-500/50';
+      ? 'bg-card hover:border-primary/50'
+      : 'bg-card hover:border-warning/50';
 
   return (
     <button
