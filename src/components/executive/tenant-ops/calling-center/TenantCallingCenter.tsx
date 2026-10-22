@@ -150,6 +150,10 @@ export function TenantCallingCenter() {
   const awarenessFieldsRef = useRef<ThirtyMAwarenessFieldsHandle>(null);
   const { user } = useAuth();
   const save30m = useSave30mAwareness();
+  // The automated call line owns the phone number while the pause is on: the
+  // server refuses every in-app call, so dial buttons hide and a notice explains.
+  const { data: humanCallingPause } = useHumanCallingPaused();
+  const callingPaused = !!humanCallingPause?.paused;
 
   /** Ref for the dialer's current subject — initialised after dialer is defined below. */
   const dialerCurrentRef = useRef<typeof dialer.current>(null);
@@ -381,6 +385,7 @@ export function TenantCallingCenter() {
 
   return (
     <div className="space-y-4 pb-32 sm:pb-28">
+      <CallingPausedNotice />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3 sm:p-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="rounded-xl bg-primary/15 p-2 text-primary">
