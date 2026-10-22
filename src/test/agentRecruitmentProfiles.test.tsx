@@ -3,11 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const rpc = vi.fn();
+const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
 vi.mock('@/components/executive/AgentBioEditor', () => ({
   AgentBioEditor: ({ agentId }: { agentId: string }) => <div>Profile details: {agentId}</div>,
 }));
+vi.mock('@/components/executive/AgentEligibilityHistoryStrip', () => ({ AgentEligibilityHistoryStrip: () => null }));
+vi.mock('@/components/executive/AgentRepaymentCalendar', () => ({ AgentRepaymentCalendar: () => null }));
 import { AgentProfile360Sheet } from '@/components/executive/AgentProfile360Sheet';
 
 describe('Recruitment sub-agent profiles', () => {
@@ -29,7 +31,7 @@ describe('Recruitment sub-agent profiles', () => {
       bio: { full_name: 'Recruiting agent' },
       recruitment: { sub_agents: [{ id: 'child', full_name: 'Onboarded agent', phone: '0700000000', status: 'verified' }] },
     });
-    // Start on Profile before Overview's existing collection reads can run.
+    // Keep the unrelated Overview collection queries cached.
     client.setQueryData(['agent-expected-week', 'parent'], { expected: 0, collected: 0 });
     client.setQueryData(['agent-target-cards', 'parent'], []);
     client.setQueryData(['agent-collection-performance', 'parent', 'weekly'], []);
