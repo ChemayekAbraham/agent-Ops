@@ -96,7 +96,7 @@ export function AgentDirectory() {
   const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('active');
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'region'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'region'>('region');
   const [freezeTarget, setFreezeTarget] = useState<DirectoryRow | null>(null);
   const [freezeReason, setFreezeReason] = useState('');
   const [freezing, setFreezing] = useState(false);
