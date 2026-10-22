@@ -65635,6 +65635,28 @@ export type Database = {
           total_ugx: number
         }[]
       }
+      agent_expected_week: {
+        Args: { p_agent_ids: string[]; p_days?: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
+      agent_expected_week__impl: {
+        Args: { p_agent_ids: string[]; p_days: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
         Args: { p_agent_id: string }
