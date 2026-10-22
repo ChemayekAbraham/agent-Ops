@@ -82570,6 +82570,20 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_access_review: {
+        Args: never
+        Returns: {
+          days_since_sign_in: number
+          email_2fa_enabled: boolean
+          flags: string[]
+          full_name: string
+          has_staff_permission: boolean
+          last_sign_in_at: string
+          password_change_recorded: boolean
+          roles: string[]
+          user_id: string
+        }[]
+      }
       staff_create_redemption_request: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
