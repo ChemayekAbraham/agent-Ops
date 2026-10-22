@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight, MapPin, Users, ShieldCheck, Activity, Search, X, FileDown, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Users, ShieldCheck, Activity, Search, X, FileDown, Loader2, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { AgentAvatar } from './AgentAvatar';
+import { formatUGX } from '@/lib/agentAdvanceCalculations';
 
 interface Row {
   region: string;
@@ -26,9 +28,221 @@ interface RegionGroup {
   districts: Row[];
 }
 
-export function AgentRegionBreakdown({ verifiedOnly = false }: { verifiedOnly?: boolean }) {
+/**
+ * One agent as returned by the directory register. Only the fields this
+ * drill-down renders are declared — the profile panel fetches the rest.
+ */
+interface DistrictAgent {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  verified: boolean;
+  region: string | null;
+  district: string | null;
+  agent_kind: 'agent' | 'sub_agent';
+  total_tenants: number;
+  daily_target: number;
+  collected_today: number;
+  status: 'active' | 'inactive' | 'frozen';
+}
+
+// The register caps every request at 100 rows, so a district is read a page at
+// a time. The ceiling keeps one district from paging through tens of thousands
+// of profiles in a single click; past it the reader is sent to the search box.
+const RAW_PAGE = 100;
+const MAX_RAW_PAGES = 10;
+
+const STATUS_STYLE: Record<string, string> = {
+  active: 'bg-emerald-500/10 text-emerald-700 border-emerald-300',
+  inactive: 'bg-muted text-muted-foreground border-border',
+  frozen: 'bg-destructive/10 text-destructive border-destructive/30',
+};
+
+/**
+ * Agents of a single district, opened by clicking the district row.
+ *
+ * The regional summary RPC only ever returns counts, so the names come from the
+ * same guarded register RPC the List view uses (`get_agent_directory_v2`). That
+ * RPC filters by a free-text term, so the rows it returns are narrowed here to
+ * the exact district (and region) the reader clicked — a district name that
+ * also appears in someone's name, phone or territory must not leak into the
+ * list. Nothing is invented: every row shown came from the server.
+ */
+function DistrictAgents({
+  region,
+  district,
+  onOpenAgent,
+}: {
+  region: string;
+  district: string;
+  onOpenAgent: (id: string) => void;
+}) {
+  const [pages, setPages] = useState(1);
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ['agent-directory-district', region, district, pages],
+    queryFn: async () => {
+      const seen = new Set<string>();
+      const exact: DistrictAgent[] = [];
+      const districtOnly: DistrictAgent[] = [];
+      let exhausted = false;
+
+      for (let i = 0; i < pages; i++) {
+        const { data, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+          p_search: district,
+          p_type: 'all',
+          p_status: 'all',
+          p_limit: RAW_PAGE,
+          p_offset: i * RAW_PAGE,
+        });
+        if (error) throw error;
+
+        const rows = ((data as any)?.rows ?? []) as DistrictAgent[];
+        for (const r of rows) {
+          if (!r?.id || seen.has(r.id)) continue;
+          seen.add(r.id);
+          if (r.district !== district) continue;
+          if (r.region === region) exact.push(r);
+          else districtOnly.push(r);
+        }
+
+        if (rows.length < RAW_PAGE) {
+          exhausted = true;
+          break;
+        }
+      }
+
+      // Region labels come from the same normalisation on both sides, but if
+      // they ever drift the district's own agents are still worth showing
+      // rather than an empty panel.
+      return { agents: exact.length ? exact : districtOnly, exhausted };
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2 px-4 py-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-10 rounded-lg bg-muted/50 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-3 text-xs text-destructive">
+        Couldn&apos;t load the agents in {district}. {(error as any)?.message}
+      </div>
+    );
+  }
+
+  const agents = data?.agents ?? [];
+  const capped = pages * RAW_PAGE >= MAX_RAW_PAGES;
+
+  return (
+    <div className="bg-background/50">
+      <div className="flex items-center justify-between gap-2 px-4 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+        <span>
+          {agents.length.toLocaleString()} agent{agents.length === 1 ? '' : 's'} in {district}
+        </span>
+        {isFetching && !isLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+      </div>
+
+      {agents.length === 0 ? (
+        <p className="px-4 py-3 text-xs text-muted-foreground">No agents listed in {district} yet.</p>
+      ) : (
+        <div className="divide-y divide-border/40">
+          {agents.map((a) => (
+            <div
+              key={a.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => onOpenAgent(a.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenAgent(a.id);
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 text-left hover:bg-muted/60 transition-colors cursor-pointer"
+            >
+              <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-7 w-7" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-semibold truncate">{a.full_name || 'Unknown Agent'}</span>
+                  {a.verified && <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" aria-label="Verified" />}
+                  {a.agent_kind === 'sub_agent' && (
+                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                      Sub-Agent
+                    </Badge>
+                  )}
+                </div>
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                  <Phone className="h-2.5 w-2.5 shrink-0" />
+                  {a.phone || '—'}
+                </span>
+              </div>
+              <span
+                className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0"
+                title="Tenants"
+              >
+                <Users className="h-3 w-3" />
+                <span className="font-semibold text-foreground">{a.total_tenants}</span>
+              </span>
+              <span className="hidden md:block text-[11px] tabular-nums shrink-0 text-right">
+                <span className={cn('font-semibold', Number(a.collected_today) > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
+                  {formatUGX(Number(a.collected_today || 0))}
+                </span>
+                <span className="text-muted-foreground"> / {formatUGX(Number(a.daily_target || 0))}</span>
+              </span>
+              <span
+                className={cn(
+                  'text-[9px] px-1.5 py-0.5 rounded-full border capitalize shrink-0',
+                  STATUS_STYLE[a.status] ?? STATUS_STYLE.inactive,
+                )}
+              >
+                {a.status}
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data && !data.exhausted && (
+        <div className="flex items-center justify-between gap-2 px-4 py-2">
+          <span className="text-[10px] text-muted-foreground">
+            {capped
+              ? 'This district has more agents than shown here — use the filter above or the List view.'
+              : 'More agents in this district.'}
+          </span>
+          {!capped && (
+            <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={isFetching} onClick={() => setPages((p) => p + 2)}>
+              {isFetching && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+              Load more
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function AgentRegionBreakdown({
+  verifiedOnly = false,
+  onOpenAgent,
+}: {
+  verifiedOnly?: boolean;
+  onOpenAgent?: (id: string) => void;
+}) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
+  const [openDistrict, setOpenDistrict] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<Row[]>({
     queryKey: ['agent-region-breakdown', verifiedOnly],
@@ -159,7 +373,7 @@ export function AgentRegionBreakdown({ verifiedOnly = false }: { verifiedOnly?: 
       <div className="text-center py-10 text-muted-foreground">
         <MapPin className="h-8 w-8 mx-auto mb-2 opacity-30" />
         <p className="text-sm font-medium">No location data yet</p>
-        <p className="text-xs mt-1">Agents haven't set a region or district on their profile.</p>
+        <p className="text-xs mt-1">Agents haven&apos;t set a region or district on their profile.</p>
       </div>
     );
   }
@@ -248,26 +462,50 @@ export function AgentRegionBreakdown({ verifiedOnly = false }: { verifiedOnly?: 
                   {g.districts
                     .slice()
                     .sort((a, b) => b.agent_count - a.agent_count)
-                    .map((d) => (
-                      <div
-                        key={`${g.region}::${d.district}`}
-                        className="flex items-center gap-2 px-4 py-2 text-xs"
-                      >
-                        <span className="flex-1 truncate text-foreground">{d.district}</span>
-                        <Badge variant="secondary" className="text-[10px] gap-1">
-                          <Users className="h-3 w-3" />
-                          {d.agent_count.toLocaleString()}
-                        </Badge>
-                        <span className="hidden sm:flex items-center gap-1 text-emerald-600 w-14 justify-end">
-                          <ShieldCheck className="h-3 w-3" />
-                          {d.verified_count.toLocaleString()}
-                        </span>
-                        <span className="hidden sm:flex items-center gap-1 text-blue-600 w-14 justify-end">
-                          <Activity className="h-3 w-3" />
-                          {d.active_30d.toLocaleString()}
-                        </span>
-                      </div>
-                    ))}
+                    .map((d) => {
+                      const key = `${g.region}::${d.district}`;
+                      const districtOpen = openDistrict === key;
+                      return (
+                        <div key={key}>
+                          <button
+                            type="button"
+                            onClick={() => setOpenDistrict(districtOpen ? null : key)}
+                            aria-expanded={districtOpen}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted/60 transition-colors text-left"
+                          >
+                            {onOpenAgent ? (
+                              districtOpen ? (
+                                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                              )
+                            ) : (
+                              <span className="w-3 shrink-0" />
+                            )}
+                            <span className="flex-1 truncate text-foreground">{d.district}</span>
+                            <Badge variant="secondary" className="text-[10px] gap-1">
+                              <Users className="h-3 w-3" />
+                              {d.agent_count.toLocaleString()}
+                            </Badge>
+                            <span className="hidden sm:flex items-center gap-1 text-emerald-600 w-14 justify-end">
+                              <ShieldCheck className="h-3 w-3" />
+                              {d.verified_count.toLocaleString()}
+                            </span>
+                            <span className="hidden sm:flex items-center gap-1 text-blue-600 w-14 justify-end">
+                              <Activity className="h-3 w-3" />
+                              {d.active_30d.toLocaleString()}
+                            </span>
+                          </button>
+                          {districtOpen && onOpenAgent && (
+                            <DistrictAgents
+                              region={g.region}
+                              district={d.district}
+                              onOpenAgent={onOpenAgent}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               )}
             </div>

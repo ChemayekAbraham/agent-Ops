@@ -71,3 +71,5 @@
 - [x] Polish email collection and self-editor presentation, preserving eligibility, verification and agent editing.
 - [x] Run 10 focused tests and isolated desktop/mobile checks; guards and preview compilation pass; deployed email backend, hooks and migrations untouched.
 - [ ] Verify email delivery and confirmation on a live signed-in account — blocked: external Supabase authentication is unavailable to browser tools; isolated flow checks passed without sending email.
+- [x] Open agent profiles from the Agent Directory By Region view: district rows expand to that district's agents via the existing guarded register RPC (exact district+region match, capped paging), each row opens the existing profile panel; six tests, guards and preview build pass; no database changes.
+- [ ] Verify the regional agent drill-down with a live signed-in Agent Ops account — blocked: externally managed authentication cannot be restored by browser tools; real district lists and profile panels were not opened live.

@@ -73304,6 +73304,10 @@ export type Database = {
         }[]
       }
       get_dashboard_access_overview: { Args: never; Returns: Json }
+      get_dashboard_effective_access: {
+        Args: { p_bypass_roles: string[]; p_rules: Json }
+        Returns: Json
+      }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
