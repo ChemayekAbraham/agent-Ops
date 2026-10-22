@@ -37,3 +37,18 @@ describe('report period filter', () => {
     expect(rdReportUpdatesForPeriod(updates, 'today', '2026-10-14').map((u) => u.date)).toEqual(['2026-10-14']);
   });
 });
+
+describe('report period range and new-update date', () => {
+  it('gives the exact calendar window of each period', () => {
+    expect(rdPeriodRange('last', '2026-10-14')).toEqual({ start: '2026-10-07', end: '2026-10-13' });
+    expect(rdPeriodRange('today', '2026-10-14')).toEqual({ start: '2026-10-14', end: '2026-10-14' });
+    expect(rdPeriodRange('next', '2026-10-14')).toEqual({ start: '2026-10-15', end: '2026-10-21' });
+    expect(rdPeriodRange('all', '2026-10-14')).toBeNull();
+  });
+  it('dates a newly recorded update inside the chosen period', () => {
+    expect(rdNewUpdateDate('next', '2026-10-14')).toBe('2026-10-15');
+    expect(rdNewUpdateDate('last', '2026-10-14')).toBe('2026-10-07');
+    expect(rdNewUpdateDate('today', '2026-10-14')).toBe('2026-10-14');
+    expect(rdNewUpdateDate('all', '2026-10-14')).toBe('2026-10-14');
+  });
+});
