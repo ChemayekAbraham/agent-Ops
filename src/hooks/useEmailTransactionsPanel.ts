@@ -243,7 +243,8 @@ export function useEmailTransactionsPanel() {
   const [focusDirection, setFocusDirection] = useState<'in' | 'out' | null>(null);
   // Inside a money-in / money-out focused view, emails render Gmail-style by
   // default; operators can flip to the detailed ops rows for routing actions.
-  const [focusView, setFocusView] = useState<'gmail' | 'ops'>('gmail');
+  // 'table' = table + detail panel (default); 'gmail' = inbox reading view; 'ops' = detailed ops rows.
+  const [focusView, setFocusView] = useState<'table' | 'gmail' | 'ops'>('table');
   // Gmail-style label rail: collapsed by default on phones, always visible on
   // desktop (mirrors Gmail's hamburger behaviour).
   const [gmailNavOpen, setGmailNavOpen] = useState(false);

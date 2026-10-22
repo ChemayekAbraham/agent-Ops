@@ -514,3 +514,56 @@ export function deriveChannel(r: GmailTx, cache?: Record<string, ChannelCacheEnt
   }
   return computed;
 }
+
+/** Colour family for a wallet-status pill; the view maps each to its own classes. */
+export type WalletStatusTone = 'green' | 'amber' | 'red' | 'blue' | 'violet' | 'grey';
+
+export interface WalletStatusInput {
+  history: Array<{ route: string; reason: string; amount: number | null; created_at: string; target_user_name: string | null }>;
+  credited: Array<{ amount: number; credited_at: string | null; user_name: string }>;
+  manualMark: { mark: 'credited' | 'uncredited' } | null;
+  /** The email already has a ledger credit (same signal `isNeedsRouting` uses). */
+  ledgerHit: boolean;
+  /** Routed in this session, before the history reload has caught up. */
+  justRouted: boolean;
+}
+
+/**
+ * One plain-language "what happened to this money" label for a row. Same
+ * priority order as the status pill the inbox/ops rows show inline:
+ * reversed → credited → charged → routed → still waiting. Returns null for
+ * rows with nothing to settle (unreadable emails, bank echoes of our own payouts).
+ */
+export function deriveWalletStatus(
+  r: GmailTx,
+  s: WalletStatusInput,
+): { label: string; tone: WalletStatusTone } | null {
+  if (isUnparsedRow(r)) return { label: 'Needs review', tone: 'red' };
+  if (isWelileOutboundEcho(r)) return null;
+  const isOutgoing = r.direction === 'out' || r.direction === 'charge';
+  const isReversed = s.history.some((h) => /revers/i.test(h.reason || ''));
+  if (isReversed) return { label: 'Reversed', tone: 'red' };
+
+  const emailAmount = Number(r.amount ?? 0);
+  const totalCredited = s.credited.reduce((sum, c) => sum + c.amount, 0);
+  const isCredited = s.manualMark
+    ? s.manualMark.mark === 'credited'
+    : s.credited.length > 0 || s.ledgerHit || s.justRouted;
+  if (isCredited) {
+    const full = s.manualMark?.mark === 'credited' || s.ledgerHit || s.justRouted
+      || (emailAmount > 0 && totalCredited >= emailAmount);
+    return full ? { label: 'Credited', tone: 'green' } : { label: 'Partially credited', tone: 'amber' };
+  }
+
+  const isAutoDebited = s.history.some(
+    (h) => h.route === 'withdrawable_debit' && /^DEBIT\b/i.test(h.reason || ''),
+  );
+  if (isAutoDebited) {
+    const viaProxy = s.history.some((h) => /via managed proxy/i.test(h.reason || ''));
+    return { label: viaProxy ? 'Charged (proxy)' : 'Charged', tone: 'blue' };
+  }
+  if (s.history.length > 0) return { label: 'Routed', tone: 'violet' };
+  if (r.direction === 'in') return { label: 'Awaiting routing', tone: 'amber' };
+  if (isOutgoing && emailAmount > 0) return { label: 'Not charged yet', tone: 'grey' };
+  return null;
+}
