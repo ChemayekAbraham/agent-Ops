@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rdWeeklyUpdates, rdDateOffset, rdReportUpdatesForPeriod } from '@/lib/rdWeeklyUpdates';
+import { rdWeeklyUpdates, rdDateOffset, rdReportUpdatesForPeriod, rdPeriodRange, rdNewUpdateDate } from '@/lib/rdWeeklyUpdates';
 
 const updates = ['2026-10-06', '2026-10-07', '2026-10-13', '2026-10-14', '2026-10-15', '2026-10-21', '2026-10-22']
   .map((date) => ({ id: date, date, text: `Recorded ${date}` }));
