@@ -55,6 +55,10 @@ interface DistrictAgent {
 const RAW_PAGE = 100;
 const MAX_RAW_PAGES = 10;
 
+// Radix Select cannot use an empty string as an item value, so the "no district
+// chosen" entry in the dropdown gets its own sentinel instead.
+const ALL_DISTRICTS = '__all_districts__';
+
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-700 border-emerald-300',
   inactive: 'bg-muted text-muted-foreground border-border',
@@ -231,6 +235,41 @@ function DistrictAgents({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A region as a one-tap filter. The agent count rides on the chip itself so
+ * the reader can see where the field force actually sits before clicking —
+ * typing "Central" into a box only helps once you already know the name.
+ */
+function AreaChip({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={active ? `${label}, showing only this area` : `Show ${label}`}
+      className={cn(
+        'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors whitespace-nowrap',
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border text-muted-foreground hover:bg-muted',
+      )}
+    >
+      <span className="truncate">{label}</span>
+      <span className="font-semibold tabular-nums">{count.toLocaleString()}</span>
+    </button>
   );
 }
 
