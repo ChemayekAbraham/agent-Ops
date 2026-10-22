@@ -22,6 +22,8 @@ import {
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
+import { CallingPausedNotice } from './CallingPausedNotice';
+import { useHumanCallingPaused } from '@/hooks/useCrmVoiceCall';
 import { CallSummaryHistorySheet } from './CallSummaryHistorySheet';
 
 const initials = (name: string) =>
@@ -126,6 +128,9 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   // next click.
   useRestoreBodyPointerEvents();
   const { target, preview, dial, dialPreview, close } = useCallDialer();
+  // The automated call line pauses human calling; call buttons hide while it lasts.
+  const { data: humanCallingPause } = useHumanCallingPaused();
+  const paused = !!humanCallingPause?.paused;
   const counts = usePlatformPeopleCounts();
 
   const [queryInput, setQueryInput] = useState('');
@@ -223,6 +228,7 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
 
   return (
     <div className="space-y-3">
+      <CallingPausedNotice />
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-base font-bold text-foreground">People / Calls</h2>
@@ -379,16 +385,18 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
                         <Eye className="h-3.5 w-3.5" />
                         Test
                       </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => dial(dialTarget(person))}
-                        aria-label={`Call ${person.name}`}
-                      >
-                        <PhoneCall className="h-3.5 w-3.5" />
-                        Call
-                      </Button>
+                      {!paused && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => dial(dialTarget(person))}
+                          aria-label={`Call ${person.name}`}
+                        >
+                          <PhoneCall className="h-3.5 w-3.5" />
+                          Call
+                        </Button>
+                      )}
                     </div>
                   </div>
                   <RoleBadges roles={person.roles} />
@@ -458,16 +466,18 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
                             <Eye className="h-3.5 w-3.5" />
                             Test
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-8 px-2.5 text-xs gap-1.5 shadow-sm"
-                            onClick={() => dial(dialTarget(person))}
-                            aria-label={`Call ${person.name}`}
-                          >
-                            <PhoneCall className="h-3.5 w-3.5" />
-                            Call
-                          </Button>
+                          {!paused && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 px-2.5 text-xs gap-1.5 shadow-sm"
+                              onClick={() => dial(dialTarget(person))}
+                              aria-label={`Call ${person.name}`}
+                            >
+                              <PhoneCall className="h-3.5 w-3.5" />
+                              Call
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -518,12 +528,16 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
         avatarUrl={historyFor?.avatarUrl ?? null}
         open={!!historyFor}
         onOpenChange={(o) => !o && setHistoryFor(null)}
-        onCall={() => {
-          if (!historyFor) return;
-          const next = dialTarget(historyFor);
-          setHistoryFor(null);
-          dial(next);
-        }}
+        onCall={
+          paused
+            ? undefined
+            : () => {
+                if (!historyFor) return;
+                const next = dialTarget(historyFor);
+                setHistoryFor(null);
+                dial(next);
+              }
+        }
       />
 
       <CallDrawer target={target} open={!!target} preview={preview} onOpenChange={(o) => !o && close()} />
