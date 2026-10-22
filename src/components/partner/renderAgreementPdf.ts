@@ -70,11 +70,12 @@ export function scopeStylesToRoot(styles: string): string {
 }
 
 const REPORT_FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap';
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap';
 
 /**
- * The report templates are set in Inter / JetBrains Mono. The print window loads
- * them itself, but the off-screen render lives in the app page, so load them
+ * The report templates are set in Inter / JetBrains Mono (the partner statement
+ * in Outfit). The print window loads them itself, but the off-screen render
+ * lives in the app page, so load them
  * here too (best effort, bounded) or the PDF falls back to a system font and
  * stops matching the template.
  */
@@ -92,6 +93,7 @@ async function ensureReportFonts(): Promise<void> {
     const wanted = [
       '400 10px Inter', '500 10px Inter', '600 10px Inter', '700 10px Inter', '800 10px Inter', '900 10px Inter',
       '400 10px "JetBrains Mono"', '600 10px "JetBrains Mono"', '700 10px "JetBrains Mono"',
+      '400 10px Outfit', '500 10px Outfit', '600 10px Outfit', '700 10px Outfit', '800 10px Outfit', '900 10px Outfit',
     ];
     await Promise.race([
       Promise.all(wanted.map((f) => fonts.load(f).catch(() => null))),

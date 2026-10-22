@@ -53,7 +53,7 @@ describe('buildPartnerStatementHtml', () => {
     const many = Array.from({ length: 70 }, (_, i) =>
       portfolio({ id: `id-${String(i).padStart(8, '0')}`, code: `WPF-${i}` }));
     const html = buildPartnerStatementHtml(data(many));
-    const pages = (html.match(/class="report-page rules-primary"/g) ?? []).length;
+    const pages = (html.match(/class="report-page statement-theme"/g) ?? []).length;
     expect(pages).toBeGreaterThan(2);
     expect(html).toContain(`PAGE 1 OF ${pages}`);
     expect(html).toContain(`PAGE ${pages} OF ${pages}`);
@@ -78,10 +78,12 @@ describe('buildPartnerStatementHtml', () => {
     // every page opts in, so the scoped rules reach all its tables
     expect(html).not.toMatch(/class="report-page"/);
     // every rule colour is redefined in the primary purple, so no line stays black
-    const block = html.slice(html.indexOf('.rules-primary {'));
+    const block = html.slice(html.indexOf('.statement-theme {'));
     for (const v of ['--rule-strong', '--rule-medium', '--rule-table']) {
       expect(block).toContain(`${v}: #6900CC;`);
     }
+    expect(block).toMatch(/--font-sans: 'Outfit'/);
+    expect(block).toContain('--font-mono: var(--font-sans);');
   });
 
   it('escapes partner-controlled text', () => {

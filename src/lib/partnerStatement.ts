@@ -411,7 +411,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
         </table>
       </div>
     </section>`;
-    return `<article class="report-page rules-primary">
+    return `<article class="report-page statement-theme">
   <div class="page-content">
     ${i === 0 ? `${header}${note}` : running('STATEMENT OF ACCOUNT &mdash; MASTER SCHEDULE', i + 1)}
     ${section}
@@ -423,7 +423,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   const entryPages = entryChunks.map((chunk, i) => {
     const pageNo = scheduleChunks.length + i + 1;
     const isLast = i === entryChunks.length - 1;
-    return `<article class="report-page rules-primary">
+    return `<article class="report-page statement-theme">
   <div class="page-content">
     ${running('STATEMENT OF ACCOUNT &mdash; PORTFOLIO SCHEDULES', pageNo)}
     <div class="portfolio-schedule-list">
@@ -436,7 +436,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   });
 
   const panelPage = panelOnOwnPage
-    ? [`<article class="report-page rules-primary">
+    ? [`<article class="report-page statement-theme">
   <div class="page-content">
     ${running('STATEMENT OF ACCOUNT &mdash; COMPLETION', total)}
     <div class="portfolio-schedule-list">${completion}</div>
