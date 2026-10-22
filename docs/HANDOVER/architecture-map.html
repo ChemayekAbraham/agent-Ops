@@ -1625,7 +1625,8 @@
             <ul style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.6; padding-left: 1.1rem;">
               <li><strong>audit_logs is append-only:</strong> UPDATE, DELETE and TRUNCATE are refused for every role; only the CFO correction function can edit, and it keeps an edit_history.</li>
               <li><strong>staff_access_review():</strong> quarterly access report (59 staff, 10 admins on 2026-10-22). Callable by super_admin, ceo, cto, access_admin.</li>
-              <li><strong>Open:</strong> no enforced second factor for staff (the emailed-code screen was switched off on 2026-10-17 and the server never checked it); 39 of 59 staff have no recorded password change. See docs/security/ for the compliance matrix, the MFA design and the registers.</li>
+              <li><strong>Staff MFA (authenticator app), report-only:</strong> a restrictive policy on all 926 public tables and a check in 56 money/role-writing functions are in place; mode is <code>shadow</code> so nothing is blocked. Switch with <code>set_staff_mfa_mode()</code>, which refuses while anyone in scope has not enrolled (0 of 59 enrolled on 2026-10-22). Needs the app enrol/challenge screens before admin mode.</li>
+              <li><strong>Open:</strong> the old emailed-code screen was switched off on 2026-10-17 and the server never checked it; 39 of 59 staff have no recorded password change. See docs/security/ for the compliance matrix, the MFA design and the registers.</li>
             </ul>
           </div>
         `
