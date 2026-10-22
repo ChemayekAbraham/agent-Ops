@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 import { AgentProductProgress } from './AgentProductProgress';
+import { SmartphoneRepaymentMethodSection } from './SmartphoneRepaymentMethodSection';
 
 interface AgentDetail {
   agent: {
@@ -111,21 +112,15 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
   const { data: partnership } = useQuery({
     queryKey: ['agent-product-partnership', agentId],
     enabled: !!agentId,
+    // Via RPC: investor_portfolios RLS hides other users' rows from Agent Ops.
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('investor_portfolios')
-        .select('investment_amount, roi_percentage, total_roi_earned, status')
-        .eq('investor_id', agentId!);
+      const { data, error } = await supabase.rpc('get_agent_partnership_summary' as any, { p_agent_id: agentId });
       if (error) throw error;
-      const active = (data || []).filter((p: any) => p.status === 'active');
-      const amount = active.reduce((s: number, p: any) => s + Number(p.investment_amount || 0), 0);
-      const earned = active.reduce((s: number, p: any) => s + Number(p.total_roi_earned || 0), 0);
-      const monthly = active.reduce(
-        (s: number, p: any) => s + (Number(p.investment_amount || 0) * Number(p.roi_percentage || 0)) / 100,
-        0,
-      );
+      const d = (data ?? {}) as { count?: number; amount?: number; earned?: number; monthly?: number };
+      const amount = Number(d.amount || 0);
+      const monthly = Number(d.monthly || 0);
       const rate = amount > 0 ? (monthly / amount) * 100 : 0;
-      return { count: active.length, amount, earned, monthly, rate };
+      return { count: Number(d.count || 0), amount, earned: Number(d.earned || 0), monthly, rate };
     },
   });
 
@@ -162,20 +157,18 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     );
   }, [data?.items]);
 
-  // Only display valid active recovery plans matching actual active items
+  // Only display live recovery plans. The RPC already scopes plans to this agent's sales and
+  // category; plan amounts include charges (e.g. phone price + monthly charge), so they are
+  // not matched against item prices.
   const plans = useMemo(() => {
     return (data?.plans ?? []).filter((p) => {
       const st = (p.status || '').toLowerCase();
       if (['cancelled', 'terminated', 'inactive', 'rejected'].includes(st)) return false;
       // Exclude zero-deduction duplicate/abandoned plans from rejected attempts
       if (Number(p.daily_deduction_amount || 0) === 0 && Number(p.amount_recovered || 0) === 0) return false;
-      if (items.length > 0) {
-        const itemAmounts = new Set(items.map((it) => Number(it.amount || 0)));
-        if (!itemAmounts.has(Number(p.original_amount || 0))) return false;
-      }
       return true;
     });
-  }, [data?.plans, items]);
+  }, [data?.plans]);
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -291,6 +284,10 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                   </div>
                 )}
               </div>
+
+              {agentId && (!category || category === 'smart_phone') && (
+                <SmartphoneRepaymentMethodSection agentId={agentId} monthlyReturns={partnership?.monthly ?? 0} />
+              )}
 
               <Separator />
 
