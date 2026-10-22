@@ -73,3 +73,4 @@
 - [ ] Verify email delivery and confirmation on a live signed-in account — blocked: external Supabase authentication is unavailable to browser tools; isolated flow checks passed without sending email.
 - [x] Open agent profiles from the Agent Directory By Region view: district rows expand to that district's agents via the existing guarded register RPC (exact district+region match, capped paging), each row opens the existing profile panel; six tests, guards and preview build pass; no database changes.
 - [ ] Verify the regional agent drill-down with a live signed-in Agent Ops account — blocked: externally managed authentication cannot be restored by browser tools; real district lists and profile panels were not opened live.
+- [x] Add region filter chips with agent counts, a district dropdown scoped to the chosen region and a filtered count line to the By Region directory; ten directory tests pass, typecheck clean, no database changes.
