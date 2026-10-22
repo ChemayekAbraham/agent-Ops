@@ -19,11 +19,12 @@ describe('landlordPayoutNumberState', () => {
     expect(none.canSendOtp).toBe(false);
   });
 
-  it('an approved number that differs from the record can still send, with a notice', () => {
-    const r = landlordPayoutNumberState({ verificationStatus: 'verified', approvedNumber: '0777 990 220', onFileNumber: '0775929888' });
+  it('an approved number that differs from the registered number is blocked', () => {
+    const r = landlordPayoutNumberState({ verificationStatus: 'verified', approvedNumber: '0742799042', onFileNumber: '0749889347' });
     expect(r.state).toBe('ready_differs_from_record');
-    expect(r.canSendOtp).toBe(true);
-    expect(r.tone).toBe('info');
+    expect(r.canSendOtp).toBe(false);
+    expect(r.tone).toBe('blocked');
+    expect(r.title).toContain('does not match the number registered');
   });
 
   it('matching numbers in different formats are ready', () => {

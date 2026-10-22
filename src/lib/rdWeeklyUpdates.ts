@@ -2,6 +2,7 @@ import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
 export type RdUpdate = { id: string; date: string; text: string };
 export type RdWeekPeriod = 'last' | 'today' | 'next';
+export type RdReportPeriod = RdWeekPeriod | 'all';
 export const RD_UPDATES_KEY = 'rd-project-updates-v1';
 
 export function rdDateOffset(date: string, offset: number): string {
@@ -15,6 +16,26 @@ export function rdWeeklyUpdates(updates: RdUpdate[], period: RdWeekPeriod, today
   const end = period === 'last' ? rdDateOffset(today, -1) : period === 'next' ? rdDateOffset(today, 7) : today;
   return updates.filter((u) => /^\d{4}-\d{2}-\d{2}$/.test(u.date) && u.date >= start && u.date <= end)
     .slice().sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Updates included in a report for the chosen period; 'all' keeps every recorded update. */
+export function rdReportUpdatesForPeriod(updates: RdUpdate[], period: RdReportPeriod, today = kampalaTodayYmd()): RdUpdate[] {
+  return period === 'all' ? updates : rdWeeklyUpdates(updates, period, today);
+}
+
+export type RdPeriodRange = { start: string; end: string };
+
+/** Calendar window of a report period; null when the whole record is included. */
+export function rdPeriodRange(period: RdReportPeriod, today = kampalaTodayYmd()): RdPeriodRange | null {
+  if (period === 'all') return null;
+  const start = period === 'last' ? rdDateOffset(today, -7) : period === 'next' ? rdDateOffset(today, 1) : today;
+  const end = period === 'last' ? rdDateOffset(today, -1) : period === 'next' ? rdDateOffset(today, 7) : today;
+  return { start, end };
+}
+
+/** Default date for a newly recorded update so it falls inside the chosen period. */
+export function rdNewUpdateDate(period: RdReportPeriod, today = kampalaTodayYmd()): string {
+  return rdPeriodRange(period, today)?.start ?? today;
 }
 
 export function loadRdUpdates(): Record<string, RdUpdate[]> {

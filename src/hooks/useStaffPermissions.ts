@@ -16,17 +16,41 @@ import type { AppRole } from '@/hooks/auth/types';
  *
  * See ROLLOUT.md, step 4.
  */
-const BYPASS_ROLES: AppRole[] = ['super_admin', 'cto'];
+export const BYPASS_ROLES: AppRole[] = ['super_admin', 'cto'];
 
 /**
  * Roles that implicitly grant their own dashboard.
  *
- * A user holding the `cfo` role can open the CFO dashboard with no row in
- * staff_permissions. This is a policy choice, not a technical requirement:
- * empty this array if the business wants an explicit grant for every
- * dashboard, including a person's own function.
+ * Empty since 2026-10-21: holding a role (cfo, cmo, ...) no longer counts as
+ * being on that dashboard's allowlist. Every staff dashboard needs an active
+ * staff_permissions row, granted by super_admin, CTO or HR through
+ * grant_dashboard_access (migration 20261021180000).
  */
-const SELF_ROLE_DASHBOARDS: string[] = ['ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'rd'];
+const SELF_ROLE_DASHBOARDS: string[] = [];
+
+/**
+ * Staff role → the dashboard key that role works from. RoleGuard uses this
+ * for staff-only routes that name no explicit key: the person must hold one
+ * of the route's roles AND be allowlisted for that role's dashboard.
+ * Roles not listed here (employee, super_admin, ...) never qualify on their
+ * own on such routes; super_admin and cto pass through BYPASS_ROLES.
+ */
+export const ROLE_DASHBOARD_KEY: Record<string, string> = {
+  ceo: 'ceo',
+  coo: 'coo',
+  cfo: 'cfo',
+  cmo: 'cmo',
+  crm: 'crm',
+  hr: 'hr',
+  rd: 'rd',
+  manager: 'company-ops',
+  operations: 'company-ops',
+  financial_ops: 'financial-ops',
+  agent_ops: 'agent-ops',
+  tenant_ops: 'tenant-ops',
+  landlord_ops: 'landlord-ops',
+  partner_ops: 'partner-ops',
+};
 
 /**
  * The last permission answer for each signed-in person, kept for the life of the page.

@@ -10,6 +10,10 @@ project_id = "byrzshwlentqvktcksem"
   # must keep the default verify_jwt = true plus its own role gate.
   [functions.crm-voice-callback]
     verify_jwt = false
+  # Automated call centre IVR: same reason. It honours only our own job id and
+  # the AT sessionId the dialer stored, and rejects inbound.
+  [functions.voice-autocall-ivr]
+    verify_jwt = false
   # Same reason: Africa's Talking POSTs its SMS Delivery Report with no JWT, so
   # with the default verify_jwt every callback was rejected 401 before the
   # function body ran. That is why sms_delivery_log has never held a single

@@ -216,7 +216,6 @@ const STAFF_ROLE_LABELS: Record<string, string> = {
   employee: 'Staff',
   operations: 'Operations',
   hr: 'HR',
-  access_admin: 'Access Admin',
   rd: 'R&D',
   tenant_ops: 'Tenant Ops',
   landlord_ops: 'Landlord Ops',

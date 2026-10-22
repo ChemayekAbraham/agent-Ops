@@ -23,6 +23,7 @@ import { generateCode, hashCode } from "../_shared/twoFactorEmail.ts";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
 import { sendNewDeviceAlert, sessionIdFromJwt } from "../_shared/newDeviceAlert.ts";
+import { resolveTrustedClientIp } from "../_shared/resolveClientIp.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,6 +98,9 @@ Deno.serve(async (req) => {
         p_hw_fp: FP_RE.test(hwFp) ? hwFp : null,
         p_user_agent: String(body?.user_agent ?? "").slice(0, 300) || null,
         p_session_id: sessionIdFromJwt(token),
+        // Read from the request, never from what the device says: lets the same
+        // browser with a fresh device id be recognised (same hardware + same IP).
+        p_ip: resolveTrustedClientIp(req),
       });
       if (error) {
         console.error("[device-step-up] register_login_device failed:", error.message);

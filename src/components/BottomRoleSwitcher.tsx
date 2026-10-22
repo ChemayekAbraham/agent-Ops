@@ -13,6 +13,7 @@ import { useDeployedCapital } from "@/hooks/useDeployedCapital";
 import { useRoleAccessRequests } from "@/hooks/useRoleAccessRequests";
 import { areAllRolesUnlocked } from "@/hooks/useAppPreferences";
 import ApplyForRoleDialog from "@/components/ApplyForRoleDialog";
+import { effectiveRoles } from "@/lib/roleFallback";
 import {
   FLOATING_NAV_ITEM,
   FLOATING_NAV_LABEL,
@@ -51,7 +52,7 @@ const STAFF_ROLES: AppRole[] = [
 
 const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRoleChange }: BottomRoleSwitcherProps) {
   const navigate = useNavigate();
-  const { user, roles } = useAuth();
+  const { user, roles, rolesResolved } = useAuth();
   const { isQualifiedInvestor } = useDeployedCapital(user?.id);
   const { hasApplied, requestRole } = useRoleAccessRequests(user?.id);
 
@@ -73,7 +74,8 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
     if (areAllRolesUnlocked()) return false;
     // Users who already have every role (or an all-access staff role) are never gated.
     if (hasAllPublicRoles || hasAllAccessStaffRole) return false;
-    if (roles.includes(role)) return false;
+    // While roles have not loaded, the agent role stays usable (roleFallback).
+    if (effectiveRoles(roles, rolesResolved).includes(role)) return false;
     return true;
   };
 

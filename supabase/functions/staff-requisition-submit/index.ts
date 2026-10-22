@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { requisitionSmsRecipients } from "../_shared/requisitionSmsPolicy.ts";
+import { UUID_RE, budgetLineRejectionResponse } from "../_shared/requisitionBudgetLine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,6 +20,10 @@ function json(body: unknown, status = 200) {
 
 function fmtUGX(n: number) {
   return `UGX ${Math.round(n).toLocaleString("en-US")}`;
+}
+
+function budgetLineRejection(message: string | null | undefined) {
+  return budgetLineRejectionResponse(message, json);
 }
 
 Deno.serve(async (req) => {
@@ -61,6 +66,12 @@ Deno.serve(async (req) => {
     const attachments = Array.isArray(body.attachment_urls)
       ? body.attachment_urls.slice(0, 10).map((u: unknown) => String(u))
       : [];
+    // The weekly budget line this requisition spends. The database trigger
+    // trg_requisition_budget_line_guard decides whether it is required and valid.
+    const budgetLineId = body.budget_line_id ? String(body.budget_line_id) : null;
+    if (budgetLineId && !UUID_RE.test(budgetLineId)) {
+      return json({ error: "Invalid budget line", code: "BUDGET_LINE_NOT_FOUND" }, 400);
+    }
 
     // A staff loan is the same request, routed and approved identically, but it is
     // repaid: 28% per month on the amount still owing, over 1-12 months.
@@ -138,11 +149,16 @@ Deno.serve(async (req) => {
           returned_from_stage: null,
           rejection_reason: null,
           ...clearedSignoffs,
+          ...(budgetLineId ? { budget_line_id: budgetLineId } : {}),
         })
         .eq("id", resubmitId)
         .select("*")
         .single();
-      if (upErr) throw upErr;
+      if (upErr) {
+        const rejected = budgetLineRejection(upErr.message);
+        if (rejected) return rejected;
+        throw upErr;
+      }
 
       await admin.from("staff_requisition_events").insert({
         requisition_id: resubmitId,
@@ -216,10 +232,15 @@ Deno.serve(async (req) => {
         stage: route.stage,
         current_approver_role: route.approver_role,
         final_stage: route.final_stage,
+        budget_line_id: budgetLineId,
       })
       .select("*")
       .single();
-    if (insErr || !inserted) throw new Error(insErr?.message || "Failed to create requisition");
+    if (insErr || !inserted) {
+      const rejected = budgetLineRejection(insErr?.message);
+      if (rejected) return rejected;
+      throw new Error(insErr?.message || "Failed to create requisition");
+    }
 
     await admin.from("staff_requisition_events").insert({
       requisition_id: inserted.id,

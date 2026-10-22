@@ -14,8 +14,8 @@ import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
-import { kampalaTodayYmd } from '@/lib/kampalaDays';
-import { loadRdUpdates, RD_UPDATES_KEY, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReportUpdatesForPeriod, type RdReportPeriod, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -106,9 +106,11 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   return <p className="flex items-center gap-2 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" />{children}</p>;
 }
 
-function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; onUpdates: (updates: RdUpdate[]) => void }) {
+function ProjectCard({ p, cashRows, updates, period, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; period: RdReportPeriod; onUpdates: (updates: RdUpdate[]) => void }) {
   const Icon = p.icon;
   const upd = (id: string, patch: Partial<RdUpdate>) => onUpdates(updates.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  // Display follows the chosen report period; edits always apply to the full record.
+  const visible = rdReportUpdatesForPeriod(updates, period);
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
@@ -148,15 +150,18 @@ function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows
           <div className="flex items-center justify-between gap-2">
             <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
-              onClick={() => onUpdates([...updates, { id: safeUUID(), date: kampalaTodayYmd(), text: '' }])}>
+              onClick={() => onUpdates([...updates, { id: safeUUID(), date: rdNewUpdateDate(period), text: '' }])}>
               <Plus className="h-3 w-3" />Add update
             </Button>
           </div>
           {updates.length === 0 && (
             <p className="mt-1.5 text-xs text-muted-foreground">No updates recorded yet. Add one with its date.</p>
           )}
+          {updates.length > 0 && visible.length === 0 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">No updates in this period. Choose All updates to see the full record.</p>
+          )}
           <div className="mt-2 space-y-2">
-            {updates.map((u) => (
+            {visible.map((u) => (
               <div key={u.id} className="flex items-center gap-1.5">
                 <Input type="date" className="h-8 w-32 shrink-0 text-xs" value={u.date}
                   onChange={(e) => upd(u.id, { date: e.target.value })} />
@@ -252,6 +257,14 @@ const SUMMARY: Metric[] = [
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
 
+// Report period choices: which recorded updates the dashboard shows and the general report includes.
+const REPORT_PERIODS: { id: RdReportPeriod; label: string }[] = [
+  { id: 'all', label: 'All updates' },
+  { id: 'last', label: 'Last 7 days' },
+  { id: 'today', label: 'Today' },
+  { id: 'next', label: 'Next 7 days' },
+];
+
 export default function RDDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -286,6 +299,23 @@ export default function RDDashboard() {
   const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
     setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
   const [exporting, setExporting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
+  const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
+  const periodRange = rdPeriodRange(reportPeriod);
+  const rangeLabel = periodRange ? `${periodRange.start} – ${periodRange.end}` : '';
+  const extractReport = async () => {
+    setExtracting(true);
+    try {
+      await downloadRdPeriodReport({
+        periodLabel,
+        rangeLabel,
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: rdReportUpdatesForPeriod(projectUpdates[p.name] ?? [], reportPeriod) })),
+      });
+    } catch {
+      toast({ title: 'Could not prepare the report', description: 'Please try again.', variant: 'destructive' });
+    } finally { setExtracting(false); }
+  };
   const exportReport = async () => {
     setExporting(true);
     try {
@@ -293,7 +323,8 @@ export default function RDDashboard() {
         .select('title,owner,idea_date,summary,canvas').order('created_at', { ascending: false });
       if (error) throw error;
       await downloadRdGeneralReport({
-        projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
+        periodLabel,
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: rdReportUpdatesForPeriod(projectUpdates[p.name] ?? [], reportPeriod) })),
         ideas: ideaRows,
         progress: PROJECTS.map((p) => ({ name: p.name, stage: p.stage, percent: p.progress })),
         recordedIdeas: (savedIdeas ?? []).map((idea) => ({
@@ -350,9 +381,29 @@ export default function RDDashboard() {
 
         <IdeaCanvasBoard />
 
+        {/* Report period filter: governs the updates shown below and those included in the general report. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground"><Clock className="h-3.5 w-3.5 text-primary" />Report period</span>
+          <div className="flex flex-wrap gap-1.5">
+            {REPORT_PERIODS.map((r) => (
+              <Button key={r.id} size="sm" variant={reportPeriod === r.id ? 'default' : 'outline'}
+                className="h-7 px-2.5 text-xs" aria-pressed={reportPeriod === r.id}
+                onClick={() => setReportPeriod(r.id)}>
+                {r.label}
+              </Button>
+            ))}
+          </div>
+          <span className="text-[11px] text-muted-foreground">
+            {rangeLabel ? `Updates from ${rangeLabel}. New updates are dated inside this period.` : 'The general report includes updates from the chosen period.'}
+          </span>
+          <Button size="sm" className="ml-auto h-7 gap-1 px-2.5 text-xs" disabled={extracting} onClick={extractReport}>
+            <Download className="h-3 w-3" />{extracting ? 'Preparing…' : 'Extract report'}
+          </Button>
+        </div>
+
         {/* Project cards are stacked one under the other, each full width. */}
         <div className="grid gap-4">
-          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
+          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} period={reportPeriod} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 

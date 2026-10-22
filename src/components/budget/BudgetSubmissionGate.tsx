@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ClipboardList, AlertTriangle, ArrowRight } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
@@ -23,13 +23,16 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export function BudgetSubmissionGate({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { obligation, shouldPrompt, skip, refresh } = useBudgetSubmissionGate();
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!shouldPrompt || !obligation) return <>{children}</>;
+  // The budget form itself must stay usable, otherwise "Complete Budget Submission"
+  // navigates straight back under this same screen.
+  if (!shouldPrompt || !obligation || location.pathname.startsWith('/budgets')) return <>{children}</>;
 
   /** Declines this cycle for the department server-side; the obligation then clears on refresh. */
   const confirmReject = async () => {
@@ -68,7 +71,7 @@ export function BudgetSubmissionGate({ children }: { children: React.ReactNode }
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="budget-gate-title"
-      className="fixed inset-0 z-[10000] flex flex-col items-center justify-center overflow-y-auto bg-background p-4 sm:p-6"
+      className="pointer-events-auto fixed inset-0 z-[10050] flex flex-col items-center justify-center overflow-y-auto bg-background p-4 sm:p-6"
     >
       <div className="mx-auto w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
         <div className="mb-6 flex justify-center">
