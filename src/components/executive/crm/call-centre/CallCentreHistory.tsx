@@ -17,6 +17,8 @@ import { useSectionCallRecords } from '@/hooks/useCrmCallCentre';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
+import { CallingPausedNotice } from './CallingPausedNotice';
+import { useHumanCallingPaused } from '@/hooks/useCrmVoiceCall';
 
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '??';
@@ -61,6 +63,9 @@ export function CallCentreHistory({ section }: CallCentreHistoryProps) {
   // Membership resolved server-side - see useSectionCallRecords.
   const { records, isLoading, error } = useSectionCallRecords(section);
   const { target, dial, close } = useCallDialer();
+  // The automated call line pauses human calling; recall buttons hide while it lasts.
+  const { data: humanCallingPause } = useHumanCallingPaused();
+  const paused = !!humanCallingPause?.paused;
 
   const [query, setQuery] = useState('');
   const [outcome, setOutcome] = useState<CallOutcome | 'all'>('all');
@@ -112,6 +117,7 @@ export function CallCentreHistory({ section }: CallCentreHistoryProps) {
 
   return (
     <div className="space-y-3">
+      <CallingPausedNotice />
       <div>
         <h2 className="text-base font-bold text-foreground">Call history</h2>
         <p className="text-xs text-muted-foreground">
@@ -206,26 +212,28 @@ export function CallCentreHistory({ section }: CallCentreHistoryProps) {
                           )}
                         </div>
 
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0 gap-1.5"
-                          onClick={() =>
-                            dial({
-                              calleeId: call.calleeId,
-                              name: call.calleeName,
-                              phone: call.calleePhone,
-                              avatarUrl: call.calleeAvatarUrl,
-                              role: call.calleeRole,
-                              location: call.location,
-                            } satisfies DialTarget)
-                          }
-                          aria-label={`Call ${call.calleeName} again`}
-                        >
-                          <PhoneCall className="h-3.5 w-3.5" />
-                          Recall
-                        </Button>
+                        {!paused && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 gap-1.5"
+                            onClick={() =>
+                              dial({
+                                calleeId: call.calleeId,
+                                name: call.calleeName,
+                                phone: call.calleePhone,
+                                avatarUrl: call.calleeAvatarUrl,
+                                role: call.calleeRole,
+                                location: call.location,
+                              } satisfies DialTarget)
+                            }
+                            aria-label={`Call ${call.calleeName} again`}
+                          >
+                            <PhoneCall className="h-3.5 w-3.5" />
+                            Recall
+                          </Button>
+                        )}
                       </div>
                     );
                   })}

@@ -57941,6 +57941,10 @@ export type Database = {
           balance_currency: string | null
           channels: number | null
           configured: boolean
+          human_calling_pause_reason: string | null
+          human_calling_paused: boolean
+          human_calling_paused_at: string | null
+          human_calling_paused_by: string | null
           id: number
           last_error: string | null
           last_tick_at: string | null
@@ -57954,6 +57958,10 @@ export type Database = {
           balance_currency?: string | null
           channels?: number | null
           configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
           id?: number
           last_error?: string | null
           last_tick_at?: string | null
@@ -57967,6 +57975,10 @@ export type Database = {
           balance_currency?: string | null
           channels?: number | null
           configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
           id?: number
           last_error?: string | null
           last_tick_at?: string | null
@@ -70071,6 +70083,7 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_human_calling_paused: { Args: never; Returns: Json }
       crm_mark_call_answered: {
         Args: { p_session_id: string }
         Returns: undefined
@@ -73304,6 +73317,10 @@ export type Database = {
         }[]
       }
       get_dashboard_access_overview: { Args: never; Returns: Json }
+      get_dashboard_effective_access: {
+        Args: { p_bypass_roles: string[]; p_rules: Json }
+        Returns: Json
+      }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -82566,6 +82583,20 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_access_review: {
+        Args: never
+        Returns: {
+          days_since_sign_in: number
+          email_2fa_enabled: boolean
+          flags: string[]
+          full_name: string
+          has_staff_permission: boolean
+          last_sign_in_at: string
+          password_change_recorded: boolean
+          roles: string[]
+          user_id: string
+        }[]
+      }
       staff_create_redemption_request: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
@@ -85396,6 +85427,10 @@ export type Database = {
       }
       voice_autocall_set_category_paused: {
         Args: { p_category: string; p_paused: boolean; p_reason?: string }
+        Returns: undefined
+      }
+      voice_autocall_set_human_calling_paused: {
+        Args: { p_paused: boolean; p_reason?: string }
         Returns: undefined
       }
       voice_autocall_test_call: {

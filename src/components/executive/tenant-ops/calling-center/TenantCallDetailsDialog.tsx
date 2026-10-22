@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { History, Loader2, PencilLine, Phone } from 'lucide-react';
+import { CallingPausedNotice } from '@/components/executive/crm/call-centre/CallingPausedNotice';
 import type { CcCallingHub, CcRow, CcSeverity } from '@/hooks/useCcCallingHub';
 import { CC_OUTCOME_LABEL } from '@/hooks/useCcCallHistory';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
@@ -180,6 +181,7 @@ export function TenantCallDetailsDialog({
   starting,
   canCall,
   wipBlocked,
+  callingPaused = false,
   onCall,
   onClose,
 }: {
@@ -189,6 +191,8 @@ export function TenantCallDetailsDialog({
   starting: boolean;
   canCall: boolean;
   wipBlocked: boolean;
+  /** Calling from the app is paused server-side; the Call button hides. */
+  callingPaused?: boolean;
   onCall: (row: CcRow) => void;
   onClose: () => void;
 }) {
@@ -237,19 +241,25 @@ export function TenantCallDetailsDialog({
               <Button type="button" variant="outline" className="h-11 text-xs font-semibold" onClick={onClose}>
                 Close
               </Button>
-              <Button
-                type="button"
-                className="h-11 flex-1 text-xs font-semibold"
-                disabled={!canCall || starting}
-                onClick={() => onCall(row)}
-              >
-                {starting ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Phone className="mr-1.5 h-4 w-4" />
-                )}
-                {outOfQueue ? 'Call again' : `Call ${row.name.split(/\s+/)[0]}`}
-              </Button>
+              {callingPaused ? (
+                <div className="min-w-0 flex-1">
+                  <CallingPausedNotice />
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  className="h-11 flex-1 text-xs font-semibold"
+                  disabled={!canCall || starting}
+                  onClick={() => onCall(row)}
+                >
+                  {starting ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Phone className="mr-1.5 h-4 w-4" />
+                  )}
+                  {outOfQueue ? 'Call again' : `Call ${row.name.split(/\s+/)[0]}`}
+                </Button>
+              )}
             </div>
           </>
         )}

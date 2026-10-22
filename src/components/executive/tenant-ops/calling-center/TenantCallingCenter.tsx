@@ -69,6 +69,8 @@ import {
 } from './useTenantCallCenterDialer';
 import { useAuth } from '@/hooks/useAuth';
 import { useSave30mAwareness } from '@/hooks/use30mAwareness';
+import { useHumanCallingPaused } from '@/hooks/useCrmVoiceCall';
+import { CallingPausedNotice } from '@/components/executive/crm/call-centre/CallingPausedNotice';
 
 type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
@@ -150,6 +152,10 @@ export function TenantCallingCenter() {
   const awarenessFieldsRef = useRef<ThirtyMAwarenessFieldsHandle>(null);
   const { user } = useAuth();
   const save30m = useSave30mAwareness();
+  // The automated call line owns the phone number while the pause is on: the
+  // server refuses every in-app call, so dial buttons hide and a notice explains.
+  const { data: humanCallingPause } = useHumanCallingPaused();
+  const callingPaused = !!humanCallingPause?.paused;
 
   /** Ref for the dialer's current subject — initialised after dialer is defined below. */
   const dialerCurrentRef = useRef<typeof dialer.current>(null);
@@ -331,18 +337,20 @@ export function TenantCallingCenter() {
 
   const autoControls = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
-        <SelectTrigger className="h-9 w-[120px] text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AUTO_CAP_CHOICES.map((c) => (
-            <SelectItem key={c} value={String(c)} className="text-xs">
-              {c} calls
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {(!callingPaused || auto.mode !== 'off') && (
+        <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
+          <SelectTrigger className="h-9 w-[120px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AUTO_CAP_CHOICES.map((c) => (
+              <SelectItem key={c} value={String(c)} className="text-xs">
+                {c} calls
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       {auto.mode === 'running' ? (
         <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.pauseAuto}>
           <Pause className="mr-1.5 h-3.5 w-3.5" />
@@ -359,15 +367,17 @@ export function TenantCallingCenter() {
           Resume
         </Button>
       ) : (
-        <Button
-          size="sm"
-          className="h-9 text-xs font-semibold"
-          onClick={() => auto.startAuto(hub.rows, autoCap)}
-          disabled={!hub.rows.length || hub.wipBlocked}
-        >
-          <Play className="mr-1.5 h-3.5 w-3.5" />
-          Start sequential run
-        </Button>
+        !callingPaused && (
+          <Button
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            onClick={() => auto.startAuto(hub.rows, autoCap)}
+            disabled={!hub.rows.length || hub.wipBlocked}
+          >
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            Start sequential run
+          </Button>
+        )
       )}
       {auto.mode !== 'off' && (
         <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.stopAuto}>
@@ -381,6 +391,7 @@ export function TenantCallingCenter() {
 
   return (
     <div className="space-y-4 pb-32 sm:pb-28">
+      <CallingPausedNotice />
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3 sm:p-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="rounded-xl bg-primary/15 p-2 text-primary">
@@ -795,6 +806,7 @@ export function TenantCallingCenter() {
            open attempt and the dialer refuses while a call is starting. */
         canCall={!!detailsRow}
         wipBlocked={hub.wipBlocked}
+        callingPaused={callingPaused}
         onCall={callFromDetails}
         onClose={() => setDetailsRow(null)}
       />

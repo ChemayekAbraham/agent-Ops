@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AgentAvatar } from './AgentAvatar';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
-import { Loader2, Phone, MapPin, ShieldCheck } from 'lucide-react';
+import { Loader2, Phone, MapPin, ShieldCheck, MessageSquare, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -538,6 +538,24 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
                   )}
                   <span>Joined {dt(bio.created_at)}</span>
                 </div>
+                {bio.phone && (() => {
+                  const raw = String(bio.phone).replace(/[^\d+]/g, '');
+                  const intl = raw.startsWith('+') ? raw.slice(1) : raw.startsWith('0') ? `256${raw.slice(1)}` : raw;
+                  const name = bio.full_name || 'agent';
+                  return (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button asChild size="sm" className="min-h-10">
+                        <a href={`tel:+${intl}`} aria-label={`Call ${name}`}><Phone className="h-4 w-4" />Call</a>
+                      </Button>
+                      <Button asChild size="sm" variant="outline" className="min-h-10">
+                        <a href={`sms:+${intl}`} aria-label={`Send SMS to ${name}`}><MessageSquare className="h-4 w-4" />SMS</a>
+                      </Button>
+                      <Button asChild size="sm" variant="outline" className="min-h-10">
+                        <a href={`https://wa.me/${intl}`} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${name}`}><MessageCircle className="h-4 w-4" />WhatsApp</a>
+                      </Button>
+                    </div>
+                  );
+                })()}
                 {bio.parent_agent && (
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Recruited by <strong className="text-foreground">{bio.parent_agent.full_name}</strong>

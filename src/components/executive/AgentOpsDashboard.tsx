@@ -782,6 +782,21 @@ export function AgentOpsDashboard() {
   // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
+      {activeView === 'directory' && (
+        <Button
+          size="lg"
+          onClick={() => {
+            setActiveView(null);
+            setSearchQuery('');
+            window.scrollTo({ top: 0 });
+          }}
+          aria-label="Back to Agent Ops overview"
+          className="sm:hidden fixed left-4 bottom-24 z-40 h-12 rounded-full px-5 gap-1.5 shadow-lg"
+        >
+          <ChevronLeft className="h-5 w-5" />
+          Overview
+        </Button>
+      )}
       {/* Universal search engine & navigation header in subview */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-border/60">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -792,11 +807,10 @@ export function AgentOpsDashboard() {
               setActiveView(null);
               setSearchQuery('');
             }}
-            className="h-9 px-3 gap-1.5 text-xs font-semibold shrink-0"
+            className="h-11 sm:h-9 px-3 gap-1.5 text-sm sm:text-xs font-semibold shrink-0"
           >
             <ChevronLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Overview</span>
-            <span className="sm:hidden">Back</span>
+            Overview
           </Button>
           <div className="min-w-0">
             <h2 className="text-base sm:text-lg font-bold truncate leading-tight">{viewLabel}</h2>
