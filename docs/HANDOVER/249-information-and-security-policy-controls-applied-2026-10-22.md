@@ -8,7 +8,7 @@ Full clause-by-clause status: `docs/security/policy-compliance-matrix.md`. Regis
 2. **Quarterly access review tool (§5).** Migration `20261022110000_staff_access_review_report.sql`: `public.staff_access_review()` lists every enabled staff account with roles, staff permission, emailed-code 2FA status, last sign-in, password-change record and flags. Callable only by super_admin, ceo, cto, access_admin or the service role (a non-staff caller is refused, tested). First run: 59 staff, 10 admins, 58 without 2FA, 1 never signed in or inactive over 90 days, 39 with no recorded password change.
 
 ## Findings that need a decision (not changed)
-- **MFA (§5) is NOT MET:** the emailed-code second step is enabled for 1 of 59 staff and 0 of 10 admins; Supabase MFA has 0 factors. Enforcing it changes staff sign-in and could lock people out; needs a design with a recovery path (risk R3).
+- **MFA (§5) is NOT MET:** an emailed-code step per new device exists in the code and applies to every staff role by rule, but it is not enforced: the screen was switched off in the app on 2026-10-17 because it blocked sign-in, and the server never checks it, so a password alone gives full API access. 9 of 59 staff have no reachable email; 50 use personal Gmail. (This note first said "1 of 59 enabled"; that was the optional setting and was wrong.) Design for a server-enforced fix: `docs/security/mfa-enforcement-design.md` (risk R3).
 - **Default staff password (§6):** 39 of 59 staff have no recorded password change since the record began on 2026-09-13. Decision: force a reset (R5).
 - **Personal devices (§7):** laptop exports are encrypted but not yet deleted; OneDrive copies remain (R1, R10).
 - **Backup links in email (§9):** download links are not access-controlled storage (R2).
