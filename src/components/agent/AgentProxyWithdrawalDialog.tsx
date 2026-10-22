@@ -601,7 +601,7 @@ export function AgentProxyWithdrawalDialog({
             disabled={!isValid || loading || walletBalance < 500}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Request Withdrawal – {formatUGX(amount || 0)}
+            Request Withdrawal – {formatUGX(effectiveAmount || 0)}
           </Button>
         </div>
       </DialogContent>
