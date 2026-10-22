@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ExpandableTable, type ExpandableColumn } from '@/components/ui/expandable-table';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
-import { Search, Loader2, X, Receipt, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Loader2, X, Receipt, Banknote, CheckCircle2, XCircle, Users } from 'lucide-react';
+import { PageHeader, StatTile, Pager } from './FinopsKit';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 
 interface Row {
@@ -178,68 +178,56 @@ export function WithdrawalHistoryStatement() {
       completedCount: completed.length,
       completedAmount: completed.reduce((s, r) => s + Number(r.amount), 0),
       pageAmount: rows.reduce((s, r) => s + Number(r.amount), 0),
+      failedCount: rows.filter(r => ['failed','rejected','cancelled'].includes(r.status)).length,
     };
   }, [rows]);
 
   const submitSearch = () => { setPage(0); setCommitted(search); };
   const clear = () => { setSearch(''); setCommitted(''); setPage(0); };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   return (
-    <Card>
-      <CardHeader className="pb-3 border-b">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Receipt className="h-5 w-5 text-primary" />
-              Withdrawal History Statement
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
-              Chronological audit trail of every user withdrawal — balance before, amount, balance after.
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total records</p>
-            <p className="text-lg font-bold tabular-nums">{total.toLocaleString()}</p>
-          </div>
+    <section className="space-y-5">
+      <PageHeader
+        icon={Receipt}
+        title="Withdrawal History"
+        description="Chronological audit trail of every user withdrawal: balance before, amount, balance after."
+      />
+
+      <div className="flex gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="Search by user name, phone, TID or MoMo number…"
+            aria-label="Search withdrawal history"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
+            className="pl-9 pr-9 h-11 rounded-xl"
+          />
+          {search && (
+            <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2" aria-label="Clear search">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-3 pt-4">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search by user name, phone, TID or MoMo number…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
-              className="pl-9 h-9 text-sm"
-            />
-            {search && (
-              <button onClick={clear} className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
-            )}
-          </div>
-          <Button size="sm" onClick={submitSearch} disabled={loading} className="h-9">
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Search'}
-          </Button>
+        <Button onClick={submitSearch} disabled={loading} className="h-11 px-5 rounded-xl">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+        </Button>
+      </div>
+
+      {committed && (
+        <p className="text-sm text-muted-foreground">
+          Filtering by <span className="font-medium text-foreground">"{committed}"</span> · {total} match{total !== 1 ? 'es' : ''}
+        </p>
+      )}
+
+      {error && (
+        <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {error}
         </div>
+      )}
 
-        {committed && (
-          <p className="text-xs text-muted-foreground">
-            Filtering by <span className="font-medium text-foreground">"{committed}"</span> · {total} match{total !== 1 ? 'es' : ''}
-          </p>
-        )}
-
-        {error && (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-            {error}
-          </div>
-        )}
-
-        {/* Statement table */}
+      <div className="rounded-2xl border bg-card shadow-2xs p-3 sm:p-4 space-y-4">
         <ExpandableTable
           columns={columns}
           rows={rows}
@@ -256,26 +244,18 @@ export function WithdrawalHistoryStatement() {
             </div>
           }
         />
+        <Pager page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} noun="results" />
+      </div>
 
-        {/* Pagination */}
-        {total > PAGE_SIZE && (
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-[11px] text-muted-foreground">
-              Page {page + 1} of {totalPages} · showing {rows.length} of {total}
-            </p>
-            <div className="flex gap-1">
-              <Button size="sm" variant="outline" disabled={page === 0 || loading}
-                onClick={() => setPage(p => Math.max(0, p - 1))} className="h-8">
-                <ChevronLeft className="h-3.5 w-3.5" /> Prev
-              </Button>
-              <Button size="sm" variant="outline" disabled={page + 1 >= totalPages || loading}
-                onClick={() => setPage(p => p + 1)} className="h-8">
-                Next <ChevronRight className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
+      <div className="space-y-3">
+        <h2 className="text-base font-bold tracking-tight">Summary <span className="font-normal text-muted-foreground">(current search, this page)</span></h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatTile icon={Users} tone="primary" label="Total withdrawals" value={total.toLocaleString()} note="All matching records" />
+          <StatTile icon={Banknote} tone="primary" label="Amount on this page" value={formatUGX(totals.pageAmount)} />
+          <StatTile icon={CheckCircle2} tone="emerald" label="Settled" value={totals.completedCount.toLocaleString()} note="On this page" />
+          <StatTile icon={XCircle} tone="rose" label="Failed or rejected" value={totals.failedCount.toLocaleString()} note="On this page" />
+        </div>
+      </div>
 
       <UserDrilldownDrawer
         open={!!drillUserId}
@@ -283,6 +263,6 @@ export function WithdrawalHistoryStatement() {
         tenantId={drillUserId}
         defaultTab="tenant"
       />
-    </Card>
+    </section>
   );
 }
