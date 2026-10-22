@@ -266,7 +266,8 @@ const moreActions: MoreAction[] = [
 ];
 
 import { useAuth } from '@/hooks/useAuth';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useLocation, useNavigate } from 'react-router-dom';
+import { finopsPath, finopsIdFromSlug, isFinopsViewId, isOnFinopsRoute } from '@/lib/financialOpsRoutes';
 
 const WALLET_BREAKDOWN_KEY = 'finops_wallet_breakdown_open_v2';
 const IFTTT_DIAGNOSTICS_KEY = 'finops_ifttt_diagnostics_open_v1';
@@ -310,10 +311,29 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   // like "navigation is disabled on my account". Query params survive all of
   // those, need no storage permission, and make panels linkable.
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTool = (searchParams.get('tool') as Tool) || null;
-  const view = ((searchParams.get('view') as View) || 'home') as View;
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { panel } = useParams();
+  // On the Financial Ops route a panel is a real path (/admin/financial-ops/<slug>).
+  // When the console is embedded on another page (the COO dashboard) there is no
+  // such route, so it keeps using ?tool= / ?view= and never navigates away.
+  const pathMode = isOnFinopsRoute(pathname);
+  const knownPanels = new Set<string>([
+    ...moreActions.map((a) => a.id as string),
+    'cash_codes', 'withdrawals', 'merchant_claims', 'wallet_breakdown',
+  ]);
+  const panelId = panel ? finopsIdFromSlug(panel) : null;
+  const pathPanel = pathMode && panelId && knownPanels.has(panelId) ? panelId : null;
+  const legacyTool = searchParams.get('tool');
+  const legacyView = searchParams.get('view');
+  const activeTool = ((pathPanel && !isFinopsViewId(pathPanel) ? pathPanel : legacyTool) as Tool) || null;
+  const view = ((pathPanel && isFinopsViewId(pathPanel) ? pathPanel : legacyView) || 'home') as View;
 
   const setActiveTool = (t: Tool) => {
+    if (pathMode) {
+      navigate(finopsPath(t));
+      return;
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       if (t) next.set('tool', String(t));
@@ -324,6 +344,10 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   };
 
   const setView = (v: View) => {
+    if (pathMode) {
+      navigate(v && v !== 'home' ? finopsPath(v) : finopsPath());
+      return;
+    }
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
       next.delete('tool');
@@ -332,6 +356,20 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       return next;
     }, { replace: true });
   };
+
+  // Old ?tool= / ?view= links, and slugs that match no panel, are rewritten to
+  // the real path so bookmarks keep working and the address bar is always honest.
+  useEffect(() => {
+    if (!pathMode) return;
+    if (panel && !pathPanel) {
+      navigate(finopsPath(), { replace: true });
+    } else if (!panel && (legacyTool || legacyView)) {
+      const id = legacyTool || (legacyView !== 'home' ? legacyView : null);
+      navigate(finopsPath(id && knownPanels.has(id) ? id : null), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathMode, panel, legacyTool, legacyView]);
+
   const [moreSheet, setMoreSheet] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [focusBucket, setFocusBucket] = useState<'float' | 'withdrawable' | null>(null);
@@ -392,7 +430,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       onClick={onClick}
       className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors h-10 -ml-2 px-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <ArrowLeft className="h-4 w-4" /> Back to Financial Ops
+      <ArrowLeft className="h-4 w-4" /> Back to Overview
     </button>
   );
 

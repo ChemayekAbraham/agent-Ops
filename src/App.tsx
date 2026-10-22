@@ -823,7 +823,7 @@ function AppRoutes() {
           <Route path="/admin/dashboard" element={<RoleGuard skipAllowlist allowedRoles={['super_admin', 'manager', 'employee']}><AdminDashboardPage /></RoleGuard>} />
           <Route path="/director/dashboard" element={<RoleGuard allowedRoles={['ceo', 'super_admin', 'manager']} requiredPermission="director"><DirectorDashboardPage /></RoleGuard>} />
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
-          <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
+          <Route path="/admin/financial-ops/:panel?" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
           <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops' as AppRole, 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
               previously fell through to the catch-all NotFound (404). */}
