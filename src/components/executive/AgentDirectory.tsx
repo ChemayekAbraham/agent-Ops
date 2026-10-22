@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   Search, Users, Phone, X, Loader2, UserPlus, Activity,
   ChevronLeft, ChevronRight, LayoutList, Map, ChevronRight as Chevron,
-  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff,
+  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentAvatar } from './AgentAvatar';
