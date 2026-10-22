@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronDown, ChevronRight, MapPin, Users, ShieldCheck, Activity, Search, X, FileDown, Loader2, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
@@ -243,6 +244,8 @@ export function AgentRegionBreakdown({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
   const [openDistrict, setOpenDistrict] = useState<string | null>(null);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [districtKey, setDistrictKey] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<Row[]>({
     queryKey: ['agent-region-breakdown', verifiedOnly],
