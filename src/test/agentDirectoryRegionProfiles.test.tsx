@@ -116,7 +116,7 @@ const renderDirectory = () =>
   );
 
 const openDistrict = async (district: string) => {
-  await screen.findByPlaceholderText('Filter by region or district…');
+  await screen.findByPlaceholderText('Search agents, regions or districts…');
   await userEvent.click(screen.getByRole('button', { name: /^Central region/ }));
   await userEvent.click(await screen.findByRole('button', { name: new RegExp(`^${district} district`) }));
 };
@@ -169,7 +169,7 @@ describe('Agent profiles from the By Region view', () => {
 
   it('keeps the district list closed until it is asked for', async () => {
     renderDirectory();
-    await screen.findByPlaceholderText('Filter by region or district…');
+    await screen.findByPlaceholderText('Search agents, regions or districts…');
     await userEvent.click(screen.getByRole('button', { name: /^Central region/ }));
 
     // Expanding the region shows district counts only — no register request yet.
