@@ -10,8 +10,9 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Loader2, ScrollText, PiggyBank, Building2, ArrowDownRight, ArrowUpRight,
-  CheckCircle2, AlertTriangle, User2, ChevronRight, KeyRound,
+  CheckCircle2, AlertTriangle, User2, ChevronRight, KeyRound, Layers, Banknote, Users, BarChart3,
 } from 'lucide-react';
+import { PageHeader, StatTile } from './FinopsKit';
 import { format } from 'date-fns';
 
 type FundSource = 'withdrawable' | 'float';
@@ -175,18 +176,21 @@ export function PartnershipTopupAuditLog() {
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <ScrollText className="h-6 w-6 text-primary" />
-          Partnership Top-Up Audit Log
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Every partnership top-up with its fund source, wallet routing
-          (recipient type) and both balanced ledger legs — for instant
-          verification.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        icon={ScrollText}
+        title="Partnership Top-Up Audit Log"
+        description="Every partnership top-up with its fund source, wallet routing (recipient type) and both balanced ledger legs, for instant verification."
+      />
+
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatTile icon={Layers} tone="primary" label="Total top-ups" value={rows.length.toLocaleString()} note="Latest 100 shown" />
+          <StatTile icon={Banknote} tone="emerald" label="Total amount" value={formatUGX(rows.reduce((n, r) => n + r.amount, 0))} />
+          <StatTile icon={Users} tone="sky" label="Unique partners" value={new Set(rows.map((r) => r.partner_id)).size.toLocaleString()} />
+          <StatTile icon={BarChart3} tone="amber" label="Average per top-up" value={formatUGX(rows.reduce((n, r) => n + r.amount, 0) / rows.length)} />
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
