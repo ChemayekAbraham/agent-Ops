@@ -147,7 +147,7 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
       aria-label={interactive ? 'Open Wallet Deductions' : undefined}
       onClick={interactive ? handleOpen : undefined}
       onKeyDown={interactive ? handleKey : undefined}
-      className={`rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-5 sm:p-6 ${
+      className={`rounded-xl border border-border bg-card p-5 sm:p-6 ${
         interactive
           ? 'cursor-pointer transition-all hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           : ''

@@ -23,6 +23,8 @@ import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents
 import { resolveChartTheme } from './callCentreChartTheme';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
+import { CallingPausedNotice } from './CallingPausedNotice';
+import { useHumanCallingPaused } from '@/hooks/useCrmVoiceCall';
 
 const RANGES = [
   { value: '7', label: '7 days' },
@@ -154,6 +156,10 @@ export function CallCentreOverview({ section }: CallCentreOverviewProps) {
   const { counts } = useCallSectionCounts();
   const queueSize = counts[section] ?? 0;
   const { target, dial, close } = useCallDialer();
+  // While the line runs automated calls the server refuses human calls, so the
+  // recall buttons come off the screen and a notice explains why.
+  const { data: humanCallingPause } = useHumanCallingPaused();
+  const paused = !!humanCallingPause?.paused;
 
   const [range, setRange] = useState<(typeof RANGES)[number]['value']>('14');
   const days = Number(range);
@@ -217,6 +223,7 @@ export function CallCentreOverview({ section }: CallCentreOverviewProps) {
 
   return (
     <div className="space-y-4">
+      <CallingPausedNotice />
       {/* Filters sit in one row above the charts. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -382,25 +389,27 @@ export function CallCentreOverview({ section }: CallCentreOverviewProps) {
                     >
                       {OUTCOME_LABEL[person.lastOutcome]}
                     </Badge>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 gap-1.5"
-                      onClick={() =>
-                        dial({
-                          calleeId: person.calleeId,
-                          name: person.name,
-                          phone: person.phone,
-                          avatarUrl: person.avatarUrl,
-                          role: person.role,
-                          location: person.location,
-                        } satisfies DialTarget)
-                      }
-                    >
-                      <PhoneCall className="h-3.5 w-3.5" />
-                      Recall
-                    </Button>
+                    {!paused && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 gap-1.5"
+                        onClick={() =>
+                          dial({
+                            calleeId: person.calleeId,
+                            name: person.name,
+                            phone: person.phone,
+                            avatarUrl: person.avatarUrl,
+                            role: person.role,
+                            location: person.location,
+                          } satisfies DialTarget)
+                        }
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" />
+                        Recall
+                      </Button>
+                    )}
                   </li>
                 ))}
               </ul>

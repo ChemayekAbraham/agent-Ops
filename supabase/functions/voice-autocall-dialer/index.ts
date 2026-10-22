@@ -15,8 +15,8 @@
  *      voice-recordings bucket, so playback never depends on AT keeping them.
  *
  * Env: AFRICASTALKING_USERNAME, AFRICASTALKING_API_KEY,
- *      AFRICASTALKING_AUTOCALL_NUMBER (a number used ONLY for automated calls,
- *      its callback URL set to voice-autocall-ivr),
+ *      AFRICASTALKING_AUTOCALL_NUMBER (optional; falls back to the CRM number
+ *      AFRICASTALKING_VOICE_NUMBER, whose callback forwards robot calls here),
  *      AFRICASTALKING_AUTOCALL_CHANNELS (default 5), AUTOCALL_MIN_BALANCE (default 5000).
  */
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
@@ -190,13 +190,15 @@ Deno.serve(async (req) => {
 
   const username = Deno.env.get('AFRICASTALKING_USERNAME') ?? '';
   const apiKey = Deno.env.get('AFRICASTALKING_API_KEY') ?? '';
-  const from = Deno.env.get('AFRICASTALKING_AUTOCALL_NUMBER') ?? '';
+  // The CRM Call Centre number is shared: crm-voice-callback forwards robot-call
+  // callbacks here, so a dedicated number is optional.
+  const from = Deno.env.get('AFRICASTALKING_AUTOCALL_NUMBER') || Deno.env.get('AFRICASTALKING_VOICE_NUMBER') || '';
   if (!username || !apiKey || !from) {
     await setStatus({
       last_tick_at: new Date().toISOString(),
       last_tick_result: tick,
       configured: false,
-      last_error: 'AFRICASTALKING_AUTOCALL_NUMBER is not set; no automated calls will be placed',
+      last_error: 'No Africa’s Talking voice number is set; no automated calls will be placed',
     });
     return json({ tick, dialled: 0, configured: false });
   }

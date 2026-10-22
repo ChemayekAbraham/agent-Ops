@@ -1,3 +1,4 @@
+import { FinOpsScope } from '@/components/financial-ops/FinOpsScope';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LayoutDashboard } from 'lucide-react';
@@ -17,6 +18,7 @@ export default function FinancialOpsPage() {
   };
 
   return (
+    <FinOpsScope>
     <div className="min-h-screen bg-background overflow-x-hidden">
       {/* Sticky top bar so the back action is always reachable */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border shadow-xs">
@@ -52,5 +54,6 @@ export default function FinancialOpsPage() {
         <FinancialOpsCommandCenter />
       </div>
     </div>
+    </FinOpsScope>
   );
 }

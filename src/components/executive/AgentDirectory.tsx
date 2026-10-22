@@ -12,13 +12,17 @@ import {
 import { toast } from 'sonner';
 import {
   Search, Users, Phone, X, Loader2, UserPlus, Activity,
-  ChevronLeft, ChevronRight, LayoutList, Map, ChevronRight as Chevron,
-  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff,
+  // MapIcon, not Map: the plain name would shadow JavaScript's Map constructor here.
+  ChevronLeft, ChevronRight, LayoutList, Map as MapIcon, ChevronRight as Chevron,
+  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentAvatar } from './AgentAvatar';
 import { AgentRegionBreakdown } from './AgentRegionBreakdown';
 import { AgentProfile360Sheet } from './AgentProfile360Sheet';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 
 interface DirectoryRow {
   id: string;
@@ -51,6 +55,14 @@ interface DirectoryResponse {
 }
 
 const PAGE_SIZE = 50;
+// Area filters: the register lookup has no area parameter of its own, so an area is
+// fetched by paging its search 100 rows at a time and keeping only true matches.
+const AREA_PAGE_SIZE = 100;
+const AREA_MAX_PAGES = 10;
+const ALL_AREAS = '__all__';
+
+interface AreaRow { region: string; district: string; agent_count: number | string; }
+interface AreaMatch { rows: DirectoryRow[]; truncated: boolean; }
 const TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'agent', label: 'Agents' },
@@ -94,6 +106,14 @@ export function AgentDirectory() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | 'agent' | 'sub_agent'>('all');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('active');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
+  const [districtKey, setDistrictKey] = useState<string | null>(null);
+  const activeFilterCount =
+    (type !== 'all' ? 1 : 0) +
+    (status !== 'active' ? 1 : 0) +
+    (regionFilter ? 1 : 0) +
+    (districtKey ? 1 : 0);
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'region'>('region');
@@ -135,7 +155,7 @@ export function AgentDirectory() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  useEffect(() => { setPage(0); }, [type, status]);
+  useEffect(() => { setPage(0); }, [type, status, regionFilter, districtKey]);
 
   const { data, isLoading, isFetching, error } = useQuery<DirectoryResponse>({
     queryKey: ['agent-directory-v2', search, type, status, page],
@@ -154,12 +174,113 @@ export function AgentDirectory() {
     placeholderData: keepPreviousData,
   });
 
-  const rows = data?.rows ?? [];
+  // Area choices come from the same server-side region/district count lookup the
+  // By Region view uses, so the two views can never disagree about what exists.
+  const { data: areaRows = [] } = useQuery<AreaRow[]>({
+    enabled: viewMode === 'list',
+    queryKey: ['agent-region-breakdown', false],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_directory_region_breakdown', {
+        _verified_only: false,
+      });
+      if (error) throw error;
+      return (data ?? []) as unknown as AreaRow[];
+    },
+    staleTime: 300_000,
+  });
+
+  const regionOptions = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const r of areaRows) m.set(r.region, (m.get(r.region) ?? 0) + Number(r.agent_count || 0));
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [areaRows]);
+
+  const districtPick = useMemo(() => {
+    if (!districtKey) return null;
+    const i = districtKey.indexOf('::');
+    return i < 0 ? null : { region: districtKey.slice(0, i), district: districtKey.slice(i + 2) };
+  }, [districtKey]);
+
+  const districtOptions = useMemo(() => {
+    const m = new Map<string, { region: string; district: string; count: number }>();
+    for (const r of areaRows) {
+      if (regionFilter && r.region !== regionFilter) continue;
+      const key = `${r.region}::${r.district}`;
+      m.set(key, {
+        region: r.region,
+        district: r.district,
+        count: (m.get(key)?.count ?? 0) + Number(r.agent_count || 0),
+      });
+    }
+    return [...m.values()].sort(
+      (a, b) => a.district.localeCompare(b.district) || a.region.localeCompare(b.region),
+    );
+  }, [areaRows, regionFilter]);
+
+  const pickRegion = (v: string) => {
+    setRegionFilter(v === ALL_AREAS ? null : v);
+    // District choices are scoped to the region, so a stale pick cannot outlive it.
+    setDistrictKey(null);
+  };
+  const pickDistrict = (v: string) => setDistrictKey(v === ALL_AREAS ? null : v);
+  const clearAreas = () => { setRegionFilter(null); setDistrictKey(null); };
+  const resetFilters = () => { setType('all'); setStatus('active'); clearAreas(); };
+
+  const wantRegion = districtPick ? districtPick.region : regionFilter;
+  const wantDistrict = districtPick ? districtPick.district : null;
+  const areaTerm = wantDistrict ?? wantRegion;
+  const areaMode = Boolean(areaTerm);
+
+  const {
+    data: areaData, isLoading: areaLoading, isFetching: areaFetching, error: areaError,
+  } = useQuery<AreaMatch>({
+    enabled: viewMode === 'list' && areaMode,
+    queryKey: ['agent-directory-area', wantRegion, wantDistrict, type, status],
+    queryFn: async () => {
+      // Ask the register for the area by name (its search already covers region and
+      // district), page it to the end, then keep only rows whose own area fields
+      // really match — a name that merely contains the area word is not in that area.
+      const raw: DirectoryRow[] = [];
+      let truncated = false;
+      for (let i = 0; i < AREA_MAX_PAGES; i++) {
+        const { data: pageData, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+          p_search: areaTerm,
+          p_type: type,
+          p_status: status,
+          p_limit: AREA_PAGE_SIZE,
+          p_offset: i * AREA_PAGE_SIZE,
+        });
+        if (error) throw error;
+        const chunk = (pageData as unknown as DirectoryResponse)?.rows ?? [];
+        raw.push(...chunk);
+        if (chunk.length < AREA_PAGE_SIZE) break;
+        if (i === AREA_MAX_PAGES - 1) truncated = true;
+      }
+      return {
+        rows: raw.filter(r =>
+          (!wantRegion || r.region === wantRegion) &&
+          (!wantDistrict || r.district === wantDistrict),
+        ),
+        truncated,
+      };
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const areaList = areaData?.rows ?? [];
+  const rows = areaMode
+    ? areaList.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+    : (data?.rows ?? []);
   const kpis = data?.kpis;
-  const totalMatched = data?.total_matched ?? 0;
+  const totalMatched = areaMode ? areaList.length : (data?.total_matched ?? 0);
   const totalPages = Math.max(1, Math.ceil(totalMatched / PAGE_SIZE));
   const showingFrom = totalMatched === 0 ? 0 : page * PAGE_SIZE + 1;
   const showingTo = Math.min((page + 1) * PAGE_SIZE, totalMatched);
+  const listBusy = areaMode ? (areaLoading && !areaData) : (isLoading && !data);
+  const listError = areaMode ? areaError : error;
+  const fetching = areaMode ? areaFetching : isFetching;
+  const areaLabel = districtPick ? `${districtPick.district}, ${districtPick.region}` : regionFilter;
 
   const kpiCards = useMemo(() => ([
     { label: 'Total Agents', value: kpis ? fmt(kpis.total_agents) : '—', icon: Users, color: 'text-primary' },
@@ -168,11 +289,11 @@ export function AgentDirectory() {
   ]), [kpis]);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {openAgentId ? (
         <>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpenAgentId(null)}>
+            <Button variant="outline" size="sm" className="h-11 min-h-11 text-sm sm:h-9 sm:min-h-9" onClick={() => setOpenAgentId(null)}>
               <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back to directory
             </Button>
             <h3 className="text-sm font-semibold">Agent profile</h3>
@@ -209,92 +330,177 @@ export function AgentDirectory() {
       </div>
 
       {/* View mode toggle */}
-      <div className="flex items-center gap-1 rounded-full bg-muted/50 p-0.5 w-fit">
-        <button
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit" role="group" aria-label="Directory view">
+        <Button variant="ghost"
           onClick={() => setViewMode('list')}
-          className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-colors',
+          aria-pressed={viewMode === 'list'}
+          className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
           <LayoutList className="h-3.5 w-3.5" /> List
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost"
           onClick={() => setViewMode('region')}
-          className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-colors',
+          aria-pressed={viewMode === 'region'}
+          className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'region' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
-          <Map className="h-3.5 w-3.5" /> By Region
-        </button>
+          <MapIcon className="h-3.5 w-3.5" /> By Region
+        </Button>
       </div>
 
       {viewMode === 'region' ? (
-        <AgentRegionBreakdown verifiedOnly={false} />
+        <AgentRegionBreakdown verifiedOnly={false} onOpenAgent={setOpenAgentId} />
       ) : (
         <>
-          {/* Search */}
-          <div className="relative">
+          {/* Search + compact filter toggle (phone) */}
+          <div className="flex gap-2">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, phone, email, territory, or ID…"
+              placeholder="Search by name, phone, district, email, or ID…"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              className="pl-10 pr-10 h-10 text-sm"
+              aria-label="Search agents"
+              className="pl-10 pr-12 h-12 text-base sm:h-11 sm:text-sm"
               autoComplete="off"
             />
             {searchInput && (
-              <button
+              <Button variant="ghost" size="icon"
                 onClick={() => setSearchInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
+            <Button
+              variant="outline"
+              onClick={() => setFiltersOpen(o => !o)}
+              aria-expanded={filtersOpen}
+              aria-label="Show filters"
+              className="sm:hidden h-12 px-3 gap-1.5 shrink-0"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="h-5 min-w-5 px-1.5 text-[10px]">{activeFilterCount}</Badge>
+              )}
+            </Button>
+          </div>
+
+          {/* Active filter summary (phone, collapsed) */}
+          {!filtersOpen && (
+            <div className="sm:hidden flex flex-wrap items-center gap-1.5 text-xs">
+              <Badge variant="secondary">{TYPE_FILTERS.find(t => t.value === type)?.label}</Badge>
+              <Badge variant="secondary">{STATUS_FILTERS.find(s => s.value === status)?.label}</Badge>
+              {(regionFilter || districtKey) && (
+                <Badge variant="secondary" className="gap-1">
+                  {areaLabel}
+                  <button type="button" onClick={clearAreas} aria-label="Clear area filter"
+                    className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-muted">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {activeFilterCount > 0 && (
+                <Button variant="link" size="sm" className="h-8 px-1 text-xs"
+                  onClick={resetFilters}>
+                  Reset
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
+          <div className={cn('flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center rounded-xl sm:rounded-none border sm:border-0 border-border p-2 sm:p-0',
+            filtersOpen ? 'flex' : 'hidden')}>
+            <div className="grid grid-cols-3 gap-2 sm:flex" role="group" aria-label="Agent type">
               {TYPE_FILTERS.map(t => (
-                <button
+                <Button variant="outline"
                   key={t.value}
                   onClick={() => setType(t.value)}
-                  className={cn('text-xs px-2.5 py-1.5 rounded-full border whitespace-nowrap transition-colors',
+                  aria-pressed={type === t.value}
+                  className={cn('min-w-0 h-11 min-h-11 text-sm px-2 sm:px-3 rounded-lg border shadow-none',
                     type === t.value ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-border text-muted-foreground hover:bg-muted')}
                 >
                   {t.label}
-                </button>
+                </Button>
               ))}
             </div>
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:ml-auto" role="group" aria-label="Agent status">
               {STATUS_FILTERS.map(s => (
-                <button
+                <Button variant="outline"
                   key={s.value}
                   onClick={() => setStatus(s.value)}
-                  className={cn('text-xs px-2.5 py-1.5 rounded-full border whitespace-nowrap transition-colors',
+                  aria-pressed={status === s.value}
+                  className={cn('min-w-0 h-11 min-h-11 text-sm px-3 rounded-lg border shadow-none',
                     status === s.value ? 'bg-secondary text-secondary-foreground border-border'
                       : 'border-border text-muted-foreground hover:bg-muted')}
                 >
                   {s.label}
-                </button>
+                </Button>
               ))}
+            </div>
+            {/* Area: region first, then districts scoped to the chosen region */}
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:ml-auto"
+              role="group" aria-label="Agent area">
+              <Select value={regionFilter ?? ALL_AREAS} onValueChange={pickRegion}>
+                <SelectTrigger aria-label="Filter by region"
+                  className="h-11 w-full min-w-0 rounded-lg sm:w-48">
+                  <SelectValue placeholder="All regions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_AREAS}>All regions</SelectItem>
+                  {regionOptions.map(([r, n]) => (
+                    <SelectItem key={r} value={r}>{r} ({fmt(n)})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={districtKey ?? ALL_AREAS} onValueChange={pickDistrict}>
+                <SelectTrigger aria-label="Filter by district"
+                  className="h-11 w-full min-w-0 rounded-lg sm:w-52">
+                  <SelectValue placeholder="All districts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_AREAS}>All districts</SelectItem>
+                  {districtOptions.map(d => (
+                    <SelectItem key={`${d.region}::${d.district}`} value={`${d.region}::${d.district}`}>
+                      {d.district} ({fmt(d.count)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Showing {fmt(totalMatched)} agents &amp; sub-agents</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+            <span>
+              {areaMode
+                ? `Showing ${fmt(totalMatched)} agents in ${areaLabel}`
+                : `Showing ${fmt(totalMatched)} agents & sub-agents`}
+            </span>
             {totalMatched > 0 && (
               <span>{showingFrom.toLocaleString()}–{showingTo.toLocaleString()} of {totalMatched.toLocaleString()}</span>
             )}
           </div>
 
-          {error && (
+          {areaMode && areaData?.truncated && (
+            <p className="text-xs text-muted-foreground">
+              This area is large — showing the first {fmt(areaList.length)} agents. Pick a district
+              for the full list.
+            </p>
+          )}
+
+          {listError && (
             <div className="text-center py-6 text-sm text-destructive">
-              Failed to load agents. {(error as any)?.message}
+              Failed to load agents. {(listError as any)?.message}
             </div>
           )}
 
-          {isLoading && !data ? (
+          {listBusy ? (
             <div className="divide-y divide-border border-y border-border">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="h-16 bg-muted/40 animate-pulse" />
@@ -328,35 +534,42 @@ export function AgentDirectory() {
                   role="button"
                   tabIndex={0}
                   onClick={() => setOpenAgentId(a.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenAgentId(a.id); } }}
-                  className={cn('w-full text-left grid grid-cols-1 sm:grid-cols-2 gap-3 lg:items-center px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer', GRID_LG)}
+                  onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpenAgentId(a.id); } }}
+                  className={cn('w-full min-w-0 text-left grid grid-cols-1 sm:grid-cols-2 gap-3 lg:items-center px-3 py-4 sm:py-3 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-manipulation transition-colors cursor-pointer', GRID_LG)}
                 >
                   {/* Identity */}
                   <div className="flex items-center gap-3 min-w-0">
                     <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-10 w-10" />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-sm truncate">{a.full_name || 'Unknown Agent'}</span>
+                      <div className="flex items-start gap-1.5">
+                        <Button
+                          variant="link"
+                          aria-label={`Open profile for ${a.full_name || 'Unknown Agent'}`}
+                          onClick={(e) => { e.stopPropagation(); setOpenAgentId(a.id); }}
+                          className="h-auto min-h-11 min-w-0 justify-start p-0 text-left font-semibold text-base whitespace-normal break-words underline underline-offset-4 lg:text-sm"
+                        >
+                          {a.full_name || 'Unknown Agent'}
+                        </Button>
                         {a.verified && <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Verified" />}
                       </div>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                      <span className="flex items-center gap-1.5 text-sm text-muted-foreground break-all lg:text-xs">
                         <Phone className="h-3 w-3 shrink-0" />{a.phone || '—'}
                       </span>
                       {a.email && (
-                        <span className="hidden lg:flex items-center gap-1 text-[11px] text-muted-foreground/80 truncate">
-                          <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{a.email}</span>
+                        <span className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground lg:text-[11px]">
+                          <Mail className="h-3 w-3 shrink-0 mt-1" /><span className="break-all">{a.email}</span>
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Location */}
-                  <div className="min-w-0 text-xs">
-                    <span className="flex items-center gap-1 text-foreground truncate">
+                  <div className="min-w-0 text-sm lg:text-xs">
+                    <span className="flex items-start gap-1 text-foreground break-words">
                       <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
                       {place || <span className="text-muted-foreground">No location</span>}
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <CalendarClock className="h-3 w-3 shrink-0" />
                       Last collection {relative(a.last_collection_at)}
                     </span>
@@ -373,31 +586,31 @@ export function AgentDirectory() {
                   </div>
 
                   {/* Portfolio */}
-                  <div className="flex items-center gap-3 text-xs tabular-nums">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm lg:text-xs tabular-nums">
                     <span className="flex items-center gap-1" title="Tenants">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.total_tenants}</span>
+                      <span className="font-semibold">{a.total_tenants}</span><span className="text-muted-foreground lg:hidden">tenants</span>
                     </span>
                     <span className="flex items-center gap-1" title="Sub-agents recruited">
                       <Network className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.sub_agents_count}</span>
+                      <span className="font-semibold">{a.sub_agents_count}</span><span className="text-muted-foreground lg:hidden">sub-agents</span>
                     </span>
                     <span className="flex items-center gap-1" title="Houses listed">
                       <Home className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.houses_listed}</span>
+                      <span className="font-semibold">{a.houses_listed}</span><span className="text-muted-foreground lg:hidden">houses</span>
                     </span>
-                    <span className="text-[11px] text-muted-foreground" title="Outstanding balance">
+                    <span className="text-xs text-muted-foreground" title="Outstanding balance">
                       Out {ugx(a.outstanding)}
                     </span>
                   </div>
 
                   {/* Today vs target */}
                   <div className="min-w-0">
-                    <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm lg:text-xs tabular-nums">
                       <span className={cn('font-semibold', today > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
-                        {ugx(today)}
+                        <span className="font-normal text-muted-foreground lg:hidden">Today </span>{ugx(today)}
                       </span>
-                      <span className="text-[11px] text-muted-foreground">/ {ugx(target)}</span>
+                      <span className="text-xs text-muted-foreground"><span className="lg:hidden">Target </span><span className="hidden lg:inline">/ </span>{ugx(target)}</span>
                     </div>
                     <div className="mt-1 h-1.5 w-full bg-muted overflow-hidden rounded-full">
                       <div
@@ -415,7 +628,7 @@ export function AgentDirectory() {
                     <Button
                       variant={a.status === 'frozen' ? 'outline' : 'ghost'}
                       size="sm"
-                      className={cn('h-6 px-2 text-[10px]', a.status !== 'frozen' && 'text-destructive hover:text-destructive')}
+                      className={cn('h-11 min-h-11 px-3 text-sm lg:h-9 lg:min-h-9 lg:px-2 lg:text-xs', a.status !== 'frozen' && 'text-destructive hover:text-destructive')}
                       onClick={(e) => { e.stopPropagation(); setFreezeReason(''); setFreezeTarget(a); }}
                     >
                       {a.status === 'frozen'
@@ -433,13 +646,13 @@ export function AgentDirectory() {
 
           {totalMatched > PAGE_SIZE && (
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-              <Button variant="outline" size="sm" className="text-xs h-8"
-                disabled={page === 0 || isFetching} onClick={() => setPage(p => Math.max(0, p - 1))}>
+              <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
+                disabled={page === 0 || fetching} onClick={() => setPage(p => Math.max(0, p - 1))}>
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
               </Button>
               <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages.toLocaleString()}</span>
-              <Button variant="outline" size="sm" className="text-xs h-8"
-                disabled={page >= totalPages - 1 || isFetching} onClick={() => setPage(p => p + 1)}>
+              <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
+                disabled={page >= totalPages - 1 || fetching} onClick={() => setPage(p => p + 1)}>
                 Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
             </div>
