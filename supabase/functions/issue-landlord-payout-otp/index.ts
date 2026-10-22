@@ -482,11 +482,17 @@ Deno.serve(async (req) => {
       if (digits.length === 9) return `0${digits}`;
       return digits;
     };
-    // The approved number is locked once the Rent Plan reaches CFO, so it is the
-    // payout number even if another contact number is stored on the landlord.
-    void phoneMatchKey;
     if (!approvedPhone) {
       return json({ error: "Landlord Ops has not approved a payout number for this landlord yet." }, 400);
+    }
+    // The payout number must be the number the landlord is registered with. The approved snapshot can differ from the
+    // landlord's record (the 22 Sep backfill copied old verification-request numbers), and a payout to a number that is not
+    // on the record is refused here, before any OTP SMS is sent, and again by the database (enforce_landlord_payout_eligibility).
+    if (phoneMatchKey(approvedPhone) !== phoneMatchKey(resolvedPhone)) {
+      return json({
+        error: "The approved payout number does not match the number registered for this landlord. No OTP was sent. Ask Landlord Ops to confirm the correct number first.",
+        code: "payout_number_mismatch",
+      }, 409);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
