@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Optimize Agent Directory rows, readable details and area filters for smartphones; preserve existing data and actions.
 - [x] Build Automated Calls Overview, Campaigns, Scripts, Call Log and Paused People using existing hooks; thirteen safeguard tests and guards pass, isolated desktop/phone/light/dark interaction and audio playback checks pass; protected backend/hooks unchanged, no calls placed.
 - [ ] Verify Automated Calls with a live signed-in CRM/CTO/super-admin account — blocked: externally managed authentication cannot be restored by browser tools; live campaign changes and real test calls were not attempted.
 - [x] Stop automatic replay of Payables forecast timeout/permission failures; four tests, safety guards and preview compilation pass; no financial writes.
