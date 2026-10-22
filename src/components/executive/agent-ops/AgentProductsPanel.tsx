@@ -24,7 +24,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProductRow } from '@/lib/agentProductsInFieldPdf';
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -85,7 +85,10 @@ const PRODUCT_SUGGESTIONS = [
 const FLEET_BIKE_OPTION = 'Company Fleet Bike (Assigned / Operational)';
 
 
-export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
+/** Smartphone repayments start one week after the device is issued. */
+const SMARTPHONE_GRACE_DAYS = 7;
+
+export type AgentProductCategory ='motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
 /** Which overview KPI card the drill-down sheet is showing. */
 type DrillKey = 'pending' | 'fleet' | 'portfolio' | 'recovery' | 'repaid';
@@ -1691,6 +1694,15 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                         <span className="text-success">Repaid: <span className="font-semibold tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</span></span>
                         <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
                       </div>
+                      {category === 'smart_phone' && r.last_issued_on && (
+                        <p className="text-xs text-muted-foreground">
+                          Repayment starts:{' '}
+                          <span className="font-semibold text-foreground">
+                            {format(addDays(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), SMARTPHONE_GRACE_DAYS), 'dd MMM yyyy')}
+                          </span>{' '}
+                          (after {SMARTPHONE_GRACE_DAYS}-day grace)
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <div className="text-[11px] text-muted-foreground">
