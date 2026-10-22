@@ -15,7 +15,7 @@ import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
-import { loadRdUpdates, RD_UPDATES_KEY, type RdUpdate } from '@/lib/rdWeeklyUpdates';
+import { loadRdUpdates, RD_UPDATES_KEY, rdReportUpdatesForPeriod, type RdReportPeriod, type RdUpdate } from '@/lib/rdWeeklyUpdates';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -106,9 +106,11 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   return <p className="flex items-center gap-2 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" />{children}</p>;
 }
 
-function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; onUpdates: (updates: RdUpdate[]) => void }) {
+function ProjectCard({ p, cashRows, updates, period, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; period: RdReportPeriod; onUpdates: (updates: RdUpdate[]) => void }) {
   const Icon = p.icon;
   const upd = (id: string, patch: Partial<RdUpdate>) => onUpdates(updates.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  // Display follows the chosen report period; edits always apply to the full record.
+  const visible = rdReportUpdatesForPeriod(updates, period);
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
@@ -155,8 +157,11 @@ function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows
           {updates.length === 0 && (
             <p className="mt-1.5 text-xs text-muted-foreground">No updates recorded yet. Add one with its date.</p>
           )}
+          {updates.length > 0 && visible.length === 0 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">No updates in this period. Choose All updates to see the full record.</p>
+          )}
           <div className="mt-2 space-y-2">
-            {updates.map((u) => (
+            {visible.map((u) => (
               <div key={u.id} className="flex items-center gap-1.5">
                 <Input type="date" className="h-8 w-32 shrink-0 text-xs" value={u.date}
                   onChange={(e) => upd(u.id, { date: e.target.value })} />
