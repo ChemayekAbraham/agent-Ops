@@ -257,6 +257,14 @@ const SUMMARY: Metric[] = [
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
 
+// Report period choices: which recorded updates the dashboard shows and the general report includes.
+const REPORT_PERIODS: { id: RdReportPeriod; label: string }[] = [
+  { id: 'all', label: 'All updates' },
+  { id: 'last', label: 'Last 7 days' },
+  { id: 'today', label: 'Today' },
+  { id: 'next', label: 'Next 7 days' },
+];
+
 export default function RDDashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -291,6 +299,8 @@ export default function RDDashboard() {
   const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
     setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
   const [exporting, setExporting] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
+  const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
   const exportReport = async () => {
     setExporting(true);
     try {
@@ -298,7 +308,8 @@ export default function RDDashboard() {
         .select('title,owner,idea_date,summary,canvas').order('created_at', { ascending: false });
       if (error) throw error;
       await downloadRdGeneralReport({
-        projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
+        periodLabel,
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: rdReportUpdatesForPeriod(projectUpdates[p.name] ?? [], reportPeriod) })),
         ideas: ideaRows,
         progress: PROJECTS.map((p) => ({ name: p.name, stage: p.stage, percent: p.progress })),
         recordedIdeas: (savedIdeas ?? []).map((idea) => ({
@@ -355,9 +366,24 @@ export default function RDDashboard() {
 
         <IdeaCanvasBoard />
 
+        {/* Report period filter: governs the updates shown below and those included in the general report. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card p-3 shadow-sm">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground"><Clock className="h-3.5 w-3.5 text-primary" />Report period</span>
+          <div className="flex flex-wrap gap-1.5">
+            {REPORT_PERIODS.map((r) => (
+              <Button key={r.id} size="sm" variant={reportPeriod === r.id ? 'default' : 'outline'}
+                className="h-7 px-2.5 text-xs" aria-pressed={reportPeriod === r.id}
+                onClick={() => setReportPeriod(r.id)}>
+                {r.label}
+              </Button>
+            ))}
+          </div>
+          <span className="text-[11px] text-muted-foreground">The general report includes updates from the chosen period.</span>
+        </div>
+
         {/* Project cards are stacked one under the other, each full width. */}
         <div className="grid gap-4">
-          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
+          {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} period={reportPeriod} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 

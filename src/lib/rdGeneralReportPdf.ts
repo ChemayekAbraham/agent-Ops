@@ -14,6 +14,8 @@ export interface RdReportData {
   ideas: RdCashRow[];
   recordedIdeas?: RdReportIdea[];
   progress?: { name: string; stage: string; percent: number }[];
+  /** Names the update period the caller already filtered to, e.g. "Last 7 days". */
+  periodLabel?: string;
 }
 
 export interface RdCashRow {
@@ -73,6 +75,12 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
 
   const totals = rdCashTotals(d.ideas);
   let y = 36;
+  if (d.periodLabel) {
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.setTextColor(100, 100, 110);
+    doc.text(`Updates included: ${d.periodLabel}`, mg, y);
+    doc.setTextColor(15, 23, 42);
+    y += 7;
+  }
   if (d.progress?.length) {
     y = heading('Project Progress', y);
     table(['Project', 'Stage', 'Progress', ''], d.progress.map((p) => [p.name, p.stage, `${p.percent}%`, '']), y, {
