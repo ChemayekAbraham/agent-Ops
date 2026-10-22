@@ -594,10 +594,10 @@ export function AgentRegionBreakdown({
         <div className="relative col-span-2 min-w-0 sm:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Filter by region or district…"
+            placeholder="Search agents, regions or districts…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Filter by region or district"
+            aria-label="Search agents by name, phone, district or region"
             className="pl-10 pr-12 h-12 text-base sm:h-11 sm:text-sm"
           />
           {search && (
