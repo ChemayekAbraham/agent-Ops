@@ -79,11 +79,14 @@ export function CashPositionInsights({
       const today = kampalaToday();
       const to = new Date(); to.setDate(to.getDate() + 30);
       const toKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(to);
-      const { data, error } = await (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey });
+      // Independent reads: run them together instead of one after the other.
+      const [{ data, error }, { data: src, error: e2 }] = await Promise.all([
+        (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey }),
+        (supabase.rpc as any)('get_payables_by_source', { p_from: today, p_to: toKey }),
+      ]);
       if (error) throw error;
-      const d = (data || {}) as any;
-      const { data: src, error: e2 } = await (supabase.rpc as any)('get_payables_by_source', { p_from: today, p_to: toKey });
       if (e2) throw e2;
+      const d = (data || {}) as any;
       const top = ((src || []) as any[]).slice(0, 5).map((r) => ({
         id: String(r.source), name: String(r.source), amount: Number(r.amount || 0),
         due_date: r.due_date ?? null, count: Number(r.count || 0),
