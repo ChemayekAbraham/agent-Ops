@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
+Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
 import { campaignIssues } from '@/components/crm/autocall/campaignForm';
 import type { AutocallCampaignInput } from '@/hooks/useVoiceAutocall';
 const state = vi.hoisted(() => ({ allowed: true, save: vi.fn().mockResolvedValue('campaign'), setStatus: vi.fn(), pause: vi.fn().mockResolvedValue(undefined) }));
@@ -8,7 +9,7 @@ vi.mock('@/hooks/useVoiceAutocall', () => ({
  useAutocallOverview: () => ({ isPending:false,error:null,refetch:vi.fn(),data:{today:'2026-10-22',system:{configured:true,channels:5,last_tick_at:new Date().toISOString(),balance_amount:100000,balance_currency:'UGX'},categories:['tenant','partner','agent','employee','general'].map(category=>({category,paused:false,active_campaigns:0,people_paused:0,today:{total:0,completed:0,no_answer:0,failed:0,live:0,queued:0,opted_out:0,talk_seconds:0,cost:0}}))} }),
  useSetCategoryPaused: () => ({isPending:false,mutateAsync:state.pause}),
  useAutocallCampaigns: () => ({isPending:false,error:null,refetch:vi.fn(),data:[]}),
- useAutocallScripts: () => ({isPending:false,error:null,refetch:vi.fn(),data:[{id:'script',name:'Greeting'}]}),
+ useAutocallScripts: () => ({isPending:false,error:null,refetch:vi.fn(),data:[{id:'script',name:'Greeting',version:1}]}),
  useSaveCampaign: () => ({isPending:false,mutateAsync:state.save}),
  useSetCampaignStatus: () => ({isPending:false,mutateAsync:state.setStatus}),
  useAddPeopleToCampaign: () => ({isPending:false,mutateAsync:vi.fn()}),
@@ -28,5 +29,5 @@ describe('Automated Calls safeguards',()=>{
  it('allows a Saturday one-time call within the window',()=>{expect(campaignIssues({...base,scheduleKind:'once',startAt:'2026-10-24T08:00:00+03:00'})).toEqual([]);});
  it('does not render engine controls for an unauthorized user',()=>{state.allowed=false;render(<AutocallCommandCenter tab="autocall-overview" onTabChange={vi.fn()}/>);expect(screen.queryByRole('button')).toBeNull();expect(state.pause).not.toHaveBeenCalled();});
  it('requires a reason before category pause is submitted',async()=>{render(<AutocallOverview/>);fireEvent.click(screen.getByRole('button',{name:'Pause all automated calls'}));expect(screen.getByRole('button',{name:'Pause calls'})).toBeDisabled();expect(state.pause).not.toHaveBeenCalled();fireEvent.change(screen.getByRole('textbox',{name:'Pause reason'}),{target:{value:'Staff requested pause'}});fireEvent.click(screen.getByRole('button',{name:'Pause calls'}));await waitFor(()=>expect(state.pause).toHaveBeenCalledWith({category:null,paused:true,reason:'Staff requested pause'}));});
- it('saving a new campaign calls save only and never starts calls',async()=>{render(<AutocallCampaigns onViewCalls={vi.fn()} onViewScript={vi.fn()}/>);fireEvent.click(screen.getByRole('button',{name:'New campaign'}));fireEvent.change(screen.getByLabelText('Name'),{target:{value:'Reminder'}});fireEvent.click(screen.getByRole('combobox',{name:'Script'}));fireEvent.click(await screen.findByRole('option',{name:'Greeting (vundefined)'}));fireEvent.click(screen.getByRole('button',{name:'Save draft'}));await waitFor(()=>expect(state.save).toHaveBeenCalledWith(expect.objectContaining({name:'Reminder',scriptId:'script',windowStart:'08:00',windowEnd:'19:00',daysOfWeek:[1,2,3,4,5,6]})));expect(state.setStatus).not.toHaveBeenCalled();});
+ it('saving a new campaign calls save only and never starts calls',async()=>{render(<AutocallCampaigns onViewCalls={vi.fn()} onViewScript={vi.fn()}/>);fireEvent.click(screen.getByRole('button',{name:'New campaign'}));fireEvent.change(screen.getByLabelText('Name'),{target:{value:'Reminder'}});fireEvent.click(screen.getByRole('combobox',{name:'Script'}));fireEvent.click(await screen.findByRole('option',{name:'Greeting (v1)'}));fireEvent.click(screen.getByRole('button',{name:'Save draft'}));await waitFor(()=>expect(state.save).toHaveBeenCalledWith(expect.objectContaining({name:'Reminder',scriptId:'script',windowStart:'08:00',windowEnd:'19:00',daysOfWeek:[1,2,3,4,5,6]})));expect(state.setStatus).not.toHaveBeenCalled();});
 });
