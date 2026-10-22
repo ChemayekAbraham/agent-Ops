@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
 import { lazyWithRetry, lazyNamed } from '@/lib/lazyWithRetry';
 import { MissionBanner } from '@/components/mission/MissionBanner';
+import { ReceivablesSummaryGate } from '@/components/receivables/ReceivablesSummaryGate';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import NotFound from '@/pages/NotFound';
 import ScreenLoader from '@/components/common/ScreenLoader';
@@ -62,6 +63,13 @@ const dashboards: Record<
   locations: { title: 'Location Management', component: LocationManager },
 };
 
+/**
+ * Tabs that open on the one-figure receivables summary instead of the full
+ * dashboard. `landlord-ops` is deliberately absent: that tab is only a redirect
+ * to the standalone Landlord Ops console, which shows the summary itself.
+ */
+const RECEIVABLES_GATED_TABS = new Set(['agent-ops', 'tenant-ops']);
+
 export default function ExecutiveHub() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -91,6 +99,26 @@ export default function ExecutiveHub() {
   const fullWidth = tab === 'agent-ops' || tab === 'partners-ops';
 
   const showHeader = tab !== 'partners-ops';
+
+  // A link that names something specific (a section, a mode, a decision) opens
+  // the whole dashboard at once; only a plain `?tab=` visit starts on the figure.
+  const hasExtraParams = Array.from(searchParams.keys()).some((k) => k !== 'tab');
+  const receivablesGated = RECEIVABLES_GATED_TABS.has(tab);
+
+  const dashboardBody = (
+    <>
+      {current.missionRole && <MissionBanner dashboardRole={current.missionRole} className="mb-4" />}
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        }
+      >
+        <DashboardComponent />
+      </Suspense>
+    </>
+  );
 
   return (
     <div className="flex flex-col h-[100dvh] bg-background overflow-hidden">
@@ -129,16 +157,11 @@ export default function ExecutiveHub() {
       )}
       <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
         <div className={`${fullWidth ? 'max-w-none' : 'max-w-7xl'} mx-auto p-4 pb-24`}>
-          {current.missionRole && <MissionBanner dashboardRole={current.missionRole} className="mb-4" />}
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            }
-          >
-            <DashboardComponent />
-          </Suspense>
+          {receivablesGated ? (
+            <ReceivablesSummaryGate startOpen={hasExtraParams}>{dashboardBody}</ReceivablesSummaryGate>
+          ) : (
+            dashboardBody
+          )}
         </div>
       </div>
     </div>

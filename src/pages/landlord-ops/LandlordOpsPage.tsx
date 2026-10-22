@@ -1,4 +1,4 @@
-import { useCallback, useMemo, Suspense } from 'react';
+import { useCallback, useMemo, useState, Suspense } from 'react';
 import { useLocation, useNavigate, useSearchParams, Outlet } from 'react-router-dom';
 import { Loader2, UserCheck } from 'lucide-react';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
@@ -7,6 +7,7 @@ import { LandlordOpsSidebar } from '@/components/executive/landlord-ops/Landlord
 import { LandlordOpsDecisionDrawer } from '@/components/executive/landlord-ops/LandlordOpsDecisionDrawer';
 import { Button } from '@/components/ui/button';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
+import { ReceivablesSummaryGate } from '@/components/receivables/ReceivablesSummaryGate';
 
 /**
  * Layout route for Landlord Ops.
@@ -27,6 +28,24 @@ export default function LandlordOpsPage() {
 
   // Path relative to /landlord-ops — '' on the index route.
   const path = location.pathname.replace(/^\/landlord-ops\/?/, '').toLowerCase();
+
+  // The home page opens on the one-figure receivables summary. Anything else —
+  // a named destination, or a link carrying any extra parameter — opens in full.
+  const isHome = path === '';
+  const hasExtraParams = Array.from(searchParams.keys()).length > 0;
+  const [homeOpen, setHomeOpen] = useState(false);
+
+  const destinationView = (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  );
 
   const {
     pendingHouses,
@@ -79,34 +98,36 @@ export default function LandlordOpsPage() {
 
         <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
           <TutorialVideosButton />
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+          {isHome ? (
+            <ReceivablesSummaryGate startOpen={hasExtraParams} onVisibilityChange={setHomeOpen}>
+              {destinationView}
+            </ReceivablesSummaryGate>
+          ) : (
+            destinationView
+          )}
         </main>
 
-        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
-          <Button
-            type="button"
-            size="lg"
-            className="pointer-events-auto w-full max-w-md justify-between rounded-xl border border-primary-foreground/20 px-4 shadow-xl"
-            onClick={() => handleNavigate('verify/landlords')}
-            aria-label={`Open landlord verification queue. ${pendingLandlords} pending`}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <UserCheck className="h-5 w-5 shrink-0" />
-              <span className="truncate">Landlord Verification Queue</span>
-            </span>
-            <span className="flex min-w-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground px-2 py-0.5 text-xs font-bold text-primary">
-              {pendingLandlords > 999 ? '999+' : pendingLandlords}
-            </span>
-          </Button>
-        </div>
+        {/* The phone shortcut to the verification queue is part of the dashboard,
+            so it stays out of the way while only the figure is showing. */}
+        {(!isHome || homeOpen) && (
+          <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
+            <Button
+              type="button"
+              size="lg"
+              className="pointer-events-auto w-full max-w-md justify-between rounded-xl border border-primary-foreground/20 px-4 shadow-xl"
+              onClick={() => handleNavigate('verify/landlords')}
+              aria-label={`Open landlord verification queue. ${pendingLandlords} pending`}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <UserCheck className="h-5 w-5 shrink-0" />
+                <span className="truncate">Landlord Verification Queue</span>
+              </span>
+              <span className="flex min-w-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground px-2 py-0.5 text-xs font-bold text-primary">
+                {pendingLandlords > 999 ? '999+' : pendingLandlords}
+              </span>
+            </Button>
+          </div>
+        )}
 
         {hasDecisionDrawer && (
           <LandlordOpsDecisionDrawer
