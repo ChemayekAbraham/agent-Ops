@@ -1881,6 +1881,19 @@ export function ProxyPartnerFunds() {
         payoutSourceLabel={payoutSourceLabel}
       />
 
+      {splitTarget && (
+        <AgentProxyWithdrawalDialog
+          open={!!splitTarget}
+          onOpenChange={(o) => { if (!o) setSplitTarget(null); }}
+          funderId={splitTarget.funderId}
+          funderName={splitTarget.funderName}
+          funderPhone=""
+          walletBalance={splitTarget.available}
+          initialPortfolioId={splitTarget.portfolioId}
+          onSuccess={() => { setSplitTarget(null); handleWithdrawSuccess(); }}
+        />
+      )}
+
       <AlertDialog open={cancelConfirmOpen} onOpenChange={(open) => {
         setCancelConfirmOpen(open);
         if (!open) setCancelReason('');
