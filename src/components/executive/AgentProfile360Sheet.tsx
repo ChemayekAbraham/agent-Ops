@@ -28,6 +28,29 @@ type Period = 'today' | 'weekly' | 'monthly' | 'yearly';
 function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0; }
 
 function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTarget: number }) {
+  // The weekly target is the PINNED bill for the last 7 days, summed
+  // server-side. It used to be `dailyTarget * 7`, which extrapolated today
+  // across six days that had already happened — so when an agent's book grew,
+  // the target for those finished days grew with it and their week fell
+  // without them doing anything differently.
+  const { data: week7 } = useQuery({
+    queryKey: ['agent-expected-week', agentId],
+    enabled: !!agentId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_expected_week', {
+        p_agent_ids: [agentId as string],
+        p_days: 7,
+      });
+      if (error) throw error;
+      const r = (data ?? [])[0] as { expected_week: number; collected_week: number } | undefined;
+      return {
+        expected: Number(r?.expected_week ?? 0),
+        collected: Number(r?.collected_week ?? 0),
+      };
+    },
+  });
+
   const { data: rows = [] } = useQuery({
     queryKey: ['agent-target-cards', agentId],
     enabled: !!agentId,
@@ -61,13 +84,13 @@ function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTa
     return { today, yesterday, week };
   }, [rows]);
 
-  const weekTarget = dailyTarget * 7;
+  const weekTarget = week7?.expected ?? 0;
   const todayPct = pct(today, dailyTarget);
 
   const cards = [
     { label: 'Today', value: today, target: dailyTarget, sub: `${todayPct}% of daily target` },
     { label: 'Yesterday', value: yesterday, target: dailyTarget, sub: `${pct(yesterday, dailyTarget)}% of daily target` },
-    { label: 'This week (7d)', value: week, target: weekTarget, sub: `${pct(week, weekTarget)}% of weekly target` },
+    { label: 'This week (7d)', value: week7?.collected ?? week, target: weekTarget, sub: `${pct(week7?.collected ?? week, weekTarget)}% of weekly target` },
   ];
 
   return (
