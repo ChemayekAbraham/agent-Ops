@@ -337,18 +337,20 @@ export function TenantCallingCenter() {
 
   const autoControls = (
     <div className="flex flex-wrap items-center gap-1.5">
-      <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
-        <SelectTrigger className="h-9 w-[120px] text-xs">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AUTO_CAP_CHOICES.map((c) => (
-            <SelectItem key={c} value={String(c)} className="text-xs">
-              {c} calls
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {(!callingPaused || auto.mode !== 'off') && (
+        <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
+          <SelectTrigger className="h-9 w-[120px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AUTO_CAP_CHOICES.map((c) => (
+              <SelectItem key={c} value={String(c)} className="text-xs">
+                {c} calls
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       {auto.mode === 'running' ? (
         <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.pauseAuto}>
           <Pause className="mr-1.5 h-3.5 w-3.5" />
@@ -365,15 +367,17 @@ export function TenantCallingCenter() {
           Resume
         </Button>
       ) : (
-        <Button
-          size="sm"
-          className="h-9 text-xs font-semibold"
-          onClick={() => auto.startAuto(hub.rows, autoCap)}
-          disabled={!hub.rows.length || hub.wipBlocked}
-        >
-          <Play className="mr-1.5 h-3.5 w-3.5" />
-          Start sequential run
-        </Button>
+        !callingPaused && (
+          <Button
+            size="sm"
+            className="h-9 text-xs font-semibold"
+            onClick={() => auto.startAuto(hub.rows, autoCap)}
+            disabled={!hub.rows.length || hub.wipBlocked}
+          >
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            Start sequential run
+          </Button>
+        )
       )}
       {auto.mode !== 'off' && (
         <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.stopAuto}>
@@ -802,6 +806,7 @@ export function TenantCallingCenter() {
            open attempt and the dialer refuses while a call is starting. */
         canCall={!!detailsRow}
         wipBlocked={hub.wipBlocked}
+        callingPaused={callingPaused}
         onCall={callFromDetails}
         onClose={() => setDetailsRow(null)}
       />
