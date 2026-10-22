@@ -65459,6 +65459,10 @@ export type Database = {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
       }
+      _agent_ops_can_set_repayment_methods: {
+        Args: { _uid: string }
+        Returns: boolean
+      }
       _agent_products_authorized: { Args: never; Returns: boolean }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
@@ -66807,6 +66811,17 @@ export type Database = {
       agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
       agent_ops_set_agent_frozen: {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
+        Returns: Json
+      }
+      agent_ops_set_smartphone_repayment_methods: {
+        Args: {
+          p_agent_id: string
+          p_reason?: string
+          p_returns_mode?: string
+          p_returns_value?: number
+          p_use_commission: boolean
+          p_use_returns: boolean
+        }
         Returns: Json
       }
       agent_ops_set_stage: {
@@ -68980,6 +68995,18 @@ export type Database = {
       cc_void_attempt: {
         Args: { p_attempt_id: string; p_reason: string }
         Returns: undefined
+      }
+      cc_weekly_all_calls_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          answered: boolean
+          caller_id: string
+          caller_name: string
+          calls: number
+          kampala_day: string
+          source: string
+          subject_kind: string
+        }[]
       }
       ceo_angel_pool_shareholder_action: {
         Args: {
@@ -72689,6 +72716,10 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: Json
       }
+      get_agent_smartphone_repayment_methods: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       get_agent_split_balances: {
         Args: { p_agent_id: string }
         Returns: {
@@ -75277,6 +75308,13 @@ export type Database = {
       get_signup_trends: {
         Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
+      }
+      get_smartphone_repayment_start_dates: {
+        Args: never
+        Returns: {
+          agent_id: string
+          starts_on: string
+        }[]
       }
       get_smartphone_supplier_payout_details: {
         Args: { p_sale_id: string }
@@ -82657,6 +82695,10 @@ export type Database = {
         Args: { p_new_password: string; p_user_id: string }
         Returns: boolean
       }
+      set_staff_mfa_mode: {
+        Args: { p_mode: string; p_reason: string }
+        Returns: string
+      }
       set_tenant_smartphone_status: {
         Args: { p_source?: string; p_status: string; p_tenant_id: string }
         Returns: Json
@@ -83050,6 +83092,22 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      staff_mfa_ok: { Args: never; Returns: boolean }
+      staff_mfa_readiness: {
+        Args: never
+        Returns: {
+          aal1_sessions: number
+          aal2_sessions: number
+          active_sessions: number
+          flags: string[]
+          full_name: string
+          is_admin: boolean
+          last_sign_in_at: string
+          roles: string[]
+          totp_enrolled: boolean
+          user_id: string
+        }[]
       }
       staff_requisition_assert_signer: {
         Args: {
