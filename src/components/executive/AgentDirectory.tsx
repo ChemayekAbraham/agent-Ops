@@ -168,11 +168,11 @@ export function AgentDirectory() {
   ]), [kpis]);
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       {openAgentId ? (
         <>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOpenAgentId(null)}>
+            <Button variant="outline" size="sm" className="h-11 min-h-11 text-sm sm:h-9 sm:min-h-9" onClick={() => setOpenAgentId(null)}>
               <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Back to directory
             </Button>
             <h3 className="text-sm font-semibold">Agent profile</h3>
@@ -209,21 +209,23 @@ export function AgentDirectory() {
       </div>
 
       {/* View mode toggle */}
-      <div className="flex items-center gap-1 rounded-full bg-muted/50 p-0.5 w-fit">
-        <button
+      <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/50 p-1 sm:w-fit" role="group" aria-label="Directory view">
+        <Button variant="ghost"
           onClick={() => setViewMode('list')}
-          className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-colors',
+          aria-pressed={viewMode === 'list'}
+          className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'list' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
           <LayoutList className="h-3.5 w-3.5" /> List
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost"
           onClick={() => setViewMode('region')}
-          className={cn('flex items-center gap-1 text-xs px-3 py-1.5 rounded-full transition-colors',
+          aria-pressed={viewMode === 'region'}
+          className={cn('h-11 min-h-11 gap-2 text-sm px-4 rounded-md',
             viewMode === 'region' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground')}
         >
           <Map className="h-3.5 w-3.5" /> By Region
-        </button>
+        </Button>
       </div>
 
       {viewMode === 'region' ? (
@@ -237,51 +239,54 @@ export function AgentDirectory() {
               placeholder="Search by name, phone, email, territory, or ID…"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
-              className="pl-10 pr-10 h-10 text-sm"
+              aria-label="Search agents"
+              className="pl-10 pr-12 h-12 text-base sm:h-11 sm:text-sm"
               autoComplete="off"
             />
             {searchInput && (
-              <button
+              <Button variant="ghost" size="icon"
                 onClick={() => setSearchInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-0.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label="Clear search"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="grid grid-cols-3 gap-2 sm:flex" role="group" aria-label="Agent type">
               {TYPE_FILTERS.map(t => (
-                <button
+                <Button variant="outline"
                   key={t.value}
                   onClick={() => setType(t.value)}
-                  className={cn('text-xs px-2.5 py-1.5 rounded-full border whitespace-nowrap transition-colors',
+                  aria-pressed={type === t.value}
+                  className={cn('min-w-0 h-11 min-h-11 text-sm px-2 sm:px-3 rounded-lg border shadow-none',
                     type === t.value ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-border text-muted-foreground hover:bg-muted')}
                 >
                   {t.label}
-                </button>
+                </Button>
               ))}
             </div>
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:ml-auto" role="group" aria-label="Agent status">
               {STATUS_FILTERS.map(s => (
-                <button
+                <Button variant="outline"
                   key={s.value}
                   onClick={() => setStatus(s.value)}
-                  className={cn('text-xs px-2.5 py-1.5 rounded-full border whitespace-nowrap transition-colors',
+                  aria-pressed={status === s.value}
+                  className={cn('min-w-0 h-11 min-h-11 text-sm px-3 rounded-lg border shadow-none',
                     status === s.value ? 'bg-secondary text-secondary-foreground border-border'
                       : 'border-border text-muted-foreground hover:bg-muted')}
                 >
                   {s.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
             <span>Showing {fmt(totalMatched)} agents &amp; sub-agents</span>
             {totalMatched > 0 && (
               <span>{showingFrom.toLocaleString()}–{showingTo.toLocaleString()} of {totalMatched.toLocaleString()}</span>
@@ -329,34 +334,34 @@ export function AgentDirectory() {
                   tabIndex={0}
                   onClick={() => setOpenAgentId(a.id)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenAgentId(a.id); } }}
-                  className={cn('w-full text-left grid grid-cols-1 sm:grid-cols-2 gap-3 lg:items-center px-3 py-3 hover:bg-muted/50 transition-colors cursor-pointer', GRID_LG)}
+                  className={cn('w-full min-w-0 text-left grid grid-cols-1 sm:grid-cols-2 gap-3 lg:items-center px-3 py-4 sm:py-3 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-manipulation transition-colors cursor-pointer', GRID_LG)}
                 >
                   {/* Identity */}
                   <div className="flex items-center gap-3 min-w-0">
                     <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-10 w-10" />
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-sm truncate">{a.full_name || 'Unknown Agent'}</span>
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-semibold text-base break-words lg:text-sm">{a.full_name || 'Unknown Agent'}</span>
                         {a.verified && <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Verified" />}
                       </div>
-                      <span className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                      <span className="flex items-center gap-1.5 text-sm text-muted-foreground break-all lg:text-xs">
                         <Phone className="h-3 w-3 shrink-0" />{a.phone || '—'}
                       </span>
                       {a.email && (
-                        <span className="hidden lg:flex items-center gap-1 text-[11px] text-muted-foreground/80 truncate">
-                          <Mail className="h-3 w-3 shrink-0" /><span className="truncate">{a.email}</span>
+                        <span className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground lg:text-[11px]">
+                          <Mail className="h-3 w-3 shrink-0 mt-1" /><span className="break-all">{a.email}</span>
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* Location */}
-                  <div className="min-w-0 text-xs">
-                    <span className="flex items-center gap-1 text-foreground truncate">
+                  <div className="min-w-0 text-sm lg:text-xs">
+                    <span className="flex items-start gap-1 text-foreground break-words">
                       <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
                       {place || <span className="text-muted-foreground">No location</span>}
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
                       <CalendarClock className="h-3 w-3 shrink-0" />
                       Last collection {relative(a.last_collection_at)}
                     </span>
@@ -373,31 +378,31 @@ export function AgentDirectory() {
                   </div>
 
                   {/* Portfolio */}
-                  <div className="flex items-center gap-3 text-xs tabular-nums">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm lg:text-xs tabular-nums">
                     <span className="flex items-center gap-1" title="Tenants">
                       <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.total_tenants}</span>
+                      <span className="font-semibold">{a.total_tenants}</span><span className="text-muted-foreground lg:hidden">tenants</span>
                     </span>
                     <span className="flex items-center gap-1" title="Sub-agents recruited">
                       <Network className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.sub_agents_count}</span>
+                      <span className="font-semibold">{a.sub_agents_count}</span><span className="text-muted-foreground lg:hidden">sub-agents</span>
                     </span>
                     <span className="flex items-center gap-1" title="Houses listed">
                       <Home className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-semibold">{a.houses_listed}</span>
+                      <span className="font-semibold">{a.houses_listed}</span><span className="text-muted-foreground lg:hidden">houses</span>
                     </span>
-                    <span className="text-[11px] text-muted-foreground" title="Outstanding balance">
+                    <span className="text-xs text-muted-foreground" title="Outstanding balance">
                       Out {ugx(a.outstanding)}
                     </span>
                   </div>
 
                   {/* Today vs target */}
                   <div className="min-w-0">
-                    <div className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm lg:text-xs tabular-nums">
                       <span className={cn('font-semibold', today > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
-                        {ugx(today)}
+                        <span className="font-normal text-muted-foreground lg:hidden">Today </span>{ugx(today)}
                       </span>
-                      <span className="text-[11px] text-muted-foreground">/ {ugx(target)}</span>
+                      <span className="text-xs text-muted-foreground"><span className="lg:hidden">Target </span><span className="hidden lg:inline">/ </span>{ugx(target)}</span>
                     </div>
                     <div className="mt-1 h-1.5 w-full bg-muted overflow-hidden rounded-full">
                       <div
@@ -415,7 +420,7 @@ export function AgentDirectory() {
                     <Button
                       variant={a.status === 'frozen' ? 'outline' : 'ghost'}
                       size="sm"
-                      className={cn('h-6 px-2 text-[10px]', a.status !== 'frozen' && 'text-destructive hover:text-destructive')}
+                      className={cn('h-11 min-h-11 px-3 text-sm lg:h-9 lg:min-h-9 lg:px-2 lg:text-xs', a.status !== 'frozen' && 'text-destructive hover:text-destructive')}
                       onClick={(e) => { e.stopPropagation(); setFreezeReason(''); setFreezeTarget(a); }}
                     >
                       {a.status === 'frozen'
@@ -433,12 +438,12 @@ export function AgentDirectory() {
 
           {totalMatched > PAGE_SIZE && (
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-              <Button variant="outline" size="sm" className="text-xs h-8"
+              <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
                 disabled={page === 0 || isFetching} onClick={() => setPage(p => Math.max(0, p - 1))}>
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
               </Button>
               <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages.toLocaleString()}</span>
-              <Button variant="outline" size="sm" className="text-xs h-8"
+              <Button variant="outline" size="sm" className="text-sm h-11 min-h-11"
                 disabled={page >= totalPages - 1 || isFetching} onClick={() => setPage(p => p + 1)}>
                 Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Button>
