@@ -806,5 +806,43 @@ export const PARTNER_STATEMENT_CSS = `
       }
     }
 
+
+    /* Partner Statement only (partnerStatement.ts adds .rules-primary to its
+       pages): table rules and double lines in the system primary colour,
+       hsl(271 100% 40%) from src/index.css. Row hairlines use a tint of it.
+       The other partner PDFs share this stylesheet and keep the black rules. */
+    .rules-primary {
+      --rule-primary: #6900CC;
+      --rule-primary-soft: rgba(105, 0, 204, 0.22);
+    }
+    .rules-primary .closing-balance-row td {
+      border-top-color: var(--rule-primary-soft);
+      border-bottom-color: var(--rule-primary);
+    }
+    .rules-primary .master-schedule-table thead th {
+      border-top-color: var(--rule-primary);
+      border-bottom-color: var(--rule-primary);
+    }
+    .rules-primary .master-schedule-table td { border-bottom-color: var(--rule-primary-soft); }
+    .rules-primary .master-schedule-table tfoot td {
+      border-top-color: var(--rule-primary);
+      border-bottom-color: var(--rule-primary);
+    }
+    .rules-primary .portfolio-statement-entry {
+      border-top-color: var(--rule-primary);
+      border-bottom-color: var(--rule-primary);
+    }
+    .rules-primary .portfolio-terms-table th,
+    .rules-primary .portfolio-terms-table td { border-bottom-color: var(--rule-primary-soft); }
+    .rules-primary .entry-ledger-table th {
+      border-top-color: var(--rule-primary-soft);
+      border-bottom-color: var(--rule-primary);
+    }
+    .rules-primary .entry-ledger-table td { border-bottom-color: var(--rule-primary-soft); }
+    .rules-primary .entry-ledger-table tfoot td {
+      border-top-color: var(--rule-primary);
+      border-bottom-color: var(--rule-primary);
+    }
+
   
 `;
