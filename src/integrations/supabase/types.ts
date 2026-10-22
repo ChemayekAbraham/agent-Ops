@@ -72636,6 +72636,10 @@ export type Database = {
           with_withdrawable: number
         }[]
       }
+      get_agent_partnership_summary: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       get_agent_product_detail: {
         Args: { p_agent_id: string; p_category?: string }
         Returns: Json
@@ -74770,6 +74774,10 @@ export type Database = {
           p_metric: string
           p_period: string
         }
+        Returns: Json
+      }
+      get_partner_promissory_commissions: {
+        Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
@@ -78520,6 +78528,7 @@ export type Database = {
         }[]
       }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
+      my_staff_mfa_status: { Args: never; Returns: Json }
       national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
@@ -82019,6 +82028,7 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      require_staff_aal2: { Args: never; Returns: undefined }
       requisition_budget_line_committed: {
         Args: {
           p_exclude_id?: string
