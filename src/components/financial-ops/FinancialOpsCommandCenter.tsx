@@ -186,6 +186,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Switch } from '@/components/ui/switch';
+import { PageHeader } from './FinopsKit';
 import welileWordmark from '@/assets/welile-wordmark.png';
 import { useFinOpsAutoRefresh, setFinOpsAutoRefresh } from '@/hooks/useFinOpsAutoRefresh';
 import { supabase } from '@/integrations/supabase/client';
@@ -494,15 +495,12 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'audit' && <AuditFeed />}
         {activeTool === 'withdrawals' && (
           <>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-                <Banknote className="h-6 w-6 text-destructive" />
-                Withdrawals & Payouts
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Cash-out requests waiting for a decision.
-              </p>
-            </div>
+            <PageHeader
+              icon={Banknote}
+              tone="rose"
+              title="Withdrawals & Payouts"
+              description="Review and process customer withdrawal requests. Approve completed payments or reject failed ones."
+            />
             {/* Core withdrawal verification queue given first priority and breathing space */}
             <FinOpsWithdrawalVerification />
             <LandlordPayoutsQueue />
@@ -529,20 +527,22 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           </div>
         )}
         {activeTool === 'employee_requisition_links' && (
-          <div className="space-y-2">
-            <h2 className="text-lg font-bold">Employee Requisition Links</h2>
-            <p className="text-sm text-muted-foreground">
-              Generate secure links for requisitions outside My Space. Each submission starts with COO review and then moves to CFO for final approval.
-            </p>
+          <div className="space-y-5">
+            <PageHeader
+              icon={FileText}
+              title="Employee Requisition Links"
+              description="Generate secure links for requisitions outside My Space. Each submission starts with COO review and then moves to CFO for final approval."
+            />
             <EmployeeRequisitionLinksPanel />
           </div>
         )}
         {activeTool === 'employee_requisition_queue' && (
-          <div className="space-y-2">
-            <h2 className="text-lg font-bold">Manual Requisition Review</h2>
-            <p className="text-sm text-muted-foreground">
-              Manual-link submissions move from COO review to CFO final approval. CFO approval is the only stage that can credit a wallet.
-            </p>
+          <div className="space-y-5">
+            <PageHeader
+              icon={ClipboardList}
+              title="Manual Requisition Review"
+              description="Manual-link submissions move from COO review to CFO final approval. CFO approval is the only stage that can credit a wallet."
+            />
             <ManualRequisitionQueuePanel stage="cfo" />
           </div>
         )}
@@ -572,14 +572,13 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'merchant_agents' && <CashoutAgentManager />}
         {activeTool === 'receipt_archive' && <ReceiptArchivePanel />}
         {activeTool === 'merchant_float' && (
-          <div className="space-y-4">
-            <div>
-              <h1 className="text-xl font-bold">🏪 Merchant Float Requests</h1>
-              <p className="text-sm text-muted-foreground">
-                Cash-out merchant agents requesting operational float top-ups. Fund their Float
-                bucket via the Agent Float Allocation category or reject with a reason.
-              </p>
-            </div>
+          <div className="space-y-5">
+            <PageHeader
+              icon={HandCoins}
+              tone="amber"
+              title="Merchant Float Requests"
+              description="Cash-out merchant agents requesting operational float top-ups. Fund their Float bucket via the Agent Float Allocation category or reject with a reason."
+            />
             <MerchantFloatRequestsPanel />
           </div>
         )}

@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Globe2, CalendarDays } from 'lucide-react';
 
+import { PageHeader } from './FinopsKit';
 // African countries grouped by sub-region, ordered East → West → South → North.
 const AFRICA_REGIONS: { region: string; countries: string[] }[] = [
   {
@@ -627,22 +628,21 @@ export function FundedTenantsList() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <CheckCircle2 className="h-6 w-6 text-emerald-600" />
-          Tenants Whose Landlords Were Funded
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Every landlord payout Financial Ops has settled — most recent first.
-        </p>
+      <PageHeader
+        icon={CheckCircle2}
+        tone="emerald"
+        title="Tenants Whose Landlords Were Funded"
+        description="Every landlord payout Financial Ops has settled, most recent first."
+        actions={
         <Button
-          size="sm" variant="outline" className="mt-2 gap-1.5"
+          size="sm" variant="outline" className="gap-1.5 min-h-[40px]"
           onClick={() => setDrill({ tenantId: null, agentId: null, landlordId: null })}
         >
           <UserCog className="h-3.5 w-3.5" />
           Drill into any user (search globally)
         </Button>
-      </div>
+        }
+      />
 
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
