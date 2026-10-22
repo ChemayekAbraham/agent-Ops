@@ -15,7 +15,7 @@ const STALE_TIME = 5 * 60 * 1000;
 type RpcFn = (
   fn: string,
   args?: Record<string, unknown>
-) => Promise<{ data: unknown; error: { message: string } | null }>;
+) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
 
 /**
  * Call the payables RPCs through the client instance.
@@ -314,6 +314,12 @@ export function usePayablesPredictiveForecast(
       return data as PayablesPredictiveForecast;
     },
     staleTime: STALE_TIME,
+    // Repeating a timed-out SQL report only adds load and extends the spinner.
+    // Permission failures also cannot be repaired by replaying the same request.
+    retry: (failureCount, error) => {
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+      return code !== '57014' && code !== '42501' && failureCount < 1;
+    },
   });
 }
 

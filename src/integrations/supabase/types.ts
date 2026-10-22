@@ -8193,6 +8193,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_cycle_notifications_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_cycle_notifications_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8325,6 +8332,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_department_notifications_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_department_notifications_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8447,6 +8461,13 @@ export type Database = {
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_disbursements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       budget_obligation_declines: {
@@ -8481,6 +8502,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_calls"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_obligation_declines_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
           },
           {
             foreignKeyName: "budget_obligation_declines_department_id_fkey"
@@ -8535,11 +8563,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_submission_documents_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+          {
             foreignKeyName: "budget_submission_documents_submission_id_fkey"
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submission_documents_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -8585,6 +8627,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submission_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -8682,6 +8731,13 @@ export type Database = {
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_submission_lines_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
+          },
         ]
       }
       budget_submissions: {
@@ -8778,6 +8834,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_submissions_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["call_id"]
+          },
+          {
             foreignKeyName: "budget_submissions_department_id_fkey"
             columns: ["department_id"]
             isOneToOne: false
@@ -8797,6 +8860,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_parent_submission_id_fkey"
+            columns: ["parent_submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
           {
             foreignKeyName: "budget_submissions_submitted_by_position_fkey"
@@ -8968,11 +9038,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "budget_supplements_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+          {
             foreignKeyName: "budget_supplements_submission_id_fkey"
             columns: ["submission_id"]
             isOneToOne: false
             referencedRelation: "budget_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_supplements_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["submission_id"]
           },
         ]
       }
@@ -9030,6 +9114,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_bank_payout_allocations_withdrawal_request_id_fkey"
+            columns: ["withdrawal_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "bulk_bank_payout_allocations_withdrawal_request_id_fkey"
@@ -10261,6 +10352,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashout_claim_comments_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "cashout_claim_comments_withdrawal_id_fkey"
@@ -14673,6 +14771,7 @@ export type Database = {
           amount: number
           approver_id: string | null
           approver_name: string | null
+          budget_line_id: string | null
           created_at: string
           credited_at: string | null
           credited_by: string | null
@@ -14694,6 +14793,7 @@ export type Database = {
           amount: number
           approver_id?: string | null
           approver_name?: string | null
+          budget_line_id?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
@@ -14715,6 +14815,7 @@ export type Database = {
           amount?: number
           approver_id?: string | null
           approver_name?: string | null
+          budget_line_id?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
@@ -14732,7 +14833,22 @@ export type Database = {
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "director_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "director_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
+        ]
       }
       disbursement_records: {
         Row: {
@@ -15543,6 +15659,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string
           coo_decided_at: string | null
           coo_decided_by: string | null
@@ -15578,6 +15695,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category: string
           coo_decided_at?: string | null
           coo_decided_by?: string | null
@@ -15613,6 +15731,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string
           coo_decided_at?: string | null
           coo_decided_by?: string | null
@@ -15643,6 +15762,20 @@ export type Database = {
           workflow_stage?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "employee_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
           {
             foreignKeyName: "employee_requisitions_link_id_fkey"
             columns: ["link_id"]
@@ -27289,6 +27422,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "landlord_float_budget_allocations_daily_budget_id_fkey"
+            columns: ["daily_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
+          {
             foreignKeyName: "landlord_float_budget_allocations_misc_request_id_fkey"
             columns: ["misc_request_id"]
             isOneToOne: false
@@ -27379,6 +27519,13 @@ export type Database = {
             referencedRelation: "landlord_float_budgets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
         ]
       }
       landlord_float_budgets: {
@@ -27428,6 +27575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlord_float_budgets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budgets_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
           },
         ]
       }
@@ -28318,6 +28472,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlord_payouts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_payout_otp_challenges_resulting_payout_id_fkey"
+            columns: ["resulting_payout_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["payout_id"]
           },
         ]
       }
@@ -33198,6 +33359,13 @@ export type Database = {
             foreignKeyName: "merchant_commission_awards_withdrawal_id_fkey"
             columns: ["withdrawal_id"]
             isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "merchant_commission_awards_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -33904,6 +34072,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
@@ -37629,6 +37804,13 @@ export type Database = {
             foreignKeyName: "payout_codes_withdrawal_request_id_fkey"
             columns: ["withdrawal_request_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "payout_codes_withdrawal_request_id_fkey"
+            columns: ["withdrawal_request_id"]
+            isOneToOne: false
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -37721,6 +37903,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_delivery_disputes_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "payout_delivery_disputes_withdrawal_id_fkey"
@@ -50159,6 +50348,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null
@@ -50206,6 +50396,7 @@ export type Database = {
           amount: number
           approved_amount?: number | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string | null
           ceo_decided_at?: string | null
           ceo_decided_by?: string | null
@@ -50253,6 +50444,7 @@ export type Database = {
           amount?: number
           approved_amount?: number | null
           attachment_urls?: string[]
+          budget_line_id?: string | null
           category?: string | null
           ceo_decided_at?: string | null
           ceo_decided_by?: string | null
@@ -50297,6 +50489,20 @@ export type Database = {
           wallet_transaction_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "budget_submission_lines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisitions_budget_line_id_fkey"
+            columns: ["budget_line_id"]
+            isOneToOne: false
+            referencedRelation: "v_budget_payables_lines"
+            referencedColumns: ["line_id"]
+          },
           {
             foreignKeyName: "staff_requisitions_department_id_fkey"
             columns: ["department_id"]
@@ -59104,6 +59310,13 @@ export type Database = {
             foreignKeyName: "withdrawal_payment_evidence_withdrawal_id_fkey"
             columns: ["withdrawal_id"]
             isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
+          },
+          {
+            foreignKeyName: "withdrawal_payment_evidence_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
             referencedRelation: "v_merchant_commission_outstanding"
             referencedColumns: ["withdrawal_id"]
           },
@@ -59566,6 +59779,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "withdrawal_verification_exemptions_withdrawal_id_fkey"
@@ -61470,6 +61690,64 @@ export type Database = {
           },
         ]
       }
+      v_budget_payables_lines: {
+        Row: {
+          account_code: string | null
+          allowance_amount: number | null
+          approved_open_amount: number | null
+          approved_open_requisitions: number | null
+          call_id: string | null
+          call_title: string | null
+          category: string | null
+          credited_amount: number | null
+          credited_requisitions: number | null
+          department_id: string | null
+          department_name: string | null
+          description: string | null
+          in_progress_amount: number | null
+          in_progress_requisitions: number | null
+          lapsed_amount: number | null
+          line_approved: boolean | null
+          line_created_at: string | null
+          line_id: string | null
+          outstanding_amount: number | null
+          overspent: boolean | null
+          overspent_amount: number | null
+          period_end: string | null
+          period_ended: boolean | null
+          period_start: string | null
+          submission_id: string | null
+          submission_reference: string | null
+          submission_status: string | null
+          submitted_amount: number | null
+          supplement_amount: number | null
+          unproven_credit_amount: number | null
+          unproven_credit_requisitions: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_submission_lines_account_code_fkey"
+            columns: ["account_code"]
+            isOneToOne: false
+            referencedRelation: "ledger_account_catalog"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       v_cc_call_queue: {
         Row: {
           active_capability_count: number | null
@@ -62006,6 +62284,32 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_float_payables: {
+        Row: {
+          allowance: number | null
+          approved_count: number | null
+          approved_not_paid: number | null
+          approved_not_paid_count: number | null
+          created_at: string | null
+          float_id: string | null
+          float_set: number | null
+          lapsed_unused: number | null
+          misc_approved: number | null
+          open_obligation: number | null
+          outstanding_amount: number | null
+          overspent: boolean | null
+          overspent_amount: number | null
+          unverified_count: number | null
+          unverified_paid: number | null
+          verified_count: number | null
+          verified_paid: number | null
+          week_end: string | null
+          week_ended: boolean | null
+          week_start: string | null
+          within_cap_approved: number | null
+        }
+        Relationships: []
+      }
       v_landlord_ops_status: {
         Row: {
           has_smartphone: boolean | null
@@ -62017,6 +62321,73 @@ export type Database = {
           tenant_count: number | null
         }
         Relationships: []
+      }
+      v_landlord_payout_settlement: {
+        Row: {
+          allocation_kind: string | null
+          amount: number | null
+          approved_no_float: boolean | null
+          blocking_alerts: string[] | null
+          created_at: string | null
+          exception: string | null
+          exceptions: string[] | null
+          float_week_start: string | null
+          has_weekly_float: boolean | null
+          landlord_id: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
+          landlord_receipt_number: string | null
+          landlord_receipt_replaced: boolean | null
+          landlord_receipt_reversed: boolean | null
+          landlord_receipt_reversed_at: string | null
+          landlord_receipt_status: string | null
+          mobile_money_provider: string | null
+          no_float_basis: string | null
+          paid_amount: number | null
+          paid_at: string | null
+          paid_date: string | null
+          paid_date_source: string | null
+          paid_out: boolean | null
+          payable_class: string | null
+          payout_id: string | null
+          payout_reference: string | null
+          payout_status: string | null
+          receipt_amount_read: number | null
+          receipt_check_code: string | null
+          receipt_check_id: string | null
+          receipt_check_result: string | null
+          receipt_checked_at: string | null
+          receipt_date_read: string | null
+          receipt_file_accessible: boolean | null
+          receipt_file_path: string | null
+          receipt_state: string | null
+          receipt_tid_read: string | null
+          receipt_token: string | null
+          receipt_uploaded_at: string | null
+          receipt_verified: boolean | null
+          rent_request_id: string | null
+          report_week_start: string | null
+          state: string | null
+          under_review: boolean | null
+          weekly_budget_id: string | null
+          withdrawal_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_float_budgets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_float_budget_allocations_weekly_budget_id_fkey"
+            columns: ["weekly_budget_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_float_payables"
+            referencedColumns: ["float_id"]
+          },
+        ]
       }
       v_landlord_pool_legacy_missed: {
         Row: {
@@ -62498,6 +62869,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "cashout_queue_view"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
+            columns: ["withdrawal_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_payout_settlement"
+            referencedColumns: ["withdrawal_id"]
           },
           {
             foreignKeyName: "merchant_payout_funding_withdrawal_id_fkey"
@@ -71662,6 +72040,7 @@ export type Database = {
           title: string
         }[]
       }
+      get_budget_payables: { Args: never; Returns: Json }
       get_budget_vs_actual: {
         Args: { p_call_id: string; p_department_id?: string }
         Returns: Json
@@ -72851,6 +73230,10 @@ export type Database = {
           verified_auto: number
           verified_human: number
         }[]
+      }
+      get_landlord_payables_by_week: {
+        Args: { p_week_start?: string; p_weekly_float?: boolean }
+        Returns: Json
       }
       get_landlord_payout_agent_rates: {
         Args: never
@@ -78751,6 +79134,156 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_profiles: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          address_complete: boolean
+          address_completed_at: string | null
+          agent_tier: Database["public"]["Enums"]["agent_tier"] | null
+          agent_type: string | null
+          always_share_location: boolean | null
+          avatar_url: string | null
+          borrower_landlord_id: string | null
+          borrower_lc1_id: string | null
+          business_advance_notify_email: boolean
+          business_advance_notify_sms: boolean
+          city: string | null
+          continent: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          dashboard_access_count: number
+          dashboard_activated: boolean
+          dashboard_first_access_at: string | null
+          dashboard_last_access_at: string | null
+          date_of_birth: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
+          district: string | null
+          district_id: number | null
+          easy_read_size: number
+          email: string
+          evicted_at: string | null
+          evicted_from_landlord_id: string | null
+          forced_default_role: string | null
+          forced_default_role_set_at: string | null
+          forced_default_role_set_by: string | null
+          frozen_at: string | null
+          frozen_reason: string | null
+          full_name: string
+          funder_reference: string | null
+          funder_rejected_at: string | null
+          funder_rejection_reason: string | null
+          funder_verified_at: string | null
+          funder_verified_by: string | null
+          has_smartphone: boolean
+          id: string
+          id_image_hash: string | null
+          id_name_change_consent_at: string | null
+          identity_photos_submitted_at: string | null
+          is_frozen: boolean
+          is_seller: boolean
+          is_test: boolean
+          landmark: string | null
+          last_active_at: string | null
+          last_continuous_location_at: string | null
+          linked_national_id: string | null
+          linked_national_id_request_id: string | null
+          location_source: string | null
+          managed_by_agent: boolean
+          managing_agent_id: string | null
+          merchant_agent_referrer_id: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          mobile_money_provider: string | null
+          monthly_rent: number | null
+          must_change_password: boolean | null
+          national_id: string | null
+          national_id_back_photo_path: string | null
+          national_id_card_number: string | null
+          national_id_given_name: string | null
+          national_id_name: string | null
+          national_id_photo_path: string | null
+          national_id_surname: string | null
+          occupation: string | null
+          ops_note: string | null
+          parish: string | null
+          pending_merchant_agent: boolean
+          phone: string | null
+          phone_verified: boolean
+          phone_verified_at: string | null
+          preferred_language: string | null
+          prefers_easy_read: boolean
+          previous_full_name: string | null
+          primary_persona: string | null
+          referrer_id: string | null
+          referrer_locked: boolean
+          referrer_override_at: string | null
+          region: string | null
+          rent_discount_active: boolean
+          residence_lat: number | null
+          residence_lng: number | null
+          residence_updated_at: string | null
+          routing_preferences: Json
+          selfie_image_hash: string | null
+          selfie_photo_path: string | null
+          seller_application_status: string | null
+          sex: string | null
+          signup_channel: string | null
+          signup_device_fp: string | null
+          signup_source: string | null
+          smartphone_source: string | null
+          smartphone_status: string
+          smartphone_verified_at: string | null
+          sub_county: string | null
+          tenant_details_updated_at: string | null
+          tenant_electricity_meter: string | null
+          tenant_house_category: string | null
+          tenant_house_listing_id: string | null
+          tenant_status: string
+          tenant_water_meter: string | null
+          territory: string | null
+          town: string | null
+          ug_village_id: number | null
+          updated_at: string
+          verification_notify_email: boolean
+          verification_notify_sms: boolean
+          verified: boolean
+          village: string | null
+          wallet_id: string | null
+          whatsapp_verified: boolean | null
+          whatsapp_verified_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_wallets: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          advance_balance: number | null
+          balance: number | null
+          created_at: string | null
+          currency: string | null
+          float_balance: number | null
+          id: string | null
+          locked_balance: number | null
+          updated_at: string | null
+          user_id: string | null
+          withdrawable_balance: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       pause_agent_advance: {
         Args: { p_advance_id: string; p_reason: string }
         Returns: Json
@@ -79081,6 +79614,10 @@ export type Database = {
         Returns: number
       }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_held_for_partner_available: {
+        Args: { p_agent: string; p_partner: string }
+        Returns: number
+      }
       proxy_pv_agent_rows: {
         Args: { p_month: string }
         Returns: {
@@ -79232,6 +79769,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null
@@ -80553,6 +81091,51 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      requisition_budget_line_committed: {
+        Args: {
+          p_exclude_id?: string
+          p_exclude_table?: string
+          p_line_id: string
+        }
+        Returns: number
+      }
+      requisition_budget_line_evaluate: {
+        Args: {
+          p_amount: number
+          p_department_ids?: string[]
+          p_exclude_id?: string
+          p_exclude_table?: string
+          p_line_id: string
+          p_on_date: string
+          p_room_only?: boolean
+        }
+        Returns: Json
+      }
+      requisition_budget_line_required_from: { Args: never; Returns: string }
+      requisition_budget_line_supplements: {
+        Args: { p_line_id: string }
+        Returns: number
+      }
+      requisition_budget_lines_available: {
+        Args: { p_department_id?: string }
+        Returns: {
+          account_code: string
+          allowance: number
+          call_id: string
+          call_title: string
+          category: string
+          committed: number
+          department_id: string
+          department_name: string
+          description: string
+          line_id: string
+          line_total: number
+          period_end: string
+          period_start: string
+          remaining: number
+          supplements: number
+        }[]
+      }
       reseed_anchored_balance: {
         Args: { p_reason: string; p_user_id: string }
         Returns: Json
@@ -81164,6 +81747,10 @@ export type Database = {
         Args: { p_accept: boolean; p_agent_id?: string }
         Returns: Json
       }
+      set_requisition_budget_line_required_from: {
+        Args: { p_from: string }
+        Returns: Json
+      }
       set_service_center_vetting_policy: {
         Args: {
           p_effective_from?: string
@@ -81423,6 +82010,7 @@ export type Database = {
           amount: number
           approved_amount: number | null
           attachment_urls: string[]
+          budget_line_id: string | null
           category: string | null
           ceo_decided_at: string | null
           ceo_decided_by: string | null

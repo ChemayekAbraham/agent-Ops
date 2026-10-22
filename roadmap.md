@@ -1,4 +1,6 @@
 # Tasks
+- [x] Stop automatic replay of Payables forecast timeout/permission failures; four tests, safety guards and preview compilation pass; no financial writes.
+- [ ] Apply and verify read-only Payables forecast optimization — blocked: migration service returned 42P10; live definition confirmed unchanged. Signed-in end-to-end verification unavailable for external Supabase.
 - [x] Add recorded agent performance to product application details using the existing Agent Ops report; four tests and guards pass, preview build OK; approval rules unchanged.
 - [ ] Verify application performance with a live signed-in agent — blocked: external Supabase authentication cannot be restored by available browser tools.
 - [x] Add /portfolio-invite-test using the existing completion form; signed-out form/signature/submission verified, safety test and guards pass, build OK; no emails or live financial writes.

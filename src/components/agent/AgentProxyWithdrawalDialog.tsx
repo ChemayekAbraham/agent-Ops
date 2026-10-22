@@ -81,10 +81,12 @@ interface AgentProxyWithdrawalDialogProps {
   funderPhone: string;
   walletBalance: number;
   onSuccess?: () => void;
+  /** Preselect this portfolio's payout route (shows its split numbers). */
+  initialPortfolioId?: string;
 }
 
 export function AgentProxyWithdrawalDialog({
-  open, onOpenChange, funderId, funderName, funderPhone, walletBalance, onSuccess,
+  open, onOpenChange, funderId, funderName, funderPhone, walletBalance, onSuccess, initialPortfolioId,
 }: AgentProxyWithdrawalDialogProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState<number>(0);
@@ -191,7 +193,12 @@ export function AgentProxyWithdrawalDialog({
         setExtras(extraMap);
 
         setRoutes(list);
-        const preferred = list.find(r => r.is_default) ?? list[0] ?? null;
+        // A portfolio with extra payout numbers must be split, so prefer it
+        // over a saved default method (which hides the split boxes).
+        const preferred =
+          (initialPortfolioId ? list.find(r => r.portfolio_id === initialPortfolioId) : undefined)
+          ?? list.find(r => r.source === 'portfolio' && r.portfolio_id && (extraMap[r.portfolio_id]?.length ?? 0) > 0)
+          ?? list.find(r => r.is_default) ?? list[0] ?? null;
         setSelectedRouteKey(preferred?.key ?? null);
       } catch (e: any) {
         toast.error('Failed to load saved payment options', { description: e.message });
@@ -200,7 +207,7 @@ export function AgentProxyWithdrawalDialog({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, funderId]);
+  }, [open, funderId, initialPortfolioId]);
 
   const selectedRoute = routes.find(r => r.key === selectedRouteKey) ?? null;
   const routeExtras = selectedRoute?.source === 'portfolio' && selectedRoute.portfolio_id
@@ -529,16 +536,26 @@ export function AgentProxyWithdrawalDialog({
                     type="number"
                     placeholder="0"
                     value={splits[l.key] || ''}
-                    onChange={e => setSplits(s => ({ ...s, [l.key]: Number(e.target.value) }))}
+                    onChange={e => {
+                      const raw = Math.max(0, Number(e.target.value) || 0);
+                      setSplits(s => {
+                        const others = Object.entries(s)
+                          .filter(([k]) => k !== l.key)
+                          .reduce((sum, [, v]) => sum + (v || 0), 0);
+                        const cap = Math.max(0, walletBalance - others);
+                        if (raw > cap) toast.warning(`Only ${formatUGX(cap)} of the Returns is left for this number`);
+                        return { ...s, [l.key]: Math.min(raw, cap) };
+                      });
+                    }}
                     min={0}
                   />
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground">
-                Total {formatUGX(effectiveAmount)} · each number used must get at least UGX 500. One withdraw request is made per number.
+                Total {formatUGX(effectiveAmount)} of {formatUGX(walletBalance)} Returns · {formatUGX(Math.max(0, walletBalance - effectiveAmount))} left · each number used must get at least UGX 500. One withdraw request is made per number.
               </p>
               {effectiveAmount > walletBalance && (
-                <p className="text-[10px] text-destructive">Exceeds available balance</p>
+                <p className="text-[10px] text-destructive">Total exceeds the Returns available</p>
               )}
             </div>
           ) : (
@@ -584,7 +601,7 @@ export function AgentProxyWithdrawalDialog({
             disabled={!isValid || loading || walletBalance < 500}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Request Withdrawal – {formatUGX(amount || 0)}
+            Request Withdrawal – {formatUGX(effectiveAmount || 0)}
           </Button>
         </div>
       </DialogContent>
