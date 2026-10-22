@@ -1,15 +1,20 @@
--- Rollback for 20261022160000_payables_categories_v2.sql: restores the exact production definitions of v_payables_lines and payables_category_frame.
+-- Rollback for 20261022160000_payables_categories_v2.sql: restores the exact production definitions of v_payables_lines and payables_category_frame,
+-- and drops get_partner_promissory_commissions (a report; it holds no data).
 -- Refuses, changing nothing, unless both are still the ones that migration created. Run as one transaction.
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF position('dm(department_key, category_key' in pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
      OR position('Partner Products and Services' in pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
+     OR position('proxy_note_registration_bonus' in pg_get_viewdef('public.v_payables_lines'::regclass)) = 0
+     OR to_regprocedure('public.get_partner_promissory_commissions(date,date)') IS NULL
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.payables_category_frame()'::regprocedure) IS DISTINCT FROM 'd68d7533a2a3a955f06a66959be32246' THEN
     RAISE EXCEPTION 'precondition failed: the payables list or category frame is not the one 20261022160000_payables_categories_v2 created; nothing was changed. Reverse by hand';
   END IF;
 END
 $pre$;
+
+DROP FUNCTION public.get_partner_promissory_commissions(date, date);
 
 CREATE OR REPLACE FUNCTION public.payables_category_frame()
  RETURNS TABLE(category_key text, category_label text, sort_order integer)
