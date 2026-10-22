@@ -236,7 +236,7 @@ export function AgentDirectory() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, phone, email, territory, or ID…"
+              placeholder="Search by name, phone, district, email, or ID…"
               value={searchInput}
               onChange={e => setSearchInput(e.target.value)}
               aria-label="Search agents"
