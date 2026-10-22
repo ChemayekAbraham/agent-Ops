@@ -1,46 +1,23 @@
--- 2026-10-22: payables screens load in about 1-2 s instead of timing out (8 s statement limit for signed-in users).
---
--- Measured read-only on production 2026-10-22: get_payables_total's query took 11.3 s, so the payables total card
--- failed for every signed-in user; v_payables_lines took about 1.4 s and the payables functions read it up to 14 times.
--- Three causes, three changes. Figures and rules are UNCHANGED: each new definition was run read-only against
--- production next to the live one and returned identical rows (EXCEPT ALL both ways = 0; same counts and totals).
---
---   1. v_landlord_payout_settlement (869 ms -> 316 ms). The "transaction ID used by another payout" count joined
---      xtid_use, which the planner estimated at 1 row (actual 2,559), so it ran a 1,489 x 2,559 nested loop. The count is
---      now looked up in one jsonb map built once (xtid_map). Same count, same rule.
---   2. v_landlord_float_payables (about 1.4 s -> 0.57 s). It built the settlement view twice (paid_rr, agg_pay); it now
---      reads it once (ls, MATERIALIZED).
---   3. get_payables_total, get_payables_breakdown, get_payables_contract_schedule, get_payables_due_range read
---      v_payables_lines once per call (l0, MATERIALIZED) instead of 5, 2, up to 14 and 5 times. A STABLE function's
---      statements all see one snapshot, so a single read returns exactly what the repeated reads did.
---
--- Not changed: get_payables_predictive_forecast (already single-read since supabase/pending/20261022000000), and
--- get_payables_forecast_accuracy, which runs the forecast once per backtest origin and is a separate fix.
---
--- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt check or alert is written. CREATE OR REPLACE
--- keeps every grant: the views stay service_role-only, the functions stay callable by authenticated.
--- TRANSACTION: every statement here is transactional DDL; run the file as ONE transaction so it applies fully or not at
--- all (the migration tool does this; applied by hand, wrap it in BEGIN; ... COMMIT;). The guard below changes nothing
--- when it refuses. lock_timeout is reset at the end. Function checks ignore carriage returns: a file run from a Windows
--- (CRLF) checkout keeps carriage returns inside function bodies, which changes nothing but their md5.
--- Rollback: supabase/rollbacks/20261022130000_payables_single_read_speedup.rollback.sql (restores the exact definitions replaced here; refuses unless all six
--- objects are still the ones created here).
-
+-- Rollback for 20261022200000_payables_single_read_speedup.sql: restores the exact production definitions it replaced (read 2026-10-22).
+-- Refuses, changing nothing, unless ALL SIX objects are still the ones that migration created: the four functions by the
+-- exact md5 of their bodies, the two views by the parts that migration added (and the settlement join it removed).
+-- Run it as one transaction (the migration tool does; by hand, wrap it in BEGIN; ... COMMIT;). Function checks ignore
+-- carriage returns, so it still recognises the migration's functions if either file was run from a CRLF checkout.
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
-  IF md5(pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) <> '680b4ad33292166ab9cbba735b1d02bd'
-     OR md5(pg_get_viewdef('public.v_landlord_float_payables'::regclass)) <> 'cbd0351144700d7340efd1460e4ff08a'
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) IS DISTINCT FROM '0b719f4545484c9354961d328a62084c'
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_breakdown()'::regprocedure) IS DISTINCT FROM '9ccce297bea10e279e91234cd3c4e086'
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_contract_schedule(text,integer,date)'::regprocedure) IS DISTINCT FROM 'fbfe0961235207348c6bca448fe8f92b'
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_due_range(date,date)'::regprocedure) IS DISTINCT FROM 'bf351cccd505167c3cdcaa909ea815e8' THEN
-    RAISE EXCEPTION 'precondition failed: a payables view or function changed since 2026-10-22; nothing was changed. Regenerate this migration from the current definitions';
+  IF position('xtid_map' in pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) = 0
+     OR position('LEFT JOIN xtid_use xu' in pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) > 0
+     OR position('ls AS MATERIALIZED' in pg_get_viewdef('public.v_landlord_float_payables'::regclass)) = 0
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) IS DISTINCT FROM 'b30cc12bd116d2b3283ac60c4cb83151'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_breakdown()'::regprocedure) IS DISTINCT FROM 'cd9add98bb80cb186095fcca7c4dc690'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_contract_schedule(text,integer,date)'::regprocedure) IS DISTINCT FROM 'bf3c103d9656e804e1634a5c4eb34984'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_due_range(date,date)'::regprocedure) IS DISTINCT FROM '42f74b4dd10aa9960deee66663877992' THEN
+    RAISE EXCEPTION 'precondition failed: the payables views/functions are not the ones 20261022200000_payables_single_read_speedup created; nothing was changed. Reverse by hand';
   END IF;
 END
 $pre$;
 
--- 1. Settlement: transaction-ID usage through one map, not a misestimated join.
 CREATE OR REPLACE VIEW public.v_landlord_payout_settlement AS
 WITH wr AS (
          SELECT DISTINCT ON (w.landlord_payout_id) w.landlord_payout_id,
@@ -116,9 +93,6 @@ WITH wr AS (
              JOIN ocr o ON o.withdrawal_request_id = w.id AND o.storage_path = w.payout_proof_path
           WHERE w.status = 'completed'::text AND o.xtid IS NOT NULL
           GROUP BY o.xtid
-        ), xtid_map AS (
-         SELECT jsonb_object_agg(xtid_use.xtid, xtid_use.uses) AS m
-           FROM xtid_use
         ), wref_use AS (
          SELECT x.ref,
             count(DISTINCT x.owner) AS uses
@@ -213,7 +187,7 @@ WITH wr AS (
             b.payout_proof_path IS NOT NULL AND (EXISTS ( SELECT 1
                    FROM storage.objects so
                   WHERE so.bucket_id = b.proof_bucket AND so.name = b.payout_proof_path)) AS file_accessible,
-            COALESCE((xm.m ->> o.xtid)::bigint, 0::bigint) AS xtid_uses,
+            COALESCE(xu.uses, 0::bigint) AS xtid_uses,
             COALESCE(wu.uses, 0::bigint) AS ref_uses,
             COALESCE(ra.payouts, 0::bigint) AS ref_payouts,
             al.issue_types AS open_alerts,
@@ -224,7 +198,7 @@ WITH wr AS (
             lc.reversed AS lpr_reversed
            FROM base b
              LEFT JOIN ocr o ON o.withdrawal_request_id = b.withdrawal_id AND o.storage_path = b.payout_proof_path
-             CROSS JOIN xtid_map xm
+             LEFT JOIN xtid_use xu ON xu.xtid = o.xtid
              LEFT JOIN wref_use wu ON wu.ref = b.ref_withdrawal
              LEFT JOIN ref_all ra ON ra.ref = COALESCE(b.ref_withdrawal, b.ref_finops)
              LEFT JOIN alerts al ON al.withdrawal_id = b.withdrawal_id
@@ -533,12 +507,8 @@ WITH wr AS (
                 END AS basis
           WHERE NOT ex.paid_out AND NOT ex.has_weekly_float) nf ON true;
 
--- 2. Weekly floats: the settlement view read once.
 CREATE OR REPLACE VIEW public.v_landlord_float_payables AS
-WITH ls AS MATERIALIZED (
-         SELECT s.rent_request_id, s.paid_out, s.has_weekly_float, s.float_week_start, s.amount, s.state
-           FROM v_landlord_payout_settlement s
-        ), fl AS (
+WITH fl AS (
          SELECT DISTINCT ON (b.period_start) b.id AS float_id,
             b.period_start AS week_start,
             b.period_end AS week_end,
@@ -556,7 +526,7 @@ WITH ls AS MATERIALIZED (
           WHERE a_1.released_at IS NULL
         ), paid_rr AS (
          SELECT DISTINCT s.rent_request_id
-           FROM ls s
+           FROM v_landlord_payout_settlement s
           WHERE s.paid_out AND s.rent_request_id IS NOT NULL
         ), agg_al AS (
          SELECT al.week_start,
@@ -574,7 +544,7 @@ WITH ls AS MATERIALIZED (
             count(*) FILTER (WHERE s.state = 'confirmed'::text) AS verified_count,
             COALESCE(sum(s.amount) FILTER (WHERE s.state = 'paid_unconfirmed'::text), 0::numeric) AS unverified_paid,
             count(*) FILTER (WHERE s.state = 'paid_unconfirmed'::text) AS unverified_count
-           FROM ls s
+           FROM v_landlord_payout_settlement s
           WHERE s.has_weekly_float
           GROUP BY s.float_week_start
         )
@@ -609,7 +579,6 @@ WITH ls AS MATERIALIZED (
      LEFT JOIN agg_al a ON a.week_start = fl.week_start
      LEFT JOIN agg_pay p ON p.week_start = fl.week_start;
 
--- 3. Payables functions: one read of the payables list per call.
 CREATE OR REPLACE FUNCTION public.get_payables_total()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -620,16 +589,14 @@ DECLARE v_result jsonb;
 BEGIN
   PERFORM payables_guard();
 
-  -- One read of the payables list per call (it was read five times).
-  WITH l0 AS MATERIALIZED (SELECT * FROM v_payables_lines)
   SELECT jsonb_build_object(
     'currency','UGX',
     'as_at', now(),
-    'total', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0),0),
-    'item_count', COALESCE((SELECT COUNT(*) FROM l0),0),
-    'overdue', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0
+    'total', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines),0),
+    'item_count', COALESCE((SELECT COUNT(*) FROM v_payables_lines),0),
+    'overdue', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines
                           WHERE due_date IS NOT NULL AND due_date < (now() AT TIME ZONE 'Africa/Nairobi')::date),0),
-    'due_today', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0
+    'due_today', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines
                           WHERE due_date = (now() AT TIME ZONE 'Africa/Nairobi')::date),0),
     'categories', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
@@ -641,7 +608,7 @@ BEGIN
                ROUND(COALESCE(SUM(l.outstanding_amount),0),2) AS outstanding,
                COUNT(l.item_id) AS item_count
         FROM payables_category_frame() f
-        LEFT JOIN l0 l ON l.category_key = f.category_key
+        LEFT JOIN v_payables_lines l ON l.category_key = f.category_key
         GROUP BY f.category_key, f.category_label, f.sort_order
       ) c
     ), '[]'::jsonb),
@@ -665,11 +632,11 @@ DECLARE
 BEGIN
   PERFORM payables_guard();
 
-  -- One read of the payables list per call (it was read twice); the total comes from the same read.
-  WITH l0 AS MATERIALIZED (SELECT * FROM v_payables_lines),
-  ranked AS (
+  SELECT COALESCE(ROUND(SUM(outstanding_amount),2),0) INTO v_total FROM v_payables_lines;
+
+  WITH ranked AS (
     SELECT l.*, ROW_NUMBER() OVER (PARTITION BY l.product_key ORDER BY l.outstanding_amount DESC) AS rn
-    FROM l0 l
+    FROM v_payables_lines l
   ), products AS (
     SELECT category_key, product_key, product_label, source_table,
            ROUND(SUM(outstanding_amount),2) AS outstanding,
@@ -690,9 +657,8 @@ BEGIN
            'item_count', COALESCE(c.item_count,0),
            'products', COALESCE(c.products,'[]'::jsonb)
          ) ORDER BY f.sort_order),
-         COALESCE(SUM(c.outstanding),0),
-         (SELECT COALESCE(ROUND(SUM(outstanding_amount),2),0) FROM l0)
-    INTO v_cats, v_cat_total, v_total
+         COALESCE(SUM(c.outstanding),0)
+    INTO v_cats, v_cat_total
   FROM payables_category_frame() f
   LEFT JOIN (
     SELECT category_key,
@@ -746,19 +712,17 @@ BEGIN
             ELSE date_trunc('year',v_today)::date END;
   -- Contractual schedule from every open obligation with a due date, regardless of payment history.
   -- Overdue obligations (due before today) are contractually payable now, so they land in the first period.
-  -- One read of the payables list per call (it was read once or twice per period).
-  WITH l0 AS MATERIALIZED (SELECT l.due_date, l.outstanding_amount FROM v_payables_lines l WHERE l.due_date IS NOT NULL)
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
       'index', i, 'period_start', ps, 'contract_amount', COALESCE(amt,0), 'overdue_included', COALESCE(od,0)
     ) ORDER BY i), '[]'::jsonb)
   INTO v_result
   FROM (
     SELECT i, ps,
-      (SELECT ROUND(SUM(l.outstanding_amount),2) FROM l0 l
+      (SELECT ROUND(SUM(l.outstanding_amount),2) FROM v_payables_lines l
         WHERE l.due_date IS NOT NULL AND (
           (l.due_date BETWEEN GREATEST(ps, v_today) AND pe)
           OR (i = 0 AND l.due_date < v_today))) AS amt,
-      CASE WHEN i = 0 THEN (SELECT ROUND(SUM(l.outstanding_amount),2) FROM l0 l
+      CASE WHEN i = 0 THEN (SELECT ROUND(SUM(l.outstanding_amount),2) FROM v_payables_lines l
         WHERE l.due_date IS NOT NULL AND l.due_date < v_today) END AS od
     FROM (SELECT i, (v_base + (v_step * i))::date ps,
                  ((v_base + (v_step * (i+1))) - interval '1 day')::date pe
@@ -780,20 +744,18 @@ DECLARE
 BEGIN
   PERFORM payables_guard();
 
-  -- One read of the payables list per call (it was read five times).
-  WITH l0 AS MATERIALIZED (SELECT * FROM v_payables_lines)
   SELECT jsonb_build_object(
     'currency','UGX',
     'from', p_from,
     'to', p_to,
     'business_date', v_today,
-    'due_in_range', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0
+    'due_in_range', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines
                               WHERE due_date IS NOT NULL AND due_date BETWEEN p_from AND p_to),0),
-    'item_count', COALESCE((SELECT COUNT(*) FROM l0
+    'item_count', COALESCE((SELECT COUNT(*) FROM v_payables_lines
                             WHERE due_date IS NOT NULL AND due_date BETWEEN p_from AND p_to),0),
-    'overdue', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0
+    'overdue', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines
                           WHERE due_date IS NOT NULL AND due_date < p_from),0),
-    'outstanding', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM l0),0),
+    'outstanding', COALESCE((SELECT ROUND(SUM(outstanding_amount),2) FROM v_payables_lines),0),
     'paid_in_range', COALESCE((SELECT ROUND(SUM(amount),2) FROM v_payables_payment_history
                                WHERE d BETWEEN p_from AND p_to),0),
     'rows', COALESCE((
@@ -801,7 +763,7 @@ BEGIN
         SELECT item_id AS id, counterparty_id AS user_id, counterparty_name AS name,
                ROUND(outstanding_amount,2) AS amount, status, due_date,
                product_label, category_label
-        FROM l0
+        FROM v_payables_lines
         WHERE due_date IS NOT NULL AND due_date BETWEEN p_from AND p_to
         ORDER BY outstanding_amount DESC
         LIMIT 300
