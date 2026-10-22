@@ -14,7 +14,6 @@ import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download, Paperclip } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
-import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReportUpdatesForPeriod, type RdReportPeriod, type RdUpdate } from '@/lib/rdWeeklyUpdates';
 import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
