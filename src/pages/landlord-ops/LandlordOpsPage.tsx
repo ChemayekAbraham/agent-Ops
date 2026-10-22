@@ -98,35 +98,35 @@ export default function LandlordOpsPage() {
 
         <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
           <TutorialVideosButton />
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            }
-          >
-            <Outlet />
-          </Suspense>
+          {isHome ? (
+            <ReceivablesSummaryGate startOpen={hasExtraParams} onVisibilityChange={setHomeOpen}>
+              {destinationView}
+            </ReceivablesSummaryGate>
+          ) : (
+            destinationView
+          )}
         </main>
 
+        {/* The phone shortcut to the verification queue is part of the dashboard,
+            so it stays out of the way while only the figure is showing. */}
         {(!isHome || homeOpen) && (
-        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
-          <Button
-            type="button"
-            size="lg"
-            className="pointer-events-auto w-full max-w-md justify-between rounded-xl border border-primary-foreground/20 px-4 shadow-xl"
-            onClick={() => handleNavigate('verify/landlords')}
-            aria-label={`Open landlord verification queue. ${pendingLandlords} pending`}
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <UserCheck className="h-5 w-5 shrink-0" />
-              <span className="truncate">Landlord Verification Queue</span>
-            </span>
-            <span className="flex min-w-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground px-2 py-0.5 text-xs font-bold text-primary">
-              {pendingLandlords > 999 ? '999+' : pendingLandlords}
-            </span>
-          </Button>
-        </div>
+          <div className="pointer-events-none fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] flex justify-center lg:hidden">
+            <Button
+              type="button"
+              size="lg"
+              className="pointer-events-auto w-full max-w-md justify-between rounded-xl border border-primary-foreground/20 px-4 shadow-xl"
+              onClick={() => handleNavigate('verify/landlords')}
+              aria-label={`Open landlord verification queue. ${pendingLandlords} pending`}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <UserCheck className="h-5 w-5 shrink-0" />
+                <span className="truncate">Landlord Verification Queue</span>
+              </span>
+              <span className="flex min-w-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground px-2 py-0.5 text-xs font-bold text-primary">
+                {pendingLandlords > 999 ? '999+' : pendingLandlords}
+              </span>
+            </Button>
+          </div>
         )}
 
         {hasDecisionDrawer && (
