@@ -10,6 +10,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { Download, FileSpreadsheet, FileText, RefreshCw, FileDown, Loader2 } from 'lucide-react';
 
+import { PageHeader } from './FinopsKit';
 type Preset = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
 interface Metrics {
@@ -224,15 +225,11 @@ export function DailyWalletReportsPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-          <FileText className="h-6 w-6 text-primary" />
-          Reports — Daily Wallet Financial Summary
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Computed directly from the immutable financial ledger. Automatically generated daily at 00:00 EAT and emailed to Financial Operations.
-        </p>
-      </div>
+      <PageHeader
+        icon={FileText}
+        title="Reports — Daily Wallet Financial Summary"
+        description={<>Computed directly from the immutable financial ledger. Automatically generated daily at 00:00 EAT and emailed to Financial Operations.</>}
+      />
 
       <Card>
         <CardHeader className="pb-3">

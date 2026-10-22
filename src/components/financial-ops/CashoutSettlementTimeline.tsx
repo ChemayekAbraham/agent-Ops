@@ -18,6 +18,7 @@ import {
   ChevronRight as ChevronRightIcon, ArrowDownLeft, ArrowUpRight,
 } from 'lucide-react';
 
+import { PageHeader } from './FinopsKit';
 type Row = {
   withdrawal_id: string;
   settled_at: string | null;
@@ -90,16 +91,11 @@ export function CashoutSettlementTimeline() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <ArrowLeftRight className="h-6 w-6 text-violet-600" />
-          Cash-Out Settlement Timeline
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Each cash-out withdrawal with the merchant's principal reimbursement and the
-          0.5% commission — one auditable ledger trail per payout.
-        </p>
-      </div>
+      <PageHeader
+        icon={ArrowLeftRight}
+        title="Cash-Out Settlement Timeline"
+        description={<>Each cash-out withdrawal with the merchant's principal reimbursement and the 0.5% commission — one auditable ledger trail per payout.</>}
+      />
 
       <Card>
         <CardHeader className="pb-3">

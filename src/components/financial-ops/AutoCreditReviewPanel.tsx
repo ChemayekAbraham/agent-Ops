@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, Undo2, ShieldAlert, Loader2, Mail, Phone, User } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
 
+import { PageHeader } from './FinopsKit';
 /**
  * Auto-Credit Review Queue
  * --------------------------------------------------------------
@@ -171,15 +172,11 @@ export function AutoCreditReviewPanel() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <ShieldAlert className="h-6 w-6 text-amber-600" />
-          Auto-Credit Review
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Deposits auto-credited by best-guess name matching. Confirm or reverse if the wrong user was picked.
-        </p>
-      </div>
+      <PageHeader
+        icon={ShieldAlert}
+        title="Auto-Credit Review"
+        description={<>Deposits auto-credited by best-guess name matching. Confirm or reverse if the wrong user was picked.</>}
+      />
 
       {isLoading ? (
         <div className="flex items-center gap-2 text-sm text-muted-foreground p-6 justify-center">
