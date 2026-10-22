@@ -1,6 +1,6 @@
--- Tests for 20261022130000_cc_weekly_all_calls_report.sql (cc_weekly_all_calls_report).
+-- Tests for 20261022160000_cc_weekly_all_calls_report.sql (cc_weekly_all_calls_report).
 -- Runs the migration's function inside one transaction and always rolls back (the last statement raises with the report); nothing is kept.
--- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261022130000_cc_weekly_all_calls_report.sql; cat supabase/tests/cc_weekly_all_calls_report.sql) | supabase db query --linked
+-- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261022160000_cc_weekly_all_calls_report.sql; cat supabase/tests/cc_weekly_all_calls_report.sql) | supabase db query --linked
 -- "ROLLED BACK REPORT: N passed of N | failing: none" is success. Every figure is recounted from the base tables, written a different way, and compared.
 DO $test$
 DECLARE
