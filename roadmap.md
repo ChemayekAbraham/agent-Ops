@@ -1,5 +1,6 @@
 # Tasks
-- [ ] Build Automated Calls Overview, Campaigns, Scripts, Call Log and Paused People using existing hooks only; verify safeguards and layouts.
+- [x] Build Automated Calls Overview, Campaigns, Scripts, Call Log and Paused People using existing hooks; thirteen safeguard tests and guards pass, isolated desktop/phone/light/dark interaction and audio playback checks pass; protected backend/hooks unchanged, no calls placed.
+- [ ] Verify Automated Calls with a live signed-in CRM/CTO/super-admin account — blocked: externally managed authentication cannot be restored by browser tools; live campaign changes and real test calls were not attempted.
 - [x] Stop automatic replay of Payables forecast timeout/permission failures; four tests, safety guards and preview compilation pass; no financial writes.
 - [ ] Apply and verify read-only Payables forecast optimization — blocked: migration service returned 42P10; live definition confirmed unchanged. Signed-in end-to-end verification unavailable for external Supabase.
 - [x] Add recorded agent performance to product application details using the existing Agent Ops report; four tests and guards pass, preview build OK; approval rules unchanged.
