@@ -74,10 +74,10 @@ describe('Agent Directory default view', () => {
     // Regional grouping is on screen with the server's own totals.
     const regionFilter = await screen.findByPlaceholderText('Filter by region or district…');
     expect(regionFilter).toBeInTheDocument();
-    expect(await screen.findByText('Central')).toBeInTheDocument();
     await waitFor(() =>
-      expect(screen.getByText(/185 agents across 2 regions/)).toBeInTheDocument(),
+      expect(document.body.textContent).toMatch(/185 agents across 2 regions/),
     );
+    expect(screen.getByRole('button', { name: /Central/ })).toBeInTheDocument();
 
     // The flat register (its search box and row filters) is NOT the landing view.
     expect(screen.queryByPlaceholderText(/Search by name, phone, email/)).toBeNull();
