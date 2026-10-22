@@ -187,13 +187,14 @@ function DistrictAgents({
             <Button
               key={a.id}
               variant="ghost"
+              aria-label={`Open profile for ${a.full_name || 'Unknown Agent'}`}
               onClick={() => onOpenAgent(a.id)}
               className="grid h-auto min-h-[88px] w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-none px-3 py-4 text-left whitespace-normal active:scale-100 sm:flex sm:min-h-[64px] sm:px-4"
             >
               <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-10 w-10 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-sm font-semibold break-words">{a.full_name || 'Unknown Agent'}</span>
+                  <span className="text-sm font-semibold break-words text-primary underline underline-offset-4">{a.full_name || 'Unknown Agent'}</span>
                   {a.verified && <ShieldCheck className="h-3 w-3 text-success shrink-0" aria-label="Verified" />}
                   {a.agent_kind === 'sub_agent' && (
                     <Badge variant="secondary" className="text-xs px-1.5 py-0">
