@@ -1,5 +1,6 @@
 # Tasks
 - [ ] Add confirmed Tenant, Employee and Supporter test-call controls for 0701355245, with a destination-restricted server action and missing test scripts; verify without placing unsolicited calls.
+- [ ] Retry the split-withdrawal UUID correction as requested and verify its live definition after the attempt.
 - [ ] Correct proxy split-withdrawal request ID type mismatch — blocked: migration service returned 42P10; live readback confirms `submit_proxy_split_withdrawal` still inserts text `md5(gen_random_uuid()::text)` into UUID `client_request_id`. The submitted one-expression change to `gen_random_uuid()` did not apply; no payouts submitted or money moved.
 - [x] Add agent search by name, phone or district to the Agent Directory: the By Region search box now asks the register for matching agents with clickable profile rows, and the List search placeholder names district; 18 directory tests, typecheck and guards pass. Live signed-in verification unavailable with external authentication.
 - [x] Make every Agent Directory name visibly clickable in List and By Region; 13 tests, safety guards and sample phone/desktop profile-opening checks pass. Existing profiles/actions unchanged; live signed-in verification unavailable with external authentication.

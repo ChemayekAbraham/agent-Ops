@@ -450,6 +450,21 @@ export function useCancelCall() {
   return useAutocallMutation((jobId: string) => call<void>('voice_autocall_cancel_job', { p_job_id: jobId }));
 }
 
+/** The server owns the single approved demonstration destination. */
+export function useAutocallDemoConfig() {
+  return useQuery({
+    queryKey: [...KEY, 'demo-config'],
+    queryFn: () => call<{ phone: string }>('voice_autocall_demo_config'),
+    retry: false,
+  });
+}
+
+export function useAutocallDemoCall() {
+  return useAutocallMutation((v: { scriptId: string }) =>
+    call<string>('voice_autocall_demo_call', { p_script_id: v.scriptId }),
+  );
+}
+
 /** Pause or resume calling from the app (CRM Call Centre and Tenant Ops) on the shared line. */
 export function useSetHumanCallingPaused() {
   const qc = useQueryClient();
