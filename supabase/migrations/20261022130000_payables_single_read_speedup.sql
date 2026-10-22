@@ -19,17 +19,22 @@
 --
 -- REPORTING ONLY. No ledger entry, wallet, payout, withdrawal, receipt check or alert is written. CREATE OR REPLACE
 -- keeps every grant: the views stay service_role-only, the functions stay callable by authenticated.
--- Rollback: supabase/rollbacks/20261022100000_payables_single_read_speedup.rollback.sql (restores the exact definitions replaced here).
+-- TRANSACTION: every statement here is transactional DDL; run the file as ONE transaction so it applies fully or not at
+-- all (the migration tool does this; applied by hand, wrap it in BEGIN; ... COMMIT;). The guard below changes nothing
+-- when it refuses. lock_timeout is reset at the end. Function checks ignore carriage returns: a file run from a Windows
+-- (CRLF) checkout keeps carriage returns inside function bodies, which changes nothing but their md5.
+-- Rollback: supabase/rollbacks/20261022130000_payables_single_read_speedup.rollback.sql (restores the exact definitions replaced here; refuses unless all six
+-- objects are still the ones created here).
 
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF md5(pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) <> '680b4ad33292166ab9cbba735b1d02bd'
      OR md5(pg_get_viewdef('public.v_landlord_float_payables'::regclass)) <> 'cbd0351144700d7340efd1460e4ff08a'
-     OR (SELECT md5(prosrc) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) <> '0b719f4545484c9354961d328a62084c'
-     OR (SELECT md5(prosrc) FROM pg_proc WHERE oid = 'public.get_payables_breakdown()'::regprocedure) <> '9ccce297bea10e279e91234cd3c4e086'
-     OR (SELECT md5(prosrc) FROM pg_proc WHERE oid = 'public.get_payables_contract_schedule(text,integer,date)'::regprocedure) <> 'fbfe0961235207348c6bca448fe8f92b'
-     OR (SELECT md5(prosrc) FROM pg_proc WHERE oid = 'public.get_payables_due_range(date,date)'::regprocedure) <> 'bf351cccd505167c3cdcaa909ea815e8' THEN
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) IS DISTINCT FROM '0b719f4545484c9354961d328a62084c'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_breakdown()'::regprocedure) IS DISTINCT FROM '9ccce297bea10e279e91234cd3c4e086'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_contract_schedule(text,integer,date)'::regprocedure) IS DISTINCT FROM 'fbfe0961235207348c6bca448fe8f92b'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_due_range(date,date)'::regprocedure) IS DISTINCT FROM 'bf351cccd505167c3cdcaa909ea815e8' THEN
     RAISE EXCEPTION 'precondition failed: a payables view or function changed since 2026-10-22; nothing was changed. Regenerate this migration from the current definitions';
   END IF;
 END
@@ -807,3 +812,5 @@ BEGIN
   RETURN v_result;
 END;
 $function$;
+
+RESET lock_timeout;

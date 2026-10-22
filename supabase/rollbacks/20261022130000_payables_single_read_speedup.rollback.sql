@@ -1,12 +1,19 @@
--- Rollback for 20261022100000_payables_single_read_speedup.sql: restores the exact production definitions it replaced (read 2026-10-22).
--- Refuses unless the objects are still the ones that migration created.
+-- Rollback for 20261022130000_payables_single_read_speedup.sql: restores the exact production definitions it replaced (read 2026-10-22).
+-- Refuses, changing nothing, unless ALL SIX objects are still the ones that migration created: the four functions by the
+-- exact md5 of their bodies, the two views by the parts that migration added (and the settlement join it removed).
+-- Run it as one transaction (the migration tool does; by hand, wrap it in BEGIN; ... COMMIT;). Function checks ignore
+-- carriage returns, so it still recognises the migration's functions if either file was run from a CRLF checkout.
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF position('xtid_map' in pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) = 0
-     OR position(' ls AS MATERIALIZED' in pg_get_viewdef('public.v_landlord_float_payables'::regclass)) = 0
-     OR (SELECT position('l0 AS MATERIALIZED' in prosrc) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) = 0 THEN
-    RAISE EXCEPTION 'precondition failed: the payables views/functions are not the ones 20261022100000_payables_single_read_speedup created; reverse by hand';
+     OR position('LEFT JOIN xtid_use xu' in pg_get_viewdef('public.v_landlord_payout_settlement'::regclass)) > 0
+     OR position('ls AS MATERIALIZED' in pg_get_viewdef('public.v_landlord_float_payables'::regclass)) = 0
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_total()'::regprocedure) IS DISTINCT FROM 'b30cc12bd116d2b3283ac60c4cb83151'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_breakdown()'::regprocedure) IS DISTINCT FROM 'cd9add98bb80cb186095fcca7c4dc690'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_contract_schedule(text,integer,date)'::regprocedure) IS DISTINCT FROM 'bf3c103d9656e804e1634a5c4eb34984'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.get_payables_due_range(date,date)'::regprocedure) IS DISTINCT FROM '42f74b4dd10aa9960deee66663877992' THEN
+    RAISE EXCEPTION 'precondition failed: the payables views/functions are not the ones 20261022130000_payables_single_read_speedup created; nothing was changed. Reverse by hand';
   END IF;
 END
 $pre$;
@@ -767,3 +774,5 @@ BEGIN
   RETURN v_result;
 END;
 $function$;
+
+RESET lock_timeout;
