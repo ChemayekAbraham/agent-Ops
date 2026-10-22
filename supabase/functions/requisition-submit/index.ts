@@ -1,6 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { sendSMS } from '../_shared/sendSmsMultiProvider.ts';
 import { requisitionSmsRecipients } from '../_shared/requisitionSmsPolicy.ts';
+import { UUID_RE, budgetLineRejectionResponse } from '../_shared/requisitionBudgetLine.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,11 +46,34 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(amount) || amount <= 0 || amount > 1_000_000_000) return json({ error: 'invalid_amount' }, 400);
     if (currency !== 'UGX') return json({ error: 'invalid_currency' }, 400);
     if (!['low', 'normal', 'high', 'urgent'].includes(priority)) return json({ error: 'invalid_priority' }, 400);
+    // The weekly budget line this requisition spends (department not verifiable on this form).
+    const budgetLineId = typeof body?.budget_line_id === 'string' && body.budget_line_id.trim() ? body.budget_line_id.trim() : null;
+    if (budgetLineId && !UUID_RE.test(budgetLineId)) return json({ error: 'Invalid budget line', code: 'BUDGET_LINE_NOT_FOUND' }, 400);
 
     const admin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Check the budget line BEFORE consuming a link slot, so a refused requisition does not burn
+    // the slot. The trigger re-checks under a lock at insert time and stays the authority.
+    if (budgetLineId) {
+      const kampalaToday = new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10);
+      const { data: verdict, error: verdictError } = await admin.rpc('requisition_budget_line_evaluate', {
+        p_line_id: budgetLineId, p_amount: amount, p_on_date: kampalaToday,
+      });
+      if (verdictError) throw verdictError;
+      if (verdict && verdict.ok === false) {
+        const rejected = budgetLineRejectionResponse(`${verdict.code}: ${verdict.message}`, json);
+        if (rejected) return rejected;
+      }
+    } else {
+      const { data: requiredFrom, error: requiredError } = await admin.rpc('requisition_budget_line_required_from');
+      if (requiredError) throw requiredError;
+      if (requiredFrom && new Date(requiredFrom as string).getTime() <= Date.now()) {
+        return json({ error: 'Choose the weekly budget line this requisition spends.', code: 'BUDGET_LINE_REQUIRED' }, 400);
+      }
+    }
 
     const { data: slot, error: slotError } = await admin.rpc('consume_requisition_link_slot', { p_token: token });
     if (slotError) throw slotError;
@@ -82,10 +106,15 @@ Deno.serve(async (req) => {
         current_approver_role: 'coo',
         submitted_at: new Date().toISOString(),
         submitter_ip: req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip'),
+        budget_line_id: budgetLineId,
       })
       .select('*')
       .single();
-    if (insertError || !inserted) throw new Error(insertError?.message || 'Could not create requisition');
+    if (insertError || !inserted) {
+      const rejected = budgetLineRejectionResponse(insertError?.message, json);
+      if (rejected) return rejected;
+      throw new Error(insertError?.message || 'Could not create requisition');
+    }
 
     await admin.from('audit_logs').insert({
       action_type: 'manual_requisition_submitted',

@@ -7,6 +7,7 @@ import HROverview from '@/components/hr/HROverview';
 import HRLeaveManagement from '@/components/hr/HRLeaveManagement';
 import HRDisciplinary from '@/components/hr/HRDisciplinary';
 import HRAudit from '@/components/hr/HRAudit';
+import DashboardAccessView from '@/components/access/DashboardAccessView';
 import HRDepartments from '@/components/hr/HRDepartments';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { ApprovalHistoryLog } from '@/components/executive/ApprovalHistoryLog';
@@ -55,6 +56,7 @@ export default function HRDashboard() {
       case 'leave': return <HRLeaveManagement />;
       case 'disciplinary': return <HRDisciplinary />;
       case 'audit': return <HRAudit />;
+      case 'dashboard-access': return <DashboardAccessView />;
       case 'approval-history': return <ApprovalHistoryLog />;
       case 'departments': return <HRDepartments />;
       case 'submitted-reports': return <HRSubmittedReports />;

@@ -85,6 +85,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Broadcast Status', icon: Megaphone, id: 'broadcast-status' },
         { label: 'Security Logs', icon: Lock, id: 'security' },
         { label: 'Platform Controls', icon: SlidersHorizontal, id: 'platform-controls' },
+        { label: 'Dashboard Access', icon: KeyRound, id: 'dashboard-access' },
         { label: 'Agent Freeze', icon: Snowflake, id: 'agent-freeze' },
         { label: 'KYC & ID Overrides', icon: ShieldCheck, id: 'kyc-level' },
         { label: 'Reset Password', icon: KeyRound, id: 'password-reset' },
@@ -323,6 +324,17 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
   ],
   crm: [
     {
+      title: 'Automated Calls',
+      icon: PhoneCall,
+      items: [
+        { label: 'Overview', icon: Gauge, id: 'autocall-overview', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Campaigns', icon: PhoneCall, id: 'autocall-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Scripts', icon: FileText, id: 'autocall-scripts', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Call Log', icon: History, id: 'autocall-calls', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Paused People', icon: Users, id: 'autocall-pauses', access: { roles: ['crm', 'cto', 'super_admin'] } },
+      ],
+    },
+    {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
@@ -489,6 +501,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Platform Users', icon: UserCog, id: 'user-management', route: '/platform-users', access: HR_ACCESS },
         { label: 'Audit Trail', icon: FileText, id: 'audit', access: HR_ACCESS },
         { label: 'Approval History', icon: History, id: 'approval-history', access: HR_ACCESS },
+        { label: 'Dashboard Access', icon: KeyRound, id: 'dashboard-access', access: HR_ACCESS },
       ],
     },
   ],
@@ -556,7 +569,6 @@ export const roleLabels: Record<AppRole, string> = {
   hr: 'HR',
   operations: 'Operations',
   super_admin: 'Super Admin',
-  access_admin: 'Access Admin',
   rd: 'R&D',
 };
 

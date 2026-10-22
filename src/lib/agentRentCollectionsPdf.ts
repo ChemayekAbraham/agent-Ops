@@ -5,6 +5,21 @@ import { archivePdfBlob } from '@/lib/pdfVault';
 
 export type RangeKey = 'weekly' | 'monthly' | 'yearly';
 
+/**
+ * `YYYY-MM-DD` in the local calendar.
+ *
+ * The expected window used to be derived with `toISOString().split('T')[0]`.
+ * In Kampala (UTC+3) local midnight is 21:00 UTC the previous day, so that
+ * silently started the expected window a day BEFORE the period the report
+ * prints — one extra day of target against seven days of collections.
+ */
+function localDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 interface CollectionRow {
   amount: number;
   created_at: string;
@@ -69,19 +84,37 @@ export async function generateAgentRentCollectionsPdf(params: {
   const rows: CollectionRow[] = (data as CollectionRow[]) || [];
   const totalCollected = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
 
-  // Expected daily target for the same period
-  const fromDate = from.toISOString().split('T')[0];
-  const toDate = to.toISOString().split('T')[0];
+  // Expected for the same period, read from the PINNED daily bill.
+  //
+  // This used to read `agent_daily_eligibility_history`, a snapshot written at
+  // 00:30 the FOLLOWING morning. Three consequences, all measured on
+  // 2026-10-22: today never had a row, so today's bill was absent from the
+  // denominator while today's collections counted in the numerator; 16 Oct was
+  // missing for all 109 agents (UGX 14,430,518 of real bill showing as zero);
+  // and rows written before the snapshot was corrected carried 2-3x the real
+  // figure. A day could contribute money without contributing target, so the
+  // rate lurched every midnight as days aged in and out of the window.
+  //
+  // The pin is written at 00:05 on the day it covers and is the same record the
+  // posting gate measures against, so it has neither gap nor drift.
+  const fromDate = localDateKey(from);
+  const toDate = localDateKey(to);
   const { data: expectedRows, error: expectedError } = await supabase
-    .from('agent_daily_eligibility_history')
-    .select('expected_daily')
+    .from('agent_expected_day_plans')
+    .select('day, expected_ugx')
     .eq('agent_id', agentId)
     .gte('day', fromDate)
     .lte('day', toDate);
 
   if (expectedError) throw expectedError;
-  const totalExpected = ((expectedRows as { expected_daily: number }[]) || [])
-    .reduce((s, r) => s + Number(r.expected_daily || 0), 0);
+  // The pin stores one row per rent plan per day, so fold to a per-day total
+  // before summing — and count DAYS, not rows, for the caption.
+  const expectedByDay = new Map<string, number>();
+  for (const r of (expectedRows as { day: string; expected_ugx: number }[]) || []) {
+    expectedByDay.set(r.day, (expectedByDay.get(r.day) ?? 0) + Number(r.expected_ugx || 0));
+  }
+  const totalExpected = Array.from(expectedByDay.values()).reduce((s, v) => s + v, 0);
+  const billedDays = expectedByDay.size;
   const collectionRate = totalExpected > 0
     ? Math.round((totalCollected / totalExpected) * 100)
     : 0;
@@ -142,7 +175,7 @@ export async function generateAgentRentCollectionsPdf(params: {
   const cardW = (pw - margin * 2 - gap * 2) / 3;
 
   const summaries = [
-    { label: 'Total Expected', value: formatUGX(totalExpected), color: 107, sub: `${(expectedRows || []).length} day${(expectedRows || []).length === 1 ? '' : 's'}` },
+    { label: 'Total Expected', value: formatUGX(totalExpected), color: 107, sub: `${billedDays} day${billedDays === 1 ? '' : 's'} billed` },
     { label: 'Total Collected', value: formatUGX(totalCollected), color: 22, sub: `${rows.length} payment${rows.length === 1 ? '' : 's'}` },
     { label: 'Collection Rate', value: `${collectionRate}%`, color: collectionRate >= 80 ? 22 : collectionRate >= 50 ? 180 : 239, sub: 'of expected target' },
   ];

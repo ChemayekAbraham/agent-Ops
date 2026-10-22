@@ -39,7 +39,8 @@ export function CallSummaryHistorySheet({
   avatarUrl: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCall: () => void;
+  /** Omitted while calling from the app is paused — the Call button hides. */
+  onCall?: () => void;
 }) {
   const { data: history, isLoading } = useCallHistoryFor(open ? calleeId : null);
 
@@ -64,10 +65,12 @@ export function CallSummaryHistorySheet({
                 {phone}
               </SheetDescription>
             </div>
-            <Button type="button" size="sm" className="shrink-0 gap-1.5" onClick={onCall}>
-              <PhoneCall className="h-3.5 w-3.5" />
-              Call
-            </Button>
+            {onCall && (
+              <Button type="button" size="sm" className="shrink-0 gap-1.5" onClick={onCall}>
+                <PhoneCall className="h-3.5 w-3.5" />
+                Call
+              </Button>
+            )}
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             {history.length} call{history.length === 1 ? '' : 's'} · {withSummary} with a saved summary

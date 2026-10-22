@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { loginTelemetry as lt } from '@/lib/loginTelemetry';
 import { getLocationData } from '@/hooks/useGeolocation';
 import { generatePhoneEmailVariants, cleanPhoneNumber, isValidPhoneNumber, getTriedPhoneFormats } from '@/lib/phoneUtils';
+import { landingWithoutRoles } from '@/lib/roleFallback';
 import {
   validateSignUp,
   validateFullName,
@@ -106,7 +107,7 @@ export function useAuthForm() {
   const passwordInputRef = useRef<HTMLInputElement>(null);
   const signUpInFlightRef = useRef(false);
 
-  const { signUpWithoutRole, signIn, signInWithGoogle, signInWithApple, resetPassword, user, roles } = useAuth();
+  const { signUpWithoutRole, signIn, signInWithGoogle, signInWithApple, resetPassword, user, roles, rolesResolved } = useAuth();
   const { isDuplicate, isChecking: isCheckingDuplicate, duplicateMessage } = usePhoneDuplicateCheck(phone, 400);
   const { otpSent, otpVerified, verifiedPhone, otpLoading, otpError, sendStatus: otpSendStatus, cooldownSeconds: otpCooldownSeconds, sendOtp, verifyOtp, resetOtp: resetOtpState } = useOtpVerification();
   const navigate = useNavigate();
@@ -173,20 +174,22 @@ export function useAuthForm() {
       return;
     }
 
-    // Roles not yet loaded — give them up to 3s before falling back to /select-role
+    // Roles not yet loaded — give them up to 3s. Still nothing: land on the
+    // agent dashboard (roles not loaded), or /select-role only when the
+    // lookup really came back empty (restricted account). See roleFallback.
     if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     redirectTimerRef.current = setTimeout(() => {
       if (roles.length > 0) {
         navigate(roleToSlug(roles[0]), { replace: true });
       } else {
-        navigate('/select-role', { replace: true });
+        navigate(landingWithoutRoles(rolesResolved), { replace: true });
       }
     }, 3000);
 
     return () => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [user, roles, navigate]);
+  }, [user, roles, rolesResolved, navigate]);
 
   // Auto-focus
   useEffect(() => {

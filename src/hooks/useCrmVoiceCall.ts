@@ -19,6 +19,7 @@
  * duplicate provider callbacks cannot create a second outcome or a second row.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useInvalidateCallViews } from '@/hooks/useCrmCallCentre';
 import { useCriticalFlow, useLeavePageWarning } from '@/hooks/useCriticalFlow';
@@ -663,4 +664,30 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     toggleMute,
     reset,
   };
+}
+
+export interface HumanCallingPause {
+  paused: boolean;
+  reason: string | null;
+  paused_at: string | null;
+}
+
+/**
+ * Is calling from the app paused? While it is, the phone line is used by the
+ * automated call centre and the server refuses every human call (token,
+ * place-call and the live callback). Screens use this to hide their call
+ * buttons; hiding is a courtesy, the server is the gate.
+ */
+export function useHumanCallingPaused() {
+  return useQuery({
+    queryKey: ['crm-human-calling-paused'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<HumanCallingPause> => {
+      const { data, error } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: HumanCallingPause | null; error: { message: string } | null }>)(
+        'crm_human_calling_paused',
+      );
+      if (error) throw new Error(error.message);
+      return data ?? { paused: false, reason: null, paused_at: null };
+    },
+  });
 }

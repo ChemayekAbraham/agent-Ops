@@ -62,6 +62,17 @@ interface PayoutRoute {
   portfolio_code?: string | null;
 }
 
+interface ExtraDest {
+  id: string;
+  portfolio_id: string;
+  payout_method: 'mobile_money' | 'bank_transfer';
+  mobile_network: string | null;
+  mobile_money_number: string | null;
+  recipient_name: string;
+  bank_name: string | null;
+  account_number: string | null;
+}
+
 interface AgentProxyWithdrawalDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -70,10 +81,12 @@ interface AgentProxyWithdrawalDialogProps {
   funderPhone: string;
   walletBalance: number;
   onSuccess?: () => void;
+  /** Preselect this portfolio's payout route (shows its split numbers). */
+  initialPortfolioId?: string;
 }
 
 export function AgentProxyWithdrawalDialog({
-  open, onOpenChange, funderId, funderName, funderPhone, walletBalance, onSuccess,
+  open, onOpenChange, funderId, funderName, funderPhone, walletBalance, onSuccess, initialPortfolioId,
 }: AgentProxyWithdrawalDialogProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState<number>(0);
@@ -82,6 +95,9 @@ export function AgentProxyWithdrawalDialog({
   const [loadingRoutes, setLoadingRoutes] = useState(false);
   const [routes, setRoutes] = useState<PayoutRoute[]>([]);
   const [selectedRouteKey, setSelectedRouteKey] = useState<string | null>(null);
+  const [extras, setExtras] = useState<Record<string, ExtraDest[]>>({});
+  const [splits, setSplits] = useState<Record<string, number>>({});
+  useEffect(() => { setSplits({}); }, [selectedRouteKey]);
   const [confirming, setConfirming] = useState(false);
   const isSubmittingRef = useRef(false);
 
@@ -160,8 +176,29 @@ export function AgentProxyWithdrawalDialog({
           });
         }
 
+        // Extra payout numbers saved by Partner Ops for each portfolio.
+        const pfIds = ((portfoliosRes.data ?? []) as any[]).map(p => p.id);
+        const extraMap: Record<string, ExtraDest[]> = {};
+        if (pfIds.length) {
+          const { data: ex } = await supabase
+            .from('portfolio_payout_destinations' as never)
+            .select('id, portfolio_id, payout_method, mobile_network, mobile_money_number, recipient_name, bank_name, account_number')
+            .in('portfolio_id', pfIds)
+            .order('created_at', { ascending: true });
+          for (const e of ((ex ?? []) as any[])) {
+            (extraMap[e.portfolio_id] ||= []).push(e);
+          }
+        }
+        if (cancelled) return;
+        setExtras(extraMap);
+
         setRoutes(list);
-        const preferred = list.find(r => r.is_default) ?? list[0] ?? null;
+        // A portfolio with extra payout numbers must be split, so prefer it
+        // over a saved default method (which hides the split boxes).
+        const preferred =
+          (initialPortfolioId ? list.find(r => r.portfolio_id === initialPortfolioId) : undefined)
+          ?? list.find(r => r.source === 'portfolio' && r.portfolio_id && (extraMap[r.portfolio_id]?.length ?? 0) > 0)
+          ?? list.find(r => r.is_default) ?? list[0] ?? null;
         setSelectedRouteKey(preferred?.key ?? null);
       } catch (e: any) {
         toast.error('Failed to load saved payment options', { description: e.message });
@@ -170,15 +207,45 @@ export function AgentProxyWithdrawalDialog({
       }
     })();
     return () => { cancelled = true; };
-  }, [open, funderId]);
+  }, [open, funderId, initialPortfolioId]);
 
   const selectedRoute = routes.find(r => r.key === selectedRouteKey) ?? null;
+  const routeExtras = selectedRoute?.source === 'portfolio' && selectedRoute.portfolio_id
+    ? (extras[selectedRoute.portfolio_id] ?? []) : [];
+  const splitMode = routeExtras.length > 0;
+  const splitLines = splitMode && selectedRoute ? [
+    { key: 'primary', label: selectedRoute.sublabel },
+    ...routeExtras.map(e => ({
+      key: e.id,
+      label: e.payout_method === 'mobile_money'
+        ? `${e.mobile_network ?? 'MoMo'} · ${e.mobile_money_number ?? '—'} · ${e.recipient_name}`
+        : `${e.bank_name ?? 'Bank'} · ${e.account_number ?? '—'} · ${e.recipient_name}`,
+    })),
+  ] : [];
+  const usedSplits = splitLines.filter(l => (splits[l.key] || 0) > 0);
+  const effectiveAmount = splitMode ? usedSplits.reduce((s, l) => s + (splits[l.key] || 0), 0) : amount;
 
   const isValid =
-    amount >= 500 &&
-    amount <= walletBalance &&
+    effectiveAmount >= 500 &&
+    effectiveAmount <= walletBalance &&
     reason.trim().length >= 10 &&
-    !!selectedRoute;
+    !!selectedRoute &&
+    (!splitMode || (usedSplits.length > 0 && usedSplits.every(l => splits[l.key] >= 500)));
+
+  const handleSplitSubmit = async () => {
+    const { data, error } = await supabase.rpc('submit_proxy_split_withdrawal' as never, {
+      p_portfolio_id: selectedRoute!.portfolio_id,
+      p_allocations: usedSplits.map(l => ({ destination: l.key, amount: Math.round(splits[l.key]) })),
+      p_reason: reason.trim(),
+    } as never);
+    if (error) throw error;
+    const n = ((data as any)?.request_ids ?? []).length;
+    toast.success('Withdrawal requests submitted', {
+      description: `${formatUGX(effectiveAmount)} for ${funderName} split into ${n} request${n === 1 ? '' : 's'}, pending Financial Ops approval`,
+    });
+    onOpenChange(false);
+    onSuccess?.();
+  };
 
   const handleSubmit = async () => {
     if (!user || !isValid) return;
@@ -186,6 +253,7 @@ export function AgentProxyWithdrawalDialog({
     isSubmittingRef.current = true;
     setLoading(true);
     try {
+      if (splitMode) { await handleSplitSubmit(); return; }
       const route = selectedRoute!;
       const clientRequestId = await computeProxyWithdrawalKey({
         agentId: user.id,
@@ -359,11 +427,19 @@ export function AgentProxyWithdrawalDialog({
             </div>
 
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2 text-center">
-              <p className="text-2xl font-black text-primary tracking-tight">{formatUGX(amount)}</p>
+              <p className="text-2xl font-black text-primary tracking-tight">{formatUGX(effectiveAmount)}</p>
               <p className="text-sm font-semibold">to {funderName}</p>
+              {splitMode ? (
+                <div className="text-xs text-muted-foreground space-y-0.5">
+                  {usedSplits.map(l => (
+                    <p key={l.key}>{formatUGX(splits[l.key])} → {maskDestination(l.label)}</p>
+                  ))}
+                </div>
+              ) : (
               <p className="text-xs text-muted-foreground">
                 via {selectedRoute.label} · {maskDestination(selectedRoute.sublabel)}
               </p>
+              )}
             </div>
 
             <div className="rounded-lg bg-warning/10 p-2.5 text-[10px] text-warning">
@@ -450,6 +526,39 @@ export function AgentProxyWithdrawalDialog({
           </div>
 
           {/* Amount */}
+          {splitMode ? (
+            <div className="space-y-2">
+              <Label className="text-xs">How much goes to each number (UGX) *</Label>
+              {splitLines.map(l => (
+                <div key={l.key} className="rounded-md border border-border p-2 space-y-1">
+                  <p className="text-[11px] text-muted-foreground truncate">{l.label}</p>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={splits[l.key] || ''}
+                    onChange={e => {
+                      const raw = Math.max(0, Number(e.target.value) || 0);
+                      setSplits(s => {
+                        const others = Object.entries(s)
+                          .filter(([k]) => k !== l.key)
+                          .reduce((sum, [, v]) => sum + (v || 0), 0);
+                        const cap = Math.max(0, walletBalance - others);
+                        if (raw > cap) toast.warning(`Only ${formatUGX(cap)} of the Returns is left for this number`);
+                        return { ...s, [l.key]: Math.min(raw, cap) };
+                      });
+                    }}
+                    min={0}
+                  />
+                </div>
+              ))}
+              <p className="text-[11px] text-muted-foreground">
+                Total {formatUGX(effectiveAmount)} of {formatUGX(walletBalance)} Returns · {formatUGX(Math.max(0, walletBalance - effectiveAmount))} left · each number used must get at least UGX 500. One withdraw request is made per number.
+              </p>
+              {effectiveAmount > walletBalance && (
+                <p className="text-[10px] text-destructive">Total exceeds the Returns available</p>
+              )}
+            </div>
+          ) : (
           <div>
             <Label className="text-xs">Amount (UGX) *</Label>
             <Input
@@ -464,6 +573,7 @@ export function AgentProxyWithdrawalDialog({
               <p className="text-[10px] text-destructive mt-1">Exceeds available balance</p>
             )}
           </div>
+          )}
 
           {/* Reason */}
           <div>
@@ -491,7 +601,7 @@ export function AgentProxyWithdrawalDialog({
             disabled={!isValid || loading || walletBalance < 500}
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Request Withdrawal – {formatUGX(amount || 0)}
+            Request Withdrawal – {formatUGX(effectiveAmount || 0)}
           </Button>
         </div>
       </DialogContent>
