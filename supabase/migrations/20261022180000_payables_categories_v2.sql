@@ -41,7 +41,7 @@
 -- changed; the new report function reads only. CREATE OR REPLACE keeps every grant. Independent of 20261022130000_payables_single_read_speedup (different objects); either order works.
 -- TRANSACTION: run the file as ONE transaction (the migration tool does; by hand, wrap it in BEGIN; ... COMMIT;). The
 -- guard changes nothing when it refuses. Function checks ignore carriage returns (CRLF checkouts).
--- Rollback: supabase/rollbacks/20261022160000_payables_categories_v2.rollback.sql
+-- Rollback: supabase/rollbacks/20261022180000_payables_categories_v2.rollback.sql
 
 SET lock_timeout = '5s';
 DO $pre$
