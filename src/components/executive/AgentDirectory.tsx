@@ -12,7 +12,8 @@ import {
 import { toast } from 'sonner';
 import {
   Search, Users, Phone, X, Loader2, UserPlus, Activity,
-  ChevronLeft, ChevronRight, LayoutList, Map, ChevronRight as Chevron,
+  // MapIcon, not Map: the plain name would shadow JavaScript's Map constructor here.
+  ChevronLeft, ChevronRight, LayoutList, Map as MapIcon, ChevronRight as Chevron,
   MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
