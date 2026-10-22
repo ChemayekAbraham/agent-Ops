@@ -65635,6 +65635,28 @@ export type Database = {
           total_ugx: number
         }[]
       }
+      agent_expected_week: {
+        Args: { p_agent_ids: string[]; p_days?: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
+      agent_expected_week__impl: {
+        Args: { p_agent_ids: string[]; p_days: number }
+        Returns: {
+          agent_id: string
+          collected_week: number
+          day_from: string
+          day_to: string
+          days_billed: number
+          expected_week: number
+        }[]
+      }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
       agent_float_read_allowed: {
         Args: { p_agent_id: string }
@@ -79134,6 +79156,156 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_profiles: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          address_complete: boolean
+          address_completed_at: string | null
+          agent_tier: Database["public"]["Enums"]["agent_tier"] | null
+          agent_type: string | null
+          always_share_location: boolean | null
+          avatar_url: string | null
+          borrower_landlord_id: string | null
+          borrower_lc1_id: string | null
+          business_advance_notify_email: boolean
+          business_advance_notify_sms: boolean
+          city: string | null
+          continent: string | null
+          country: string | null
+          country_code: string | null
+          created_at: string
+          dashboard_access_count: number
+          dashboard_activated: boolean
+          dashboard_first_access_at: string | null
+          dashboard_last_access_at: string | null
+          date_of_birth: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
+          district: string | null
+          district_id: number | null
+          easy_read_size: number
+          email: string
+          evicted_at: string | null
+          evicted_from_landlord_id: string | null
+          forced_default_role: string | null
+          forced_default_role_set_at: string | null
+          forced_default_role_set_by: string | null
+          frozen_at: string | null
+          frozen_reason: string | null
+          full_name: string
+          funder_reference: string | null
+          funder_rejected_at: string | null
+          funder_rejection_reason: string | null
+          funder_verified_at: string | null
+          funder_verified_by: string | null
+          has_smartphone: boolean
+          id: string
+          id_image_hash: string | null
+          id_name_change_consent_at: string | null
+          identity_photos_submitted_at: string | null
+          is_frozen: boolean
+          is_seller: boolean
+          is_test: boolean
+          landmark: string | null
+          last_active_at: string | null
+          last_continuous_location_at: string | null
+          linked_national_id: string | null
+          linked_national_id_request_id: string | null
+          location_source: string | null
+          managed_by_agent: boolean
+          managing_agent_id: string | null
+          merchant_agent_referrer_id: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          mobile_money_provider: string | null
+          monthly_rent: number | null
+          must_change_password: boolean | null
+          national_id: string | null
+          national_id_back_photo_path: string | null
+          national_id_card_number: string | null
+          national_id_given_name: string | null
+          national_id_name: string | null
+          national_id_photo_path: string | null
+          national_id_surname: string | null
+          occupation: string | null
+          ops_note: string | null
+          parish: string | null
+          pending_merchant_agent: boolean
+          phone: string | null
+          phone_verified: boolean
+          phone_verified_at: string | null
+          preferred_language: string | null
+          prefers_easy_read: boolean
+          previous_full_name: string | null
+          primary_persona: string | null
+          referrer_id: string | null
+          referrer_locked: boolean
+          referrer_override_at: string | null
+          region: string | null
+          rent_discount_active: boolean
+          residence_lat: number | null
+          residence_lng: number | null
+          residence_updated_at: string | null
+          routing_preferences: Json
+          selfie_image_hash: string | null
+          selfie_photo_path: string | null
+          seller_application_status: string | null
+          sex: string | null
+          signup_channel: string | null
+          signup_device_fp: string | null
+          signup_source: string | null
+          smartphone_source: string | null
+          smartphone_status: string
+          smartphone_verified_at: string | null
+          sub_county: string | null
+          tenant_details_updated_at: string | null
+          tenant_electricity_meter: string | null
+          tenant_house_category: string | null
+          tenant_house_listing_id: string | null
+          tenant_status: string
+          tenant_water_meter: string | null
+          territory: string | null
+          town: string | null
+          ug_village_id: number | null
+          updated_at: string
+          verification_notify_email: boolean
+          verification_notify_sms: boolean
+          verified: boolean
+          village: string | null
+          wallet_id: string | null
+          whatsapp_verified: boolean | null
+          whatsapp_verified_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_wallets: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          advance_balance: number | null
+          balance: number | null
+          created_at: string | null
+          currency: string | null
+          float_balance: number | null
+          id: string | null
+          locked_balance: number | null
+          updated_at: string | null
+          user_id: string | null
+          withdrawable_balance: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "wallets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       pause_agent_advance: {
         Args: { p_advance_id: string; p_reason: string }
         Returns: Json
@@ -79464,6 +79636,10 @@ export type Database = {
         Returns: number
       }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_held_for_partner_available: {
+        Args: { p_agent: string; p_partner: string }
+        Returns: number
+      }
       proxy_pv_agent_rows: {
         Args: { p_month: string }
         Returns: {
