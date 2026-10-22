@@ -324,6 +324,17 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
   ],
   crm: [
     {
+      title: 'Automated Calls',
+      icon: PhoneCall,
+      items: [
+        { label: 'Overview', icon: Gauge, id: 'autocall-overview', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Campaigns', icon: PhoneCall, id: 'autocall-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Scripts', icon: FileText, id: 'autocall-scripts', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Call Log', icon: History, id: 'autocall-calls', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Paused People', icon: Users, id: 'autocall-pauses', access: { roles: ['crm', 'cto', 'super_admin'] } },
+      ],
+    },
+    {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
