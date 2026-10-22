@@ -66,6 +66,10 @@ export interface AutocallSystemStatus {
   configured: boolean;
   channels: number | null;
   last_error: string | null;
+  /** Calling from the app (CRM Call Centre, Tenant Ops) is paused; the line is the robot's. */
+  human_calling_paused: boolean;
+  human_calling_pause_reason: string | null;
+  human_calling_paused_at: string | null;
 }
 
 export interface AutocallOverview {
@@ -444,4 +448,17 @@ export function useTestCall() {
 
 export function useCancelCall() {
   return useAutocallMutation((jobId: string) => call<void>('voice_autocall_cancel_job', { p_job_id: jobId }));
+}
+
+/** Pause or resume calling from the app (CRM Call Centre and Tenant Ops) on the shared line. */
+export function useSetHumanCallingPaused() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { paused: boolean; reason?: string }) =>
+      call<void>('voice_autocall_set_human_calling_paused', { p_paused: v.paused, p_reason: v.reason ?? null }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ['crm-human-calling-paused'] });
+    },
+  });
 }
