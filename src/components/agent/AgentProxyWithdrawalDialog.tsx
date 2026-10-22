@@ -536,16 +536,26 @@ export function AgentProxyWithdrawalDialog({
                     type="number"
                     placeholder="0"
                     value={splits[l.key] || ''}
-                    onChange={e => setSplits(s => ({ ...s, [l.key]: Number(e.target.value) }))}
+                    onChange={e => {
+                      const raw = Math.max(0, Number(e.target.value) || 0);
+                      setSplits(s => {
+                        const others = Object.entries(s)
+                          .filter(([k]) => k !== l.key)
+                          .reduce((sum, [, v]) => sum + (v || 0), 0);
+                        const cap = Math.max(0, walletBalance - others);
+                        if (raw > cap) toast.warning(`Only ${formatUGX(cap)} of the Returns is left for this number`);
+                        return { ...s, [l.key]: Math.min(raw, cap) };
+                      });
+                    }}
                     min={0}
                   />
                 </div>
               ))}
               <p className="text-[11px] text-muted-foreground">
-                Total {formatUGX(effectiveAmount)} · each number used must get at least UGX 500. One withdraw request is made per number.
+                Total {formatUGX(effectiveAmount)} of {formatUGX(walletBalance)} Returns · {formatUGX(Math.max(0, walletBalance - effectiveAmount))} left · each number used must get at least UGX 500. One withdraw request is made per number.
               </p>
               {effectiveAmount > walletBalance && (
-                <p className="text-[10px] text-destructive">Exceeds available balance</p>
+                <p className="text-[10px] text-destructive">Total exceeds the Returns available</p>
               )}
             </div>
           ) : (
