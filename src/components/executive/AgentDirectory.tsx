@@ -333,7 +333,7 @@ export function AgentDirectory() {
                   role="button"
                   tabIndex={0}
                   onClick={() => setOpenAgentId(a.id)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenAgentId(a.id); } }}
+                  onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setOpenAgentId(a.id); } }}
                   className={cn('w-full min-w-0 text-left grid grid-cols-1 sm:grid-cols-2 gap-3 lg:items-center px-3 py-4 sm:py-3 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring touch-manipulation transition-colors cursor-pointer', GRID_LG)}
                 >
                   {/* Identity */}
@@ -341,7 +341,14 @@ export function AgentDirectory() {
                     <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-10 w-10" />
                     <div className="min-w-0">
                       <div className="flex items-start gap-1.5">
-                        <span className="font-semibold text-base break-words lg:text-sm">{a.full_name || 'Unknown Agent'}</span>
+                        <Button
+                          variant="link"
+                          aria-label={`Open profile for ${a.full_name || 'Unknown Agent'}`}
+                          onClick={(e) => { e.stopPropagation(); setOpenAgentId(a.id); }}
+                          className="h-auto min-h-11 min-w-0 justify-start p-0 text-left font-semibold text-base whitespace-normal break-words underline underline-offset-4 lg:text-sm"
+                        >
+                          {a.full_name || 'Unknown Agent'}
+                        </Button>
                         {a.verified && <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Verified" />}
                       </div>
                       <span className="flex items-center gap-1.5 text-sm text-muted-foreground break-all lg:text-xs">

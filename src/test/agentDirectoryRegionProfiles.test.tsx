@@ -179,4 +179,24 @@ describe('Agent profiles from the By Region view', () => {
       expect.objectContaining({ p_search: 'Wakiso' }),
     );
   });
+
+  it.each(['active', 'inactive', 'frozen'])('opens a %s agent from their name in List view', async (status) => {
+    rpcMock.mockImplementation(async (name: string) => {
+      if (name === 'get_agent_directory_region_breakdown') return { data: REGION_ROWS, error: null };
+      if (name === 'get_agent_directory_v2') return {
+        data: { ...DIRECTORY_ANSWER, rows: [row({ id: 'aaa-1', full_name: 'Nabukeera Sarah', status })] }, error: null,
+      };
+      if (name === 'get_agent_profile_360') return { data: PROFILE, error: null };
+      return { data: null, error: null };
+    });
+    renderDirectory();
+    await userEvent.click(screen.getByRole('button', { name: /^List$/ }));
+    const name = await screen.findByRole('button', { name: 'Open profile for Nabukeera Sarah' });
+    name.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(rpcMock).toHaveBeenCalledWith('get_agent_profile_360', { p_agent_id: 'aaa-1' });
+    await userEvent.click(await screen.findByRole('button', { name: /Back to directory/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Open profile for Nabukeera Sarah' }));
+    expect(await screen.findByRole('button', { name: /Back to directory/ })).toBeInTheDocument();
+  });
 });
