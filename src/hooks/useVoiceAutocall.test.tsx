@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, type UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 const { rpcMock } = vi.hoisted(() => ({ rpcMock: vi.fn() }));
@@ -32,7 +32,7 @@ describe('Automated Calls client connection', () => {
     rpcMock.mockResolvedValue({ data: response, error: null });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-    const { result, unmount } = renderHook(useView, { wrapper });
+    const { result, unmount } = renderHook<UseQueryResult<unknown, Error>, unknown>(useView, { wrapper });
     await waitFor(() => expect(result.current.isPending).toBe(false));
     expect(result.current.error).toBeNull();
     expect(result.current.data).toEqual(response);
