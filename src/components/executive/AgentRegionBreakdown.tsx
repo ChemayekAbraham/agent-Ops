@@ -303,6 +303,15 @@ export function AgentRegionBreakdown({
   const [regionFilter, setRegionFilter] = useState<string | null>(null);
   const [districtKey, setDistrictKey] = useState<string | null>(null);
 
+  // The same box also searches the register itself, so an agent can be found
+  // by name or phone without knowing their area. Debounced so every keystroke
+  // doesn't hit the server.
+  const [agentTerm, setAgentTerm] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setAgentTerm(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const { data, isLoading, error } = useQuery<Row[]>({
     queryKey: ['agent-region-breakdown', verifiedOnly],
     queryFn: async () => {
