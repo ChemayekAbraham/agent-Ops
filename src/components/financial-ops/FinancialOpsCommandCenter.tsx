@@ -457,11 +457,26 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         <SubBack onClick={() => setActiveTool(null)} />
         <ToolErrorBoundary toolKey={String(activeTool)}>
         <Suspense fallback={<PanelFallback />}>
-        {activeTool === 'ops' && <ScaleDashboard />}
+        {activeTool === 'ops' && (
+          <div className="space-y-5">
+            <PageHeader icon={Gauge} title="Ops Center" description="Real-time view of platform operations, channel health and key workflows." />
+            <ScaleDashboard />
+          </div>
+        )}
         {activeTool === 'email_tx' && <EmailTransactionsPanel />}
         {activeTool === 'auto_credit_review' && <AutoCreditReviewPanel />}
-        {activeTool === 'queue' && <ApprovalQueue />}
-        {activeTool === 'search' && <TransactionSearch />}
+        {activeTool === 'queue' && (
+          <div className="space-y-5">
+            <PageHeader icon={ClipboardList} title="Approval Queue" description="Review and process pending withdrawals and wallet operations." />
+            <ApprovalQueue />
+          </div>
+        )}
+        {activeTool === 'search' && (
+          <div className="space-y-5">
+            <PageHeader icon={Search} title="Transaction Search" description="Find and view transaction details across all channels." />
+            <TransactionSearch />
+          </div>
+        )}
         {activeTool === 'recon' && (
           <div className="space-y-6">
             {/* 7-day cash flow context for the operator. */}
@@ -519,11 +534,17 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           </>
         )}
         {activeTool === 'opportunities' && (
-          <OpportunitySummaryForm onClose={() => setActiveTool(null)} />
+          <div className="space-y-5">
+            <PageHeader icon={TrendingUp} title="Capital Opportunities" description="Post funding opportunities for platform growth and expansion." />
+            <OpportunitySummaryForm onClose={() => setActiveTool(null)} />
+          </div>
         )}
         {activeTool === 'requisitions' && (
-          <div className="max-w-2xl w-full">
-            <AgentRequisitionForm />
+          <div className="space-y-5">
+            <PageHeader icon={FileText} title="Fund Requisitions" description="Request funds for company operations, marketing, research and more." />
+            <div className="max-w-2xl w-full">
+              <AgentRequisitionForm />
+            </div>
           </div>
         )}
         {activeTool === 'employee_requisition_links' && (
