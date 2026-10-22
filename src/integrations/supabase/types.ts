@@ -79614,6 +79614,10 @@ export type Database = {
         Returns: number
       }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_held_for_partner_available: {
+        Args: { p_agent: string; p_partner: string }
+        Returns: number
+      }
       proxy_pv_agent_rows: {
         Args: { p_month: string }
         Returns: {
