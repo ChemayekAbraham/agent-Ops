@@ -601,6 +601,7 @@ export function AgentRegionBreakdown({
                 onClick={() => toggle(g.region)}
                 className="w-full flex items-center gap-2 p-2.5 hover:bg-muted/50 transition-colors text-left"
                 aria-expanded={isOpen}
+                aria-label={`${g.region} region, ${g.total.toLocaleString()} agents`}
               >
                 {isOpen ? (
                   <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -651,6 +652,7 @@ export function AgentRegionBreakdown({
                             type="button"
                             onClick={() => setOpenDistrict(districtOpen ? null : key)}
                             aria-expanded={districtOpen}
+                            aria-label={`${d.district} district, ${d.agent_count.toLocaleString()} agents`}
                             className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted/60 transition-colors text-left"
                           >
                             {onOpenAgent ? (
