@@ -259,7 +259,7 @@ function AreaChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      aria-label={active ? `${label}, showing only this area` : `Show ${label}`}
+      aria-label={active ? `${label}, ${count.toLocaleString()} agents, showing only this area` : `Show ${label}, ${count.toLocaleString()} agents`}
       className={cn(
         'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors whitespace-nowrap',
         active
