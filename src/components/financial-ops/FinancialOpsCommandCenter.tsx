@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+import { FinOpsScope } from './FinOpsScope';
 import { Component, useEffect, useState, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 // Eagerly imported: only what's needed on the Home view.
 import { WalletOverviewCard } from './WalletOverviewCard';
@@ -295,7 +297,11 @@ function setStoredAccordionOpen(key: string, userId: string, open: boolean) {
 const getStoredOpen = (userId?: string) => getStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId);
 const setStoredOpen = (userId: string, open: boolean) => setStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId, open);
 
-export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymentRef?: boolean } = {}) {
+export function FinancialOpsCommandCenter(props: { requirePaymentRef?: boolean } = {}) {
+  return <FinOpsScope><FinancialOpsWorkspace {...props} /></FinOpsScope>;
+}
+
+function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: boolean } = {}) {
   const { user } = useAuth();
   const userId = user?.id;
   // The URL is the single source of truth for which panel is open.
@@ -386,12 +392,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
   // Shared back button — bigger tap target, consistent label & spacing.
   const SubBack = ({ onClick }: { onClick: () => void }) => (
-    <button
-      onClick={onClick}
-      className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors h-10 -ml-2 px-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
+    <Button variant="outline" size="sm" onClick={onClick} className="gap-2">
       <ArrowLeft className="h-4 w-4" /> Back to Financial Ops
-    </button>
+    </Button>
   );
 
   // Sub-view: Verify Deposits (unified — user TIDs + field/agent cash)
@@ -636,7 +639,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       {/* Mobile Drawer Navigation (Slide-out menu on mobile & tablet) */}
       <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
         <SheetContent side="left" className="w-[85vw] max-w-sm p-0 flex flex-col overflow-hidden bg-card border-r border-border">
-          <SheetHeader className="px-4 pt-4 pb-3 border-b border-border bg-gradient-to-br from-primary/5 via-card to-card text-left">
+          <SheetHeader className="px-4 pt-4 pb-3 border-b border-border bg-card text-left">
             <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
                 <Sparkles className="h-4 w-4 text-primary" />
@@ -730,9 +733,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
       {/* Persistent sidebar (desktop) — hidden when Email Transactions is open full-screen */}
       {!emailTxFullscreen && (
-      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-2xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
+      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
         {/* Sidebar header */}
-        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-gradient-to-br from-primary/5 via-card to-card`}>
+        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-card`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
             <div className={`flex items-center gap-2 min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
               <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -888,7 +891,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
               <button
                 type="button"
                 onClick={() => setIftttDiagnosticsOpen(!iftttDiagnosticsOpen)}
@@ -925,7 +928,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             </div>
 
             {/* Merchant Phone Checklist Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
               <button
                 type="button"
                 onClick={() => setMerchantChecklistOpen(!merchantChecklistOpen)}
@@ -1148,7 +1151,7 @@ function FinOpsHome({
       </div>
 
       {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
         <button
           type="button"
           onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
@@ -1277,7 +1280,7 @@ function FinOpsHome({
           side="right"
           className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden"
         >
-          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border bg-gradient-to-br from-primary/5 via-card to-card text-left">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border bg-card text-left">
             <SheetTitle>Explore Tools</SheetTitle>
             <SheetDescription>Everything beyond verifying deposits and approving withdrawals</SheetDescription>
             <div className="mt-3 relative">
@@ -1349,15 +1352,15 @@ function ActionStatTile({
 
   const gradientBg =
     tone === 'primary'
-      ? 'bg-gradient-to-br from-primary/8 via-card to-card hover:border-primary/50'
+      ? 'bg-card hover:border-primary/50'
       : tone === 'secondary'
-      ? 'bg-gradient-to-br from-purple-500/8 via-card to-card hover:border-purple-500/50'
-      : 'bg-gradient-to-br from-amber-500/8 via-card to-card hover:border-amber-500/50';
+      ? 'bg-card hover:border-primary/50'
+      : 'bg-card hover:border-warning/50';
 
   return (
     <button
       onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
+      className={`group relative text-left rounded-xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
     >
       <div className="flex items-start justify-between gap-3 w-full">
         <div className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl flex items-center justify-center shrink-0 border ${toneClass}`}>
@@ -1441,7 +1444,7 @@ function MajorActionButton({
   return (
     <button
       onClick={onClick}
-      className={`group relative text-left rounded-xl sm:rounded-2xl border border-border/80 bg-card p-3.5 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-2xs ${accentBorder}`}
+      className={`group relative text-left rounded-xl border border-border/80 bg-card p-3.5 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-2xs ${accentBorder}`}
     >
       <div className="flex items-start justify-between gap-2.5 w-full">
         <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border ${toneBadge}`}>

@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Financial Ops UI consistency: audit every reachable tool, inbox/fullscreen and portal dialogs; apply overview-matched scoped styling only; verify desktop/mobile/light/dark and existing regression tests. No financial, database or deployment changes.
 - [ ] Enable Tenant, Employee and Supporter test calls for 0701355245 — blocked: migration service returned 42P10; live readback confirms both demo functions absent and Employee/Supporter scripts missing. Overview controls remain disabled until the server configuration succeeds; no calls placed.
 - [x] Retry the split-withdrawal UUID correction as requested and check the live definition: retry returned 42P10, old text ID remains, UUID correction unapplied; no withdrawals submitted.
 - [x] Correct proxy split-withdrawal request ID type mismatch — fixed upstream in commit 83850e4ea0 (migration 20261022090000, applied directly to the live database). Verified read-only: `submit_proxy_split_withdrawal` no longer contains `md5(gen_random_uuid` and writes `gen_random_uuid()`; `withdrawal_requests.client_request_id` is `uuid`. No migration re-run, no payouts submitted.
