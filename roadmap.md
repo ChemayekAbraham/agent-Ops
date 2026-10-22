@@ -1,4 +1,6 @@
 # Tasks
+- [ ] Re-sync to `51069f32ea` (teeburg merge: data-fix migration `20261023090000_nsubuga_smartphone_term_3_months.sql`, already applied to the live database by hand) — blocked: `git merge` is refused by the sandbox and the workspace HEAD `3875cf97f4` is 2 commits behind `origin/lovable`; the migration must not be run. Read-only check confirms the live plan is already 3 months.
+
 - [ ] Financial Ops UI consistency: audit every reachable tool, inbox/fullscreen and portal dialogs; apply overview-matched scoped styling only; verify desktop/mobile/light/dark and existing regression tests. No financial, database or deployment changes.
 - [ ] Enable Tenant, Employee and Supporter test calls for 0701355245 — blocked: migration service returned 42P10; live readback confirms both demo functions absent and Employee/Supporter scripts missing. Overview controls remain disabled until the server configuration succeeds; no calls placed.
 - [x] Retry the split-withdrawal UUID correction as requested and check the live definition: retry returned 42P10, old text ID remains, UUID correction unapplied; no withdrawals submitted.
