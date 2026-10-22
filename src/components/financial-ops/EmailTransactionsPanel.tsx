@@ -180,9 +180,9 @@ export function EmailTransactionsPanel() {
     applyRecentWindow,
   } = useEmailTransactionsPanel();
   return (
-    <div className="space-y-3.5">
+    <div className="finops-inbox space-y-5">
       {/* ── Top Workspace Tab Navigation ── */}
-      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
+      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
         <button
           type="button"
           onClick={() => setWorkspaceTab('inbox')}
@@ -3916,7 +3916,7 @@ function StatCard({
   // Enter/Space toggles it, Escape closes it, focus opens it, blur/pointer-leave closes it.
   const [tipOpen, setTipOpen] = useState(false);
   return (
-    <div className="rounded-xl border bg-card p-4 transition-colors hover:bg-muted/30">
+    <div data-finops-part="kpi" className="rounded-xl border bg-card p-4 transition-colors hover:bg-muted/30">
       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
         <span className="truncate">{label}</span>
         {info && (
@@ -3956,7 +3956,7 @@ function StatCard({
           </TooltipProvider>
         )}
       </p>
-      <p className="font-bold text-xl tracking-tight mt-1.5 tabular-nums">{value}</p>
+      <p data-finops-part="kpi-value" className="font-bold text-xl tracking-tight mt-1.5 tabular-nums">{value}</p>
       {sub && <div className="mt-1.5">{sub}</div>}
     </div>
   );
