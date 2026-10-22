@@ -242,7 +242,9 @@ export function TenantCallDetailsDialog({
                 Close
               </Button>
               {callingPaused ? (
-                <CallingPausedNotice />
+                <div className="min-w-0 flex-1">
+                  <CallingPausedNotice />
+                </div>
               ) : (
                 <Button
                   type="button"
