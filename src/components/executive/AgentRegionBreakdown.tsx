@@ -12,6 +12,7 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { AgentAvatar } from './AgentAvatar';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { downloadCsv } from '@/lib/csvExport';
 
 interface Row {
   region: string;
@@ -64,6 +65,26 @@ const STATUS_STYLE: Record<string, string> = {
   inactive: 'bg-muted text-muted-foreground border-border',
   frozen: 'bg-destructive/10 text-destructive border-destructive/30',
 };
+
+/** Every agent registered in one district, read through the same guarded register RPC. */
+async function fetchDistrictAgentsAll(region: string, district: string): Promise<DistrictAgent[]> {
+  const seen = new Set<string>();
+  const out: DistrictAgent[] = [];
+  for (let i = 0; i < 50; i++) {
+    const { data, error } = await supabase.rpc('get_agent_directory_v2' as any, {
+      p_search: district, p_type: 'all', p_status: 'all', p_limit: RAW_PAGE, p_offset: i * RAW_PAGE,
+    });
+    if (error) throw error;
+    const rows = ((data as any)?.rows ?? []) as DistrictAgent[];
+    for (const r of rows) {
+      if (!r?.id || seen.has(r.id)) continue;
+      seen.add(r.id);
+      if (r.district === district && r.region === region) out.push(r);
+    }
+    if (rows.length < RAW_PAGE) break;
+  }
+  return out;
+}
 
 /**
  * Agents of a single district, opened by clicking the district row.
@@ -429,6 +450,38 @@ export function AgentRegionBreakdown({
     });
   };
 
+  const [exporting, setExporting] = useState(false);
+  const handleExportAgents = async () => {
+    setExporting(true);
+    try {
+      const rows: (string | number)[][] = [];
+      for (const g of filtered) {
+        for (const d of g.districts) {
+          const agents = await fetchDistrictAgentsAll(g.region, d.district);
+          for (const a of agents) {
+            if (verifiedOnly && !a.verified) continue;
+            rows.push([
+              g.region, d.district, a.full_name ?? '', a.phone ?? '', a.email ?? '',
+              a.agent_kind === 'sub_agent' ? 'Sub-agent' : 'Agent', a.verified ? 'Yes' : 'No',
+              a.status, a.total_tenants ?? 0, a.daily_target ?? 0, a.collected_today ?? 0,
+            ]);
+          }
+        }
+      }
+      const area = (regionFilter ?? 'all-regions').toLowerCase().replace(/\s+/g, '-');
+      downloadCsv(
+        `agents_${area}_${format(new Date(), 'yyyyMMdd-HHmm')}.csv`,
+        ['Region', 'District', 'Name', 'Phone', 'Email', 'Type', 'Verified', 'Status', 'Tenants', 'Daily target (UGX)', 'Collected today (UGX)'],
+        rows,
+      );
+    } catch (e) {
+      console.error('[AgentRegionBreakdown] agent export failed:', e);
+      alert('Could not download the agent list. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportPdf = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
     doc.setFontSize(14);
@@ -532,6 +585,10 @@ export function AgentRegionBreakdown({
         <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={handleExportPdf}>
           <FileDown className="h-3.5 w-3.5" />
           PDF
+        </Button>
+        <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={handleExportAgents} disabled={exporting || filtered.length === 0} aria-label="Download agent list">
+          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+          Agents CSV
         </Button>
       </div>
 
