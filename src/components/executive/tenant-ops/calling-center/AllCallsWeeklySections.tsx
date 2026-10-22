@@ -29,6 +29,10 @@ export function AllCallsWeeklySections({ dayLabels, pivot, isLoading, error }: P
 
       <section className="min-w-0 space-y-2">
         <h3 className="text-xs font-bold">All calls made and taken this week</h3>
+        <p className="text-[11px] text-muted-foreground">
+          Calls made in the Rent Plan pipeline (to landlords and tenants), calls made and taken at the Calling Center, and awareness calls. A call
+          recorded in more than one place is counted once.
+        </p>
         {!isLoading && !error ? (
           <p className="text-[11px] text-muted-foreground" data-testid="all-calls-summary">
             {pivot.bySource.length

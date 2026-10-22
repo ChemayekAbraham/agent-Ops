@@ -1,7 +1,7 @@
 /**
  * Client-side pivot for the Calling Center "All calls made and taken this week" report.
  *
- * The server (`cc_weekly_all_calls_report`) returns one row per caller, Kampala day, kind of person called, source and answered/not answered.
+ * The server (`cc_weekly_all_calls_report`) counts every call once, even when it was written in more than one place (see the migration), and returns one row per caller, Kampala day, kind of person called, source and answered/not answered.
  * This file only arranges those rows into the staff x day matrices the screen and the PDF show; it counts nothing the server did not send.
  * Subtotals are the sum of the four kinds, and the daily totals are the sum of the staff rows, so every table reconciles by construction.
  */
@@ -18,8 +18,9 @@ export const CALL_KINDS: { kind: CallKind; label: string }[] = [
 export const CALL_SOURCE_LABELS: Record<string, string> = {
   calling_center: 'Calling Center',
   received: 'Calls that came in',
+  awareness: 'Rent pipeline awareness calls',
+  pipeline_landlord: 'Landlord Ops verification calls',
   crm_voice: 'App voice calls',
-  awareness: 'Awareness calls',
   legacy_tenant: 'Earlier tenant call log',
   legacy_landlord: 'Earlier landlord call log',
 };
