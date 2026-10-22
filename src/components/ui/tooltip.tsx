@@ -1,3 +1,4 @@
+import { useWorkspaceSurface } from "./workspace-theme";
 import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -30,6 +31,7 @@ const TooltipContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & VariantProps<typeof tooltipContentVariants>
 >(({ className, sideOffset = 6, variant, ...props }, ref) => (
   <TooltipPrimitive.Content
+      {...useWorkspaceSurface("tooltip")}
     ref={ref}
     sideOffset={sideOffset}
     className={cn(tooltipContentVariants({ variant }), className)}

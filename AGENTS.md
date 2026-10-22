@@ -1,4 +1,5 @@
 # Architecture Decisions
+- Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.
 - Recruitment profile links reuse AgentProfile360Sheet with a local drill-down path and the existing role-gated profile read, so returning preserves the recruiting agent’s tab without duplicating profile data or changing access.
 - Automated Calls UI lives in crm/autocall behind useCanUseAutocall and uses the voice-autocall hook exclusively for calling state and playback; overview demos use a separate server-owned destination/config and one-shot action, never changing account roles, regular campaigns or the original staff-test action.
 - Payables forecast hooks do not automatically replay deterministic database timeout/permission failures; server reporting remains the sole authority for amounts, so retries cannot change financial rules.

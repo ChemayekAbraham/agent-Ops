@@ -1,3 +1,4 @@
+import { useWorkspaceSurface } from "./workspace-theme";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
@@ -23,6 +24,7 @@ const SheetOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
+      {...useWorkspaceSurface("overlay")}
     className={cn(
       "fixed inset-0 z-[110] bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
@@ -70,7 +72,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
     return (
       <SheetPortal>
         <SheetOverlay className={overlayClassName} />
-        <SheetPrimitive.Content ref={ref} data-sheet-side={side} className={cn("app-sheet-content", sheetVariants({ side }), className)} {...props}>
+        <SheetPrimitive.Content {...useWorkspaceSurface("portal")} ref={ref} data-sheet-side={side} className={cn("app-sheet-content", sheetVariants({ side }), className)} {...props}>
           {side === "bottom" && (
             <div className="sticky top-0 z-10 flex justify-center bg-gradient-to-b from-background to-background/95 pb-1 pt-2.5">
               <span aria-hidden className="h-1.5 w-11 rounded-full bg-muted-foreground/30" />
