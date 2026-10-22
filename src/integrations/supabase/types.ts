@@ -57941,6 +57941,10 @@ export type Database = {
           balance_currency: string | null
           channels: number | null
           configured: boolean
+          human_calling_pause_reason: string | null
+          human_calling_paused: boolean
+          human_calling_paused_at: string | null
+          human_calling_paused_by: string | null
           id: number
           last_error: string | null
           last_tick_at: string | null
@@ -57954,6 +57958,10 @@ export type Database = {
           balance_currency?: string | null
           channels?: number | null
           configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
           id?: number
           last_error?: string | null
           last_tick_at?: string | null
@@ -57967,6 +57975,10 @@ export type Database = {
           balance_currency?: string | null
           channels?: number | null
           configured?: boolean
+          human_calling_pause_reason?: string | null
+          human_calling_paused?: boolean
+          human_calling_paused_at?: string | null
+          human_calling_paused_by?: string | null
           id?: number
           last_error?: string | null
           last_tick_at?: string | null
@@ -70071,6 +70083,7 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_human_calling_paused: { Args: never; Returns: Json }
       crm_mark_call_answered: {
         Args: { p_session_id: string }
         Returns: undefined
@@ -85414,6 +85427,10 @@ export type Database = {
       }
       voice_autocall_set_category_paused: {
         Args: { p_category: string; p_paused: boolean; p_reason?: string }
+        Returns: undefined
+      }
+      voice_autocall_set_human_calling_paused: {
+        Args: { p_paused: boolean; p_reason?: string }
         Returns: undefined
       }
       voice_autocall_test_call: {
