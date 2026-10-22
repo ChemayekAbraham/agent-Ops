@@ -184,71 +184,65 @@ function DistrictAgents({
       ) : (
         <div className="divide-y divide-border/40">
           {agents.map((a) => (
-            <div
+            <Button
               key={a.id}
-              role="button"
-              tabIndex={0}
+              variant="ghost"
               onClick={() => onOpenAgent(a.id)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onOpenAgent(a.id);
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 text-left hover:bg-muted/60 transition-colors cursor-pointer"
+              className="grid h-auto min-h-[88px] w-full grid-cols-[40px_minmax(0,1fr)_auto] gap-x-3 gap-y-2 rounded-none px-3 py-4 text-left whitespace-normal active:scale-100 sm:flex sm:min-h-[64px] sm:px-4"
             >
-              <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-7 w-7" />
+              <AgentAvatar src={a.avatar_url} name={a.full_name} className="h-10 w-10 shrink-0" />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold truncate">{a.full_name || 'Unknown Agent'}</span>
-                  {a.verified && <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" aria-label="Verified" />}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-sm font-semibold break-words">{a.full_name || 'Unknown Agent'}</span>
+                  {a.verified && <ShieldCheck className="h-3 w-3 text-success shrink-0" aria-label="Verified" />}
                   {a.agent_kind === 'sub_agent' && (
-                    <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
                       Sub-Agent
                     </Badge>
                   )}
                 </div>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
-                  <Phone className="h-2.5 w-2.5 shrink-0" />
+                <span className="mt-1 flex items-center gap-1.5 text-sm font-normal text-muted-foreground break-all">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
                   {a.phone || '—'}
                 </span>
               </div>
               <span
-                className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0"
+                className="col-span-2 col-start-2 flex items-center gap-1.5 text-xs font-normal text-muted-foreground sm:shrink-0"
                 title="Tenants"
               >
                 <Users className="h-3 w-3" />
-                <span className="font-semibold text-foreground">{a.total_tenants}</span>
+                <span className="font-semibold text-foreground">{a.total_tenants}</span><span className="sm:hidden">tenants</span>
               </span>
-              <span className="hidden md:block text-[11px] tabular-nums shrink-0 text-right">
-                <span className={cn('font-semibold', Number(a.collected_today) > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>
+              <span className="col-span-2 col-start-2 grid min-w-0 gap-1 text-xs tabular-nums font-normal sm:hidden md:grid md:shrink-0 md:text-right">
+                <span className={cn('font-semibold', Number(a.collected_today) > 0 ? 'text-success' : 'text-muted-foreground')}>
+                  <span className="font-normal text-muted-foreground md:hidden">Today </span>
                   {formatUGX(Number(a.collected_today || 0))}
                 </span>
-                <span className="text-muted-foreground"> / {formatUGX(Number(a.daily_target || 0))}</span>
+                <span className="text-muted-foreground"><span className="md:hidden">Target </span><span className="hidden md:inline">/ </span>{formatUGX(Number(a.daily_target || 0))}</span>
               </span>
               <span
                 className={cn(
-                  'text-[9px] px-1.5 py-0.5 rounded-full border capitalize shrink-0',
+                  'col-span-2 col-start-2 text-xs px-2 py-1 rounded-full border capitalize w-fit font-normal sm:shrink-0',
                   STATUS_STYLE[a.status] ?? STATUS_STYLE.inactive,
                 )}
               >
                 {a.status}
               </span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            </div>
+              <ChevronRight className="col-start-3 row-start-1 h-4 w-4 text-muted-foreground shrink-0" />
+            </Button>
           ))}
         </div>
       )}
 
       {data && !data.exhausted && (
-        <div className="flex items-center justify-between gap-2 px-4 py-2">
-          <span className="text-[10px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <span className="text-xs text-muted-foreground">
             {capped
               ? 'This district has more agents than shown here — use the filter above or the List view.'
               : 'More agents in this district.'}
           </span>
           {!capped && (
-            <Button variant="outline" size="sm" className="h-7 text-[11px]" disabled={isFetching} onClick={() => setPages((p) => p + 2)}>
+            <Button variant="outline" size="sm" className="h-11 min-h-11 text-sm sm:h-9 sm:min-h-9" disabled={isFetching} onClick={() => setPages((p) => p + 2)}>
               {isFetching && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
               Load more
             </Button>
@@ -276,21 +270,22 @@ function AreaChip({
   onClick: () => void;
 }) {
   return (
-    <button
+    <Button
+      variant={active ? 'default' : 'outline'}
       type="button"
       onClick={onClick}
       aria-pressed={active}
       aria-label={`${label}: ${count.toLocaleString()} agents${active ? ', selected' : ''}`}
       className={cn(
-        'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors whitespace-nowrap',
+        'flex min-h-11 h-auto min-w-0 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm shadow-none sm:justify-center',
         active
           ? 'border-primary bg-primary text-primary-foreground'
           : 'border-border text-muted-foreground hover:bg-muted',
       )}
     >
-      <span className="truncate">{label}</span>
-      <span className="font-semibold tabular-nums">{count.toLocaleString()}</span>
-    </button>
+      <span className="whitespace-normal break-words text-left">{label}</span>
+      <span className="shrink-0 font-semibold tabular-nums">{count.toLocaleString()}</span>
+    </Button>
   );
 }
 
@@ -563,30 +558,31 @@ export function AgentRegionBreakdown({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+        <div className="relative col-span-2 min-w-0 sm:flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Filter by region or district…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 pr-10 h-9 text-sm"
+            aria-label="Filter by region or district"
+            className="pl-10 pr-12 h-12 text-base sm:h-11 sm:text-sm"
           />
           {search && (
-            <button
+            <Button variant="ghost" size="icon"
               onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-0.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label="Clear filter"
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           )}
         </div>
-        <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={handleExportPdf}>
+        <Button variant="outline" size="sm" className="h-11 min-h-11 text-sm gap-1.5" onClick={handleExportPdf}>
           <FileDown className="h-3.5 w-3.5" />
           PDF
         </Button>
-        <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5" onClick={handleExportAgents} disabled={exporting || filtered.length === 0} aria-label="Download agent list">
+        <Button variant="outline" size="sm" className="h-11 min-h-11 text-sm gap-1.5" onClick={handleExportAgents} disabled={exporting || filtered.length === 0} aria-label="Download agent list">
           {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
           Agents CSV
         </Button>
@@ -596,7 +592,7 @@ export function AgentRegionBreakdown({
           reader can see where the field force sits before clicking anything,
           and the dropdown goes straight to a district inside the chosen area. */}
       <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by region">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center" role="group" aria-label="Filter by region">
           <AreaChip label="All regions" count={grandTotal} active={!regionFilter} onClick={() => pickRegion(null)} />
           {groups.map((g) => (
             <AreaChip
@@ -611,13 +607,13 @@ export function AgentRegionBreakdown({
 
         <div className="flex flex-wrap items-center gap-2">
           <Select value={districtKey ?? ALL_DISTRICTS} onValueChange={pickDistrict}>
-            <SelectTrigger className="h-9 w-[280px] max-w-full text-xs">
+            <SelectTrigger aria-label="Filter by district" className="h-12 w-full min-w-0 text-base sm:h-11 sm:w-[280px] sm:text-sm [&>span]:truncate">
               <SelectValue placeholder="All districts" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_DISTRICTS}>All districts</SelectItem>
+            <SelectContent className="max-w-[calc(100vw-2rem)]">
+              <SelectItem className="min-h-11 text-sm" value={ALL_DISTRICTS}>All districts</SelectItem>
               {districtOptions.map((o) => (
-                <SelectItem key={o.key} value={o.key}>
+                <SelectItem className="min-h-11 text-sm [&>span:last-child]:whitespace-normal [&>span:last-child]:break-words" key={o.key} value={o.key}>
                   {o.district}
                   {!regionFilter && <span className="text-muted-foreground"> · {o.region}</span>}
                   <span className="ml-2 tabular-nums text-muted-foreground">{o.count.toLocaleString()}</span>
@@ -627,7 +623,7 @@ export function AgentRegionBreakdown({
           </Select>
 
           {filtering && (
-            <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={clearAreaFilters}>
+            <Button variant="ghost" size="sm" className="h-11 min-h-11 text-sm" onClick={clearAreaFilters}>
               <X className="h-3.5 w-3.5 mr-1" />
               Clear area
             </Button>
@@ -635,7 +631,7 @@ export function AgentRegionBreakdown({
         </div>
       </div>
 
-      <div className="text-[11px] text-muted-foreground">
+      <div className="text-sm leading-relaxed text-muted-foreground break-words">
         <span className="font-semibold text-foreground">{scope.agents.toLocaleString()}</span> agents {scopeLabel}
         {filtering && (
           <>
@@ -652,11 +648,11 @@ export function AgentRegionBreakdown({
           const isOpen = expanded.has(g.region) || !!term;
           const share = grandTotal > 0 ? (g.total / grandTotal) * 100 : 0;
           return (
-            <div key={g.region} className="rounded-xl border border-border bg-card overflow-hidden">
-              <button
+            <div key={g.region} className="rounded-lg border border-border bg-card overflow-hidden">
+              <Button variant="ghost"
                 type="button"
                 onClick={() => toggle(g.region)}
-                className="w-full flex items-center gap-2 p-2.5 hover:bg-muted/50 transition-colors text-left"
+                className="h-auto min-h-[64px] w-full flex items-center gap-2 rounded-none p-3 hover:bg-muted/50 text-left whitespace-normal active:scale-100"
                 aria-expanded={isOpen}
                 aria-label={`${g.region} region, ${g.total.toLocaleString()} agents`}
               >
@@ -668,7 +664,7 @@ export function AgentRegionBreakdown({
                 <MapPin className="h-4 w-4 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold truncate">{g.region}</span>
+                    <span className="text-sm font-semibold break-words">{g.region}</span>
                     <span className="text-[10px] text-muted-foreground tabular-nums">
                       {share.toFixed(1)}%
                     </span>
@@ -694,7 +690,7 @@ export function AgentRegionBreakdown({
                     {g.active.toLocaleString()}
                   </span>
                 </div>
-              </button>
+              </Button>
               {isOpen && (
                 <div className="border-t border-border/60 bg-muted/20 divide-y divide-border/40">
                   {g.districts
@@ -705,12 +701,12 @@ export function AgentRegionBreakdown({
                       const districtOpen = openDistrict === key;
                       return (
                         <div key={key}>
-                          <button
+                          <Button variant="ghost"
                             type="button"
                             onClick={() => setOpenDistrict(districtOpen ? null : key)}
                             aria-expanded={districtOpen}
                             aria-label={`${d.district} district, ${d.agent_count.toLocaleString()} agents`}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-muted/60 transition-colors text-left"
+                            className="h-auto min-h-12 w-full flex items-center gap-2 rounded-none px-3 py-3 text-sm font-normal hover:bg-muted/60 text-left whitespace-normal active:scale-100 sm:px-4"
                           >
                             {onOpenAgent ? (
                               districtOpen ? (
@@ -721,8 +717,8 @@ export function AgentRegionBreakdown({
                             ) : (
                               <span className="w-3 shrink-0" />
                             )}
-                            <span className="flex-1 truncate text-foreground">{d.district}</span>
-                            <Badge variant="secondary" className="text-[10px] gap-1">
+                            <span className="min-w-0 flex-1 break-words text-foreground">{d.district}</span>
+                            <Badge variant="secondary" className="text-xs gap-1 shrink-0">
                               <Users className="h-3 w-3" />
                               {d.agent_count.toLocaleString()}
                             </Badge>
@@ -734,7 +730,7 @@ export function AgentRegionBreakdown({
                               <Activity className="h-3 w-3" />
                               {d.active_30d.toLocaleString()}
                             </span>
-                          </button>
+                          </Button>
                           {districtOpen && onOpenAgent && (
                             <DistrictAgents
                               region={g.region}
