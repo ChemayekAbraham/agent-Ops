@@ -57425,6 +57425,557 @@ export type Database = {
         }
         Relationships: []
       }
+      voice_autocall_campaigns: {
+        Row: {
+          audience_kind: string
+          category: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          days_of_week: number[]
+          description: string | null
+          id: string
+          max_attempts: number
+          name: string
+          record_calls: boolean
+          retry_minutes: number
+          schedule_kind: string
+          script_id: string
+          start_at: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          audience_kind: string
+          category: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          id?: string
+          max_attempts?: number
+          name: string
+          record_calls?: boolean
+          retry_minutes?: number
+          schedule_kind: string
+          script_id: string
+          start_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          audience_kind?: string
+          category?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          days_of_week?: number[]
+          description?: string | null
+          id?: string
+          max_attempts?: number
+          name?: string
+          record_calls?: boolean
+          retry_minutes?: number
+          schedule_kind?: string
+          script_id?: string
+          start_at?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_campaigns_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_category_settings: {
+        Row: {
+          category: string
+          pause_reason: string | null
+          paused: boolean
+          paused_at: string | null
+          paused_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          pause_reason?: string | null
+          paused?: boolean
+          paused_at?: string | null
+          paused_by?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      voice_autocall_events: {
+        Row: {
+          at_session_id: string | null
+          attempt: number | null
+          created_at: string
+          id: number
+          job_id: string
+          kind: string
+          payload: Json | null
+          step: string | null
+        }
+        Insert: {
+          at_session_id?: string | null
+          attempt?: number | null
+          created_at?: string
+          id?: never
+          job_id: string
+          kind: string
+          payload?: Json | null
+          step?: string | null
+        }
+        Update: {
+          at_session_id?: string | null
+          attempt?: number | null
+          created_at?: string
+          id?: never
+          job_id?: string
+          kind?: string
+          payload?: Json | null
+          step?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_jobs: {
+        Row: {
+          answered_at: string | null
+          at_session_id: string | null
+          attempts: number
+          callback_count: number
+          campaign_id: string | null
+          category: string
+          cost_amount: number | null
+          cost_currency: string | null
+          created_at: string
+          current_step: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          expires_at: string
+          failure_reason: string | null
+          hangup_cause: string | null
+          id: string
+          is_test: boolean
+          last_attempt_at: string | null
+          max_attempts: number
+          next_attempt_at: string
+          outcome: string | null
+          person_id: string | null
+          person_name: string | null
+          phone: string
+          provider_recording_url: string | null
+          record_calls: boolean
+          recording_path: string | null
+          requested_by: string | null
+          retry_minutes: number
+          run_id: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status: string
+          total_cost: number
+          total_duration_seconds: number
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          answered_at?: string | null
+          at_session_id?: string | null
+          attempts?: number
+          callback_count?: number
+          campaign_id?: string | null
+          category: string
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          current_step?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          expires_at: string
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          person_id?: string | null
+          person_name?: string | null
+          phone: string
+          provider_recording_url?: string | null
+          record_calls?: boolean
+          recording_path?: string | null
+          requested_by?: string | null
+          retry_minutes?: number
+          run_id?: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status?: string
+          total_cost?: number
+          total_duration_seconds?: number
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          answered_at?: string | null
+          at_session_id?: string | null
+          attempts?: number
+          callback_count?: number
+          campaign_id?: string | null
+          category?: string
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          current_step?: string | null
+          duration_seconds?: number | null
+          ended_at?: string | null
+          expires_at?: string
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          is_test?: boolean
+          last_attempt_at?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          outcome?: string | null
+          person_id?: string | null
+          person_name?: string | null
+          phone?: string
+          provider_recording_url?: string | null
+          record_calls?: boolean
+          recording_path?: string | null
+          requested_by?: string | null
+          retry_minutes?: number
+          run_id?: string | null
+          script_id?: string
+          script_snapshot?: Json
+          script_version?: number
+          status?: string
+          total_cost?: number
+          total_duration_seconds?: number
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_autocall_jobs_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voice_autocall_jobs_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_person_pauses: {
+        Row: {
+          category: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          lifted_at: string | null
+          lifted_by: string | null
+          paused_until: string | null
+          person_id: string | null
+          phone: string | null
+          reason: string
+          source: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          paused_until?: string | null
+          person_id?: string | null
+          phone?: string | null
+          reason: string
+          source?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          paused_until?: string | null
+          person_id?: string | null
+          phone?: string | null
+          reason?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      voice_autocall_responses: {
+        Row: {
+          attempt: number | null
+          created_at: string
+          digits: string | null
+          id: number
+          job_id: string
+          outcome: string | null
+          provider_recording_url: string | null
+          recording_path: string | null
+          step: string
+        }
+        Insert: {
+          attempt?: number | null
+          created_at?: string
+          digits?: string | null
+          id?: never
+          job_id: string
+          outcome?: string | null
+          provider_recording_url?: string | null
+          recording_path?: string | null
+          step: string
+        }
+        Update: {
+          attempt?: number | null
+          created_at?: string
+          digits?: string | null
+          id?: never
+          job_id?: string
+          outcome?: string | null
+          provider_recording_url?: string | null
+          recording_path?: string | null
+          step?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_runs: {
+        Row: {
+          audience_count: number
+          built_at: string
+          campaign_id: string
+          expires_at: string
+          id: string
+          run_date: string
+          skipped_count: number
+        }
+        Insert: {
+          audience_count?: number
+          built_at?: string
+          campaign_id: string
+          expires_at: string
+          id?: string
+          run_date: string
+          skipped_count?: number
+        }
+        Update: {
+          audience_count?: number
+          built_at?: string
+          campaign_id?: string
+          expires_at?: string
+          id?: string
+          run_date?: string
+          skipped_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_runs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_script_versions: {
+        Row: {
+          description: string | null
+          id: string
+          name: string
+          occasion: string
+          saved_at: string
+          saved_by: string | null
+          script_id: string
+          steps: Json
+          version: number
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          name: string
+          occasion: string
+          saved_at?: string
+          saved_by?: string | null
+          script_id: string
+          steps: Json
+          version: number
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          name?: string
+          occasion?: string
+          saved_at?: string
+          saved_by?: string | null
+          script_id?: string
+          steps?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_autocall_script_versions_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "voice_autocall_scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voice_autocall_scripts: {
+        Row: {
+          category: string
+          code: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          language: string
+          name: string
+          occasion: string
+          steps: Json
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          category: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name: string
+          occasion?: string
+          steps: Json
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          category?: string
+          code?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          name?: string
+          occasion?: string
+          steps?: Json
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      voice_autocall_system_status: {
+        Row: {
+          balance_amount: number | null
+          balance_checked_at: string | null
+          balance_currency: string | null
+          channels: number | null
+          configured: boolean
+          id: number
+          last_error: string | null
+          last_tick_at: string | null
+          last_tick_result: Json | null
+          low_balance: boolean
+          updated_at: string
+        }
+        Insert: {
+          balance_amount?: number | null
+          balance_checked_at?: string | null
+          balance_currency?: string | null
+          channels?: number | null
+          configured?: boolean
+          id?: number
+          last_error?: string | null
+          last_tick_at?: string | null
+          last_tick_result?: Json | null
+          low_balance?: boolean
+          updated_at?: string
+        }
+        Update: {
+          balance_amount?: number | null
+          balance_checked_at?: string | null
+          balance_currency?: string | null
+          channels?: number | null
+          configured?: boolean
+          id?: number
+          last_error?: string | null
+          last_tick_at?: string | null
+          last_tick_result?: Json | null
+          low_balance?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       voided_ledger_entries: {
         Row: {
           account: string | null
@@ -84639,6 +85190,222 @@ export type Database = {
           _rejection_reason?: string
         }
         Returns: Json
+      }
+      voice_autocall_add_people: {
+        Args: { p_campaign_id: string; p_person_ids: string[] }
+        Returns: number
+      }
+      voice_autocall_assert: { Args: never; Returns: undefined }
+      voice_autocall_audience_tenant_due_today: {
+        Args: { p_day: string }
+        Returns: {
+          person_id: string
+          person_name: string
+          phone: string
+          variables: Json
+        }[]
+      }
+      voice_autocall_audience_tenant_missed_yesterday: {
+        Args: { p_day: string }
+        Returns: {
+          person_id: string
+          person_name: string
+          phone: string
+          variables: Json
+        }[]
+      }
+      voice_autocall_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      voice_autocall_build_run: {
+        Args: { p_campaign: string; p_day: string }
+        Returns: string
+      }
+      voice_autocall_call_detail: { Args: { p_job_id: string }; Returns: Json }
+      voice_autocall_calls_feed: {
+        Args: {
+          p_campaign_id?: string
+          p_category?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_outcome?: string
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      voice_autocall_campaign_save: {
+        Args: {
+          p_audience_kind: string
+          p_category: string
+          p_days_of_week: number[]
+          p_description: string
+          p_id: string
+          p_max_attempts?: number
+          p_name: string
+          p_record_calls?: boolean
+          p_retry_minutes?: number
+          p_schedule_kind: string
+          p_script_id: string
+          p_start_at: string
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: string
+      }
+      voice_autocall_campaign_set_status: {
+        Args: { p_cancel_queued?: boolean; p_id: string; p_status: string }
+        Returns: undefined
+      }
+      voice_autocall_campaigns_list: {
+        Args: { p_category?: string }
+        Returns: Json
+      }
+      voice_autocall_cancel_job: {
+        Args: { p_job_id: string }
+        Returns: undefined
+      }
+      voice_autocall_claim: {
+        Args: { p_channels: number }
+        Returns: {
+          answered_at: string | null
+          at_session_id: string | null
+          attempts: number
+          callback_count: number
+          campaign_id: string | null
+          category: string
+          cost_amount: number | null
+          cost_currency: string | null
+          created_at: string
+          current_step: string | null
+          duration_seconds: number | null
+          ended_at: string | null
+          expires_at: string
+          failure_reason: string | null
+          hangup_cause: string | null
+          id: string
+          is_test: boolean
+          last_attempt_at: string | null
+          max_attempts: number
+          next_attempt_at: string
+          outcome: string | null
+          person_id: string | null
+          person_name: string | null
+          phone: string
+          provider_recording_url: string | null
+          record_calls: boolean
+          recording_path: string | null
+          requested_by: string | null
+          retry_minutes: number
+          run_id: string | null
+          script_id: string
+          script_snapshot: Json
+          script_version: number
+          status: string
+          total_cost: number
+          total_duration_seconds: number
+          updated_at: string
+          variables: Json
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "voice_autocall_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      voice_autocall_e164: { Args: { p_raw: string }; Returns: string }
+      voice_autocall_finish_attempt: {
+        Args: {
+          p_cost?: number
+          p_currency?: string
+          p_duration?: number
+          p_failure_reason?: string
+          p_hangup_cause?: string
+          p_job: string
+          p_provider_recording_url?: string
+          p_status: string
+        }
+        Returns: string
+      }
+      voice_autocall_first_name: { Args: { p_full: string }; Returns: string }
+      voice_autocall_is_blocked: {
+        Args: { p_category: string; p_person: string; p_phone: string }
+        Returns: boolean
+      }
+      voice_autocall_lift_pause: {
+        Args: { p_pause_id: string }
+        Returns: undefined
+      }
+      voice_autocall_mask_phone: { Args: { p_phone: string }; Returns: string }
+      voice_autocall_overview: { Args: never; Returns: Json }
+      voice_autocall_pause_person: {
+        Args: {
+          p_category?: string
+          p_person_id: string
+          p_phone?: string
+          p_reason?: string
+          p_until?: string
+        }
+        Returns: string
+      }
+      voice_autocall_pauses_list: {
+        Args: {
+          p_category?: string
+          p_include_lifted?: boolean
+          p_search?: string
+        }
+        Returns: Json
+      }
+      voice_autocall_record_response: {
+        Args: {
+          p_action?: string
+          p_digits: string
+          p_job: string
+          p_outcome: string
+          p_provider_recording_url?: string
+          p_step: string
+        }
+        Returns: undefined
+      }
+      voice_autocall_script_save: {
+        Args: {
+          p_category: string
+          p_description: string
+          p_id: string
+          p_name: string
+          p_occasion: string
+          p_steps: Json
+        }
+        Returns: Json
+      }
+      voice_autocall_script_set_active: {
+        Args: { p_active: boolean; p_id: string }
+        Returns: undefined
+      }
+      voice_autocall_script_versions: {
+        Args: { p_script_id: string }
+        Returns: Json
+      }
+      voice_autocall_scripts_list: {
+        Args: { p_category?: string; p_include_inactive?: boolean }
+        Returns: Json
+      }
+      voice_autocall_set_category_paused: {
+        Args: { p_category: string; p_paused: boolean; p_reason?: string }
+        Returns: undefined
+      }
+      voice_autocall_test_call: {
+        Args: { p_person_id?: string; p_script_id: string }
+        Returns: string
+      }
+      voice_autocall_tick: { Args: never; Returns: Json }
+      voice_autocall_validate_steps: {
+        Args: { p_steps: Json }
+        Returns: undefined
       }
       voice_call_log_authorized: {
         Args: { _user_id: string }
