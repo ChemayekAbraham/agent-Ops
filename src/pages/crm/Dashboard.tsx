@@ -27,6 +27,7 @@ const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/T
 const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
 const AssistantConversationsPanel = lazyNamed(() => import('@/components/executive/crm/AssistantConversationsPanel'), 'AssistantConversationsPanel');
 const CommunicationManager = lazy(() => import('@/components/communications/CommunicationManager'));
+const AutocallCommandCenter = lazyNamed(() => import('@/components/crm/autocall/AutocallCommandCenter'), 'AutocallCommandCenter');
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -40,6 +41,9 @@ export default function CRMDashboardPage() {
   const { data: openAssistantCount = 0 } = useOpenAssistantEscalationCount();
 
   const renderContent = () => {
+    if (['autocall-overview', 'autocall-campaigns', 'autocall-scripts', 'autocall-calls', 'autocall-pauses'].includes(activeTab)) {
+      return <Suspense fallback={<PanelFallback />}><AutocallCommandCenter tab={activeTab} onTabChange={setActiveTab} /></Suspense>;
+    }
     // The Call Centre is five queues × four views. Resolve those first, by
     // parsing the sidebar id, so the switch below stays a list of one-off
     // panels instead of twenty near-identical cases.
