@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AgentAvatar } from './AgentAvatar';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
-import { Loader2, Phone, MapPin, ShieldCheck, MessageSquare, MessageCircle } from 'lucide-react';
+import { Loader2, Phone, MapPin, ShieldCheck, MessageSquare, MessageCircle, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -378,7 +378,7 @@ function CollectionsLedger({ agentId }: { agentId: string | null }) {
   );
 }
 
-function Table({ head, rows, empty }: { head: string[]; rows: (string | number)[][]; empty: string }) {
+function Table({ head, rows, empty }: { head: string[]; rows: ReactNode[][]; empty: string }) {
   if (!rows.length) return <p className="text-xs text-muted-foreground py-4 text-center">{empty}</p>;
   return (
     <div className="overflow-x-auto">
@@ -475,8 +475,11 @@ function RentRequestsTable({ rows }: { rows: any[] }) {
   );
 }
 
-export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: Props) {
+export function AgentProfile360Sheet({ agentId: rootAgentId, onOpenChange, inline = false }: Props) {
   const [tab, setTab] = useState('overview');
+  const [profilePath, setProfilePath] = useState<{ id: string; tab: string }[]>([]);
+  const agentId = profilePath.at(-1)?.id ?? rootAgentId;
+  useEffect(() => { setProfilePath([]); }, [rootAgentId]);
   const [tenantPage, setTenantPage] = useState(0);
   const TENANTS_PER_PAGE = 15;
   useEffect(() => { setTenantPage(0); }, [agentId]);
@@ -511,6 +514,15 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
 
   const body = (
     <>
+        {profilePath.length > 0 && (
+          <Button variant="outline" size="sm" className="min-h-11" onClick={() => {
+            const previous = profilePath.at(-1);
+            setProfilePath((path) => path.slice(0, -1));
+            setTab(previous?.tab ?? 'network');
+          }}>
+            <ArrowLeft className="h-4 w-4" /> Back to recruiting agent
+          </Button>
+        )}
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -626,7 +638,13 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
                 </div>
                 <Table
                   head={['Name', 'Phone', 'Status', 'Joined']}
-                  rows={(rec.sub_agents ?? []).map((s: any) => [s.full_name ?? '—', s.phone ?? '—', s.status ?? '—', dt(s.created_at)])}
+                  rows={(rec.sub_agents ?? []).map((s: any) => [
+                    s.id ? <Button key={s.id} variant="link" className="min-h-11 h-auto max-w-64 whitespace-normal px-0 text-left justify-start" aria-label={`Open profile for ${s.full_name ?? 'sub-agent'}`} onClick={() => {
+                      setProfilePath((path) => [...path, { id: s.id, tab }]);
+                      setTab('profile');
+                    }}>{s.full_name ?? 'Unnamed sub-agent'}</Button> : s.full_name ?? '—',
+                    s.phone ?? '—', s.status ?? '—', dt(s.created_at),
+                  ])}
                   empty="No sub-agents recruited"
                 />
               </TabsContent>
@@ -706,7 +724,7 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
   if (inline) return <div className="space-y-3">{body}</div>;
 
   return (
-    <Sheet open={!!agentId} onOpenChange={onOpenChange}>
+    <Sheet open={!!rootAgentId} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto p-4">
         <SheetHeader className="mb-3">
           <SheetTitle className="text-base">Agent profile</SheetTitle>
