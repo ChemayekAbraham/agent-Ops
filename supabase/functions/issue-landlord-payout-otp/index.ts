@@ -485,12 +485,13 @@ Deno.serve(async (req) => {
     if (!approvedPhone) {
       return json({ error: "Landlord Ops has not approved a payout number for this landlord yet." }, 400);
     }
-    // The payout number must be the number the landlord is registered with. The approved snapshot can differ from the
+    // The payout number must be the landlord's registered phone (the same number the OTP goes to). The approved snapshot can differ from the
     // landlord's record (the 22 Sep backfill copied old verification-request numbers), and a payout to a number that is not
     // on the record is refused here, before any OTP SMS is sent, and again by the database (enforce_landlord_payout_eligibility).
-    if (phoneMatchKey(approvedPhone) !== phoneMatchKey(resolvedPhone)) {
+    const registeredPhone = (landlordRow?.phone || "").trim();
+    if (!registeredPhone || phoneMatchKey(approvedPhone) !== phoneMatchKey(registeredPhone)) {
       return json({
-        error: "The approved payout number does not match the number registered for this landlord. No OTP was sent. Ask Landlord Ops to confirm the correct number first.",
+        error: "The approved payout number does not match the phone number registered for this landlord. No OTP was sent. Ask Landlord Ops to confirm the correct number first.",
         code: "payout_number_mismatch",
       }, 409);
     }

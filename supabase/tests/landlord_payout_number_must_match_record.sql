@@ -3,20 +3,20 @@
 -- and between 06:00 and 22:00 Africa/Kampala (the payout trigger refuses outside those hours before it reaches the number check).
 -- (A) a payout to the approved number that differs from the registered number is refused with PAYOUT_NUMBER_MISMATCH;
 -- (B) a payout to a number that matches both is not refused for the number (it may still stop on float, which is a different check);
--- (C) confirm_landlord_payout_number refuses a number that is not the registered payout number and accepts the registered one,
+-- (C) confirm_landlord_payout_number refuses a number that is not the registered phone and accepts the registered one,
 --     after which (A)'s landlord is no longer refused for the number.
 DO $$
 DECLARE
   bad record; good record; msg text := ''; e text; lo uuid; res jsonb; hit boolean;
 BEGIN
-  SELECT l.id, l.verified_mobile_money_number AS approved, COALESCE(NULLIF(btrim(l.mobile_money_number), ''), l.phone) AS onfile
+  SELECT l.id, l.verified_mobile_money_number AS approved, l.phone AS onfile
     INTO bad FROM landlords l
    WHERE l.verification_status = 'verified' AND l.verified = true AND COALESCE(l.verified_mobile_money_number, '') <> ''
-     AND right(regexp_replace(l.verified_mobile_money_number, '\D', '', 'g'), 9) <> right(regexp_replace(COALESCE(NULLIF(btrim(l.mobile_money_number), ''), l.phone, ''), '\D', '', 'g'), 9)
+     AND right(regexp_replace(l.verified_mobile_money_number, '\D', '', 'g'), 9) <> right(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g'), 9)
    LIMIT 1;
   SELECT l.id, l.verified_mobile_money_number AS approved INTO good FROM landlords l
    WHERE l.verification_status = 'verified' AND l.verified = true AND COALESCE(l.verified_mobile_money_number, '') <> ''
-     AND right(regexp_replace(l.verified_mobile_money_number, '\D', '', 'g'), 9) = right(regexp_replace(COALESCE(NULLIF(btrim(l.mobile_money_number), ''), l.phone, ''), '\D', '', 'g'), 9)
+     AND right(regexp_replace(l.verified_mobile_money_number, '\D', '', 'g'), 9) = right(regexp_replace(COALESCE(l.phone, ''), '\D', '', 'g'), 9)
    LIMIT 1;
 
   hit := false;

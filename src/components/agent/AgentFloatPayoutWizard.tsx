@@ -336,11 +336,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   // separate from the frozen Ops-approved payout number: if they differ, the
   // screen must expose the mismatch and stop before sending an OTP rather than
   // silently presenting the older snapshot as though it were still on file.
-  const landlordPhoneOnFile = (
-    selectedRequest?.landlord?.mobile_money_number ||
-    selectedRequest?.landlord?.phone ||
-    ''
-  ).trim();
+  // The registered payout number is the landlord's phone (also where the OTP goes); mobile_money_number is not a payout destination.
+  const landlordPhoneOnFile = (selectedRequest?.landlord?.phone || '').trim();
   // The Landlord-Ops-approved number is locked once the Rent Plan reaches CFO
   // (database trigger), so it is the payout number; a different stored contact
   // number no longer blocks the OTP.

@@ -5,8 +5,9 @@
 -- the landlord's own record. Result: payouts to a number that is not on the record (UGX 900,000 on 20 Oct to "Mukama Michael" / "Mukama Micheal",
 -- the OTP going to the record's phone while the money went to a different number).
 --
--- The rule now: payout phone = approved number AND payout phone = the registered payout number on the landlord record
--- (mobile_money_number when set, otherwise phone), compared as the subscriber number (last 9 digits) so formatting never blocks a payout.
+-- The rule now: payout phone = approved number AND payout phone = the landlord's registered phone (landlords.phone, which is also where the
+-- OTP goes), compared as the subscriber number (last 9 digits) so formatting never blocks a payout. The separate mobile_money_number field is no
+-- longer a payout destination: 32 of 46,903 landlords have one that differs from their phone.
 -- A landlord whose approved number differs from the record is refused until Landlord Ops reconciles it
 -- (get_landlord_payout_number_review / confirm_landlord_payout_number in 20261020170000_landlord_rejected_gate_and_payout_number_review.sql).
 --
@@ -38,7 +39,7 @@ BEGIN
   -- verified_mobile_money_number (never raw phone/mobile_money_number) is the
   -- only number Landlord Ops actually approved -- see migration 20260922150000.
   SELECT verified, verified_mobile_money_number,
-         COALESCE(NULLIF(btrim(mobile_money_number), ''), phone)
+         phone
     INTO v_landlord_verified, v_landlord_phone, v_record_phone
   FROM public.landlords WHERE id = NEW.landlord_id;
 
@@ -62,12 +63,12 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
-  -- The approved number must also be the number the landlord is registered with. If it is not, the approval is stale or came from
+  -- The approved number must also be the landlord's registered phone. If it is not, the approval is stale or came from
   -- the backfill, so the payout is refused until Landlord Ops confirms which number is correct.
   IF v_record_phone IS NOT NULL
      AND length(public.landlord_number_norm(v_record_phone)) >= 9
      AND public.landlord_number_norm(NEW.landlord_phone) <> public.landlord_number_norm(v_record_phone) THEN
-    RAISE EXCEPTION 'PAYOUT_NUMBER_MISMATCH: the payout number does not match the number registered for this landlord. Landlord Ops must confirm the correct number before a payout can be made.'
+    RAISE EXCEPTION 'PAYOUT_NUMBER_MISMATCH: the payout number does not match the phone number registered for this landlord. Landlord Ops must confirm the correct number before a payout can be made.'
       USING ERRCODE = 'check_violation',
             HINT = 'Landlord Ops: use the Payout number review to confirm the number on the landlord record.';
   END IF;
@@ -89,7 +90,7 @@ BEGIN
 END;
 $function$;
 
--- Confirming a number now only accepts the registered payout number (mobile_money_number when set, otherwise phone). Choosing a different
+-- Confirming a number now only accepts the landlord's registered phone. Choosing a different
 -- number means changing the record first through the normal Landlord Ops edit or number-change flow, so the approved number and the
 -- record can never disagree after a confirmation.
 CREATE OR REPLACE FUNCTION public.confirm_landlord_payout_number(p_landlord_id uuid, p_number text, p_reason text)
@@ -111,9 +112,9 @@ BEGIN
     RAISE EXCEPTION 'This landlord is not verified. Verify the landlord first.';
   END IF;
 
-  v_record := COALESCE(NULLIF(btrim(v_l.mobile_money_number), ''), NULLIF(btrim(v_l.phone), ''));
+  v_record := NULLIF(btrim(v_l.phone), '');
   IF v_record IS NULL OR right(regexp_replace(v_record, '\D', '', 'g'), 9) <> v_pick THEN
-    RAISE EXCEPTION 'That is not the payout number registered for this landlord. Update the landlord record first, then confirm it.';
+    RAISE EXCEPTION 'That is not the phone number registered for this landlord. Update the landlord record first, then confirm it.';
   END IF;
 
   PERFORM set_config('landlord_verification.sync_authorized', 'true', true);
@@ -133,3 +134,48 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.confirm_landlord_payout_number(uuid, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.confirm_landlord_payout_number(uuid, text, text) TO authenticated;
+
+-- The review list compares the approved number with the landlord's registered phone, the same rule the gate uses.
+-- kind: 'approved_differs_from_record' | 'approved_number_missing' | 'not_verified_with_float' (open float held against a landlord who is not verified).
+CREATE OR REPLACE FUNCTION public.get_landlord_payout_number_review(
+  p_kind text DEFAULT NULL, p_limit integer DEFAULT 200, p_offset integer DEFAULT 0)
+RETURNS TABLE (
+  landlord_id uuid, landlord_name text, verification_status text, kind text,
+  on_file_number text, phone text, approved_number text, approved_source text, approved_set_at timestamptz,
+  last_verified_request_number text, open_allocations bigint, open_float_remaining numeric)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
+BEGIN
+  IF NOT public.can_review_landlord_payout_numbers(auth.uid()) THEN RAISE EXCEPTION 'Not authorised'; END IF;
+  RETURN QUERY
+  WITH base AS (
+    SELECT l.id, l.name, l.verification_status AS vs, l.phone AS ph,
+           l.phone AS on_file,
+           l.verified_mobile_money_number AS approved, l.verified_mobile_money_source AS src, l.verified_mobile_money_set_at AS set_at,
+           f.cnt, f.remaining
+      FROM public.landlords l
+      LEFT JOIN LATERAL (
+        SELECT count(*) AS cnt, COALESCE(sum(a.remaining_amount), 0) AS remaining
+          FROM public.agent_landlord_float_allocations a
+         WHERE a.landlord_id = l.id AND a.status = 'open' AND a.remaining_amount > 0) f ON true
+  ), kinds AS (
+    SELECT b.*,
+      CASE
+        WHEN COALESCE(b.vs, 'pending') <> 'verified' THEN CASE WHEN b.cnt > 0 THEN 'not_verified_with_float' END
+        WHEN COALESCE(b.approved, '') = '' THEN 'approved_number_missing'
+        WHEN right(regexp_replace(b.approved, '\D', '', 'g'), 9) <> right(regexp_replace(COALESCE(b.on_file, ''), '\D', '', 'g'), 9) THEN 'approved_differs_from_record'
+      END AS k
+    FROM base b
+  )
+  SELECT k.id, k.name, k.vs, k.k, k.on_file, k.ph, k.approved, k.src, k.set_at,
+         (SELECT lvr.landlord_phone FROM public.landlord_verification_requests lvr
+           WHERE lvr.landlord_id = k.id AND lvr.status = 'verified' AND lvr.landlord_phone IS NOT NULL
+           ORDER BY lvr.resolved_at DESC NULLS LAST LIMIT 1),
+         k.cnt, k.remaining
+    FROM kinds k
+   WHERE k.k IS NOT NULL AND (p_kind IS NULL OR k.k = p_kind)
+   ORDER BY k.remaining DESC, k.name
+   LIMIT LEAST(GREATEST(COALESCE(p_limit, 200), 1), 500) OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+END $$;
+REVOKE ALL ON FUNCTION public.get_landlord_payout_number_review(text, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_landlord_payout_number_review(text, integer, integer) TO authenticated;
+
