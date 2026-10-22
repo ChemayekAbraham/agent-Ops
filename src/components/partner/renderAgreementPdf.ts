@@ -113,6 +113,15 @@ const REPORT_PAGE_OVERRIDES = `<style>
 </style>`;
 
 /**
+ * For reports that must print on full A4 sheets: every page is at least A4
+ * tall (the template's flex column pushes the footer to the bottom), and the
+ * PDF keeps fixed 210 x 297 mm sheets instead of cutting each to its content.
+ */
+const REPORT_A4_SHEET_OVERRIDES = `<style>
+.agreement-print-root .report-page { min-height: 297mm; }
+</style>`;
+
+/**
  * html2canvas 1.4.1 finds each font's text baseline by appending a hidden div
  * to the LIVE document with a text span followed by a 1px <img>, then reading
  * the img's offsetTop. The app's Tailwind preflight makes every img
@@ -131,7 +140,7 @@ function installFontMetricsFix(): () => void {
 
 async function renderToPdf(
   html: string,
-  opts?: { format?: 'a4' | 'letter'; scopeStyles?: boolean },
+  opts?: { format?: 'a4' | 'letter'; scopeStyles?: boolean; a4Sheets?: boolean },
 ) {
   const format = opts?.format ?? 'a4';
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -144,7 +153,9 @@ async function renderToPdf(
   const split = splitAgreementHtml(html);
   const styles = opts?.scopeStyles ? scopeStylesToRoot(split.styles) : split.styles;
   const body = split.body;
-  const overrides = opts?.scopeStyles ? REPORT_PAGE_OVERRIDES : '';
+  const overrides = opts?.scopeStyles
+    ? REPORT_PAGE_OVERRIDES + (opts.a4Sheets ? REPORT_A4_SHEET_OVERRIDES : '')
+    : '';
   if (opts?.scopeStyles) await ensureReportFonts();
 
   const host = document.createElement('div');
@@ -184,8 +195,9 @@ async function renderToPdf(
     const maxW = pageW - margin * 2;
     const maxH = pageH - margin * 2;
     // Reports get one PDF page per article at the article's own height (never
-    // taller than A4); the contract keeps fixed A4 sheets.
-    const fitToContent = !!opts?.scopeStyles;
+    // taller than A4) unless they ask for full A4 sheets; the contract keeps
+    // fixed A4 sheets.
+    const fitToContent = !!opts?.scopeStyles && !opts?.a4Sheets;
 
     for (let i = 0; i < targets.length; i++) {
       const canvas = await html2canvas(targets[i], {
@@ -239,10 +251,14 @@ export async function renderAgreementPdfBase64(
 
 /**
  * Rasterise a report built from `.report-page` articles into a PDF blob, one
- * A4 page per article. The report's own stylesheet is confined to the
- * off-screen root while it renders.
+ * A4-wide page per article. The report's own stylesheet is confined to the
+ * off-screen root while it renders. `a4Sheets` makes every page a full
+ * 210 x 297 mm sheet instead of cutting it to its content.
  */
-export async function renderReportPdfBlob(html: string): Promise<Blob> {
-  const pdf = await renderToPdf(html, { scopeStyles: true });
+export async function renderReportPdfBlob(
+  html: string,
+  opts?: { a4Sheets?: boolean },
+): Promise<Blob> {
+  const pdf = await renderToPdf(html, { scopeStyles: true, a4Sheets: opts?.a4Sheets });
   return pdf.output('blob');
 }

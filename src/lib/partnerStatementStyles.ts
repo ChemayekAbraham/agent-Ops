@@ -808,40 +808,16 @@ export const PARTNER_STATEMENT_CSS = `
 
 
     /* Partner Statement only (partnerStatement.ts adds .rules-primary to its
-       pages): table rules and double lines in the system primary colour,
-       hsl(271 100% 40%) from src/index.css. Row hairlines use a tint of it.
+       pages): every rule, table border and double line in the system primary
+       colour, hsl(271 100% 40%) from src/index.css. All borders above go
+       through the --rule-* variables, so redefining them here reaches every
+       line on the page; row hairlines use a tint of the same colour.
        The other partner PDFs share this stylesheet and keep the black rules. */
     .rules-primary {
-      --rule-primary: #6900CC;
-      --rule-primary-soft: rgba(105, 0, 204, 0.22);
-    }
-    .rules-primary .closing-balance-row td {
-      border-top-color: var(--rule-primary-soft);
-      border-bottom-color: var(--rule-primary);
-    }
-    .rules-primary .master-schedule-table thead th {
-      border-top-color: var(--rule-primary);
-      border-bottom-color: var(--rule-primary);
-    }
-    .rules-primary .master-schedule-table td { border-bottom-color: var(--rule-primary-soft); }
-    .rules-primary .master-schedule-table tfoot td {
-      border-top-color: var(--rule-primary);
-      border-bottom-color: var(--rule-primary);
-    }
-    .rules-primary .portfolio-statement-entry {
-      border-top-color: var(--rule-primary);
-      border-bottom-color: var(--rule-primary);
-    }
-    .rules-primary .portfolio-terms-table th,
-    .rules-primary .portfolio-terms-table td { border-bottom-color: var(--rule-primary-soft); }
-    .rules-primary .entry-ledger-table th {
-      border-top-color: var(--rule-primary-soft);
-      border-bottom-color: var(--rule-primary);
-    }
-    .rules-primary .entry-ledger-table td { border-bottom-color: var(--rule-primary-soft); }
-    .rules-primary .entry-ledger-table tfoot td {
-      border-top-color: var(--rule-primary);
-      border-bottom-color: var(--rule-primary);
+      --rule-strong: #6900CC;
+      --rule-medium: #6900CC;
+      --rule-table: #6900CC;
+      --rule-light: rgba(105, 0, 204, 0.22);
     }
 
   

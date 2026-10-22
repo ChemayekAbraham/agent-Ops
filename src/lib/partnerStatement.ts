@@ -467,7 +467,7 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
     ? (data.portfolios[0].code ?? portfolioId.slice(0, 8))
     : 'all-portfolios';
   const { renderReportPdfBlob } = await import('@/components/partner/renderAgreementPdf');
-  const blob = await renderReportPdfBlob(html);
+  const blob = await renderReportPdfBlob(html, { a4Sheets: true });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

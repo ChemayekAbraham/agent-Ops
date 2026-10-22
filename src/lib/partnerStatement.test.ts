@@ -77,8 +77,11 @@ describe('buildPartnerStatementHtml', () => {
     const html = buildPartnerStatementHtml(data([portfolio()]));
     // every page opts in, so the scoped rules reach all its tables
     expect(html).not.toMatch(/class="report-page"/);
-    expect(html).toContain('.rules-primary .master-schedule-table tfoot td');
-    expect(html).toContain('--rule-primary: #6900CC;');
+    // every rule colour is redefined in the primary purple, so no line stays black
+    const block = html.slice(html.indexOf('.rules-primary {'));
+    for (const v of ['--rule-strong', '--rule-medium', '--rule-table']) {
+      expect(block).toContain(`${v}: #6900CC;`);
+    }
   });
 
   it('escapes partner-controlled text', () => {
