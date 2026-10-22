@@ -112,21 +112,15 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
   const { data: partnership } = useQuery({
     queryKey: ['agent-product-partnership', agentId],
     enabled: !!agentId,
+    // Via RPC: investor_portfolios RLS hides other users' rows from Agent Ops.
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('investor_portfolios')
-        .select('investment_amount, roi_percentage, total_roi_earned, status')
-        .eq('investor_id', agentId!);
+      const { data, error } = await supabase.rpc('get_agent_partnership_summary' as any, { p_agent_id: agentId });
       if (error) throw error;
-      const active = (data || []).filter((p: any) => p.status === 'active');
-      const amount = active.reduce((s: number, p: any) => s + Number(p.investment_amount || 0), 0);
-      const earned = active.reduce((s: number, p: any) => s + Number(p.total_roi_earned || 0), 0);
-      const monthly = active.reduce(
-        (s: number, p: any) => s + (Number(p.investment_amount || 0) * Number(p.roi_percentage || 0)) / 100,
-        0,
-      );
+      const d = (data ?? {}) as { count?: number; amount?: number; earned?: number; monthly?: number };
+      const amount = Number(d.amount || 0);
+      const monthly = Number(d.monthly || 0);
       const rate = amount > 0 ? (monthly / amount) * 100 : 0;
-      return { count: active.length, amount, earned, monthly, rate };
+      return { count: Number(d.count || 0), amount, earned: Number(d.earned || 0), monthly, rate };
     },
   });
 
