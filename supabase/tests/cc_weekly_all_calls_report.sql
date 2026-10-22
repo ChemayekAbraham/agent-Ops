@@ -58,51 +58,76 @@ BEGIN
     IF SQLERRM <> 'CASE_DONE' THEN r := r || jsonb_build_object('step', 'B signed out gets nothing', 'pass', false, 'detail', left(SQLERRM, 200)); END IF;
   END;
 
-  -- C. every source recounted from the base tables as the staff user
+  -- C. every source recounted from the base tables, written a different way (EXISTS on the raw tables instead of the function's priority join)
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role', 'authenticated')::text, true);
   SET LOCAL ROLE authenticated;
   CREATE TEMP TABLE _rep ON COMMIT DROP AS SELECT * FROM public.cc_weekly_all_calls_report(v_from, v_to);
   RESET ROLE;
 
+  -- calling center attempts and received calls have the top priority: counted in full
   SELECT count(*) INTO v_n FROM public.cc_call_attempts a
    WHERE a.void_reason IS NULL AND coalesce(a.recorded_at, a.created_at) >= v_from AND coalesce(a.recorded_at, a.created_at) < v_to;
   r := r || jsonb_build_object('step', 'C calling_center calls = non-voided attempts', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'calling_center') = v_n, 'detail', v_n::text);
-
   SELECT count(*) INTO v_n FROM public.cc_call_attempts a
    WHERE a.void_reason IS NULL AND a.outcome::text = 'engaged' AND coalesce(a.recorded_at, a.created_at) >= v_from AND coalesce(a.recorded_at, a.created_at) < v_to;
   r := r || jsonb_build_object('step', 'C calling_center answered = engaged attempts', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'calling_center' AND answered) = v_n);
-
   SELECT count(*) INTO v_n FROM public.cc_received_calls WHERE called_at >= v_from AND called_at < v_to;
   r := r || jsonb_build_object('step', 'C received calls = cc_received_calls', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'received') = v_n, 'detail', v_n::text);
 
+  -- awareness: all calls minus those already shown as a Calling Center attempt to the same person by the same caller within 15 minutes
   SELECT count(*) INTO v_n FROM public.rent_pipeline_awareness_calls w
-   WHERE coalesce(w.recorded_at, w.dial_started_at) >= v_from AND coalesce(w.recorded_at, w.dial_started_at) < v_to;
-  r := r || jsonb_build_object('step', 'C awareness calls = rent_pipeline_awareness_calls', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'awareness') = v_n, 'detail', v_n::text);
+   WHERE coalesce(w.recorded_at, w.dial_started_at) >= v_from AND coalesce(w.recorded_at, w.dial_started_at) < v_to
+     AND NOT EXISTS (SELECT 1 FROM public.cc_call_attempts a JOIN public.cc_cycle_rows cr ON cr.id = a.cycle_row_id
+                      WHERE a.void_reason IS NULL AND a.caller_id = w.caller_id AND cr.subject_id = w.subject_user_id
+                        AND abs(extract(epoch FROM (coalesce(a.recorded_at, a.created_at) - coalesce(w.recorded_at, w.dial_started_at)))) <= 900);
+  r := r || jsonb_build_object('step', 'C awareness calls = awareness rows not already a Calling Center attempt', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'awareness') = v_n, 'detail', v_n::text);
 
-  SELECT count(*) INTO v_n FROM public.tenant_call_reports WHERE called_at >= v_from AND called_at < v_to;
-  SELECT count(*) INTO v_m FROM public.landlord_call_reports WHERE called_at >= v_from AND called_at < v_to;
-  r := r || jsonb_build_object('step', 'C legacy tenant and landlord calls = their report tables',
-    'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'legacy_tenant') = v_n AND (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'legacy_landlord') = v_m);
+  -- landlord verification phone calls: not already an awareness call on the same Rent Plan by the same person within 15 minutes
+  SELECT count(*) INTO v_n FROM public.rent_requests q
+   WHERE q.landlord_called IS TRUE AND q.landlord_verification_method = 'phone_call' AND q.landlord_ops_reviewed_by IS NOT NULL
+     AND q.landlord_ops_reviewed_at >= v_from AND q.landlord_ops_reviewed_at < v_to
+     AND NOT EXISTS (SELECT 1 FROM public.rent_pipeline_awareness_calls w
+                      WHERE w.rent_request_id = q.id AND w.caller_id = q.landlord_ops_reviewed_by
+                        AND abs(extract(epoch FROM (coalesce(w.recorded_at, w.dial_started_at) - q.landlord_ops_reviewed_at))) <= 900);
+  r := r || jsonb_build_object('step', 'C pipeline_landlord calls = Landlord Ops verification phone calls not already an awareness call', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'pipeline_landlord') = v_n, 'detail', v_n::text);
 
-  -- crm_voice: all sessions minus the ones that duplicate a Calling Center attempt (recounted with a join instead of NOT EXISTS)
-  SELECT count(*) INTO v_n FROM public.crm_call_sessions s WHERE s.created_at >= v_from AND s.created_at < v_to;
-  SELECT count(DISTINCT s.id) INTO v_dropped
-    FROM public.crm_call_sessions s
-    JOIN public.cc_call_attempts a ON a.caller_id = s.staff_id AND a.void_reason IS NULL
-    JOIN public.cc_cycle_rows cr ON cr.id = a.cycle_row_id AND cr.subject_id = s.target_user_id
+  -- app voice calls: not already a Calling Center attempt or an awareness call to the same person by the same caller within 15 minutes
+  SELECT count(*) INTO v_n FROM public.crm_call_sessions s
    WHERE s.created_at >= v_from AND s.created_at < v_to
-     AND coalesce(a.recorded_at, a.created_at) >= v_from AND coalesce(a.recorded_at, a.created_at) < v_to
-     AND abs(extract(epoch FROM (coalesce(a.recorded_at, a.created_at) - s.created_at))) <= 900;
-  r := r || jsonb_build_object('step', 'C crm_voice calls = sessions minus the duplicates of a Calling Center attempt',
-    'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'crm_voice') = v_n - v_dropped, 'detail', format('%s sessions, %s duplicates dropped', v_n, v_dropped));
-  SELECT count(*) INTO v_n FROM public.crm_call_sessions s WHERE s.created_at >= v_from AND s.created_at < v_to AND s.answered_at IS NOT NULL;
-  r := r || jsonb_build_object('step', 'C crm_voice answered never exceeds sessions with answered_at',
-    'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'crm_voice' AND answered) <= v_n);
+     AND NOT EXISTS (SELECT 1 FROM public.cc_call_attempts a JOIN public.cc_cycle_rows cr ON cr.id = a.cycle_row_id
+                      WHERE a.void_reason IS NULL AND a.caller_id = s.staff_id AND cr.subject_id = s.target_user_id
+                        AND abs(extract(epoch FROM (coalesce(a.recorded_at, a.created_at) - s.created_at))) <= 900)
+     AND NOT EXISTS (SELECT 1 FROM public.rent_pipeline_awareness_calls w
+                      WHERE w.caller_id = s.staff_id AND w.subject_user_id = s.target_user_id
+                        AND abs(extract(epoch FROM (coalesce(w.recorded_at, w.dial_started_at) - s.created_at))) <= 900);
+  r := r || jsonb_build_object('step', 'C crm_voice calls = sessions not already a Calling Center or awareness call', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'crm_voice') = v_n, 'detail', v_n::text);
+
+  -- legacy tenant / landlord reports: kept only when no higher-priority record shows the same call
+  SELECT count(*) INTO v_n FROM public.tenant_call_reports t
+   WHERE t.called_at >= v_from AND t.called_at < v_to
+     AND NOT EXISTS (SELECT 1 FROM public.cc_call_attempts a JOIN public.cc_cycle_rows cr ON cr.id = a.cycle_row_id
+                      WHERE a.void_reason IS NULL AND a.caller_id = t.called_by AND cr.subject_id = t.tenant_id
+                        AND abs(extract(epoch FROM (coalesce(a.recorded_at, a.created_at) - t.called_at))) <= 900)
+     AND NOT EXISTS (SELECT 1 FROM public.rent_pipeline_awareness_calls w
+                      WHERE w.caller_id = t.called_by AND (w.subject_user_id = t.tenant_id OR w.rent_request_id = t.rent_request_id)
+                        AND abs(extract(epoch FROM (coalesce(w.recorded_at, w.dial_started_at) - t.called_at))) <= 900)
+     AND NOT EXISTS (SELECT 1 FROM public.crm_call_sessions s
+                      WHERE s.staff_id = t.called_by AND s.target_user_id = t.tenant_id
+                        AND abs(extract(epoch FROM (s.created_at - t.called_at))) <= 900);
+  r := r || jsonb_build_object('step', 'C legacy_tenant calls = tenant call reports not already shown elsewhere', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'legacy_tenant') = v_n, 'detail', v_n::text);
+  SELECT count(*) INTO v_m FROM public.landlord_call_reports WHERE called_at >= v_from AND called_at < v_to;
+  r := r || jsonb_build_object('step', 'C legacy_landlord calls never exceed the landlord call reports', 'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'legacy_landlord') <= v_m);
+
+  -- no repetitions: no two rows of the report can describe one call (same caller, same Rent Plan, same minute window across different sources)
+  r := r || jsonb_build_object('step', 'C one Landlord Ops verification call per Rent Plan',
+    'pass', (SELECT coalesce(sum(calls), 0) FROM _rep WHERE source = 'pipeline_landlord') <=
+            (SELECT count(*) FROM public.rent_requests q WHERE q.landlord_called IS TRUE AND q.landlord_verification_method = 'phone_call'
+                AND q.landlord_ops_reviewed_at >= v_from AND q.landlord_ops_reviewed_at < v_to));
 
   -- D. shape
-  r := r || jsonb_build_object('step', 'D subject_kind is only tenant / landlord / agent / other; source is one of the six',
+  r := r || jsonb_build_object('step', 'D subject_kind is only tenant / landlord / agent / other; source is one of the seven',
     'pass', NOT EXISTS (SELECT 1 FROM _rep WHERE subject_kind NOT IN ('tenant', 'landlord', 'agent', 'other')
-                           OR source NOT IN ('calling_center', 'received', 'crm_voice', 'awareness', 'legacy_tenant', 'legacy_landlord')));
+                           OR source NOT IN ('calling_center', 'received', 'crm_voice', 'awareness', 'pipeline_landlord', 'legacy_tenant', 'legacy_landlord')));
   r := r || jsonb_build_object('step', 'D every row has a name and a positive count',
     'pass', NOT EXISTS (SELECT 1 FROM _rep WHERE caller_name IS NULL OR calls <= 0 OR kampala_day IS NULL));
   r := r || jsonb_build_object('step', 'D the Kampala day of every row falls inside the window',
