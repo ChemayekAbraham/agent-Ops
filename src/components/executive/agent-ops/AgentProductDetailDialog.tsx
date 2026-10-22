@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
 import { AgentProductProgress } from './AgentProductProgress';
+import { SmartphoneRepaymentMethodSection } from './SmartphoneRepaymentMethodSection';
 
 interface AgentDetail {
   agent: {
@@ -291,6 +292,10 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                   </div>
                 )}
               </div>
+
+              {agentId && (!category || category === 'smart_phone') && (
+                <SmartphoneRepaymentMethodSection agentId={agentId} monthlyReturns={partnership?.monthly ?? 0} />
+              )}
 
               <Separator />
 

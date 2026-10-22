@@ -24,7 +24,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProductRow } from '@/lib/agentProductsInFieldPdf';
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
+import { useSmartphoneRepaymentStartDates } from '@/hooks/useSmartphoneRepaymentMethods';
 import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -84,9 +85,6 @@ const PRODUCT_SUGGESTIONS = [
 /** Company-owned bike attached to an agent for operations — never sold, no wallet recovery. */
 const FLEET_BIKE_OPTION = 'Company Fleet Bike (Assigned / Operational)';
 
-
-/** Smartphone repayments start one week after the device is issued. */
-const SMARTPHONE_GRACE_DAYS = 7;
 
 export type AgentProductCategory ='motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
@@ -496,6 +494,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const showOverview = mode === 'overview' || mode === 'full';
   const showCompleted = mode === 'completed';
   const showIssued = mode === 'issued' || mode === 'full' || showCompleted;
+  const { data: repaymentStarts } = useSmartphoneRepaymentStartDates(category === 'smart_phone' && showIssued);
 
 
   const deleteHolding = useMutation({
@@ -1694,13 +1693,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                         <span className="text-success">Repaid: <span className="font-semibold tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</span></span>
                         <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
                       </div>
-                      {category === 'smart_phone' && r.last_issued_on && (
+                      {category === 'smart_phone' && repaymentStarts?.get(r.agent_id) && (
                         <p className="text-xs text-muted-foreground">
                           Repayment starts:{' '}
                           <span className="font-semibold text-foreground">
-                            {format(addDays(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), SMARTPHONE_GRACE_DAYS), 'dd MMM yyyy')}
+                            {format(new Date(`${repaymentStarts.get(r.agent_id)!.slice(0, 10)}T00:00:00`), 'dd MMM yyyy')}
                           </span>{' '}
-                          (after {SMARTPHONE_GRACE_DAYS}-day grace)
+                          (after 7-day grace)
                         </p>
                       )}
                     </div>
