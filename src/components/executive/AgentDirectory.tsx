@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import {
   Search, Users, Phone, X, Loader2, UserPlus, Activity,
   ChevronLeft, ChevronRight, LayoutList, Map, ChevronRight as Chevron,
-  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff,
+  MapPin, Mail, BadgeCheck, Home, Network, CalendarClock, ShieldAlert, ShieldOff, SlidersHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentAvatar } from './AgentAvatar';
@@ -94,6 +94,8 @@ export function AgentDirectory() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | 'agent' | 'sub_agent'>('all');
   const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('active');
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const activeFilterCount = (type !== 'all' ? 1 : 0) + (status !== 'active' ? 1 : 0);
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'region'>('region');
@@ -232,8 +234,9 @@ export function AgentDirectory() {
         <AgentRegionBreakdown verifiedOnly={false} onOpenAgent={setOpenAgentId} />
       ) : (
         <>
-          {/* Search */}
-          <div className="relative">
+          {/* Search + compact filter toggle (phone) */}
+          <div className="flex gap-2">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name, phone, district, email, or ID…"
@@ -253,9 +256,38 @@ export function AgentDirectory() {
               </Button>
             )}
           </div>
+            <Button
+              variant="outline"
+              onClick={() => setFiltersOpen(o => !o)}
+              aria-expanded={filtersOpen}
+              aria-label="Show filters"
+              className="sm:hidden h-12 px-3 gap-1.5 shrink-0"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="h-5 min-w-5 px-1.5 text-[10px]">{activeFilterCount}</Badge>
+              )}
+            </Button>
+          </div>
+
+          {/* Active filter summary (phone, collapsed) */}
+          {!filtersOpen && (
+            <div className="sm:hidden flex flex-wrap items-center gap-1.5 text-xs">
+              <Badge variant="secondary">{TYPE_FILTERS.find(t => t.value === type)?.label}</Badge>
+              <Badge variant="secondary">{STATUS_FILTERS.find(s => s.value === status)?.label}</Badge>
+              {activeFilterCount > 0 && (
+                <Button variant="link" size="sm" className="h-8 px-1 text-xs"
+                  onClick={() => { setType('all'); setStatus('active'); }}>
+                  Reset
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Filters */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className={cn('flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center rounded-xl sm:rounded-none border sm:border-0 border-border p-2 sm:p-0',
+            filtersOpen ? 'flex' : 'hidden')}>
             <div className="grid grid-cols-3 gap-2 sm:flex" role="group" aria-label="Agent type">
               {TYPE_FILTERS.map(t => (
                 <Button variant="outline"
