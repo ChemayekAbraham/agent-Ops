@@ -69,6 +69,8 @@ interface Job {
   script_snapshot: Script;
   variables: Record<string, string>;
   current_step: string | null;
+  current_tries: number | null;
+  last_render_at: string | null;
   callback_count: number;
   answered_at: string | null;
   record_calls: boolean;
@@ -78,12 +80,18 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return reply(REJECT_XML);
 
+  // Callback details travel in the path (/voice-autocall-ivr/<kind>/<job>/<step>/<try>)
+  // and the query string. Africa's Talking has been seen delivering a key press
+  // with neither, so the job's own current_step is the final fallback below.
   const url = new URL(req.url);
+  const parts = url.pathname.split('/').filter(Boolean);
+  const at = parts.indexOf('voice-autocall-ivr');
+  const [pKind, pJob, pStep, pTry] = at >= 0 ? parts.slice(at + 1) : [];
   const q = {
-    job: url.searchParams.get('job') ?? '',
-    step: url.searchParams.get('step') ?? '',
-    kind: (url.searchParams.get('kind') ?? '') as CallbackKind | '',
-    tries: numeric(url.searchParams.get('try') ?? '0'),
+    job: url.searchParams.get('job') ?? pJob ?? '',
+    step: decodeURIComponent(url.searchParams.get('step') ?? pStep ?? ''),
+    kind: (url.searchParams.get('kind') ?? pKind ?? '') as CallbackKind | '',
+    tries: numeric(url.searchParams.get('try') ?? pTry ?? '0'),
   };
   const p = await readPayload(req);
   const sessionId = (p.sessionId ?? '').trim();
@@ -99,7 +107,7 @@ Deno.serve(async (req) => {
   });
 
   const COLS =
-    'id, status, attempts, at_session_id, script_snapshot, variables, current_step, callback_count, answered_at, record_calls';
+    'id, status, attempts, at_session_id, script_snapshot, variables, current_step, current_tries, last_render_at, callback_count, answered_at, record_calls';
   const jobId = UUID_RE.test(q.job) ? q.job : UUID_RE.test(p.clientRequestId ?? '') ? p.clientRequestId : '';
   let job: Job | null = null;
   if (jobId) {
@@ -177,7 +185,7 @@ Deno.serve(async (req) => {
     script,
     variables: row.variables ?? {},
     callbackUrl: (kind, step, tries) =>
-      `${base}?job=${row.id}&step=${encodeURIComponent(step)}&kind=${kind}&try=${tries}`,
+      `${base}/${kind}/${row.id}/${encodeURIComponent(step)}/${tries}?job=${row.id}&step=${encodeURIComponent(step)}&kind=${kind}&try=${tries}`,
     transferNumbers: Deno.env.get('AUTOCALL_TRANSFER_NUMBERS') ?? '',
     recordTransfers: row.record_calls,
     recordWholeCall: row.record_calls && (Deno.env.get('AUTOCALL_RECORD_WHOLE_CALL') ?? '').toLowerCase() === 'true',
@@ -199,6 +207,8 @@ Deno.serve(async (req) => {
     await patch(
       {
         current_step: r.step,
+        current_tries: tries,
+        last_render_at: new Date().toISOString(),
         callback_count: row.callback_count + 1,
         ...(r.outcome ? { outcome: r.outcome } : {}),
         ...(isFirst ? { status: 'in_progress', answered_at: new Date().toISOString(), at_session_id: sessionId || row.at_session_id } : {}),
@@ -207,6 +217,28 @@ Deno.serve(async (req) => {
     );
     return reply(r.xml);
   };
+
+  // No callback details: work out what this post is from where the call is
+  // waiting. A key press or a recording speaks for itself; silence counts as
+  // "no input" only once the step's timeout has passed, so an early status
+  // ping (AT sends one ~1 s after answer) is not mistaken for a timeout.
+  if (!q.kind && row.answered_at && row.current_step) {
+    const waiting = script.steps?.[row.current_step];
+    const digits = (p.dtmfDigits ?? '').trim();
+    const rec = (p.recordingUrl ?? '').trim();
+    const sinceRender = row.last_render_at ? (Date.now() - Date.parse(row.last_render_at)) / 1000 : 0;
+    if (waiting?.type === 'menu') {
+      if (digits) q.kind = 'digits';
+      else if (sinceRender >= Math.max((waiting.timeout ?? 10) - 2, 1)) q.kind = 'noinput';
+    } else if (waiting?.type === 'record') {
+      if (rec) q.kind = 'record';
+      else if (sinceRender >= (waiting.max_seconds ?? 60) + 5) q.kind = 'recnoinput';
+    }
+    if (q.kind) {
+      q.step = row.current_step;
+      q.tries = row.current_tries ?? 0;
+    }
+  }
 
   const step = q.step ? script.steps?.[q.step] : undefined;
 
