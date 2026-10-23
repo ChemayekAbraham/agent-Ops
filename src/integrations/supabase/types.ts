@@ -68519,6 +68519,10 @@ export type Database = {
         Returns: boolean
       }
       can_review_bike_leases: { Args: { _user_id: string }; Returns: boolean }
+      can_review_landlord_payout_numbers: {
+        Args: { p_user: string }
+        Returns: boolean
+      }
       can_review_smartphone_orders: {
         Args: { _user_id: string }
         Returns: boolean
@@ -69871,6 +69875,10 @@ export type Database = {
           p_notes?: string
           p_tenant_id?: string
         }
+        Returns: Json
+      }
+      confirm_landlord_payout_number: {
+        Args: { p_landlord_id: string; p_number: string; p_reason: string }
         Returns: Json
       }
       confirm_merchandise_handover: {
@@ -74180,6 +74188,23 @@ export type Database = {
           reached: boolean
           remaining: number
           started_at: string
+        }[]
+      }
+      get_landlord_payout_number_review: {
+        Args: { p_kind?: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          approved_number: string
+          approved_set_at: string
+          approved_source: string
+          kind: string
+          landlord_id: string
+          landlord_name: string
+          last_verified_request_number: string
+          on_file_number: string
+          open_allocations: number
+          open_float_remaining: number
+          phone: string
+          verification_status: string
         }[]
       }
       get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
@@ -80465,6 +80490,13 @@ export type Database = {
       promissory_fuzzy_arrival_suggestions: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
+      }
+      promissory_note_same_partner: {
+        Args: {
+          p_a: Database["public"]["Tables"]["promissory_notes"]["Row"]
+          p_b: Database["public"]["Tables"]["promissory_notes"]["Row"]
+        }
+        Returns: boolean
       }
       promissory_ops_analytics: { Args: { p_days?: number }; Returns: Json }
       promissory_ops_assignees: {
