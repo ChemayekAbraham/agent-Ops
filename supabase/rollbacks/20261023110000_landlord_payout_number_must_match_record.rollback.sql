@@ -1,4 +1,4 @@
--- Rollback for 20261022160000_landlord_payout_number_must_match_record.sql
+-- Rollback for 20261023110000_landlord_payout_number_must_match_record.sql
 -- Restores enforce_landlord_payout_eligibility() to the version that checks only the approved number. After this, a payout to an approved number
 -- that differs from the landlord's record is no longer refused. confirm_landlord_payout_number() keeps the stricter rule (harmless on its own).
 CREATE OR REPLACE FUNCTION public.enforce_landlord_payout_eligibility()

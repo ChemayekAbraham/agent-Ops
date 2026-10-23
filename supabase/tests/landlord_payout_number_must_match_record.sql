@@ -1,4 +1,4 @@
--- Landlord payout number must match the landlord's record (20261022160000_landlord_payout_number_must_match_record.sql).
+-- Landlord payout number must match the landlord's record (20261023110000_landlord_payout_number_must_match_record.sql).
 -- One DO block that ends in an exception, so NOTHING is kept; the report is the exception message. Run AFTER the migration is applied,
 -- and between 06:00 and 22:00 Africa/Kampala (the payout trigger refuses outside those hours before it reaches the number check).
 -- (A) a payout to the approved number that differs from the registered number is refused with PAYOUT_NUMBER_MISMATCH;
