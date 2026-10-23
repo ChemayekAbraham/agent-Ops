@@ -68,42 +68,42 @@ export function useActualMoneyHeld(enabled = true) {
         // The enclosing query owns retries; do not multiply retry budgets.
         queryClient.fetchQuery({ ...cfoWalletTotalsOptions(), retry: false }),
         (async () => {
-      // Independent cross-check: rebuild the banked total from the Financial Ops
-      // verifications themselves (latest verification per deposit request, status
-      // 'verified', cash_location = 'bank') so the card can say whether it is in
-      // sync rather than just asserting it.
-      const verifications: any[] = [];
-      for (let page = 0; page < 20; page += 1) {
-        const from = page * 1000;
-        const { data: chunk, error } = await supabase
-          .from('cash_deposit_verifications')
-          .select('id, amount, status, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
-          .order('created_at', { ascending: false })
-          .range(from, from + 999);
-        if (error) throw error;
-        const rows = (chunk ?? []) as any[];
-        verifications.push(...rows);
-        if (rows.length < 1000) break;
-      }
+          // Independent cross-check: rebuild the banked total from the Financial Ops
+          // verifications themselves (latest verification per deposit request, status
+          // 'verified', cash_location = 'bank') so the card can say whether it is in
+          // sync rather than just asserting it.
+          const verifications: any[] = [];
+          for (let page = 0; page < 20; page += 1) {
+            const from = page * 1000;
+            const { data: chunk, error } = await supabase
+              .from('cash_deposit_verifications')
+              .select('id, amount, status, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
+              .order('created_at', { ascending: false })
+              .range(from, from + 999);
+            if (error) throw error;
+            const rows = (chunk ?? []) as any[];
+            verifications.push(...rows);
+            if (rows.length < 1000) break;
+          }
 
-      const latest = new Map<string, any>();
-      for (const v of verifications) {
-        const key = String(v.deposit_request_id);
-        if (!latest.has(key)) latest.set(key, v);
-      }
-      const banked = Array.from(latest.values()).filter((v: any) => {
-        if (v.status !== 'verified') return false;
-        const loc = (v.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
-        return loc === 'bank';
-      });
+          const latest = new Map<string, any>();
+          for (const v of verifications) {
+            const key = String(v.deposit_request_id);
+            if (!latest.has(key)) latest.set(key, v);
+          }
+          const banked = Array.from(latest.values()).filter((v: any) => {
+            if (v.status !== 'verified') return false;
+            const loc = (v.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
+            return loc === 'bank';
+          });
 
-      const finOpsBankedCash = banked.reduce((sum: number, v: any) => sum + Number(v.amount ?? 0), 0);
-      const bankedLastMovementAt = banked.reduce<string | null>((latestAt, v: any) => {
-        const at = (v.verified_at ?? v.created_at) as string | null;
-        if (!at) return latestAt;
-        if (!latestAt || new Date(at).getTime() > new Date(latestAt).getTime()) return at;
-        return latestAt;
-      }, null);
+          const finOpsBankedCash = banked.reduce((sum: number, v: any) => sum + Number(v.amount ?? 0), 0);
+          const bankedLastMovementAt = banked.reduce<string | null>((latestAt, v: any) => {
+            const at = (v.verified_at ?? v.created_at) as string | null;
+            if (!at) return latestAt;
+            if (!latestAt || new Date(at).getTime() > new Date(latestAt).getTime()) return at;
+            return latestAt;
+          }, null);
 
           return { banked, finOpsBankedCash, bankedLastMovementAt };
         })(),
