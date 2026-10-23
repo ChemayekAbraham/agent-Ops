@@ -1,5 +1,6 @@
 # Tasks
-- [ ] Standing order amount edits: implement and test atomic configuration/audit locally, preserve all payment pathways; production activation requires explicit approval.
+- [x] Standing order amount edits developed locally: 27 PostgreSQL assertions, 5 control tests, 2 local UI/database readback tests and 11 schedule regressions pass; guards and preview compilation pass; payment pathways unchanged. Report: docs/standing-order-amount-development-report.md.
+- [ ] Standing order amount edit production activation — blocked pending explicit user approval; SQL unapplied and production-connected preview controls disabled.
 - [x] CFO Home / Cash Position / Payables: independent loading, shared authoritative totals, scoped retries and preserved reconciliation/detail links; 30 tests and all guards pass, preview build OK. No database changes or deployment. Authenticated production timing verification unavailable with externally managed authentication.
 - [ ] Re-sync to `51069f32ea` (teeburg merge: data-fix migration `20261023090000_nsubuga_smartphone_term_3_months.sql`, already applied to the live database by hand) — blocked: `git merge` is refused by the sandbox and the workspace HEAD `3875cf97f4` is 2 commits behind `origin/lovable`; the migration must not be run. Read-only check confirms the live plan is already 3 months.
 
