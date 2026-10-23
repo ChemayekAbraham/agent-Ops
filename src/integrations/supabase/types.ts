@@ -81586,6 +81586,7 @@ export type Database = {
       }
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
+      public_support_plan: { Args: { p_plan_id: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
