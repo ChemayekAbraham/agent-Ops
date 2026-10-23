@@ -432,7 +432,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
     enabled: cashDetails,
     retry: cfoReportRetry,
     queryFn: async () => {
-      const d = await queryClient.fetchQuery(cfoWalletTotalsOptions());
+      const d = await queryClient.fetchQuery({ ...cfoWalletTotalsOptions(), retry: false });
       const totalWalletBalance = Number(d.total_balance ?? 0);
 
       return {

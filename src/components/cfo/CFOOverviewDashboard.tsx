@@ -583,8 +583,9 @@ export function CFOOverviewDashboard({
       {/* ── BREAKDOWNS ── */}
       <CashSourcesSheet
         open={activeBreakdown === 'cash'}
-        loading={platformCashLoading || positionLoading}
-        loadError={platformCashError || positionError}
+        loading={platformCashLoading}
+        loadError={platformCashError}
+        reconciliationReady={!positionLoading && !positionError && !!position}
         onRetry={() => { void refetchPlatformCash(); void queryClient.invalidateQueries({ queryKey: ['cfo-overview-position'] }); }}
         onOpenChange={(o) => !o && setActiveBreakdown(null)}
         totalCash={totalCash}

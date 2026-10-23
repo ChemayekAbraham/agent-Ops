@@ -65,7 +65,8 @@ export function useActualMoneyHeld(enabled = true) {
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
         supabase.rpc('get_money_at_bank_reconciliation' as any),
-        queryClient.fetchQuery(cfoWalletTotalsOptions()),
+        // The enclosing query owns retries; do not multiply retry budgets.
+        queryClient.fetchQuery({ ...cfoWalletTotalsOptions(), retry: false }),
         (async () => {
       // Independent cross-check: rebuild the banked total from the Financial Ops
       // verifications themselves (latest verification per deposit request, status
