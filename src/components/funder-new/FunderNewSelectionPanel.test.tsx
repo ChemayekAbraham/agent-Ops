@@ -84,3 +84,29 @@ describe('FunderNewReviewDialog', () => {
     expect(screen.getByRole('button', { name: /Fund this plan/i })).toBeInTheDocument();
   });
 });
+
+describe('Support plan WhatsApp contacts', () => {
+  it('links valid numbers to wa.me in 256 digits form and hides missing ones', () => {
+    render(
+      <FunderNewReviewDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        items={[{
+          id: 'h1', category: 'ready', title: 'Shop', place: 'Wakiso', amount: 100000,
+          imageUrl: null, monthlyReturn: null, termLabel: '',
+          tenantName: 'Tina', tenantPhone: '0759 229 748',
+          landlordName: 'Lou', landlordPhone: null,
+          agentName: 'Ali', agentPhone: '+256772123456',
+        } as any]}
+        available={0}
+        walletLoading={false}
+        walletError={null}
+        onRemove={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('link', { name: 'WhatsApp Tenant' })).toHaveAttribute('href', 'https://wa.me/256759229748');
+    expect(screen.getByRole('link', { name: 'WhatsApp Agent' })).toHaveAttribute('href', 'https://wa.me/256772123456');
+    expect(screen.queryByRole('link', { name: 'WhatsApp Landlord' })).toBeNull();
+    expect(screen.getByText('Not available')).toBeInTheDocument();
+  });
+});
