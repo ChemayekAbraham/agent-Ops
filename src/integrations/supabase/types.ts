@@ -3330,6 +3330,33 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_expected_day_plans_backup_20261023: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string | null
+          expected_ugx: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_fleet_assignments: {
         Row: {
           agent_id: string
@@ -81559,6 +81586,7 @@ export type Database = {
       }
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
+      public_support_plan: { Args: { p_plan_id: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
