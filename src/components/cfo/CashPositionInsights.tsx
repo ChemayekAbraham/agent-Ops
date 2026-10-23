@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cfoReportRetry } from '@/hooks/cfoReportRetry';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,6 +31,8 @@ const fmtDate = (d?: string | null) => {
 const label = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface Props {
+  receivablesReady?: boolean;
+  moneyReady?: boolean;
   totalReceivables: number;
   receivablesCategories: Array<{ key: string; label: string; outstanding: number }>;
   moneyWeHave: number;
@@ -55,7 +58,7 @@ function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: strin
 }
 
 export function CashPositionInsights({
-  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate,
+  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate, receivablesReady = true, moneyReady = true,
 }: Props) {
   const [days, setDays] = useState(30);
 
@@ -75,6 +78,7 @@ export function CashPositionInsights({
 
   const rp = useQuery({
     queryKey: ['cfo-cash-position-payables-by-source-v2'],
+    retry: cfoReportRetry,
     queryFn: async () => {
       const today = kampalaToday();
       const to = new Date(); to.setDate(to.getDate() + 30);
@@ -125,11 +129,12 @@ export function CashPositionInsights({
 
   const topPayables = rp.data?.top ?? [];
   const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
-  const liquidityCoverage = payablesTotal > 0 ? moneyWeCanUse / payablesTotal : null;
+  const obligationsReady = receivablesReady && !!rp.data && !rp.error;
+  const liquidityCoverage = obligationsReady && moneyReady && payablesTotal > 0 ? moneyWeCanUse / payablesTotal : null;
   const netOutstanding = totalReceivables - payablesTotal;
   const obligationsShare = moneyWeHave > 0 ? (moneyWeOwe / moneyWeHave) * 100 : 0;
   const liquidityState = liquidityCoverage === null
-    ? { label: 'No payables recorded', tone: 'text-muted-foreground', surface: 'bg-muted' }
+    ? { label: !obligationsReady || !moneyReady ? 'Checking obligations' : 'No payables recorded', tone: 'text-muted-foreground', surface: 'bg-muted' }
     : liquidityCoverage >= 1
       ? { label: 'Covered', tone: 'text-success', surface: 'bg-success/10' }
       : { label: 'Attention required', tone: 'text-destructive', surface: 'bg-destructive/10' };
@@ -195,7 +200,7 @@ export function CashPositionInsights({
           </div>
           <div className="min-w-0 p-3.5">
             <div className="flex items-center gap-2 text-muted-foreground"><Landmark className="h-4 w-4" /><span className="text-[11px] font-semibold">Net outstanding</span></div>
-            <p className={`mt-2 truncate text-lg font-bold tabular-nums ${netOutstanding < 0 ? 'text-destructive' : 'text-success'}`}>{netOutstanding >= 0 ? '+' : '−'}{fmt(Math.abs(netOutstanding))}</p>
+            <p className={`mt-2 truncate text-lg font-bold tabular-nums ${netOutstanding < 0 ? 'text-destructive' : 'text-success'}`}>{obligationsReady ? `${netOutstanding >= 0 ? '+' : '−'}${fmt(Math.abs(netOutstanding))}` : '—'}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">Receivables less payables</p>
           </div>
           <div className="min-w-0 p-3.5">
@@ -205,8 +210,8 @@ export function CashPositionInsights({
           </div>
           <div className="min-w-0 p-3.5">
             <div className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4" /><span className="text-[11px] font-semibold">Control status</span></div>
-            <p className={`mt-2 text-sm font-bold ${bankReconciled === false ? 'text-warning' : 'text-success'}`}>{bankReconciled === false ? 'Review bank variance' : 'Bank reconciled'}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">External money owed: {obligationsShare.toFixed(1)}% of cash</p>
+            <p className={`mt-2 text-sm font-bold ${bankReconciled === false ? 'text-warning' : 'text-success'}`}>{bankReconciled === undefined ? 'Checking bank reconciliation' : bankReconciled === false ? 'Review bank variance' : 'Bank reconciled'}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">External money owed: {moneyReady ? `${obligationsShare.toFixed(1)}% of cash` : '—'}</p>
           </div>
         </div>
       </section>

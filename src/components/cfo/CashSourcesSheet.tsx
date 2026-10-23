@@ -44,6 +44,9 @@ export interface CashSourceLine {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  loading?: boolean;
+  loadError?: unknown;
+  onRetry?: () => void;
   totalCash: number;
   a1: number;
   a5: number;
@@ -211,7 +214,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
-        {!selected && (
+        {loading ? <div role="status" className="flex items-center justify-center gap-2 py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" />Loading cash sources…</div> : loadError ? <div role="alert" className="space-y-3 py-6"><p className="text-sm text-destructive">Could not load cash sources.</p><Button variant="outline" onClick={onRetry}>Retry</Button></div> : null}
+        {!selected && !loading && !loadError && (
           <div className="space-y-3 pb-3">
             {/* Sources of money in */}
             <section className="space-y-2">
