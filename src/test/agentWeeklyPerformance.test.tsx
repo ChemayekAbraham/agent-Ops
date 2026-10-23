@@ -77,7 +77,9 @@ describe('Weekly Performance page', () => {
     expect(screen.getByText('Fixture Tenant')).toBeTruthy();
     expect(screen.getByLabelText('Call Fixture Tenant')).toBeTruthy();
     expect(screen.getByText('Decides this week')).toBeTruthy();
-    expect(screen.getByText('Nothing was due')).toBeTruthy();
+    // History now renders as the calendar (the old week list is gone).
+    expect(screen.getByText('Collection calendar')).toBeTruthy();
+    expect(screen.getByText('Nothing due')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Expired' }));
     expect(screen.queryByText('Fixture Tenant')).toBeNull();
