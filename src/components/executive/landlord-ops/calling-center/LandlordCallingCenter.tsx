@@ -115,7 +115,7 @@ export function LandlordCallingCenter() {
   } | null>(null);
 
   const hub = useCcCallingHub('landlord', {
-    state: stateFilter,
+    state: stateFilter === 'all' ? 'to_call' : stateFilter,
     search,
     filters,
     sortKey,
@@ -248,9 +248,9 @@ export function LandlordCallingCenter() {
                 <CcPill tone="emerald" icon={Radio} pulse>
                   Registry Calling Engine
                 </CcPill>
-                {hub.cycle?.title && (
+                {hub.cycle?.cycle_no != null && (
                   <CcPill tone="primary" icon={Sparkles}>
-                    Round #{hub.cycle.cycle_number} · {hub.cycle.title}
+                    Round #{hub.cycle.cycle_no}
                   </CcPill>
                 )}
               </div>
