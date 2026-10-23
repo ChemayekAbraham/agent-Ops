@@ -83673,6 +83673,16 @@ export type Database = {
         Args: { p_reference: string; p_request_id: string }
         Returns: undefined
       }
+      standing_order_set_amount: {
+        Args: {
+          p_expected_amount: number
+          p_expected_updated_at: string
+          p_new_amount: number
+          p_order_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       subagent_listing_count: {
         Args: { p_sub_agent_id: string }
         Returns: number
