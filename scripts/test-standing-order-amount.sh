@@ -23,3 +23,4 @@ psql_local=(psql -X -h "$tmp" -p 55439 -U "$dbuser" -d postgres -v ON_ERROR_STOP
 "${psql_local[@]}" -f "$root/scripts/fixtures/standing-order-amount-local.sql"
 "${psql_local[@]}" -f "$root/docs/pending-migrations/standing_order_amount_edit.sql"
 "${psql_local[@]}" -f "$root/scripts/fixtures/standing-order-amount-tests.sql"
+STANDING_ORDER_TEST_SOCKET="$tmp" STANDING_ORDER_TEST_USER="$dbuser" bunx vitest run src/test/standingOrderAmount.integration.test.tsx
