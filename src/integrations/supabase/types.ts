@@ -45081,6 +45081,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_balance_correction_20261023: {
+        Row: {
+          amount_repaid: number | null
+          balance_after: number | null
+          balance_before: number | null
+          corrected_at: string
+          old_daily_repayment: number | null
+          old_initial_outstanding: number | null
+          old_total_repayment: number | null
+          registration_type: string | null
+          rent_request_id: string
+          tenant_name: string | null
+        }
+        Insert: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id: string
+          tenant_name?: string | null
+        }
+        Update: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id?: string
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       rent_day_settlements: {
         Row: {
           amount: number
@@ -82190,6 +82229,7 @@ export type Database = {
         Returns: Json
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
+      redact_sms_codes: { Args: { p_message: string }; Returns: string }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }

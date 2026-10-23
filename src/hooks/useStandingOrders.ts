@@ -141,3 +141,24 @@ export function useSetStandingOrderEnabled() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cfo-standing-orders'] }),
   });
 }
+
+export function useDeleteStandingOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ order, reason }: { order: StandingOrderRow; reason: string }) => {
+      const { error } = await supabase.from('scheduled_payouts').delete().eq('id', order.id);
+      if (error) throw error;
+      // Audit rows have no foreign key to the order, so they survive the delete.
+      await logStandingOrderAction({
+        scheduledPayoutId: order.id,
+        action: 'cancel',
+        targetUserId: order.target_user_id,
+        recipientName: order.target_name,
+        amount: order.amount,
+        reason,
+        details: { deleted: true, frequency: order.frequency },
+      });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cfo-standing-orders'] }),
+  });
+}

@@ -3,8 +3,8 @@ import { format, formatDistanceToNow } from 'date-fns';
 import {
   AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, Search,
   ShieldAlert, ShieldQuestion, UserX, Coins, Calendar,
-  Copy, PauseCircle, Phone, AlertCircle, X,
-  MoreHorizontal, Pencil, FileText, ChevronLeft, ChevronRight,
+  PauseCircle, AlertCircle, X,
+  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
+import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
 import { standingOrderAmountDevelopmentEnabled } from '@/hooks/useStandingOrderAmount';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
@@ -92,7 +93,7 @@ export function StandingOrdersPanel() {
   const canEditAmount = roles.includes('cfo') || roles.includes('super_admin');
   const [filter, setFilter] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
-  const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<StandingOrderRow | null>(null);
 
   const counts = useMemo(() => {
     const list = orders ?? [];
@@ -194,9 +195,6 @@ export function StandingOrdersPanel() {
     toast.success(`${label} copied to clipboard`);
   };
 
-  const toggleErrorDetails = (id: string) => {
-    setExpandedErrors((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const [statusFilter, setStatusFilter] = useState<'any' | 'active' | 'paused'>('any');
   const [freqFilter, setFreqFilter] = useState<string>('any');
@@ -322,7 +320,6 @@ export function StandingOrdersPanel() {
                   {pageRows.map((row) => {
                     const meta = HEALTH_CONFIG[row.health];
                     const Icon = row.enabled ? meta.icon : PauseCircle;
-                    const isErrorExpanded = !!expandedErrors[row.id];
                     return (
                       <Fragment key={row.id}>
                         <tr key={row.id} className={cn('border-b border-border/60 hover:bg-muted/30', !row.enabled && 'opacity-75')}>
@@ -411,14 +408,14 @@ export function StandingOrdersPanel() {
                                 <DropdownMenuItem disabled={setEnabled.isPending} onClick={() => handleToggle(row, !row.enabled)}>
                                   <PauseCircle className="h-4 w-4 mr-2" />{row.enabled ? 'Pause order' : 'Resume order'}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => copyToClipboard(row.target_user_id, 'User ID')}><Copy className="h-4 w-4 mr-2" />Copy user ID</DropdownMenuItem>
-                                {row.target_phone && <DropdownMenuItem onClick={() => copyToClipboard(row.target_phone!, 'Phone number')}><Phone className="h-4 w-4 mr-2" />Copy phone</DropdownMenuItem>}
-                                {row.last_run_error && <DropdownMenuItem onClick={() => toggleErrorDetails(row.id)}><AlertTriangle className="h-4 w-4 mr-2" />{isErrorExpanded ? 'Hide error' : 'View error'}</DropdownMenuItem>}
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleting(row)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />Delete order
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </td>
                         </tr>
-                        {(row.target_missing || row.health === 'stalled' || (row.last_run_error && isErrorExpanded)) && (
+                        {(row.target_missing || row.health === 'stalled' || !!row.last_run_error) && (
                           <tr key={`${row.id}-note`} className="border-b border-border/60">
                             <td />
                             <td colSpan={7} className="px-3 pb-3">
@@ -469,6 +466,7 @@ export function StandingOrdersPanel() {
         </div>
       </div>
       {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} previewOnly={!standingOrderAmountDevelopmentEnabled()} onClose={() => setEditingAmount(null)} />}
+      {deleting && <StandingOrderDeleteDialog key={deleting.id} order={deleting} onClose={() => setDeleting(null)} />}
     </TooltipProvider>
   );
 }

@@ -2,6 +2,7 @@ import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logOtpUsage } from "../_shared/otpUsageLog.ts";
+import { redactSmsCodes } from "../_shared/redactSmsCodes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -214,7 +215,7 @@ async function logSmsAttempts(
       recipient_phone: ctx.phone,
       recipient_user_id: ctx.userId ?? null,
       recipient_name: ctx.name ?? null,
-      message: ctx.message,
+      message: redactSmsCodes(ctx.message),
       provider: a.provider,
       status: a.accepted ? "accepted" : (a.attempted ? "failed" : "skipped"),
       error: a.accepted ? null : (a.reason ?? null),
