@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { getDeviceFingerprint, isValidFingerprintShape } from '@/lib/deviceFingerprint';
 
@@ -29,21 +30,70 @@ async function myFp(): Promise<string | null> {
   return isValidFingerprintShape(fp) ? fp : null;
 }
 
+/**
+ * Fresh token for the CURRENT account only. A cached/expired session — or one
+ * belonging to a different user after an account switch — returns null so the
+ * background check skips instead of firing a 401.
+ */
+async function freshToken(userId: string, refresh = false): Promise<string | null> {
+  const { data, error } = refresh
+    ? await supabase.auth.refreshSession()
+    : await supabase.auth.getSession();
+  const session = data?.session;
+  if (error || !session?.access_token || session.user.id !== userId) return null;
+  if (!session.expires_at || session.expires_at * 1000 <= Date.now() + 30_000) {
+    return refresh ? null : freshToken(userId, true);
+  }
+  return session.access_token;
+}
+
 export function useNewDeviceSignIns(userId: string | undefined) {
   const [pending, setPending] = useState<PendingDeviceSignIn[]>([]);
+  const inFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!userId) {
       setPending([]);
       return;
     }
-    const fp = await myFp();
-    if (!fp) return;
-    const { data } = await invokeEdgeFunction<{ devices: PendingDeviceSignIn[] }>('device-sign-in-alert', {
-      body: { action: 'list', device_fp: fp },
-      silent: true,
-    });
-    setPending(Array.isArray(data?.devices) ? data!.devices : []);
+    // Mount, tab visibility and the timer can fire together — one check at a time.
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      const fp = await myFp();
+      if (!fp) return;
+
+      let token = await freshToken(userId);
+      if (!token) {
+        // Signed out (or session expired): nothing to list, and never an error.
+        setPending([]);
+        return;
+      }
+
+      // Background poll: invoke directly so a rejected token stays quiet —
+      // it must never surface as a page error. One refresh retry, never a loop.
+      const invokeList = (accessToken: string) =>
+        supabase.functions.invoke('device-sign-in-alert', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: { action: 'list', device_fp: fp },
+        });
+
+      let response = await invokeList(token);
+      if (response.error?.context?.status === 401) {
+        token = await freshToken(userId, true);
+        if (!token) {
+          setPending([]);
+          return;
+        }
+        response = await invokeList(token);
+      }
+      if (response.error || response.data?.error) return;
+
+      const devices = (response.data as { devices?: PendingDeviceSignIn[] } | null)?.devices;
+      setPending(Array.isArray(devices) ? devices : []);
+    } finally {
+      inFlight.current = false;
+    }
   }, [userId]);
 
   useEffect(() => {

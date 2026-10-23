@@ -844,7 +844,7 @@ function AppRoutes() {
           <Route path="/coo-dashboard" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto']} requiredPermission="coo"><COODashboardPage /></RoleGuard>} />
           <Route path="/cfo-dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
           <Route path="/executive-hub" element={<RoleGuard skipAllowlist allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><ExecutiveHubPage /></RoleGuard>} />
-          <Route path="/landlord-ops" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="landlord-ops"><LandlordOpsPage /></RoleGuard>}>
+          <Route path="/landlord-ops" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'hr', 'landlord_ops' as AppRole]} requiredPermission="landlord-ops"><LandlordOpsPage /></RoleGuard>}>
             {LANDLORD_OPS_ROUTES.map(({ path, Component: RouteView }) => (
               <Route
                 key={path || 'index'}
