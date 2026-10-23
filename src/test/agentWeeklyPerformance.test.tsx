@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { currentWeekProgress, groupProgress, nextResultDay, parseWeeklyPerformance, shortDay } from '@/lib/weeklyPerformance';
 
@@ -77,7 +77,9 @@ describe('Weekly Performance page', () => {
     expect(screen.getByText('Fixture Tenant')).toBeTruthy();
     expect(screen.getByLabelText('Call Fixture Tenant')).toBeTruthy();
     expect(screen.getByText('Decides this week')).toBeTruthy();
-    expect(screen.getByText('Nothing was due')).toBeTruthy();
+    // History now renders as the calendar (the old week list is gone).
+    expect(screen.getByText('Collection calendar')).toBeTruthy();
+    expect(screen.getByText('Nothing due')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Expired' }));
     expect(screen.queryByText('Fixture Tenant')).toBeNull();
@@ -92,5 +94,25 @@ describe('Weekly Performance page', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={client}><MemoryRouter><AgentWeeklyPerformancePage /></MemoryRouter></QueryClientProvider>);
     await waitFor(() => expect(screen.getByText('Could not load your performance')).toBeTruthy());
+  });
+
+  // The header arrow must land the agent on their dashboard, not wherever the
+  // browser happened to come from (a shared phone line or a deep link).
+  it('takes the agent back to the agent dashboard', async () => {
+    mocks.rpc.mockResolvedValue({ data: fixture, error: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/agent/performance']}>
+          <Routes>
+            <Route path="/agent/performance" element={<AgentWeeklyPerformancePage />} />
+            <Route path="/dashboard/agent" element={<p>AGENT DASHBOARD HERE</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('You cannot post new Rent Plans')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('Back to dashboard'));
+    await waitFor(() => expect(screen.getByText('AGENT DASHBOARD HERE')).toBeTruthy());
   });
 });
