@@ -1,4 +1,6 @@
 # Architecture Decisions
+- Standing order amount revisions use only `standing_order_set_amount` for locked configuration plus atomic audit, never the payer or lifecycle audit helper; authorized users may preview the controls, but saves remain loopback-development-only until separately approved activation.
+- CFO loading separates authoritative summaries from optional detail reads; shared wallet responses retain distinct balance/float fields and reconciliation still waits for the full verification scan, so faster presentation cannot change financial definitions.
 - Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.
 - Recruitment profile links reuse AgentProfile360Sheet with a local drill-down path and the existing role-gated profile read, so returning preserves the recruiting agent’s tab without duplicating profile data or changing access.
 - Automated Calls UI lives in crm/autocall behind useCanUseAutocall and uses the voice-autocall hook exclusively for calling state and playback; overview demos use a separate server-owned destination/config and one-shot action, never changing account roles, regular campaigns or the original staff-test action.
@@ -41,3 +43,4 @@
 - Approved `pending_wallet_operations` never return to waiting (`trg_guard_pwo_approved_not_reopened`); stage approvals filter on expected current status.
 - `submit_proxy_split_withdrawal` must always write a real uuid into `withdrawal_requests.client_request_id` (`gen_random_uuid()`, never `md5(...::text)`); a text expression makes every proxy split withdrawal fail with a uuid/text type error.
 - Background device checks send an explicit fresh token for the current account, coalesce overlapping calls and retry authentication once; failures preserve any known verification requirement without becoming page crashes.
+- Landlord Ops Calling Center reuses the shared `cc_*` engine over `v_landlord_registry_all` (deduped by `user_id` then `256XXXXXXXXX`, unclear matches flagged `needs_review=true` without guessed merges), with saved queues (`landlord_cc_save_queue`/`landlord_cc_list_queues`) and advisory caller splits (`landlord_cc_assign_callers`), leaving Tenant Ops calling untouched.

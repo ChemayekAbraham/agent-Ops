@@ -15,6 +15,9 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useAuth } from '@/hooks/useAuth';
+import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
+import { standingOrderAmountDevelopmentEnabled } from '@/hooks/useStandingOrderAmount';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
   type StandingOrderRow, type StandingOrderHealth,
@@ -78,6 +81,9 @@ function describeFrequency(row: StandingOrderRow): string {
 export function StandingOrdersPanel() {
   const { data: orders, isLoading, isFetching, refetch } = useStandingOrders();
   const setEnabled = useSetStandingOrderEnabled();
+  const { role } = useAuth();
+  const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
+  const canEditAmount = role === 'cfo' || role === 'super_admin';
   const [filter, setFilter] = useState<FilterTab>('attention');
   const [search, setSearch] = useState('');
   const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});
@@ -603,6 +609,7 @@ export function StandingOrdersPanel() {
                       <p className="font-bold text-sm sm:text-base text-primary tabular-nums">
                         {formatUGX(row.amount)}
                       </p>
+                      {canEditAmount && <Button variant="outline" size="sm" onClick={() => setEditingAmount(row)}>Change amount</Button>}
                     </div>
 
                     {/* Cadence */}
@@ -717,6 +724,7 @@ export function StandingOrdersPanel() {
           </div>
         )}
       </div>
+      {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} previewOnly={!standingOrderAmountDevelopmentEnabled()} onClose={() => setEditingAmount(null)} />}
     </TooltipProvider>
   );
 }

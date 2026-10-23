@@ -17,6 +17,7 @@ import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWor
 
 import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
 import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
+import { COOWelileHomesApprovalDesk } from '@/components/coo/COOWelileHomesApprovalDesk';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { COOAgentHub } from '@/components/coo/COOAgentHub';
@@ -161,6 +162,17 @@ export default function COODashboardPage() {
             <p className="text-sm text-muted-foreground -mt-2">Review rent requests approved by Landlord Ops. Your sign-off forwards to CFO for payout.</p>
             <RentPipelineQueue stage="partner_ops_approved" />
             <RejectedRequestsQueue stageFilter="partner_ops_approved" title="Rejected at COO" />
+          </div>
+        );
+      case 'welile-homes-approvals':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Welile Homes Float Approvals', Home)}
+            <p className="text-sm text-muted-foreground -mt-2">
+              Review agent landlord float requests cleared by Tenant Ops. Your approval forwards directly to CFO for disbursement (bypassing Partner Ops).
+            </p>
+            <COOWelileHomesApprovalDesk />
           </div>
         );
       case 'tenants':

@@ -1,16 +1,26 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useReceivablesTotal } from '@/hooks/useReceivables';
+import { cfoWalletTotalsOptions } from './cfoWalletTotals';
+import { cfoReportRetry } from './cfoReportRetry';
 import { supabase } from '@/integrations/supabase/client';
 import { accountCodeOf, type PositionLine } from '@/components/cfo/balanceSheetClassification';
 
 const STALE_TIME = 300_000; // 5 minutes
 
 
-export function useCFOOverviewData() {
+export function useCFOOverviewData({ cashDetails = false, cashVisible = true, todayDetails = false } = {}) {
+  const queryClient = useQueryClient();
   // Platform cash from ledger RPCs (source-based, not channel-based)
   const platformCash = useQuery({
     queryKey: ['cfo-overview-platform-cash'],
+    enabled: cashDetails,
+    retry: cfoReportRetry,
     queryFn: async () => {
-      const { data: treasuryData } = await supabase.rpc('get_treasury_cash_position' as any, {} as any);
+      const [{ data: treasuryData, error: treasuryError }, { data: partnerTotals, error: partnerTotalsError }] = await Promise.all([
+        supabase.rpc('get_treasury_cash_position' as any, {} as any),
+        supabase.rpc('partner_ops_report_totals' as any, {} as any),
+      ]);
+      if (treasuryError) throw treasuryError;
 
       // Money We Have is rebased on the Balance Sheet cash accounts:
       // A1 Cash and Bank + A5 Cash in Transit. This excludes liability legs
@@ -200,10 +210,6 @@ export function useCFOOverviewData() {
       // `.range()` paging over 1,000+ rows can skip/repeat rows, and per-row RLS
       // filtering silently dropped portfolios. Reporting only — no accounting
       // logic, records or workflows are touched.
-      const { data: partnerTotals, error: partnerTotalsError } = await supabase.rpc(
-        'partner_ops_report_totals' as any,
-        {} as any
-      );
       if (!partnerTotalsError && partnerTotals) {
         const t = partnerTotals as Record<string, any>;
         recordedPartnerFunding = Number(t.total_aum ?? 0);
@@ -352,63 +358,9 @@ export function useCFOOverviewData() {
     staleTime: STALE_TIME,
   });
 
-  // Receivables. The headline total comes from the single authoritative
-  // server-side definition (get_receivables_total -> v_receivables_lines) so
-  // this hook, useFinancialStatements and CFOReceivablesTracker cannot drift.
-  // The advance detail below is kept purely for the existing breakdown cards.
-  const receivables = useQuery({
-    queryKey: ['cfo-overview-receivables'],
-    queryFn: async () => {
-      const { data: authoritative, error: authErr } = await supabase.rpc('get_receivables_total');
-      if (authErr) throw authErr;
-      const auth = authoritative as any;
-
-      const { data: charges } = await supabase
-        .from('subscription_charges')
-        .select('accumulated_debt')
-        .eq('status', 'active');
-
-      const tenantOutstanding = (charges || []).reduce(
-        (sum, c) => sum + Number(c.accumulated_debt || 0),
-        0
-      );
-
-      // Pull every advance so we can show issued / recovered / outstanding and a
-      // status breakdown — all from the existing agent_advances table.
-      const { data: advances } = await supabase
-        .from('agent_advances')
-        .select('principal, outstanding_balance, status');
-
-      let advancesPrincipal = 0;
-      let advancesOutstandingAll = 0;
-      let advancesOutstanding = 0;
-      const advanceStatusCounts: Record<string, number> = {};
-      (advances || []).forEach((a: any) => {
-        const principal = Number(a.principal || 0);
-        const outstanding = Number(a.outstanding_balance || 0);
-        advancesPrincipal += principal;
-        advancesOutstandingAll += outstanding;
-        advanceStatusCounts[a.status] = (advanceStatusCounts[a.status] || 0) + 1;
-        if (a.status === 'active') advancesOutstanding += outstanding;
-      });
-      // Recovered = everything issued that is no longer outstanding.
-      const advancesRecovered = Math.max(0, advancesPrincipal - advancesOutstandingAll);
-
-      return {
-        tenantOutstanding,
-        advancesOutstanding,
-        advancesPrincipal,
-        advancesOutstandingAll,
-        advancesRecovered,
-        advanceStatusCounts,
-        totalReceivables: Number(auth?.total ?? 0),
-        receivablesCategories: (auth?.categories ?? []) as Array<{
-          key: string; label: string; outstanding: number; item_count: number;
-        }>,
-      };
-    },
-    staleTime: STALE_TIME,
-  });
+  // Reuse the authoritative response already consumed by Home; no unused
+  // subscription/advance detail scans and no second total request.
+  const receivables = useReceivablesTotal();
 
 
   /**
@@ -428,6 +380,7 @@ export function useCFOOverviewData() {
    */
   const position = useQuery({
     queryKey: ['cfo-overview-position'],
+    enabled: cashVisible || cashDetails,
     queryFn: async () => {
       const { data, error } = await supabase.rpc(
         'get_statement_of_financial_position' as any,
@@ -476,10 +429,10 @@ export function useCFOOverviewData() {
   // "Money We Owe" = actual wallet balances (same as Financial Ops)
   const liabilities = useQuery({
     queryKey: ['cfo-overview-liabilities'],
+    enabled: cashDetails,
+    retry: cfoReportRetry,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_wallet_totals');
-      if (error) throw error;
-      const d = data as any;
+      const d = await queryClient.fetchQuery({ ...cfoWalletTotalsOptions(), retry: false });
       const totalWalletBalance = Number(d.total_balance ?? 0);
 
       return {
@@ -493,6 +446,7 @@ export function useCFOOverviewData() {
   // TODAY's cash flow from general_ledger (posting date, Uganda local day)
   const todayCashFlow = useQuery({
     queryKey: ['cfo-overview-today'],
+    enabled: todayDetails,
     queryFn: async () => {
       // Uganda local (EAT / UTC+3) calendar day, expressed as explicit +03:00 bounds
       const todayStr = new Date(Date.now() + 3 * 3600_000).toISOString().split('T')[0];
@@ -536,78 +490,22 @@ export function useCFOOverviewData() {
     staleTime: 60_000, // 1 minute for today's data
   });
 
-  // Ledger integrity diagnostics — server-side RPC for full-data accuracy
-  const integrityChecks = useQuery({
-    queryKey: ['cfo-overview-integrity'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_ledger_integrity_checks' as any);
-      if (error) throw error;
-      const result = data as any;
-      return {
-        walletDriftCount: result?.wallet_drift_count ?? 0,
-        missingGroupCount: result?.missing_group_count ?? 0,
-        negativeLedgerCount: result?.negative_balance_count ?? 0,
-      };
-    },
-    staleTime: STALE_TIME,
-  });
-
-  // Pending approvals from pending_wallet_operations
-  const pendingApprovals = useQuery({
-    queryKey: ['cfo-overview-pending-approvals'],
-    queryFn: async () => {
-      const { data, count } = await supabase
-        .from('pending_wallet_operations')
-        .select('amount', { count: 'exact' })
-        .eq('status', 'pending');
-
-      const totalAmount = (data || []).reduce(
-        (sum, d) => sum + Number(d.amount || 0),
-        0
-      );
-
-      return {
-        count: count ?? data?.length ?? 0,
-        totalAmount,
-      };
-    },
-    staleTime: 60_000,
-  });
-
-  // Treasury controls
-  const treasuryControls = useQuery({
-    queryKey: ['cfo-treasury-controls'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('treasury_controls' as any)
-        .select('*');
-
-      const controls: Record<string, boolean> = {};
-      ((data as any[]) || []).forEach((row: any) => {
-        controls[row.control_key] = row.enabled;
-      });
-
-      return controls;
-    },
-    staleTime: 60_000,
-  });
-
-  // Only the queries the dashboard needs before it can draw hold the page. Revenue, 30-day money flow and
-  // cash-flow-by-purpose were removed: nothing displayed them, and two of them read the whole platform ledger.
-  const isLoading = platformCash.isLoading || liabilities.isLoading || receivables.isLoading;
-
+  // Optional sheets never hold the page. Each visible summary owns loading.
   return {
     platformCash: platformCash.data,
-    /** Authoritative cash position behind the CFO cash cards. */
+    platformCashLoading: platformCash.isLoading,
+    platformCashError: platformCash.error,
+    refetchPlatformCash: platformCash.refetch,
     position: position.data,
     positionError: position.error,
+    positionLoading: position.isLoading,
     liabilities: liabilities.data,
-    receivables: receivables.data,
+    receivables: receivables.data ? {
+      totalReceivables: Number(receivables.data.total ?? 0),
+      receivablesCategories: receivables.data.categories ?? [],
+    } : undefined,
+    receivablesLoading: receivables.isLoading,
+    receivablesError: receivables.error,
     todayCashFlow: todayCashFlow.data,
-    integrityChecks: integrityChecks.data,
-    pendingApprovals: pendingApprovals.data,
-    treasuryControls: treasuryControls.data,
-    refetchControls: treasuryControls.refetch,
-    isLoading,
   };
 }
