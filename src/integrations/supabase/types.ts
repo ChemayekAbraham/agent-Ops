@@ -46302,6 +46302,7 @@ export type Database = {
           tenant_ops_reviewed_at: string | null
           tenant_ops_reviewed_by: string | null
           tenant_photo_url: string | null
+          tenant_self_applied: boolean
           tenant_water_meter: string | null
           total_repayment: number
           total_roi_paid: number | null
@@ -46447,6 +46448,7 @@ export type Database = {
           tenant_ops_reviewed_at?: string | null
           tenant_ops_reviewed_by?: string | null
           tenant_photo_url?: string | null
+          tenant_self_applied?: boolean
           tenant_water_meter?: string | null
           total_repayment: number
           total_roi_paid?: number | null
@@ -46592,6 +46594,7 @@ export type Database = {
           tenant_ops_reviewed_at?: string | null
           tenant_ops_reviewed_by?: string | null
           tenant_photo_url?: string | null
+          tenant_self_applied?: boolean
           tenant_water_meter?: string | null
           total_repayment?: number
           total_roi_paid?: number | null
@@ -67700,6 +67703,7 @@ export type Database = {
           tenant_ops_reviewed_at: string | null
           tenant_ops_reviewed_by: string | null
           tenant_photo_url: string | null
+          tenant_self_applied: boolean
           tenant_water_meter: string | null
           total_repayment: number
           total_roi_paid: number | null
