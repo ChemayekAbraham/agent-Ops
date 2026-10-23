@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
+import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
 import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
@@ -1372,9 +1373,9 @@ function EnrollDialog({
     if (l.id) {
       try {
         const [{ data: plans }, { data: directTenants }, { data: allocs }] = await Promise.all([
-          supabase.from('rent_plans').select('id').eq('landlord_id', l.id).limit(1),
-          supabase.from('tenants').select('id').eq('landlord_id', l.id).limit(1),
-          supabase.from('landlord_float_allocations').select('id').eq('landlord_id', l.id).limit(1),
+          supabase.from('rent_requests').select('id').eq('landlord_id', l.id).in('status', ACTIVE_RENT_STATUSES).limit(1),
+          supabase.from('landlords').select('tenant_id').eq('id', l.id).not('tenant_id', 'is', null).limit(1),
+          supabase.from('agent_landlord_float_allocations').select('id').eq('landlord_id', l.id).limit(1),
         ]);
 
         if ((plans && plans.length > 0) || (directTenants && directTenants.length > 0)) {
