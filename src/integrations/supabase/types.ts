@@ -3330,6 +3330,33 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_expected_day_plans_backup_20261023: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string | null
+          expected_ugx: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_fleet_assignments: {
         Row: {
           agent_id: string
