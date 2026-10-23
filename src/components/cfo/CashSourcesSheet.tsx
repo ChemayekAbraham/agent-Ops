@@ -158,7 +158,7 @@ function formatPercent(n: number) {
   return `${n.toFixed(1)}%`;
 }
 
-export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [] }: Props) {
+export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [], loading = false, loadError, onRetry }: Props) {
   const [selected, setSelected] = useState<CashSourceLine | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [page, setPage] = useState(0);
