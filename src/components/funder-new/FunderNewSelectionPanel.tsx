@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Home, MapPin, Phone, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Phone, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
