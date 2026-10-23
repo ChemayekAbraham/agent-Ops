@@ -13,7 +13,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { formatUGX } from '@/lib/currencyFormat';
+import { formatUGX } from '@/lib/rentCalculations';
 import { fetchPublicSupportPlan, type PublicSupportPlan } from '@/lib/publicSupportPlan';
 import { toast } from 'sonner';
 
