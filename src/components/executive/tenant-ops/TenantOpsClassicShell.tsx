@@ -17,6 +17,9 @@ const TenantOperationsWorkspace = lazy(() => import('@/pages/tenant-ops/TenantOp
 const TenantOpsWeeklyPerformancePage = lazy(() => import('@/pages/tenant-ops/TenantOpsWeeklyPerformancePage'));
 const ShortfallDrilldownPage = lazy(() => import('@/components/executive/tenant-ops/workspace/ShortfallDrilldownPage'));
 const AwarenessCallsPage = lazy(() => import('@/components/executive/tenant-ops/awareness/AwarenessCallsPage'));
+const TenantOpsWelileHomesReviewDesk = lazy(() =>
+  import('./TenantOpsWelileHomesReviewDesk').then((m) => ({ default: m.TenantOpsWelileHomesReviewDesk }))
+);
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
@@ -28,7 +31,7 @@ import {
 interface Props {
   /** Secondary tools that used to sit above Classic. */
   onOpenLocations: () => void;
-  onOpenWelileHomes: () => void;
+  onOpenWelileHomes?: () => void;
   onGenerateWordReport: () => void;
 }
 
@@ -44,8 +47,12 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const raw = params.get('view') || 'home';
   const active = (
-    raw === 'action.portfolio-performance' || raw === 'action.notifications-analytics' || isTenantOpsViewKey(raw)
-      ? raw
+    raw === 'action.portfolio-performance' ||
+    raw === 'action.notifications-analytics' ||
+    raw === 'welile-homes' ||
+    raw === 'action.welile-homes' ||
+    isTenantOpsViewKey(raw)
+      ? (raw === 'action.welile-homes' ? 'welile-homes' : raw)
       : 'home'
   ) as TenantOpsViewKey | TenantOpsActionKey;
 
@@ -63,12 +70,16 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     const next = new URLSearchParams(params);
     // The shortfall page's and the Payment Behavior tab's range live in the URL only while they are open.
     ['sf_range', 'sf_from', 'sf_to', 'pb_range', 'pb_from', 'pb_to', 'wtab'].forEach((k) => next.delete(k));
-    if (key === 'action.portfolio-performance' || key === 'action.notifications-analytics') {
+    if (
+      key === 'action.portfolio-performance' ||
+      key === 'action.notifications-analytics' ||
+      key === 'welile-homes' ||
+      key === 'action.welile-homes'
+    ) {
       // Kept inside the shell so the sidebar and top bar stay in place.
-      next.set('view', key);
+      next.set('view', key === 'action.welile-homes' ? 'welile-homes' : key);
     } else if (isTenantOpsAction(key)) {
       if (key === 'action.locations') onOpenLocations();
-      if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();
       return;
     } else if (key === 'home') {
@@ -79,7 +90,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     }
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [params, setParams, onOpenLocations, onOpenWelileHomes, onGenerateWordReport]);
+  }, [params, setParams, onOpenLocations, onGenerateWordReport]);
 
   const handleClassicViewChange = useCallback((view: TenantOpsClassicView) => {
     // Classic can navigate itself (e.g. opening a tenant detail); mirror it into
@@ -89,6 +100,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const body = () => {
     if (active === 'home') return <TenantOpsHome onNavigate={goTo} />;
+    if (active === 'welile-homes' || active === 'action.welile-homes') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <TenantOpsWelileHomesReviewDesk onBack={() => goTo('home')} />
+        </Suspense>
+      );
+    }
     if (active === 'action.portfolio-performance') {
       return (
         <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
@@ -147,6 +165,8 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   // to avoid printing the same title twice.
   const selfTitled = active === 'action.portfolio-performance'
     || active === 'action.notifications-analytics'
+    || active === 'welile-homes'
+    || active === 'action.welile-homes'
     || active === 'tenant-operations-workspace'
     || active === 'tenant-ops-weekly-performance'
     || active === 'collection-shortfall'
