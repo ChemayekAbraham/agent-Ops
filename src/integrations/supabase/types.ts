@@ -65778,6 +65778,19 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _agent_weekly_plan_lines: {
+        Args: { p_agent_id: string; p_through: string; p_week_start: string }
+        Returns: {
+          billed_days: number
+          collected: number
+          due: number
+          expired: boolean
+          last_day_due: number
+          paid_raw: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _agent_weekly_posting_compute: {
         Args: { p_agent_ids?: string[]; p_week_start: string }
         Returns: {
@@ -75081,6 +75094,10 @@ export type Database = {
           requisition_id: string
           title: string
         }[]
+      }
+      get_my_weekly_performance: {
+        Args: { p_agent_id?: string; p_weeks?: number }
+        Returns: Json
       }
       get_nearby_cashout_agents: {
         Args: { _lat?: number; _lng?: number }
