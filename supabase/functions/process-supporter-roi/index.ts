@@ -15,6 +15,7 @@ import {
   isPortfolioRoiDue,
 } from "./roiDateGate.ts";
 import { evaluateRenewalPayoutGate } from "../_shared/renewalPayoutGate.ts";
+import { isRealPartnerEmail, sendRenewalAppliedEmail, sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
