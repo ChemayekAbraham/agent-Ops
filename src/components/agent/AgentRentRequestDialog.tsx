@@ -306,6 +306,11 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
 
 function humanizeCapacityError(message: string): string | null {
   const m = (message || '').toLowerCase();
+  if (m.includes('weekly_eligibility_blocked')) {
+    // The weekly posting rule's reason is already plain language (week, amounts, % needed).
+    return message.replace(/^.*WEEKLY_ELIGIBILITY_BLOCKED:\s*/i, '').trim()
+      || 'Your collections last week were below the target. You cannot post a new rent request this week.';
+  }
   if (m.includes('100,000,000') || m.includes('exposure cap')) {
     return 'You have reached your UGX 100,000,000 active rent exposure cap. Collect on existing rent requests to free up headroom.';
   }
@@ -595,6 +600,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
    * only, and reusing it for yesterday would misstate a day when the book moved.
    */
   const blockedReason = (c: NonNullable<typeof myCap>) => {
+    // Weekly rule: the server writes the reason (week, amounts, percentage needed).
+    if (c.posting_rule === 'weekly') {
+      return c.weekly_posting?.reason
+        ?? 'Your collections last week were below the target. You can post new Rent Plans again when a week meets it.';
+    }
     const needed = Math.max(
       0,
       Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today,
@@ -613,7 +623,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   useEffect(() => {
     if (!open || capLoading || !postingBlockedToday || !myCap) return;
     onOpenChange(false);
-    toast.error('You cannot post a rent request today', {
+    toast.error(myCap.posting_rule === 'weekly' ? 'You cannot post a rent request this week' : 'You cannot post a rent request today', {
       description: blockedReason(myCap),
       duration: 9000,
     });
@@ -2533,9 +2543,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // (reached the tenant threshold). New agents are exempt and gated only
     // by the per-tenant cap. `can_post_rent_today` already encodes this.
     if (myCap && !myCap.can_post_rent_today) {
-      const msg = `Blocked from posting new Rent Plans today. ${blockedReason(myCap)}`;
+      const weekly = myCap.posting_rule === 'weekly';
+      const msg = `Blocked from posting new Rent Plans ${weekly ? 'this week' : 'today'}. ${blockedReason(myCap)}`;
       setSubmissionError(msg);
-      toast.error('Blocked today', { description: msg });
+      toast.error(weekly ? 'Blocked this week' : 'Blocked today', { description: msg });
       return;
     }
     if (!fees) {

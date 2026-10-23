@@ -44,6 +44,7 @@ import {
   LucideIcon,
   FileDown,
   Megaphone,
+  Activity,
 } from 'lucide-react';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
@@ -298,6 +299,14 @@ export function AgentMenuDrawer({
         { icon: ScrollText, label: 'Agreement', path: '/agent-agreement', accent: 'muted-foreground' },
         { icon: Settings, label: 'Settings', path: '/settings', accent: 'muted-foreground' },
         { icon: HelpCircle, label: 'Help', path: '/help', accent: 'muted-foreground' },
+      ],
+    },
+    {
+      id: 'performance',
+      icon: Activity,
+      label: '📈 Performance',
+      items: [
+        { icon: Activity, label: 'Weekly Performance', description: 'Your weekly target & progress', path: '/agent/performance', accent: 'primary', badge: 'New' },
       ],
     },
   ];

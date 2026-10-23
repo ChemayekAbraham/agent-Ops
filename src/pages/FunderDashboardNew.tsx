@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import DashboardHeader from '@/components/DashboardHeader';
@@ -209,6 +209,29 @@ export default function FunderDashboardNew() {
   );
 
   const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+
+  // Shared link: ?plan=<category>:<id> opens that home's Support Plan once, if it is in the loaded list.
+  const [searchParams] = useSearchParams();
+  const sharedPlanHandled = useRef(false);
+  useEffect(() => {
+    if (sharedPlanHandled.current || feedLoading) return;
+    const raw = searchParams.get('plan');
+    if (!raw) { sharedPlanHandled.current = true; return; }
+    sharedPlanHandled.current = true;
+    const sep = raw.indexOf(':');
+    const category = sep >= 1 ? raw.slice(0, sep) : '';
+    const id = sep >= 1 ? raw.slice(sep + 1) : raw;
+    if (!id) return;
+    // Match by category:id when a category is given, otherwise by id alone
+    // across every loaded category (public share links carry no category).
+    const found = category
+      ? loadedItems.find((e) => e.category === category && itemId(e.category, e.item) === id)
+      : loadedItems.find((e) => itemId(e.category, e.item) === id);
+    if (!found) return;
+    setSelectedCategory(found.category);
+    setSelectedItems([toSelectionItem(found.category, found.item)]);
+    setReviewOpen(true);
+  }, [feedLoading, loadedItems, searchParams]);
   const feedError = emptyQuery.error || readyQuery.error;
   const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
   const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;

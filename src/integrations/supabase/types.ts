@@ -3330,6 +3330,33 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_expected_day_plans_backup_20261023: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string | null
+          expected_ugx: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_fleet_assignments: {
         Row: {
           agent_id: string
@@ -5779,6 +5806,36 @@ export type Database = {
           },
         ]
       }
+      agent_posting_rule_settings: {
+        Row: {
+          all_expired_required_pct: number
+          enforce_weekly: boolean
+          expired_required_pct: number
+          id: boolean
+          in_window_required_pct: number
+          updated_at: string
+          week_start_isodow: number
+        }
+        Insert: {
+          all_expired_required_pct?: number
+          enforce_weekly?: boolean
+          expired_required_pct?: number
+          id?: boolean
+          in_window_required_pct?: number
+          updated_at?: string
+          week_start_isodow?: number
+        }
+        Update: {
+          all_expired_required_pct?: number
+          enforce_weekly?: boolean
+          expired_required_pct?: number
+          id?: boolean
+          in_window_required_pct?: number
+          updated_at?: string
+          week_start_isodow?: number
+        }
+        Relationships: []
+      }
       agent_proxy_card_dismissals: {
         Row: {
           agent_id: string
@@ -7057,6 +7114,66 @@ export type Database = {
           frozen_at?: string
           pct?: number | null
           status?: string
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      agent_weekly_posting_eligibility: {
+        Row: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          agent_id: string
+          book: string
+          computed_at?: string
+          expired_collected?: number
+          expired_due?: number
+          expired_pct?: number | null
+          expired_plans?: number
+          expired_required_pct?: number | null
+          in_window_collected?: number
+          in_window_due?: number
+          in_window_pct?: number | null
+          in_window_plans?: number
+          in_window_required_pct?: number | null
+          passes: boolean
+          reason?: string | null
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          agent_id?: string
+          book?: string
+          computed_at?: string
+          expired_collected?: number
+          expired_due?: number
+          expired_pct?: number | null
+          expired_plans?: number
+          expired_required_pct?: number | null
+          in_window_collected?: number
+          in_window_due?: number
+          in_window_pct?: number | null
+          in_window_plans?: number
+          in_window_required_pct?: number | null
+          passes?: boolean
+          reason?: string | null
           week_end?: string
           week_start?: string
         }
@@ -44991,6 +45108,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_balance_correction_20261023: {
+        Row: {
+          amount_repaid: number | null
+          balance_after: number | null
+          balance_before: number | null
+          corrected_at: string
+          old_daily_repayment: number | null
+          old_initial_outstanding: number | null
+          old_total_repayment: number | null
+          registration_type: string | null
+          rent_request_id: string
+          tenant_name: string | null
+        }
+        Insert: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id: string
+          tenant_name?: string | null
+        }
+        Update: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id?: string
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       rent_day_settlements: {
         Row: {
           amount: number
@@ -48934,7 +49090,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_amount: number | null
+          description: string | null
+          highlights: string[] | null
           id: string
+          image_url: string | null
           is_active: boolean
           model_name: string | null
           more_specifications: string | null
@@ -48950,7 +49109,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_amount?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
@@ -48966,7 +49128,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_amount?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
@@ -65673,9 +65838,80 @@ export type Database = {
         Returns: boolean
       }
       _agent_products_authorized: { Args: never; Returns: boolean }
+      _agent_rule_judged_week_start: { Args: never; Returns: string }
+      _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
+      }
+      _agent_weekly_plan_lines: {
+        Args: { p_agent_id: string; p_through: string; p_week_start: string }
+        Returns: {
+          billed_days: number
+          collected: number
+          due: number
+          expired: boolean
+          last_day_due: number
+          paid_raw: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_weekly_posting_compute: {
+        Args: { p_agent_ids?: string[]; p_week_start: string }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_weekly_posting_eligibility"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      _agent_weekly_posting_result: {
+        Args: { p_agent_id: string }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_weekly_posting_eligibility"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       _am_plan_arrears_core: {
         Args: { p_as_at: string; p_rent_request_ids: string[] }
@@ -65903,6 +66139,33 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
+      _landlord_cc_events_in_window: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          call_id: string
+          called_at: string
+          caller_id: string
+          caller_name: string
+          category_code: string
+          category_label: string
+          cycle_row_id: string
+          direction: string
+          feedback_id: string
+          is_callback: boolean
+          is_engaged: boolean
+          is_reached: boolean
+          is_unreachable: boolean
+          kampala_day: string
+          landlord_key: string
+          landlord_name: string
+          note: string
+          outcome: string
+          raw_phone: string
+          received_call_id: string
+          source: string
+        }[]
+      }
       _landlord_cc_staff_ok: { Args: never; Returns: boolean }
       _landlord_float_coo_step_problem: {
         Args: {
@@ -73046,6 +73309,29 @@ export type Database = {
         Args: { p_ref?: string }
         Returns: Json
       }
+      get_agent_weekly_posting_eligibility: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          enforced: boolean
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_plans: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_plans: number
+          in_window_required_pct: number
+          passes: boolean
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_agent_workload_summary: { Args: never; Returns: Json }
       get_agent_workload_summary__impl: { Args: never; Returns: Json }
       get_agents_hub:
@@ -74874,6 +75160,10 @@ export type Database = {
           requisition_id: string
           title: string
         }[]
+      }
+      get_my_weekly_performance: {
+        Args: { p_agent_id?: string; p_weeks?: number }
+        Returns: Json
       }
       get_nearby_cashout_agents: {
         Args: { _lat?: number; _lng?: number }
@@ -77593,6 +77883,67 @@ export type Database = {
         Args: { p_cycle_id: string; p_staff_ids: string[] }
         Returns: Json
       }
+      landlord_cc_concerns_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      landlord_cc_coverage: {
+        Args: { p_as_at?: string }
+        Returns: {
+          active_rent_plans_count: number
+          called_but_unreached: number
+          district: string
+          ever_reached: number
+          needs_review_count: number
+          never_called: number
+          reached_this_month: number
+          reached_this_round: number
+          region: string
+          registry_total: number
+        }[]
+      }
+      landlord_cc_daily_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          callback_calls: number
+          engaged_calls: number
+          kampala_day: string
+          made_calls: number
+          reached_calls: number
+          received_calls: number
+          staff_id: string
+          staff_name: string
+          total_calls: number
+          unreachable_calls: number
+        }[]
+      }
+      landlord_cc_landlord_call_log: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: {
+          call_id: string
+          called_at: string
+          caller_id: string
+          caller_name: string
+          category_code: string
+          category_label: string
+          direction: string
+          is_reached: boolean
+          kampala_day: string
+          landlord_key: string
+          landlord_name: string
+          note: string
+          outcome: string
+          phone: string
+          phone_masked: boolean
+          source: string
+          total_count: number
+        }[]
+      }
       landlord_cc_list_queues: {
         Args: never
         Returns: {
@@ -77608,6 +77959,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      landlord_cc_round_report: { Args: { p_cycle_id?: string }; Returns: Json }
       landlord_cc_save_queue: {
         Args: {
           p_filters?: Json
@@ -77632,6 +77984,28 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      landlord_cc_staff_performance: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          active_hours: number
+          callback_calls: number
+          calls_per_active_hour: number
+          engaged_calls: number
+          followups_overdue: number
+          followups_owed: number
+          reach_rate_pct: number
+          reached_calls: number
+          staff_id: string
+          staff_name: string
+          total_calls: number
+          unique_landlords: number
+          unreachable_calls: number
+        }[]
+      }
+      landlord_cc_weekly_report: {
+        Args: { p_week_start?: string }
+        Returns: Json
       }
       landlord_directory_browse: {
         Args: { p_limit?: number }
@@ -81212,6 +81586,7 @@ export type Database = {
       }
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
+      public_support_plan: { Args: { p_plan_id: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
@@ -81882,6 +82257,7 @@ export type Database = {
         Returns: Json
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
+      redact_sms_codes: { Args: { p_message: string }; Returns: string }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }
@@ -83258,6 +83634,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: number
       }
+      snapshot_agent_weekly_posting_eligibility: {
+        Args: { p_week_start?: string }
+        Returns: number
+      }
       snapshot_wallet_ledger_baseline: {
         Args: never
         Returns: {
@@ -83672,6 +84052,16 @@ export type Database = {
       stamp_float_request_settlement: {
         Args: { p_reference: string; p_request_id: string }
         Returns: undefined
+      }
+      standing_order_set_amount: {
+        Args: {
+          p_expected_amount: number
+          p_expected_updated_at: string
+          p_new_amount: number
+          p_order_id: string
+          p_reason: string
+        }
+        Returns: Json
       }
       subagent_listing_count: {
         Args: { p_sub_agent_id: string }

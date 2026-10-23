@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
   AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, Search,
   ShieldAlert, ShieldQuestion, UserX, Coins, Calendar,
-  Copy, ChevronDown, ChevronUp, PauseCircle, Phone, AlertCircle, X,
+  PauseCircle, AlertCircle, X,
+  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
@@ -17,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
+import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
 import { standingOrderAmountDevelopmentEnabled } from '@/hooks/useStandingOrderAmount';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
@@ -81,12 +85,15 @@ function describeFrequency(row: StandingOrderRow): string {
 export function StandingOrdersPanel() {
   const { data: orders, isLoading, isFetching, refetch } = useStandingOrders();
   const setEnabled = useSetStandingOrderEnabled();
-  const { role } = useAuth();
+  const { roles } = useAuth();
   const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
-  const canEditAmount = role === 'cfo' || role === 'super_admin';
-  const [filter, setFilter] = useState<FilterTab>('attention');
+  // Any account holding CFO or super admin sees the control, whichever role is active in the switcher (CFO accounts
+  // also hold Supporter, which is the default active role). standing_order_set_amount still checks cfo/super_admin
+  // and staff MFA on every save, and the dialog stays preview-only outside local development.
+  const canEditAmount = roles.includes('cfo') || roles.includes('super_admin');
+  const [filter, setFilter] = useState<FilterTab>('all');
   const [search, setSearch] = useState('');
-  const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});
+  const [deleting, setDeleting] = useState<StandingOrderRow | null>(null);
 
   const counts = useMemo(() => {
     const list = orders ?? [];
@@ -188,543 +195,278 @@ export function StandingOrdersPanel() {
     toast.success(`${label} copied to clipboard`);
   };
 
-  const toggleErrorDetails = (id: string) => {
-    setExpandedErrors((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+
+  const [statusFilter, setStatusFilter] = useState<'any' | 'active' | 'paused'>('any');
+  const [freqFilter, setFreqFilter] = useState<string>('any');
+  const [pageSize, setPageSize] = useState(15);
+  const [page, setPage] = useState(1);
+
+  const visibleOrders = useMemo(() => filteredOrders.filter((o) =>
+    (statusFilter === 'any' || (statusFilter === 'active' ? o.enabled : !o.enabled)) &&
+    (freqFilter === 'any' || o.frequency === freqFilter),
+  ), [filteredOrders, statusFilter, freqFilter]);
+  const pageCount = Math.max(1, Math.ceil(visibleOrders.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = visibleOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const pills: { key: FilterTab; label: string; count: number; icon: typeof AlertTriangle; active: string; idle: string }[] = [
+    { key: 'all', label: 'All Orders', count: counts.total, icon: Coins, active: 'bg-primary text-primary-foreground border-primary', idle: 'text-foreground' },
+    { key: 'attention', label: 'Needs Attention', count: counts.attention, icon: AlertTriangle, active: 'bg-destructive text-destructive-foreground border-destructive', idle: 'text-destructive' },
+    { key: 'orphaned', label: 'Target Missing', count: counts.orphaned, icon: UserX, active: 'bg-amber-600 text-white border-amber-600', idle: 'text-amber-700 dark:text-amber-400' },
+    { key: 'ok', label: 'On Track', count: counts.ok, icon: CheckCircle2, active: 'bg-emerald-600 text-white border-emerald-600', idle: 'text-emerald-700 dark:text-emerald-400' },
+    { key: 'paused', label: 'Paused', count: counts.paused, icon: PauseCircle, active: 'bg-muted-foreground text-background border-muted-foreground', idle: 'text-muted-foreground' },
+  ];
+
+  const initials = (name: string | null) => (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?';
 
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* ── Top Metric Summary Strip ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Total Commitments */}
-          <div className="rounded-2xl border border-border bg-card p-4 space-y-1.5 shadow-sm">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-xs font-semibold uppercase tracking-wider">Total Orders</span>
-              <Coins className="h-4 w-4 text-primary" />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tracking-tight tabular-nums">{counts.total}</span>
-              <span className="text-xs text-muted-foreground">({counts.active} active)</span>
-            </div>
-            <p className="text-[11px] text-muted-foreground font-medium truncate">
-              {formatUGX(counts.totalActiveVolume)} / cycle
-            </p>
-          </div>
-
-          {/* Needs Attention Alert Tile */}
-          <div
-            onClick={() => setFilter('attention')}
-            className={cn(
-              'rounded-2xl border p-4 space-y-1.5 cursor-pointer transition-all shadow-sm',
-              counts.attention > 0
-                ? 'border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15'
-                : 'border-border bg-card hover:bg-muted/40 text-foreground',
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider">Needs Attention</span>
-              <AlertTriangle className={cn('h-4 w-4', counts.attention > 0 ? 'text-destructive' : 'text-muted-foreground')} />
-            </div>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-bold tracking-tight tabular-nums">{counts.attention}</span>
-              {counts.attention > 0 && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground">
-                  Action Required
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] font-medium truncate opacity-90">
-              {counts.attention > 0 ? `${formatUGX(counts.attentionVolume)} at risk` : 'All standing orders healthy'}
-            </p>
-          </div>
-
-          {/* Orphaned / Target Missing */}
-          <div
-            onClick={() => setFilter('orphaned')}
-            className={cn(
-              'rounded-2xl border p-4 space-y-1.5 cursor-pointer transition-all shadow-sm',
-              counts.orphaned > 0
-                ? 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/15'
-                : 'border-border bg-card hover:bg-muted/40 text-foreground',
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider">Target Missing</span>
-              <UserX className={cn('h-4 w-4', counts.orphaned > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-muted-foreground')} />
-            </div>
-            <div className="text-2xl font-bold tracking-tight tabular-nums">{counts.orphaned}</div>
-            <p className="text-[11px] font-medium truncate opacity-85">
-              {counts.orphaned > 0 ? 'Deleted / unmapped users' : '0 orphaned targets'}
-            </p>
-          </div>
-
-          {/* Failing Runs */}
-          <div
-            onClick={() => setFilter('failing')}
-            className={cn(
-              'rounded-2xl border p-4 space-y-1.5 cursor-pointer transition-all shadow-sm',
-              counts.failing > 0
-                ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/15'
-                : 'border-border bg-card hover:bg-muted/40 text-foreground',
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider">Failing Sweep</span>
-              <AlertCircle className={cn('h-4 w-4', counts.failing > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} />
-            </div>
-            <div className="text-2xl font-bold tracking-tight tabular-nums">{counts.failing}</div>
-            <p className="text-[11px] font-medium truncate opacity-85">
-              {counts.failing > 0 ? 'Failing on daily cron' : '0 execution errors'}
-            </p>
-          </div>
-
-          {/* Stalled / Overdue */}
-          <div
-            onClick={() => setFilter('stalled')}
-            className={cn(
-              'rounded-2xl border p-4 space-y-1.5 cursor-pointer transition-all shadow-sm',
-              counts.stalled > 0
-                ? 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/15'
-                : 'border-border bg-card hover:bg-muted/40 text-foreground',
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider">Overdue / Stalled</span>
-              <Clock className={cn('h-4 w-4', counts.stalled > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground')} />
-            </div>
-            <div className="text-2xl font-bold tracking-tight tabular-nums">{counts.stalled}</div>
-            <p className="text-[11px] font-medium truncate opacity-85">
-              {counts.stalled > 0 ? 'Overdue without run' : 'All runs up to date'}
-            </p>
-          </div>
+        {/* Filter pills + Refresh */}
+        <div className="flex flex-wrap items-center gap-2">
+          {pills.map((p) => {
+            const PIcon = p.icon;
+            const on = filter === p.key;
+            return (
+              <button key={p.key} type="button" onClick={() => { setFilter(p.key); setPage(1); }}
+                className={cn('flex items-center gap-2 h-10 px-4 rounded-xl border text-sm font-semibold shadow-sm transition-colors',
+                  on ? p.active : cn('bg-card border-border hover:bg-muted/50', p.idle))}>
+                <PIcon className="h-4 w-4" />
+                {p.label}
+                <span className="tabular-nums opacity-90">{p.count}</span>
+              </button>
+            );
+          })}
+          <Button variant="outline" className="ml-auto h-10 gap-2 border-primary/40 text-primary" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh
+          </Button>
         </div>
 
-        {/* ── Toolbar: Filter Tabs, Search & Refresh ── */}
-        <div className="rounded-2xl border border-border bg-card p-3 space-y-3 shadow-sm">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-            {/* Filter Tabs Strip */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-              <button
-                type="button"
-                onClick={() => setFilter('attention')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                  filter === 'attention'
-                    ? 'bg-destructive text-destructive-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                )}
-              >
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Needs Attention
-                <span className={cn(
-                  'ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold tabular-nums',
-                  filter === 'attention' ? 'bg-white/20 text-white' : 'bg-destructive/15 text-destructive',
-                )}>
-                  {counts.attention}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFilter('all')}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                  filter === 'all'
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                )}
-              >
-                All Orders
-                <span className="text-[11px] opacity-75 tabular-nums">({counts.total})</span>
-              </button>
-
-              {counts.orphaned > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setFilter('orphaned')}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                    filter === 'orphaned'
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'text-rose-700 dark:text-rose-300 hover:bg-rose-500/10',
-                  )}
-                >
-                  <UserX className="h-3.5 w-3.5" />
-                  Target Missing ({counts.orphaned})
-                </button>
-              )}
-
-              {counts.failing > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setFilter('failing')}
-                  className={cn(
-                    'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                    filter === 'failing'
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-amber-700 dark:text-amber-300 hover:bg-amber-500/10',
-                  )}
-                >
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  Failing ({counts.failing})
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => setFilter('ok')}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                  filter === 'ok'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10',
-                )}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                On Track ({counts.ok})
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setFilter('paused')}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0',
-                  filter === 'paused'
-                    ? 'bg-secondary text-secondary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
-                )}
-              >
-                <PauseCircle className="h-3.5 w-3.5" />
-                Paused ({counts.paused})
-              </button>
-            </div>
-
-            {/* Refresh Button */}
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs gap-1.5 font-medium"
-                onClick={() => refetch()}
-                disabled={isFetching}
-              >
-                {isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                <span>Refresh</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* Search Input Bar */}
-          <div className="relative">
+        {/* Search + selects */}
+        <div className="flex flex-col md:flex-row gap-2 rounded-xl border border-border bg-card p-2 shadow-sm">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by recipient name, phone (+256...), user ID, reason, or amount..."
-              className="pl-9 pr-8 h-9 text-xs bg-muted/30 border-input"
-            />
+            <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Search by recipient name, phone, UID, or reason..."
+              className="pl-9 pr-8 h-10 border-0 shadow-none focus-visible:ring-0" />
             {search && (
-              <button
-                type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
+              <button type="button" onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1); }}>
+            <SelectTrigger className="h-10 md:w-44"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">All Statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={freqFilter} onValueChange={(v) => { setFreqFilter(v); setPage(1); }}>
+            <SelectTrigger className="h-10 md:w-44"><SelectValue placeholder="All Frequencies" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">All Frequencies</SelectItem>
+              <SelectItem value="daily">Daily</SelectItem>
+              <SelectItem value="weekly">Weekly</SelectItem>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="interval">Every few days</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filter} onValueChange={(v) => { setFilter(v as FilterTab); setPage(1); }}>
+            <SelectTrigger className="h-10 md:w-36 border-primary/50 text-primary"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="attention">Needs Attention</SelectItem>
+              <SelectItem value="orphaned">Target Missing</SelectItem>
+              <SelectItem value="failing">Failing</SelectItem>
+              <SelectItem value="stalled">Overdue</SelectItem>
+              <SelectItem value="ok">On Track</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* ── Main Orders Feed / Cards ── */}
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16 space-y-3">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-xs text-muted-foreground font-medium">Loading standing orders &amp; execution health…</p>
-          </div>
-        ) : !filteredOrders.length ? (
-          <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center space-y-3">
-            {filter === 'attention' ? (
-              <>
-                <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="h-6 w-6" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-foreground">Zero Standing Orders Need Attention</h3>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                    All recurring automated payouts are either healthy, on track with their target users, or paused.
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFilter('all')}
-                  className="text-xs mt-2"
-                >
-                  View All Standing Orders ({counts.total})
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                  <Coins className="h-6 w-6" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-foreground">No Standing Orders Match Filter</h3>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                    {search ? `No results found for "${search}". Try clearing your search query.` : 'There are no standing orders in this category.'}
-                  </p>
-                </div>
-                {search && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSearch('')}
-                    className="text-xs mt-2"
-                  >
-                    Clear Search
-                  </Button>
-                )}
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredOrders.map((row) => {
-              const meta = HEALTH_CONFIG[row.health];
-              const Icon = meta.icon;
-              const isErrorExpanded = !!expandedErrors[row.id];
-
-              return (
-                <div
-                  key={row.id}
-                  className={cn(
-                    'rounded-2xl border p-4 sm:p-5 transition-all shadow-sm space-y-3',
-                    meta.cardBorderClass,
-                    !row.enabled && 'opacity-70 bg-muted/20 border-border',
-                  )}
-                >
-                  {/* Row Header: Recipient + Health Badge + Toggle Switch */}
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    {/* Left: Recipient Information */}
-                    <div className="space-y-1 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {row.target_missing ? (
-                          <div className="flex items-center gap-1.5 text-destructive font-bold text-base">
-                            <ShieldAlert className="h-5 w-5 shrink-0" />
-                            <span>DELETED / MISSING USER ACCOUNT</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-base text-foreground leading-tight truncate">
-                              {row.target_name || 'Unnamed Recipient'}
-                            </span>
-                            {row.target_phone && (
-                              <button
-                                type="button"
-                                onClick={() => copyToClipboard(row.target_phone!, 'Phone number')}
-                                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono bg-muted/60 px-2 py-0.5 rounded-md transition-colors"
-                                title="Click to copy phone"
-                              >
-                                <Phone className="h-3 w-3" />
-                                {row.target_phone}
+        {/* Table */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground">Loading standing orders…</p>
+            </div>
+          ) : !visibleOrders.length ? (
+            <div className="p-12 text-center space-y-2">
+              <Coins className="h-8 w-8 mx-auto text-muted-foreground" />
+              <p className="font-semibold">No standing orders match these filters</p>
+              <Button variant="outline" size="sm" onClick={() => { setFilter('all'); setSearch(''); setStatusFilter('any'); setFreqFilter('any'); }}>Clear filters</Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <tr className="border-b border-border">
+                    <th className="w-10 px-4 py-3"><Checkbox aria-label="Select all" /></th>
+                    <th className="text-left font-semibold px-3 py-3">Recipient</th>
+                    <th className="text-left font-semibold px-3 py-3">Payout Amount</th>
+                    <th className="text-left font-semibold px-3 py-3">Frequency</th>
+                    <th className="text-left font-semibold px-3 py-3">Next Scheduled Run</th>
+                    <th className="text-left font-semibold px-3 py-3">Last Run</th>
+                    <th className="text-left font-semibold px-3 py-3">Status</th>
+                    <th className="text-center font-semibold px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((row) => {
+                    const meta = HEALTH_CONFIG[row.health];
+                    const Icon = row.enabled ? meta.icon : PauseCircle;
+                    return (
+                      <Fragment key={row.id}>
+                        <tr key={row.id} className={cn('border-b border-border/60 hover:bg-muted/30', !row.enabled && 'opacity-75')}>
+                          <td className="px-4 py-3"><Checkbox aria-label="Select order" /></td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-3 min-w-[220px]">
+                              <div className={cn('h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0',
+                                row.target_missing ? 'bg-destructive/15 text-destructive' : 'bg-primary/10 text-primary')}>
+                                {row.target_missing ? <UserX className="h-4 w-4" /> : initials(row.target_name)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className={cn('text-xs font-semibold uppercase truncate', row.target_missing && 'text-destructive')}>
+                                  {row.target_missing ? 'Deleted / missing account' : row.target_name || 'Unnamed recipient'}
+                                </p>
+                                {row.target_phone && <p className="text-xs text-muted-foreground">{row.target_phone}</p>}
+                                <button type="button" onClick={() => copyToClipboard(row.target_user_id, 'User ID')}
+                                  className="text-[11px] text-muted-foreground hover:text-foreground truncate max-w-[180px] block text-left" title={row.target_user_id}>
+                                  UID: {row.target_user_id}
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            <p className="font-bold tabular-nums">{formatUGX(row.amount)}</p>
+                            {canEditAmount && (
+                              <button type="button" onClick={() => setEditingAmount(row)} className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                                <Pencil className="h-3 w-3" /> Change amount
                               </button>
                             )}
-                          </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-start gap-2 text-xs">
+                              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <span>{describeFrequency(row)}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-start gap-2 text-xs">
+                              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                              {row.next_run_at ? (
+                                <div>
+                                  <p>{formatDistanceToNow(new Date(row.next_run_at), { addSuffix: true })}</p>
+                                  <p className="text-muted-foreground">{format(new Date(row.next_run_at), 'dd MMM yyyy, HH:mm')}</p>
+                                </div>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-start gap-2 text-xs">
+                              {row.last_run_at ? (
+                                <>
+                                  {row.health === 'failing'
+                                    ? <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                                    : <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
+                                  <div>
+                                    <p>{format(new Date(row.last_run_at), 'dd MMM yyyy, HH:mm')}</p>
+                                    <p className="text-muted-foreground">{row.health === 'failing' ? 'Failed' : 'Successful'}</p>
+                                  </div>
+                                </>
+                              ) : (
+                                <><FileText className="h-4 w-4 text-muted-foreground shrink-0" /><span className="text-muted-foreground">Never executed</span></>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="outline" className={cn('rounded-full gap-1 whitespace-nowrap', row.enabled ? meta.badgeClass : 'bg-primary/10 text-primary border-primary/30')}>
+                                  <Icon className="h-3.5 w-3.5" />
+                                  {row.enabled ? meta.label : 'Paused'}
+                                  {row.consecutive_failures > 1 && <span className="font-bold">· {row.consecutive_failures}x</span>}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">{meta.description}</TooltipContent>
+                            </Tooltip>
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Order actions">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {canEditAmount && <DropdownMenuItem onClick={() => setEditingAmount(row)}><Pencil className="h-4 w-4 mr-2" />Change amount</DropdownMenuItem>}
+                                <DropdownMenuItem disabled={setEnabled.isPending} onClick={() => handleToggle(row, !row.enabled)}>
+                                  <PauseCircle className="h-4 w-4 mr-2" />{row.enabled ? 'Pause order' : 'Resume order'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setDeleting(row)}>
+                                  <Trash2 className="h-4 w-4 mr-2" />Delete order
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                        {(row.target_missing || row.health === 'stalled' || !!row.last_run_error) && (
+                          <tr key={`${row.id}-note`} className="border-b border-border/60">
+                            <td />
+                            <td colSpan={7} className="px-3 pb-3">
+                              <div className={cn('rounded-lg border px-3 py-2 text-xs flex flex-wrap items-center gap-2',
+                                row.target_missing || row.health === 'failing' ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300')}>
+                                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                                <span className="flex-1">
+                                  {row.target_missing ? 'Recipient account no longer exists — this order fails every cycle.'
+                                    : row.health === 'stalled' ? 'Overdue by over 36 hours without a run or recorded failure.'
+                                    : row.last_run_error}
+                                </span>
+                                {row.target_missing && row.enabled && (
+                                  <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={setEnabled.isPending} onClick={() => handleToggle(row, false)}>Pause now</Button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                      </div>
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-                      {/* User ID and Category */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(row.target_user_id, 'Target User ID')}
-                          className="font-mono text-[11px] text-muted-foreground/80 hover:text-foreground bg-muted/40 hover:bg-muted px-1.5 py-0.5 rounded transition-colors inline-flex items-center gap-1"
-                          title="Click to copy User UUID"
-                        >
-                          <span className="truncate max-w-[140px] sm:max-w-[200px]">UID: {row.target_user_id}</span>
-                          <Copy className="h-2.5 w-2.5 shrink-0" />
-                        </button>
-                        <span>•</span>
-                        <span className="capitalize font-medium text-foreground/80">
-                          {row.category_id.replace(/_/g, ' ')}
-                          {row.sub_category ? ` · ${row.sub_category.replace(/_/g, ' ')}` : ''}
-                        </span>
-                        {row.reason && (
-                          <>
-                            <span>•</span>
-                            <span className="italic text-foreground/70 truncate max-w-[280px]">
-                              "{row.reason}"
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Right: Health Status & Active Switch */}
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
-                      {/* Health Badge with Tooltip */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className={cn('text-xs px-2.5 py-1 gap-1.5', meta.badgeClass)}>
-                            <Icon className="h-3.5 w-3.5 shrink-0" />
-                            <span>{meta.label}</span>
-                            {row.consecutive_failures > 1 && (
-                              <span className="ml-1 px-1.5 py-0.2 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
-                                {row.consecutive_failures}x
-                              </span>
-                            )}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs text-xs">
-                          {meta.description}
-                        </TooltipContent>
-                      </Tooltip>
-
-                      {/* Enable/Disable Toggle Switch with Contextual State Label */}
-                      <div className="flex items-center gap-2 pl-2 border-l border-border/60">
-                        <div className="flex flex-col items-end text-right">
-                          <span className={cn('text-xs font-bold leading-none', row.enabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground')}>
-                            {row.enabled ? 'Active' : 'Paused'}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground mt-0.5">
-                            {row.enabled ? 'Auto-runs' : 'Manual stop'}
-                          </span>
-                        </div>
-                        <Switch
-                          checked={row.enabled}
-                          onCheckedChange={(checked) => handleToggle(row, checked)}
-                          disabled={setEnabled.isPending}
-                          aria-label={`Toggle standing order for ${row.target_name || row.target_user_id}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── Financials, Frequency & Schedule Strip ── */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/60 text-xs">
-                    {/* Amount */}
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">Payout Amount</span>
-                      <p className="font-bold text-sm sm:text-base text-primary tabular-nums">
-                        {formatUGX(row.amount)}
-                      </p>
-                      {canEditAmount && <Button variant="outline" size="sm" onClick={() => setEditingAmount(row)}>Change amount</Button>}
-                    </div>
-
-                    {/* Cadence */}
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">Frequency</span>
-                      <p className="font-semibold text-foreground flex items-center gap-1 truncate">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="truncate">{describeFrequency(row)}</span>
-                      </p>
-                    </div>
-
-                    {/* Next Run */}
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">Next Scheduled Run</span>
-                      {row.next_run_at ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <p className="font-medium text-foreground tabular-nums cursor-help truncate">
-                              {formatDistanceToNow(new Date(row.next_run_at), { addSuffix: true })}
-                            </p>
-                          </TooltipTrigger>
-                          <TooltipContent className="text-xs">
-                            {format(new Date(row.next_run_at), 'EEEE, MMMM d, yyyy · HH:mm:ss')}
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <p className="text-muted-foreground font-medium">—</p>
-                      )}
-                    </div>
-
-                    {/* Last Run Status */}
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] uppercase font-semibold text-muted-foreground">Last Run</span>
-                      {row.last_run_at ? (
-                        <p className="font-medium text-foreground tabular-nums truncate">
-                          {formatDistanceToNow(new Date(row.last_run_at), { addSuffix: true })}
-                        </p>
-                      ) : (
-                        <p className="text-muted-foreground font-medium">Never executed</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* ── High-Priority Incident Callout / Leak Warning ── */}
-                  {row.target_missing && (
-                    <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 space-y-1.5 text-xs text-destructive">
-                      <div className="flex items-center gap-2 font-bold">
-                        <AlertTriangle className="h-4 w-4 shrink-0" />
-                        <span>Silent Leak Risk: Target User Profile Missing in Database</span>
-                      </div>
-                      <p className="leading-relaxed opacity-90 text-[11px]">
-                        The account for target user <code className="bg-destructive/20 px-1 py-0.5 rounded font-mono font-bold">{row.target_user_id}</code> was deleted or no longer exists.
-                        The daily automated job is attempting this payout every cycle and throwing unhandled exceptions.
-                      </p>
-                      <div className="flex items-center gap-2 pt-1">
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-7 text-xs font-semibold gap-1"
-                          onClick={() => handleToggle(row, false)}
-                          disabled={!row.enabled || setEnabled.isPending}
-                        >
-                          <PauseCircle className="h-3.5 w-3.5" />
-                          {row.enabled ? 'Pause this Standing Order Now' : 'Already Paused'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── Failure Details Banner ── */}
-                  {row.health === 'failing' && (
-                    <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 space-y-1 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-300">
-                          <AlertTriangle className="h-4 w-4 shrink-0" />
-                          <span>Latest Run Failed ({row.consecutive_failures} consecutive failure{row.consecutive_failures === 1 ? '' : 's'})</span>
-                        </div>
-                        {row.last_run_error && (
-                          <button
-                            type="button"
-                            onClick={() => toggleErrorDetails(row.id)}
-                            className="text-[11px] font-semibold text-rose-700 dark:text-rose-300 hover:underline inline-flex items-center gap-0.5"
-                          >
-                            {isErrorExpanded ? 'Hide raw error' : 'View raw error'}
-                            {isErrorExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                          </button>
-                        )}
-                      </div>
-                      {row.last_run_error && isErrorExpanded && (
-                        <div className="mt-2 p-2 rounded-lg bg-background/80 border border-rose-500/30 font-mono text-[11px] text-rose-800 dark:text-rose-300 whitespace-pre-wrap break-all">
-                          {row.last_run_error}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── Stalled Warning Banner ── */}
-                  {row.health === 'stalled' && (
-                    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-1 text-xs text-amber-800 dark:text-amber-300">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <Clock className="h-4 w-4 shrink-0" />
-                        <span>Execution Stalled / Overdue</span>
-                      </div>
-                      <p className="leading-relaxed text-[11px] opacity-90">
-                        This order is marked active but its scheduled execution time has passed by over 36 hours without executing or recording a failure in the sweep logs.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+          {/* Footer / pagination */}
+          {!isLoading && visibleOrders.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <span>Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, visibleOrders.length)} of {visibleOrders.length} standing orders</span>
+                <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[10, 15, 25, 50].map((n) => <SelectItem key={n} value={String(n)}>{n} per page</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} aria-label="Previous page"><ChevronLeft className="h-4 w-4" /></Button>
+                {Array.from({ length: pageCount }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.max(0, currentPage - 3) + 5).map((n) => (
+                  <Button key={n} variant={n === currentPage ? 'default' : 'ghost'} size="icon" className="h-8 w-8 text-xs" onClick={() => setPage(n)}>{n}</Button>
+                ))}
+                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)} aria-label="Next page"><ChevronRight className="h-4 w-4" /></Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
       {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} previewOnly={!standingOrderAmountDevelopmentEnabled()} onClose={() => setEditingAmount(null)} />}
+      {deleting && <StandingOrderDeleteDialog key={deleting.id} order={deleting} onClose={() => setDeleting(null)} />}
     </TooltipProvider>
   );
 }

@@ -21,6 +21,7 @@ import {
   cashDepositReceiptFilename,
   renderCashDepositReceipt,
 } from "../_shared/cashDepositReceiptPdf.ts";
+import { redactSmsCodes } from "../_shared/redactSmsCodes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,7 +169,7 @@ async function logSmsAttempts(
       recipient_phone: ctx.phone,
       recipient_user_id: ctx.userId ?? null,
       recipient_name: ctx.name ?? null,
-      message: ctx.message,
+      message: redactSmsCodes(ctx.message),
       provider: a.provider,
       status: a.accepted ? "accepted" : (a.attempted ? "failed" : "skipped"),
       error: a.accepted ? null : (a.reason ?? null),
