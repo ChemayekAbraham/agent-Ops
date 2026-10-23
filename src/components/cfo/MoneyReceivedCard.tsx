@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { cfoReportRetry } from '@/hooks/cfoReportRetry';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
@@ -17,21 +18,20 @@ type SourceTotal = { label: string; amount: number; count: number };
 
 /** Actual external money received (approved deposits). Read-only. */
 export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
-  const q = useQuery({
-    queryKey: ['cfo-money-received'],
+  const sourceQuery = useQuery({
+    queryKey: ['cfo-money-received-sources'],
+    retry: cfoReportRetry,
     queryFn: async () => {
       const range = allTime();
       const end = new Date(`${range.to}T00:00:00Z`);
       end.setUTCDate(end.getUTCDate() + 1);
       const p_from = new Date(`${range.from}T00:00:00+03:00`).toISOString();
       const p_to = new Date(`${end.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
-      const [summaryResult, ...sourceResults] = await Promise.all([
-        (supabase.rpc as any)('get_cfo_money_received'),
-        ...RECEIPT_SOURCES.map(p_type => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
+      const sourceResults = await Promise.all(
+        RECEIPT_SOURCES.map(p_type => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
           p_kind: 'received', p_from, p_to, p_status: 'approved', p_method: null, p_type, p_person: null,
         })),
-      ]);
-      if (summaryResult.error) throw summaryResult.error;
+      );
       const sources = sourceResults.map((result, index): SourceTotal => {
         if (result.error) throw result.error;
         const row = (result.data ?? [])[0] ?? {};
@@ -41,12 +41,22 @@ export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numb
           count: Number(row.confirmed_count ?? 0),
         };
       });
-      return { summary: ((summaryResult.data ?? [])[0] ?? null) as Row | null, sources };
+      return sources;
     },
     refetchInterval: 60000,
   });
-  const d = q.data?.summary;
-  const sources = q.data?.sources ?? [];
+  const q = useQuery({
+    queryKey: ['cfo-money-received'],
+    retry: cfoReportRetry,
+    queryFn: async () => {
+      const { data, error } = await (supabase.rpc as any)('get_cfo_money_received');
+      if (error) throw error;
+      return ((data ?? [])[0] ?? null) as Row | null;
+    },
+    refetchInterval: 60000,
+  });
+  const d = q.data;
+  const sources = sourceQuery.data ?? [];
   const [report, setReport] = useState(false);
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
   const conf = 'approved';
@@ -83,7 +93,7 @@ export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numb
         },
       })) : []}
       onClick={() => drill(null)}
-      footer={q.error ? 'Could not load receipts' : 'Confirmed deposits by mobile money, bank & cash'}
+      footer={q.error ? 'Could not load receipts' : sourceQuery.error ? 'Could not load source details' : sourceQuery.isLoading ? 'Loading source details…' : 'Confirmed deposits by mobile money, bank & cash'}
     />
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
     </>

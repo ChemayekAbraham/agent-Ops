@@ -1,4 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { cfoWalletTotalsOptions } from './cfoWalletTotals';
+import { cfoReportRetry } from './cfoReportRetry';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ActualMoneyHeld {
@@ -51,34 +53,20 @@ export interface ActualMoneyHeld {
  * and is never added to the headline.
  */
 export function useActualMoneyHeld(enabled = true) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: ['cfo-actual-money-held'],
     enabled,
+    retry: cfoReportRetry,
     staleTime: 15_000,
     refetchInterval: 30_000,
     queryFn: async (): Promise<ActualMoneyHeld> => {
-      const [phoneRes, cashRes, bankRes, walletRes] = await Promise.all([
+      const [phoneRes, cashRes, bankRes, w, verification] = await Promise.all([
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
         supabase.rpc('get_money_at_bank_reconciliation' as any),
-        supabase.rpc('get_wallet_totals' as any),
-      ]);
-      if (phoneRes.error) throw phoneRes.error;
-      if (cashRes.error) throw cashRes.error;
-      if (bankRes.error) throw bankRes.error;
-      if (walletRes.error) throw walletRes.error;
-
-      const p = (phoneRes.data ?? {}) as any;
-      const c = (cashRes.data ?? {}) as any;
-      const b = (bankRes.data ?? {}) as any;
-      const w = (walletRes.data ?? {}) as any;
-
-      const mtn = Number(p.mtn_balance ?? 0);
-      const airtel = Number(p.airtel_balance ?? 0);
-      const cashAtHand = Number(c.cash_at_hand_total ?? 0);
-      const bankedCash = Number(b.banked_cash_reference ?? 0);
-      const bankReconciliation = Number(b.money_at_bank_total ?? 0);
-
+        queryClient.fetchQuery(cfoWalletTotalsOptions()),
+        (async () => {
       // Independent cross-check: rebuild the banked total from the Financial Ops
       // verifications themselves (latest verification per deposit request, status
       // 'verified', cash_location = 'bank') so the card can say whether it is in
@@ -115,6 +103,22 @@ export function useActualMoneyHeld(enabled = true) {
         if (!latestAt || new Date(at).getTime() > new Date(latestAt).getTime()) return at;
         return latestAt;
       }, null);
+
+          return { banked, finOpsBankedCash, bankedLastMovementAt };
+        })(),
+      ]);
+      if (phoneRes.error) throw phoneRes.error;
+      if (cashRes.error) throw cashRes.error;
+      if (bankRes.error) throw bankRes.error;
+      const p = (phoneRes.data ?? {}) as any;
+      const c = (cashRes.data ?? {}) as any;
+      const b = (bankRes.data ?? {}) as any;
+      const mtn = Number(p.mtn_balance ?? 0);
+      const airtel = Number(p.airtel_balance ?? 0);
+      const cashAtHand = Number(c.cash_at_hand_total ?? 0);
+      const bankedCash = Number(b.banked_cash_reference ?? 0);
+      const bankReconciliation = Number(b.money_at_bank_total ?? 0);
+      const { banked, finOpsBankedCash, bankedLastMovementAt } = verification;
 
       const bankedDifference = finOpsBankedCash - bankedCash;
 
