@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
+import { standingOrderAmountDevelopmentEnabled } from '@/hooks/useStandingOrderAmount';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
   type StandingOrderRow, type StandingOrderHealth,
@@ -82,7 +83,7 @@ export function StandingOrdersPanel() {
   const setEnabled = useSetStandingOrderEnabled();
   const { role } = useAuth();
   const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
-  const canEditAmount = import.meta.env.DEV && (role === 'cfo' || role === 'super_admin');
+  const canEditAmount = standingOrderAmountDevelopmentEnabled() && (role === 'cfo' || role === 'super_admin');
   const [filter, setFilter] = useState<FilterTab>('attention');
   const [search, setSearch] = useState('');
   const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});

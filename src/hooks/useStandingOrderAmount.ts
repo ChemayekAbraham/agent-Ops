@@ -14,12 +14,22 @@ interface AmountEditResult {
   previous_amount: number;
 }
 
+// The preview currently points at production. DEV alone is not isolation:
+// allow this unapplied feature only against an explicitly local backend.
+export function standingOrderAmountDevelopmentEnabled(): boolean {
+  if (!import.meta.env.DEV) return false;
+  try {
+    const url = new URL(import.meta.env.VITE_SUPABASE_URL);
+    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch { return false; }
+}
+
 export function useStandingOrderAmount() {
   const qc = useQueryClient();
   return useMutation({
     retry: false,
     mutationFn: async ({ order, newAmount, reason }: StandingOrderAmountEdit): Promise<AmountEditResult> => {
-      if (!import.meta.env.DEV) throw new Error('Standing order amount changes are awaiting production approval.');
+      if (!standingOrderAmountDevelopmentEnabled()) throw new Error('Standing order amount changes are available only in the isolated development environment.');
       // The not-yet-applied RPC is typed locally; never fall back to a table update
       // or the best-effort lifecycle audit helper. The server reads/locks fresh data.
       const rpc = supabase.rpc as unknown as (

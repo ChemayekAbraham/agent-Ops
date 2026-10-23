@@ -5,7 +5,7 @@ root="$(pwd)"
 tmp="$(mktemp -d /tmp/standing-order-db.XXXXXX)"
 if [ "$(id -u)" = 0 ]; then
   chown lovable:lovable "$tmp"
-  owner=(runuser -u lovable --)
+  owner=(setpriv --reuid=1000 --regid=1000 --clear-groups)
   dbuser=lovable
 else
   owner=()
