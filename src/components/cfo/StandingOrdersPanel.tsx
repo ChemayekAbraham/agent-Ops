@@ -612,7 +612,7 @@ export function StandingOrdersPanel() {
                       <p className="font-bold text-sm sm:text-base text-primary tabular-nums">
                         {formatUGX(row.amount)}
                       </p>
-                      {canEditAmount && <Button variant="outline" size="sm" onClick={() => setEditingAmount(row)}>Change amount</Button>}
+                      {canEditAmount && <Button variant="default" size="sm" onClick={() => setEditingAmount(row)}>Change amount</Button>}
                     </div>
 
                     {/* Cadence */}
