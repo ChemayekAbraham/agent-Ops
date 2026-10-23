@@ -12,7 +12,7 @@ The amount must be finite, greater than zero, at most UGX 500,000,000, and diffe
 
 - SQL is an **unapplied proposal** at `docs/pending-migrations/standing_order_amount_edit.sql`, not a production migration.
 - It was executed only in disposable PostgreSQL with a private `/tmp` Unix socket and no TCP listener, cron, automatic payer, production credentials or production records.
-- The preview still connects to external production Supabase. Both the controls and mutation reject that destination: development mode **and a localhost backend** are required.
+- The preview still connects to external production Supabase. Authorized CFO/super-admin users may open and review Increase/Decrease controls, but confirmation is disabled there. The mutation independently requires development mode **and a localhost backend** before making any request.
 - No production migrations, settings, financial writes, publishing, pushes or edge-function deployment were performed. Production inspection was SELECT-only.
 - `process-scheduled-payouts`, `cfo-direct-credit`, scheduling helpers and historical run behavior were not modified.
 
@@ -31,7 +31,7 @@ The amount must be finite, greater than zero, at most UGX 500,000,000, and diffe
 2. `src/hooks/useStandingOrderAmount.ts` — local-only operation, no fallback writes or automatic retries.
 3. `src/hooks/useStandingOrders.ts` — include the existing update timestamp in the returned row.
 4. `src/components/cfo/StandingOrderAmountDialog.tsx` — increase/decrease, review, confirmation, errors and saved-amount display.
-5. `src/components/cfo/StandingOrdersPanel.tsx` — local-only authorized entry control/dialog.
+5. `src/components/cfo/StandingOrdersPanel.tsx` — authorized entry control/dialog; hosted destinations are preview-only, with no saving.
 6. `scripts/test-standing-order-amount.sh` — disposable PostgreSQL runner.
 7. `scripts/fixtures/standing-order-amount-local.sql` — synthetic relevant schema/auth and protected financial sentinels.
 8. `scripts/fixtures/standing-order-amount-tests.sql` — transactional safety and rejection assertions.
@@ -122,6 +122,12 @@ Read-only live catalog checks confirmed:
 5. Approve publishing that frontend change separately. **No** `process-scheduled-payouts` or `cfo-direct-credit` deployment, financial backfill, wallet/ledger update, historical-run change or scheduled-task adjustment is required by this feature.
 
 No approval to apply or activate is requested automatically; resolve the above evidence gaps and MFA decision before a separate release decision.
+
+### Production approval preparation — 2026-10-23 UTC
+
+The current approval package and step-by-step activation/rollback plan are in `docs/standing-order-amount-production-approval.md`. This supersedes historical control counts and descriptions above: **7 control tests + 11 schedule tests = 18 passed**, plus **2 local integration tests**, **27 SQL assertions**, and **9 concurrency/MFA review groups containing 45 authorization cases**. All guards passed again. The exact proposal and both payment handlers remain unchanged.
+
+Fresh SELECT-only hosted checks still find no amount-edit function, the original four-action audit constraint, `staff_mfa_config.mode=shadow`, enabled-role checks, and only the timestamp UPDATE trigger. Effective privilege checks confirm existing authenticated table UPDATE access; the empty `role_table_grants` result was not used to infer missing access. Hosted signed-JWT/MFA end-to-end verification remains blocked by the absence of an isolated hosted test environment. No application code, SQL proposal, production configuration or production data changed during this preparation.
 
 ### Files changed by this final review only
 
