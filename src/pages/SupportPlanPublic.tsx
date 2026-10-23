@@ -98,7 +98,7 @@ export default function SupportPlanPublic() {
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
   // Signed-out visitors sign up / log in, then land on the funder dashboard
   // with ?plan= so this exact plan opens automatically.
-  const fundRedirect = `/dashboard/funder-new?plan=${encodeURIComponent(`ready:${plan.planId}`)}`;
+  const fundRedirect = `/dashboard/funder-new?plan=${encodeURIComponent(plan.planId)}`;
   const authUrl = `/auth?redirect=${encodeURIComponent(fundRedirect)}&role=supporter`;
   const title = `Support ${plan.tenantFirstName ?? 'a tenant'}'s rent — Welile`;
   const description = `Turn rent into an asset. Support this tenant's rent once and earn 15% of their rent every month for 12 months.`;
