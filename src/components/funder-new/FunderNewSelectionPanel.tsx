@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Phone, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -161,6 +161,8 @@ export function FunderNewReviewDialog({
 
         {/* Scrollable body */}
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
+          {items[0] && <SalesSheet item={items[0]} />}
+
           {/* 1. House & tenant summary */}
           <section className="space-y-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -245,7 +247,7 @@ export function FunderNewReviewDialog({
           {/* 3. WhatsApp contacts */}
           {items.length > 0 && (
             <section className="space-y-2">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">WhatsApp contacts</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">The people behind this home</h3>
               <div className="space-y-3">
                 {items.map((item) => (
                   <HomeContacts key={`wa:${item.category}:${item.id}`} item={item} showTitle={items.length > 1} />
@@ -418,7 +420,7 @@ export function toWhatsAppDigits(phone?: string | null): string | null {
   return e164 ? e164.replace(/\D/g, '') : null;
 }
 
-function ContactRow({ label, name, phone }: { label: string; name?: string | null; phone?: string | null }) {
+function ContactRow({ label, name, phone, primary = false }: { label: string; name?: string | null; phone?: string | null; primary?: boolean }) {
   const digits = toWhatsAppDigits(phone);
   const copy = async () => {
     if (!phone) return;
@@ -433,7 +435,7 @@ function ContactRow({ label, name, phone }: { label: string; name?: string | nul
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="break-words text-sm font-medium text-foreground">{name || 'Name not shared'}</p>
+        <p className={cn('break-words text-foreground', primary ? 'text-lg font-bold' : 'text-sm font-medium')}>{name || 'Name not shared'}</p>
         {phone ? (
           <button
             type="button"
@@ -470,11 +472,11 @@ function HomeContacts({ item, showTitle }: { item: FunderNewSelectionItem; showT
       ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.place)}`;
   return (
-    <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-1">
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-1">
       {showTitle && <p className="pt-2.5 text-sm font-semibold text-foreground break-words">{item.title}</p>}
       <div className="divide-y divide-border/50">
-        <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
-        <ContactRow label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
+        <ContactRow primary label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
+        <ContactRow primary label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
         <ContactRow label="Agent" name={item.agentName} phone={item.agentPhone} />
       </div>
       <div className="pb-3 pt-1">
@@ -486,5 +488,122 @@ function HomeContacts({ item, showTitle }: { item: FunderNewSelectionItem; showT
         </Button>
       </div>
     </div>
+  );
+}
+
+
+/** In-app link to this home's support plan (opens the Partners dashboard; sign-in if needed). */
+export function buildPlanShareLink(item: Pick<FunderNewSelectionItem, 'id' | 'category'>, origin: string): string {
+  const params = new URLSearchParams({ plan: `${item.category}:${item.id}` });
+  return `${origin.replace(/\/$/, '')}/dashboard/funder-new?${params.toString()}`;
+}
+
+/** Prefilled share text. Never carries phone numbers. */
+export function buildPlanShareMessage(item: Pick<FunderNewSelectionItem, 'tenantName'>, link: string): string {
+  const first = (item.tenantName || '').trim().split(/\s+/)[0];
+  const who = first || 'a tenant';
+  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn 15% of the rent monthly for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+}
+
+export function buildWhatsAppShareUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
+const POINTS = [
+  { icon: HandCoins, text: 'You support a tenant — you earn 15% of their rent.' },
+  { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
+  { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
+];
+
+const HOW_STEPS = [
+  { icon: Wallet, text: 'Deposit to your Welile wallet' },
+  { icon: TrendingUp, text: 'Tap Fund' },
+  { icon: Send, text: 'Welile sends the money straight to the landlord.' },
+];
+
+function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const link = buildPlanShareLink(item, origin);
+  const message = buildPlanShareMessage(item, link);
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: 'Turn rent into an asset', text: message, url: link });
+    } catch {
+      /* user cancelled */
+    }
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="aspect-video w-full overflow-hidden rounded-2xl bg-primary/10">
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-primary">
+            <Home className="h-12 w-12" />
+            <span className="text-sm text-muted-foreground">Photo coming soon</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
+        <p className="text-base text-muted-foreground leading-relaxed">
+          Support this tenant's rent once. Earn 15% of their rent every month for the next 12 months.
+        </p>
+      </div>
+
+      <ul className="space-y-3">
+        {POINTS.map((p) => (
+          <li key={p.text} className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><p.icon className="h-5 w-5" /></span>
+            <span className="pt-1.5 text-base">{p.text}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">How it works</h3>
+        <ol className="space-y-2">
+          {HOW_STEPS.map((step, i) => (
+            <li key={step.text} className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
+              <step.icon className="h-5 w-5 shrink-0 text-primary" />
+              <span className="text-sm sm:text-base">{step.text}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="space-y-2">
+        <a
+          href={buildWhatsAppShareUrl(message)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-base font-semibold text-success-foreground shadow-sm hover:opacity-90"
+        >
+          <MessageCircle className="h-5 w-5" />
+          Share on WhatsApp
+        </a>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={copyLink}>
+            <Link2 className="h-4 w-4" />Copy link
+          </Button>
+          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={nativeShare} disabled={!canNativeShare}>
+            <Share2 className="h-4 w-4" />Share
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
