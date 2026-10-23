@@ -107,8 +107,6 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     const treasury = deferred<any>();
     const original = mocks.rpc.getMockImplementation();
     mocks.rpc.mockImplementation((name: string) => name === 'get_treasury_cash_position' ? treasury.promise : original?.(name));
-    const { result, rerender, unmount, client } = setup(({ } = {}) => useCFOOverviewData({ cashVisible: false, cashDetails: false }));
-    unmount(); client.clear();
     const view = setup(() => useCFOOverviewData({ cashVisible: false, cashDetails: true }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('partner_ops_report_totals', {}));
     expect(view.result.current.platformCash).toBeUndefined();
