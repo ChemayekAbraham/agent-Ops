@@ -176,7 +176,7 @@ export default function AgentWeeklyPerformancePage() {
     <div className="min-h-[100dvh] bg-background flex flex-col">
       <header className="sticky top-0 z-20 bg-background/90 backdrop-blur-md border-b border-border">
         <div className="mx-auto w-full max-w-md px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back" className="h-11 w-11 shrink-0 rounded-full">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard/agent')} aria-label="Back to dashboard" className="h-11 w-11 shrink-0 rounded-full">
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
