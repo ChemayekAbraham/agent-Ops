@@ -910,12 +910,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </Popover>
               </div>
             </div>
-            <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
+            <div className="overflow-hidden">
               <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
                 <table className="w-full text-sm min-w-[64rem]">
                   <thead className="sticky top-0 z-10">
-                    <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="w-12 px-2 py-2 text-center font-semibold">Select</th>
+                    <tr className="border-b border-border/60 bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="w-12 px-3 py-3 text-center font-semibold"><span className="sr-only">Select</span></th>
                       <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
                       <th className="px-2 py-2 text-left font-semibold">Tenant</th>
                       <th className="px-2 py-2 text-left font-semibold">Landlord</th>
@@ -955,13 +955,13 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                           <tr
                             onClick={() => setReviewTarget(item)}
                             className={cn(
-                              'border-b border-border/70 last:border-0 cursor-pointer transition-colors',
+                              'border-b border-border/50 last:border-0 cursor-pointer transition-colors',
                               isSel
                                 ? 'bg-primary/[0.07] shadow-[inset_3px_0_0_0_hsl(var(--primary))]'
                                 : 'hover:bg-muted/40'
                             )}
                           >
-                            <td className="w-8 px-2 py-2.5 align-middle text-center" onClick={e => e.stopPropagation()}>
+                            <td className="w-8 px-3 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
                               <Checkbox
                                 aria-label={`Select ${item.tenant_name}`}
                                 disabled={!!reserved}
@@ -969,12 +969,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 onCheckedChange={() => toggle(item.id)}
                               />
                             </td>
-                            <td className="w-10 px-2 py-2.5 align-middle text-center">
+                            <td className="w-10 px-3 py-3 align-middle text-center">
                               <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
                                 {rowNumber}
                               </span>
                             </td>
-                            <td className="px-2 py-2.5 align-middle">
+                            <td className="px-3 py-3 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
                                 <PaymentLabelChip label={(item as RentDeskScoreFields).payment_label} score={(item as RentDeskScoreFields).payment_score} reason={(item as RentDeskScoreFields).payment_reason} showReason={false} />
@@ -996,16 +996,16 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 </p>
                               )}
                             </td>
-                            <td className="px-2 py-2.5 align-middle font-semibold text-primary truncate max-w-[10rem]">
+                            <td className="px-3 py-3 align-middle font-semibold text-primary truncate max-w-[10rem]">
                               {item.landlord_name}
                             </td>
-                            <td className="px-2 py-2.5 align-middle truncate max-w-[10rem]">
+                            <td className="px-3 py-3 align-middle truncate max-w-[10rem]">
                               {item.agent_name}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
                               {locationLabel || '—'}
                             </td>
-                            <td className="px-2 py-2.5 align-middle whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle whitespace-nowrap">
                               {item.payout_target === 'landlord_wallet' ? (
                                 <Badge className="text-[9px] px-2 py-0 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
                                   <Wallet className="h-2.5 w-2.5 mr-0.5" />
@@ -1018,19 +1018,19 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 </Badge>
                               )}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
                               {format(new Date(item.created_at), 'dd MMM yyyy')}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-right font-bold text-orange-600 whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle text-right font-bold text-orange-600 whitespace-nowrap">
                               {fmt(item.rent_amount)}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-right font-semibold text-emerald-600 whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle text-right font-semibold text-emerald-600 whitespace-nowrap">
                               {fmt(item.access_fee + item.request_fee)}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-right font-semibold whitespace-nowrap">
+                            <td className="px-3 py-3 align-middle text-right font-semibold whitespace-nowrap">
                               {fmt(item.total_repayment)}
                             </td>
-                            <td className="px-2 py-2.5 align-middle text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                            <td className="px-3 py-3 align-middle text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                               <Button
                                 size="sm"
                                 variant="outline"
