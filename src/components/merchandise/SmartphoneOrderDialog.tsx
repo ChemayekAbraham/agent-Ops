@@ -222,8 +222,22 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
         : 'Choose a repayment period';
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (submitting) return;
+        if (!o) setDetailId(null);
+        onOpenChange(o);
+      }}
+    >
       <DialogContent
+        onEscapeKeyDown={(e) => {
+          // On a product page, Escape goes back to the list instead of closing the sheet.
+          if (detailId) {
+            e.preventDefault();
+            closeDetail();
+          }
+        }}
         className={[
           // Mobile: full-width bottom sheet with its own scroll and a sticky action bar.
           // Desktop: the standard centered card.
@@ -247,15 +261,134 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
         </div>
 
         <DialogHeader className="shrink-0 px-5 pt-2 sm:pt-5 pb-3 pr-14 text-left">
-          <DialogTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
-            <Smartphone className="h-5 w-5 text-primary" /> Pick your phone
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            Welile funds the down payment. You pay it back daily from your wallet.
-          </p>
+          {detail ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeDetail}
+                aria-label="Back to all phones"
+                className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-muted transition-colors"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <DialogTitle className="truncate text-lg font-bold tracking-tight">{phoneName(detail)}</DialogTitle>
+            </div>
+          ) : (
+            <>
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
+                <Smartphone className="h-5 w-5 text-primary" /> Pick your phone
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Welile funds the down payment. You pay it back daily from your wallet.
+              </p>
+            </>
+          )}
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 space-y-5">
+        <div ref={bodyRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 pb-5 space-y-5">
+          {detail ? (
+            (() => {
+              const dPrice = Math.max(0, Math.round(Number(detail.default_amount || 0)));
+              const dFromDaily = smartphoneSchedule(dPrice, LONGEST_MONTHS, startDate).daily;
+              const dCopy = downPaymentCopy(detail.brand, detail.model_name);
+              const dIos = isIOSDevice(detail);
+              const specs = [detail.specifications, detail.more_specifications].filter(Boolean) as string[];
+              const highlights = (detail.highlights ?? []).filter(Boolean);
+              return (
+                <div key={detail.id} className="space-y-5 animate-in fade-in-50 slide-in-from-right-4 duration-200">
+                  <div className="relative">
+                    <SmartphoneProductImage
+                      imageUrl={detail.image_url}
+                      brand={detail.brand}
+                      model={detail.model_name}
+                      ios={dIos}
+                      className="aspect-square w-full rounded-3xl"
+                    />
+                    {detail.id === catalogId && (
+                      <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-foreground shadow-sm">
+                        <Check className="h-3.5 w-3.5" /> In your cart
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold">
+                        {dIos ? 'iPhone · iOS' : 'Android'}
+                      </span>
+                      {specs.map((s) => (
+                        <span key={s} className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                    <h2 className="text-2xl font-bold leading-tight tracking-tight">{phoneName(detail)}</h2>
+                  </div>
+
+                  <div className="rounded-2xl border border-border bg-card p-4 space-y-1">
+                    <p className="text-xs text-muted-foreground">{dCopy.amountLabelShort} Welile funds</p>
+                    <p className="text-2xl font-bold tabular-nums">{formatUGX(dPrice)}</p>
+                    {dFromDaily > 0 && (
+                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        From {formatUGX(dFromDaily)}/day over {LONGEST_MONTHS} months
+                      </p>
+                    )}
+                    <p className="pt-1 text-[11px] text-muted-foreground">
+                      Bring {formatUGX(Math.round(dPrice / 2))} in cash on collection day (half of the down payment).
+                    </p>
+                  </div>
+
+                  <section className="space-y-2">
+                    <h3 className="text-base font-bold">About this phone</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {detail.description ||
+                        `The ${phoneName(detail)} is available through the Welile smartphone advance. Agent Ops can add a full description in the phone catalog.`}
+                    </p>
+                  </section>
+
+                  {highlights.length > 0 && (
+                    <section className="space-y-2">
+                      <h3 className="text-base font-bold">Key features</h3>
+                      <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+                        {highlights.map((h) => (
+                          <li key={h} className="flex items-start gap-2.5 px-3.5 py-2.5 text-sm">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            <span>{h}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+
+                  <section className="space-y-2">
+                    <h3 className="text-base font-bold">How it works</h3>
+                    <ol className="space-y-2.5">
+                      {[
+                        'Add the phone to your cart, choose daily installments or full payment, and submit.',
+                        'Agent Ops reviews your application and pays the supplier directly.',
+                        'Collect the phone with your National ID, a workplace photo and your cash top-up.',
+                        'Daily deductions start 7 days after the phone is released.',
+                      ].map((step, i) => (
+                        <li key={step} className="flex gap-3 text-sm">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                            {i + 1}
+                          </span>
+                          <span className="pt-0.5 text-muted-foreground">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </section>
+
+                  {selected && selected.id !== detail.id && (
+                    <p className="rounded-2xl bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-300">
+                      Your cart holds one phone. Adding this one replaces the {phoneName(selected)}.
+                    </p>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+          <>
           {eligLoading ? (
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading your profile…
@@ -441,6 +574,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </div>
             )}
           </section>
+
+          <div ref={checkoutRef} className="scroll-mt-4" />
 
           {selected && price > 0 && (
             <div className="rounded-2xl border border-border bg-muted/40 p-3.5 space-y-2">
@@ -681,9 +816,51 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               ? ' The full amount is collected from your Welile Wallet once your phone is released.'
               : ' Nothing is deducted from your wallet before your phone is released.'}
           </p>
+          </>
+          )}
         </div>
 
         {/* Sticky action bar */}
+        {detail ? (
+          <div className="shrink-0 border-t border-border bg-background/95 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] backdrop-blur">
+            {detail.id === catalogId ? (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="h-12 rounded-full px-5"
+                  onClick={() => {
+                    setCatalogId('');
+                    toast.success('Removed from your cart');
+                  }}
+                >
+                  Remove
+                </Button>
+                <Button
+                  className="h-12 flex-1 rounded-full font-semibold gap-2"
+                  onClick={() => {
+                    setDetailId(null);
+                    requestAnimationFrame(() =>
+                      checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                    );
+                  }}
+                >
+                  <ShoppingCart className="h-4 w-4" /> Go to checkout
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className="h-12 w-full rounded-full font-semibold gap-2"
+                disabled={blocked}
+                onClick={() => addToCart(detail, true)}
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {selected ? 'Replace cart item' : 'Add to cart'}
+                <span className="opacity-80">·</span>
+                <span className="tabular-nums">{formatUGX(Math.max(0, Math.round(Number(detail.default_amount || 0))))}</span>
+              </Button>
+            )}
+          </div>
+        ) : (
         <div className="shrink-0 space-y-2.5 border-t border-border bg-background/95 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] backdrop-blur">
           <div className="flex items-center gap-3">
             {selected ? (
@@ -697,13 +874,26 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               />
             ) : (
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                <Smartphone className="h-5 w-5 text-muted-foreground" />
+                <ShoppingCart className="h-5 w-5 text-muted-foreground" />
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{selected ? phoneName(selected) : 'No phone selected'}</p>
+              <p className="truncate text-sm font-semibold">{selected ? phoneName(selected) : 'Your cart is empty'}</p>
               <p className="truncate text-xs text-muted-foreground">{footerHint}</p>
             </div>
+            {selected && (
+              <button
+                type="button"
+                onClick={() => checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                aria-label="View cart"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted hover:bg-muted/70"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                  1
+                </span>
+              </button>
+            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -719,6 +909,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             </Button>
           </div>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );
