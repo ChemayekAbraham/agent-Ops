@@ -1,3 +1,4 @@
+import { useWorkspaceSurface } from "./workspace-theme";
 import * as React from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 
@@ -15,6 +16,7 @@ const PopoverContent = React.forwardRef<
 >(({ className, align = "center", sideOffset = 6, ...props }, ref) => (
   <PopoverPrimitive.Portal>
     <PopoverPrimitive.Content
+      {...useWorkspaceSurface("portal")}
       ref={ref}
       align={align}
       sideOffset={sideOffset}

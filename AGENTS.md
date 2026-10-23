@@ -1,5 +1,7 @@
 # Architecture Decisions
-- Automated Calls UI lives in crm/autocall behind useCanUseAutocall and uses the existing voice-autocall hook exclusively for calling state and playback; no UI mutations bypass the server seam.
+- Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.
+- Recruitment profile links reuse AgentProfile360Sheet with a local drill-down path and the existing role-gated profile read, so returning preserves the recruiting agent’s tab without duplicating profile data or changing access.
+- Automated Calls UI lives in crm/autocall behind useCanUseAutocall and uses the voice-autocall hook exclusively for calling state and playback; overview demos use a separate server-owned destination/config and one-shot action, never changing account roles, regular campaigns or the original staff-test action.
 - Payables forecast hooks do not automatically replay deterministic database timeout/permission failures; server reporting remains the sole authority for amounts, so retries cannot change financial rules.
 - The new agent dashboard rent-request card opens the existing lazily loaded AgentRentRequestDialog; promotional presentation never duplicates submission or financial logic.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
@@ -37,4 +39,5 @@
 - Supplementary budgets live only in `budget_supplements` and its `budget_supplement_*` RPCs; the original approved line is never edited, revised = original + CFO-approved supplements via `budget_revised_position`, and supplements never touch disbursements, ledger or wallets (keeps them separate from reallocations and money movement).
 - Staff requisitions: COO → CEO → CFO, except the active Product R&D budget head (CEO → CFO via `staff_requisition_ceo_direct`, enforced in the database).
 - Approved `pending_wallet_operations` never return to waiting (`trg_guard_pwo_approved_not_reopened`); stage approvals filter on expected current status.
+- `submit_proxy_split_withdrawal` must always write a real uuid into `withdrawal_requests.client_request_id` (`gen_random_uuid()`, never `md5(...::text)`); a text expression makes every proxy split withdrawal fail with a uuid/text type error.
 - Background device checks send an explicit fresh token for the current account, coalesce overlapping calls and retry authentication once; failures preserve any known verification requirement without becoming page crashes.

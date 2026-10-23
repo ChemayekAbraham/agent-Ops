@@ -78,7 +78,7 @@ export function CFOOverviewDashboard({
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, position, positionError, liabilities, revenue, receivables, moneyFlow,
+    platformCash, position, positionError, liabilities, receivables,
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();

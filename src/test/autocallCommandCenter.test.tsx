@@ -8,6 +8,8 @@ vi.mock('@/hooks/useVoiceAutocall', () => ({
  useCanUseAutocall: () => state.allowed,
  useAutocallOverview: () => ({ isPending:false,error:null,refetch:vi.fn(),data:{today:'2026-10-22',system:{configured:true,channels:5,last_tick_at:new Date().toISOString(),balance_amount:100000,balance_currency:'UGX'},categories:['tenant','partner','agent','employee','general'].map(category=>({category,paused:false,active_campaigns:0,people_paused:0,today:{total:0,completed:0,no_answer:0,failed:0,live:0,queued:0,opted_out:0,talk_seconds:0,cost:0}}))} }),
  useSetCategoryPaused: () => ({isPending:false,mutateAsync:state.pause}),
+ useAutocallDemoConfig: () => ({isPending:false,error:new Error('Unavailable'),data:undefined}),
+ useAutocallDemoCall: () => ({isPending:false,mutateAsync:vi.fn()}),
  useAutocallCampaigns: () => ({isPending:false,error:null,refetch:vi.fn(),data:state.campaigns}),
  useAutocallScripts: () => ({isPending:false,error:null,refetch:vi.fn(),data:[{id:'script',name:'Greeting',version:1}]}),
  useSaveCampaign: () => ({isPending:false,mutateAsync:state.save}),

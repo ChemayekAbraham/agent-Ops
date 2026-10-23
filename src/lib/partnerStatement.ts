@@ -411,7 +411,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
         </table>
       </div>
     </section>`;
-    return `<article class="report-page">
+    return `<article class="report-page statement-theme">
   <div class="page-content">
     ${i === 0 ? `${header}${note}` : running('STATEMENT OF ACCOUNT &mdash; MASTER SCHEDULE', i + 1)}
     ${section}
@@ -423,7 +423,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   const entryPages = entryChunks.map((chunk, i) => {
     const pageNo = scheduleChunks.length + i + 1;
     const isLast = i === entryChunks.length - 1;
-    return `<article class="report-page">
+    return `<article class="report-page statement-theme">
   <div class="page-content">
     ${running('STATEMENT OF ACCOUNT &mdash; PORTFOLIO SCHEDULES', pageNo)}
     <div class="portfolio-schedule-list">
@@ -436,7 +436,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   });
 
   const panelPage = panelOnOwnPage
-    ? [`<article class="report-page">
+    ? [`<article class="report-page statement-theme">
   <div class="page-content">
     ${running('STATEMENT OF ACCOUNT &mdash; COMPLETION', total)}
     <div class="portfolio-schedule-list">${completion}</div>
@@ -467,7 +467,7 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
     ? (data.portfolios[0].code ?? portfolioId.slice(0, 8))
     : 'all-portfolios';
   const { renderReportPdfBlob } = await import('@/components/partner/renderAgreementPdf');
-  const blob = await renderReportPdfBlob(html);
+  const blob = await renderReportPdfBlob(html, { a4Sheets: true });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

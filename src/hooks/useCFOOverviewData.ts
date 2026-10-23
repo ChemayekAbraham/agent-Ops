@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { LEDGER_SCOPE, FINAL_WITHDRAWAL_STATUSES } from '@/lib/ledgerConstants';
 import { accountCodeOf, type PositionLine } from '@/components/cfo/balanceSheetClassification';
 
 const STALE_TIME = 300_000; // 5 minutes
@@ -467,6 +466,10 @@ export function useCFOOverviewData() {
         balanceCheck: d?.balance_check ?? null,
       };
     },
+    // The statement rebuilds the balance sheet from the whole ledger and currently runs longer than the 8 s limit
+    // for signed-in users. A timeout (57014) will time out again, so do not retry it: retries only held a
+    // database connection for another 16 s per visit. Other errors keep the app's usual two retries.
+    retry: (failureCount, error) => (error as { code?: string } | null)?.code !== '57014' && failureCount < 2,
     staleTime: STALE_TIME,
   });
 
@@ -482,158 +485,6 @@ export function useCFOOverviewData() {
       return {
         tenantFunds: totalWalletBalance,
         totalLiabilities: totalWalletBalance,
-      };
-    },
-    staleTime: STALE_TIME,
-  });
-
-  // Platform revenue from general_ledger (platform scope)
-  const revenue = useQuery({
-    queryKey: ['cfo-overview-revenue'],
-    queryFn: async () => {
-      const { data: entries } = await supabase
-        .from('general_ledger')
-        .select('amount, direction, category, created_at')
-        .eq('ledger_scope', LEDGER_SCOPE.PLATFORM)
-        .in('classification', ['production', 'legacy_real']);
-
-      let totalRevenue = 0;
-      let totalExpenses = 0;
-
-      ((entries as any[]) || []).forEach((e) => {
-        if (e.category === 'opening_balance') return;
-        const amt = Number(e.amount);
-        if (e.direction === 'cash_in') totalRevenue += amt;
-        else totalExpenses += amt;
-      });
-
-      // 7-day trend
-      const now = new Date();
-      const dailyRevenue: { date: string; amount: number }[] = [];
-
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 86400000);
-        const dateStr = d.toISOString().split('T')[0];
-        const dayTotal = ((entries as any[]) || [])
-          .filter(
-            (e) =>
-              e.direction === 'cash_in' &&
-              e.category !== 'opening_balance' &&
-              e.created_at.startsWith(dateStr)
-          )
-          .reduce((s: number, e: any) => s + Number(e.amount), 0);
-        dailyRevenue.push({ date: dateStr, amount: dayTotal });
-      }
-
-      return {
-        totalRevenue,
-        totalExpenses,
-        netProfit: totalRevenue - totalExpenses,
-        trend: dailyRevenue,
-      };
-    },
-    staleTime: STALE_TIME,
-  });
-
-  // Money flow: 30-day deposit/withdrawal trend
-  const moneyFlow = useQuery({
-    queryKey: ['cfo-overview-flow'],
-    queryFn: async () => {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
-
-      const { data: deposits } = await supabase
-        .from('deposit_requests')
-        .select('amount, created_at')
-        .eq('status', 'approved')
-        .gte('created_at', thirtyDaysAgo);
-
-      const { data: withdrawals } = await supabase
-        .from('withdrawal_requests')
-        .select('amount, created_at')
-        .in('status', FINAL_WITHDRAWAL_STATUSES)
-        .gte('created_at', thirtyDaysAgo);
-
-      let totalInflows = 0;
-      let totalOutflows = 0;
-      const dailyMap: Record<string, { inflow: number; outflow: number }> = {};
-
-      const now = new Date();
-      for (let i = 29; i >= 0; i--) {
-        const d = new Date(now.getTime() - i * 86400000);
-        dailyMap[d.toISOString().split('T')[0]] = { inflow: 0, outflow: 0 };
-      }
-
-      (deposits || []).forEach((d) => {
-        const amt = Number(d.amount);
-        totalInflows += amt;
-        const dateStr = d.created_at.split('T')[0];
-        if (dailyMap[dateStr]) dailyMap[dateStr].inflow += amt;
-      });
-
-      (withdrawals || []).forEach((w) => {
-        const amt = Number(w.amount);
-        totalOutflows += amt;
-        const dateStr = w.created_at.split('T')[0];
-        if (dailyMap[dateStr]) dailyMap[dateStr].outflow += amt;
-      });
-
-      const trend = Object.entries(dailyMap).map(([date, vals]) => ({
-        date,
-        inflow: vals.inflow,
-        outflow: vals.outflow,
-      }));
-
-      return { totalInflows, totalOutflows, netFlow: totalInflows - totalOutflows, trend };
-    },
-    staleTime: STALE_TIME,
-  });
-
-  // Cash Flow by Purpose from general_ledger
-  const cashFlowByPurpose = useQuery({
-    queryKey: ['cfo-overview-cashflow-purpose'],
-    queryFn: async () => {
-      const { data: entries } = await supabase
-        .from('general_ledger')
-        .select('amount, direction, category, created_at')
-        .eq('ledger_scope', LEDGER_SCOPE.PLATFORM)
-        .in('classification', ['production', 'legacy_real']);
-
-      const cashIn = { partnerFunding: 0, tenantRepayments: 0, other: 0 };
-      const cashOut = { rentPayments: 0, roiPayouts: 0, advances: 0, other: 0 };
-
-      ((entries as any[]) || []).forEach((e) => {
-        if (e.category === 'opening_balance') return;
-        const amt = Number(e.amount);
-        if (e.direction === 'cash_in') {
-          if (e.category.includes('partner') || e.category.includes('investor') || e.category.includes('supporter')) {
-            cashIn.partnerFunding += amt;
-          } else if (e.category.includes('repayment') || e.category.includes('tenant')) {
-            cashIn.tenantRepayments += amt;
-          } else {
-            cashIn.other += amt;
-          }
-        } else {
-          if (e.category.includes('rent') || e.category.includes('landlord')) {
-            cashOut.rentPayments += amt;
-          } else if (e.category.includes('roi') || e.category.includes('payout')) {
-            cashOut.roiPayouts += amt;
-          } else if (e.category.includes('advance')) {
-            cashOut.advances += amt;
-          } else {
-            cashOut.other += amt;
-          }
-        }
-      });
-
-      const totalIn = cashIn.partnerFunding + cashIn.tenantRepayments + cashIn.other;
-      const totalOut = cashOut.rentPayments + cashOut.roiPayouts + cashOut.advances + cashOut.other;
-
-      return {
-        cashIn,
-        cashOut,
-        totalIn,
-        totalOut,
-        netMovement: totalIn - totalOut,
       };
     },
     staleTime: STALE_TIME,
@@ -741,8 +592,9 @@ export function useCFOOverviewData() {
     staleTime: 60_000,
   });
 
-  const isLoading =
-    platformCash.isLoading || liabilities.isLoading || revenue.isLoading || moneyFlow.isLoading || receivables.isLoading || cashFlowByPurpose.isLoading;
+  // Only the queries the dashboard needs before it can draw hold the page. Revenue, 30-day money flow and
+  // cash-flow-by-purpose were removed: nothing displayed them, and two of them read the whole platform ledger.
+  const isLoading = platformCash.isLoading || liabilities.isLoading || receivables.isLoading;
 
   return {
     platformCash: platformCash.data,
@@ -750,10 +602,7 @@ export function useCFOOverviewData() {
     position: position.data,
     positionError: position.error,
     liabilities: liabilities.data,
-    revenue: revenue.data,
-    moneyFlow: moneyFlow.data,
     receivables: receivables.data,
-    cashFlowByPurpose: cashFlowByPurpose.data,
     todayCashFlow: todayCashFlow.data,
     integrityChecks: integrityChecks.data,
     pendingApprovals: pendingApprovals.data,

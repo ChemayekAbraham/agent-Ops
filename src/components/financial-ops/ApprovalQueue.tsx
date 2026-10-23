@@ -319,9 +319,9 @@ export function ApprovalQueue() {
         key={item.id}
         className={`rounded-xl border-2 overflow-hidden transition-colors ${
           isSelectedMissingCode
-            ? 'border-destructive/70 bg-gradient-to-r from-destructive/10 to-card shadow-sm shadow-destructive/10'
+            ? 'border-destructive/70 bg-card shadow-sm'
             : isCashOut
-            ? 'border-orange-500/40 bg-gradient-to-r from-orange-500/5 to-card'
+            ? 'border-warning/40 bg-card'
             : `border-l-4 ${urgencyBg[item.urgency]} border-t border-r border-b border-border/60 bg-card`
         }`}
       >
@@ -885,7 +885,7 @@ export function ApprovalQueue() {
                   const groupSelectedCount = groupItems.filter(i => selected.has(i.id)).length;
                   const allSelected = groupItems.length > 0 && groupItems.every(i => selected.has(i.id));
                   return (
-                    <div key={code} className="rounded-xl border-2 border-amber-500/50 overflow-hidden bg-gradient-to-b from-amber-500/[0.07] to-card">
+                    <div key={code} className="rounded-xl border border-warning/50 overflow-hidden bg-card">
                       {/* Group header: pickup code banner */}
                       <div className="px-3 py-2 bg-amber-500/15 border-b border-amber-500/30 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
