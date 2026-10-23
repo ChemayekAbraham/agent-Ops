@@ -225,6 +225,7 @@ const TrackedRedirect = lazy(() => import('./pages/TrackedRedirect'));
 const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
+const SupportPlanPublic = lazy(() => import('./pages/SupportPlanPublic'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
 const Unsubscribe = lazy(() => import('./pages/Unsubscribe'));
 const StopSms = lazy(() => import('./pages/StopSms'));
@@ -547,6 +548,7 @@ function AppRoutes() {
           <Route path="/ZQhyGb" element={<CampaignLinkRedirect fixedCode="ZQhyGb" />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
+          <Route path="/support/:planId" element={<SupportPlanPublic />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
           <Route path="/join/:code" element={<CampaignRedirect />} />
           <Route path="/c/:slug/:code" element={<CampaignRedirect />} />

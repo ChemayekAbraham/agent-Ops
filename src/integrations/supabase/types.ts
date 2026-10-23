@@ -3330,6 +3330,33 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_expected_day_plans_backup_20261023: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string | null
+          expected_ugx: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_fleet_assignments: {
         Row: {
           agent_id: string
@@ -45081,6 +45108,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_balance_correction_20261023: {
+        Row: {
+          amount_repaid: number | null
+          balance_after: number | null
+          balance_before: number | null
+          corrected_at: string
+          old_daily_repayment: number | null
+          old_initial_outstanding: number | null
+          old_total_repayment: number | null
+          registration_type: string | null
+          rent_request_id: string
+          tenant_name: string | null
+        }
+        Insert: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id: string
+          tenant_name?: string | null
+        }
+        Update: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id?: string
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       rent_day_settlements: {
         Row: {
           amount: number
@@ -81520,6 +81586,7 @@ export type Database = {
       }
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
+      public_support_plan: { Args: { p_plan_id: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
@@ -82190,6 +82257,7 @@ export type Database = {
         Returns: Json
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
+      redact_sms_codes: { Args: { p_message: string }; Returns: string }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }
