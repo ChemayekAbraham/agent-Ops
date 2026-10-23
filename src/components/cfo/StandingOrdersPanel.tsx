@@ -81,9 +81,12 @@ function describeFrequency(row: StandingOrderRow): string {
 export function StandingOrdersPanel() {
   const { data: orders, isLoading, isFetching, refetch } = useStandingOrders();
   const setEnabled = useSetStandingOrderEnabled();
-  const { role } = useAuth();
+  const { roles } = useAuth();
   const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
-  const canEditAmount = role === 'cfo' || role === 'super_admin';
+  // Any account holding CFO or super admin sees the control, whichever role is active in the switcher (CFO accounts
+  // also hold Supporter, which is the default active role). standing_order_set_amount still checks cfo/super_admin
+  // and staff MFA on every save, and the dialog stays preview-only outside local development.
+  const canEditAmount = roles.includes('cfo') || roles.includes('super_admin');
   const [filter, setFilter] = useState<FilterTab>('attention');
   const [search, setSearch] = useState('');
   const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});
