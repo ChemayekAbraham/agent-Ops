@@ -286,10 +286,6 @@ export default function AgentWeeklyPerformancePage() {
                       liveWeek
                       daysLeft={data.current_week.days_left}
                     />
-                    <p className="text-[10px] text-muted-foreground px-1">
-                      "Expected this week" assumes each tenant billed today is billed the same amount every day until Wednesday.
-                      Only the amount due counts for each tenant; paying more than due doesn't cover another tenant.
-                    </p>
                   </>
                 )}
               </section>
