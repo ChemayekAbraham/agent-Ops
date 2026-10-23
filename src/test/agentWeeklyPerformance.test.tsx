@@ -93,4 +93,24 @@ describe('Weekly Performance page', () => {
     render(<QueryClientProvider client={client}><MemoryRouter><AgentWeeklyPerformancePage /></MemoryRouter></QueryClientProvider>);
     await waitFor(() => expect(screen.getByText('Could not load your performance')).toBeTruthy());
   });
+
+  // The header arrow must land the agent on their dashboard, not wherever the
+  // browser happened to come from (a shared phone line or a deep link).
+  it('takes the agent back to the agent dashboard', async () => {
+    mocks.rpc.mockResolvedValue({ data: fixture, error: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/agent/performance']}>
+          <Routes>
+            <Route path="/agent/performance" element={<AgentWeeklyPerformancePage />} />
+            <Route path="/dashboard/agent" element={<p>AGENT DASHBOARD HERE</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByText('You cannot post new Rent Plans')).toBeTruthy());
+    fireEvent.click(screen.getByLabelText('Back to dashboard'));
+    await waitFor(() => expect(screen.getByText('AGENT DASHBOARD HERE')).toBeTruthy());
+  });
 });
