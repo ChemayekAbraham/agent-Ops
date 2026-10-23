@@ -398,43 +398,76 @@ export function FunderNewReviewDialog({
 
 export default FunderNewSelectionBar;
 
+/** Digits-only international form (256…) for wa.me, or null when unusable. */
+export function toWhatsAppDigits(phone?: string | null): string | null {
+  if (!phone) return null;
+  const e164 = normalizeE164OrNull(phone);
+  return e164 ? e164.replace(/\D/g, '') : null;
+}
+
 function ContactRow({ label, name, phone }: { label: string; name?: string | null; phone?: string | null }) {
+  const digits = toWhatsAppDigits(phone);
+  const copy = async () => {
+    if (!phone) return;
+    try {
+      await navigator.clipboard.writeText(digits ? `+${digits}` : phone);
+      toast.success(`${label} number copied`);
+    } catch {
+      toast.error('Could not copy the number');
+    }
+  };
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
-      <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="break-words text-xs sm:text-sm leading-snug text-foreground">
-          {name ? `${name} · ` : ''}
-          {phone ?? 'Number not shared'}
-        </p>
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="break-words text-sm font-medium text-foreground">{name || 'Name not shared'}</p>
+        {phone ? (
+          <button
+            type="button"
+            onClick={copy}
+            aria-label={`Copy ${label} number`}
+            className="mt-0.5 inline-flex min-h-[44px] items-center gap-1.5 break-all text-left text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            {digits ? `+${digits}` : phone}
+            <Copy className="h-3.5 w-3.5 shrink-0" />
+          </button>
+        ) : (
+          <p className="mt-0.5 text-sm text-muted-foreground">Not available</p>
+        )}
       </div>
-      {phone && (
+      {digits && (
         <a
-          href={`tel:${phone.replace(/\s/g, '')}`}
-          aria-label={`Call ${label}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+          href={`https://wa.me/${digits}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`WhatsApp ${label}`}
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-success px-3.5 text-sm font-semibold text-success-foreground shadow-sm hover:opacity-90"
         >
-          <Phone className="h-4 w-4" />
+          <MessageCircle className="h-4 w-4" />
+          WhatsApp
         </a>
       )}
     </div>
   );
 }
 
-function HomeContacts({ item }: { item: FunderNewSelectionItem }) {
+function HomeContacts({ item, showTitle }: { item: FunderNewSelectionItem; showTitle: boolean }) {
   const mapUrl =
     item.lat != null && item.lng != null
       ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.place)}`;
   return (
-    <div className="mt-2.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 divide-y divide-border/50">
-      <ContactRow label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
-      <ContactRow label={item.category === 'empty' ? 'Listing agent' : 'Proxy agent'} name={item.agentName} phone={item.agentPhone} />
-      <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
-      <div className="pt-2 pb-0.5">
-        <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 rounded-lg px-2 text-xs text-info hover:text-info">
-          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center whitespace-nowrap">
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-destructive" />
+    <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-1">
+      {showTitle && <p className="pt-2.5 text-sm font-semibold text-foreground break-words">{item.title}</p>}
+      <div className="divide-y divide-border/50">
+        <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
+        <ContactRow label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
+        <ContactRow label="Agent" name={item.agentName} phone={item.agentPhone} />
+      </div>
+      <div className="pb-3 pt-1">
+        <Button asChild variant="outline" className="h-11 w-full gap-1.5 rounded-xl text-sm">
+          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center">
+            <MapPin className="h-4 w-4 shrink-0 text-destructive" />
             <span className="truncate">{item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}</span>
           </a>
         </Button>
