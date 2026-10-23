@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check, ChevronDown, ImagePlus, Loader2 } from 'lucide-react';
+import { SmartphoneProductImage } from '@/components/merchandise/SmartphoneProductImage';
 
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -54,6 +55,11 @@ export interface SmartphoneCatalogEntry {
   supplier_name?: string | null;
   supplier_phone?: string | null;
   created_at?: string | null;
+  /** Product photo (storage URL) shown on the agent's phone card. */
+  image_url?: string | null;
+  /** Product page copy shown to agents. */
+  description?: string | null;
+  highlights?: string[] | null;
 }
 
 /**
@@ -111,7 +117,7 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
     const { data, error } = await db
       .from('smartphone_catalog')
-      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
+      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at, image_url, description, highlights')
       .order('os_type', { ascending: true })
       .order('brand', { ascending: true })
       .order('model_name', { ascending: true });
@@ -379,6 +385,8 @@ export function SmartphoneCatalogDialog() {
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editHighlights, setEditHighlights] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
   const [supplier, setSupplier] = useState<SupplierChoice | null>(null);
   const [editSupplier, setEditSupplier] = useState<SupplierChoice | null>(null);
@@ -506,6 +514,11 @@ export function SmartphoneCatalogDialog() {
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
+          description: editDescription.trim() || null,
+          highlights: (() => {
+            const lines = editHighlights.split('\n').map((l) => l.trim()).filter(Boolean);
+            return lines.length > 0 ? lines : null;
+          })(),
           supplier_id: editSupplier?.id ?? null,
           supplier_name: editSupplier?.name ?? null,
           supplier_phone: editSupplier?.phone ?? null,
@@ -555,6 +568,42 @@ export function SmartphoneCatalogDialog() {
     onError: (e: any) => toast.error(e.message || 'Could not remove phone'),
   });
 
+  // Product photo for the agent's phone card. Stored in the private 'merchandise'
+  // bucket under smartphones/<model id>/ and saved on the row straight away, so it
+  // does not depend on the rest of the edit form being saved.
+  const uploadPhoto = useMutation({
+    mutationFn: async ({ entry, file }: { entry: SmartphoneCatalogEntry; file: File }) => {
+      if (!file.type.startsWith('image/')) throw new Error('Choose an image file (JPG, PNG or WebP)');
+      if (file.size > 5 * 1024 * 1024) throw new Error('The photo must be 5 MB or smaller');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `smartphones/${entry.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('merchandise')
+        .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('merchandise').getPublicUrl(path);
+      const { error } = await db.from('smartphone_catalog').update({ image_url: pub.publicUrl }).eq('id', entry.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Photo saved');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not upload the photo'),
+  });
+
+  const removePhoto = useMutation({
+    mutationFn: async (entry: SmartphoneCatalogEntry) => {
+      const { error } = await db.from('smartphone_catalog').update({ image_url: null }).eq('id', entry.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Photo removed');
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not remove the photo'),
+  });
+
   const startEdit = (e: SmartphoneCatalogEntry) => {
     setEditingId(e.id);
     setEditBrand(e.brand);
@@ -563,6 +612,8 @@ export function SmartphoneCatalogDialog() {
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
     setEditMoreSpecifications(e.more_specifications ?? '');
+    setEditDescription(e.description ?? '');
+    setEditHighlights((e.highlights ?? []).join('\n'));
   };
 
 
@@ -806,6 +857,57 @@ export function SmartphoneCatalogDialog() {
 
                 return editingId === e.id ? (
                   <div key={e.id} className="space-y-2 rounded-lg border p-3 bg-card shadow-xs">
+                    <div className="flex items-center gap-3 rounded-md border border-dashed border-border p-2">
+                      <SmartphoneProductImage
+                        imageUrl={e.image_url}
+                        brand={e.brand}
+                        model={e.model_name}
+                        ios={e.os_type === 'ios'}
+                        className="h-20 w-20 shrink-0 rounded-xl"
+                      />
+                      <div className="min-w-0 space-y-1.5">
+                        <p className="text-xs font-medium">Product photo</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Shown on the agent&apos;s phone card. JPG, PNG or WebP, up to 5 MB. Saved as soon as you pick it.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <label
+                            className={`inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-muted ${
+                              uploadPhoto.isPending ? 'pointer-events-none opacity-60' : ''
+                            }`}
+                          >
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="sr-only"
+                              disabled={uploadPhoto.isPending}
+                              onChange={(ev) => {
+                                const file = ev.target.files?.[0];
+                                ev.target.value = '';
+                                if (file) uploadPhoto.mutate({ entry: e, file });
+                              }}
+                            />
+                            {uploadPhoto.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ImagePlus className="h-3.5 w-3.5" />
+                            )}
+                            {e.image_url ? 'Replace photo' : 'Upload photo'}
+                          </label>
+                          {e.image_url && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 text-xs text-destructive hover:text-destructive"
+                              disabled={removePhoto.isPending}
+                              onClick={() => removePhoto.mutate(e)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Input value={editBrand} onChange={(ev) => setEditBrand(ev.target.value)} placeholder="Brand" />
                       <Input value={editModel} onChange={(ev) => setEditModel(ev.target.value)} placeholder="Model (optional)" />
@@ -872,6 +974,26 @@ export function SmartphoneCatalogDialog() {
                       rows={2}
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
+                    <div className="space-y-1">
+                      <Label className="text-xs">Product description (shown to agents)</Label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(ev) => setEditDescription(ev.target.value)}
+                        placeholder="A short paragraph about this phone"
+                        rows={3}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Key features, one per line</Label>
+                      <textarea
+                        value={editHighlights}
+                        onChange={(ev) => setEditHighlights(ev.target.value)}
+                        placeholder={'6.1-inch display\n5,000 mAh battery\n50 MP camera'}
+                        rows={4}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                      />
+                    </div>
                     <div className="flex items-center justify-end gap-1.5">
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Cancel
@@ -898,6 +1020,15 @@ export function SmartphoneCatalogDialog() {
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <SmartphoneProductImage
+                          imageUrl={e.image_url}
+                          brand={e.brand}
+                          model={e.model_name}
+                          ios={e.os_type === 'ios'}
+                          size="sm"
+                          className="h-11 w-11 shrink-0 rounded-lg"
+                        />
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{labelOf(e)}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -908,12 +1039,14 @@ export function SmartphoneCatalogDialog() {
                             : 'No down payment set'}
                           {' · added '}
                           {fmtDate(e.created_at)}
+                          {!e.image_url && ' · no photo yet'}
                         </p>
                         {(e.specifications || e.more_specifications) && (
                           <p className="truncate text-xs text-muted-foreground mt-0.5">
                             {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
                           </p>
                         )}
+                      </div>
                       </div>
                       <div
                         className="flex shrink-0 items-center gap-1.5"
