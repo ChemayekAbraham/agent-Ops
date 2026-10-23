@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { cfoReportRetry } from './cfoReportRetry';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -262,7 +263,7 @@ export interface PayablesForecastAccuracy {
  * UGX 0 instead of the real figure. The card must never fall back to zero, so
  * the freshness of this query is part of its correctness.
  */
-export function usePayablesTotal() {
+export function usePayablesTotal(safeRetries = false) {
   return useQuery({
     queryKey: ['payables-total'],
     queryFn: async (): Promise<PayablesTotal> => {
@@ -274,15 +275,16 @@ export function usePayablesTotal() {
     staleTime: STALE_TIME,
     refetchOnMount: 'always',
     networkMode: 'always',
-    retry: 2,
+    retry: safeRetries ? cfoReportRetry : 2,
   });
 }
 
 
 /** Category → product → item drill-down, with the tie-out validation block. */
-export function usePayablesBreakdown(enabled = true) {
+export function usePayablesBreakdown(enabled = true, safeRetries = false) {
   return useQuery({
     queryKey: ['payables-breakdown'],
+    ...(safeRetries ? { retry: cfoReportRetry } : {}),
     enabled,
     queryFn: async (): Promise<PayablesBreakdown> => {
       const { data, error } = await rpc('get_payables_breakdown');
@@ -331,9 +333,10 @@ export interface PayablesContractPeriod {
 }
 
 /** Contractual (ideal) schedule from due dates of every open obligation; overdue lands in period 0. */
-export function usePayablesContractSchedule(granularity: PayablesGranularity, periods: number, enabled = true) {
+export function usePayablesContractSchedule(granularity: PayablesGranularity, periods: number, enabled = true, safeRetries = false) {
   return useQuery({
     queryKey: ['payables-contract-schedule', granularity, periods],
+    ...(safeRetries ? { retry: cfoReportRetry } : {}),
     enabled,
     queryFn: async (): Promise<PayablesContractPeriod[]> => {
       const { data, error } = await rpc('get_payables_contract_schedule', {

@@ -50,7 +50,9 @@ Deno.test('menu renders GetDigits with callback and a no-input redirect', () => 
 Deno.test('say steps chain into the hangup and text is XML-escaped', () => {
   const r = renderFrom('thanks', ctx());
   assertStringIncludes(r.xml, 'Thank you &amp; goodbye &lt;now&gt;.');
-  assert(r.xml.endsWith('<Say voice="woman" playBeep="false">Bye.</Say><Hangup/></Response>'));
+  // No <Hangup/>: AT drops a reply containing it, and the goodbye is never heard.
+  assert(r.xml.endsWith('<Say voice="woman" playBeep="false">Bye.</Say></Response>'));
+  assert(!r.xml.includes('<Hangup'));
   assertEquals(r.ends, true);
 });
 
@@ -88,11 +90,19 @@ Deno.test('unknown placeholders are dropped, not spoken', () => {
   assertEquals(fillVariables('Hi {first_name} {nope}!', { first_name: 'Ann' }), 'Hi Ann !');
 });
 
-Deno.test('a say loop with no exit hangs up instead of spinning', () => {
+Deno.test('a say loop with no exit stops chaining instead of spinning', () => {
   const loop: Script = { start: 'a', steps: { a: { type: 'say', say: 'x', next: 'b' }, b: { type: 'say', say: 'y', next: 'a' } } };
   const r = renderFrom('a', ctx({ script: loop }));
-  assert(r.xml.endsWith('<Hangup/></Response>'));
+  assert(!r.xml.includes('<Hangup'));
   assertEquals(r.ends, true);
+});
+
+Deno.test('every key on the seeded menus ends with spoken words, never <Hangup/>', () => {
+  for (const [digit, opt] of Object.entries(script.steps.main.options ?? {})) {
+    const r = renderFrom(opt.next, ctx());
+    assert(!r.xml.includes('<Hangup'), `key ${digit} still hangs up`);
+    assert(r.xml.includes('<Say'), `key ${digit} says nothing`);
+  }
 });
 
 Deno.test('terminal status', () => {

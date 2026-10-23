@@ -39,6 +39,7 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  */
 export type TenantOpsShellOnlyView =
   | 'home'
+  | 'welile-homes'
   | 'phone-duplicates'
   | 'calling-hub'
   | 'calling-center'
@@ -79,6 +80,7 @@ export interface TenantOpsNavItem {
 
 export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
   { key: 'home', label: 'Home', icon: LayoutDashboard, view: 'home', keywords: ['overview', 'summary', 'landing', 'start'] },
+  { key: 'welile-homes', label: 'Welile Homes', icon: Home, view: 'welile-homes', keywords: ['agent managed', 'subscriptions'] },
   { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
   { key: 'action.notifications-analytics', label: 'Notifications & Devices', icon: Smartphone, keywords: ['smartphone', 'notifications', 'sms', 'push', 'analytics', 'devices'] },
   {
@@ -142,7 +144,6 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     children: [
       { key: 'reports-hub', label: 'Reports & Exports', icon: Download, keywords: ['extract', 'csv', 'pdf', 'date range'] },
       { key: 'action.word-report', label: 'Word Report', icon: FileText, keywords: ['docx', 'operations report'] },
-      { key: 'action.welile-homes', label: 'Welile Homes', icon: Home, keywords: ['agent managed', 'subscriptions'] },
       { key: 'action.locations', label: 'Locations', icon: MapPin, keywords: ['location management', 'districts'] },
     ],
   },
@@ -214,6 +215,7 @@ export function searchTenantOpsNav(query: string, userRoles?: readonly string[] 
 
 /** Label for a destination key — used by the shell's in-view heading. */
 export function tenantOpsLabelFor(key: string): string {
+  if (key === 'welile-homes' || key === 'action.welile-homes') return 'Welile Homes';
   const hit = TENANT_OPS_SEARCH_INDEX.find((e) => e.view === key);
   return hit?.label || '';
 }
@@ -235,6 +237,7 @@ export const TENANT_OPS_VIEW_KEYS = new Set<string>(TENANT_OPS_SEARCH_INDEX.map(
 export const TENANT_OPS_TRANSIENT_VIEW_KEYS = new Set<string>([
   'tenant-detail',
   'tenant-location-browser',
+  'action.welile-homes',
   // Relocated to other dashboards (no sidebar entry here any more) but still
   // reachable from the Extract Center's "open the view" links inside Classic.
   'history',

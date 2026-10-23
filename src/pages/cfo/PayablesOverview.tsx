@@ -17,11 +17,11 @@ const compact = (value: number) => Math.abs(value) >= 1e9 ? `${(value / 1e9).toF
 export default function PayablesOverview() {
   const [search, setSearch] = useState('');
   const [params, setParams] = useSearchParams();
-  const total = usePayablesTotal();
-  const breakdown = usePayablesBreakdown();
-  const forecast = usePayablesPredictiveForecast('day', 7);
-  const cats = breakdown.data?.categories ?? [];
   const catKey = params.get('cat') ?? 'overview';
+  const total = usePayablesTotal(true);
+  const breakdown = usePayablesBreakdown(true, true);
+  const forecast = usePayablesPredictiveForecast('day', 7, catKey === 'overview');
+  const cats = breakdown.data?.categories ?? [];
   const cat = cats.find((c) => c.key === catKey);
   const product = cat?.products.find((p) => p.key === params.get('sub')) ?? cat?.products[0];
   const go = (key: string, sub?: string) => {
@@ -39,7 +39,7 @@ export default function PayablesOverview() {
   const complete = !!breakdown.data && cats.every((c) => c.products.every((p) => p.items.length === p.item_count));
   const items = [...allItems].sort((a, b) => b.amount - a.amount).slice(0, 6);
   const refreshing = total.isFetching || breakdown.isFetching || forecast.isFetching;
-  const refresh = () => { void total.refetch(); void breakdown.refetch(); void forecast.refetch(); };
+  const refresh = () => { void total.refetch(); void breakdown.refetch(); if (catKey === 'overview') void forecast.refetch(); };
 
   return (
     <main className="receivables-workspace min-h-screen bg-background">
@@ -65,7 +65,7 @@ export default function PayablesOverview() {
           </header>
           <div className="flex flex-col gap-3 min-w-0">
             {validation && <p className={`flex items-center gap-1.5 text-[10px] ${validation.ties_out ? 'text-success' : 'text-destructive'}`}>{validation.ties_out ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}{validation.ties_out ? 'Categories tie out exactly to the authoritative total.' : `Category total differs by ${formatUGX(validation.difference)}. No figure has been adjusted to force a match.`}</p>}
-            {catKey === 'daily' ? <DailyForecast /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
+            {catKey === 'daily' ? <DailyForecast /> : catKey !== 'overview' && breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : catKey !== 'overview' && (breakdown.isError || total.isError) ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
               {cat.products.length ? <><div role="tablist" aria-label="Payable products" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{cat.products.map((p) => <Button key={p.key} variant="ghost" size="sm" role="tab" aria-selected={product?.key === p.key} onClick={() => go(cat.key, p.key)} className={`rounded-md whitespace-normal text-xs ${product?.key === p.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>{product && <ProductDetail product={product} />}</> : <Panel><p className="text-xs text-muted-foreground">No open payables in this category.</p></Panel>}
             </> : <>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
@@ -76,6 +76,8 @@ export default function PayablesOverview() {
                 <Metric label="Due Today" value={money(total.data?.due_today)} note="Obligations due today" icon={CalendarDays} tone="warning" />
                 <Metric label="Accounts Payable" value={total.data?.item_count.toLocaleString() ?? 'Unavailable'} note="Open payable items" icon={Users} tone="primary" />
               </div>
+              {breakdown.isLoading && <p role="status" className="text-xs text-muted-foreground">Loading payable details…</p>}
+              {(breakdown.isError || total.isError) && <p role="alert" className="text-xs text-destructive">Could not load payables. Please refresh.</p>}
               <div className="grid gap-3 xl:grid-cols-[1.4fr_1.2fr_1fr] [&>*]:min-w-0">
                 <Panel title="Payables by Category">
                   <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-1 text-left font-medium">Category</th><th className="p-1 text-right font-medium">Items</th><th className="p-1 text-right font-medium">Outstanding (UGX)</th><th className="p-1 text-right font-medium">Share</th></tr></thead><tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c, i) => {
@@ -138,7 +140,7 @@ function DailyForecast() {
   const period = FORECAST_PERIODS.find((p) => p.id === pid) ?? FORECAST_PERIODS[0];
   const daily = period.gran === 'day';
   const q = usePayablesPredictiveForecast(period.gran, period.n);
-  const contractQ = usePayablesContractSchedule(period.gran, period.n);
+  const contractQ = usePayablesContractSchedule(period.gran, period.n, true, true);
   const history = q.data?.history ?? [];
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const overall = avg(history.map((x) => x.actual_amount));
