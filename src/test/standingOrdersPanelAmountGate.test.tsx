@@ -21,6 +21,7 @@ const order: StandingOrderRow = {
 vi.mock('@/hooks/useStandingOrders', () => ({
   useStandingOrders: () => ({ data: [order], isLoading: false, isFetching: false, refetch: vi.fn() }),
   useSetStandingOrderEnabled: () => ({ isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() }),
+  useDeleteStandingOrder: () => ({ isPending: false, mutate: vi.fn(), mutateAsync: vi.fn() }),
 }));
 
 import { StandingOrdersPanel } from '@/components/cfo/StandingOrdersPanel';
