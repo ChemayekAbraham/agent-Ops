@@ -64,13 +64,13 @@ export function PerformanceCalendar({ weeks, today, names }: {
         <CalendarDays className="h-5 w-5 text-primary" />
         <h2 className="text-base font-bold">Collection calendar</h2>
       </div>
-      <div className="rounded-2xl border border-border/60 bg-card p-3 space-y-2">
-        <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_2.25rem] gap-1.5 text-center text-[10px] font-semibold uppercase text-muted-foreground">
+      <div className="rounded-2xl border border-border/60 bg-card p-2 sm:p-3 space-y-2 w-full max-w-xl mx-auto overflow-hidden">
+        <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_1.5rem] sm:grid-cols-[repeat(7,minmax(0,1fr))_2.25rem] gap-1 sm:gap-1.5 text-center text-[9px] sm:text-[10px] font-semibold uppercase text-muted-foreground">
           {DOW.map((d) => <span key={d}>{d}</span>)}<span>Week</span>
         </div>
         {rows.map((r) => (
           <div key={r.start} className="space-y-1">
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-y-1">
               {shortDay(r.start)} – {shortDay(r.days[6])}
               {r.week?.is_judged && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">Decides this week</span>}
               {r.week && r.week.book !== 'none' && (
@@ -79,16 +79,16 @@ export function PerformanceCalendar({ weeks, today, names }: {
                 </span>
               )}
             </p>
-            <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_2.25rem] gap-1.5">
+            <div className="grid grid-cols-[repeat(7,minmax(0,1fr))_1.5rem] sm:grid-cols-[repeat(7,minmax(0,1fr))_2.25rem] gap-1 sm:gap-1.5">
               {r.days.map((d) => {
                 const c = cells?.[d]; const t = toneOf(c, d, today);
                 const pct = c && c.expected > 0 ? Math.min(999, Math.round((c.collected / c.expected) * 100)) : null;
                 return isLoading ? <Skeleton key={d} className="aspect-square rounded-xl" /> : (
                   <button key={d} type="button" disabled={t === 'future'} onClick={() => setOpen(d)}
-                    className={cn('relative aspect-square rounded-xl border flex flex-col items-center justify-center transition-transform hover:scale-105 active:scale-95 disabled:hover:scale-100',
+                    className={cn('relative min-w-0 aspect-square rounded-lg sm:rounded-xl border flex flex-col items-center justify-center transition-transform hover:scale-105 active:scale-95 disabled:hover:scale-100',
                       toneCls[t], d === today && 'ring-2 ring-primary ring-offset-1 ring-offset-background')}>
-                    <span className="text-sm font-bold leading-none">{Number(d.slice(8))}</span>
-                    {pct !== null && t !== 'future' && <span className="mt-0.5 text-[9px] font-semibold opacity-80">{pct}%</span>}
+                    <span className="text-xs sm:text-sm font-bold leading-none">{Number(d.slice(8))}</span>
+                    {pct !== null && t !== 'future' && <span className="mt-0.5 text-[8px] sm:text-[9px] font-semibold leading-none opacity-80">{pct}%</span>}
                     {t === 'missed' && <XCircle className="absolute right-0.5 top-0.5 h-2.5 w-2.5" />}
                     {t === 'over' && <CheckCircle2 className="absolute right-0.5 top-0.5 h-2.5 w-2.5" />}
                   </button>
@@ -96,7 +96,7 @@ export function PerformanceCalendar({ weeks, today, names }: {
               })}
               <div className={cn('flex items-center justify-center rounded-xl',
                 !r.week || r.week.book === 'none' ? 'text-muted-foreground' : r.week.passes ? 'text-success' : 'text-destructive')}>
-                {r.week && r.week.book !== 'none' ? (r.week.passes ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />) : <span className="text-[10px]">—</span>}
+                {r.week && r.week.book !== 'none' ? (r.week.passes ? <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" /> : <XCircle className="h-4 w-4 sm:h-5 sm:w-5" />) : <span className="text-[10px]">—</span>}
               </div>
             </div>
           </div>
