@@ -236,7 +236,7 @@ export default function AgentWeeklyPerformancePage() {
                 </div>
               </div>
               {!canPost && judged?.reason && (
-                <p className="relative mt-3 rounded-2xl bg-white/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
+                <p className="relative mt-3 rounded-2xl bg-primary-foreground/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
               )}
               <div className="relative mt-3 flex items-center gap-2 text-[12px] opacity-95">
                 <CalendarClock className="h-4 w-4 shrink-0" />
