@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useMyWeeklyPerformance } from '@/hooks/useMyWeeklyPerformance';
+import { PerformanceCalendar } from '@/components/agent/PerformanceCalendar';
 import {
   currentWeekProgress, judgedWeekProgress, nextResultDay, shortDay,
   type GroupProgress, type PerformancePlan, type PerformanceWeek,
@@ -333,14 +334,13 @@ export default function AgentWeeklyPerformancePage() {
               </section>
             )}
 
-            {/* History */}
+            {/* History as a calendar */}
             {data.weeks.length > 0 && (
-              <section className="space-y-3">
-                <h2 className="text-base font-bold">Past weeks</h2>
-                <div className="space-y-2">
-                  {data.weeks.map((w) => <HistoryRow key={w.week_start} w={w} />)}
-                </div>
-              </section>
+              <PerformanceCalendar
+                weeks={data.weeks}
+                today={data.current_week.today}
+                names={Object.fromEntries(data.plans.filter((p) => p.tenant_id).map((p) => [p.tenant_id as string, { name: p.tenant_name, phone: p.tenant_phone }]))}
+              />
             )}
 
             {/* How it works */}
