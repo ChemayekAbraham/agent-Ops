@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useMyWeeklyPerformance } from '@/hooks/useMyWeeklyPerformance';
+import { PerformanceCalendar } from '@/components/agent/PerformanceCalendar';
 import {
   currentWeekProgress, judgedWeekProgress, nextResultDay, shortDay,
   type GroupProgress, type PerformancePlan, type PerformanceWeek,
@@ -215,12 +216,12 @@ export default function AgentWeeklyPerformancePage() {
             {/* Posting status hero */}
             <section
               className={cn(
-                'rounded-3xl p-5 text-white shadow-lg relative overflow-hidden',
-                canPost ? 'bg-gradient-to-br from-emerald-500 to-emerald-700' : 'bg-gradient-to-br from-rose-500 to-rose-700',
+                'rounded-3xl p-5 text-primary-foreground shadow-lg relative overflow-hidden bg-primary',
+                !canPost && 'ring-2 ring-primary-foreground/25',
               )}
             >
-              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10" />
-              <div className="absolute -right-2 bottom-0 h-16 w-16 rounded-full bg-white/10" />
+              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary-foreground/10" />
+              <div className="absolute -right-2 bottom-0 h-16 w-16 rounded-full bg-primary-foreground/10" />
               <div className="relative flex items-start gap-3">
                 {canPost ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
                 <div className="min-w-0">
@@ -236,7 +237,7 @@ export default function AgentWeeklyPerformancePage() {
                 </div>
               </div>
               {!canPost && judged?.reason && (
-                <p className="relative mt-3 rounded-2xl bg-white/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
+                <p className="relative mt-3 rounded-2xl bg-primary-foreground/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
               )}
               <div className="relative mt-3 flex items-center gap-2 text-[12px] opacity-95">
                 <CalendarClock className="h-4 w-4 shrink-0" />
@@ -333,14 +334,13 @@ export default function AgentWeeklyPerformancePage() {
               </section>
             )}
 
-            {/* History */}
+            {/* History as a calendar */}
             {data.weeks.length > 0 && (
-              <section className="space-y-3">
-                <h2 className="text-base font-bold">Past weeks</h2>
-                <div className="space-y-2">
-                  {data.weeks.map((w) => <HistoryRow key={w.week_start} w={w} />)}
-                </div>
-              </section>
+              <PerformanceCalendar
+                weeks={data.weeks}
+                today={data.current_week.today}
+                names={Object.fromEntries(data.plans.filter((p) => p.tenant_id).map((p) => [p.tenant_id as string, { name: p.tenant_name, phone: p.tenant_phone }]))}
+              />
             )}
 
             {/* How it works */}
