@@ -45081,6 +45081,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_balance_correction_20261023: {
+        Row: {
+          amount_repaid: number | null
+          balance_after: number | null
+          balance_before: number | null
+          corrected_at: string
+          old_daily_repayment: number | null
+          old_initial_outstanding: number | null
+          old_total_repayment: number | null
+          registration_type: string | null
+          rent_request_id: string
+          tenant_name: string | null
+        }
+        Insert: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id: string
+          tenant_name?: string | null
+        }
+        Update: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id?: string
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       rent_day_settlements: {
         Row: {
           amount: number
