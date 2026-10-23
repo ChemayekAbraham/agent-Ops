@@ -1,5 +1,6 @@
 # Tasks
-- [ ] Final standing-order safety review — isolated authorization/MFA and concurrent payer tests; evidence and separate production approval requirements. No production changes.
+- [x] Final standing-order isolated safety review — 27 SQL assertions, 18 controls/integration/schedule tests and 9 review groups (45 MFA/authorization cases plus concurrent payer/editor checks) pass; all guards pass; evidence and production requirements in development report. No production changes.
+- [ ] Standing-order hosted Auth/MFA verification — blocked: no isolated hosted test stack with real signed sessions/MFA available; live MFA is shadow mode. Production activation requires separate approval and MFA decision.
 - [x] Standing order amount edits developed locally: 27 PostgreSQL assertions, 5 control tests, 2 local UI/database readback tests and 11 schedule regressions pass; guards and preview compilation pass; payment pathways unchanged. Report: docs/standing-order-amount-development-report.md.
 - [ ] Standing order amount edit production activation — blocked pending explicit user approval; SQL unapplied and production-connected preview controls disabled.
 - [x] CFO Home / Cash Position / Payables: independent loading, shared authoritative totals, scoped retries and preserved reconciliation/detail links; 30 tests and all guards pass, preview build OK. No database changes or deployment. Authenticated production timing verification unavailable with externally managed authentication.
