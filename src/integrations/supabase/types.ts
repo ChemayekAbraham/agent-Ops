@@ -57807,6 +57807,7 @@ export type Database = {
           last_render_at: string | null
           max_attempts: number
           next_attempt_at: string
+          notified_at: string | null
           outcome: string | null
           person_id: string | null
           person_name: string | null
@@ -57849,6 +57850,7 @@ export type Database = {
           last_render_at?: string | null
           max_attempts?: number
           next_attempt_at?: string
+          notified_at?: string | null
           outcome?: string | null
           person_id?: string | null
           person_name?: string | null
@@ -57891,6 +57893,7 @@ export type Database = {
           last_render_at?: string | null
           max_attempts?: number
           next_attempt_at?: string
+          notified_at?: string | null
           outcome?: string | null
           person_id?: string | null
           person_name?: string | null
@@ -85734,6 +85737,7 @@ export type Database = {
           last_render_at: string | null
           max_attempts: number
           next_attempt_at: string
+          notified_at: string | null
           outcome: string | null
           person_id: string | null
           person_name: string | null
