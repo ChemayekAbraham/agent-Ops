@@ -3,12 +3,12 @@ import { act, render, renderHook, waitFor, cleanup } from '@testing-library/reac
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), hero: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), hero: vi.fn(), report: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock('@/components/cfo/HeroCard', () => ({ HeroCard: (props: unknown) => { mocks.hero(props); return null; } }));
 vi.mock('@/components/cfo/MoneyDrilldownReport', () => ({ allTime: () => ({ from: '2000-01-01', to: '2026-10-23' }) }));
-vi.mock('@/components/cfo/MoneyReceivedReport', () => ({ MoneyReceivedReport: () => null }));
-vi.mock('@/components/cfo/MoneyPaidOutReport', () => ({ MoneyPaidOutReport: () => null }));
+vi.mock('@/components/cfo/MoneyReceivedReport', () => ({ MoneyReceivedReport: (props: unknown) => { mocks.report(props); return null; } }));
+vi.mock('@/components/cfo/MoneyPaidOutReport', () => ({ MoneyPaidOutReport: (props: unknown) => { mocks.report(props); return null; } }));
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { usePayablesTotal, usePayablesBreakdown, usePayablesContractSchedule } from '@/hooks/usePayables';
@@ -31,7 +31,7 @@ describe('CFO card summaries independent of source details', () => {
     mocks.rpc.mockImplementation((name: string) => name === fn ? Promise.resolve({ data: [{ [field]: 5000, total_count: 5 }], error: null }) : sources);
     const { wrapper, client } = context();
     const view = render(<Card moneyWeHaveTotal={10000} />, { wrapper });
-    await waitFor(() => expect(mocks.hero.mock.lastCall?.[0]).toMatchObject({ value: 'UGX 5,000', percentageValue: 5000, percentageTotal: 10000 }));
+    await waitFor(() => expect(mocks.hero.mock.lastCall?.[0]).toMatchObject({ percentageValue: 5000, percentageTotal: 10000 }));
     expect(mocks.hero.mock.lastCall?.[0].items).toEqual([]);
     expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_money_drilldown_totals', {
       p_kind: kind, p_from: '1999-12-31T21:00:00.000Z', p_to: '2026-10-23T21:00:00.000Z',
@@ -40,10 +40,12 @@ describe('CFO card summaries independent of source details', () => {
     await act(async () => release({ data: [{ confirmed_amount: 1000, confirmed_count: 1 }], error: null }));
     await waitFor(() => expect(mocks.hero.mock.lastCall?.[0].items).toHaveLength(5));
     const props = mocks.hero.mock.lastCall?.[0];
-    expect(props.value).toBe('UGX 5,000');
-    expect(props.items.map((i: any) => i.value)).toEqual(Array(5).fill('UGX 1,000'));
-    // Real source handler still carries the exact confirmed amount/count into its report.
-    expect(typeof props.items[0].onSelect).toBe('function');
+    expect(props.percentageValue).toBe(5000);
+    await act(async () => props.items[0].onSelect());
+    expect(mocks.report.mock.lastCall?.[0]).toMatchObject({ open: true, preset: {
+      from: '2000-01-01', to: '2026-10-23', status, type,
+      expected: { amount: 1000, count: 1, basis: 'confirmed' },
+    } });
     view.unmount(); client.clear();
   });
 
@@ -56,7 +58,7 @@ describe('CFO card summaries independent of source details', () => {
       : { data: null, error: { code: '42501', message: 'denied' } });
     const { wrapper, client } = context();
     const view = render(<Card moneyWeHaveTotal={20000} />, { wrapper });
-    await waitFor(() => expect(mocks.hero.mock.lastCall?.[0]).toMatchObject({ value: 'UGX 9,876', percentageValue: 9876 }));
+    await waitFor(() => expect(mocks.hero.mock.lastCall?.[0]).toMatchObject({ percentageValue: 9876 }));
     expect(mocks.rpc.mock.calls.filter(c => c[0] === fn)).toHaveLength(1);
     view.unmount(); client.clear();
   });
