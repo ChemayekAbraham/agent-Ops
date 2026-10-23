@@ -1,4 +1,5 @@
 # Tasks
+- [ ] CFO Home / Cash Position / Payables: frontend-only independent loading, request reuse and scoped retries; preserve financial outputs and reconciliation, run focused tests and guards. No database changes or deployment.
 - [ ] Re-sync to `51069f32ea` (teeburg merge: data-fix migration `20261023090000_nsubuga_smartphone_term_3_months.sql`, already applied to the live database by hand) — blocked: `git merge` is refused by the sandbox and the workspace HEAD `3875cf97f4` is 2 commits behind `origin/lovable`; the migration must not be run. Read-only check confirms the live plan is already 3 months.
 
 - [ ] Financial Ops UI consistency: audit every reachable tool, inbox/fullscreen and portal dialogs; apply overview-matched scoped styling only; verify desktop/mobile/light/dark and existing regression tests. No financial, database or deployment changes.
