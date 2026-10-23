@@ -215,12 +215,12 @@ export default function AgentWeeklyPerformancePage() {
             {/* Posting status hero */}
             <section
               className={cn(
-                'rounded-3xl p-5 text-white shadow-lg relative overflow-hidden',
-                canPost ? 'bg-gradient-to-br from-emerald-500 to-emerald-700' : 'bg-gradient-to-br from-rose-500 to-rose-700',
+                'rounded-3xl p-5 text-primary-foreground shadow-lg relative overflow-hidden bg-primary',
+                !canPost && 'ring-2 ring-primary-foreground/25',
               )}
             >
-              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/10" />
-              <div className="absolute -right-2 bottom-0 h-16 w-16 rounded-full bg-white/10" />
+              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary-foreground/10" />
+              <div className="absolute -right-2 bottom-0 h-16 w-16 rounded-full bg-primary-foreground/10" />
               <div className="relative flex items-start gap-3">
                 {canPost ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
                 <div className="min-w-0">
