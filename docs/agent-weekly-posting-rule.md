@@ -44,6 +44,19 @@ Now, every **Thursday**, the database judges each agent on the **week that just 
 | Only expired plans | ≥ **70%** of what the expired plans were due |
 | Nothing billed | Can post |
 
+Who it applies to: **agents posting Rent Plans only.** Tenants applying for themselves are never judged on their referring agent's collections, even though the referring agent stays attached to the request (migration `20261023150000`):
+
+| Insert path | Caller | Gated? |
+|---|---|---|
+| `AgentRentRequestDialog` (agent's browser) | agent | yes |
+| `register-tenant` edge function | agent (service key) | yes |
+| `renew_rent_request` | agent | yes |
+| `submit-tenant-form` edge function (agent's shared link) | tenant via agent's link (service key) | yes |
+| `tenant-self-onboarding` edge function | tenant (service key, sets `tenant_self_applied = true`) | **no** |
+| `RentRequestButton` / `RentRequestForm` (tenant's browser) | tenant (signed in as the row's tenant) | **no** |
+
+The `tenant_self_applied` flag is honoured only on inserts with no signed-in caller (the service key). A signed-in agent who sets it is still gated, and the flag is cleared on that row.
+
 What the weekly rule replaced:
 
 - The daily 50% (tenant-coverage) rule.
@@ -109,11 +122,14 @@ Both run `snapshot_agent_weekly_posting_eligibility()`. It deletes and rewrites 
 On every `rent_requests` insert with an `agent_id`, the existing trigger `tr_enforce_agent_daily_eligibility` calls `enforce_agent_daily_eligibility()`:
 
 1. If `app.bypass_daily_eligibility = 'true'` or `agent_id` is null, allow.
-2. If `agent_posting_rule_settings.enforce_weekly` is true:
+2. If it's a tenant self-application, allow:
+   - the signed-in caller is the row's tenant and not its agent; or
+   - `tenant_self_applied` is true and there is no signed-in caller (otherwise the flag is cleared).
+3. If `agent_posting_rule_settings.enforce_weekly` is true:
    - read `_agent_weekly_posting_result(agent_id)`;
    - if it fails, raise `WEEKLY_ELIGIBILITY_BLOCKED: <reason>` (`check_violation`);
    - otherwise allow.
-3. Otherwise, run the old daily rule (unchanged, unreachable while the flag is on).
+4. Otherwise, run the old daily rule (unchanged, unreachable while the flag is on).
 
 Renewals also insert into `rent_requests`, so they go through the same gate.
 
@@ -285,6 +301,7 @@ They are not recorded in `supabase_migrations.schema_migrations`. **Lovable must
 |---|---|---|
 | `supabase/tests/agent_weekly_posting_rule.sql` | 12 checks: week arithmetic, saved = live, 50/20/70 logic and reasons, per-plan cap, access (self / other agent / anon), gate with the flag on | Against the live DB. Ends in `RAISE EXCEPTION 'REPORT …'`, so nothing is kept; the error text is the report. |
 | `supabase/tests/agent_weekly_performance.sql` | 7 checks: plan lines add up to saved results for every agent, judged week matches the gate, current-week cap and projection, access | Same as above |
+| `supabase/tests/tenant_self_applications_not_gated.sql` | 8 checks: each insert path (agent, agent faking the flag, tenant in app, self-onboarding, register-tenant, agent as own tenant) against a blocked and a passing agent, using the real gate function on a temp table | Same as above |
 | `src/test/agentWeeklyPerformance.test.tsx` | Target arithmetic, date formatting, page renders status / groups / tenants / history / filter, error state, no banned words | `npx vitest run src/test/agentWeeklyPerformance.test.tsx` |
 | `src/lib/__tests__/renewalAdvice.test.ts` | `WEEKLY_ELIGIBILITY_BLOCKED` message pass-through | `npx vitest run src/lib/__tests__/renewalAdvice.test.ts` |
 
@@ -315,3 +332,4 @@ Also run `npm run guard:all` before shipping changes in this area.
 | 23 Oct 2026 | `20261023140000` | `get_my_weekly_performance`, `_agent_weekly_plan_lines`. Applied. |
 | 23 Oct 2026 | `2f1c99c8e7` | Weekly Performance page, route, More Actions tab, tests |
 | 23 Oct 2026 | `bd4b5bce97` | Top-bar menu item; agent announcement |
+| 23 Oct 2026 | `20261023150000` | Tenant self-applications no longer gated: `rent_requests.tenant_self_applied`, gate updated. Applied; `tenant-self-onboarding` v30 deployed. |
