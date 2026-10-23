@@ -37,7 +37,7 @@ async function edit(sql: any, before: any, amount: number, actor = cfo, aal = 'a
   return sql.begin(async (tx: any) => {
     await tx`select set_config('request.jwt.claim.sub',${actor},true),set_config('request.jwt.claim.aal',${aal},true)`;
     await tx`set local role authenticated`;
-    const [r] = await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::timestamptz,${amount}::numeric,'Isolated preproduction review') result`;
+    const [r] = await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::text::timestamptz,${amount}::numeric,'Isolated preproduction review') result`;
     return r.result;
   });
 }
@@ -158,7 +158,7 @@ try {
   await db.begin(async tx => {
     await tx`select set_config('request.jwt.claim.sub',${cfo},true),set_config('request.jwt.claim.aal','aal2',true)`;
     await tx`set local role authenticated`;
-    await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::timestamptz,75000,'Concurrent local decrease')`;
+    await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::text::timestamptz,75000,'Concurrent local decrease')`;
     finishing=payer.run(); await captured.promise;
     assert.equal(payer.calls[0].amount,100000); release.resolve(); await waitForLock();
     assert.equal(payer.scheduleWrites.length,0);
@@ -180,7 +180,7 @@ try {
   await db.begin(async tx => {
     await tx`select set_config('request.jwt.claim.sub',${cfo},true),set_config('request.jwt.claim.aal','aal2',true)`;
     await tx`set local role authenticated`;
-    await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::timestamptz,125000,'First concurrent local edit')`;
+    await tx`select public.standing_order_set_amount(${id}::uuid,${before.amount}::numeric,${before.updated_at}::text::timestamptz,125000,'First concurrent local edit')`;
     competitor=edit(other,before,75000).then(()=>({ code:'unexpected-success' }),e=>e);
     await waitForLock();
   });
