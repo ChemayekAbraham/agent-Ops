@@ -40,6 +40,7 @@ interface FloatRequest {
   status: string;
   created_at: string;
   approved_at: string | null;
+  rejection_reason: string | null;
   agent_name?: string;
   agent_phone?: string;
 }
@@ -74,7 +75,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
     queryFn: async (): Promise<FloatRequest[]> => {
       const { data, error } = await supabase
         .from('float_requests')
-        .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at')
+        .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at, rejection_reason')
         .order('created_at', { ascending: false })
         .limit(100);
 
