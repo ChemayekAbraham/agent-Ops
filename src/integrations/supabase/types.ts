@@ -73998,6 +73998,22 @@ export type Database = {
         Returns: Json
       }
       get_landlord_float_due_today: { Args: never; Returns: Json }
+      get_landlord_float_gate: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          agent_id: string
+          basis: string
+          block_reason: string
+          collected: number
+          exception_reason: string
+          expected: number
+          locked: boolean
+          rate_pct: number
+          shortfall_to_50: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_landlord_float_management_split:
         | {
             Args: { p_as_at?: string }
@@ -77438,6 +77454,10 @@ export type Database = {
       landlord_float_idle_queue: {
         Args: { p_limit?: number; p_scope?: string }
         Returns: Json
+      }
+      landlord_float_lock_message: {
+        Args: { p_agent_id: string }
+        Returns: string
       }
       landlord_float_recall_go_live: { Args: never; Returns: string }
       landlord_float_week_start: { Args: { p_day: string }; Returns: string }
