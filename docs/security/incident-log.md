@@ -1,0 +1,18 @@
+# Incident log (Information and Security Policy §13)
+
+Every suspected or actual loss, theft, unauthorised access, unauthorised disclosure or alteration of personal data is recorded here and reported to the DPO immediately. There is no threshold of seriousness below which reporting is optional.
+For each entry the DPO records: containment, what data and whose, whether the Personal Data Protection Office or data subjects must be notified, and corrective action.
+**The entries below were assembled by Engineering on 2026-10-22 from the technical record for the DPO to classify. They are not conclusions that a breach occurred.**
+
+| # | Date found | What happened | Data and people affected | Contained / fixed | Evidence of misuse | DPO classification and decision |
+|---|---|---|---|---|---|---|
+| 1 | 2026-10-20 | After the move to the company-owned database on 2026-10-17, the database's default permissions gave the public `anon` role INSERT/UPDATE/DELETE rights on all 866 public tables. Row-level security stayed on for every table, which blocked writes. | Potentially any table; no evidence any was written | 2026-10-20: write rights revoked everywhere except 13 pre-login forms and logs (doc 247 step 32) | None found in the API logs reviewed | To classify |
+| 2 | 2026-10-17 to 2026-10-19 | Several staff report views and 600+ functions were callable by the public or any signed-in user, because the move re-created default privileges and some views ran with owner rights | Staff and financial reports, wallet balances, landlord directory | Closed and gated 2026-10-17 to 2026-10-20 (doc 247 steps 1 to 36); 55 deny-all policies added | Signed-in 403 errors and 401 logged-out requests only in the logs reviewed; a full access review is not available | To classify |
+| 3 | 2026-10-18 | Funder dashboard accepted an old-project session token after the move (doc 244) | Funders | Fixed (doc 244) | None recorded | To classify |
+| 4 | Found 2026-10-20 | Unencrypted database dumps, older plaintext exports (one with password hashes) and tenant archives held on the CTO laptop, partly synced to Microsoft OneDrive | Tenants, agents, landlords, staff | 32 files encrypted in place 2026-10-20; deletion and OneDrive removal outstanding (risk R1) | None known | To classify |
+| 5 | 2026-10-20 | Supabase warned of a high bounce rate on project emails. About 96 emails in a week went to a non-existent domain and a few to mistyped domains | Recipients' email addresses and message content | Send-time guard written (doc 247 step 35), awaiting deploy | n/a | To classify (likely not a personal-data breach) |
+| 6 | 2026-10-21 | CRM calls hung up because the telephony provider still sent call events to the old project, so call events (customer phone numbers and call outcomes) were delivered to the old project address | Customer phone numbers and call metadata | Callback URL changed to the new project 2026-10-21 (doc 247 step 37) | n/a; confirm what the old project still receives and delete it | To classify |
+| 7 | 2026-10-21 | SMS delivery reports from the SMS provider still point at the old project (delivery confirmations not arriving) | Phone numbers and delivery status | Not yet changed in the provider dashboard | n/a | To classify |
+
+## Notification decisions
+The Personal Data Protection Office has been / has not been notified: ______ (DPO to complete per entry).
