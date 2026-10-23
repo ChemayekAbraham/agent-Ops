@@ -630,7 +630,7 @@ export default function MerchandiseStore() {
         aria-label={`Buy ${item.item_name}`}
         className={cn(
           'group cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-          layout === 'rail' ? 'w-44 shrink-0 snap-start' : 'w-full',
+          layout === 'rail' ? 'w-40 sm:w-44 shrink-0 snap-start' : 'w-full',
         )}
       >
         <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
@@ -667,7 +667,7 @@ export default function MerchandiseStore() {
             From {formatUGX(fromDaily)}/day
           </p>
           <p className="text-[11px] text-muted-foreground line-clamp-1">
-            {formatUGX(Number(item.unit_price))} full price · up to 12 months
+            {formatUGX(Number(item.unit_price))} full price<span className="hidden sm:inline"> · up to 12 months</span>
           </p>
           {sizes.length > 0 && (
             <p className="text-[11px] text-muted-foreground line-clamp-1">Sizes: {sizes.join(', ')}</p>
@@ -734,7 +734,7 @@ export default function MerchandiseStore() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search phones, jackets, polos…"
                 aria-label="Search merchandise"
-                className="h-11 rounded-full border-transparent bg-muted/70 pl-10 pr-10 text-sm focus-visible:bg-background"
+                className="h-11 rounded-full border-transparent bg-muted/70 pl-10 pr-10 text-base sm:text-sm focus-visible:bg-background"
               />
               {search && (
                 <button
@@ -842,17 +842,17 @@ export default function MerchandiseStore() {
                   }
                 }}
                 className={cn(
-                  'snap-start shrink-0 w-[88%] min-h-[148px] flex overflow-hidden rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                  'snap-start shrink-0 w-[86%] sm:w-[88%] min-h-[140px] flex overflow-hidden rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                   smartphoneRepaying
                     ? 'border-amber-500/25 bg-amber-500/10'
                     : 'border-teal-500/20 bg-teal-500/10 dark:bg-teal-500/15 cursor-pointer',
                 )}
               >
-                <div className="flex-1 min-w-0 p-4 flex flex-col justify-between gap-2">
+                <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
                   <div className="space-y-1">
                     <p className="text-[11px] font-semibold text-primary">Agent Equipment Advance</p>
-                    <p className="text-base font-bold leading-snug">Welile Smartphone, 0% cash down</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-[15px] sm:text-base font-bold leading-snug">Welile Smartphone, 0% cash down</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                       A company-issued phone on credit, paid with automatic wallet deductions.
                     </p>
                   </div>
@@ -870,7 +870,7 @@ export default function MerchandiseStore() {
                   src={smartphonePromoAsset.url}
                   alt="Welile Smartphone"
                   loading="lazy"
-                  className="w-28 sm:w-32 shrink-0 object-cover"
+                  className="w-24 sm:w-32 shrink-0 object-cover"
                 />
               </div>
 
@@ -884,13 +884,13 @@ export default function MerchandiseStore() {
                     setBikeOpen(true);
                   }
                 }}
-                className="snap-start shrink-0 w-[88%] min-h-[148px] flex overflow-hidden rounded-2xl border border-orange-500/20 bg-orange-500/10 dark:bg-orange-500/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="snap-start shrink-0 w-[86%] sm:w-[88%] min-h-[140px] flex overflow-hidden rounded-2xl border border-orange-500/20 bg-orange-500/10 dark:bg-orange-500/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                <div className="flex-1 min-w-0 p-4 flex flex-col justify-between gap-2">
+                <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
                   <div className="space-y-1">
                     <p className="text-[11px] font-semibold text-orange-600 dark:text-orange-300">Electric bike lease</p>
-                    <p className="text-base font-bold leading-snug">Ride a Spiro or Mocoo e-bike</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-[15px] sm:text-base font-bold leading-snug">Ride a Spiro or Mocoo e-bike</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
                       Pick a model and lease term. Marketing confirms the price, then the bike is released.
                     </p>
                   </div>
@@ -902,7 +902,7 @@ export default function MerchandiseStore() {
                   src={spiroBikeAsset.url}
                   alt="Welile electric bike"
                   loading="lazy"
-                  className="w-28 sm:w-32 shrink-0 object-cover"
+                  className="w-24 sm:w-32 shrink-0 object-cover"
                 />
               </div>
             </div>
