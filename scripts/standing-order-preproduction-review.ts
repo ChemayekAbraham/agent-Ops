@@ -44,7 +44,7 @@ async function edit(sql: any, before: any, amount: number, actor = cfo, aal = 'a
 async function waitForLock() {
   const deadline = Date.now() + 5000;
   while (Date.now() < deadline) {
-    const [r] = await observer`select exists(select 1 from pg_stat_activity where wait_event_type='Lock' and query like '%scheduled_payouts%') waiting`;
+    const [r] = await observer`select exists(select 1 from pg_stat_activity where wait_event_type='Lock' and (query like '%scheduled_payouts%' or query like '%standing_order_set_amount%')) waiting`;
     if (r.waiting) return;
     await new Promise(r => setTimeout(r, 10));
   }
