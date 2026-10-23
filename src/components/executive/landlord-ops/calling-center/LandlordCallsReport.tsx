@@ -1,15 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -20,383 +13,1060 @@ import {
 } from '@/components/ui/table';
 import {
   BarChart3,
-  Download,
-  Phone,
+  Calendar,
   CheckCircle2,
-  PhoneOff,
-  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  MapPin,
+  MessageSquareWarning,
+  Phone,
+  PhoneIncoming,
+  PhoneOutgoing,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
   Users,
-  TrendingUp,
 } from 'lucide-react';
-import { format, startOfDay } from 'date-fns';
-import { isAnsweredOutcome, useCcCallHistory } from '@/hooks/useCcCallHistory';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 import { type CcCallingHub } from '@/hooks/useCcCallingHub';
+import { kampalaTodayYmd, shiftKampalaDays } from '@/lib/kampalaDays';
+import {
+  fetchAllLandlordCallLogPages,
+  getWednesdayWeekStart,
+  shiftYmdDays,
+  useLandlordCallLog,
+  useLandlordConcernsReport,
+  useLandlordCoverage,
+  useLandlordDailySummary,
+  useLandlordRoundReport,
+  useLandlordStaffPerformance,
+  useLandlordWeeklyReport,
+} from '@/hooks/useLandlordCallingReports';
+import {
+  exportLandlordCallingReportPdf,
+  exportLandlordCallingReportXlsx,
+  exportLandlordCallLogCsv,
+  formatCallSourceLabel,
+} from '@/lib/landlordCallingReportsExport';
 import { formatHumanLabel } from './ccUi';
 
+type ReportSection =
+  | 'weekly'
+  | 'daily'
+  | 'coverage'
+  | 'staff'
+  | 'call_log'
+  | 'concerns'
+  | 'round';
+
+const LOG_PAGE_SIZE = 50;
+
 export function LandlordCallsReport({ hub }: { hub: CcCallingHub }) {
-  const [days, setDays] = useState<number>(7);
-  const history = useCcCallHistory('landlord', days);
+  const { user } = useAuth();
+  const todayYmd = kampalaTodayYmd();
 
-  const rows = history.data ?? [];
-  const counts = hub.totalCounts;
+  const [fromDate, setFromDate] = useState<string>(() => shiftKampalaDays(todayYmd, -6));
+  const [toDate, setToDate] = useState<string>(() => todayYmd);
+  const [weekStart, setWeekStart] = useState<string>(() => getWednesdayWeekStart(todayYmd));
+  const [section, setSection] = useState<ReportSection>('weekly');
+  const [logPage, setLogPage] = useState<number>(0);
+  const [exportingKind, setExportingKind] = useState<'pdf' | 'xlsx' | 'csv' | null>(null);
 
-  const metrics = useMemo(() => {
-    const total = rows.length;
-    const engaged = rows.filter((r) => r.outcome === 'engaged').length;
-    const callback = rows.filter((r) => r.outcome === 'callback_booked').length;
-    const noAnswer = rows.filter((r) => r.outcome === 'no_answer').length;
-    const phoneOff = rows.filter((r) => r.outcome === 'phone_off').length;
-    const wrongNumber = rows.filter((r) => r.outcome === 'wrong_number').length;
-    const refused = rows.filter((r) => r.outcome === 'refused').length;
-    const reached = rows.filter((r) => isAnsweredOutcome(r.outcome)).length;
-    const reachRate = total > 0 ? Math.round((reached / total) * 100) : 0;
-    const engageRate = total > 0 ? Math.round((engaged / total) * 100) : 0;
-    const withFeedback = rows.filter((r) => r.comment?.trim()).length;
-    const feedbackRate = engaged > 0 ? Math.round((withFeedback / engaged) * 100) : 0;
-    const uniqueLandlords = new Set(rows.map((r) => r.subjectId).filter(Boolean)).size;
+  const cycleId = hub.cycle?.id ?? null;
 
-    const callerMap = new Map<
-      string,
-      { name: string; total: number; engaged: number; reached: number; feedback: number; landlords: Set<string> }
-    >();
-    rows.forEach((r) => {
-      const key = r.officer || 'Staff Member';
-      const entry = callerMap.get(key) ?? {
-        name: key,
-        total: 0,
-        engaged: 0,
-        reached: 0,
-        feedback: 0,
-        landlords: new Set<string>(),
-      };
-      entry.total += 1;
-      if (r.outcome === 'engaged') entry.engaged += 1;
-      if (isAnsweredOutcome(r.outcome)) entry.reached += 1;
-      if (r.comment?.trim()) entry.feedback += 1;
-      if (r.subjectId) entry.landlords.add(r.subjectId);
-      callerMap.set(key, entry);
-    });
-    const callers = Array.from(callerMap.values()).sort((a, b) => b.total - a.total);
+  // Server-owned SECURITY DEFINER reporting RPCs (zero browser math)
+  const dailyQ = useLandlordDailySummary(fromDate, toDate);
+  const weeklyQ = useLandlordWeeklyReport(weekStart);
+  const coverageQ = useLandlordCoverage();
+  const staffQ = useLandlordStaffPerformance(fromDate, toDate);
+  const callLogQ = useLandlordCallLog(fromDate, toDate, LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE);
+  const concernsQ = useLandlordConcernsReport(fromDate, toDate);
+  const roundQ = useLandlordRoundReport(cycleId);
 
-    const catMap = new Map<string, number>();
-    rows.forEach((r) => {
-      const cat = r.categoryLabel?.trim();
-      if (!cat) return;
-      catMap.set(cat, (catMap.get(cat) ?? 0) + 1);
-    });
-    const categories = Array.from(catMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count);
-
-    const dayMap = new Map<string, { day: string; total: number; engaged: number }>();
-    rows.forEach((r) => {
-      const when = r.recordedAt || r.revealedAt;
-      const d = format(startOfDay(new Date(when)), 'yyyy-MM-dd');
-      const cur = dayMap.get(d) ?? { day: d, total: 0, engaged: 0 };
-      cur.total += 1;
-      if (r.outcome === 'engaged') cur.engaged += 1;
-      dayMap.set(d, cur);
-    });
-    const daily = Array.from(dayMap.values()).sort((a, b) => a.day.localeCompare(b.day));
-
-    return {
-      total,
-      engaged,
-      callback,
-      noAnswer,
-      phoneOff,
-      wrongNumber,
-      refused,
-      reached,
-      reachRate,
-      engageRate,
-      withFeedback,
-      feedbackRate,
-      uniqueLandlords,
-      callers,
-      categories,
-      daily,
-    };
-  }, [rows]);
-
-  const exportSummaryCsv = () => {
-    const lines: string[] = [];
-    lines.push('Section,Metric,Value');
-    lines.push(`Overview,Total Calls,${metrics.total}`);
-    lines.push(`Overview,Unique Landlords Dialed,${metrics.uniqueLandlords}`);
-    lines.push(`Overview,Reached,${metrics.reached} (${metrics.reachRate}%)`);
-    lines.push(`Overview,Engaged,${metrics.engaged} (${metrics.engageRate}%)`);
-    lines.push(`Overview,Calls With Feedback,${metrics.withFeedback}`);
-    lines.push(`Overview,No Answer,${metrics.noAnswer}`);
-    lines.push(`Overview,Phone Off,${metrics.phoneOff}`);
-    lines.push(`Overview,Wrong Number,${metrics.wrongNumber}`);
-    lines.push('');
-    lines.push('Caller,Total Calls,Reached,Engaged,Reach Rate %,With Feedback,Unique Landlords');
-    metrics.callers.forEach((c) => {
-      const rate = c.total > 0 ? Math.round((c.reached / c.total) * 100) : 0;
-      lines.push(
-        `"${c.name}",${c.total},${c.reached},${c.engaged},${rate}%,${c.feedback},${c.landlords.size}`,
-      );
-    });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `landlord-calls-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const applyPreset = (daysBack: number) => {
+    const end = kampalaTodayYmd();
+    const start = daysBack <= 1 ? end : shiftKampalaDays(end, -(daysBack - 1));
+    setFromDate(start);
+    setToDate(end);
+    setWeekStart(getWednesdayWeekStart(end));
+    setLogPage(0);
   };
 
-  const maxDaily = Math.max(1, ...metrics.daily.map((d) => d.total));
-  const totalInRound =
-    (counts?.to_call ?? 0) +
-    (counts?.engaged ?? 0) +
-    (counts?.unreachable ?? 0) +
-    (counts?.parked ?? 0) +
-    (counts?.callback ?? 0);
+  const shiftWeek = (deltaWeeks: number) => {
+    const nextWed = shiftYmdDays(weekStart, deltaWeeks * 7);
+    setWeekStart(nextWed);
+    setFromDate(nextWed);
+    setToDate(shiftYmdDays(nextWed, 6));
+    setLogPage(0);
+  };
+
+  const refreshAll = () => {
+    dailyQ.refetch();
+    weeklyQ.refetch();
+    coverageQ.refetch();
+    staffQ.refetch();
+    callLogQ.refetch();
+    concernsQ.refetch();
+    roundQ.refetch();
+  };
+
+  const generatedByLabel =
+    (user?.user_metadata?.full_name as string | undefined) ||
+    user?.email ||
+    'Landlord Ops Staff';
+
+  const handleExportPdf = async () => {
+    try {
+      setExportingKind('pdf');
+      const allLogs = await fetchAllLandlordCallLogPages(fromDate, toDate);
+      await exportLandlordCallingReportPdf({
+        from: fromDate,
+        to: toDate,
+        weekStart,
+        generatedBy: generatedByLabel,
+        dailySummary: dailyQ.data ?? [],
+        weeklyReport: weeklyQ.data ?? null,
+        coverage: coverageQ.data ?? [],
+        staffPerformance: staffQ.data ?? [],
+        callLog: allLogs,
+        concernsReport: concernsQ.data ?? null,
+        roundReport: roundQ.data ?? null,
+      });
+      toast.success('Landlord calling report PDF downloaded');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to export PDF report');
+    } finally {
+      setExportingKind(null);
+    }
+  };
+
+  const handleExportXlsx = async () => {
+    try {
+      setExportingKind('xlsx');
+      const allLogs = await fetchAllLandlordCallLogPages(fromDate, toDate);
+      await exportLandlordCallingReportXlsx({
+        from: fromDate,
+        to: toDate,
+        weekStart,
+        generatedBy: generatedByLabel,
+        dailySummary: dailyQ.data ?? [],
+        weeklyReport: weeklyQ.data ?? null,
+        coverage: coverageQ.data ?? [],
+        staffPerformance: staffQ.data ?? [],
+        callLog: allLogs,
+        concernsReport: concernsQ.data ?? null,
+        roundReport: roundQ.data ?? null,
+      });
+      toast.success('Landlord calling report Excel workbook downloaded');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to export Excel workbook');
+    } finally {
+      setExportingKind(null);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setExportingKind('csv');
+      const allLogs = await fetchAllLandlordCallLogPages(fromDate, toDate);
+      await exportLandlordCallLogCsv(allLogs, {
+        from: fromDate,
+        to: toDate,
+        generatedBy: generatedByLabel,
+      });
+      toast.success(`Exported ${allLogs.length.toLocaleString()} landlord call log rows to CSV`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to export call log CSV');
+    } finally {
+      setExportingKind(null);
+    }
+  };
+
+  const wk = weeklyQ.data;
+  const wkTotals = wk?.totals;
+  const roundTotals = roundQ.data?.totals;
+  const concernTotals = concernsQ.data?.totals;
+  const callLogRows = callLogQ.data?.rows ?? [];
+  const callLogTotal = callLogQ.data?.totalCount ?? 0;
 
   return (
-    <div className="space-y-4">
-      <Card className="p-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-primary" />
-          <div>
-            <h3 className="text-sm font-semibold">Landlord Calling Center Performance Report</h3>
-            <p className="text-[11px] text-muted-foreground">
-              Landlord reach rate, payout confirmations, caller productivity & feedback insights
-            </p>
+    <div className="space-y-4" data-testid="landlord-calls-report">
+      {/* Header & Controls */}
+      <Card className="p-3.5 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">Landlord Calling Center Reports</h3>
+              <p className="text-[11px] text-muted-foreground">
+                Kampala-day grouping · Wednesday–Tuesday weeks · Server-verified figures across all landlord call channels
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={refreshAll}
+              className="h-8 text-xs gap-1"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportPdf}
+              disabled={exportingKind !== null}
+              className="h-8 text-xs gap-1"
+              data-testid="export-landlord-pdf-btn"
+            >
+              {exportingKind === 'pdf' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5 text-rose-600" />
+              )}
+              Export PDF
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportXlsx}
+              disabled={exportingKind !== null}
+              className="h-8 text-xs gap-1"
+              data-testid="export-landlord-xlsx-btn"
+            >
+              {exportingKind === 'xlsx' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+              )}
+              Export Excel
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleExportCsv}
+              disabled={exportingKind !== null}
+              className="h-8 text-xs gap-1"
+              data-testid="export-landlord-csv-btn"
+            >
+              {exportingKind === 'csv' ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-primary" />
+              )}
+              Call Log CSV
+            </Button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-            <SelectTrigger className="h-8 text-xs w-[130px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7 Days</SelectItem>
-              <SelectItem value="30">Last 30 Days</SelectItem>
-              <SelectItem value="90">Last 90 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={exportSummaryCsv}
-            disabled={metrics.total === 0}
-            className="h-8 text-xs gap-1"
-          >
-            <Download className="h-3.5 w-3.5" /> Export Report
-          </Button>
+
+        {/* Date Range & Wed-Tue Week Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 mr-1">
+              <Calendar className="h-3.5 w-3.5" /> Kampala Range:
+            </span>
+            <Input
+              type="date"
+              value={fromDate}
+              max={toDate}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setFromDate(e.target.value);
+                  setLogPage(0);
+                }
+              }}
+              className="h-7 text-xs w-[135px]"
+              aria-label="From date"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input
+              type="date"
+              value={toDate}
+              min={fromDate}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setToDate(e.target.value);
+                  setLogPage(0);
+                }
+              }}
+              className="h-7 text-xs w-[135px]"
+              aria-label="To date"
+            />
+            <div className="flex items-center gap-1 ml-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => applyPreset(1)}
+              >
+                Today
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => applyPreset(7)}
+              >
+                7 Days
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-[11px]"
+                onClick={() => applyPreset(30)}
+              >
+                30 Days
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">
+              Wed–Tue Week:
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 w-7 p-0"
+              onClick={() => shiftWeek(-1)}
+              title="Previous Wednesday–Tuesday week"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Badge variant="secondary" className="text-[11px] font-mono px-2 py-0.5">
+              {wk?.week_start ?? weekStart} → {wk?.week_end ?? shiftYmdDays(weekStart, 6)}
+            </Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 w-7 p-0"
+              onClick={() => shiftWeek(1)}
+              title="Next Wednesday–Tuesday week"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </Card>
 
+      {/* Server Summary KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
         <Card className="p-3">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Total Calls</span>
-            <Phone className="h-3.5 w-3.5" />
-          </div>
-          <div className="text-xl font-bold tabular-nums mt-1">{metrics.total}</div>
-          <div className="text-[10px] text-muted-foreground">
-            {metrics.uniqueLandlords} unique landlords
-          </div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Reach Rate</span>
-            <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
-          </div>
-          <div className="text-xl font-bold tabular-nums text-emerald-600 mt-1">
-            {metrics.reachRate}%
-          </div>
-          <div className="text-[10px] text-muted-foreground">{metrics.reached} reached</div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Engaged</span>
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-          </div>
-          <div className="text-xl font-bold tabular-nums mt-1">{metrics.engaged}</div>
-          <div className="text-[10px] text-muted-foreground">{metrics.engageRate}% of calls</div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Feedback Captured</span>
-            <MessageSquare className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="text-xl font-bold tabular-nums mt-1">{metrics.withFeedback}</div>
-          <div className="text-[10px] text-muted-foreground">
-            {metrics.feedbackRate}% of engaged
-          </div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Unanswered / Off</span>
-            <PhoneOff className="h-3.5 w-3.5 text-amber-600" />
-          </div>
-          <div className="text-xl font-bold tabular-nums text-amber-600 mt-1">
-            {metrics.noAnswer + metrics.phoneOff}
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            {metrics.wrongNumber} wrong numbers
-          </div>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Active Callers</span>
-            <Users className="h-3.5 w-3.5" />
+            <span>Weekly Calls</span>
+            <Phone className="h-3.5 w-3.5 text-primary" />
           </div>
           <div className="text-xl font-bold tabular-nums mt-1">
-            {metrics.callers.length}
+            {wkTotals?.total_calls ?? 0}
           </div>
-          <div className="text-[10px] text-muted-foreground">Staff members</div>
+          <div className="text-[10px] text-muted-foreground">
+            Made {wkTotals?.made_calls ?? 0} · Received {wkTotals?.received_calls ?? 0}
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Reached / Engaged</span>
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+          </div>
+          <div className="text-xl font-bold tabular-nums text-emerald-600 mt-1">
+            {wkTotals?.reached_calls ?? 0} / {wkTotals?.engaged_calls ?? 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Unreachable {wkTotals?.unreachable_calls ?? 0} · Callback {wkTotals?.callback_calls ?? 0}
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Solved Here</span>
+            <Sparkles className="h-3.5 w-3.5 text-teal-600" />
+          </div>
+          <div className="text-xl font-bold tabular-nums text-teal-600 mt-1">
+            {wkTotals?.solved_here_total ?? 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Resolved without forwarding
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Forwarded Concerns</span>
+            <MessageSquareWarning className="h-3.5 w-3.5 text-amber-600" />
+          </div>
+          <div className="text-xl font-bold tabular-nums text-amber-600 mt-1">
+            {wkTotals?.forwarded_total ?? 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Made {wkTotals?.forwarded_from_made ?? 0} · Received {wkTotals?.forwarded_from_received ?? 0}
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Overdue Concerns</span>
+            <ShieldAlert className="h-3.5 w-3.5 text-rose-600" />
+          </div>
+          <div className="text-xl font-bold tabular-nums text-rose-600 mt-1">
+            {concernTotals?.overdue_concerns ?? 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            {concernTotals?.open_concerns ?? 0} open in range
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Round Progress</span>
+            <Users className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="text-xl font-bold tabular-nums mt-1">
+            {roundTotals?.reached_count ?? 0} / {roundTotals?.total_rows ?? 0}
+          </div>
+          <div className="text-[10px] text-muted-foreground">
+            Parked {roundTotals?.parked_count ?? 0} · Outstanding {roundTotals?.outstanding_count ?? 0}
+          </div>
         </Card>
       </div>
 
-      {counts && totalInRound > 0 && (
-        <Card className="p-3 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold">Active Landlord Round Progress</span>
-            <span className="text-muted-foreground tabular-nums">
-              {counts.engaged} / {totalInRound} engaged (
-              {Math.round((counts.engaged / totalInRound) * 100)}%)
-            </span>
-          </div>
-          <Progress value={(counts.engaged / totalInRound) * 100} className="h-2" />
-        </Card>
-      )}
+      {/* Report Section Switcher */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b pb-2">
+        {(
+          [
+            { id: 'weekly', label: 'Weekly Report (Wed–Tue)' },
+            { id: 'daily', label: 'Daily Summary' },
+            { id: 'coverage', label: 'Registry Coverage' },
+            { id: 'staff', label: 'Staff Performance' },
+            { id: 'call_log', label: `Call Log (${callLogTotal.toLocaleString()})` },
+            { id: 'concerns', label: 'Concerns Report' },
+            { id: 'round', label: 'Round Report' },
+          ] as { id: ReportSection; label: string }[]
+        ).map((tab) => (
+          <Button
+            key={tab.id}
+            type="button"
+            size="sm"
+            variant={section === tab.id ? 'default' : 'outline'}
+            className="h-8 text-xs"
+            onClick={() => setSection(tab.id)}
+          >
+            {tab.label}
+          </Button>
+        ))}
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Card className="p-3 space-y-2.5">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Outcome Breakdown
-          </h4>
-          {[
-            { label: 'Engaged', count: metrics.engaged, color: 'bg-emerald-500' },
-            { label: 'Callback Booked', count: metrics.callback, color: 'bg-violet-500' },
-            { label: 'No Answer', count: metrics.noAnswer, color: 'bg-amber-500' },
-            { label: 'Phone Off', count: metrics.phoneOff, color: 'bg-orange-500' },
-            { label: 'Refused', count: metrics.refused, color: 'bg-sky-500' },
-            { label: 'Wrong Number', count: metrics.wrongNumber, color: 'bg-destructive' },
-          ].map((o) => {
-            const pct = metrics.total > 0 ? Math.round((o.count / metrics.total) * 100) : 0;
-            return (
-              <div key={o.label} className="space-y-1 text-xs">
-                <div className="flex justify-between">
-                  <span>{o.label}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {o.count} ({pct}%)
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                  <div className={`h-full ${o.color}`} style={{ width: `${pct}%` }} />
-                </div>
+      {/* SECTION 1: WEEKLY REPORT (Wed-Tue) */}
+      {section === 'weekly' && (
+        <div className="space-y-4">
+          <Card className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Wednesday–Tuesday Daily Breakdown ({wk?.week_start ?? weekStart} to {wk?.week_end ?? ''})
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Landlord calls made vs received, reached, engaged, solved here, and forwarded concerns per Kampala day
+                </p>
               </div>
-            );
-          })}
-        </Card>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Kampala Day</TableHead>
+                    <TableHead className="text-xs text-right">Total Calls</TableHead>
+                    <TableHead className="text-xs text-right">Made</TableHead>
+                    <TableHead className="text-xs text-right">Received</TableHead>
+                    <TableHead className="text-xs text-right">Reached</TableHead>
+                    <TableHead className="text-xs text-right">Engaged</TableHead>
+                    <TableHead className="text-xs text-right">Unreachable</TableHead>
+                    <TableHead className="text-xs text-right">Callbacks</TableHead>
+                    <TableHead className="text-xs text-right">Solved Here</TableHead>
+                    <TableHead className="text-xs text-right">Forwarded</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(wk?.per_day ?? []).map((d) => (
+                    <TableRow key={d.kampala_day}>
+                      <TableCell className="text-xs font-medium font-mono">{d.kampala_day}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums">{d.total_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{d.made_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{d.received_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-emerald-600">{d.reached_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{d.engaged_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-amber-600">{d.unreachable_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{d.callback_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-teal-600">{d.solved_here_total}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{d.forwarded_total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
 
-        <Card className="p-3 space-y-2.5">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Landlord Feedback Categories
-          </h4>
-          {metrics.categories.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">
-              No categorized landlord feedback recorded in this period yet.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {metrics.categories.slice(0, 8).map((c) => {
-                const pct =
-                  metrics.withFeedback > 0
-                    ? Math.round((c.count / metrics.withFeedback) * 100)
-                    : 0;
-                return (
-                  <div key={c.name} className="flex items-center justify-between text-xs gap-2">
-                    <span className="truncate font-medium">{formatHumanLabel(c.name)}</span>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant="secondary" className="text-[10px] tabular-nums">
-                        {c.count}
-                      </Badge>
-                      <span className="text-[10px] text-muted-foreground w-9 text-right tabular-nums">
-                        {pct}%
-                      </span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Forwarded Concerns by Recipient & Day
+              </h4>
+              {(wk?.forwarded_by_recipient ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">
+                  No landlord concerns forwarded during this Wednesday–Tuesday week.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Recipient</TableHead>
+                        {(wk?.day_keys ?? []).map((dk) => (
+                          <TableHead key={dk} className="text-[10px] text-right font-mono">
+                            {dk.slice(5)}
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-xs text-right">Made</TableHead>
+                        <TableHead className="text-xs text-right">Received</TableHead>
+                        <TableHead className="text-xs text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(wk?.forwarded_by_recipient ?? []).map((r) => (
+                        <TableRow key={r.recipient_id ?? r.recipient_name}>
+                          <TableCell className="text-xs font-medium">{r.recipient_name}</TableCell>
+                          {(r.per_day ?? []).map((cnt, idx) => (
+                            <TableCell key={idx} className="text-xs text-right tabular-nums">
+                              {cnt}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-xs text-right tabular-nums">{r.from_made}</TableCell>
+                          <TableCell className="text-xs text-right tabular-nums">{r.from_received}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold tabular-nums">
+                            {r.total_forwarded}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Solved Here by Staff & Channel Source
+              </h4>
+              <div className="space-y-3">
+                {(wk?.solved_here_by_staff ?? []).length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3 text-center">
+                    No solved-here landlord calls recorded in this week yet.
+                  </p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Staff Member</TableHead>
+                        <TableHead className="text-xs text-right">From Made</TableHead>
+                        <TableHead className="text-xs text-right">From Received</TableHead>
+                        <TableHead className="text-xs text-right">Total Solved</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(wk?.solved_here_by_staff ?? []).map((s) => (
+                        <TableRow key={s.staff_id ?? s.staff_name}>
+                          <TableCell className="text-xs font-medium">{s.staff_name}</TableCell>
+                          <TableCell className="text-xs text-right tabular-nums">{s.from_made}</TableCell>
+                          <TableCell className="text-xs text-right tabular-nums">{s.from_received}</TableCell>
+                          <TableCell className="text-xs text-right font-semibold tabular-nums text-teal-600">
+                            {s.total_solved}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {(wk?.by_source ?? []).length > 0 && (
+                  <div className="pt-2 border-t">
+                    <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                      Calls by Source Channel
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(wk?.by_source ?? []).map((src) => (
+                        <Badge key={src.source} variant="outline" className="text-[11px] gap-1">
+                          <span>{formatCallSourceLabel(src.source)}:</span>
+                          <span className="font-bold">{src.calls}</span>
+                          <span className="text-muted-foreground">({src.reached_calls} reached)</span>
+                        </Badge>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 2: DAILY SUMMARY */}
+      {section === 'daily' && (
+        <Card className="p-3">
+          <div className="mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Daily Staff Summary ({fromDate} to {toDate})
+            </h4>
+            <p className="text-[11px] text-muted-foreground">
+              Per staff member and Kampala day · Voided call attempts are excluded
+            </p>
+          </div>
+          {(dailyQ.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-8 text-center">
+              No landlord calls recorded in this date range.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Kampala Day</TableHead>
+                    <TableHead className="text-xs">Staff Member</TableHead>
+                    <TableHead className="text-xs text-right">Total Calls</TableHead>
+                    <TableHead className="text-xs text-right">Reached</TableHead>
+                    <TableHead className="text-xs text-right">Engaged</TableHead>
+                    <TableHead className="text-xs text-right">Unreachable</TableHead>
+                    <TableHead className="text-xs text-right">Callbacks</TableHead>
+                    <TableHead className="text-xs text-right">Made</TableHead>
+                    <TableHead className="text-xs text-right">Received</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(dailyQ.data ?? []).map((r, i) => (
+                    <TableRow key={`${r.kampala_day}-${r.staff_id ?? i}`}>
+                      <TableCell className="text-xs font-mono">{r.kampala_day}</TableCell>
+                      <TableCell className="text-xs font-medium">{r.staff_name}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums">{r.total_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-emerald-600">{r.reached_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{r.engaged_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-amber-600">{r.unreachable_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{r.callback_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{r.made_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{r.received_calls}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </Card>
-      </div>
+      )}
 
-      <Card className="overflow-hidden">
-        <div className="p-3 border-b flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Caller Productivity Leaderboard
-          </h4>
-          <span className="text-[11px] text-muted-foreground">
-            {metrics.callers.length} caller(s)
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">#</TableHead>
-                <TableHead className="text-xs">Caller</TableHead>
-                <TableHead className="text-xs text-right">Calls</TableHead>
-                <TableHead className="text-xs text-right">Unique Landlords</TableHead>
-                <TableHead className="text-xs text-right">Reached</TableHead>
-                <TableHead className="text-xs text-right">Engaged</TableHead>
-                <TableHead className="text-xs text-right">Reach Rate</TableHead>
-                <TableHead className="text-xs text-right">Notes Logged</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {metrics.callers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-xs text-muted-foreground py-6">
-                    No calls logged in this period.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                metrics.callers.map((c, idx) => {
-                  const rate = c.total > 0 ? Math.round((c.reached / c.total) * 100) : 0;
-                  return (
-                    <TableRow key={`${c.name}-${idx}`}>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {idx + 1}
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">{c.name}</TableCell>
-                      <TableCell className="text-xs text-right tabular-nums font-semibold">
-                        {c.total}
-                      </TableCell>
+      {/* SECTION 3: REGISTRY COVERAGE */}
+      {section === 'coverage' && (
+        <Card className="p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-primary" /> Landlord Registry Coverage by Region & District
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                Every landlord in the unified registry: ever reached, reached this round, reached this month, and never called
+              </p>
+            </div>
+          </div>
+          {(coverageQ.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-8 text-center">
+              Loading landlord registry coverage...
+            </p>
+          ) : (
+            <div className="overflow-x-auto max-h-[520px]">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Region</TableHead>
+                    <TableHead className="text-xs">District</TableHead>
+                    <TableHead className="text-xs text-right">Registry Total</TableHead>
+                    <TableHead className="text-xs text-right">Ever Reached</TableHead>
+                    <TableHead className="text-xs text-right">Reached This Round</TableHead>
+                    <TableHead className="text-xs text-right">Reached This Month</TableHead>
+                    <TableHead className="text-xs text-right">Never Called</TableHead>
+                    <TableHead className="text-xs text-right">Active Rent Plans</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(coverageQ.data ?? []).map((c, idx) => (
+                    <TableRow key={`${c.region}-${c.district}-${idx}`}>
+                      <TableCell className="text-xs font-medium">{c.region}</TableCell>
+                      <TableCell className="text-xs">{c.district}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums">{c.registry_total}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-emerald-600">{c.ever_reached}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{c.reached_this_round}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{c.reached_this_month}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-amber-600">{c.never_called}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{c.active_rent_plans_count}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* SECTION 4: STAFF PERFORMANCE */}
+      {section === 'staff' && (
+        <Card className="p-3">
+          <div className="mb-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Staff Calling Performance ({fromDate} to {toDate})
+            </h4>
+            <p className="text-[11px] text-muted-foreground">
+              Total calls, reach rate, calls per active hour, and landlord follow-ups owed or overdue
+            </p>
+          </div>
+          {(staffQ.data ?? []).length === 0 ? (
+            <p className="text-xs text-muted-foreground py-8 text-center">
+              No staff calling activity in this date range.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Staff Member</TableHead>
+                    <TableHead className="text-xs text-right">Calls</TableHead>
+                    <TableHead className="text-xs text-right">Reached</TableHead>
+                    <TableHead className="text-xs text-right">Engaged</TableHead>
+                    <TableHead className="text-xs text-right">Unreachable</TableHead>
+                    <TableHead className="text-xs text-right">Callbacks</TableHead>
+                    <TableHead className="text-xs text-right">Reach Rate</TableHead>
+                    <TableHead className="text-xs text-right">Active Hrs</TableHead>
+                    <TableHead className="text-xs text-right">Calls / Hr</TableHead>
+                    <TableHead className="text-xs text-right">Follow-ups Owed</TableHead>
+                    <TableHead className="text-xs text-right">Overdue</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(staffQ.data ?? []).map((s, idx) => (
+                    <TableRow key={s.staff_id ?? idx}>
+                      <TableCell className="text-xs font-medium">{s.staff_name}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums">{s.total_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-emerald-600">{s.reached_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{s.engaged_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-amber-600">{s.unreachable_calls}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{s.callback_calls}</TableCell>
                       <TableCell className="text-xs text-right tabular-nums">
-                        {c.landlords.size}
-                      </TableCell>
-                      <TableCell className="text-xs text-right tabular-nums">
-                        {c.reached}
-                      </TableCell>
-                      <TableCell className="text-xs text-right tabular-nums text-emerald-600 font-medium">
-                        {c.engaged}
-                      </TableCell>
-                      <TableCell className="text-xs text-right tabular-nums">
-                        <Badge variant={rate >= 50 ? 'default' : 'secondary'} className="text-[10px]">
-                          {rate}%
+                        <Badge variant={s.reach_rate_pct >= 50 ? 'default' : 'secondary'} className="text-[10px]">
+                          {s.reach_rate_pct}%
                         </Badge>
                       </TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{s.active_hours}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums font-medium">{s.calls_per_active_hour}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{s.followups_owed}</TableCell>
                       <TableCell className="text-xs text-right tabular-nums">
-                        {c.feedback}
+                        {s.followups_overdue > 0 ? (
+                          <Badge variant="destructive" className="text-[10px]">
+                            {s.followups_overdue}
+                          </Badge>
+                        ) : (
+                          '0'
+                        )}
                       </TableCell>
                     </TableRow>
-                  );
-                })
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* SECTION 5: PAGED LANDLORD CALL LOG */}
+      {section === 'call_log' && (
+        <Card className="p-3 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Paged Landlord Call Log ({callLogTotal.toLocaleString()} total calls)
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                One row per deduplicated landlord call · Phone masked automatically unless role permits full view
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={logPage === 0}
+                onClick={() => setLogPage((p) => Math.max(0, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Prev
+              </Button>
+              <span className="text-xs tabular-nums px-2">
+                Page {logPage + 1} of {Math.max(1, Math.ceil(callLogTotal / LOG_PAGE_SIZE))}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={(logPage + 1) * LOG_PAGE_SIZE >= callLogTotal}
+                onClick={() => setLogPage((p) => p + 1)}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+
+          {callLogRows.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-8 text-center">
+              No landlord call log rows in this date range.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Time</TableHead>
+                    <TableHead className="text-xs">Landlord</TableHead>
+                    <TableHead className="text-xs">Phone</TableHead>
+                    <TableHead className="text-xs">Caller</TableHead>
+                    <TableHead className="text-xs">Source</TableHead>
+                    <TableHead className="text-xs">Outcome</TableHead>
+                    <TableHead className="text-xs">Category</TableHead>
+                    <TableHead className="text-xs">Note</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {callLogRows.map((row) => (
+                    <TableRow key={row.call_id}>
+                      <TableCell className="text-[11px] font-mono whitespace-nowrap">
+                        {row.called_at ? row.called_at.slice(0, 16).replace('T', ' ') : row.kampala_day}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">{row.landlord_name}</TableCell>
+                      <TableCell className="text-xs font-mono whitespace-nowrap">
+                        {row.phone}
+                      </TableCell>
+                      <TableCell className="text-xs">{row.caller_name}</TableCell>
+                      <TableCell className="text-xs">
+                        <span className="inline-flex items-center gap-1 text-[11px]">
+                          {row.direction === 'received' ? (
+                            <PhoneIncoming className="h-3 w-3 text-teal-600" />
+                          ) : (
+                            <PhoneOutgoing className="h-3 w-3 text-primary" />
+                          )}
+                          {formatCallSourceLabel(row.source)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <Badge
+                          variant={row.is_reached ? 'default' : 'secondary'}
+                          className="text-[10px]"
+                        >
+                          {formatHumanLabel(row.outcome)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{row.category_label}</TableCell>
+                      <TableCell className="text-xs max-w-[260px] truncate" title={row.note ?? ''}>
+                        {row.note || '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* SECTION 6: CONCERNS REPORT */}
+      {section === 'concerns' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <Card className="p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                By Category
+              </h4>
+              {(concernsQ.data?.by_category ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">No concerns in range.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Category</TableHead>
+                      <TableHead className="text-xs text-right">Total</TableHead>
+                      <TableHead className="text-xs text-right">Open</TableHead>
+                      <TableHead className="text-xs text-right">Overdue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(concernsQ.data?.by_category ?? []).map((c) => (
+                      <TableRow key={c.category_code}>
+                        <TableCell className="text-xs font-medium">{c.category_label}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{c.total_count}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{c.open_count}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums text-rose-600">{c.overdue_count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-            </TableBody>
-          </Table>
+            </Card>
+
+            <Card className="p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                By Team & Recipient
+              </h4>
+              {(concernsQ.data?.by_team ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground py-4 text-center">No team hand-offs in range.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Team / Recipient</TableHead>
+                      <TableHead className="text-xs text-right">Total</TableHead>
+                      <TableHead className="text-xs text-right">Open</TableHead>
+                      <TableHead className="text-xs text-right">Overdue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(concernsQ.data?.by_team ?? []).map((t, idx) => (
+                      <TableRow key={`${t.team_name}-${t.recipient_name}-${idx}`}>
+                        <TableCell className="text-xs">
+                          <div className="font-medium">{t.recipient_name}</div>
+                          <div className="text-[10px] text-muted-foreground">{t.team_name}</div>
+                        </TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{t.total_count}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums">{t.open_count}</TableCell>
+                        <TableCell className="text-xs text-right tabular-nums text-rose-600">{t.overdue_count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Card>
+
+            <Card className="p-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                By Age & Overdue Status
+              </h4>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Age Bucket</TableHead>
+                    <TableHead className="text-xs text-right">Total</TableHead>
+                    <TableHead className="text-xs text-right">Open</TableHead>
+                    <TableHead className="text-xs text-right">Overdue</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(concernsQ.data?.by_age_bucket ?? []).map((b) => (
+                    <TableRow key={b.bucket_key}>
+                      <TableCell className="text-xs font-medium">{b.bucket_label}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{b.total_count}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{b.open_count}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-rose-600">{b.overdue_count}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
         </div>
-      </Card>
+      )}
+
+      {/* SECTION 7: ROUND REPORT */}
+      {section === 'round' && (
+        <div className="space-y-4">
+          <Card className="p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Round Report — {roundQ.data?.cycle ? `Round #${roundQ.data.cycle.cycle_no}: ${roundQ.data.cycle.title}` : 'Latest Round'}
+                </h4>
+                <p className="text-[11px] text-muted-foreground">
+                  Final reached, parked, and outstanding landlord rows for the selected calling round
+                </p>
+              </div>
+              {roundQ.data?.cycle && (
+                <Badge variant={roundQ.data.cycle.closed_at ? 'secondary' : 'default'} className="text-xs">
+                  {roundQ.data.cycle.closed_at ? 'Closed Round' : 'Open Round'}
+                </Badge>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Total Landlords</div>
+                <div className="text-lg font-bold tabular-nums">{roundTotals?.total_rows ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Final Reached</div>
+                <div className="text-lg font-bold tabular-nums text-emerald-600">{roundTotals?.reached_count ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Engaged</div>
+                <div className="text-lg font-bold tabular-nums">{roundTotals?.engaged_count ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Parked</div>
+                <div className="text-lg font-bold tabular-nums text-amber-600">{roundTotals?.parked_count ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Outstanding</div>
+                <div className="text-lg font-bold tabular-nums text-primary">{roundTotals?.outstanding_count ?? 0}</div>
+              </div>
+              <div className="rounded-lg border p-2.5">
+                <div className="text-[10px] text-muted-foreground">Total Attempts</div>
+                <div className="text-lg font-bold tabular-nums">{roundTotals?.total_attempts ?? 0}</div>
+              </div>
+            </div>
+
+            {(roundQ.data?.by_caller ?? []).length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-xs">Caller</TableHead>
+                    <TableHead className="text-xs text-right">Attempts Made</TableHead>
+                    <TableHead className="text-xs text-right">Engaged</TableHead>
+                    <TableHead className="text-xs text-right">Callbacks</TableHead>
+                    <TableHead className="text-xs text-right">Unreached</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(roundQ.data?.by_caller ?? []).map((c, idx) => (
+                    <TableRow key={c.caller_id ?? idx}>
+                      <TableCell className="text-xs font-medium">{c.caller_name}</TableCell>
+                      <TableCell className="text-xs text-right font-semibold tabular-nums">{c.attempts_count}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-emerald-600">{c.engaged_count}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums">{c.callback_count}</TableCell>
+                      <TableCell className="text-xs text-right tabular-nums text-amber-600">{c.unreached_count}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
