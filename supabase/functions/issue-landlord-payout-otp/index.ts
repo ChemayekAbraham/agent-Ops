@@ -5,6 +5,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
 import { resolveOtpRecipient, toLocalUgPhone } from "./resolveOtpRecipient.ts";
+import { redactSmsCodes } from "../_shared/redactSmsCodes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -398,11 +399,12 @@ Deno.serve(async (req) => {
       const resendRecipient = toLocalUgPhone(existing.otp_recipient_phone) ?? toLocalUgPhone(existing.landlord_phone);
       if (!resendRecipient) return json({ error: "No usable phone number on this challenge" }, 400);
       const phone = normalizePhone(resendRecipient);
-      const resent = await sendOtpWithFallback(
-        phone,
-        `Welile: UGX ${Number(existing.amount).toLocaleString()} rent for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
-      );
-      await logSms(admin, phone, "Landlord payout OTP (resend)", resent, existing.landlord_name ?? null, challenge_id);
+      // Log the message the landlord actually received, with the code masked.
+      // A bare label made the SMS dashboard report "19 characters, 1 SMS part"
+      // and look as though no code had been sent at all.
+      const resendText = `Welile: UGX ${Number(existing.amount).toLocaleString()} rent for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`;
+      const resent = await sendOtpWithFallback(phone, resendText);
+      await logSms(admin, phone, redactSmsCodes(resendText, otp) ?? "", resent, existing.landlord_name ?? null, challenge_id);
       await admin.from("landlord_payout_otp_events").insert({
         challenge_id,
         agent_id: agentId,
@@ -561,11 +563,9 @@ Deno.serve(async (req) => {
     }
 
     const phone = normalizePhone(otpRecipient.recipient);
-    const sent = await sendOtpWithFallback(
-      phone,
-      `Welile: UGX ${amt.toLocaleString()} rent${tenant_name ? ` from ${tenant_name}` : ""} for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`,
-    );
-    await logSms(admin, phone, "Landlord payout OTP", sent, landlord_name ?? null, challenge.id);
+    const sendText = `Welile: UGX ${amt.toLocaleString()} rent${tenant_name ? ` from ${tenant_name}` : ""} for you. OTP ${otp}, valid 1 hour. Give it to the agent ONLY if you want this money.`;
+    const sent = await sendOtpWithFallback(phone, sendText);
+    await logSms(admin, phone, redactSmsCodes(sendText, otp) ?? "", sent, landlord_name ?? null, challenge.id);
 
     await admin.from("landlord_payout_otp_events").insert({
       challenge_id: challenge.id,
