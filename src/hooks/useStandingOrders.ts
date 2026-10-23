@@ -20,6 +20,7 @@ export interface StandingOrderRow {
   interval_days: number | null;
   enabled: boolean;
   created_at: string;
+  updated_at: string;
   next_run_at: string | null;
   last_run_at: string | null;
   last_run_status: string | null;
@@ -104,6 +105,7 @@ export function useStandingOrders() {
           interval_days: r.interval_days,
           enabled: r.enabled,
           created_at: r.created_at,
+          updated_at: r.updated_at,
           next_run_at: r.next_run_at,
           last_run_at: r.last_run_at,
           last_run_status: latest?.status ?? null,
