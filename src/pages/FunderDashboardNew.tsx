@@ -219,10 +219,14 @@ export default function FunderDashboardNew() {
     if (!raw) { sharedPlanHandled.current = true; return; }
     sharedPlanHandled.current = true;
     const sep = raw.indexOf(':');
-    if (sep < 1) return;
-    const category = raw.slice(0, sep);
-    const id = raw.slice(sep + 1);
-    const found = loadedItems.find((e) => e.category === category && itemId(e.category, e.item) === id);
+    const category = sep >= 1 ? raw.slice(0, sep) : '';
+    const id = sep >= 1 ? raw.slice(sep + 1) : raw;
+    if (!id) return;
+    // Match by category:id when a category is given, otherwise by id alone
+    // across every loaded category (public share links carry no category).
+    const found = category
+      ? loadedItems.find((e) => e.category === category && itemId(e.category, e.item) === id)
+      : loadedItems.find((e) => itemId(e.category, e.item) === id);
     if (!found) return;
     setSelectedCategory(found.category);
     setSelectedItems([toSelectionItem(found.category, found.item)]);
