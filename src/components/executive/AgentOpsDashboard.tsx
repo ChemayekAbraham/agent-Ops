@@ -428,7 +428,7 @@ export function AgentOpsDashboard() {
           <Button variant="outline" asChild><Link to="/marketplace">Open Welile Marketplace</Link></Button>
         </div>
       );
-      case 'welile-homes': return <WelileHomesAdminPanel />;
+      case 'welile-homes': return <WelileHomesAdminPanel onBack={() => setActiveView(null)} />;
       case 'agents-hope': return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
@@ -1119,7 +1119,9 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Mobile bottom nav */}
-      <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
+      {activeView !== 'welile-homes' && (
+        <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
+      )}
 
       <UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} />
     </div>
