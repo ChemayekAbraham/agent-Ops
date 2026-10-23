@@ -58158,6 +58158,7 @@ export type Database = {
           balance_amount: number | null
           balance_checked_at: string | null
           balance_currency: string | null
+          call_notify_phones: string[]
           channels: number | null
           configured: boolean
           human_calling_pause_reason: string | null
@@ -58175,6 +58176,7 @@ export type Database = {
           balance_amount?: number | null
           balance_checked_at?: string | null
           balance_currency?: string | null
+          call_notify_phones?: string[]
           channels?: number | null
           configured?: boolean
           human_calling_pause_reason?: string | null
@@ -58192,6 +58194,7 @@ export type Database = {
           balance_amount?: number | null
           balance_checked_at?: string | null
           balance_currency?: string | null
+          call_notify_phones?: string[]
           channels?: number | null
           configured?: boolean
           human_calling_pause_reason?: string | null
