@@ -542,18 +542,33 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
       <CardHeader className="pb-0 space-y-0 p-0">
         {landlordFloatOver.any && <div className="p-4"><LandlordFloatExcessBanner daily={landlordFloatOver.daily} weekly={landlordFloatOver.weekly} /></div>}
-        {filteredItems.length > 0 && (
-          <div className="flex items-center justify-end gap-3 px-5 pt-5 pb-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400">
-              <CheckCircle2 className="h-4 w-4" />
-              {filteredItems.length} approved · {fmt(queueTotalRent)}
-            </span>
+        <div className="px-5 pt-5 pb-4 space-y-4">
+          <div>
+            <h2 className="text-xl font-bold">Rent Disbursement</h2>
+            <p className="text-sm text-muted-foreground">Review approved rent requests, select tenants and fund payouts by location, agent and landlord.</p>
           </div>
-        )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            {[
+              { icon: Users, label: 'Total Tenants', value: String(filteredItems.length), hint: 'Showing in list', tone: 'bg-primary/10 text-primary' },
+              { icon: Banknote, label: 'Total Payout Amount', value: fmt(queueTotalRent), hint: 'Rent out for this list', tone: 'bg-success/15 text-success' },
+              { icon: TrendingUp, label: 'Fees', value: fmt(queueTotalRevenue), hint: `Repayment ${fmt(queueTotalRepaymentExpected)}`, tone: 'bg-warning/15 text-warning' },
+              { icon: CheckCircle2, label: 'Selected for Disbursement', value: String(selectedVisibleCount), hint: selected.size > 0 ? fmt(totalRent) : 'Ready for disbursement', tone: 'bg-success/15 text-success' },
+            ].map((t) => (
+              <div key={t.label} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4">
+                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', t.tone)}><t.icon className="h-5 w-5" /></span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">{t.label}</p>
+                  <p className="text-lg font-bold truncate">{t.value}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{t.hint}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Filter band */}
         <div className="border-y border-border/70 bg-muted/20 px-5 py-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 items-center">
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -640,10 +655,19 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </SelectContent>
             </Select>
             )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 rounded-xl text-sm gap-2 text-primary border-border/70"
+              onClick={() => { setSearch(''); setAgentFilter('all'); setCountryFilter('all'); setDateFilter('all'); clearLocation(); setSelected(new Set()); }}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Reset Filters
+            </Button>
             {(agentFilter !== 'all' || locationScoped) && (
               <button
                 type="button"
-                className="text-xs font-medium text-primary hover:underline justify-self-start sm:col-span-2 lg:col-span-3 xl:col-span-6"
+                className="text-xs font-medium text-primary hover:underline justify-self-start sm:col-span-2 lg:col-span-3 xl:col-span-7"
                 onClick={() => { setAgentFilter('all'); clearLocation(); }}
               >
                 Clear agent &amp; location
@@ -738,67 +762,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
             )}
 
-            {/* Country breakdown — click a chip to filter the queue by country */}
-            {!locationProvisionsOnly && countryStats.length > 0 && (
-              <div className="rounded-xl border border-border/70 bg-muted/20 p-3">
-                <div className="flex items-center justify-between mb-1.5 px-1">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                    Requests by country
-                  </p>
-                  {countryFilter !== 'all' && (
-                    <button
-                      type="button"
-                      className="text-[11px] text-primary hover:underline"
-                      onClick={() => setCountryFilter('all')}
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCountryFilter('all')}
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
-                      countryFilter === 'all'
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-muted border-border',
-                    )}
-                  >
-                    🌍 All · {filteredItems.length} · {fmt(queueTotalRent)}
-                  </button>
-                  {countryStats.map(c => (
-                    <button
-                      key={c.country}
-                      type="button"
-                      onClick={() => setCountryFilter(c.country)}
-                      className={cn(
-                        'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors',
-                        countryFilter === c.country
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background hover:bg-muted border-border',
-                      )}
-                    >
-                      <span className="font-semibold">{c.country}</span>
-                      <span className="opacity-80"> · {c.count} · {fmt(c.total)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Helper hint */}
-            <p className="text-[11px] text-muted-foreground px-1">
-              Tip: open a tenant with the Review button to approve and fund the payout.
-            </p>
-
-
             {/* Grouped list (by agent) */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <span className="text-xs text-muted-foreground">
-                {visibleGroups.length} agent{visibleGroups.length === 1 ? '' : 's'} shown
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold">{visibleItems.length} tenant{visibleItems.length === 1 ? '' : 's'}</span>
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground">
+                  {visibleItems.length === filteredItems.length ? `Showing all ${visibleItems.length}` : `Showing ${visibleItems.length} of ${filteredItems.length}`} · {visibleGroups.length} agent{visibleGroups.length === 1 ? '' : 's'}
+                </span>
+              </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   type="button"
@@ -810,7 +781,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <Banknote className="h-4 w-4" />
                   {selectedVisibleCount > 0
                     ? `${selectedVisibleCount} Tenant${selectedVisibleCount === 1 ? '' : 's'} Selected — Review Payment`
-                    : 'Select All for Payment'}
+                    : 'Select All for Disbursement'}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
                 <Popover>
