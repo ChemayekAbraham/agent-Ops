@@ -83,7 +83,7 @@ export function StandingOrdersPanel() {
   const setEnabled = useSetStandingOrderEnabled();
   const { role } = useAuth();
   const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
-  const canEditAmount = standingOrderAmountDevelopmentEnabled() && (role === 'cfo' || role === 'super_admin');
+  const canEditAmount = role === 'cfo' || role === 'super_admin';
   const [filter, setFilter] = useState<FilterTab>('attention');
   const [search, setSearch] = useState('');
   const [expandedErrors, setExpandedErrors] = useState<Record<string, boolean>>({});
@@ -724,7 +724,7 @@ export function StandingOrdersPanel() {
           </div>
         )}
       </div>
-      {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} onClose={() => setEditingAmount(null)} />}
+      {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} previewOnly={!standingOrderAmountDevelopmentEnabled()} onClose={() => setEditingAmount(null)} />}
     </TooltipProvider>
   );
 }
