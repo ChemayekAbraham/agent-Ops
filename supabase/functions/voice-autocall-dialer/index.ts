@@ -11,6 +11,8 @@
  *   3. voice_autocall_claim(channels) — never more calls than free lines.
  *   4. Places each call with clientRequestId = job id, so every callback maps
  *      back to its job.
+ *   6. Re-sends after-call texts whose trigger request was dropped
+ *      (voice-autocall-notify, keyed on jobs.notified_at).
  *   5. Copies finished recordings from Africa's Talking into the private
  *      voice-recordings bucket, so playback never depends on AT keeping them.
  *
@@ -34,6 +36,7 @@ const json = (body: unknown, status = 200) =>
 const BALANCE_EVERY_MS = 10 * 60_000;
 const BUCKET = 'voice-recordings';
 const RECORDINGS_PER_RUN = 10;
+const NOTIFY_RETRIES_PER_RUN = 10;
 
 interface ClaimedJob {
   id: string;
@@ -133,6 +136,35 @@ async function copyRecording(admin: SupabaseClient, url: string, path: string): 
     return null;
   }
   return fullPath;
+}
+
+/**
+ * Re-send after-call texts the trigger's single request failed to deliver
+ * (a pg_net timeout drops it). voice-autocall-notify marks notified_at, and
+ * its SMS idempotency keys stop a double text if both attempts land.
+ */
+async function retryCallNotifications(admin: SupabaseClient): Promise<number> {
+  const now = Date.now();
+  const { data: jobs } = await admin.from('voice_autocall_jobs')
+    .select('id')
+    .is('notified_at', null)
+    .in('status', ['completed', 'no_answer', 'busy', 'failed'])
+    .gte('ended_at', new Date(now - 2 * 3_600_000).toISOString())
+    .lte('ended_at', new Date(now - 2 * 60_000).toISOString())
+    .order('ended_at')
+    .limit(NOTIFY_RETRIES_PER_RUN);
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  let retried = 0;
+  for (const j of jobs ?? []) {
+    const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/voice-autocall-notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
+      body: JSON.stringify({ job: j.id }),
+    }).catch(() => null);
+    await res?.body?.cancel();
+    if (res?.ok) retried++;
+  }
+  return retried;
 }
 
 async function syncRecordings(admin: SupabaseClient): Promise<number> {
@@ -249,7 +281,21 @@ Deno.serve(async (req) => {
     console.warn('[voice-autocall-dialer] recording sync failed', String(e));
   }
 
-  const result = { ...(tick as Record<string, unknown>), dialled, failed, recordings, low_balance: lowBalance };
+  let notifyRetries = 0;
+  try {
+    notifyRetries = await retryCallNotifications(admin);
+  } catch (e) {
+    console.warn('[voice-autocall-dialer] notify retry failed', String(e));
+  }
+
+  const result = {
+    ...(tick as Record<string, unknown>),
+    dialled,
+    failed,
+    recordings,
+    notify_retries: notifyRetries,
+    low_balance: lowBalance,
+  };
   await setStatus({
     last_tick_at: new Date().toISOString(),
     last_tick_result: result,

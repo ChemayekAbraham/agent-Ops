@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
-import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
 import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown';
@@ -78,10 +77,14 @@ export function CFOOverviewDashboard({
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, position, positionError, liabilities, revenue, receivables, moneyFlow,
-    todayCashFlow, isLoading
-  } = useCFOOverviewData();
-  const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
+    platformCash, position, positionError, liabilities, receivables,
+    todayCashFlow, platformCashLoading, platformCashError, refetchPlatformCash, positionLoading,
+    receivablesLoading, receivablesError,
+  } = useCFOOverviewData({
+    cashDetails: activeBreakdown === 'cash' || activeBreakdown === 'wallets',
+    cashVisible: showCashPosition,
+    todayDetails: ['cashIn', 'cashOut', 'netCash'].includes(activeBreakdown ?? ''),
+  });
   const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
   const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
@@ -96,7 +99,7 @@ export function CFOOverviewDashboard({
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) => {
           const key = String(queryKey[0] ?? '');
-          return key.startsWith('cfo-') || key.includes('actual-money') || key.includes('merchant');
+          return key.startsWith('cfo-') || key === 'receivables-total' || key.includes('actual-money') || key.includes('merchant');
         },
       });
       toast.success('Cash position refreshed');
@@ -169,21 +172,13 @@ export function CFOOverviewDashboard({
   }, []);
 
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   // Cash comes from the Balance Sheet's own statement, so these cards and the
   // Balance Sheet cannot disagree. Bank (A1) and cash held outside the bank
   // (A2 float + A5 in transit) partition the headline exactly.
   const totalCash = position?.totalCash ?? 0;
   const bankCash = position?.bank ?? 0;
   const outsideBankCash = position?.outsideBank ?? 0;
-  const positionUnavailable = !!positionError;
+  const positionUnavailable = positionLoading || !!positionError;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const actualMoneyTotal = actualMoney?.total ?? 0;
@@ -228,8 +223,6 @@ export function CFOOverviewDashboard({
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 
-  const cashFlowDays = sevenDayCashFlow?.days ?? [];
-  const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
   const monthRangeLabel = (() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -460,7 +453,7 @@ export function CFOOverviewDashboard({
               icon={<Package className="h-4 w-4" />}
               tone="warning"
               title="Money We Owe"
-              value={fmt(moneyWeOweTotal)}
+              value={merchantOwedLoading || !merchantOwed ? '—' : fmt(moneyWeOweTotal)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeOweTotal, actualMoneyTotal)}
               percentageDirection="down"
               percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeOweTotal : undefined}
@@ -475,7 +468,7 @@ export function CFOOverviewDashboard({
               icon={<BarChart3 className="h-4 w-4" />}
               tone="info"
               title="Money We Can Use"
-              value={fmt(moneyWeCanUse)}
+              value={actualLoading || !actualMoney || merchantOwedLoading || !merchantOwed ? '—' : fmt(moneyWeCanUse)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeCanUse, actualMoneyTotal)}
               percentageDirection="up"
               percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeCanUse : undefined}
@@ -567,6 +560,8 @@ export function CFOOverviewDashboard({
             moneyWeCanUse={moneyWeCanUse}
             moneyWeOwe={moneyWeOweTotal}
             bankReconciled={actualMoney?.bankedInSync}
+            receivablesReady={!receivablesLoading && !receivablesError && !!receivables}
+            moneyReady={!actualLoading && !!actualMoney && !merchantOwedLoading && !!merchantOwed}
             onNavigate={onTabChange}
           />
         )}
@@ -588,6 +583,10 @@ export function CFOOverviewDashboard({
       {/* ── BREAKDOWNS ── */}
       <CashSourcesSheet
         open={activeBreakdown === 'cash'}
+        loading={platformCashLoading}
+        loadError={platformCashError}
+        reconciliationReady={!positionLoading && !positionError && !!position}
+        onRetry={() => { void refetchPlatformCash(); void queryClient.invalidateQueries({ queryKey: ['cfo-overview-position'] }); }}
         onOpenChange={(o) => !o && setActiveBreakdown(null)}
         totalCash={totalCash}
         a1={platformCash?.a1 ?? 0}

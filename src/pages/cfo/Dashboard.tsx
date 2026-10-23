@@ -23,6 +23,7 @@ import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpendApproval';
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
 import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
+import { CFOWelileHomesDisbursementDesk } from '@/components/cfo/CFOWelileHomesDisbursementDesk';
 import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
 import { RevenueExpenseDashboard } from '@/components/cfo/RevenueExpenseDashboard';
 import RoiDisbursementReportPanel from '@/components/cfo/RoiDisbursementReportPanel';
@@ -403,6 +404,12 @@ export default function CFODashboardPage() {
             <PromissoryBookingsPanel />
             <BatchPayoutProcessor />
             <LandlordFloatAllocationsPanel />
+          </div>
+        );
+      case 'welile-homes-payouts':
+        return (
+          <div className="space-y-4">
+            <CFOWelileHomesDisbursementDesk />
           </div>
         );
       case 'already-funded-landlords':
