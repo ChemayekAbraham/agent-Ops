@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote, Activity } from 'lucide-react';
 import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 
 import { hapticTap } from '@/lib/haptics';
@@ -513,6 +513,25 @@ const DashboardHeader = memo(function DashboardHeader({
                         </div>
                         <span className="truncate">More</span>
                       </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => { hapticTap(); navigate('/agent/performance'); }}
+                      onPointerEnter={() => void import('@/pages/agent/AgentWeeklyPerformance')}
+                      onTouchStart={() => void import('@/pages/agent/AgentWeeklyPerformance')}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Activity className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Weekly Performance</span>
+                      </div>
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xs">
+                        New
+                      </span>
                     </DropdownMenuItem>
                   )}
 
