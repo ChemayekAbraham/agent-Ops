@@ -82190,6 +82190,7 @@ export type Database = {
         Returns: Json
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
+      redact_sms_codes: { Args: { p_message: string }; Returns: string }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }
