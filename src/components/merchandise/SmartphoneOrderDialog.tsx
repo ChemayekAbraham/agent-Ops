@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 import { Checkbox } from '@/components/ui/checkbox';
-import { Smartphone, AlertTriangle, Loader2, Check, Plus, Search } from 'lucide-react';
+import { Smartphone, AlertTriangle, Loader2, Check, Plus, Search, ArrowLeft, ShoppingCart, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
@@ -63,6 +63,12 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [submitting, setSubmitting] = useState(false);
   const [docsReady, setDocsReady] = useState(false);
   const [phoneSearch, setPhoneSearch] = useState('');
+  // Product page shown inside the sheet; the "cart" is the selected catalogId
+  // (an application is for one phone, so the cart holds one item).
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const listScrollTop = useRef(0);
+  const checkoutRef = useRef<HTMLDivElement>(null);
 
   const { data: eligibility, isLoading: eligLoading } = useQuery<Eligibility | null>({
     queryKey: ['smartphone-eligibility', userId],
@@ -146,6 +152,32 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setPaymentMethod('installments');
     setDocsReady(false);
     setPhoneSearch('');
+    setDetailId(null);
+  };
+
+  const detail = detailId ? options.find((c) => c.id === detailId) ?? null : null;
+
+  const openDetail = (id: string) => {
+    listScrollTop.current = bodyRef.current?.scrollTop ?? 0;
+    setDetailId(id);
+    requestAnimationFrame(() => bodyRef.current?.scrollTo({ top: 0 }));
+  };
+
+  const closeDetail = () => {
+    setDetailId(null);
+    requestAnimationFrame(() => bodyRef.current?.scrollTo({ top: listScrollTop.current }));
+  };
+
+  const addToCart = (c: SmartphoneCatalogEntry, goToCheckout: boolean) => {
+    const replacing = !!selected && selected.id !== c.id;
+    setCatalogId(c.id);
+    toast.success(replacing ? `Cart updated: ${phoneName(c)}` : `${phoneName(c)} added to your cart`);
+    if (goToCheckout) {
+      setDetailId(null);
+      requestAnimationFrame(() =>
+        checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      );
+    }
   };
 
   const submit = async () => {
@@ -331,21 +363,26 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             ) : visibleOptions.length === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">No models match “{phoneSearch.trim()}”.</p>
             ) : (
-              <div role="radiogroup" aria-label="Phone model" className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {visibleOptions.map((c) => {
                   const isSelected = c.id === catalogId;
                   const cardPrice = Math.max(0, Math.round(Number(c.default_amount || 0)));
                   const fromDaily = smartphoneSchedule(cardPrice, LONGEST_MONTHS, startDate).daily;
                   return (
-                    <button
+                    <div
                       key={c.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      disabled={blocked}
-                      onClick={() => setCatalogId(c.id)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`View ${phoneName(c)}`}
+                      onClick={() => openDetail(c.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openDetail(c.id);
+                        }
+                      }}
                       className={cn(
-                        'group rounded-3xl border bg-card p-1.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50',
+                        'group cursor-pointer rounded-3xl border bg-card p-1.5 text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary/50 active:scale-[0.98]',
                         isSelected
                           ? 'border-primary shadow-md ring-2 ring-primary/30'
                           : 'border-border/70 hover:border-primary/40 hover:shadow-sm',
@@ -359,17 +396,29 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                           ios={isIOSDevice(c)}
                           className="aspect-square w-full rounded-[20px]"
                         />
-                        <span
-                          aria-hidden="true"
+                        {isSelected && (
+                          <span className="absolute left-2 top-2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground shadow-sm">
+                            In cart
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={isSelected ? `${phoneName(c)} is in your cart` : `Add ${phoneName(c)} to cart`}
+                          disabled={blocked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isSelected) openDetail(c.id);
+                            else addToCart(c, false);
+                          }}
                           className={cn(
-                            'absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all',
+                            'absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all disabled:opacity-50',
                             isSelected
                               ? 'bg-primary text-primary-foreground scale-105'
-                              : 'bg-background/95 text-foreground group-hover:scale-105',
+                              : 'bg-background/95 text-foreground hover:scale-110',
                           )}
                         >
                           {isSelected ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-                        </span>
+                        </button>
                       </div>
                       <div className="space-y-0.5 px-1.5 pb-1.5 pt-2">
                         <p className="text-sm font-semibold leading-tight line-clamp-2">{phoneName(c)}</p>
@@ -386,7 +435,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                           </p>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

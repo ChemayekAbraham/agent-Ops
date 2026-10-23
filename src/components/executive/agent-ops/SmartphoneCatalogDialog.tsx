@@ -57,6 +57,9 @@ export interface SmartphoneCatalogEntry {
   created_at?: string | null;
   /** Product photo (storage URL) shown on the agent's phone card. */
   image_url?: string | null;
+  /** Product page copy shown to agents. */
+  description?: string | null;
+  highlights?: string[] | null;
 }
 
 /**
@@ -114,7 +117,7 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
     const { data, error } = await db
       .from('smartphone_catalog')
-      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at, image_url')
+      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at, image_url, description, highlights')
       .order('os_type', { ascending: true })
       .order('brand', { ascending: true })
       .order('model_name', { ascending: true });
@@ -382,6 +385,8 @@ export function SmartphoneCatalogDialog() {
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editHighlights, setEditHighlights] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
   const [supplier, setSupplier] = useState<SupplierChoice | null>(null);
   const [editSupplier, setEditSupplier] = useState<SupplierChoice | null>(null);
@@ -509,6 +514,11 @@ export function SmartphoneCatalogDialog() {
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
+          description: editDescription.trim() || null,
+          highlights: (() => {
+            const lines = editHighlights.split('\n').map((l) => l.trim()).filter(Boolean);
+            return lines.length > 0 ? lines : null;
+          })(),
           supplier_id: editSupplier?.id ?? null,
           supplier_name: editSupplier?.name ?? null,
           supplier_phone: editSupplier?.phone ?? null,
@@ -602,6 +612,8 @@ export function SmartphoneCatalogDialog() {
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
     setEditMoreSpecifications(e.more_specifications ?? '');
+    setEditDescription(e.description ?? '');
+    setEditHighlights((e.highlights ?? []).join('\n'));
   };
 
 
@@ -962,6 +974,26 @@ export function SmartphoneCatalogDialog() {
                       rows={2}
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
+                    <div className="space-y-1">
+                      <Label className="text-xs">Product description (shown to agents)</Label>
+                      <textarea
+                        value={editDescription}
+                        onChange={(ev) => setEditDescription(ev.target.value)}
+                        placeholder="A short paragraph about this phone"
+                        rows={3}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Key features, one per line</Label>
+                      <textarea
+                        value={editHighlights}
+                        onChange={(ev) => setEditHighlights(ev.target.value)}
+                        placeholder={'6.1-inch display\n5,000 mAh battery\n50 MP camera'}
+                        rows={4}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-y"
+                      />
+                    </div>
                     <div className="flex items-center justify-end gap-1.5">
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Cancel
