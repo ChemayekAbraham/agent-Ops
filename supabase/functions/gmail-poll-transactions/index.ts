@@ -10,6 +10,7 @@ import {
   resolveUniqueUserByKnownPhone,
   learnDepositNumber,
   resolveUniqueUserByKnownName,
+  resolveUsersByKnownName,
   normalizeDepositorName,
 } from "../_shared/depositNumberLearning.ts";
 
@@ -2152,94 +2153,45 @@ async function _tryAutoCreditOperationalFloat(
         };
         console.log(`[gmail-poll] MTN name-fallback matched "${rawName}" → user=${profile.id}`);
       } else if (nameMatches && nameMatches.length > 1) {
-        // Tie-breaker 1: prefer profiles that actually have a phone on file.
-        const withPhone = nameMatches.filter((p: any) => (p.phone ?? '').replace(/\D/g, '').length >= 9);
-        let winner: any = null;
-        let tiebreaker = '';
-        let tiebreakerPool: 'with-phone' | 'all' | 'single' | null = null;
-        const lastSeen: { id: string; ts: number; iso: string | null }[] = [];
-        if (withPhone.length === 1) {
-          winner = withPhone[0];
-          tiebreaker = 'only-profile-with-phone';
-          tiebreakerPool = 'with-phone';
-        } else {
-          // Tie-breaker 2: pick the most recently active auth user (within 30d
-          // and strictly newer than every other candidate by ≥ 24h).
-          const pool = withPhone.length > 1 ? withPhone : nameMatches;
-          tiebreakerPool = withPhone.length > 1 ? 'with-phone' : 'all';
-          // Best-guess: pick the most recently active auth user among the
-          // same-named candidates. Ops can reverse via Email Transactions
-          // if it turns out to be the wrong user.
-          for (const p of pool) {
-            try {
-              const { data: u } = await (supabase as any).auth.admin.getUserById(p.id);
-              const t = u?.user?.last_sign_in_at ? new Date(u.user.last_sign_in_at).getTime() : 0;
-              lastSeen.push({ id: p.id, ts: t, iso: u?.user?.last_sign_in_at ?? null });
-            } catch {
-              lastSeen.push({ id: p.id, ts: 0, iso: null });
-            }
-          }
-          lastSeen.sort((a, b) => b.ts - a.ts);
-          const top = lastSeen[0];
-          if (top) {
-            winner = pool.find((p: any) => p.id === top.id) ?? null;
-            tiebreaker = top.ts > 0 ? 'most-recent-active' : 'first-candidate';
-          }
-        }
-        if (winner?.id) {
-          profile = winner;
+        // Several profiles share this exact name. A name is not an identity: the
+        // MTN receipt carries no phone, so nothing in it can tell the profiles
+        // apart. Guessing (most recently active, or the only one with a phone)
+        // credited the wrong same-name profile repeatedly. The only safe
+        // resolution is a name Financial Ops has confirmed by hand for exactly
+        // one of these profiles and that has never been contested
+        // (user_deposit_names). Otherwise the receipt stays unmatched and a
+        // human routes it.
+        const candidateIds = new Set(nameMatches.map((p: any) => p.id));
+        const learnedHits = (await resolveUsersByKnownName(supabase, normalizeDepositorName(rawName)))
+          .filter((h) => candidateIds.has(h.user_id));
+        if (learnedHits.length === 1) {
+          const hit = learnedHits[0];
+          profile = { id: hit.user_id, phone: hit.phone, full_name: hit.full_name, email: hit.email } as any;
           matchMethod = 'name';
-          // Confidence: 'low' for first-candidate (no signal), 'medium' for
-          // most-recent-active, 'high' for only-profile-with-phone.
-          let confidence: 'high' | 'medium' | 'low' = 'low';
-          let confidenceScore = 0.3;
-          const reasons: string[] = [];
-          if (tiebreaker === 'only-profile-with-phone') {
-            confidence = 'high';
-            confidenceScore = 0.85;
-            reasons.push('only one of the same-named profiles has a phone on file');
-          } else if (tiebreaker === 'most-recent-active') {
-            const top = lastSeen[0];
-            const second = lastSeen[1];
-            const gapDays = top && second ? (top.ts - second.ts) / 86400000 : 0;
-            if (gapDays >= 7) {
-              confidence = 'medium';
-              confidenceScore = 0.65;
-              reasons.push(`winner active ${gapDays.toFixed(1)}d more recently than runner-up`);
-            } else {
-              confidence = 'low';
-              confidenceScore = 0.4;
-              reasons.push(`winner active only ${gapDays.toFixed(1)}d more recently than runner-up`);
-            }
-          } else {
-            reasons.push('no last-sign-in signal — picked first candidate');
-          }
-          const lsMap = new Map(lastSeen.map(l => [l.id, l]));
           nameMatchAudit = {
             raw_name: rawName,
             total_candidates: nameMatches.length,
             candidates: nameMatches.map((p: any) => {
               const digits = (p.phone ?? '').replace(/\D/g, '');
-              const ls = lsMap.get(p.id);
               return {
                 id: p.id,
                 full_name: p.full_name ?? null,
                 phone_last4: digits.length >= 4 ? digits.slice(-4) : null,
                 has_phone: digits.length >= 9,
-                last_sign_in_at: ls?.iso ?? null,
-                last_sign_in_ms: ls?.ts ?? 0,
-                selected: p.id === winner.id,
+                last_sign_in_at: null,
+                last_sign_in_ms: 0,
+                selected: p.id === hit.user_id,
               };
             }),
-            tiebreaker,
-            tiebreaker_pool: tiebreakerPool,
-            confidence,
-            confidence_score: confidenceScore,
-            confidence_reasons: reasons,
+            tiebreaker: 'learned-name-match',
+            tiebreaker_pool: 'single',
+            confidence: 'high',
+            confidence_score: 0.9,
+            confidence_reasons: ['payer name previously confirmed by Financial Ops for exactly one of the same-named profiles and never contested'],
           };
-          console.log(`[gmail-poll] MTN name-fallback resolved "${rawName}" (${nameMatches.length} matches) via ${tiebreaker} → user=${winner.id}`);
+          console.log(`[gmail-poll] MTN same-name resolved by learned name "${rawName}" (${nameMatches.length} profiles) → user=${hit.user_id}`);
         } else {
-          console.log(`[gmail-poll] MTN name-fallback ambiguous for "${rawName}" (${nameMatches.length} matches, no clear winner) — skipping auto-credit`);
+          console.log(`[gmail-poll] MTN name-fallback ambiguous for "${rawName}" (${nameMatches.length} matches, no confirmed owner) — skipping auto-credit`);
           await logDepositDecision(supabase, {
             source: 'matcher',
             decision: 'skipped',
