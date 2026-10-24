@@ -75554,6 +75554,21 @@ export type Database = {
         }
         Returns: Json
       }
+      get_partner_paid_outstanding: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      get_partner_paid_outstanding_items: {
+        Args: {
+          p_component: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       get_partner_promissory_commissions: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
