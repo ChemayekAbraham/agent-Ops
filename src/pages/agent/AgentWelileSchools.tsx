@@ -473,7 +473,7 @@ function HomeVillagePicker({ onPick }: { onPick: (village: string) => void }) {
   );
 }
 
-function RegionDistrictBrowser({ region, district, onRegion, onDistrict }: { region: string | null; district: string | null; onRegion: (r: string) => void; onDistrict: (d: string, r: string | null) => void }) {
+export function RegionDistrictBrowser({ region, district, onRegion, onDistrict }: { region: string | null; district: string | null; onRegion: (r: string) => void; onDistrict: (d: string, r: string | null) => void }) {
   const { data: all = [] } = useUgDistricts();
   const [filterText, setFilterText] = useState('');
   const q = filterText.trim().toLowerCase();

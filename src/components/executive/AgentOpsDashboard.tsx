@@ -76,6 +76,7 @@ import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
 import { WelileSchoolsOps } from './agent-ops-v2/WelileSchoolsOps';
+import { WelileMedicineOps } from './agent-ops-v2/WelileMedicineOps';
 import { CallingHub } from '@/components/ops/calling';
 import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
@@ -92,7 +93,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network, GraduationCap
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network, GraduationCap, Stethoscope
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -123,6 +124,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'agent-marketplace', icon: Store, label: 'Welile Marketplace', color: 'bg-primary' },
   { key: 'welile-homes', icon: Building2, label: 'Welile Homes', color: 'bg-primary' },
   { key: 'welile-schools', icon: GraduationCap, label: 'Welile Schools', color: 'bg-primary' },
+  { key: 'welile-medicine', icon: Stethoscope, label: 'Welile Medicine', color: 'bg-primary' },
   { key: 'agents-hope', icon: Sparkles, label: 'Welile Agents Hope', color: 'bg-primary' },
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
@@ -185,11 +187,11 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
 type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7' | 'network' | 'metrics';
 
 const CATEGORIES: { id: CategoryId; label: string; count: number; icon?: typeof Sprout }[] = [
-  { id: 'all', label: 'All', count: 14 },
+  { id: 'all', label: 'All', count: BUSINESS_AREAS.length },
   { id: 'advances', label: 'Advances', count: 4 },
   { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
   { id: 'commerce', label: 'Commerce & Float', count: 3 },
-  { id: 'field', label: 'Field & Hubs', count: 4 },
+  { id: 'field', label: 'Field & Hubs', count: 5 },
   { id: 'reports', label: 'Ranks & Reports', count: 1 },
   { id: 'first7', label: 'First 7 Days', count: 1, icon: Sprout },
   { id: 'network', label: 'Agent Network', count: 1, icon: Network },
@@ -432,6 +434,7 @@ export function AgentOpsDashboard() {
       );
       case 'welile-homes': return <WelileHomesAdminPanel onBack={() => setActiveView(null)} />;
       case 'welile-schools': return <WelileSchoolsOps onBack={() => setActiveView(null)} />;
+      case 'welile-medicine': return <WelileMedicineOps onBack={() => setActiveView(null)} />;
       case 'agents-hope': return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
@@ -827,7 +830,7 @@ export function AgentOpsDashboard() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            placeholder={`Search all ${BUSINESS_AREAS.length} business areas, advances, bikes, rent, tools, reports...`}
             className="h-9 pl-9 pr-8 text-xs bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40"
           />
           {searchQuery && (
@@ -891,7 +894,7 @@ export function AgentOpsDashboard() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            placeholder={`Search all ${BUSINESS_AREAS.length} business areas, advances, bikes, rent, tools, reports...`}
             className="h-11 pl-10 pr-10 text-sm bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40 mb-0"
           />
           {searchQuery && (
@@ -1122,7 +1125,7 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Mobile bottom nav */}
-      {activeView !== 'welile-homes' && activeView !== 'welile-schools' && (
+      {activeView !== 'welile-homes' && activeView !== 'welile-schools' && activeView !== 'welile-medicine' && (
         <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
       )}
 
