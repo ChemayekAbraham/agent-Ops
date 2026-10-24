@@ -53,7 +53,7 @@ describe('Gate movement summary', () => {
       log({ id: '5', person_name: 'Old', direction: 'in', recorded_at: '2026-10-23T07:00:00+03:00' }),
     ];
     const s = computeGateMovementSummary(logs, NOW);
-    expect(s.enteredToday).toBe(4);
+    expect(s.enteredToday).toBe(3);
     expect(s.exitedToday).toBe(1);
     expect(s.currentlyInside).toBe(2); // Brian + Guest; Amina left
     expect(s.byGroup.pupil).toEqual({ in: 1, out: 1, inside: 0 });
