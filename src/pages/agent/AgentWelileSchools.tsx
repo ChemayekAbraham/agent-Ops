@@ -19,7 +19,7 @@ import {
   SCHOOL_LEVELS, SCHOOL_OWNERSHIP, FACILITY_TYPES, PROFILE_ROLES, GATE_ROLES, roleGroup, roleLabel,
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
-  saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs,
+  saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs, writeLocalGateLogs,
   computeGateMovementSummary, formatEatTime,
   type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
