@@ -222,6 +222,7 @@ export function AgentMenuDrawer({
       label: '👥 People',
       items: [
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
+        { icon: Home, label: 'Welile Homes', description: 'Agent-managed tenants & subscriptions', path: '/agent/welile-homes', accent: 'primary' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },

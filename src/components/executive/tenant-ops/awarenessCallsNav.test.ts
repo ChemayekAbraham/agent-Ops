@@ -16,10 +16,12 @@ describe('Awareness Calls in the Tenant Ops Classic nav', () => {
 
   it('leaves every other destination where it was', () => {
     const keys = TENANT_OPS_NAV.flatMap((i) => [i.key, ...(i.children?.map((c) => c.key) ?? [])]);
-    for (const k of ['home', 'pipeline', 'calling-hub', 'calling-center', 'collection-shortfall', 'tenant-operations-workspace', 'reports-hub']) {
+    for (const k of ['home', 'welile-homes', 'pipeline', 'calling-hub', 'calling-center', 'collection-shortfall', 'tenant-operations-workspace', 'reports-hub']) {
       expect(keys).toContain(k);
     }
     expect(keys.filter((k) => k === 'awareness-calls')).toHaveLength(1);
+    expect(TENANT_OPS_NAV[0].key).toBe('home');
+    expect(TENANT_OPS_NAV[1].key).toBe('welile-homes');
   });
 });
 

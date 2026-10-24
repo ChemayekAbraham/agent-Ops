@@ -44,6 +44,10 @@ export interface CashSourceLine {
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  loading?: boolean;
+  loadError?: unknown;
+  onRetry?: () => void;
+  reconciliationReady?: boolean;
   totalCash: number;
   a1: number;
   a5: number;
@@ -155,7 +159,7 @@ function formatPercent(n: number) {
   return `${n.toFixed(1)}%`;
 }
 
-export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [] }: Props) {
+export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increases, decreases, positions = [], loading = false, loadError, onRetry, reconciliationReady = true }: Props) {
   const [selected, setSelected] = useState<CashSourceLine | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -211,7 +215,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
-        {!selected && (
+        {loading ? <div role="status" className="flex items-center justify-center gap-2 py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" />Loading cash sources…</div> : loadError ? <div role="alert" className="space-y-3 py-6"><p className="text-sm text-destructive">Could not load cash sources.</p><Button variant="outline" onClick={onRetry}>Retry</Button></div> : null}
+        {!selected && !loading && !loadError && (
           <div className="space-y-3 pb-3">
             {/* Sources of money in */}
             <section className="space-y-2">
@@ -410,7 +415,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                 <span className="text-base font-bold">Money We Have</span>
                 <span className="text-xl font-bold font-mono">{formatUGX(grossIn - grossOut)}</span>
               </div>
-              {Math.abs(reconciliationGap) > 1 && (
+              {!reconciliationReady && <p role="status" className="text-[11px] text-muted-foreground">Balance Sheet comparison unavailable until the statement is loaded.</p>}
+              {reconciliationReady && Math.abs(reconciliationGap) > 1 && (
                 <p className="text-[11px] text-warning bg-warning/10 rounded-lg px-3 py-2">
                   Reconciliation gap vs Balance Sheet cash: {formatUGX(reconciliationGap)}
                 </p>

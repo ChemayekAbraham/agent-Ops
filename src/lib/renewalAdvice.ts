@@ -166,6 +166,11 @@ export function renewalErrorMessage(raw: unknown, minExplanation = DEFAULT_MIN_E
   if (has('NOT_AUTHENTICATED')) return 'Your session expired. Sign in again and retry.';
   if (has('NOTE_TOO_SHORT')) return 'A note needs at least 10 characters.';
   if (has('NOT_A_REVIEWER')) return 'Only reviewers can add a note to a request.';
+  if (has('WEEKLY_ELIGIBILITY_BLOCKED')) {
+    // The server's reason already names the week, the amounts and the percentage needed.
+    const reason = text.split('\n')[0].replace(/^.*WEEKLY_ELIGIBILITY_BLOCKED:\s*/, '').trim();
+    return reason || 'Your collections last week were below the target. You cannot post a new rent request this week.';
+  }
   if (has('DAILY_ELIGIBILITY_BLOCKED')) {
     return 'Collect from your existing tenants first. You must reach 50% of your daily target before posting a new rent request.';
   }

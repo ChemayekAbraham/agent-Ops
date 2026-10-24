@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -200,6 +201,18 @@ Deno.serve(async (req) => {
 
       if (isRealEmail) {
         const nm = renewRes as any;
+        await sendReturnsReadyEmail({
+          admin,
+          supabaseUrl,
+          serviceKey,
+          portfolioId: portfolio.id,
+          portfolioCode: nm?.portfolio_code || portfolio.portfolio_code,
+          portfolioName: nm?.account_name || portfolio.account_name || portfolio.portfolio_code,
+          recipientEmail: recipientEmail!,
+          partnerName,
+          newMaturityDate: nm?.new_maturity_date ? new Date(`${nm.new_maturity_date}T00:00:00Z`) : null,
+          idempotencyKey: `portfolio-renewal-returns-ready-${portfolio.id}-${request_id}`,
+        });
         await sendPartnerRenewalEmail({
           supabaseUrl,
           serviceKey,

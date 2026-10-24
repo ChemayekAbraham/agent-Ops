@@ -15,6 +15,7 @@ import {
   isPortfolioRoiDue,
 } from "./roiDateGate.ts";
 import { evaluateRenewalPayoutGate } from "../_shared/renewalPayoutGate.ts";
+import { isRealPartnerEmail, sendRenewalAppliedEmail, sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -741,6 +742,30 @@ Deno.serve(async (req) => {
           }
           results.renewalsApplied++;
           console.log(`[process-supporter-roi] Auto-renewed matured portfolio ${p.portfolio_code} after payout (${gate.reason})`);
+          // Partner emails: Returns ready + renewal confirmation (non-blocking).
+          try {
+            const { data: prof } = await supabase.from('profiles').select('email, full_name').eq('id', (p as any).investor_id).maybeSingle();
+            if (isRealPartnerEmail(prof?.email)) {
+              const r: any = renewRes;
+              const code = r?.portfolio_code || p.portfolio_code;
+              const name = r?.account_name || code;
+              await sendReturnsReadyEmail({
+                admin: supabase, supabaseUrl, serviceKey: supabaseServiceKey,
+                portfolioId: p.id, portfolioCode: code, portfolioName: name,
+                recipientEmail: prof!.email, partnerName: prof?.full_name || 'Partner',
+                newMaturityDate: r?.new_maturity_date ? new Date(`${r.new_maturity_date}T00:00:00Z`) : null,
+                idempotencyKey: `portfolio-renewal-returns-ready-${p.id}-${todayStr}`,
+              });
+              await sendRenewalAppliedEmail({
+                supabaseUrl, serviceKey: supabaseServiceKey,
+                recipientEmail: prof!.email, partnerName: prof?.full_name || 'Partner',
+                portfolioCode: code, portfolioName: name, renewRes: r, fallback: {},
+                idempotencyKey: `portfolio-auto-renewed-${p.id}-${todayStr}`,
+              });
+            }
+          } catch (mailErr) {
+            console.warn(`[process-supporter-roi] Renewal emails failed for ${p.portfolio_code}:`, mailErr);
+          }
         } catch (e) {
           console.warn(`[process-supporter-roi] Auto-renew failed for ${p.portfolio_code}:`, e);
         }

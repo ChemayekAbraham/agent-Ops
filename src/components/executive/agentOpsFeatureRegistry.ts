@@ -38,6 +38,7 @@ import {
   Network,
   PiggyBank,
   Target,
+  GraduationCap,
 } from 'lucide-react';
 
 export type ActiveView =
@@ -50,6 +51,7 @@ export type ActiveView =
   | 'business-advance'
   | 'agent-marketplace'
   | 'welile-homes'
+  | 'welile-schools'
   | 'agents-hope'
   | 'agents-space'
   | 'agent-ops-report'
@@ -245,6 +247,15 @@ export const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'reports',
     desc: 'Performance leaderboard & agent tier rankings',
     keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings', 'top performers'],
+  },
+  {
+    num: '15',
+    title: 'Welile Schools',
+    icon: GraduationCap,
+    section: 'welile-schools',
+    category: 'field',
+    desc: 'School gate registrations, GPS, Country → Village → School → Teacher/Staff/Pupil profiles & free smartphones',
+    keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
   },
 ];
 
@@ -446,6 +457,18 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings', 'top performers', 'champions'],
     isCoreBusinessArea: true,
     businessAreaNum: '14',
+  },
+  {
+    id: 'core-15-welile-schools',
+    title: 'Welile Schools',
+    section: 'welile-schools',
+    categoryGroup: 'Core Business Areas',
+    icon: GraduationCap,
+    color: 'bg-primary',
+    desc: 'School gate registrations, GPS, Country → Village → School → Teacher/Staff/Pupil profiles & free smartphones',
+    keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '15',
   },
 
   // Agents' Space

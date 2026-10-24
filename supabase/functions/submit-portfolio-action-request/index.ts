@@ -169,7 +169,9 @@ Deno.serve(async (req) => {
     // 2) Confirmation email to the partner
     if (partnerEmail) {
       await sendEmail({
-        templateName: "portfolio-request-confirmation",
+        templateName: requestType === "RENEWAL_REQUEST"
+          ? "portfolio-renewal-request-received"
+          : "portfolio-request-confirmation",
         recipientEmail: partnerEmail,
         idempotencyKey: `portfolio-request-confirm-${inserted.id}`,
         templateData: {

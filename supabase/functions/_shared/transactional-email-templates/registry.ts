@@ -70,6 +70,8 @@ import { template as lendingRepaymentStatusTemplate } from './lending-repayment-
 import { template as salaryPayslipTemplate } from './salary-payslip.tsx'
 import { template as selfSupportUnallocatedTemplate } from './self-support-unallocated.tsx'
 import { template as redemptionPaidTemplate } from './redemption-paid.tsx'
+import { template as portfolioRenewalReturnsReadyTemplate } from './portfolio-renewal-returns-ready.tsx'
+import { template as portfolioRenewalRequestReceivedTemplate } from './portfolio-renewal-request-received.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -90,6 +92,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'portfolio-redemption': portfolioRedemptionTemplate,
   'redemption-notice-started': redemptionNoticeStartedTemplate,
   'redemption-paid': redemptionPaidTemplate,
+  'portfolio-renewal-returns-ready': portfolioRenewalReturnsReadyTemplate,
+  'portfolio-renewal-request-received': portfolioRenewalRequestReceivedTemplate,
   'partnership-maturity-notice': partnershipMaturityNoticeTemplate,
   'partner-self-managed-cycle-ended': partnerSelfManagedCycleEndedTemplate,
   'partner-self-managed-deployment': partnerSelfManagedDeploymentTemplate,

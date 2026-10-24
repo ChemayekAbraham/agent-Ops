@@ -24,6 +24,7 @@ import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProdu
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useSmartphoneRepaymentStartDates } from '@/hooks/useSmartphoneRepaymentMethods';
 import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -84,7 +85,7 @@ const PRODUCT_SUGGESTIONS = [
 const FLEET_BIKE_OPTION = 'Company Fleet Bike (Assigned / Operational)';
 
 
-export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
+export type AgentProductCategory ='motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
 /** Which overview KPI card the drill-down sheet is showing. */
 type DrillKey = 'pending' | 'fleet' | 'portfolio' | 'recovery' | 'repaid';
@@ -492,6 +493,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const showOverview = mode === 'overview' || mode === 'full';
   const showCompleted = mode === 'completed';
   const showIssued = mode === 'issued' || mode === 'full' || showCompleted;
+  const { data: repaymentStarts } = useSmartphoneRepaymentStartDates(category === 'smart_phone' && showIssued);
 
 
   const deleteHolding = useMutation({
@@ -1690,6 +1692,15 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                         <span className="text-success">Repaid: <span className="font-semibold tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</span></span>
                         <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
                       </div>
+                      {category === 'smart_phone' && repaymentStarts?.get(r.agent_id) && (
+                        <p className="text-xs text-muted-foreground">
+                          Repayment starts:{' '}
+                          <span className="font-semibold text-foreground">
+                            {format(new Date(`${repaymentStarts.get(r.agent_id)!.slice(0, 10)}T00:00:00`), 'dd MMM yyyy')}
+                          </span>{' '}
+                          (after 7-day grace)
+                        </p>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <div className="text-[11px] text-muted-foreground">

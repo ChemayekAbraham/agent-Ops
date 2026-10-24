@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Home, MapPin, Phone, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
+import { toast } from 'sonner';
+import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
+import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
 
 const MONTHLY_RATE = 0.15;
 
@@ -137,139 +140,152 @@ export function FunderNewReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col w-screen max-w-none h-[100dvh] max-h-none rounded-none border-0 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] gap-3 overflow-y-auto overflow-x-hidden bg-background sm:grid sm:w-full sm:max-w-lg sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:border sm:border-border/80 sm:p-6 sm:gap-4 sm:shadow-2xl">
-        <DialogHeader className="pr-6 text-left">
-          <DialogTitle className="text-base sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
-            Check the homes you picked. Nothing is submitted from this screen.
-          </DialogDescription>
-        </DialogHeader>
-
-        {/* Financial Overview: Re-structured 2-column + full-width coverage layout */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
-          {/* Card 1: Total Support */}
-          <div className="flex flex-col justify-between rounded-2xl bg-primary p-3 sm:p-4 text-primary-foreground shadow-xs">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">
-              Total Support
-            </p>
-            <p className="mt-1 text-base sm:text-xl font-bold tracking-tight truncate">
-              {formatDynamic(total)}
-            </p>
-          </div>
-
-          {/* Card 2: Monthly Returns */}
-          <div className="flex flex-col justify-between rounded-2xl border border-border/70 bg-primary/5 p-3 sm:p-4 shadow-2xs">
-            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Monthly at 15%
-            </p>
-            <p className="mt-1 text-base sm:text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
-              {formatDynamic(monthlyAt15(total))}
-            </p>
-          </div>
-
-          {/* Card 3: Wallet Balance & Coverage Status */}
-          <div className="col-span-2 flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-2.5 sm:py-3 shadow-2xs">
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Available Balance
-              </p>
-              <p className="mt-0.5 text-sm sm:text-base font-bold tracking-tight text-foreground truncate">
-                {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
-              </p>
-            </div>
-            {shortfall !== null && (
-              <div className="shrink-0">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full border shadow-2xs",
-                    shortfall > 0
-                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
-                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                  )}
-                >
-                  {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
-                </Badge>
-              </div>
-            )}
-          </div>
+      <DialogContent className="flex flex-col w-screen max-w-none h-[100dvh] max-h-none rounded-none border-0 p-0 gap-0 overflow-hidden bg-background sm:w-full sm:max-w-lg sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:border sm:border-border/80 sm:shadow-2xl">
+        {/* Top bar: visible Back + title */}
+        <div className="flex shrink-0 items-start gap-2 border-b border-border/60 bg-background px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] pr-12 sm:px-6 sm:pt-5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-11 w-11 shrink-0 rounded-xl"
+            aria-label="Back"
+            onClick={() => onOpenChange(false)}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <DialogHeader className="min-w-0 flex-1 space-y-0.5 pt-1 text-left">
+            <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Check the homes you picked. Nothing is submitted from this screen.
+            </DialogDescription>
+          </DialogHeader>
         </div>
 
-        {/* Selected Homes List */}
-        <div className="space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
-            Selected Homes ({items.length})
-          </p>
-          <ul className="space-y-2 sm:max-h-52 sm:overflow-y-auto pr-0.5">
-            {items.map((item) => (
-              <li
-                key={`${item.category}:${item.id}`}
-                className="flex items-start gap-2.5 sm:gap-3 rounded-2xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs"
-              >
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt={item.title}
-                    className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Home className="h-5 w-5" />
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="min-w-0 truncate text-xs sm:text-sm font-semibold text-foreground">
-                      {item.title}
-                    </p>
-                    <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 rounded-full font-medium shrink-0">
+        {/* Scrollable body */}
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden overscroll-contain px-4 py-4 sm:px-6 [-webkit-overflow-scrolling:touch]">
+          {items[0] && <SalesSheet item={items[0]} />}
+
+          {/* 1. House & tenant summary */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Selected Homes ({items.length})
+            </h3>
+            <ul className="space-y-2">
+              {items.map((item) => (
+                <li
+                  key={`${item.category}:${item.id}`}
+                  className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card p-3 shadow-2xs"
+                >
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.title} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+                  ) : (
+                    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Home className="h-6 w-6" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="break-words text-sm sm:text-base font-semibold text-foreground">{item.title}</p>
+                    <Badge variant="outline" className="mt-1 rounded-full px-2 py-0 text-xs font-medium">
                       {categoryLabel(item.category)}
                     </Badge>
+                    <p className="mt-1 break-words text-sm text-muted-foreground">{item.place}</p>
+                    {item.tenantName ? (
+                      <p className="mt-0.5 break-words text-sm text-foreground">Tenant: {item.tenantName}</p>
+                    ) : null}
+                    <p className="mt-1 text-base font-bold text-foreground">{formatDynamic(item.amount)}</p>
                   </div>
-                  <p className="truncate text-[11px] sm:text-xs text-muted-foreground mt-0.5">{item.place}</p>
-                  <p className="mt-0.5 text-xs sm:text-sm font-bold text-foreground">{formatDynamic(item.amount)}</p>
-                  <HomeContacts item={item} />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 shrink-0 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    aria-label={`Remove ${item.title}`}
+                    onClick={() => onRemove(item)}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* 2. Support amount / plan details */}
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Plan details</h3>
+            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
+              <div className="rounded-2xl bg-primary p-3.5 text-primary-foreground shadow-xs">
+                <p className="text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">Total Support</p>
+                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-primary/5 p-3.5 shadow-2xs">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly at 15%</p>
+                <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight text-success">
+                  {formatDynamic(monthlyAt15(total))}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 shadow-2xs min-[380px]:col-span-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Available Balance</p>
+                  <p className="mt-0.5 break-words text-base font-bold tracking-tight text-foreground">
+                    {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+                  </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
-                  aria-label={`Remove ${item.title}`}
-                  onClick={() => onRemove(item)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
+                {shortfall !== null && (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-2xs',
+                      shortfall > 0
+                        ? 'bg-warning/10 text-warning border-warning/30'
+                        : 'bg-success/10 text-success border-success/30',
+                    )}
+                  >
+                    {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* 3. WhatsApp contacts */}
+          {items.length > 0 && (
+            <section className="space-y-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">The people behind this home</h3>
+              <div className="space-y-3">
+                {items.map((item) => (
+                  <HomeContacts key={`wa:${item.category}:${item.id}`} item={item} showTitle={items.length > 1} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            <p className="min-w-0 flex-1 text-sm leading-relaxed">
+              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
+            </p>
+          </div>
         </div>
 
-        {/* Regulatory & Information Notice */}
-        <div className="mt-auto sm:mt-0 flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <p className="min-w-0 flex-1 text-[11px] sm:text-xs">
-            Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
-          </p>
-        </div>
-
+        {/* 4. Sticky main action */}
         {items.length > 0 ? (
-          <Button
-            className="h-11 sm:h-12 w-full gap-2 bg-emerald-600 text-sm sm:text-base font-bold text-white hover:bg-emerald-700 rounded-xl shadow-md active:scale-[0.99] transition-all"
-            disabled={walletLoading || available === null}
-            onClick={() => {
-              if (shortfall !== null && shortfall > 0) {
-                onOpenChange(false);
-                if (onTopUp) onTopUp(shortfall);
-                else window.dispatchEvent(new Event('open-deposit'));
-              } else if (onFund) {
-                setConfirmOpen(true);
-                onOpenChange(false);
-              }
-            }}
-          >
-            <Wallet className="h-4 w-4" />
-            {shortfall !== null && shortfall > 0 ? 'Top up Now' : 'Fund this plan'}
-          </Button>
+          <div className="shrink-0 border-t border-border/60 bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-5">
+            <Button
+              className="h-12 w-full gap-2 rounded-xl bg-success text-base font-bold text-success-foreground shadow-md hover:bg-success/90 active:scale-[0.99] transition-all"
+              disabled={walletLoading || available === null}
+              onClick={() => {
+                if (shortfall !== null && shortfall > 0) {
+                  onOpenChange(false);
+                  if (onTopUp) onTopUp(shortfall);
+                  else window.dispatchEvent(new Event('open-deposit'));
+                } else if (onFund) {
+                  setConfirmOpen(true);
+                  onOpenChange(false);
+                }
+              }}
+            >
+              <Wallet className="h-5 w-5" />
+              {shortfall !== null && shortfall > 0 ? 'Top up Now' : 'Fund this plan'}
+            </Button>
+          </div>
         ) : null}
       </DialogContent>
 
@@ -398,47 +414,198 @@ export function FunderNewReviewDialog({
 
 export default FunderNewSelectionBar;
 
-function ContactRow({ label, name, phone }: { label: string; name?: string | null; phone?: string | null }) {
+/** Digits-only international form (256…) for wa.me, or null when unusable. */
+export function toWhatsAppDigits(phone?: string | null): string | null {
+  if (!phone) return null;
+  const e164 = normalizeE164OrNull(phone);
+  return e164 ? e164.replace(/\D/g, '') : null;
+}
+
+function ContactRow({ label, name, phone, primary = false }: { label: string; name?: string | null; phone?: string | null; primary?: boolean }) {
+  const digits = toWhatsAppDigits(phone);
+  const copy = async () => {
+    if (!phone) return;
+    try {
+      await navigator.clipboard.writeText(digits ? `+${digits}` : phone);
+      toast.success(`${label} number copied`);
+    } catch {
+      toast.error('Could not copy the number');
+    }
+  };
   return (
-    <div className="flex items-center justify-between gap-3 py-2">
-      <div className="min-w-0">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="break-words text-xs sm:text-sm leading-snug text-foreground">
-          {name ? `${name} · ` : ''}
-          {phone ?? 'Number not shared'}
-        </p>
+    <div className="flex items-center justify-between gap-3 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className={cn('break-words text-foreground', primary ? 'text-lg font-bold' : 'text-sm font-medium')}>{name || 'Name not shared'}</p>
+        {phone ? (
+          <button
+            type="button"
+            onClick={copy}
+            aria-label={`Copy ${label} number`}
+            className="mt-0.5 inline-flex min-h-[44px] items-center gap-1.5 break-all text-left text-sm text-muted-foreground underline-offset-2 hover:underline"
+          >
+            {digits ? `+${digits}` : phone}
+            <Copy className="h-3.5 w-3.5 shrink-0" />
+          </button>
+        ) : (
+          <p className="mt-0.5 text-sm text-muted-foreground">Not available</p>
+        )}
       </div>
-      {phone && (
+      {digits && (
         <a
-          href={`tel:${phone.replace(/\s/g, '')}`}
-          aria-label={`Call ${label}`}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+          href={`https://wa.me/${digits}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`WhatsApp ${label}`}
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-xl bg-success px-3.5 text-sm font-semibold text-success-foreground shadow-sm hover:opacity-90"
         >
-          <Phone className="h-4 w-4" />
+          <MessageCircle className="h-4 w-4" />
+          WhatsApp
         </a>
       )}
     </div>
   );
 }
 
-function HomeContacts({ item }: { item: FunderNewSelectionItem }) {
+function HomeContacts({ item, showTitle }: { item: FunderNewSelectionItem; showTitle: boolean }) {
   const mapUrl =
     item.lat != null && item.lng != null
       ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`
       : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.place)}`;
   return (
-    <div className="mt-2.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 divide-y divide-border/50">
-      <ContactRow label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
-      <ContactRow label={item.category === 'empty' ? 'Listing agent' : 'Proxy agent'} name={item.agentName} phone={item.agentPhone} />
-      <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
-      <div className="pt-2 pb-0.5">
-        <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 rounded-lg px-2 text-xs text-info hover:text-info">
-          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center whitespace-nowrap">
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-destructive" />
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-1">
+      {showTitle && <p className="pt-2.5 text-sm font-semibold text-foreground break-words">{item.title}</p>}
+      <div className="divide-y divide-border/50">
+        <ContactRow primary label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
+        <ContactRow primary label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
+        <ContactRow label="Agent" name={item.agentName} phone={item.agentPhone} />
+      </div>
+      <div className="pb-3 pt-1">
+        <Button asChild variant="outline" className="h-11 w-full gap-1.5 rounded-xl text-sm">
+          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center">
+            <MapPin className="h-4 w-4 shrink-0 text-destructive" />
             <span className="truncate">{item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}</span>
           </a>
         </Button>
       </div>
     </div>
+  );
+}
+
+
+/** Public link to this home's support plan — works for anyone, no sign-in needed to view. */
+export function buildPlanShareLink(item: Pick<FunderNewSelectionItem, 'id' | 'category'>, origin: string): string {
+  return `${origin.replace(/\/$/, '')}/support/${item.id}`;
+}
+
+/** Prefilled share text. Never carries phone numbers. */
+export function buildPlanShareMessage(item: Pick<FunderNewSelectionItem, 'tenantName'>, link: string): string {
+  const first = (item.tenantName || '').trim().split(/\s+/)[0];
+  const who = first || 'a tenant';
+  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn 15% of the rent monthly for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+}
+
+export function buildWhatsAppShareUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}
+
+const POINTS = [
+  { icon: HandCoins, text: 'You support a tenant — you earn 15% of their rent.' },
+  { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
+  { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
+];
+
+const HOW_STEPS = [
+  { icon: Wallet, text: 'Deposit to your Welile wallet' },
+  { icon: TrendingUp, text: 'Tap Fund' },
+  { icon: Send, text: 'Welile sends the money straight to the landlord.' },
+];
+
+function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const link = buildPlanShareLink(item, origin);
+  const message = buildPlanShareMessage(item, link);
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not copy the link');
+    }
+  };
+  const nativeShare = async () => {
+    try {
+      await navigator.share({ title: 'Turn rent into an asset', text: message, url: link });
+    } catch {
+      /* user cancelled */
+    }
+  };
+
+  return (
+    <section className="space-y-6">
+      <div className="aspect-video w-full overflow-hidden rounded-2xl bg-primary/10">
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-primary">
+            <Home className="h-12 w-12" />
+            <span className="text-sm text-muted-foreground">Photo coming soon</span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
+        <p className="text-base text-muted-foreground leading-relaxed">
+          Support this tenant's rent once. Earn 15% of their rent every month for the next 12 months.
+        </p>
+      </div>
+
+      <ul className="space-y-3">
+        {POINTS.map((p) => (
+          <li key={p.text} className="flex items-start gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><p.icon className="h-5 w-5" /></span>
+            <span className="pt-1.5 text-base">{p.text}</span>
+          </li>
+        ))}
+      </ul>
+
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">How it works</h3>
+        <ol className="space-y-2">
+          {HOW_STEPS.map((step, i) => (
+            <li key={step.text} className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">{i + 1}</span>
+              <step.icon className="h-5 w-5 shrink-0 text-primary" />
+              <span className="text-sm sm:text-base">{step.text}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <SupportPlanExample fundingAmount={item.amount} />
+
+      <div className="space-y-2">
+        <a
+          href={buildWhatsAppShareUrl(message)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-success px-4 text-base font-semibold text-success-foreground shadow-sm hover:opacity-90"
+        >
+          <MessageCircle className="h-5 w-5" />
+          Share on WhatsApp
+        </a>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={copyLink}>
+            <Link2 className="h-4 w-4" />Copy link
+          </Button>
+          <Button variant="outline" className="h-11 rounded-xl text-sm" onClick={nativeShare} disabled={!canNativeShare}>
+            <Share2 className="h-4 w-4" />Share
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }

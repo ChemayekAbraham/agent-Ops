@@ -38,12 +38,14 @@ import {
   Phone,
   RefreshCw,
   ClipboardList,
+  GraduationCap,
   Briefcase,
   Heart,
   BookOpen,
   LucideIcon,
   FileDown,
   Megaphone,
+  Activity,
 } from 'lucide-react';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
@@ -194,6 +196,7 @@ export function AgentMenuDrawer({
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
+        { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
@@ -218,6 +221,8 @@ export function AgentMenuDrawer({
       items: [
         { icon: Users, label: 'My Tenant Hub', description: 'Tenants, repayments & rent requests', onClick: onViewTenantHub, accent: 'primary' },
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
+        { icon: Home, label: 'Welile Homes', description: 'Agent-managed tenants & subscriptions', path: '/agent/welile-homes', accent: 'primary' },
+        { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },
@@ -297,6 +302,14 @@ export function AgentMenuDrawer({
         { icon: ScrollText, label: 'Agreement', path: '/agent-agreement', accent: 'muted-foreground' },
         { icon: Settings, label: 'Settings', path: '/settings', accent: 'muted-foreground' },
         { icon: HelpCircle, label: 'Help', path: '/help', accent: 'muted-foreground' },
+      ],
+    },
+    {
+      id: 'performance',
+      icon: Activity,
+      label: '📈 Performance',
+      items: [
+        { icon: Activity, label: 'Weekly Performance', description: 'Your weekly target & progress', path: '/agent/performance', accent: 'primary', badge: 'New' },
       ],
     },
   ];
