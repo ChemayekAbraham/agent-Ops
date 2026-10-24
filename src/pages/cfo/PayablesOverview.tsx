@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
 import { formatUGX } from '@/lib/rentCalculations';
+import { PartnerPaidOutstandingPanel } from '@/components/cfo/PartnerPaidOutstandingPanel';
 
 const COLORS = ['success', 'primary', 'warning', 'destructive', 'muted-foreground', 'receivable-rnd'].map((tone) => `hsl(var(--${tone}))`);
 const ICONS = [Handshake, Building2, Wallet, Users, Layers, Package];
@@ -66,6 +67,7 @@ export default function PayablesOverview() {
           <div className="flex flex-col gap-3 min-w-0">
             {validation && <p className={`flex items-center gap-1.5 text-[10px] ${validation.ties_out ? 'text-success' : 'text-destructive'}`}>{validation.ties_out ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}{validation.ties_out ? 'Categories tie out exactly to the authoritative total.' : `Category total differs by ${formatUGX(validation.difference)}. No figure has been adjusted to force a match.`}</p>}
             {catKey === 'daily' ? <DailyForecast /> : catKey !== 'overview' && breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : catKey !== 'overview' && (breakdown.isError || total.isError) ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
+              {cat.key === 'partner' && <PartnerPaidOutstandingPanel />}
               {cat.products.length ? <><div role="tablist" aria-label="Payable products" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{cat.products.map((p) => <Button key={p.key} variant="ghost" size="sm" role="tab" aria-selected={product?.key === p.key} onClick={() => go(cat.key, p.key)} className={`rounded-md whitespace-normal text-xs ${product?.key === p.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>{product && <ProductDetail product={product} />}</> : <Panel><p className="text-xs text-muted-foreground">No open payables in this category.</p></Panel>}
             </> : <>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
