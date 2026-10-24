@@ -77,6 +77,18 @@ const PROTECTED = [
     baselineFile: '20260925220000_agent_advances_client_read_only.sql',
     why: 'mints an agent advance against any p_user_id with a 33% access fee, no audit row and no ledger entry',
   },
+  {
+    name: '_claim_return_cycle',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'reserves a Partner Return cycle for any portfolio and actor; only the request trigger and the Returns posting function may call it',
+  },
+  {
+    name: 'claim_return_cycle_for_operation',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'hands out the ledger key a Partner Return may be posted under; approval (service role) only',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];

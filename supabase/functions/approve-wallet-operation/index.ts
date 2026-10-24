@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
+import { reserveReturnCycle, wasPostedBeforeThisCall } from '../_shared/returnCycleGuard.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -208,56 +209,55 @@ Deno.serve(async (req) => {
           console.log(`[approve-wallet-op] Managed proxy ROI: crediting proxy agent ${ledgerUserId} for partner ${op.user_id} on op ${op.id}`);
         }
 
-        // ── ROI CYCLE IDEMPOTENCY GUARD ───────────────────────────────────
-        // A portfolio may only receive its ROI ONCE per payout cycle. The cycle
-        // is identified by the portfolio's current `next_roi_date` (which only
-        // advances after an ROI approval), so two accidental double-submissions
-        // — or a repeated execution — resolve to the SAME idempotency key and
-        // the second one is refused instead of crediting the wallet twice.
+        // ── RETURN CYCLE GUARD (migration 20261024140000_return_cycle_guard) ──
+        // One Return per portfolio per cycle, where the cycle is the calendar
+        // month of the scheduled Return date. The database reserved the cycle
+        // when this payout was requested; here we fetch that reservation (or
+        // create it for a request queued before the guard) and post ONLY under
+        // the key it returns. The ledger refuses any portfolio Return credit
+        // without a valid reservation key, and a correction_key no longer
+        // bypasses anything (it needs a CFO-authorised override). Anything
+        // unexpected fails closed: nothing is posted, the request stays put.
         let roiCycleKey: string | null = null;
+        let advanceNextRoiDate = true;
         if (isRoiWalletPayout && op.source_table === 'investor_portfolios' && op.source_id) {
-          const { data: cyclePf } = await adminClient
-            .from('investor_portfolios')
-            .select('next_roi_date')
-            .eq('id', op.source_id)
-            .maybeSingle();
-          const cycleAnchor = (op.metadata?.cycle_anchor as string | null)
-            || (cyclePf?.next_roi_date as string | null)
-            || new Date().toISOString().slice(0, 10);
-          const correctionKey = typeof op.metadata?.correction_key === 'string'
-            ? op.metadata.correction_key.trim()
-            : '';
-          roiCycleKey = correctionKey
-            ? `roi-cycle-correction-${correctionKey}`
-            : `roi-cycle-${op.source_id}-${cycleAnchor}`;
-
-          const { data: alreadyCredited } = await adminClient
-            .from('general_ledger')
-            .select('id')
-            .eq('idempotency_key', roiCycleKey)
-            .limit(1);
-
-          if (alreadyCredited && alreadyCredited.length > 0) {
-            console.warn(`[approve-wallet-op] DUPLICATE ROI blocked for portfolio ${op.source_id} cycle ${cycleAnchor} (op ${op.id})`);
-            await adminClient
-              .from('pending_wallet_operations')
-              .update({
-                status: 'rejected',
-                metadata: {
-                  ...(op.metadata || {}),
-                  duplicate_roi_blocked: true,
-                  duplicate_cycle: cycleAnchor,
-                  duplicate_idempotency_key: roiCycleKey,
-                  rejected_reason: 'Portfolio already received its ROI for this payout cycle',
-                  rejected_at: new Date().toISOString(),
-                },
-              })
-              .eq('id', op.id);
+          const decision = await reserveReturnCycle(adminClient, op.id);
+          if (decision.action === 'fail_closed') {
+            console.error(`[approve-wallet-op] Return cycle check failed closed for op ${op.id}: ${decision.message}`);
+            failedResults.push({ id: op.id, error: `${decision.message}. Nothing was paid; try again later.` });
+            continue;
+          }
+          if (decision.action === 'blocked') {
+            console.warn(`[approve-wallet-op] Return blocked for portfolio ${op.source_id} (op ${op.id}): ${decision.message}`);
+            if (decision.duplicate) {
+              await adminClient
+                .from('pending_wallet_operations')
+                .update({
+                  status: 'rejected',
+                  metadata: {
+                    ...(op.metadata || {}),
+                    duplicate_roi_blocked: true,
+                    duplicate_return_reason: decision.message,
+                    rejected_reason: 'Portfolio already received its Return for this cycle',
+                    rejected_at: new Date().toISOString(),
+                  },
+                })
+                .eq('id', op.id);
+            }
+            failedResults.push({ id: op.id, error: decision.message });
+            continue;
+          }
+          if (decision.action === 'already_posted') {
+            console.warn(`[approve-wallet-op] Return already posted for op ${op.id} (key ${decision.ledgerKey}); not paying again`);
             failedResults.push({
               id: op.id,
-              error: `Duplicate ROI payout blocked — this portfolio was already credited for its ${cycleAnchor} cycle.`,
+              error: 'This Return is already in the ledger for this cycle. Nothing was paid again; check the request status.',
             });
             continue;
+          }
+          if (decision.action === 'post') {
+            roiCycleKey = decision.ledgerKey;
+            advanceNextRoiDate = decision.reservation.advance_next_roi_date !== false;
           }
         }
 
@@ -362,11 +362,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // RACE-SAFE ROI IDEMPOTENCY: create_ledger_transaction returns the
-        // pre-existing group (posting NOTHING) when the cycle key was already
-        // used. If that row predates this invocation, a concurrent/earlier
-        // approval already credited this cycle — bail out BEFORE the wallet
-        // delta-recovery below, which would otherwise re-credit the wallet.
+        // RACE-SAFE IDEMPOTENCY: create_ledger_transaction returns the
+        // pre-existing group (posting NOTHING) when the reservation key was
+        // already used. If that row predates this invocation, a concurrent
+        // approval of this same request already credited it — stop BEFORE the
+        // wallet delta-recovery below, which would otherwise re-credit the
+        // wallet. The request is left as the winning call sets it.
         if (roiCycleKey) {
           const { data: keyRows } = await adminClient
             .from('general_ledger')
@@ -374,25 +375,11 @@ Deno.serve(async (req) => {
             .eq('idempotency_key', roiCycleKey)
             .order('created_at', { ascending: true })
             .limit(1);
-          const firstAt = keyRows?.[0]?.created_at ? new Date(keyRows[0].created_at).getTime() : null;
-          if (firstAt !== null && firstAt < ledgerPostStart - 1500) {
-            console.warn(`[approve-wallet-op] DUPLICATE ROI blocked (idempotent hit) for op ${op.id} key ${roiCycleKey}`);
-            await adminClient
-              .from('pending_wallet_operations')
-              .update({
-                status: 'rejected',
-                metadata: {
-                  ...(op.metadata || {}),
-                  duplicate_roi_blocked: true,
-                  duplicate_idempotency_key: roiCycleKey,
-                  rejected_reason: 'Portfolio already received its ROI for this payout cycle (concurrent)',
-                  rejected_at: new Date().toISOString(),
-                },
-              })
-              .eq('id', op.id);
+          if (wasPostedBeforeThisCall(keyRows?.[0]?.created_at, ledgerPostStart)) {
+            console.warn(`[approve-wallet-op] Return already posted by a concurrent approval for op ${op.id} key ${roiCycleKey}`);
             failedResults.push({
               id: op.id,
-              error: 'Duplicate ROI payout blocked — this portfolio was already credited for this payout cycle.',
+              error: 'This Return was already credited by another approval of the same request. Nothing was paid again.',
             });
             continue;
           }
@@ -454,7 +441,8 @@ Deno.serve(async (req) => {
           }
         }
 
-        if ((op.category === 'roi_payout' || op.category === 'supporter_platform_rewards') && op.source_table === 'investor_portfolios' && op.source_id) {
+        // A catch-up Return for an older cycle must not move the schedule past the current cycle.
+        if (advanceNextRoiDate && (op.category === 'roi_payout' || op.category === 'supporter_platform_rewards') && op.source_table === 'investor_portfolios' && op.source_id) {
           try {
             // Get current next_roi_date to advance from it (not from today)
             const { data: portfolio } = await adminClient
