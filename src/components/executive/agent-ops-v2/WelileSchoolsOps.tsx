@@ -74,7 +74,7 @@ export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileR
 export function WelileSchoolsCard() {
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useSchoolsData();
-  const k = data ? computeSchoolKpis(data.schools, data.profiles) : null;
+  const k = data ? computeSchoolKpis(data.schools, data.profiles, data.gateLogs) : null;
   const tile = (label: string, v: number | undefined) => (
     <div className="rounded-xl border border-border/60 p-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-bold">{v ?? '—'}</p></div>
   );
@@ -96,6 +96,10 @@ export function WelileSchoolsCard() {
           {tile('Free smartphones requested', k?.phonesRequested)}
           {tile('Pending delivery', k?.phonesPending)}
           {tile('Pupils / students', k?.by.pupil)}
+          {tile('Entered today (IN)', k?.enteredToday)}
+          {tile('Exited today (OUT)', k?.exitedToday)}
+          {tile('Currently inside', k?.currentlyInside)}
+          {tile('Gate logs total', k?.gateLogsTotal)}
         </div>
         {k && <p className="text-xs text-muted-foreground mt-2">{k.countries} countries · {k.districts} districts · Teachers {k.by.teacher} · Staff {k.by.staff} · Parents {k.by.parent} · Assets {k.by.asset}</p>}
       </Card>
@@ -111,7 +115,7 @@ export function WelileSchoolsCard() {
 
 export function WelileSchoolsOps({ onBack }: { onBack: () => void }) {
   const { data, isLoading } = useSchoolsData();
-  const k = data ? computeSchoolKpis(data.schools, data.profiles) : null;
+  const k = data ? computeSchoolKpis(data.schools, data.profiles, data.gateLogs) : null;
   const tile = (label: string, v: number | undefined) => (
     <div className="rounded-xl border border-border/60 p-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-bold">{v ?? '—'}</p></div>
   );
@@ -132,6 +136,10 @@ export function WelileSchoolsOps({ onBack }: { onBack: () => void }) {
         {tile('Free smartphones requested', k?.phonesRequested)}
         {tile('Pending delivery', k?.phonesPending)}
         {tile('Pupils / students', k?.by.pupil)}
+        {tile('Entered today (IN)', k?.enteredToday)}
+        {tile('Exited today (OUT)', k?.exitedToday)}
+        {tile('Currently inside', k?.currentlyInside)}
+        {tile('Gate logs total', k?.gateLogsTotal)}
       </div>
       {k && <p className="text-xs text-muted-foreground">{k.countries} countries · {k.districts} districts · Teachers {k.by.teacher} · Staff {k.by.staff} · Parents {k.by.parent} · Assets {k.by.asset}</p>}
       {data ? <Explorer {...data} /> : <Loader2 className="h-6 w-6 animate-spin mx-auto" />}
