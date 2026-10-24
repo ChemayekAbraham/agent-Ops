@@ -17,9 +17,11 @@ export type ProfileRole = (typeof PROFILE_ROLES)[number]['key'];
 export type RoleGroup = (typeof PROFILE_ROLES)[number]['group'];
 
 export function roleGroup(role: string): RoleGroup {
+  if (role === 'visitor') return 'parent';
   return (PROFILE_ROLES.find((r) => r.key === role)?.group ?? 'staff') as RoleGroup;
 }
 export function roleLabel(role: string): string {
+  if (role === 'visitor') return 'Visitor / Guest';
   return PROFILE_ROLES.find((r) => r.key === role)?.label ?? role;
 }
 
@@ -179,4 +181,169 @@ export async function markSignupSent(profileId: string, channel: 'whatsapp' | 's
   await db.from('welile_school_profiles')
     .update({ signup_link_sent: true, signup_link_sent_at: new Date().toISOString(), signup_link_channel: channel })
     .eq('id', profileId);
+}
+
+/* ---------------- Daily gate IN / OUT log ---------------- */
+
+export const GATE_ROLES = [
+  ...PROFILE_ROLES.filter((r) => r.key !== 'asset'),
+  { key: 'visitor', label: 'Visitor / Guest', group: 'parent' },
+] as const;
+
+export interface SchoolGateLogRow {
+  id: string;
+  client_ref?: string | null;
+  school_id: string;
+  profile_id?: string | null;
+  direction: 'in' | 'out';
+  person_name: string;
+  role_type: string;
+  phone?: string | null;
+  class_or_department?: string | null;
+  gate_name?: string | null;
+  purpose_or_note?: string | null;
+  pickup_guardian_name?: string | null;
+  pickup_guardian_phone?: string | null;
+  agent_id: string;
+  agent_name?: string | null;
+  agent_phone?: string | null;
+  gps_lat?: number | null;
+  gps_lng?: number | null;
+  gps_accuracy_m?: number | null;
+  recorded_at: string;
+  created_at?: string;
+}
+
+const GATE_QUEUE_KEY = 'welile-schools-pending-gate-logs-v1';
+const GATE_LOCAL_KEY = 'welile-schools-gate-logs-v1';
+
+export function readPendingGateLogs(): SchoolGateLogRow[] {
+  try { return JSON.parse(localStorage.getItem(GATE_QUEUE_KEY) || '[]'); } catch { return []; }
+}
+export function writePendingGateLogs(rows: SchoolGateLogRow[]) {
+  try { localStorage.setItem(GATE_QUEUE_KEY, JSON.stringify(rows)); } catch { /* storage full */ }
+}
+export function readLocalGateLogs(schoolId?: string): SchoolGateLogRow[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(GATE_LOCAL_KEY) || '[]') as SchoolGateLogRow[];
+    return schoolId ? all.filter((l) => l.school_id === schoolId) : all;
+  } catch { return []; }
+}
+export function writeLocalGateLogs(rows: SchoolGateLogRow[]) {
+  try { localStorage.setItem(GATE_LOCAL_KEY, JSON.stringify(rows.slice(-2000))); } catch { /* storage full */ }
+}
+
+function upsertLocalGateLog(row: SchoolGateLogRow) {
+  const all = readLocalGateLogs();
+  const i = all.findIndex((l) => l.id === row.id || (row.client_ref && l.client_ref === row.client_ref));
+  if (i >= 0) all[i] = row; else all.push(row);
+  writeLocalGateLogs(all);
+}
+
+/** Save a gate log: instant local write, then upsert to Supabase; on failure queue for retry. */
+export async function saveGateLog(row: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+  upsertLocalGateLog(row);
+  const { id, created_at, ...payload } = row;
+  const { data, error } = await db.from('welile_school_gate_logs')
+    .upsert({ id, ...payload }, { onConflict: 'client_ref', ignoreDuplicates: false })
+    .select().single();
+  if (error) {
+    writePendingGateLogs([...readPendingGateLogs().filter((l) => l.client_ref !== row.client_ref), row]);
+    return { saved: false, row };
+  }
+  const saved = data as SchoolGateLogRow;
+  upsertLocalGateLog(saved);
+  return { saved: true, row: saved };
+}
+
+/** Correct an accidental IN/OUT tap: flips direction locally, in the queue, and in Supabase. */
+export async function flipGateLogDirection(log: SchoolGateLogRow): Promise<{ saved: boolean; row: SchoolGateLogRow }> {
+  const row: SchoolGateLogRow = { ...log, direction: log.direction === 'in' ? 'out' : 'in' };
+  upsertLocalGateLog(row);
+  writePendingGateLogs(readPendingGateLogs().map((l) => (l.id === row.id || (row.client_ref && l.client_ref === row.client_ref) ? row : l)));
+  const { data, error } = await db.from('welile_school_gate_logs')
+    .update({ direction: row.direction }).eq('id', row.id).select().single();
+  if (error) return { saved: false, row };
+  const saved = data as SchoolGateLogRow;
+  upsertLocalGateLog(saved);
+  return { saved: true, row: saved };
+}
+
+export async function flushPendingGateLogs(): Promise<number> {
+  const pending = readPendingGateLogs();
+  if (!pending.length) return 0;
+  const left: SchoolGateLogRow[] = [];
+  let sent = 0;
+  for (const l of pending) {
+    if (l.school_id.startsWith('local-')) { left.push(l); continue; }
+    const { id, created_at, ...payload } = l;
+    const { error } = await db.from('welile_school_gate_logs').upsert({ id, ...payload }, { onConflict: 'client_ref' });
+    if (error) left.push(l); else sent++;
+  }
+  writePendingGateLogs(left);
+  return sent;
+}
+
+/* ---------------- East Africa Time helpers & daily summary ---------------- */
+
+const EAT_TZ = 'Africa/Kampala';
+
+/** YYYY-MM-DD day key in Africa/Kampala. */
+export function eatDateKey(d: string | Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: EAT_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(d));
+}
+
+/** HH:MM time in Africa/Kampala. */
+export function formatEatTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: EAT_TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+}
+
+function gatePersonKey(log: SchoolGateLogRow): string {
+  return log.profile_id || `${log.role_type}:${log.person_name.trim().toLowerCase()}`;
+}
+
+function gateBucket(role: string): 'pupil' | 'staff' | 'visitor' {
+  const g = roleGroup(role);
+  if (g === 'pupil') return 'pupil';
+  if (g === 'teacher' || g === 'staff') return 'staff';
+  return 'visitor';
+}
+
+export interface GateMovementSummary {
+  todayLogs: SchoolGateLogRow[];
+  enteredToday: number;
+  exitedToday: number;
+  currentlyInside: number;
+  byGroup: Record<'pupil' | 'staff' | 'visitor', { in: number; out: number; inside: number }>;
+  personStatus: Record<string, { direction: 'in' | 'out'; recorded_at: string; log: SchoolGateLogRow }>;
+}
+
+export function computeGateMovementSummary(logs: SchoolGateLogRow[], now: Date = new Date()): GateMovementSummary {
+  const todayKey = eatDateKey(now);
+  const todays = logs.filter((l) => eatDateKey(l.recorded_at) === todayKey);
+  const chrono = [...todays].sort((a, b) => a.recorded_at.localeCompare(b.recorded_at));
+  const latest = new Map<string, SchoolGateLogRow>();
+  chrono.forEach((l) => latest.set(gatePersonKey(l), l));
+  const byGroup: GateMovementSummary['byGroup'] = {
+    pupil: { in: 0, out: 0, inside: 0 },
+    staff: { in: 0, out: 0, inside: 0 },
+    visitor: { in: 0, out: 0, inside: 0 },
+  };
+  todays.forEach((l) => { byGroup[gateBucket(l.role_type)][l.direction]++; });
+  let currentlyInside = 0;
+  const personStatus: GateMovementSummary['personStatus'] = {};
+  latest.forEach((log) => {
+    if (log.direction === 'in') { currentlyInside++; byGroup[gateBucket(log.role_type)].inside++; }
+    const st = { direction: log.direction, recorded_at: log.recorded_at, log };
+    if (log.profile_id) personStatus[log.profile_id] = st;
+    personStatus[log.person_name.trim().toLowerCase()] = st;
+  });
+  return {
+    todayLogs: [...todays].sort((a, b) => b.recorded_at.localeCompare(a.recorded_at)),
+    enteredToday: todays.filter((l) => l.direction === 'in').length,
+    exitedToday: todays.filter((l) => l.direction === 'out').length,
+    currentlyInside,
+    byGroup,
+    personStatus,
+  };
 }

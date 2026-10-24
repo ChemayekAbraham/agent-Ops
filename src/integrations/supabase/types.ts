@@ -59941,6 +59941,93 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_gate_logs: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          class_or_department: string | null
+          client_ref: string | null
+          created_at: string
+          direction: string
+          gate_name: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          person_name: string
+          phone: string | null
+          pickup_guardian_name: string | null
+          pickup_guardian_phone: string | null
+          profile_id: string | null
+          purpose_or_note: string | null
+          recorded_at: string
+          role_type: string
+          school_id: string
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          class_or_department?: string | null
+          client_ref?: string | null
+          created_at?: string
+          direction: string
+          gate_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name: string
+          phone?: string | null
+          pickup_guardian_name?: string | null
+          pickup_guardian_phone?: string | null
+          profile_id?: string | null
+          purpose_or_note?: string | null
+          recorded_at?: string
+          role_type: string
+          school_id: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          class_or_department?: string | null
+          client_ref?: string | null
+          created_at?: string
+          direction?: string
+          gate_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name?: string
+          phone?: string | null
+          pickup_guardian_name?: string | null
+          pickup_guardian_phone?: string | null
+          profile_id?: string | null
+          purpose_or_note?: string | null
+          recorded_at?: string
+          role_type?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_gate_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_gate_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_school_profiles: {
         Row: {
           age: number | null
