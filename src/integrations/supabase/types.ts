@@ -59941,6 +59941,218 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_school_profiles: {
+        Row: {
+          age: number | null
+          boarding_status: string | null
+          class_grade: string | null
+          client_ref: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          facility_capacity: number | null
+          facility_condition: string | null
+          facility_type: string | null
+          fee_support_need: boolean | null
+          full_name: string | null
+          gender: string | null
+          guardian_name: string | null
+          guardian_occupation: string | null
+          guardian_phone: string | null
+          guardian_whatsapp: string | null
+          has_smartphone: boolean | null
+          id: string
+          id_number: string | null
+          needs_free_smartphone: boolean
+          next_of_kin: string | null
+          phone: string | null
+          registered_by: string
+          residence_village: string | null
+          role: string
+          school_id: string
+          signup_link_channel: string | null
+          signup_link_sent: boolean
+          signup_link_sent_at: string | null
+          smartphone_contact_phone: string | null
+          smartphone_handover_point: string | null
+          smartphone_status: string | null
+          smartphone_verification_status: string | null
+          staff_id: string | null
+          stream: string | null
+          subject_department: string | null
+          updated_at: string
+          whatsapp: string | null
+          years_at_school: number | null
+        }
+        Insert: {
+          age?: number | null
+          boarding_status?: string | null
+          class_grade?: string | null
+          client_ref?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          facility_capacity?: number | null
+          facility_condition?: string | null
+          facility_type?: string | null
+          fee_support_need?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          guardian_name?: string | null
+          guardian_occupation?: string | null
+          guardian_phone?: string | null
+          guardian_whatsapp?: string | null
+          has_smartphone?: boolean | null
+          id?: string
+          id_number?: string | null
+          needs_free_smartphone?: boolean
+          next_of_kin?: string | null
+          phone?: string | null
+          registered_by?: string
+          residence_village?: string | null
+          role: string
+          school_id: string
+          signup_link_channel?: string | null
+          signup_link_sent?: boolean
+          signup_link_sent_at?: string | null
+          smartphone_contact_phone?: string | null
+          smartphone_handover_point?: string | null
+          smartphone_status?: string | null
+          smartphone_verification_status?: string | null
+          staff_id?: string | null
+          stream?: string | null
+          subject_department?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+          years_at_school?: number | null
+        }
+        Update: {
+          age?: number | null
+          boarding_status?: string | null
+          class_grade?: string | null
+          client_ref?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          facility_capacity?: number | null
+          facility_condition?: string | null
+          facility_type?: string | null
+          fee_support_need?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          guardian_name?: string | null
+          guardian_occupation?: string | null
+          guardian_phone?: string | null
+          guardian_whatsapp?: string | null
+          has_smartphone?: boolean | null
+          id?: string
+          id_number?: string | null
+          needs_free_smartphone?: boolean
+          next_of_kin?: string | null
+          phone?: string | null
+          registered_by?: string
+          residence_village?: string | null
+          role?: string
+          school_id?: string
+          signup_link_channel?: string | null
+          signup_link_sent?: boolean
+          signup_link_sent_at?: string | null
+          smartphone_contact_phone?: string | null
+          smartphone_handover_point?: string | null
+          smartphone_status?: string | null
+          smartphone_verification_status?: string | null
+          staff_id?: string | null
+          stream?: string | null
+          subject_department?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+          years_at_school?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_schools: {
+        Row: {
+          country: string
+          created_at: string
+          created_by: string
+          district: string | null
+          estimated_enrollment: number | null
+          gate_name: string | null
+          gps_accuracy_m: number | null
+          gps_source: string | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          ownership: string | null
+          parish: string | null
+          region: string | null
+          school_level: string
+          sub_county: string | null
+          town: string | null
+          updated_at: string
+          village: string | null
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          created_by?: string
+          district?: string | null
+          estimated_enrollment?: number | null
+          gate_name?: string | null
+          gps_accuracy_m?: number | null
+          gps_source?: string | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          ownership?: string | null
+          parish?: string | null
+          region?: string | null
+          school_level: string
+          sub_county?: string | null
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          created_by?: string
+          district?: string | null
+          estimated_enrollment?: number | null
+          gate_name?: string | null
+          gps_accuracy_m?: number | null
+          gps_source?: string | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          ownership?: string | null
+          parish?: string | null
+          region?: string | null
+          school_level?: string
+          sub_county?: string | null
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
       welile_trust_score_cache: {
         Row: {
           agent_earned_vouch_ugx: number
@@ -86953,6 +87165,8 @@ export type Database = {
           unit_id: string
         }[]
       }
+      welile_schools_agent_ok: { Args: never; Returns: boolean }
+      welile_schools_ops_ok: { Args: never; Returns: boolean }
       welile_telecom_sending_charge: {
         Args: { p_amount: number }
         Returns: number
