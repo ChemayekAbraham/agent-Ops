@@ -58,6 +58,8 @@ export default function AgentWelileSchools() {
   const [savingSchool, setSavingSchool] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
+  const [gatePendingCount, setGatePendingCount] = useState(() => readPendingGateLogs().length);
+  const [mode, setMode] = useState<'gate' | 'register'>('gate');
 
   const { data: schools = [] } = useQuery({
     queryKey: ['welile-schools-list'],
@@ -69,10 +71,16 @@ export default function AgentWelileSchools() {
   });
 
   useEffect(() => {
-    const flush = () => flushPendingProfiles().then((n) => {
-      setPendingCount(readPendingProfiles().length);
-      if (n) toast.success(`${n} saved registration${n > 1 ? 's' : ''} sent`);
-    });
+    const flush = () => {
+      flushPendingProfiles().then((n) => {
+        setPendingCount(readPendingProfiles().length);
+        if (n) toast.success(`${n} saved registration${n > 1 ? 's' : ''} sent`);
+      });
+      flushPendingGateLogs().then((n) => {
+        setGatePendingCount(readPendingGateLogs().length);
+        if (n) toast.success(`${n} saved gate log${n > 1 ? 's' : ''} sent`);
+      });
+    };
     flush();
     window.addEventListener('online', flush);
     return () => window.removeEventListener('online', flush);
@@ -115,7 +123,7 @@ export default function AgentWelileSchools() {
           <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate('/dashboard/agent')} aria-label="Back"><ArrowLeft className="h-5 w-5" /></Button>
           <GraduationCap className="h-5 w-5 text-primary" />
           <h1 className="text-base font-bold flex-1">Welile Schools</h1>
-          {pendingCount > 0 && <Badge variant="outline" className="gap-1"><CloudOff className="h-3 w-3" />{pendingCount} waiting</Badge>}
+          {pendingCount + gatePendingCount > 0 && <Badge variant="outline" className="gap-1"><CloudOff className="h-3 w-3" />{pendingCount + gatePendingCount} waiting</Badge>}
         </div>
         {locked && (
           <div className="flex items-center gap-2 px-3 pb-2">
@@ -154,7 +162,19 @@ export default function AgentWelileSchools() {
           <SchoolRegistration draft={draft} setDraft={setDraft} captureGps={captureGps} gpsBusy={gpsBusy} saving={savingSchool} onSave={createSchool} onCancel={() => setCreating(false)} />
         )}
 
-        {locked && user && <GateRegistration school={locked} agentId={user.id} onQueued={() => setPendingCount(readPendingProfiles().length)} />}
+        {locked && user && (
+          <>
+            <div className="grid grid-cols-2 gap-2" role="group" aria-label="School gate mode">
+              <Button variant={mode === 'gate' ? 'default' : 'outline'} aria-pressed={mode === 'gate'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('gate')}><LogIn className="h-4 w-4 shrink-0" />🚪 Daily Gate Log (IN / OUT)</Button>
+              <Button variant={mode === 'register' ? 'default' : 'outline'} aria-pressed={mode === 'register'} className="min-h-12 gap-1 whitespace-normal" onClick={() => setMode('register')}><GraduationCap className="h-4 w-4 shrink-0" />➕ Register New Person / Asset</Button>
+            </div>
+            {mode === 'gate' ? (
+              <DailyGateLogView school={locked} agentId={user.id} onQueued={() => setGatePendingCount(readPendingGateLogs().length)} onSwitchToRegister={() => setMode('register')} />
+            ) : (
+              <GateRegistration school={locked} agentId={user.id} onQueued={() => { setPendingCount(readPendingProfiles().length); setGatePendingCount(readPendingGateLogs().length); }} />
+            )}
+          </>
+        )}
       </main>
     </div>
   );
