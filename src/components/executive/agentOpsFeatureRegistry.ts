@@ -38,7 +38,7 @@ import {
   Network,
   PiggyBank,
   Target,
-  GraduationCap,
+  GraduationCap, Stethoscope,
 } from 'lucide-react';
 
 export type ActiveView =
@@ -52,6 +52,7 @@ export type ActiveView =
   | 'agent-marketplace'
   | 'welile-homes'
   | 'welile-schools'
+  | 'welile-medicine'
   | 'agents-hope'
   | 'agents-space'
   | 'agent-ops-report'
@@ -256,6 +257,15 @@ export const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'field',
     desc: 'School gate registrations, GPS, Country → Village → School → Teacher/Staff/Pupil profiles & free smartphones',
     keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
+  },  {
+    num: '16',
+    title: 'Welile Medicine',
+    icon: Stethoscope,
+    section: 'welile-medicine',
+    highlight: true,
+    category: 'field',
+    desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
+    keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
   },
 ];
 
@@ -469,6 +479,18 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
     isCoreBusinessArea: true,
     businessAreaNum: '15',
+  },
+  {
+    id: 'core-16-welile-medicine',
+    title: 'Welile Medicine',
+    section: 'welile-medicine',
+    categoryGroup: 'Core Business Areas',
+    icon: Stethoscope,
+    color: 'bg-primary',
+    desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
+    keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '16',
   },
 
   // Agents' Space
