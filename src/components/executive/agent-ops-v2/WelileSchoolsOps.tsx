@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   roleGroup, roleLabel, mapLink, osmLink, locationPath, buildSchoolSignupLink, buildSignupMessage, toIntlDigits, markSignupSent,
-  type SchoolRow, type SchoolProfileRow,
+  computeGateMovementSummary, formatEatTime,
+  type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
 const db = supabase as any;
@@ -32,22 +33,32 @@ function useSchoolsData() {
     queryKey: ['welile-schools-ops'],
     queryFn: async () => {
       const [schools, profiles] = await Promise.all([fetchAll<SchoolRow>('welile_schools'), fetchAll<SchoolProfileRow>('welile_school_profiles')]);
+      let gateLogs: SchoolGateLogRow[] = [];
+      try {
+        const { data } = await db.from('welile_school_gate_logs').select('*').order('recorded_at', { ascending: false }).limit(5000);
+        gateLogs = (data ?? []) as SchoolGateLogRow[];
+      } catch { gateLogs = []; }
       const agentIds = Array.from(new Set(profiles.map((p) => p.registered_by).filter(Boolean))) as string[];
       const agents: Record<string, string> = {};
       for (let i = 0; i < agentIds.length; i += 200) {
         const { data } = await db.from('profiles').select('id, full_name').in('id', agentIds.slice(i, i + 200));
         (data ?? []).forEach((a: any) => { agents[a.id] = a.full_name ?? '—'; });
       }
-      return { schools, profiles, agents };
+      return { schools, profiles, agents, gateLogs };
     },
     staleTime: 60_000,
   });
 }
 
-export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileRow[]) {
+export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileRow[], gateLogs: SchoolGateLogRow[] = []) {
   const by = { pupil: 0, teacher: 0, staff: 0, parent: 0, asset: 0 } as Record<string, number>;
   profiles.forEach((p) => { by[roleGroup(p.role)]++; });
+  const gate = computeGateMovementSummary(gateLogs);
   return {
+    enteredToday: gate.enteredToday,
+    exitedToday: gate.exitedToday,
+    currentlyInside: gate.currentlyInside,
+    gateLogsTotal: gateLogs.length,
     schools: schools.length,
     profiles: profiles.length,
     by,
