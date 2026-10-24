@@ -17,9 +17,11 @@ export type ProfileRole = (typeof PROFILE_ROLES)[number]['key'];
 export type RoleGroup = (typeof PROFILE_ROLES)[number]['group'];
 
 export function roleGroup(role: string): RoleGroup {
+  if (role === 'visitor') return 'parent';
   return (PROFILE_ROLES.find((r) => r.key === role)?.group ?? 'staff') as RoleGroup;
 }
 export function roleLabel(role: string): string {
+  if (role === 'visitor') return 'Visitor / Guest';
   return PROFILE_ROLES.find((r) => r.key === role)?.label ?? role;
 }
 
