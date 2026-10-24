@@ -89,6 +89,12 @@ const PROTECTED = [
     baselineFile: '20261024140000_return_cycle_guard.sql',
     why: 'hands out the ledger key a Partner Return may be posted under; approval (service role) only',
   },
+  {
+    name: '_post_portfolio_roi_ledger_core',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'posts compound/split Returns and moves principal; its posting flag must only be set by the public wrappers',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];

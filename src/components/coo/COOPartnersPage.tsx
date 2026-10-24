@@ -640,12 +640,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       } as never);
       if (ledgerErr) throw ledgerErr;
 
-      // Principal and next date move only after the ledger accepted this cycle's Return.
-      const { error: upErr } = await supabase
-        .from('investor_portfolios')
-        .update({ investment_amount: newAmount, next_roi_date: newRoiDate })
-        .eq('id', portfolio.id);
-      if (upErr) throw upErr;
+      // post_portfolio_roi_ledger made the portfolio change (principal and next date) in the same transaction as
+      // the ledger posting, so a failure leaves neither and a retry changes nothing (migration 20261024140000).
 
       await supabase.from('audit_logs').insert({
         user_id: user.id,
@@ -5205,12 +5201,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       } as never);
       if (ledgerErr) throw ledgerErr;
 
-      // Principal and next date move only after the ledger accepted this cycle's Return.
-      const { error: upErr } = await supabase
-        .from('investor_portfolios')
-        .update({ investment_amount: newAmount, next_roi_date: newRoiDate })
-        .eq('id', p.portfolioId);
-      if (upErr) throw upErr;
+      // post_portfolio_roi_ledger made the portfolio change (principal and next date) in the same transaction as
+      // the ledger posting, so a failure leaves neither and a retry changes nothing (migration 20261024140000).
 
       await supabase.from('audit_logs').insert({
         user_id: user.id,
@@ -5663,24 +5655,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       } as never);
       if (ledgerErr) throw ledgerErr;
 
-      // Portfolio change only after the ledger accepted the Return for this cycle.
-      if (isKeepReturns) {
-        // Keep as returns — increment total_roi_earned, principal stays flat
-        const { data: currentP } = await supabase.from('investor_portfolios').select('total_roi_earned').eq('id', p.portfolioId).single();
-        const currentRoiEarned = Number(currentP?.total_roi_earned || 0);
-        const { error: upErr } = await supabase
-          .from('investor_portfolios')
-          .update({ total_roi_earned: currentRoiEarned + reinvestAmount })
-          .eq('id', p.portfolioId);
-        if (upErr) throw upErr;
-      } else {
-        // Reinvest — add to principal (current behavior)
-        const { error: upErr } = await supabase
-          .from('investor_portfolios')
-          .update({ investment_amount: newPrincipal })
-          .eq('id', p.portfolioId);
-        if (upErr) throw upErr;
-      }
+      // post_portfolio_roi_ledger made the portfolio change (principal, or total Returns earned) in the same
+      // transaction as the ledger posting (migration 20261024140000).
 
       // ── Cash portion: submit to pending_wallet_operations for CFO approval ──
       const operationType = payMode === 'agent_wallet' || payMode === 'wallet' ? 'roi_split_cash'

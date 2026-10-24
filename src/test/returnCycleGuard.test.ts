@@ -185,13 +185,16 @@ describe('COO screens name the cycle and post before changing the portfolio (sou
     expect(blocks).toHaveLength(3);
     for (const b of blocks) expect(b).toMatch(/p_cycle_date: /);
   });
-  it('the ledger posting comes before the principal / date update in all three handlers', () => {
+  it('the three handlers leave the portfolio change to the server (same transaction as the posting)', () => {
     for (const start of ['const handlePortfolioCompound = async', 'const handleCompound = async', 'const handleSplitPayout = async']) {
-      const body = cooSrc.slice(cooSrc.indexOf(start));
-      const rpcAt = body.indexOf("rpc('post_portfolio_roi_ledger'");
-      const updateAt = body.indexOf(".from('investor_portfolios')");
-      expect(rpcAt).toBeGreaterThan(0);
-      expect(rpcAt).toBeLessThan(updateAt);
+      const src = cooSrc.replace(/\r\n/g, '\n');
+      const from = src.indexOf(start);
+      const end = src.indexOf('\n  };\n', from);
+      expect(from).toBeGreaterThan(0);
+      expect(end).toBeGreaterThan(from);
+      const body = src.slice(from, end);
+      expect(body).toMatch(/rpc\('post_portfolio_roi_ledger'/);
+      expect(body).not.toMatch(/\.from\('investor_portfolios'\)\s*\.update\(/);
     }
   });
 });

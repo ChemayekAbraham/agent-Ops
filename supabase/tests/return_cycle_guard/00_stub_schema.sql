@@ -87,11 +87,12 @@ BEGIN
   v_group := gen_random_uuid();
   FOR e IN SELECT * FROM jsonb_array_elements(entries) LOOP
     INSERT INTO public.general_ledger (transaction_group_id, user_id, amount, direction, category, ledger_scope,
-      description, reference_id, source_table, source_id, linked_party, idempotency_key, recipient_type, wallet_bucket)
+      description, reference_id, source_table, source_id, linked_party, idempotency_key, recipient_type, wallet_bucket,
+      transaction_date)
     VALUES (v_group, nullif(e->>'user_id', '')::uuid, (e->>'amount')::numeric, e->>'direction', e->>'category',
       coalesce(e->>'ledger_scope', 'wallet'), e->>'description', e->>'reference_id', e->>'source_table',
       nullif(e->>'source_id', '')::uuid, e->>'linked_party', create_ledger_transaction.idempotency_key,
-      e->>'recipient_type', e->>'wallet_bucket');
+      e->>'recipient_type', e->>'wallet_bucket', coalesce((e->>'transaction_date')::timestamptz, now()));
   END LOOP;
   RETURN v_group;
 END $$;

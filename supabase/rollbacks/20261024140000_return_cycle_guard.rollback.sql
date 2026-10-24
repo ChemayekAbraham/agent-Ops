@@ -156,9 +156,11 @@ END $function$
 
 DROP FUNCTION IF EXISTS public.post_portfolio_roi_ledger(text, uuid, numeric, text, text, text, date, uuid);
 DROP FUNCTION IF EXISTS public.claim_return_cycle_for_operation(uuid);
-DROP FUNCTION IF EXISTS public.authorise_return_cycle_override(uuid, date, text);
+DROP FUNCTION IF EXISTS public.authorise_return_cycle_override(uuid, date, uuid, text);
+DROP FUNCTION IF EXISTS public._post_portfolio_roi_ledger_core(text, uuid, numeric, text, text, text, date, uuid, boolean);
 DROP FUNCTION IF EXISTS public.revoke_return_cycle_override(uuid, text);
 DROP FUNCTION IF EXISTS public.release_return_cycle_claim_on_status();
 DROP FUNCTION IF EXISTS public.enforce_return_cycle_ledger_key();
 DROP FUNCTION IF EXISTS public._return_cycle_claim_for_operation_row(public.pending_wallet_operations, boolean);
 DROP FUNCTION IF EXISTS public._claim_return_cycle(uuid, date, text, text, text, uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public._return_cycle_can_request(uuid);

@@ -6,8 +6,9 @@ import { supabase } from '@/integrations/supabase/client';
  * (migration 20261024140000_return_cycle_guard).
  *
  * AUTHORISING PAYS NOTHING. It records a single-use permission for one portfolio and one cycle month, valid for
- * 24 hours, with the reason, in audit_logs. The extra Return must then be requested by someone other than the
- * authoriser, quoting the override id (metadata.override_id), and goes through the normal approval chain.
+ * 24 hours, naming the ONE staff member who may use it (never the authoriser), with the reason, in audit_logs.
+ * That person then requests the extra Return quoting the override id (metadata.override_id, or p_override_id on a
+ * compound/split); it goes through the normal approval chain. An override cannot be used at approval.
  * Only the CFO approver may authorise or revoke; the database enforces that and every other rule.
  */
 
@@ -23,19 +24,22 @@ export interface AuthoriseReturnOverrideInput {
   portfolioId: string;
   /** Any date inside the cycle month (YYYY-MM-DD). */
   cycleDate: string;
+  /** The staff member who will request the extra Return. Must not be the authorising CFO. */
+  requesterId: string;
   reason: string;
 }
 
 export function useAuthoriseReturnCycleOverride() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ portfolioId, cycleDate, reason }: AuthoriseReturnOverrideInput): Promise<string> => {
+    mutationFn: async ({ portfolioId, cycleDate, requesterId, reason }: AuthoriseReturnOverrideInput): Promise<string> => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(cycleDate)) throw new Error('Choose the cycle date');
+      if (!requesterId) throw new Error('Choose who will request the Return');
       if (reason.trim().length < RETURN_OVERRIDE_MIN_REASON) {
         throw new Error(`Give a reason of at least ${RETURN_OVERRIDE_MIN_REASON} characters`);
       }
       const { data, error } = await rpc('authorise_return_cycle_override', {
-        p_portfolio_id: portfolioId, p_cycle_date: cycleDate, p_reason: reason.trim(),
+        p_portfolio_id: portfolioId, p_cycle_date: cycleDate, p_requester: requesterId, p_reason: reason.trim(),
       });
       if (error) throw error;
       return data as string;
