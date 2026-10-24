@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote, Activity } from 'lucide-react';
+import { Menu, Settings, Download, Home, GraduationCap, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote, Activity } from 'lucide-react';
 import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 
 import { hapticTap } from '@/lib/haptics';
@@ -494,6 +494,23 @@ const DashboardHeader = memo(function DashboardHeader({
                           <Home className="h-4 w-4" style={{ color: '#7214c9' }} />
                         </div>
                         <span className="truncate">Welile Homes</span>
+                      </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        navigate('/agent/welile-schools');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <GraduationCap className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Welile Schools</span>
                       </div>
                     </DropdownMenuItem>
                   )}

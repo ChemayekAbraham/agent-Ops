@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   roleGroup, roleLabel, mapLink, osmLink, locationPath, buildSchoolSignupLink, buildSignupMessage, toIntlDigits, markSignupSent,
-  type SchoolRow, type SchoolProfileRow,
+  computeGateMovementSummary, formatEatTime,
+  type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
 const db = supabase as any;
@@ -32,22 +33,32 @@ function useSchoolsData() {
     queryKey: ['welile-schools-ops'],
     queryFn: async () => {
       const [schools, profiles] = await Promise.all([fetchAll<SchoolRow>('welile_schools'), fetchAll<SchoolProfileRow>('welile_school_profiles')]);
+      let gateLogs: SchoolGateLogRow[] = [];
+      try {
+        const { data } = await db.from('welile_school_gate_logs').select('*').order('recorded_at', { ascending: false }).limit(5000);
+        gateLogs = (data ?? []) as SchoolGateLogRow[];
+      } catch { gateLogs = []; }
       const agentIds = Array.from(new Set(profiles.map((p) => p.registered_by).filter(Boolean))) as string[];
       const agents: Record<string, string> = {};
       for (let i = 0; i < agentIds.length; i += 200) {
         const { data } = await db.from('profiles').select('id, full_name').in('id', agentIds.slice(i, i + 200));
         (data ?? []).forEach((a: any) => { agents[a.id] = a.full_name ?? '—'; });
       }
-      return { schools, profiles, agents };
+      return { schools, profiles, agents, gateLogs };
     },
     staleTime: 60_000,
   });
 }
 
-export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileRow[]) {
+export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileRow[], gateLogs: SchoolGateLogRow[] = []) {
   const by = { pupil: 0, teacher: 0, staff: 0, parent: 0, asset: 0 } as Record<string, number>;
   profiles.forEach((p) => { by[roleGroup(p.role)]++; });
+  const gate = computeGateMovementSummary(gateLogs);
   return {
+    enteredToday: gate.enteredToday,
+    exitedToday: gate.exitedToday,
+    currentlyInside: gate.currentlyInside,
+    gateLogsTotal: gateLogs.length,
     schools: schools.length,
     profiles: profiles.length,
     by,
@@ -63,7 +74,7 @@ export function computeSchoolKpis(schools: SchoolRow[], profiles: SchoolProfileR
 export function WelileSchoolsCard() {
   const [open, setOpen] = useState(false);
   const { data, isLoading } = useSchoolsData();
-  const k = data ? computeSchoolKpis(data.schools, data.profiles) : null;
+  const k = data ? computeSchoolKpis(data.schools, data.profiles, data.gateLogs) : null;
   const tile = (label: string, v: number | undefined) => (
     <div className="rounded-xl border border-border/60 p-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-bold">{v ?? '—'}</p></div>
   );
@@ -85,6 +96,10 @@ export function WelileSchoolsCard() {
           {tile('Free smartphones requested', k?.phonesRequested)}
           {tile('Pending delivery', k?.phonesPending)}
           {tile('Pupils / students', k?.by.pupil)}
+          {tile('Entered today (IN)', k?.enteredToday)}
+          {tile('Exited today (OUT)', k?.exitedToday)}
+          {tile('Currently inside', k?.currentlyInside)}
+          {tile('Gate logs total', k?.gateLogsTotal)}
         </div>
         {k && <p className="text-xs text-muted-foreground mt-2">{k.countries} countries · {k.districts} districts · Teachers {k.by.teacher} · Staff {k.by.staff} · Parents {k.by.parent} · Assets {k.by.asset}</p>}
       </Card>
@@ -98,14 +113,56 @@ export function WelileSchoolsCard() {
   );
 }
 
+export function WelileSchoolsOps({ onBack }: { onBack: () => void }) {
+  const { data, isLoading } = useSchoolsData();
+  const k = data ? computeSchoolKpis(data.schools, data.profiles, data.gateLogs) : null;
+  const tile = (label: string, v: number | undefined) => (
+    <div className="rounded-xl border border-border/60 p-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-bold">{v ?? '—'}</p></div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
+        <GraduationCap className="h-5 w-5 text-primary" />
+        <h2 className="text-base font-semibold flex-1">Welile Schools</h2>
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {tile('Schools registered', k?.schools)}
+        {tile('Profiles captured', k?.profiles)}
+        {tile('Districts covered', k?.districts)}
+        {tile('GPS-verified schools', k?.gps)}
+        {tile('Sign-up links sent', k?.linksSent)}
+        {tile('Free smartphones requested', k?.phonesRequested)}
+        {tile('Pending delivery', k?.phonesPending)}
+        {tile('Pupils / students', k?.by.pupil)}
+        {tile('Entered today (IN)', k?.enteredToday)}
+        {tile('Exited today (OUT)', k?.exitedToday)}
+        {tile('Currently inside', k?.currentlyInside)}
+        {tile('Gate logs total', k?.gateLogsTotal)}
+      </div>
+      {k && <p className="text-xs text-muted-foreground">{k.countries} countries · {k.districts} districts · Teachers {k.by.teacher} · Staff {k.by.staff} · Parents {k.by.parent} · Assets {k.by.asset}</p>}
+      {data ? <Explorer {...data} /> : <Loader2 className="h-6 w-6 animate-spin mx-auto" />}
+    </div>
+  );
+}
+
 const LEVELS = ['country', 'region', 'district', 'town', 'village'] as const;
 type Level = (typeof LEVELS)[number];
 
-function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profiles: SchoolProfileRow[]; agents: Record<string, string> }) {
+function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[]; profiles: SchoolProfileRow[]; agents: Record<string, string>; gateLogs: SchoolGateLogRow[] }) {
   const [path, setPath] = useState<Partial<Record<Level, string>>>({});
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const schoolMap = useMemo(() => Object.fromEntries(schools.map((s) => [s.id, s])), [schools]);
+  const gateBySchool = useMemo(() => {
+    const m: Record<string, { in: number; out: number; inside: number }> = {};
+    schools.forEach((s) => {
+      const g = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id));
+      m[s.id] = { in: g.enteredToday, out: g.exitedToday, inside: g.currentlyInside };
+    });
+    return m;
+  }, [schools, gateLogs]);
   const inPath = (s: SchoolRow) => LEVELS.every((l) => !path[l] || (s[l] ?? '—') === path[l]);
   const scoped = schools.filter(inPath);
   const nextLevel = LEVELS.find((l) => !path[l]);
@@ -120,6 +177,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
     <Tabs defaultValue="geo">
       <TabsList className="flex-wrap h-auto">
         <TabsTrigger value="geo">Schools & locations</TabsTrigger>
+        <TabsTrigger value="gate">Gate IN / OUT live log</TabsTrigger>
         <TabsTrigger value="profiles">Every profile</TabsTrigger>
         <TabsTrigger value="links">Sign-up links</TabsTrigger>
         <TabsTrigger value="phones">Free smartphone queue</TabsTrigger>
@@ -170,7 +228,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
         {!schoolId && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">School</th><th className="p-2">Location</th><th className="p-2">GPS</th><th className="p-2">Pupils</th><th className="p-2">Teachers</th><th className="p-2">Staff</th><th className="p-2">Parents</th></tr></thead>
+              <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">School</th><th className="p-2">Location</th><th className="p-2">GPS</th><th className="p-2">Pupils</th><th className="p-2">Teachers</th><th className="p-2">Staff</th><th className="p-2">Parents</th><th className="p-2">Today IN / OUT / Inside</th></tr></thead>
               <tbody>
                 {scoped.map((s) => { const c = counts(s.id); const g = mapLink(s.latitude, s.longitude); return (
                   <tr key={s.id} className="border-t border-border">
@@ -178,6 +236,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
                     <td className="p-2 text-xs">{locationPath(s)}</td>
                     <td className="p-2 text-xs">{g ? <span className="flex flex-col"><a className="underline flex items-center gap-1" href={g} target="_blank" rel="noreferrer"><MapPin className="h-3 w-3" />{s.latitude?.toFixed(5)}, {s.longitude?.toFixed(5)}</a><a className="underline" href={osmLink(s.latitude, s.longitude)!} target="_blank" rel="noreferrer">OpenStreetMap</a>{s.gps_accuracy_m != null && <span>±{s.gps_accuracy_m} m</span>}</span> : '—'}</td>
                     <td className="p-2">{c.pupil}</td><td className="p-2">{c.teacher}</td><td className="p-2">{c.staff}</td><td className="p-2">{c.parent}</td>
+                    <td className="p-2 text-xs">{gateBySchool[s.id] ? `${gateBySchool[s.id].in} / ${gateBySchool[s.id].out} / ${gateBySchool[s.id].inside}` : '—'}</td>
                   </tr>); })}
               </tbody>
             </table>
@@ -185,10 +244,60 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
         )}
       </TabsContent>
 
+      <TabsContent value="gate"><GateLogTable gateLogs={gateLogs} schoolMap={schoolMap} /></TabsContent>
       <TabsContent value="profiles"><ProfileTable profiles={profiles} schoolMap={schoolMap} agents={agents} mode="all" /></TabsContent>
       <TabsContent value="links"><ProfileTable profiles={profiles.filter((p) => p.has_smartphone != null)} schoolMap={schoolMap} agents={agents} mode="links" /></TabsContent>
       <TabsContent value="phones"><ProfileTable profiles={profiles.filter((p) => p.needs_free_smartphone)} schoolMap={schoolMap} agents={agents} mode="phones" /></TabsContent>
     </Tabs>
+  );
+}
+
+function GateLogTable({ gateLogs, schoolMap }: { gateLogs: SchoolGateLogRow[]; schoolMap: Record<string, SchoolRow> }) {
+  const [q, setQ] = useState('');
+  const [school, setSchool] = useState('');
+  const [dir, setDir] = useState<'' | 'in' | 'out'>('');
+  const needle = q.trim().toLowerCase();
+  const list = gateLogs.filter((l) => {
+    const s = schoolMap[l.school_id];
+    if (school && l.school_id !== school) return false;
+    if (dir && l.direction !== dir) return false;
+    if (!needle) return true;
+    return [l.person_name, roleLabel(l.role_type), s?.name, l.class_or_department, l.purpose_or_note, l.agent_name].some((v) => v?.toLowerCase().includes(needle));
+  });
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Input placeholder="Search name, role, school, note, agent" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
+        <select className="h-10 rounded-md border border-input bg-background px-2 text-sm" value={school} onChange={(e) => setSchool(e.target.value)}>
+          <option value="">All schools</option>{Object.values(schoolMap).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-2 text-sm" value={dir} onChange={(e) => setDir(e.target.value as '' | 'in' | 'out')}>
+          <option value="">All</option><option value="in">Entered (IN)</option><option value="out">Exited (OUT)</option>
+        </select>
+        <Badge variant="secondary" className="self-center">{list.length}</Badge>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">Direction</th><th className="p-2">Time (EAT)</th><th className="p-2">Person</th><th className="p-2">Role</th><th className="p-2">School</th><th className="p-2">Note</th><th className="p-2">Guardian</th><th className="p-2">Agent</th></tr></thead>
+          <tbody>
+            {list.slice(0, 500).map((l) => (
+              <tr key={l.id} className="border-t border-border">
+                <td className="p-2"><Badge variant={l.direction === 'in' ? 'default' : 'destructive'}>{l.direction === 'in' ? '🟢 IN' : '🔴 OUT'}</Badge></td>
+                <td className="p-2 text-xs">{new Date(l.recorded_at).toLocaleDateString()} {formatEatTime(l.recorded_at)}</td>
+                <td className="p-2">{l.person_name}</td>
+                <td className="p-2">{roleLabel(l.role_type)}</td>
+                <td className="p-2 text-xs">{schoolMap[l.school_id]?.name ?? '—'}</td>
+                <td className="p-2 text-xs">{[l.class_or_department, l.purpose_or_note].filter(Boolean).join(' · ') || '—'}</td>
+                <td className="p-2 text-xs">{l.pickup_guardian_name || '—'}</td>
+                <td className="p-2 text-xs">{l.agent_name || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {list.length > 500 && <p className="text-xs text-muted-foreground p-2">Showing first 500 — narrow the search.</p>}
+        {!list.length && <p className="text-sm text-muted-foreground p-2">No gate movements recorded yet.</p>}
+      </div>
+    </div>
   );
 }
 

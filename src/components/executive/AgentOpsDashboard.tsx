@@ -75,6 +75,7 @@ import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOver
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
+import { WelileSchoolsOps } from './agent-ops-v2/WelileSchoolsOps';
 import { CallingHub } from '@/components/ops/calling';
 import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
@@ -91,7 +92,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network, GraduationCap
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -121,6 +122,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'business-advance', icon: Briefcase, label: 'Welile Business Advance', color: 'bg-primary' },
   { key: 'agent-marketplace', icon: Store, label: 'Welile Marketplace', color: 'bg-primary' },
   { key: 'welile-homes', icon: Building2, label: 'Welile Homes', color: 'bg-primary' },
+  { key: 'welile-schools', icon: GraduationCap, label: 'Welile Schools', color: 'bg-primary' },
   { key: 'agents-hope', icon: Sparkles, label: 'Welile Agents Hope', color: 'bg-primary' },
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
@@ -429,6 +431,7 @@ export function AgentOpsDashboard() {
         </div>
       );
       case 'welile-homes': return <WelileHomesAdminPanel onBack={() => setActiveView(null)} />;
+      case 'welile-schools': return <WelileSchoolsOps onBack={() => setActiveView(null)} />;
       case 'agents-hope': return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
@@ -666,7 +669,7 @@ export function AgentOpsDashboard() {
                 Core Business Areas ({matchingBusinessAreas.length})
               </p>
               <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-primary border-primary/30">
-                14 Business Areas
+                {BUSINESS_AREAS.length} Business Areas
               </Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
@@ -871,11 +874,11 @@ export function AgentOpsDashboard() {
         <div>
           <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">
-            Instant search engine across all 14 business areas and operational tools.
+            Instant search engine across all {BUSINESS_AREAS.length} business areas and operational tools.
           </p>
         </div>
         <Badge variant="secondary" className="shrink-0 text-xs font-medium">
-          {searchQuery.trim() ? `${totalResultsCount} found` : '14 Business Areas'}
+          {searchQuery.trim() ? `${totalResultsCount} found` : `${BUSINESS_AREAS.length} Business Areas`}
         </Badge>
       </div>
 
@@ -1119,7 +1122,7 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Mobile bottom nav */}
-      {activeView !== 'welile-homes' && (
+      {activeView !== 'welile-homes' && activeView !== 'welile-schools' && (
         <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
       )}
 

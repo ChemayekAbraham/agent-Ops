@@ -196,6 +196,7 @@ export function AgentMenuDrawer({
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
+        { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
