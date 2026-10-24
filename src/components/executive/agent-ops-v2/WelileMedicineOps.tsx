@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Stethoscope, ChevronRight, MapPin, Loader2 } from 'lucide-react';
+import { Stethoscope, MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -254,4 +254,3 @@ function ProfileTable({ profiles, fmap, queue }: { profiles: MedicalProfileRow[]
   );
 }
 
-export { ChevronRight };
