@@ -435,7 +435,7 @@ function RegionDistrictBrowser({ region, district, onRegion, onDistrict }: { reg
   const { data: all = [] } = useUgDistricts();
   const [filterText, setFilterText] = useState('');
   const q = filterText.trim().toLowerCase();
-  const list = all.filter(d => (q ? true : d.region === region) && (!q || d.name.toLowerCase().includes(q)) && (!region || !q || d.region === region || true)).sort((a, b) => a.name.localeCompare(b.name));
+  const list = all.filter(d => (!region || d.region === region) && (!q || d.name.toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name));
   return <div className="space-y-3">
     <p className="text-xs font-medium text-muted-foreground">1. Select Region</p>
     <div className="grid grid-cols-2 gap-2">{UG_REGIONS.map(r => <Button key={r} variant={region === r ? 'default' : 'outline'} className="min-h-11" aria-pressed={region === r} onClick={() => onRegion(r)}>{r} ({all.filter(d => d.region === r).length})</Button>)}</div>
