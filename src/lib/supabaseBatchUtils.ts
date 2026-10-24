@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
+import { returnCycleMonth } from '@/lib/returnCycle';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
@@ -467,18 +468,24 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
   // ── Mark portfolios already handled THIS cycle so they drop off the list ──
   // A portfolio is "processed" if a ledger credit exists for its cycle key
   // (roi-cycle-<portfolioId>-<cycleAnchor>) OR an ROI payout is still open in
-  // the approval queue. Either way it must NOT be payable again — this is the
-  // primary defence against duplicate / double ROI credits.
+  // the approval queue. Either way it must NOT be payable again. Since
+  // migration 20261024140000_return_cycle_guard a cycle is the calendar month
+  // of the due date and every Return reserves it in
+  // portfolio_return_cycle_claims, which the database enforces; reading those
+  // reservations here only keeps paid portfolios off the list.
   try {
     const cycleKeyToPortfolio = new Map<string, string>();
+    const cycleMonthByPortfolio = new Map<string, string>();
     for (const n of nearingList) {
       const anchor = n.nextRoiDate || new Date().toISOString().slice(0, 10);
       cycleKeyToPortfolio.set(`roi-cycle-${n.portfolioId}-${anchor}`, n.portfolioId);
+      if (/^\d{4}-\d{2}-\d{2}/.test(anchor)) cycleMonthByPortfolio.set(n.portfolioId, returnCycleMonth(anchor.slice(0, 10)));
     }
     const portfolioIds = nearingList.map((n) => n.portfolioId);
     const cycleKeys = Array.from(cycleKeyToPortfolio.keys());
     const creditedPortfolioIds = new Set<string>();
     const pendingPortfolioIds = new Set<string>();
+    const claimedPortfolioIds = new Set<string>();
 
     const chunk = <T,>(arr: T[], size: number) => {
       const out: T[][] = [];
@@ -509,6 +516,19 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
           if (r.source_id) pendingPortfolioIds.add(r.source_id);
         }
       }),
+      ...chunk(portfolioIds, 200).map(async (batch) => {
+        // Before the migration is applied this table does not exist; the error is ignored.
+        const { data } = await supabase
+          .from('portfolio_return_cycle_claims' as never)
+          .select('portfolio_id, cycle_month')
+          .in('portfolio_id', batch)
+          .eq('status', 'active');
+        for (const r of ((data as unknown) as Array<{ portfolio_id: string; cycle_month: string }> | null) || []) {
+          if (cycleMonthByPortfolio.get(r.portfolio_id) === String(r.cycle_month).slice(0, 10)) {
+            claimedPortfolioIds.add(r.portfolio_id);
+          }
+        }
+      }),
     ]);
 
     for (const n of nearingList) {
@@ -518,6 +538,10 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
       } else if (pendingPortfolioIds.has(n.portfolioId)) {
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'pending';
+      } else if (claimedPortfolioIds.has(n.portfolioId)) {
+        // Reserved by a Return already posted (payout, compound or split) for this month.
+        n.alreadyProcessedThisCycle = true;
+        n.processedState = 'credited';
       }
     }
   } catch (e) {

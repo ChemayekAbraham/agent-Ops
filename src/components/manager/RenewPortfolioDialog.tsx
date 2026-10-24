@@ -107,6 +107,9 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
 
       // Update the portfolio
       const { error } = await supabase.from('investor_portfolios').update({
+        // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
+        // (migration 20261024140000; Return postings change these fields server-side).
+        return_fields_edit_token: crypto.randomUUID(),
         created_at: startDate.toISOString(),
         maturity_date: maturity.toISOString().split('T')[0],
         next_roi_date: nextRoi.toISOString().split('T')[0],
@@ -115,7 +118,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
         duration_months: newDuration,
         investment_amount: newAmount,
         status: 'active',
-      }).eq('id', portfolio.id);
+      } as never).eq('id', portfolio.id);
 
       if (error) throw error;
 
