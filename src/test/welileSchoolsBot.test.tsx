@@ -29,11 +29,11 @@ describe('School bot draft flow', () => {
     await user.type(screen.getByRole('textbox', { name: 'School name' }), 'Example Test School');
     await user.click(screen.getByRole('button', { name: 'Send school name' }));
     await user.click(screen.getByRole('button', { name: 'Mixed / K-12' }));
-    await user.click(screen.getByRole('button', { name: 'Continue', exact: true }));
+    await user.click(screen.getByRole('button', { name: /^Continue$/ }));
     await user.click(screen.getByRole('button', { name: 'Skip GPS for now' }));
     await user.click(screen.getByRole('button', { name: 'Choose test location' }));
     await user.click(screen.getByRole('button', { name: 'Confirm Location' }));
-    await user.click(screen.getByRole('button', { name: 'Skip for now', exact: true }));
+    await user.click(screen.getByRole('button', { name: /^Skip for now$/ }));
     await user.click(screen.getByRole('button', { name: 'Edit step 1' }));
     await user.clear(screen.getByRole('textbox', { name: 'School name' }));
     await user.type(screen.getByRole('textbox', { name: 'School name' }), 'Updated Test School');
