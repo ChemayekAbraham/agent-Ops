@@ -157,8 +157,10 @@ function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[
   const schoolMap = useMemo(() => Object.fromEntries(schools.map((s) => [s.id, s])), [schools]);
   const gateBySchool = useMemo(() => {
     const m: Record<string, { in: number; out: number; inside: number }> = {};
-    schools.forEach((s) => { m[s.id] = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id)); }).forEach(() => {});
-    schools.forEach((s) => { const g = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id)); m[s.id] = { in: g.enteredToday, out: g.exitedToday, inside: g.currentlyInside }; });
+    schools.forEach((s) => {
+      const g = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id));
+      m[s.id] = { in: g.enteredToday, out: g.exitedToday, inside: g.currentlyInside };
+    });
     return m;
   }, [schools, gateLogs]);
   const inPath = (s: SchoolRow) => LEVELS.every((l) => !path[l] || (s[l] ?? '—') === path[l]);
@@ -247,6 +249,55 @@ function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[
       <TabsContent value="links"><ProfileTable profiles={profiles.filter((p) => p.has_smartphone != null)} schoolMap={schoolMap} agents={agents} mode="links" /></TabsContent>
       <TabsContent value="phones"><ProfileTable profiles={profiles.filter((p) => p.needs_free_smartphone)} schoolMap={schoolMap} agents={agents} mode="phones" /></TabsContent>
     </Tabs>
+  );
+}
+
+function GateLogTable({ gateLogs, schoolMap }: { gateLogs: SchoolGateLogRow[]; schoolMap: Record<string, SchoolRow> }) {
+  const [q, setQ] = useState('');
+  const [school, setSchool] = useState('');
+  const [dir, setDir] = useState<'' | 'in' | 'out'>('');
+  const needle = q.trim().toLowerCase();
+  const list = gateLogs.filter((l) => {
+    const s = schoolMap[l.school_id];
+    if (school && l.school_id !== school) return false;
+    if (dir && l.direction !== dir) return false;
+    if (!needle) return true;
+    return [l.person_name, roleLabel(l.role_type), s?.name, l.class_or_department, l.purpose_or_note, l.agent_name].some((v) => v?.toLowerCase().includes(needle));
+  });
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Input placeholder="Search name, role, school, note, agent" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-xs" />
+        <select className="h-10 rounded-md border border-input bg-background px-2 text-sm" value={school} onChange={(e) => setSchool(e.target.value)}>
+          <option value="">All schools</option>{Object.values(schoolMap).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select className="h-10 rounded-md border border-input bg-background px-2 text-sm" value={dir} onChange={(e) => setDir(e.target.value as '' | 'in' | 'out')}>
+          <option value="">All</option><option value="in">Entered (IN)</option><option value="out">Exited (OUT)</option>
+        </select>
+        <Badge variant="secondary" className="self-center">{list.length}</Badge>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">Direction</th><th className="p-2">Time (EAT)</th><th className="p-2">Person</th><th className="p-2">Role</th><th className="p-2">School</th><th className="p-2">Note</th><th className="p-2">Guardian</th><th className="p-2">Agent</th></tr></thead>
+          <tbody>
+            {list.slice(0, 500).map((l) => (
+              <tr key={l.id} className="border-t border-border">
+                <td className="p-2"><Badge variant={l.direction === 'in' ? 'default' : 'destructive'}>{l.direction === 'in' ? '🟢 IN' : '🔴 OUT'}</Badge></td>
+                <td className="p-2 text-xs">{new Date(l.recorded_at).toLocaleDateString()} {formatEatTime(l.recorded_at)}</td>
+                <td className="p-2">{l.person_name}</td>
+                <td className="p-2">{roleLabel(l.role_type)}</td>
+                <td className="p-2 text-xs">{schoolMap[l.school_id]?.name ?? '—'}</td>
+                <td className="p-2 text-xs">{[l.class_or_department, l.purpose_or_note].filter(Boolean).join(' · ') || '—'}</td>
+                <td className="p-2 text-xs">{l.pickup_guardian_name || '—'}</td>
+                <td className="p-2 text-xs">{l.agent_name || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {list.length > 500 && <p className="text-xs text-muted-foreground p-2">Showing first 500 — narrow the search.</p>}
+        {!list.length && <p className="text-sm text-muted-foreground p-2">No gate movements recorded yet.</p>}
+      </div>
+    </div>
   );
 }
 
