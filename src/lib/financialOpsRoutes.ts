@@ -14,7 +14,7 @@ export const FINOPS_BASE = '/admin/financial-ops';
 const VIEW_IDS = ['deposits', 'offline_collections'] as const;
 
 /** Panels whose id makes an awkward URL get a readable slug instead. */
-const SLUG_ALIASES: Record<string, string> = { email_tx: 'email-transactions' };
+const SLUG_ALIASES: Record<string, string> = { email_tx: 'email-transactions', cash_codes: 'cash-deposit-codes' };
 const ID_FROM_ALIAS = Object.fromEntries(Object.entries(SLUG_ALIASES).map(([id, slug]) => [slug, id]));
 
 export const finopsSlug = (id: string): string => SLUG_ALIASES[id] ?? id.replace(/_/g, '-');
