@@ -79,7 +79,7 @@ export function WelileSchoolsCard() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {tile('Schools registered', k?.schools)}
           {tile('Profiles captured', k?.profiles)}
-          {tile('Countries / districts', k ? undefined : undefined)}
+          {tile('Districts covered', k?.districts)}
           {tile('GPS-verified schools', k?.gps)}
           {tile('Sign-up links sent', k?.linksSent)}
           {tile('Free smartphones requested', k?.phonesRequested)}
