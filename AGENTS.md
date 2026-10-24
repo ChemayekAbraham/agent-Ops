@@ -1,4 +1,5 @@
 # Architecture Decisions
+- Partner payout presentation reuses the existing paid/outstanding reports and record drill-downs; summary tiles preserve their original totals and due-by cutoff rather than inventing a next due date.
 - Standing order amount revisions use only `standing_order_set_amount` for locked configuration plus atomic audit, never the payer or lifecycle audit helper; authorized users may preview the controls, but saves remain loopback-development-only until separately approved activation.
 - CFO loading separates authoritative summaries from optional detail reads; shared wallet responses retain distinct balance/float fields and reconciliation still waits for the full verification scan, so faster presentation cannot change financial definitions.
 - Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.
