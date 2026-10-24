@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatUGX } from '@/lib/rentCalculations';
+const formatUGX = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
 import UgLocationPicker from '@/components/location/UgLocationPicker';
 import { UG_REGIONS, type UgLocationSelection } from '@/hooks/useUgLocations';
 import { CountryCombobox } from '@/components/ui/country-combobox';
