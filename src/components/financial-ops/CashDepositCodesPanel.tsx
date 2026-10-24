@@ -668,12 +668,12 @@ export function CashDepositCodesPanel({
                 </button>
               ))}
             </div>
-            <div className="relative ml-auto w-full sm:w-72">
+            <div className="relative ml-auto w-full sm:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search depositor, phone or amount"
+                placeholder="Search name, phone, amount"
                 aria-label="Search cash deposit codes"
                 className="h-10 rounded-xl pl-9 pr-9"
               />
@@ -782,19 +782,18 @@ export function CashDepositCodesPanel({
                         <td className="p-3">
                           {isLive(r) ? codeEntry(r, 'row') : <span className="text-muted-foreground">—</span>}
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
                             <StatusBadge status={r.status} />
-                            <Countdown expiresAt={r.expires_at} inline />
+                            {r.status === 'awaiting_code' && <Countdown expiresAt={r.expires_at} inline />}
                           </div>
                         </td>
-                        <td className="p-3"><CashLocationBadge location={r.cash_location} /></td>
+                        <td className="p-3 whitespace-nowrap"><CashLocationBadge location={r.cash_location} /></td>
                         <td className="p-3">
                           <div className="flex items-center justify-end gap-1.5">
                             <Button variant="outline" size="sm" className="h-8 rounded-full text-xs" onClick={() => setOpenId(r.verification_id)}>
                               View
                             </Button>
-                            <div className="hidden xl:block">{bankButton(r)}</div>
                           </div>
                         </td>
                       </tr>
