@@ -489,3 +489,203 @@ function RegionDistrictBrowser({ region, district, onRegion, onDistrict }: { reg
     {district && <p className="text-xs font-medium text-muted-foreground">3. Sub-county / Parish / Village (optional)</p>}
   </div>;
 }
+
+const GATE_IN_NOTES = ['Morning arrival', 'Returned to school', 'Parent visit', 'Supply delivery', 'Official visit'];
+const GATE_OUT_NOTES = ['Going home', 'Picked up by parent', 'Permission slip', 'Official duty', 'Completed visit'];
+
+export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister }: { school: SchoolRow; agentId: string; onQueued: () => void; onSwitchToRegister: () => void }) {
+  const [logs, setLogs] = useState<SchoolGateLogRow[]>(() => readLocalGateLogs(school.id));
+  const [profiles, setProfiles] = useState<SchoolProfileRow[]>([]);
+  const [direction, setDirection] = useState<'in' | 'out'>('in');
+  const [role, setRole] = useState<string>('pupil');
+  const [f, setF] = useState({ person_name: '', class_or_department: '', phone: '', purpose_or_note: '', pickup_guardian_name: '', pickup_guardian_phone: '' });
+  const [saving, setSaving] = useState(false);
+  const [rosterFilter, setRosterFilter] = useState<'all' | 'inside' | 'pupil' | 'staff' | 'parent'>('all');
+  const [rosterSearch, setRosterSearch] = useState('');
+
+  const refresh = () => setLogs(readLocalGateLogs(school.id));
+
+  useEffect(() => {
+    db.from('welile_school_gate_logs').select('*').eq('school_id', school.id).order('recorded_at', { ascending: false }).limit(1000)
+      .then(({ data }: { data: SchoolGateLogRow[] | null }) => {
+        if (!data) return;
+        const merged = [...readLocalGateLogs(school.id)];
+        data.forEach((l) => { if (!merged.some((m) => m.id === l.id)) merged.push(l); });
+        writeLocalGateLogsOnly(merged);
+        refresh();
+      });
+    db.from('welile_school_profiles').select('*').eq('school_id', school.id).order('created_at', { ascending: false }).limit(2000)
+      .then(({ data }: { data: SchoolProfileRow[] | null }) => {
+        const pending = readPendingProfiles().filter((p) => p.school_id === school.id);
+        const all = [...(data ?? [])];
+        pending.forEach((p) => { if (!all.some((a) => a.id === p.id)) all.push(p); });
+        setProfiles(all.filter((p) => p.role !== 'asset'));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [school.id]);
+
+  const summary = useMemo(() => computeGateMovementSummary(logs), [logs]);
+
+  const record = async (entry: Partial<SchoolGateLogRow> & { person_name: string; role_type: string; direction: 'in' | 'out'; profile_id?: string | null }) => {
+    const id = crypto.randomUUID();
+    const row: SchoolGateLogRow = {
+      id, client_ref: id, school_id: school.id, agent_id: agentId,
+      gate_name: school.gate_name || 'Main Gate', recorded_at: new Date().toISOString(),
+      phone: null, class_or_department: null, purpose_or_note: null,
+      pickup_guardian_name: null, pickup_guardian_phone: null,
+      ...entry,
+    };
+    const res = await saveGateLog(row);
+    refresh();
+    if (!res.saved) { onQueued(); toast.message('No connection — gate log saved on this phone, will send automatically'); }
+    return res;
+  };
+
+  const submitQuick = async () => {
+    if (!f.person_name.trim()) { toast.error('Enter the full name'); return; }
+    setSaving(true);
+    await record({
+      direction, role_type: role, person_name: f.person_name.trim(),
+      phone: f.phone.trim() || null,
+      class_or_department: f.class_or_department.trim() || null,
+      purpose_or_note: f.purpose_or_note || null,
+      pickup_guardian_name: f.pickup_guardian_name.trim() || null,
+      pickup_guardian_phone: f.pickup_guardian_phone.trim() || null,
+    });
+    setSaving(false);
+    toast.success(direction === 'in' ? `🟢 ${f.person_name.trim()} recorded ENTERING ${school.gate_name || 'Main Gate'}` : `🔴 ${f.person_name.trim()} recorded LEAVING ${school.gate_name || 'Main Gate'}`);
+    setF({ person_name: '', class_or_department: '', phone: '', purpose_or_note: '', pickup_guardian_name: '', pickup_guardian_phone: '' });
+  };
+
+  const mark = async (p: SchoolProfileRow, dir: 'in' | 'out') => {
+    const res = await record({
+      direction: dir, role_type: p.role, person_name: p.full_name || 'Unknown', profile_id: p.id,
+      phone: p.phone || p.guardian_phone || null,
+      class_or_department: p.class_grade || p.subject_department || null,
+      pickup_guardian_name: p.guardian_name || null, pickup_guardian_phone: p.guardian_phone || null,
+    });
+    if (res.saved) toast.success(dir === 'in' ? `🟢 ${p.full_name} marked IN` : `🔴 ${p.full_name} marked OUT`);
+  };
+
+  const flip = async (log: SchoolGateLogRow) => {
+    const res = await flipGateLogDirection(log);
+    refresh();
+    if (!res.saved) onQueued();
+    toast.success(`${log.person_name} corrected to ${res.row.direction === 'in' ? '🟢 IN' : '🔴 OUT'}`);
+  };
+
+  const needle = rosterSearch.trim().toLowerCase();
+  const roster = profiles.filter((p) => {
+    const st = summary.personStatus[p.id];
+    if (rosterFilter === 'inside' && st?.direction !== 'in') return false;
+    if (rosterFilter === 'pupil' && roleGroup(p.role) !== 'pupil') return false;
+    if (rosterFilter === 'staff' && !['teacher', 'staff'].includes(roleGroup(p.role))) return false;
+    if (rosterFilter === 'parent' && roleGroup(p.role) !== 'parent') return false;
+    if (!needle) return true;
+    return [p.full_name, p.class_grade, p.subject_department, p.phone, p.guardian_phone].some((v) => v?.toLowerCase().includes(needle));
+  });
+
+  const kpi = (label: string, v: number, cls: string) => (
+    <div className={cn('rounded-xl border p-3 text-center', cls)}><p className="text-2xl font-bold">{v}</p><p className="text-xs font-medium">{label}</p></div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2">
+        {kpi('Entered Today (IN)', summary.enteredToday, 'border-primary/40 bg-primary/5 text-primary')}
+        {kpi('Exited Today (OUT)', summary.exitedToday, 'border-destructive/40 bg-destructive/5 text-destructive')}
+        {kpi('Currently Inside', summary.currentlyInside, 'border-border bg-card')}
+      </div>
+      <div className="flex flex-wrap gap-2 text-xs">
+        <Badge variant="secondary">Pupils inside: {summary.byGroup.pupil.inside} ({summary.byGroup.pupil.in} IN · {summary.byGroup.pupil.out} OUT)</Badge>
+        <Badge variant="secondary">Teachers & Staff inside: {summary.byGroup.staff.inside} ({summary.byGroup.staff.in} IN · {summary.byGroup.staff.out} OUT)</Badge>
+        <Badge variant="secondary">Parents & Visitors inside: {summary.byGroup.visitor.inside} ({summary.byGroup.visitor.in} IN · {summary.byGroup.visitor.out} OUT)</Badge>
+      </div>
+
+      <Card className="p-4 space-y-3">
+        <h2 className="font-semibold">Quick gate entry / exit</h2>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant={direction === 'in' ? 'default' : 'outline'} aria-pressed={direction === 'in'} className="min-h-12 whitespace-normal" onClick={() => setDirection('in')}><LogIn className="h-4 w-4 shrink-0" />🟢 Entering Premises (IN)</Button>
+          <Button variant={direction === 'out' ? 'default' : 'outline'} aria-pressed={direction === 'out'} className="min-h-12 whitespace-normal" onClick={() => setDirection('out')}><LogOut className="h-4 w-4 shrink-0" />🔴 Leaving Premises (OUT)</Button>
+        </div>
+        <Chips options={GATE_ROLES.map((r) => r.label)} value={GATE_ROLES.find((r) => r.key === role)?.label ?? ''} onChange={(v) => setRole(GATE_ROLES.find((r) => r.label === v)?.key ?? role)} />
+        <Field label="Full name"><Input aria-label="Gate person name" placeholder="Type full name..." value={f.person_name} onChange={(e) => setF((d) => ({ ...d, person_name: e.target.value }))} /></Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Class, stream or department"><Input placeholder="e.g. P.5, S.2, Science, Accounts..." value={f.class_or_department} onChange={(e) => setF((d) => ({ ...d, class_or_department: e.target.value }))} /></Field>
+          <Field label="Phone number"><Input inputMode="tel" value={f.phone} onChange={(e) => setF((d) => ({ ...d, phone: e.target.value }))} /></Field>
+        </div>
+        <Field label="Quick note / reason"><Chips options={direction === 'in' ? GATE_IN_NOTES : GATE_OUT_NOTES} value={f.purpose_or_note} onChange={(v) => setF((d) => ({ ...d, purpose_or_note: d.purpose_or_note === v ? '' : v }))} /></Field>
+        {(role === 'pupil' || direction === 'out') && (
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Accompanied / picked up by (guardian name)"><Input value={f.pickup_guardian_name} onChange={(e) => setF((d) => ({ ...d, pickup_guardian_name: e.target.value }))} /></Field>
+            <Field label="Guardian phone"><Input inputMode="tel" value={f.pickup_guardian_phone} onChange={(e) => setF((d) => ({ ...d, pickup_guardian_phone: e.target.value }))} /></Field>
+          </div>
+        )}
+        <Button className="w-full min-h-[52px] text-base" disabled={saving} onClick={submitQuick}>
+          {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {direction === 'in' ? 'Record Gate Entry (IN)' : 'Record Gate Exit (OUT)'}
+        </Button>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-semibold">Roster check-in / check-out</h2>
+          <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={onSwitchToRegister}>+ New person</Button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {([['all', 'All'], ['inside', 'Currently Inside'], ['pupil', 'Pupils'], ['staff', 'Teachers & Staff'], ['parent', 'Parents & Suppliers']] as const).map(([k, label]) => (
+            <Button key={k} size="sm" variant={rosterFilter === k ? 'default' : 'outline'} className="min-h-[40px]" onClick={() => setRosterFilter(k)}>{label}</Button>
+          ))}
+        </div>
+        <Input aria-label="Search roster" placeholder="Search name, class, or phone..." value={rosterSearch} onChange={(e) => setRosterSearch(e.target.value)} />
+        <div className="divide-y divide-border">
+          {roster.map((p) => {
+            const st = summary.personStatus[p.id];
+            return (
+              <div key={p.id} className="py-2 flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{p.full_name} <span className="text-muted-foreground font-normal">· {roleLabel(p.role)}{p.class_grade || p.subject_department ? ` · ${p.class_grade || p.subject_department}` : ''}</span></p>
+                  <p className="text-xs">
+                    {st?.direction === 'in' ? <span className="text-primary">🟢 Inside since {formatEatTime(st.recorded_at)}</span>
+                      : st?.direction === 'out' ? <span className="text-destructive">🔴 Exited at {formatEatTime(st.recorded_at)}</span>
+                        : <span className="text-muted-foreground">⚪ Not recorded today</span>}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" className="min-h-[44px] shrink-0" aria-label={`Mark ${p.full_name} IN`} onClick={() => mark(p, 'in')}>🟢 IN</Button>
+                <Button size="sm" variant="outline" className="min-h-[44px] shrink-0" aria-label={`Mark ${p.full_name} OUT`} onClick={() => mark(p, 'out')}>🔴 OUT</Button>
+              </div>
+            );
+          })}
+          {!roster.length && <p className="text-sm text-muted-foreground py-3">No registered people match — register them first.</p>}
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-3">
+        <h2 className="font-semibold">Today's gate timeline</h2>
+        <div className="divide-y divide-border">
+          {summary.todayLogs.map((log) => (
+            <div key={log.id} className="py-2 flex items-start gap-2">
+              <Badge variant={log.direction === 'in' ? 'default' : 'destructive'} className="shrink-0 mt-0.5">{log.direction === 'in' ? '🟢 IN' : '🔴 OUT'}</Badge>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{log.person_name} <span className="text-muted-foreground font-normal">· {roleLabel(log.role_type)}</span></p>
+                <p className="text-xs text-muted-foreground">
+                  {formatEatTime(log.recorded_at)} EAT
+                  {log.class_or_department ? ` · ${log.class_or_department}` : ''}
+                  {log.purpose_or_note ? ` · ${log.purpose_or_note}` : ''}
+                  {log.pickup_guardian_name ? ` · with ${log.pickup_guardian_name}` : ''}
+                </p>
+              </div>
+              <Button size="sm" variant="ghost" className="min-h-[44px] shrink-0" aria-label={`Flip direction for ${log.person_name}`} onClick={() => flip(log)}><Repeat className="h-4 w-4 mr-1" />Flip IN/OUT</Button>
+            </div>
+          ))}
+          {!summary.todayLogs.length && <p className="text-sm text-muted-foreground py-3">No gate movements recorded yet today.</p>}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function writeLocalGateLogsOnly(rows: SchoolGateLogRow[]) {
+  const others = readLocalGateLogs().filter((l) => !rows.some((r) => r.id === l.id));
+  writeLocalGateLogs([...others, ...rows]);
+}
