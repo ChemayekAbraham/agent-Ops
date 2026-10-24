@@ -18,7 +18,7 @@ No marker for "CTO-controlled" existed. It is a new table, backfilled with the 5
 | Object | What it does |
 |---|---|
 | `cto_controlled_rent_plans(rent_request_id pk -> rent_requests, added_by, added_at, note)` | The list. RLS on. `authenticated` may SELECT only if CTO, CEO or CFO. No insert/update/delete policy: writes go only through the RPCs. `service_role` has all four grants, `anon` none. A restrictive `mfa_required_for_staff` policy matches the other staff tables. |
-| `cto_add_controlled_plans(uuid[], text)` / `cto_remove_controlled_plans(uuid[])` | CTO or super admin only. Idempotent (adding twice adds 0). Each writes one `audit_logs` row (`cto_controlled_plans_added` / `_removed`). Returns how many rows changed. |
+| `cto_add_controlled_plans(uuid[], text)` / `cto_remove_controlled_plans(uuid[])` | **CTO role only. Not even a super admin** (tightened by `20261025100000`; `20261024130000` first allowed CTO or super admin). Idempotent (adding twice adds 0). Each writes one `audit_logs` row (`cto_controlled_plans_added` / `_removed`). Returns how many rows changed. |
 | `get_cto_controlled_plan_collections()` | SECURITY DEFINER, CTO/CEO/CFO only. One row per plan (`row_kind = 'plan'`) plus one `row_kind = 'summary'` row of totals. |
 | `cto_search_rent_plans(text, int)` | Read-only plan search for the "Manage CTO plans" dialog (tenant name, phone or agent name, 2+ characters, 25 rows), with a `controlled` flag. Funded/repaying/completed plans only. |
 
@@ -64,7 +64,7 @@ recovered 2,361,301 (= the collections ledger, **0 counter mismatches**), partne
 - **`counter_mismatch` is a signal, not a fix.** It appears when `amount_repaid` was edited by hand (see the Kwenseri balance correction, which
   moved plan totals, not repaid) or a collection was reversed without the counter following. Investigate with `v_rent_repaid_reconciliation`.
 - **Adding a plan to the list changes no money.** The list is only a filter for this panel.
-- Write access is CTO or super admin by role (as the brief said). If it must be limited to one person, use `is_platform_owner()` (20261024110000).
+- Write access is the CTO role only (`20261025100000`), so a super admin who is not CTO is refused. Reading stays CTO, CEO and CFO. If it must be limited to one person, use `is_platform_owner()` (20261024110000). Anyone who can assign roles could give themselves the CTO role; that is outside this feature.
 
 ## Roll back
 
