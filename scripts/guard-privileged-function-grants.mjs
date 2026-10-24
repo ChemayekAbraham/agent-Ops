@@ -101,6 +101,12 @@ const PROTECTED = [
     baselineFile: '20261024140000_return_cycle_guard.sql',
     why: 'posts a Partner Return payout and marks the request approved; approval (service role) only',
   },
+  {
+    name: 'post_rent_facilitation_reward',
+    baseline: '20261024170000',
+    baselineFile: '20261024170000_rent_reward_atomic_post.sql',
+    why: 'posts a rent-facilitation reward (wallet credit or portfolio reinvestment) with no caller check of its own; service role only',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];
