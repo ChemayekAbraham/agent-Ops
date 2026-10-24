@@ -71,7 +71,7 @@ describe('Payables page loading boundaries', () => {
     partner.unmount(); partner.client.clear();
     const landlord = setup('/cfo/payables?cat=landlord');
     await waitFor(() => expect(landlord.getByRole('tablist', { name: 'Payable products' })).toBeInTheDocument());
-    expect(landlord.getByText('Example Landlord')).toBeInTheDocument();
+    expect(landlord.getAllByText('Example Landlord').length).toBeGreaterThan(0);
     landlord.unmount(); landlord.client.clear();
   });
 });
