@@ -77,6 +77,12 @@ const PROTECTED = [
     baselineFile: '20260925220000_agent_advances_client_read_only.sql',
     why: 'mints an agent advance against any p_user_id with a 33% access fee, no audit row and no ledger entry',
   },
+  {
+    name: 'post_rent_facilitation_reward',
+    baseline: '20261024170000',
+    baselineFile: '20261024170000_rent_reward_atomic_post.sql',
+    why: 'posts a rent-facilitation reward (wallet credit or portfolio reinvestment) with no caller check of its own; service role only',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];
