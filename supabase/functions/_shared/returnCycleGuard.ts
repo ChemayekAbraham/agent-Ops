@@ -86,3 +86,16 @@ export function isPartnerReturnCredit(op: string, walletCategory: string, platfo
   return op === 'credit'
     && (walletCategory === 'roi_wallet_credit' || walletCategory === 'roi_payout' || platformCategory === 'roi_expense');
 }
+
+/**
+ * The approval's balance-snapshot "recovery" (approve-wallet-operation, HARD-FAIL SAFETY): how much to re-route after a
+ * wallet credit whose balance moved less than expected. It compares two balance reads taken around the posting, so an
+ * unrelated withdrawal from the same wallet in between makes the credit look short. For a portfolio Return it is
+ * never used (always 0): the Return's wallet leg names the Withdrawable bucket and post_return_payout enforces that,
+ * so the ledger decides where it lands. (In production today apply_wallet_movement writes no balance - the ledger is
+ * the truth - so the step cannot create money; this keeps it that way for Returns even if that ever changes.)
+ */
+export function walletRecoveryAmount(p: { portfolioReturn: boolean; delta: number; amount: number }): number {
+  if (p.portfolioReturn) return 0;
+  return p.delta < p.amount - 1 ? p.amount - p.delta : 0;
+}

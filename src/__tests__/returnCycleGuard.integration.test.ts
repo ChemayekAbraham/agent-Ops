@@ -131,6 +131,7 @@ function payoutEntries(op: Record<string, any>, amount: number) {
   const recipient = op.target_wallet_user_id ?? op.user_id;
   return [
     { user_id: recipient, amount, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet',
+      recipient_type: 'user', wallet_bucket: 'withdrawable',
       source_table: 'investor_portfolios', source_id: op.source_id, reference_id: op.reference_id, linked_party: op.user_id,
       description: op.description },
     { user_id: op.user_id, amount, direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform',
@@ -811,6 +812,79 @@ d('Partner Return cycle guard (isolated local database)', () => {
       expect(err?.message).toMatch(/recorded while the cycle guard was live/);
       // The rollback above was itself rolled back: the guard is still installed.
       expect((await c1`select to_regprocedure('public.claim_return_cycle_for_operation(uuid)') is not null as ok`)[0].ok).toBe(true);
+    });
+  });
+
+  describe('wallet-recovery race and lock order (second review)', () => {
+    it('an unrelated withdrawal between the approval snapshot and the posting changes nothing about the Return', async () => {
+      const pf = PF(42), who = PARTNER(42);
+      // starting balance 500,000 (a deposit), then a Return request
+      await c1`select public.create_ledger_transaction(${c1.json([{ user_id: who, amount: 500000, direction: 'cash_in', category: 'wallet_deposit', ledger_scope: 'wallet' }] as never)}::jsonb, null, false)`;
+      const op = await requestPayout(c1, { pf, partner: who, amount: 200000 });
+      await c1`update public.pending_wallet_operations set status = 'coo_approved' where id = ${op.id}`;
+      const d = await reserveReturnCycle(rpcAdapter(c1), op.id);
+      if (d.action !== 'post') throw new Error('expected post');
+      const snapshot = await walletOf(c1, who);                                   // what an approval would read "before"
+      // unrelated withdrawal of 300,000 from the same wallet, committed in another session
+      await c2`select public.create_ledger_transaction(${c2.json([{ user_id: who, amount: 300000, direction: 'cash_out', category: 'withdrawal', ledger_scope: 'wallet' }] as never)}::jsonb, null, false)`;
+      const r = await postReturnPayout(c1, op.id, d.ledgerKey, 200000);
+      const after = await walletOf(c1, who);
+      expect(r.inserted).toBe(true);
+      expect(after).toBe(500000 - 300000 + 200000);                                // exact: one Return credit, one withdrawal
+      expect(await returnLegs(c1, pf)).toHaveLength(1);
+      // the old snapshot comparison would have read the Return as short by the withdrawal
+      expect(after - snapshot).toBe(200000 - 300000);
+    });
+
+    it('the approval refuses a Return leg that does not name the Withdrawable bucket (nothing posted, request untouched)', async () => {
+      const pf = PF(43), who = PARTNER(43);
+      const op = await requestPayout(c1, { pf, partner: who, amount: 200000 });
+      await c1`update public.pending_wallet_operations set status = 'coo_approved' where id = ${op.id}`;
+      const d = await reserveReturnCycle(rpcAdapter(c1), op.id);
+      if (d.action !== 'post') throw new Error('expected post');
+      const bare = [{ user_id: who, amount: 200000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'investor_portfolios', source_id: pf }];
+      const err = await errorOf(c1`select public.post_return_payout(${op.id}::uuid, ${c1.json(bare as never)}::jsonb, ${d.ledgerKey}, 200000, ${CFO}::uuid)`);
+      expect(err?.code).toBe('22023');
+      expect(await returnLegs(c1, pf)).toHaveLength(0);
+      const [{ status }] = await c1`select status from public.pending_wallet_operations where id = ${op.id}`;
+      expect(status).toBe('coo_approved');
+    });
+
+    it('lock order: approving a request queued before the guard while a compound runs - no deadlock, one Return', async () => {
+      const pf = PF(44), who = PARTNER(44);
+      await c1`set session_replication_role = replica`;
+      const [op] = await c1`insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, operation_type, status, metadata)
+        values (${who}, 200000, 'cash_in', 'roi_payout', 'investor_portfolios', ${pf}, ${ref()}, 'roi_wallet_credit', 'coo_approved', ${c1.json({ cycle_anchor: day(m1, 10) } as never)}) returning id`;
+      await c1`set session_replication_role = origin`;
+      // compound (session 2): its first lock is the portfolio row
+      await c2`begin`;
+      await c2`select set_config('request.jwt.claim.sub', ${COO}, true)`;
+      await c2`select 1 from public.investor_portfolios where id = ${pf} for update`;
+      const pid1 = await backendPid(c1);
+      const approval = errorOf(c1`select public.claim_return_cycle_for_operation(${op.id})`);   // must wait, holding nothing c2 needs
+      await waitUntilBlocked(c2, pid1);
+      const comp = await errorOf(c2`select public.post_portfolio_roi_ledger('compound', ${pf}::uuid, 200000, ${ref('CMP')}, 'out', 'in', ${day(m1, 10)}::date)`);
+      await c2`commit`;
+      const a = await approval;
+      expect(comp).toBeNull();                       // the compound went through
+      expect(a?.code).toBe('23505');                 // the queued request is refused cleanly - not a deadlock (40P01)
+      expect(await returnLegs(c1, pf)).toHaveLength(1);
+      expect(await walletOf(c1, who)).toBe(0);
+    });
+
+    it('lock order: a new payout request while a compound runs on the same portfolio - no deadlock', async () => {
+      const pf = PF(45), who = PARTNER(45);
+      await c2`begin`;
+      await c2`select set_config('request.jwt.claim.sub', ${COO}, true)`;
+      await c2`select 1 from public.investor_portfolios where id = ${pf} for update`;
+      const pid1 = await backendPid(c1);
+      const req = errorOf(requestPayout(c1, { pf, partner: who, amount: 200000, metadata: { cycle_anchor: day(m1, 10) } }));
+      await waitUntilBlocked(c2, pid1);
+      const comp = await errorOf(c2`select public.post_portfolio_roi_ledger('compound', ${pf}::uuid, 200000, ${ref('CMP')}, 'out', 'in', ${day(m1, 10)}::date)`);
+      await c2`commit`;
+      const r = await req;
+      expect(comp).toBeNull();
+      expect(r?.code).toBe('23505');                 // same month already compounded - refused, no deadlock
     });
   });
 

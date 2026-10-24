@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { reserveReturnCycle, isPartnerReturnCredit } from '../../supabase/functions/_shared/returnCycleGuard';
+import { reserveReturnCycle, isPartnerReturnCredit, walletRecoveryAmount } from '../../supabase/functions/_shared/returnCycleGuard';
 import { returnCycleAnchor, returnCycleMonth } from '@/lib/returnCycle';
 
 /**
@@ -88,6 +88,20 @@ describe('reserveReturnCycle (approval decision)', () => {
   });
 });
 
+describe('walletRecoveryAmount (balance-snapshot recovery)', () => {
+  it('race: an unrelated 300,000 withdrawal between the snapshots makes a 200,000 credit look short', () => {
+    const delta = 200000 - 300000; // after - before
+    // for any other credit the old rule would "recover" 300,000 extra ...
+    expect(walletRecoveryAmount({ portfolioReturn: false, delta, amount: 200000 })).toBe(300000);
+    // ... for a portfolio Return it never recovers anything
+    expect(walletRecoveryAmount({ portfolioReturn: true, delta, amount: 200000 })).toBe(0);
+  });
+  it('a credit that landed in full needs nothing', () => {
+    expect(walletRecoveryAmount({ portfolioReturn: false, delta: 200000, amount: 200000 })).toBe(0);
+    expect(walletRecoveryAmount({ portfolioReturn: false, delta: 199999.5, amount: 200000 })).toBe(0);
+  });
+});
+
 describe('isPartnerReturnCredit (direct and scheduled credits)', () => {
   it('flags any credit coded as a Partner Return', () => {
     expect(isPartnerReturnCredit('credit', 'roi_wallet_credit', 'roi_expense')).toBe(true);
@@ -121,7 +135,7 @@ const cooSrc = readFileSync(resolve(ROOT, 'src/components/coo/COOPartnersPage.ts
 
 describe('approve-wallet-operation uses the database reservation (source guards)', () => {
   it('derives the posting key only from the reservation', () => {
-    expect(approveSrc).toMatch(/import \{ reserveReturnCycle \} from '\.\.\/_shared\/returnCycleGuard\.ts'/);
+    expect(approveSrc).toMatch(/import \{ reserveReturnCycle, walletRecoveryAmount \} from '\.\.\/_shared\/returnCycleGuard\.ts'/);
     expect(approveSrc).toMatch(/const decision = await reserveReturnCycle\(adminClient, op\.id\)/);
     expect(approveSrc).toMatch(/roiCycleKey = decision\.ledgerKey;/);
     expect(approveSrc).toMatch(/p_ledger_key: roiCycleKey,/);
@@ -150,6 +164,11 @@ describe('approve-wallet-operation uses the database reservation (source guards)
     // Portfolio Returns never use the plain ledger call (which cannot say whether this call posted).
     expect(approveSrc.slice(call - 200, cont)).not.toMatch(/rpc\('create_ledger_transaction', \{ entries: ledgerEntries, idempotency_key/);
     expect(approveSrc).not.toMatch(/wasPostedBeforeThisCall/);
+  });
+  it('a portfolio Return takes no wallet snapshot and never runs the snapshot recovery', () => {
+    expect(approveSrc).toMatch(/if \(scopeForCategory === 'wallet' && !roiCycleKey\) \{/);
+    expect(approveSrc).toMatch(/walletRecoveryAmount\(\{ portfolioReturn: !!roiCycleKey, delta, amount: op\.amount \}\)/);
+    expect(approveSrc).toMatch(/p_amount: recoverAmount,/);
   });
   it('the database call moves next_roi_date; the function does not move it again', () => {
     const call = approveSrc.indexOf("rpc('post_return_payout'");

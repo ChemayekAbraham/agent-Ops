@@ -11,13 +11,17 @@ separate, CFO-approved action.
 | Route | Protection |
 |---|---|
 | Payout request (any insert into `pending_wallet_operations` with `roi_payout` or `supporter_platform_rewards`) | Must name its portfolio. The request trigger reserves (portfolio, month) under a per-portfolio lock and a unique index, with a cap of one cycle's Return; one open request per portfolio |
-| Approval (`approve-wallet-operation`) | The early check uses the reservation; posting is ONE database call, `post_return_payout`, which locks the request row, refuses it unless it is still awaiting approval, checks the cap, posts under `return-cycle:<claim>:cash`, marks it approved and moves `next_roi_date` in one transaction. The function continues to wallet recovery, advance recovery or rent deduction **only if that call reports it posted**. Two approvals of the same request: one posts, the other gets `inserted=false` and stops |
+| Approval (`approve-wallet-operation`) | The early check uses the reservation; posting is ONE database call, `post_return_payout`, which locks the request row, refuses it unless it is still awaiting approval, checks the cap, posts under `return-cycle:<claim>:cash`, marks it approved and moves `next_roi_date` in one transaction. The function continues to advance recovery or rent deduction **only if that call reports it posted**. Two approvals of the same request: one posts, the other gets `inserted=false` and stops. The Return's wallet leg must name the Withdrawable bucket, so the ledger decides where it lands and the approval never runs its balance-snapshot "recovery" for a Return (an unrelated withdrawal between two balance reads could otherwise make a credit look short) |
 | Compound / split (`post_portfolio_roi_ledger`, 8-argument) | Reserves the month, checks the cap, posts, and changes principal / next date / total Returns in **one transaction**. Retry with the same reference: no change |
 | Split cash portion | Joins the split's reservation; refused if retained/reinvested + cash would exceed the cap |
 | Screens open from before this change | Their compound / split write to principal or total Returns is refused by `trg_guard_portfolio_return_fields` (no edit token) **before** they post, so nothing changes. Explicit admin edits (portfolio edit, account edit, renewal) send a new `return_fields_edit_token` and are accepted. Date-only edits are unaffected |
 | Ledger (`trg_enforce_return_cycle_ledger_key`) | A Return wallet credit must come from a verified source: a portfolio reservation key within its cap; a paid rent-reward payment row (and not more credits than paid rows); or a self-managed partner cycle row with its own key. Anything else is refused. Portfolio reinvestments need a reservation key; rent-reward auto-reinvestments need a reinvested payment row |
 | CFO direct credit / scheduled payouts | A credit coded as a Return is refused (`RETURN_CREDIT_NOT_ALLOWED_HERE`) before anything is written |
 | History before the migration | Old `roi-cycle-<portfolio>-<date>` credits block their month; Returns with **no** cycle key (compounds, split parts, null-key credits) block the month they were posted in **and the month before** (late payments); months before 2026-08 need an override |
+
+**Lock order.** Every reservation takes the portfolio row lock first and then the reservation lock, in the same order
+as a compound, so a payout request or an approval running at the same moment as a compound on the same portfolio
+waits instead of deadlocking.
 
 ## 2. Compound / split that posts but whose portfolio change fails
 

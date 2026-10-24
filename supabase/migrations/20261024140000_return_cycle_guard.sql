@@ -27,8 +27,10 @@
 --      by the posting functions and again by the ledger trigger.
 --   4. Atomic approval. post_return_payout (service role) locks the request row, refuses it unless it is still
 --      awaiting approval, posts under the claim key, marks it approved and moves next_roi_date, in ONE transaction,
---      and reports whether THIS call posted. approve-wallet-operation stops unless it did (no second wallet
---      recovery, advance recovery or other money step).
+--      and reports whether THIS call posted. approve-wallet-operation stops unless it did (no advance recovery or
+--      other money step). The Return's wallet leg must name the Withdrawable bucket, so the approval never runs its
+--      balance-snapshot wallet "recovery" for a Return (an unrelated withdrawal could mislead that check).
+--      Lock order everywhere: request row, portfolio row, then the reservation lock (no deadlock with a compound).
 --   5. Atomic compound/split. post_portfolio_roi_ledger posts and changes the portfolio in one transaction; a retry
 --      with the same reference posts and changes nothing. The six-argument form (screens published before this
 --      change) posts only.
@@ -232,8 +234,10 @@ BEGIN
   IF p_amount IS NULL OR p_amount <= 0 THEN
     RAISE EXCEPTION 'A Return amount is required' USING ERRCODE = '22023'; END IF;
 
+  -- LOCK ORDER (everywhere): the portfolio row first, then the reservation lock. A compound takes them in this order
+  -- too; taking them the other way round deadlocks with it (the claim row's foreign key also locks this row).
   SELECT id, portfolio_code, next_roi_date, investment_amount, roi_percentage INTO v_pf
-    FROM public.investor_portfolios WHERE id = p_portfolio_id;
+    FROM public.investor_portfolios WHERE id = p_portfolio_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Portfolio not found' USING ERRCODE = 'P0002'; END IF;
 
   v_cycle := coalesce(p_cycle_date, v_pf.next_roi_date, v_today);
@@ -463,6 +467,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Lock order: portfolio row, then the reservation lock (see _claim_return_cycle).
+  PERFORM 1 FROM public.investor_portfolios WHERE id = NEW.source_id FOR UPDATE;
   PERFORM pg_advisory_xact_lock(hashtext('return-cycle'), hashtext(NEW.source_id::text));
 
   -- One open request per portfolio (unchanged rule), except a split's own cash portion and an overridden request.
@@ -513,6 +519,7 @@ BEGIN
    WHERE pending_operation_id = p_operation_id AND status = 'active'
    ORDER BY created_at DESC LIMIT 1;
   IF NOT FOUND THEN
+    PERFORM 1 FROM public.investor_portfolios WHERE id = v_op.source_id FOR UPDATE;   -- lock order: row, then reservation
     PERFORM pg_advisory_xact_lock(hashtext('return-cycle'), hashtext(v_op.source_id::text));
     v_claim_id := public._return_cycle_claim_for_operation_row(v_op, true);
     SELECT * INTO v_claim FROM public.portfolio_return_cycle_claims WHERE id = v_claim_id;
@@ -575,6 +582,9 @@ BEGIN
     RAISE EXCEPTION 'Amount must be a positive whole number' USING ERRCODE = '22023';
   END IF;
 
+  -- Lock order: the request row (above), the portfolio row, then the reservation lock - the same order as a compound.
+  PERFORM 1 FROM public.investor_portfolios WHERE id = v_op.source_id FOR UPDATE;
+
   SELECT * INTO v_claim FROM public.portfolio_return_cycle_claims
    WHERE pending_operation_id = p_operation_id AND status = 'active' ORDER BY created_at DESC LIMIT 1;
   IF NOT FOUND THEN
@@ -603,8 +613,12 @@ BEGIN
                  WHERE coalesce(e ->> 'ledger_scope', 'wallet') = 'wallet' AND e ->> 'direction' = 'cash_in'
                    AND (e ->> 'category' IS DISTINCT FROM 'roi_wallet_credit'
                         OR e ->> 'source_table' IS DISTINCT FROM 'investor_portfolios'
-                        OR (e ->> 'source_id')::uuid IS DISTINCT FROM v_op.source_id)) THEN
-    RAISE EXCEPTION 'Return entries do not match the request amount and portfolio' USING ERRCODE = '22023';
+                        OR (e ->> 'source_id')::uuid IS DISTINCT FROM v_op.source_id
+                        -- Explicit bucket: the credit lands in the recipient's Withdrawable by the ledger's own rule,
+                        -- so no balance-snapshot check or wallet "recovery" is ever needed for a Return.
+                        OR e ->> 'wallet_bucket' IS DISTINCT FROM 'withdrawable'
+                        OR e ->> 'recipient_type' IS DISTINCT FROM 'user')) THEN
+    RAISE EXCEPTION 'Return entries do not match the request amount, portfolio and Withdrawable bucket' USING ERRCODE = '22023';
   END IF;
 
   IF public._return_cycle_posted_total(v_claim.id) + p_amount > v_claim.cycle_return_cap THEN

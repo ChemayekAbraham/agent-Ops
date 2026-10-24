@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
-import { reserveReturnCycle } from '../_shared/returnCycleGuard.ts';
+import { reserveReturnCycle, walletRecoveryAmount } from '../_shared/returnCycleGuard.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -303,8 +303,10 @@ Deno.serve(async (req) => {
 
         // Snapshot the recipient wallet BEFORE the ledger insert so we can
         // verify the credit actually landed in a bucket after the trigger fires.
+        // A portfolio Return takes no snapshot: post_return_payout requires its wallet leg to name the Withdrawable
+        // bucket, so the ledger itself guarantees where it lands, and no snapshot-based "recovery" runs for it.
         let walletBefore: { withdrawable_balance: number; float_balance: number; advance_balance: number; balance: number } | null = null;
-        if (scopeForCategory === 'wallet') {
+        if (scopeForCategory === 'wallet' && !roiCycleKey) {
           const { data: walletSnap } = await adminClient
             .from('wallets')
             .select('withdrawable_balance, float_balance, advance_balance, balance')
@@ -413,7 +415,8 @@ Deno.serve(async (req) => {
           const afterTotal = (walletAfter?.withdrawable_balance || 0) + (walletAfter?.float_balance || 0) + (walletAfter?.advance_balance || 0);
           const delta = afterTotal - beforeTotal;
           // Allow a small tolerance for concurrent operations on busy wallets.
-          if (delta < op.amount - 1) {
+          const recoverAmount = walletRecoveryAmount({ portfolioReturn: !!roiCycleKey, delta, amount: op.amount });
+          if (recoverAmount > 0) {
             console.error(`[approve-wallet-op] WALLET ROUTING FAILURE for op ${op.id}: ledger credited ${op.amount} but wallet only moved by ${delta}. Forcing recovery via apply_wallet_movement.`);
             // Recover via the sole authorized writer
             const { error: recoveryErr } = await adminClient.rpc('apply_wallet_movement', {
@@ -421,7 +424,7 @@ Deno.serve(async (req) => {
               p_category: op.category === 'supporter_platform_rewards' || op.category === 'roi_payout' ? 'roi_wallet_credit'
                 : op.category === 'agent_commission_payout' ? 'agent_commission_earned'
                 : op.category,
-              p_amount: op.amount - delta,
+              p_amount: recoverAmount,
               p_direction: 'cash_in',
             });
             if (recoveryErr) {
