@@ -17039,6 +17039,7 @@ export type Database = {
           code_hash: string
           consumed_at: string | null
           created_at: string
+          detail: string
           expires_at: string
           failure_reason: string | null
           fingerprint: string
@@ -17046,6 +17047,7 @@ export type Database = {
           kind: string
           max_attempts: number
           requested_by: string
+          scope_fp: string | null
           verified_at: string | null
         }
         Insert: {
@@ -17054,6 +17056,7 @@ export type Database = {
           code_hash: string
           consumed_at?: string | null
           created_at?: string
+          detail?: string
           expires_at: string
           failure_reason?: string | null
           fingerprint: string
@@ -17061,6 +17064,7 @@ export type Database = {
           kind: string
           max_attempts?: number
           requested_by: string
+          scope_fp?: string | null
           verified_at?: string | null
         }
         Update: {
@@ -17069,6 +17073,7 @@ export type Database = {
           code_hash?: string
           consumed_at?: string | null
           created_at?: string
+          detail?: string
           expires_at?: string
           failure_reason?: string | null
           fingerprint?: string
@@ -17076,6 +17081,7 @@ export type Database = {
           kind?: string
           max_attempts?: number
           requested_by?: string
+          scope_fp?: string | null
           verified_at?: string | null
         }
         Relationships: []
@@ -36389,6 +36395,54 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_security_alerts: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          actor_phone: string | null
+          actor_roles: string[] | null
+          attempted: string
+          blocked: boolean
+          detail: Json | null
+          emailed: boolean
+          id: string
+          ip_address: string | null
+          occurred_at: string
+          target: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted: string
+          blocked: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted?: string
+          blocked?: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       partner_agreement_company_defaults: {
         Row: {
           created_at: string
@@ -39539,6 +39593,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_owner: {
+        Row: {
+          created_at: string
+          email: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       platform_wallet_corrections: {
         Row: {
@@ -66409,6 +66481,10 @@ export type Database = {
           lease_id: string
         }[]
       }
+      _file_allocation_return_for_rejected_payout: {
+        Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
+        Returns: string
+      }
       _food_default_period: { Args: never; Returns: string }
       _food_list_meal_on_day: {
         Args: { p_day: string; p_meal_id: string }
@@ -71885,6 +71961,10 @@ export type Database = {
       }
       exception_otp_fingerprint: {
         Args: { p_ids: string[]; p_kind: string; p_reason: string }
+        Returns: string
+      }
+      exception_otp_scope: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
         Returns: string
       }
       expire_landlord_number_change_requests: { Args: never; Returns: number }
@@ -78090,6 +78170,7 @@ export type Database = {
       is_partner_ops: { Args: { _uid: string }; Returns: boolean }
       is_payout_ops_staff: { Args: { _user_id: string }; Returns: boolean }
       is_phone_available: { Args: { p_phone: string }; Returns: boolean }
+      is_platform_owner: { Args: never; Returns: boolean }
       is_platform_user_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_proxy_agent_for_partner: {
         Args: { _agent: string; _partner: string }
@@ -78908,6 +78989,20 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      list_owner_security_alerts: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_name: string
+          actor_phone: string
+          actor_roles: string[]
+          attempted: string
+          blocked: boolean
+          detail: Json
+          ip_address: string
+          occurred_at: string
+          target: string
+        }[]
+      }
       list_proxy_agent_partners: {
         Args: {
           p_agent_id?: string
@@ -79051,6 +79146,15 @@ export type Database = {
         Returns: undefined
       }
       log_overdue_vetting_alert_shown: { Args: never; Returns: boolean }
+      log_owner_tamper: {
+        Args: {
+          p_attempted: string
+          p_blocked: boolean
+          p_detail: Json
+          p_target: string
+        }
+        Returns: undefined
+      }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -83052,6 +83156,15 @@ export type Database = {
         }
         Returns: Json
       }
+      request_landlord_payout_change_otp: {
+        Args: {
+          p_detail: string
+          p_kind: string
+          p_reason: string
+          p_target_ids: string[]
+        }
+        Returns: Json
+      }
       request_national_id_link: { Args: { p_nin: string }; Returns: Json }
       request_national_id_unlink: {
         Args: { p_member_id: string; p_reason: string }
@@ -83669,7 +83782,15 @@ export type Database = {
         Args: { p_allow: boolean; p_withdrawal_ids: string[] }
         Returns: number
       }
+      set_landlord_payout_block_exemption_unchecked: {
+        Args: { p_allow: boolean; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       set_landlord_payout_budget: {
+        Args: { p_budget: number; p_restart?: boolean }
+        Returns: number
+      }
+      set_landlord_payout_budget_unchecked: {
         Args: { p_budget: number; p_restart?: boolean }
         Returns: number
       }
@@ -86529,6 +86650,10 @@ export type Database = {
       }
       use_verified_exception_approval: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
+        Returns: string
+      }
+      use_verified_scope_approval: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
         Returns: string
       }
       user_can_access_landlord: {
