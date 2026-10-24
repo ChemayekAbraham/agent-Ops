@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Match Partner Products and Services payout presentation to the supplied screenshot; preserve live figures, labels, reconciliation and record actions.
 - [x] Add six-step Welile Schools Bot registration, shared Classic Form, editable review and locked-gate greeting; location guard and 11 school tests pass, preview build OK; isolated phone/desktop chat editing and form draft checks pass without horizontal overflow.
 - [ ] Verify school registration save with a live signed-in agent — blocked: externally managed authentication cannot be restored by browser tools; existing save handler unchanged and draft submission verified in isolated tests.
 - [x] Prepare standing-order production approval package — proposal fingerprinted unchanged; 27 SQL assertions, 20 control/integration/schedule tests and 9 concurrency/MFA groups pass; all guards pass. Documented staged approvals, hosted MFA blocker and non-destructive rollback in docs/standing-order-amount-production-approval.md. Documentation only; no activation.
