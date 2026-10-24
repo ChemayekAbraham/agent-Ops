@@ -294,6 +294,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
   const [saving, setSaving] = useState(false);
   const [last, setLast] = useState<{ row: SchoolProfileRow; saved: boolean } | null>(null);
   const [count, setCount] = useState(0);
+  const [logEntry, setLogEntry] = useState(true);
   const group = roleGroup(role);
   const set = (k: keyof SchoolProfileRow) => (e: React.ChangeEvent<HTMLInputElement>) => setF((d) => ({ ...d, [k]: e.target.value }));
   const num = (v: unknown) => (v === '' || v == null ? null : Number(String(v).replace(/\D/g, '')) || null);
@@ -311,6 +312,19 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
       ...(group === 'asset' ? { has_smartphone: null, needs_free_smartphone: false, smartphone_status: null } : smartphoneFields(hasPhone)),
     };
     const res = await saveProfile(row);
+    if (group !== 'asset' && logEntry) {
+      const gid = crypto.randomUUID();
+      const gateRes = await saveGateLog({
+        id: gid, client_ref: gid, school_id: school.id, profile_id: row.id,
+        direction: 'in', person_name: row.full_name!, role_type: row.role,
+        phone: row.phone || row.guardian_phone || null,
+        class_or_department: row.class_grade || row.subject_department || null,
+        gate_name: school.gate_name || 'Main Gate', purpose_or_note: 'Registered at gate',
+        pickup_guardian_name: row.guardian_name || null, pickup_guardian_phone: row.guardian_phone || null,
+        agent_id: agentId, recorded_at: new Date().toISOString(),
+      });
+      if (!gateRes.saved) onQueued();
+    }
     setSaving(false);
     setLast(res);
     setCount((c) => c + 1);
@@ -409,6 +423,12 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
               </Card>
             )}
           </>
+        )}
+        {group !== 'asset' && (
+          <button type="button" aria-pressed={logEntry} onClick={() => setLogEntry((v) => !v)}
+            className={cn('w-full min-h-[52px] rounded-xl border px-3 text-sm font-medium flex items-center gap-2', logEntry ? 'bg-primary/10 border-primary text-primary' : 'border-border')}>
+            <LogIn className="h-4 w-4 shrink-0" />🟢 Also log as ENTERED (IN) at gate right now
+          </button>
         )}
         <Button className="w-full min-h-[52px] text-base" onClick={submit} disabled={saving}>{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save & next person</Button>
       </Card>
