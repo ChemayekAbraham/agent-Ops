@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import UgLocationPicker from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { CountryCombobox } from '@/components/ui/country-combobox';
+import { captureSmartLocation } from '@/hooks/useSmartLocation';
 import {
   SCHOOL_LEVELS, SCHOOL_OWNERSHIP, FACILITY_TYPES, PROFILE_ROLES, roleGroup, roleLabel,
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
@@ -30,10 +32,10 @@ function Chips({ options, value, onChange }: { options: readonly string[]; value
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((o) => (
-        <button key={o} type="button" onClick={() => onChange(o)}
+        <Button key={o} type="button" variant="outline" aria-pressed={value === o} onClick={() => onChange(o)}
           className={cn('min-h-[44px] px-3 rounded-xl border text-sm', value === o ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
           {o}
-        </button>
+        </Button>
       ))}
     </div>
   );
@@ -73,17 +75,13 @@ export default function AgentWelileSchools() {
 
   const lockSchool = (s: SchoolRow | null) => { setLocked(s); writeLockedSchool(s); };
 
-  const captureGps = () => {
-    if (!navigator.geolocation) { toast.error('GPS not available — type coordinates instead'); return; }
+  const captureGps = async () => {
     setGpsBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setDraft((d) => ({ ...d, latitude: pos.coords.latitude, longitude: pos.coords.longitude, gps_accuracy_m: Math.round(pos.coords.accuracy), gps_source: 'device' }));
-        setGpsBusy(false);
-      },
-      () => { setGpsBusy(false); toast.error('Could not get GPS — type coordinates instead'); },
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
+    const result = await captureSmartLocation();
+    setGpsBusy(false);
+    if (!result.ok) { toast.error('Could not get GPS — enter coordinates or skip for now'); return false; }
+    setDraft((d) => ({ ...d, latitude: result.latitude, longitude: result.longitude, gps_accuracy_m: Math.round(result.accuracy), gps_source: 'device' }));
+    return true;
   };
 
   const createSchool = async () => {
@@ -101,8 +99,6 @@ export default function AgentWelileSchools() {
     qc.invalidateQueries({ queryKey: ['welile-schools-list'] });
     toast.success('School saved and locked');
   };
-
-  const set = (k: keyof SchoolRow) => (e: React.ChangeEvent<HTMLInputElement>) => setDraft((d) => ({ ...d, [k]: e.target.value }));
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -129,7 +125,8 @@ export default function AgentWelileSchools() {
         {!locked && !creating && (
           <Card className="p-4 space-y-3">
             <h2 className="font-semibold">Choose the school you are at</h2>
-            <Button className="w-full min-h-[48px]" onClick={() => setCreating(true)}>+ Register a new school</Button>
+            <Button className="w-full min-h-[48px] gap-2 whitespace-normal" onClick={() => setCreating(true)}><MessageCircle className="h-5 w-5 shrink-0" />Register a School with Welile Bot</Button>
+            <Button variant="ghost" className="w-full min-h-[44px]" onClick={() => setCreating(true)}>+ Register a new school</Button>
             {schools.length > 0 && <p className="text-sm text-muted-foreground">Or pick a registered school:</p>}
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
               {schools.map((s) => (
@@ -143,34 +140,7 @@ export default function AgentWelileSchools() {
         )}
 
         {!locked && creating && (
-          <Card className="p-4 space-y-3">
-            <h2 className="font-semibold">New school</h2>
-            <Field label="School name"><Input value={draft.name ?? ''} onChange={set('name')} /></Field>
-            <Field label="Level"><Chips options={SCHOOL_LEVELS} value={draft.school_level ?? ''} onChange={(v) => setDraft((d) => ({ ...d, school_level: v }))} /></Field>
-            <Field label="Ownership"><Chips options={SCHOOL_OWNERSHIP} value={draft.ownership ?? ''} onChange={(v) => setDraft((d) => ({ ...d, ownership: v }))} /></Field>
-            <div className="grid grid-cols-2 gap-2">
-              <Field label="Head teacher name"><Input value={draft.head_name ?? ''} onChange={set('head_name')} /></Field>
-              <Field label="Head teacher phone"><Input inputMode="tel" value={draft.head_phone ?? ''} onChange={set('head_phone')} /></Field>
-            </div>
-            <Field label="Estimated enrolment"><Input inputMode="numeric" value={draft.estimated_enrollment ?? ''} onChange={(e) => setDraft((d) => ({ ...d, estimated_enrollment: e.target.value ? Number(e.target.value.replace(/\D/g, '')) : null }))} /></Field>
-            <div className="grid grid-cols-2 gap-2">
-              {([['country', 'Country'], ['region', 'Region / State'], ['district', 'District / County'], ['sub_county', 'Sub-county / Division'], ['town', 'Town / City'], ['parish', 'Parish / Ward'], ['village', 'Cell / Village'], ['gate_name', 'Gate name']] as const).map(([k, l]) => (
-                <Field key={k} label={l}><Input value={(draft[k] as string) ?? ''} onChange={set(k)} /></Field>
-              ))}
-            </div>
-            <Button type="button" variant="outline" className="w-full min-h-[48px]" onClick={captureGps} disabled={gpsBusy}>
-              {gpsBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MapPin className="h-4 w-4 mr-2" />}Capture live GPS
-            </Button>
-            <div className="grid grid-cols-3 gap-2">
-              <Field label="Latitude"><Input inputMode="decimal" value={draft.latitude ?? ''} onChange={(e) => setDraft((d) => ({ ...d, latitude: e.target.value === '' ? null : Number(e.target.value), gps_source: 'manual' }))} /></Field>
-              <Field label="Longitude"><Input inputMode="decimal" value={draft.longitude ?? ''} onChange={(e) => setDraft((d) => ({ ...d, longitude: e.target.value === '' ? null : Number(e.target.value), gps_source: 'manual' }))} /></Field>
-              <Field label="Accuracy (m)"><Input value={draft.gps_accuracy_m ?? ''} readOnly /></Field>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" className="min-h-[48px]" onClick={() => setCreating(false)}>Cancel</Button>
-              <Button className="flex-1 min-h-[48px]" onClick={createSchool} disabled={savingSchool}>{savingSchool && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save & lock school</Button>
-            </div>
-          </Card>
+          <SchoolRegistration draft={draft} setDraft={setDraft} captureGps={captureGps} gpsBusy={gpsBusy} saving={savingSchool} onSave={createSchool} onCancel={() => setCreating(false)} />
         )}
 
         {locked && user && <GateRegistration school={locked} agentId={user.id} onQueued={() => setPendingCount(readPendingProfiles().length)} />}
@@ -213,6 +183,10 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-lg">
+        <Bot className="h-6 w-6 text-primary shrink-0" />
+        <div><p className="text-sm font-semibold">🎉 {school.name} is locked!</p><p className="text-sm text-muted-foreground">Who are you registering at the gate right now?</p></div>
+      </div>
       {last && last.row.has_smartphone && <SignupLinkCard row={last.row} saved={last.saved} school={school} agentId={agentId} />}
       {last && last.row.needs_free_smartphone && (
         <Card className="p-3 border-primary/40 bg-primary/5 flex gap-2"><Gift className="h-5 w-5 text-primary shrink-0" /><p className="text-sm">{last.row.full_name} is in the Free Smartphone queue.</p></Card>
