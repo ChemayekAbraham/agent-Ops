@@ -323,6 +323,7 @@ const MerchantTransactionHistory = lazy(() => import('./pages/agent/MerchantTran
 const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'));
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
+const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
 const ActiveUsersDetail = lazy(() => import('./pages/coo/ActiveUsersDetail'));
@@ -872,6 +873,7 @@ function AppRoutes() {
           <Route path="/agent/collection-league" element={<AgentCollectionLeaguePage />} />
           <Route path="/agent/performance" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWeeklyPerformancePage /></RoleGuard>} />
           <Route path="/agent/welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
+          <Route path="/agent/welile-schools" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto', 'agent_ops']}><AgentWelileSchoolsPage /></RoleGuard>} />
           <Route path="/agent-welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
           <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />
