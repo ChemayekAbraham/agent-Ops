@@ -258,7 +258,9 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
                   <Field label="Guardian phone"><Input inputMode="tel" value={f.guardian_phone ?? ''} onChange={set('guardian_phone')} /></Field>
                   <Field label="Guardian WhatsApp"><Input inputMode="tel" value={f.guardian_whatsapp ?? ''} onChange={set('guardian_whatsapp')} /></Field>
                   <Field label="Parent occupation"><Input value={f.guardian_occupation ?? ''} onChange={set('guardian_occupation')} /></Field>
-                  <Field label="Home cell / village"><Input value={f.residence_village ?? ''} onChange={set('residence_village')} /></Field>
+                  <div className="col-span-2">
+                    <HomeVillagePicker onPick={(v) => setF((d) => ({ ...d, residence_village: v }))} />
+                  </div>
                 </div>
                 <Field label="Needs fee / rent support?"><Chips options={['Yes', 'No']} value={f.fee_support_need == null ? '' : f.fee_support_need ? 'Yes' : 'No'} onChange={(v) => setF((d) => ({ ...d, fee_support_need: v === 'Yes' }))} /></Field>
               </>
