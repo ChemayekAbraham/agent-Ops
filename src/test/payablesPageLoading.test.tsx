@@ -29,10 +29,10 @@ describe('Payables page loading boundaries', () => {
     const { unmount, client } = setup();
     await waitFor(() => expect(screen.getByText('UGX 123,456', { exact: false })).toBeInTheDocument());
     expect(mocks.rpc.mock.calls.filter(c => c[0] === 'get_payables_breakdown')).toHaveLength(1);
-    await act(async () => release({ data: { total: 123456, categories: [{ key: 'partner', label: 'Partner Products', outstanding: 123456, item_count: 2, products: [{ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 123456, item_count: 2, scheduled_amount: 123456, projected_amount: 0, items: [{ item_id: 'a', counterparty: 'Example Partner', amount: 123456, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] }] }], validation: { ties_out: true, difference: 0 } }, error: null }));
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /Partner Products/ }).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole('button', { name: /Partner Products/ })[0]);
-    await waitFor(() => expect(screen.getAllByText('Example Partner').length).toBeGreaterThan(0));
+    await act(async () => release({ data: { total: 123456, categories: [{ key: 'landlord', label: 'Landlord Products', outstanding: 123456, item_count: 2, products: [{ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 123456, item_count: 2, scheduled_amount: 123456, projected_amount: 0, items: [{ item_id: 'a', counterparty: 'Example Landlord', amount: 123456, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] }] }], validation: { ties_out: true, difference: 0 } }, error: null }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /Landlord Products/ }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: /Landlord Products/ })[0]);
+    await waitFor(() => expect(screen.getAllByText('Example Landlord').length).toBeGreaterThan(0));
     expect(mocks.rpc.mock.calls.filter(c => c[0] === 'get_payables_breakdown')).toHaveLength(1);
     unmount(); client.clear();
   });
@@ -51,5 +51,27 @@ describe('Payables page loading boundaries', () => {
       { p_granularity: 'day', p_periods: 7 }, { p_granularity: 'day', p_periods: 14 },
     ]);
     unmount(); client.clear();
+  });
+
+  it('shows only the payout report for the partner category, keeping product drill-down elsewhere', async () => {
+    const product = (counterparty: string) => ({ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 500, item_count: 1, scheduled_amount: 500, projected_amount: 0, items: [{ item_id: 'x1', counterparty, amount: 500, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] });
+    const breakdown = { as_at: '2026-10-24', total: 1000, categories: [
+      { key: 'partner', label: 'Partner Products', outstanding: 500, item_count: 1, products: [product('Example Partner')] },
+      { key: 'landlord', label: 'Landlord Products', outstanding: 500, item_count: 1, products: [product('Example Landlord')] },
+    ], validation: { ties_out: true, difference: 0 } };
+    mocks.rpc.mockImplementation(async (name: string) => name === 'get_payables_breakdown' ? { data: breakdown, error: null }
+      : name === 'get_payables_total' ? { data: { total: 1000, overdue: 0, due_today: 0, item_count: 2 }, error: null }
+      : name === 'get_partner_paid_outstanding' ? { data: null, error: { code: '42501', message: 'denied' } }
+      : { data: { periods: [], actual: {} }, error: null });
+    const partner = setup('/cfo/payables?cat=partner');
+    await waitFor(() => expect(partner.getByRole('heading', { name: 'Partner Products' })).toBeInTheDocument());
+    await waitFor(() => expect(partner.getByText(/Could not load paid and outstanding/)).toBeInTheDocument());
+    expect(partner.queryByRole('tablist', { name: 'Payable products' })).toBeNull();
+    expect(partner.queryByText('Example Partner')).toBeNull();
+    partner.unmount(); partner.client.clear();
+    const landlord = setup('/cfo/payables?cat=landlord');
+    await waitFor(() => expect(landlord.getByRole('tablist', { name: 'Payable products' })).toBeInTheDocument());
+    expect(landlord.getAllByText('Example Landlord').length).toBeGreaterThan(0);
+    landlord.unmount(); landlord.client.clear();
   });
 });

@@ -1,4 +1,7 @@
 # Tasks
+- [x] Removed the product tabs and product detail section from CFO Payables → Partner Products and Services, leaving only the Paid & Outstanding report; other categories keep their tabs and drill-down. 16 tests, typecheck and preview build pass; live signed-in check unavailable with external authentication.
+
+- [x] Match Partner Products and Services payout presentation to the supplied screenshot; preserved figures, labels, reconciliation and record actions. Seven tests and location guard pass, preview build OK; isolated desktop/mobile layout and record drill-down verified. Live signed-in verification unavailable with external authentication.
 - [x] Add six-step Welile Schools Bot registration, shared Classic Form, editable review and locked-gate greeting; location guard and 11 school tests pass, preview build OK; isolated phone/desktop chat editing and form draft checks pass without horizontal overflow.
 - [ ] Verify school registration save with a live signed-in agent — blocked: externally managed authentication cannot be restored by browser tools; existing save handler unchanged and draft submission verified in isolated tests.
 - [x] Prepare standing-order production approval package — proposal fingerprinted unchanged; 27 SQL assertions, 20 control/integration/schedule tests and 9 concurrency/MFA groups pass; all guards pass. Documented staged approvals, hosted MFA blocker and non-destructive rollback in docs/standing-order-amount-production-approval.md. Documentation only; no activation.
