@@ -103,3 +103,19 @@ $$ SELECT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND r
 CREATE FUNCTION public._ledger_can_post_partner_returns(_user_id uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS
 $$ SELECT _user_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = _user_id AND role IN ('coo', 'super_admin', 'cto') AND coalesce(enabled, true)) $$;
 CREATE FUNCTION public.staff_mfa_ok() RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT true $$;
+
+-- Rent-facilitation rewards and self-managed partner cycles (only the columns the guard reads).
+CREATE TABLE public.supporter_roi_payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), rent_request_id uuid NOT NULL, supporter_id uuid NOT NULL,
+  roi_amount numeric NOT NULL, payment_number integer NOT NULL, status text NOT NULL,
+  UNIQUE (rent_request_id, payment_number));
+CREATE TABLE public.partner_self_payout_cycles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), partner_id uuid NOT NULL, total_amount numeric NOT NULL,
+  status text DEFAULT 'pending');
+
+-- A signed-in browser client runs as role "authenticated" (tests switch to it with SET LOCAL ROLE).
+GRANT USAGE ON SCHEMA auth TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
+GRANT SELECT, UPDATE ON public.investor_portfolios TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.pending_wallet_operations TO authenticated;
+GRANT SELECT ON public.general_ledger, public.user_roles TO authenticated;

@@ -30,6 +30,10 @@ const ROOT = resolve(__dirname, '..', '..');
 const MIGRATION = readFileSync(resolve(ROOT, 'supabase/migrations/20261024140000_return_cycle_guard.sql'), 'utf8').replace(/\r\n/g, '\n');
 const ROLLBACK = readFileSync(resolve(ROOT, 'supabase/rollbacks/20261024140000_return_cycle_guard.rollback.sql'), 'utf8').replace(/\r\n/g, '\n');
 const STUB = readFileSync(resolve(ROOT, 'supabase/tests/return_cycle_guard/00_stub_schema.sql'), 'utf8').replace(/\r\n/g, '\n');
+// The two production function bodies (2026-10-24) exactly as the rollback restores them.
+const PROD_FUNCTIONS = ROLLBACK.slice(
+  ROLLBACK.indexOf('CREATE OR REPLACE FUNCTION public.enforce_roi_cycle_once()'),
+  ROLLBACK.indexOf('DROP FUNCTION IF EXISTS public.post_portfolio_roi_ledger(text, uuid, numeric, text, text, text, date, uuid);'));
 
 const URL_ENV = process.env.RETURN_CYCLE_DB_URL ?? '';
 const REQUIRED = process.env.RETURN_CYCLE_DB_TESTS_REQUIRED === '1';
@@ -107,26 +111,38 @@ function rpcAdapter(sql: Sql) {
 }
 
 /**
- * Mirrors approve-wallet-operation for a Return payout, in the isolated database: reserve, then post the two legs
- * under the reservation key, then mark approved and (unless a catch-up) advance next_roi_date.
+ * Mirrors approve-wallet-operation for a Return payout, in the isolated database: reserve (the edge function's own
+ * helper), then post_return_payout - one transaction that posts under the reservation key, marks the request approved
+ * and moves next_roi_date. Only inserted=true would let the edge function continue to any further money step.
  */
-async function approve(sql: Sql, opId: string) {
+async function approve(sql: Sql, opId: string, amountOverride?: number) {
+  // COO approval step first (the CFO approval only picks up 'pending' / 'coo_approved' requests).
+  await sql`update public.pending_wallet_operations set status = 'coo_approved' where id = ${opId} and status = 'pending_coo_approval'`;
   const decision = await reserveReturnCycle(rpcAdapter(sql), opId);
   if (decision.action !== 'post') return decision;
   const [op] = await sql`select * from public.pending_wallet_operations where id = ${opId}`;
+  const amount = amountOverride ?? Number(op.amount);
+  const r = await postReturnPayout(sql, opId, decision.ledgerKey, amount);
+  if (r.inserted !== true) return { action: 'not_inserted' as const, result: r };
+  return decision;
+}
+
+function payoutEntries(op: Record<string, any>, amount: number) {
   const recipient = op.target_wallet_user_id ?? op.user_id;
-  await sql`select public.create_ledger_transaction(${sql.json([
-    { user_id: recipient, amount: Number(op.amount), direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet',
+  return [
+    { user_id: recipient, amount, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet',
       source_table: 'investor_portfolios', source_id: op.source_id, reference_id: op.reference_id, linked_party: op.user_id,
       description: op.description },
-    { user_id: op.user_id, amount: Number(op.amount), direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform',
+    { user_id: op.user_id, amount, direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform',
       source_table: 'investor_portfolios', source_id: op.source_id, description: 'Platform contra for roi_payout' },
-  ] as never)}::jsonb, ${decision.ledgerKey}, false)`;
-  await sql`update public.pending_wallet_operations set status = 'approved' where id = ${opId}`;
-  if (decision.reservation.advance_next_roi_date !== false) {
-    await sql`update public.investor_portfolios set next_roi_date = (next_roi_date + interval '1 month')::date where id = ${op.source_id}`;
-  }
-  return decision;
+  ];
+}
+
+async function postReturnPayout(sql: Sql, opId: string, key: string, amount: number) {
+  const [op] = await sql`select * from public.pending_wallet_operations where id = ${opId}`;
+  const rows = await sql`select public.post_return_payout(${opId}::uuid, ${sql.json(payoutEntries(op, amount) as never)}::jsonb,
+                                                          ${key}, ${amount}, ${CFO}::uuid) as r`;
+  return rows[0].r as { inserted?: boolean; reason?: string };
 }
 
 async function walletOf(sql: Sql, uid: string): Promise<number> {
@@ -164,7 +180,7 @@ d('Partner Return cycle guard (isolated local database)', () => {
 
     await c1.unsafe(STUB);
     // Production state on 2026-10-24: the replaced functions' verbatim bodies, and the existing request trigger.
-    await c1.unsafe(ROLLBACK);
+    await c1.unsafe(PROD_FUNCTIONS);
     await c1.unsafe('CREATE TRIGGER trg_enforce_roi_cycle_once BEFORE INSERT ON public.pending_wallet_operations FOR EACH ROW EXECUTE FUNCTION public.enforce_roi_cycle_once();');
 
     const [t] = await c1`select (now() at time zone 'Africa/Kampala')::date::text as today,
@@ -174,7 +190,7 @@ d('Partner Return cycle guard (isolated local database)', () => {
     if (m2 < '2026-08-01') throw new Error(`Test clock too early (${today}): fixtures need two whole months after 2026-08`);
 
     await c1`insert into public.user_roles values (${CFO}, 'cfo', true), (${CFO2}, 'cfo', true), (${COO}, 'coo', true), (${COO2}, 'coo', true)`;
-    for (let n = 1; n <= 32; n++) {
+    for (let n = 1; n <= 50; n++) {
       await c1`insert into public.investor_portfolios (id, investor_id, portfolio_code, investment_amount, roi_percentage, next_roi_date, payout_day)
                values (${PF(n)}, ${PARTNER(n)}, ${'WIP-T' + n}, 1000000, 20, ${day(m1, 10)}, 10)`;
     }
@@ -204,6 +220,13 @@ d('Partner Return cycle guard (isolated local database)', () => {
           source_table: 'investor_portfolios', source_id: PF(n), linked_party: COO, transaction_date: `${day(m1, 12)}T09:00:00+03:00` },
       ] as never)}::jsonb, ${key}, false)`;
     }
+    // A compound for last month's cycle posted LATE, on the 2nd of this month, with no cycle key (portfolio 40).
+    await c1`select public.create_ledger_transaction(${c1.json([
+      { user_id: PARTNER(40), amount: 200000, direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform',
+        source_table: 'investor_portfolios', source_id: PF(40), transaction_date: `${addDays(m1, 40).slice(0, 8)}02T09:00:00+03:00` },
+      { user_id: PARTNER(40), amount: 200000, direction: 'cash_in', category: 'roi_reinvestment', ledger_scope: 'platform',
+        source_table: 'investor_portfolios', source_id: PF(40), linked_party: COO, transaction_date: `${addDays(m1, 40).slice(0, 8)}02T09:00:00+03:00` },
+    ] as never)}::jsonb, null, false)`;
     // A request queued before the migration (no reservation yet), for portfolio 22.
     await requestPayout(c1, { pf: PF(22), partner: PARTNER(22), amount: 200000 });
 
@@ -430,10 +453,12 @@ d('Partner Return cycle guard (isolated local database)', () => {
     const before = await returnLegs(c1, PF(1));
     expect(await errorOf(post(leg(PF(1)), `return-cycle:${paidClaim}:cash`))).toBeNull();
     expect(await returnLegs(c1, PF(1))).toHaveLength(before.length);
-    // Not portfolio cycles: a CFO direct credit and a rent-facilitation reward reinvestment.
-    expect(await errorOf(post([{ user_id: PARTNER(14), amount: 1000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'cfo_direct_credit' }], null))).toBeNull();
-    expect(await errorOf(post([{ user_id: PARTNER(14), amount: 1000, direction: 'cash_in', category: 'roi_reinvestment', ledger_scope: 'platform', source_table: 'investor_portfolios', source_id: PF(14), linked_party: 'platform' }], null))).toBeNull();
-    expect(await returnLegs(c1, PF(14))).toHaveLength(1); // only the rent-reward reinvestment
+    // A Return credit from any other source is refused (no verified source): a CFO direct credit, no source at all,
+    // or a rent-reward reinvestment with no reinvested payment record.
+    expect((await errorOf(post([{ user_id: PARTNER(14), amount: 1000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'cfo_direct_credit' }], null)))?.code).toBe('23514');
+    expect((await errorOf(post([{ user_id: PARTNER(14), amount: 1000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet' }], null)))?.code).toBe('23514');
+    expect((await errorOf(post([{ user_id: PARTNER(14), amount: 1000, direction: 'cash_in', category: 'roi_reinvestment', ledger_scope: 'platform', source_table: 'investor_portfolios', source_id: PF(14), linked_party: 'platform' }], null)))?.code).toBe('23514');
+    expect(await returnLegs(c1, PF(14))).toHaveLength(0);
   });
 
   it('compound: the posting and the portfolio change happen together, and a retry changes nothing', async () => {
@@ -450,8 +475,10 @@ d('Partner Return cycle guard (isolated local database)', () => {
 
   it('compound: if the posting fails, nothing is left behind (no principal change, no reservation)', async () => {
     const before = (await c1`select investment_amount::int as p, next_roi_date::text as d from public.investor_portfolios where id = ${PF(28)}`)[0];
-    // More than one cycle of Returns: refused after the reservation was taken, so the whole call rolls back.
-    expect((await errorOf(compound(c1, { pf: PF(28), amount: 999999, cycleDate: day(m1, 10) })))?.code).toBe('22023');
+    // More than one cycle of Returns: refused (at reservation), so the whole call rolls back.
+    const big = await errorOf(compound(c1, { pf: PF(28), amount: 999999, cycleDate: day(m1, 10) }));
+    expect(big?.code).toBe('23514');
+    expect(big?.message).toMatch(/amount_above_cycle_return/);
     const after = (await c1`select investment_amount::int as p, next_roi_date::text as d from public.investor_portfolios where id = ${PF(28)}`)[0];
     expect(after).toEqual(before);
     expect((await c1`select count(*)::int as n from public.portfolio_return_cycle_claims where portfolio_id = ${PF(28)}`)[0].n).toBe(0);
@@ -476,12 +503,15 @@ d('Partner Return cycle guard (isolated local database)', () => {
     for (const n of [25, 26]) {
       const err = await errorOf(requestPayout(c1, { pf: PF(n), partner: PARTNER(n), amount: 200000, metadata: { cycle_anchor: day(m1, 10) } }));
       expect(err?.code).toBe('23514');
-      expect(err?.message).toMatch(/unkeyed_return_this_month/);
-      expect((await errorOf(compound(c1, { pf: PF(n), amount: 200000, cycleDate: day(m1, 10) })))?.message).toMatch(/unkeyed_return_this_month/);
+      expect(err?.message).toMatch(/unkeyed_return_this_or_next_month/);
+      expect((await errorOf(compound(c1, { pf: PF(n), amount: 200000, cycleDate: day(m1, 10) })))?.message).toMatch(/unkeyed_return_this_or_next_month/);
     }
-    // Another month is not blocked by them.
-    const other = await requestPayout(c1, { pf: PF(25), partner: PARTNER(25), amount: 200000, metadata: { cycle_anchor: day(m2, 10) } });
-    expect(other.metadata.return_cycle_month).toBe(m2);
+    // They also block the month BEFORE their posting month (a late payment for it) ...
+    expect((await errorOf(requestPayout(c1, { pf: PF(25), partner: PARTNER(25), amount: 200000, metadata: { cycle_anchor: day(m2, 10) } })))?.message)
+      .toMatch(/unkeyed_return_this_or_next_month/);
+    // ... but not the following month.
+    const other = await requestPayout(c1, { pf: PF(25), partner: PARTNER(25), amount: 200000, metadata: { cycle_anchor: today } });
+    expect(other.metadata.return_cycle_month).toBe(today.slice(0, 8) + '01');
     const after = await c1`select count(*)::int as n from public.general_ledger`;
     expect(after[0].n).toBe(before[0].n);
   });
@@ -550,8 +580,8 @@ d('Partner Return cycle guard (isolated local database)', () => {
   });
 
   describe('CFO override (authorises only; no Return is posted under it in these tests)', () => {
-    const authorise = (uid: string, pf: string, cycle: string, reason: string, requester: string = COO) =>
-      asUser(c1, uid, (tx) => tx`select public.authorise_return_cycle_override(${pf}::uuid, ${cycle}::date, ${requester}::uuid, ${reason}) as id`).then((r) => r[0].id as string);
+    const authorise = (uid: string, pf: string, cycle: string, reason: string, requester: string = COO, max = 200000) =>
+      asUser(c1, uid, (tx) => tx`select public.authorise_return_cycle_override(${pf}::uuid, ${cycle}::date, ${requester}::uuid, ${max}, ${reason}) as id`).then((r) => r[0].id as string);
     const REASON = 'Supporter was underpaid in the cycle; extra Return approved by CFO';
 
     it('only the CFO approver can authorise, with a reason of 20+ characters; authorising moves no money', async () => {
@@ -622,17 +652,182 @@ d('Partner Return cycle guard (isolated local database)', () => {
     });
   });
 
+  describe('independent-review findings (regressions)', () => {
+    it('F1: two approvals of the SAME request at once - one posts, the other posts nothing and continues nowhere', async () => {
+      const op = await requestPayout(c1, { pf: PF(33), partner: PARTNER(33), amount: 200000 });
+      await c1`update public.pending_wallet_operations set status = 'coo_approved' where id = ${op.id}`;
+      const d1 = await reserveReturnCycle(rpcAdapter(c1), op.id);
+      const d2 = await reserveReturnCycle(rpcAdapter(c2), op.id);       // both pass the early check
+      if (d1.action !== 'post' || d2.action !== 'post') throw new Error('expected both to reach posting');
+      expect(d1.ledgerKey).toBe(d2.ledgerKey);
+      const pid2 = await backendPid(c2);
+      await c1`begin`;
+      const first = await postReturnPayout(c1, op.id, d1.ledgerKey, 200000);   // holds the request row lock
+      const second = postReturnPayout(c2, op.id, d2.ledgerKey, 200000);
+      await waitUntilBlocked(c1, pid2);
+      await c1`commit`;
+      expect(first.inserted).toBe(true);
+      expect(await second).toMatchObject({ inserted: false, reason: 'not_awaiting_approval' });
+      expect(await walletOf(c1, PARTNER(33))).toBe(200000);
+      expect(await returnLegs(c1, PF(33))).toHaveLength(1);
+      // next_roi_date moved once, by the call that posted
+      const [{ d }] = await c1`select next_roi_date::text as d from public.investor_portfolios where id = ${PF(33)}`;
+      expect(d).toBe(addDays(m1, 40).slice(0, 8) + '10');
+      const [{ status }] = await c1`select status from public.pending_wallet_operations where id = ${op.id}`;
+      expect(status).toBe('approved');
+    });
+
+    it('F1: a retry after success posts nothing; an approval above one cycle\'s Return is refused', async () => {
+      const op = await requestPayout(c1, { pf: PF(34), partner: PARTNER(34), amount: 200000 });
+      await c1`update public.pending_wallet_operations set status = 'coo_approved' where id = ${op.id}`;
+      const d = await reserveReturnCycle(rpcAdapter(c1), op.id);
+      if (d.action !== 'post') throw new Error('expected post');
+      expect((await errorOf(postReturnPayout(c1, op.id, d.ledgerKey, 250000)))?.code).toBe('23514'); // CFO amount above cap
+      expect(await walletOf(c1, PARTNER(34))).toBe(0);
+      expect((await postReturnPayout(c1, op.id, d.ledgerKey, 200000)).inserted).toBe(true);
+      expect(await postReturnPayout(c1, op.id, d.ledgerKey, 200000)).toMatchObject({ inserted: false });
+      expect(await walletOf(c1, PARTNER(34))).toBe(200000);
+    });
+
+    it('F2: an old browser tab cannot change principal, next date or total Returns; explicit edits and server postings still can', async () => {
+      const asClient = (fn: (tx: postgres.TransactionSql) => Promise<unknown>) => c1.begin(async (tx) => {
+        await tx`select set_config('request.jwt.claim.sub', ${COO}, true)`;
+        await tx.unsafe('SET LOCAL ROLE authenticated');
+        return fn(tx);
+      });
+      const read = async () => (await c1`select investment_amount::int as p, next_roi_date::text as d, total_roi_earned::int as t
+                                          from public.investor_portfolios where id = ${PF(35)}`)[0];
+      const before = await read();
+      // old compound: principal + date in one client update -> refused, nothing changes
+      expect((await errorOf(asClient((tx) => tx`update public.investor_portfolios set investment_amount = investment_amount + 200000,
+                                                  next_roi_date = (next_roi_date + interval '1 month')::date where id = ${PF(35)}`)))?.code).toBe('42501');
+      // old split: principal alone, or total Returns alone -> refused
+      expect((await errorOf(asClient((tx) => tx`update public.investor_portfolios set investment_amount = investment_amount + 50000 where id = ${PF(35)}`)))?.code).toBe('42501');
+      expect((await errorOf(asClient((tx) => tx`update public.investor_portfolios set total_roi_earned = coalesce(total_roi_earned, 0) + 50000 where id = ${PF(35)}`)))?.code).toBe('42501');
+      expect(await read()).toEqual(before);
+      // a date-only edit (payout day / next date management) is still allowed
+      await asClient((tx) => tx`update public.investor_portfolios set next_roi_date = next_roi_date where id = ${PF(35)}`);
+      // the updated compound screen goes through the RPC, which changes principal and date server-side
+      await asClient((tx) => tx`select public.post_portfolio_roi_ledger('compound', ${PF(35)}::uuid, 200000, ${ref('CMP')}, 'out', 'in', ${day(m1, 10)}::date)`);
+      expect((await read()).p).toBe(1200000);
+      // an explicit admin edit carries a new token and is accepted
+      await asClient((tx) => tx`update public.investor_portfolios set investment_amount = 1300000, return_fields_edit_token = gen_random_uuid() where id = ${PF(35)}`);
+      expect((await read()).p).toBe(1300000);
+    });
+
+    it('F3: the supporter_platform_rewards route is closed; only verified sources may credit a Return', async () => {
+      expect((await errorOf(asUser(c1, COO, (tx) => tx`
+        insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, status)
+        values (${PARTNER(36)}, 200000, 'cash_in', 'supporter_platform_rewards', 'supporter_roi_payments', gen_random_uuid(), ${ref()}, 'coo_approved')`)))?.message)
+        .toMatch(/must name its portfolio/);
+      // An old unlinked request already in the queue cannot be reserved or posted.
+      await c1`set session_replication_role = replica`;
+      const [old] = await c1`insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, status)
+                              values (${PARTNER(36)}, 200000, 'cash_in', 'supporter_platform_rewards', 'supporter_roi_payments', gen_random_uuid(), ${ref()}, 'coo_approved') returning id`;
+      await c1`set session_replication_role = origin`;
+      expect((await errorOf(c1`select public.claim_return_cycle_for_operation(${old.id})`))?.code).toBe('23514');
+      // Rent-facilitation reward: allowed only against a paid payment row, and not more often than rows exist.
+      const rr = ID(900); const sup = PARTNER(36);
+      const credit = () => c1`select public.create_ledger_transaction(${c1.json([
+        { user_id: sup, amount: 67500, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'supporter_roi_payments', source_id: rr },
+        { user_id: sup, amount: 67500, direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform', source_table: 'supporter_roi_payments', source_id: rr },
+      ] as never)}::jsonb, null, false)`;
+      expect((await errorOf(credit()))?.code).toBe('23514');                       // no payment row yet
+      await c1`insert into public.supporter_roi_payments (rent_request_id, supporter_id, roi_amount, payment_number, status) values (${rr}, ${sup}, 67500, 1, 'paid')`;
+      expect(await errorOf(credit())).toBeNull();                                 // one paid row -> one credit
+      expect((await errorOf(credit()))?.code).toBe('23514');                       // a second credit for the same row
+      // Self-managed partner cycle: its own key and amount only.
+      const [cy] = await c1`insert into public.partner_self_payout_cycles (partner_id, total_amount) values (${sup}, 90000) returning id`;
+      const psm = (key: string, amt: number) => c1`select public.create_ledger_transaction(${c1.json([
+        { user_id: sup, amount: amt, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'partner_self_payout_cycles', source_id: cy.id },
+        { user_id: sup, amount: amt, direction: 'cash_out', category: 'roi_expense', ledger_scope: 'platform', source_table: 'partner_self_payout_cycles', source_id: cy.id },
+      ] as never)}::jsonb, ${key}, false)`;
+      expect((await errorOf(psm(`psm-payout-${cy.id}`, 95000)))?.code).toBe('23514');
+      expect((await errorOf(psm('psm-payout-other', 90000)))?.code).toBe('23514');
+      expect(await errorOf(psm(`psm-payout-${cy.id}`, 90000))).toBeNull();
+    });
+
+    it('F4: a split\'s parts together can never exceed one cycle\'s Return', async () => {
+      const r = ref('SPL');
+      await asUser(c1, COO, (tx) => tx`select public.post_portfolio_roi_ledger('split_keep_returns', ${PF(37)}::uuid, 150000, ${r}, 'out', 'in', ${day(m1, 10)}::date)`);
+      expect((await errorOf(requestPayout(c1, { pf: PF(37), partner: PARTNER(37), amount: 100000, reference: r, opType: 'roi_split_cash' })))?.message)
+        .toMatch(/Split total would exceed/);
+      const ok = await requestPayout(c1, { pf: PF(37), partner: PARTNER(37), amount: 50000, reference: r, opType: 'roi_split_cash' });
+      // Even if the approval is asked for more than the request (CFO amount edit), the cap holds.
+      await c1`update public.pending_wallet_operations set status = 'coo_approved' where id = ${ok.id}`;
+      const d = await reserveReturnCycle(rpcAdapter(c1), ok.id);
+      if (d.action !== 'post') throw new Error('expected post');
+      expect((await errorOf(postReturnPayout(c1, ok.id, d.ledgerKey, 100000)))?.code).toBe('23514');
+      // And the ledger itself refuses an over-cap leg under the claim, whoever posts it.
+      expect((await errorOf(c1`select public.create_ledger_transaction(${c1.json([
+        { user_id: PARTNER(37), amount: 100000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', source_table: 'investor_portfolios', source_id: PF(37) },
+      ] as never)}::jsonb, ${d.ledgerKey}, false)`))?.code).toBe('23514');
+      expect((await postReturnPayout(c1, ok.id, d.ledgerKey, 50000)).inserted).toBe(true);
+      expect(await walletOf(c1, PARTNER(37))).toBe(200000);
+      // A split_reinvest part above one cycle is refused by the RPC.
+      expect((await errorOf(asUser(c1, COO, (tx) => tx`select public.post_portfolio_roi_ledger('split_reinvest', ${PF(38)}::uuid, 250000, ${ref('SPL')}, 'out', 'in', ${day(m1, 10)}::date)`)))?.message).toMatch(/amount_above_cycle_return/);
+    });
+
+    it('F4: an amount above one cycle needs a bounded override (<= 2x), used by its named requester only', async () => {
+      expect((await errorOf(requestPayout(c1, { pf: PF(39), partner: PARTNER(39), amount: 300000 })))?.message).toMatch(/amount_above_cycle_return/);
+      const REASON = 'Restoration of an underpaid cycle approved by the CFO';
+      expect((await errorOf(asUser(c1, CFO, (tx) => tx`select public.authorise_return_cycle_override(${PF(39)}::uuid, ${day(m1, 10)}::date, ${COO}::uuid, 450000, ${REASON})`)))?.code).toBe('22023');
+      const [{ id }] = await asUser(c1, CFO, (tx) => tx`select public.authorise_return_cycle_override(${PF(39)}::uuid, ${day(m1, 10)}::date, ${COO}::uuid, 300000, ${REASON}) as id`);
+      const op = await requestPayout(c1, { pf: PF(39), partner: PARTNER(39), amount: 300000, actor: COO, metadata: { cycle_anchor: day(m1, 10), override_id: id } });
+      const [claim] = await c1`select cycle_return_cap::int as cap, override_id from public.portfolio_return_cycle_claims where id = ${op.metadata.return_cycle_claim_id as string}`;
+      expect(claim).toEqual({ cap: 300000, override_id: id });
+      expect(await walletOf(c1, PARTNER(39))).toBe(0); // nothing is posted under the override in this test
+    });
+
+    it('catch-up gap: a Return posted late (next month) without a cycle key still protects its own month', async () => {
+      const err = await errorOf(requestPayout(c1, { pf: PF(40), partner: PARTNER(40), amount: 200000, metadata: { cycle_anchor: day(m1, 10) } }));
+      expect(err?.code).toBe('23514');
+      expect(err?.message).toMatch(/unkeyed_return_this_or_next_month/);
+    });
+
+    it('override identity: service-role metadata cannot stand in for the named requester', async () => {
+      const [{ id }] = await asUser(c1, CFO, (tx) => tx`select public.authorise_return_cycle_override(${PF(41)}::uuid, ${day(m1, 10)}::date, ${COO}::uuid, 200000, 'Missed cycle evidenced by proxy statement') as id`);
+      await requestPayout(c1, { pf: PF(41), partner: PARTNER(41), amount: 200000 });
+      await c1`update public.pending_wallet_operations set status = 'approved' where source_id = ${PF(41)}`;
+      // No signed-in user (service role), claiming to be the requester through metadata.
+      const err = await errorOf(c1`insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, operation_type, status, metadata)
+        values (${PARTNER(41)}, 200000, 'cash_in', 'roi_payout', 'investor_portfolios', ${PF(41)}, ${ref()}, 'roi_wallet_credit', 'pending_coo_approval',
+                ${c1.json({ cycle_anchor: day(m1, 10), override_id: id, initiated_by: COO } as never)})`);
+      expect(err?.code).toBe('42501');
+      const [{ consumed_at }] = await c1`select consumed_at from public.portfolio_return_cycle_overrides where id = ${id}`;
+      expect(consumed_at).toBeNull();
+    });
+
+    it('rollback gap: after the rollback, a month paid while the guard was live still cannot be requested again', async () => {
+      // Everything happens in one transaction that is rolled back; the insert is expected to be refused.
+      const err = await errorOf(c1.begin(async (tx) => {
+        await tx.unsafe(ROLLBACK);
+        await tx`select set_config('request.jwt.claim.sub', ${COO}, true)`;
+        await tx`insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, operation_type, status, metadata)
+          values (${PARTNER(1)}, 200000, 'cash_in', 'roi_payout', 'investor_portfolios', ${PF(1)}, ${ref()}, 'roi_wallet_credit', 'pending_coo_approval',
+                  ${tx.json({ cycle_anchor: day(m1, 10) } as never)})`;
+      }));
+      expect(err?.code).toBe('23505');
+      expect(err?.message).toMatch(/recorded while the cycle guard was live/);
+      // The rollback above was itself rolled back: the guard is still installed.
+      expect((await c1`select to_regprocedure('public.claim_return_cycle_for_operation(uuid)') is not null as ok`)[0].ok).toBe(true);
+    });
+  });
+
   it('grants: nothing new is callable by anon, and only service_role can fetch a posting key', async () => {
     const can = async (role: string, sig: string) => (await c1`select has_function_privilege(${role}, ${sig}, 'EXECUTE') as ok`)[0].ok as boolean;
-    for (const sig of ['public._claim_return_cycle(uuid,date,text,text,text,uuid,uuid,uuid)', 'public.claim_return_cycle_for_operation(uuid)',
-      'public.authorise_return_cycle_override(uuid,date,uuid,text)', 'public.post_portfolio_roi_ledger(text,uuid,numeric,text,text,text,date,uuid)',
+    for (const sig of ['public._claim_return_cycle(uuid,date,text,text,text,uuid,uuid,uuid,numeric)', 'public.claim_return_cycle_for_operation(uuid)',
+      'public.authorise_return_cycle_override(uuid,date,uuid,numeric,text)', 'public.post_portfolio_roi_ledger(text,uuid,numeric,text,text,text,date,uuid)',
+      'public.post_return_payout(uuid,jsonb,text,numeric,uuid,text,text)',
       'public._post_portfolio_roi_ledger_core(text,uuid,numeric,text,text,text,date,uuid,boolean)']) {
       expect(await can('anon', sig)).toBe(false);
     }
-    expect(await can('authenticated', 'public._claim_return_cycle(uuid,date,text,text,text,uuid,uuid,uuid)')).toBe(false);
+    expect(await can('authenticated', 'public._claim_return_cycle(uuid,date,text,text,text,uuid,uuid,uuid,numeric)')).toBe(false);
     expect(await can('authenticated', 'public.claim_return_cycle_for_operation(uuid)')).toBe(false);
     expect(await can('service_role', 'public.claim_return_cycle_for_operation(uuid)')).toBe(true);
-    expect(await can('authenticated', 'public.authorise_return_cycle_override(uuid,date,uuid,text)')).toBe(true);
+    expect(await can('authenticated', 'public.authorise_return_cycle_override(uuid,date,uuid,numeric,text)')).toBe(true);
+    expect(await can('authenticated', 'public.post_return_payout(uuid,jsonb,text,numeric,uuid,text,text)')).toBe(false);
+    expect(await can('service_role', 'public.post_return_payout(uuid,jsonb,text,numeric,uuid,text,text)')).toBe(true);
     expect(await can('authenticated', 'public._post_portfolio_roi_ledger_core(text,uuid,numeric,text,text,text,date,uuid,boolean)')).toBe(false);
     const tbl = async (role: string, priv: string) => (await c1`select has_table_privilege(${role}, 'public.portfolio_return_cycle_claims', ${priv}) as ok`)[0].ok as boolean;
     expect(await tbl('authenticated', 'SELECT')).toBe(true);
@@ -643,8 +838,9 @@ d('Partner Return cycle guard (isolated local database)', () => {
   it('the rollback restores the production functions and removes the guard (tables kept for audit)', async () => {
     await c1.begin(async (tx) => {
       await tx.unsafe(ROLLBACK);
-      const [{ n }] = await tx`select count(*)::int as n from pg_trigger where tgname in ('trg_enforce_return_cycle_ledger_key', 'trg_release_return_cycle_claim')`;
+      const [{ n }] = await tx`select count(*)::int as n from pg_trigger where tgname in ('trg_enforce_return_cycle_ledger_key', 'trg_release_return_cycle_claim', 'trg_guard_portfolio_return_fields')`;
       expect(n).toBe(0);
+      expect((await tx`select count(*)::int as n from pg_trigger where tgname = 'trg_return_cycle_rollback_compat'`)[0].n).toBe(1);
       expect((await tx`select to_regprocedure('public.claim_return_cycle_for_operation(uuid)') as f`)[0].f).toBeNull();
       expect((await tx`select to_regclass('public.portfolio_return_cycle_claims') as t`)[0].t).not.toBeNull();
       await tx`select 1/0`;

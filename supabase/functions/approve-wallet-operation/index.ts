@@ -2,7 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
-import { reserveReturnCycle, wasPostedBeforeThisCall } from '../_shared/returnCycleGuard.ts';
+import { reserveReturnCycle } from '../_shared/returnCycleGuard.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,8 +220,9 @@ Deno.serve(async (req) => {
         // unexpected fails closed: nothing is posted, the request stays put.
         let roiCycleKey: string | null = null;
         let advanceNextRoiDate = true;
-        if (op.category === 'roi_payout' && !(op.source_table === 'investor_portfolios' && op.source_id)) {
-          // A Partner Return that names no portfolio cannot be checked against its cycle: never pay it.
+        if (isRoiWalletPayout && !(op.source_table === 'investor_portfolios' && op.source_id)) {
+          // A Partner Return (roi_payout or supporter_platform_rewards) that names no portfolio cannot be checked
+          // against its cycle: never pay it. Rent-facilitation rewards are credited by process-supporter-roi, not here.
           failedResults.push({
             id: op.id,
             error: 'This Return request names no portfolio, so its cycle cannot be checked. Nothing was paid; request it from the Partners page.',
@@ -313,9 +314,7 @@ Deno.serve(async (req) => {
         }
 
         // Insert into general_ledger via RPC
-        const ledgerPostStart = Date.now();
-        const { data: rpcTxGroupId, error: ledgerErr } = await adminClient.rpc('create_ledger_transaction', {
-          entries: [
+        const ledgerEntries = [
             {
               user_id: ledgerUserId,
               amount: op.amount,
@@ -360,37 +359,43 @@ Deno.serve(async (req) => {
               currency: 'UGX',
               transaction_date: new Date().toISOString(),
             },
-          ],
-          idempotency_key: roiCycleKey ?? undefined,
-        });
+          ];
+
+        // A portfolio Return is posted by ONE database call that, in one transaction and under a lock on this
+        // request: refuses a request that is no longer awaiting approval, checks the cycle's cap, posts the ledger
+        // entries under the reservation key, marks the request approved and moves next_roi_date. It reports whether
+        // THIS call posted. A second approval of the same request (double click, overlapping batch) waits, then
+        // gets inserted=false and stops here — before wallet recovery, advance recovery or any other money step.
+        let ledgerErr: { message?: string } | null = null;
+        if (roiCycleKey) {
+          const { data: posted, error: postErr } = await adminClient.rpc('post_return_payout', {
+            p_operation_id: op.id,
+            p_entries: ledgerEntries,
+            p_ledger_key: roiCycleKey,
+            p_amount: op.amount,
+            p_reviewed_by: userId,
+            p_payment_method: payment_method || null,
+            p_payment_reference: payment_reference || null,
+          });
+          ledgerErr = postErr;
+          if (!postErr && (posted as { inserted?: boolean } | null)?.inserted !== true) {
+            console.warn(`[approve-wallet-op] Return for op ${op.id} not posted by this call: ${JSON.stringify(posted)}`);
+            failedResults.push({
+              id: op.id,
+              error: 'This Return was already paid or is no longer awaiting approval. Nothing was paid again.',
+            });
+            continue;
+          }
+          // The database call already moved next_roi_date when it should.
+          advanceNextRoiDate = false;
+        } else {
+          ({ error: ledgerErr } = await adminClient.rpc('create_ledger_transaction', { entries: ledgerEntries }));
+        }
 
         if (ledgerErr) {
           console.error(`[approve-wallet-op] Ledger insert failed for ${op.id}:`, ledgerErr);
           failedResults.push({ id: op.id, error: ledgerErr.message || 'Ledger insert failed' });
           continue;
-        }
-
-        // RACE-SAFE IDEMPOTENCY: create_ledger_transaction returns the
-        // pre-existing group (posting NOTHING) when the reservation key was
-        // already used. If that row predates this invocation, a concurrent
-        // approval of this same request already credited it — stop BEFORE the
-        // wallet delta-recovery below, which would otherwise re-credit the
-        // wallet. The request is left as the winning call sets it.
-        if (roiCycleKey) {
-          const { data: keyRows } = await adminClient
-            .from('general_ledger')
-            .select('created_at')
-            .eq('idempotency_key', roiCycleKey)
-            .order('created_at', { ascending: true })
-            .limit(1);
-          if (wasPostedBeforeThisCall(keyRows?.[0]?.created_at, ledgerPostStart)) {
-            console.warn(`[approve-wallet-op] Return already posted by a concurrent approval for op ${op.id} key ${roiCycleKey}`);
-            failedResults.push({
-              id: op.id,
-              error: 'This Return was already credited by another approval of the same request. Nothing was paid again.',
-            });
-            continue;
-          }
         }
 
         // HARD-FAIL SAFETY: For wallet-scope credits, verify the bucket actually

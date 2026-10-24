@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { reserveReturnCycle, wasPostedBeforeThisCall, isPartnerReturnCredit } from '../../supabase/functions/_shared/returnCycleGuard';
+import { reserveReturnCycle, isPartnerReturnCredit } from '../../supabase/functions/_shared/returnCycleGuard';
 import { returnCycleAnchor, returnCycleMonth } from '@/lib/returnCycle';
 
 /**
@@ -88,20 +88,6 @@ describe('reserveReturnCycle (approval decision)', () => {
   });
 });
 
-describe('wasPostedBeforeThisCall (idempotent hit on the ledger key)', () => {
-  const start = Date.parse('2026-10-24T08:00:00Z');
-  it('a row older than this call means another approval posted it', () => {
-    expect(wasPostedBeforeThisCall('2026-10-24T07:59:57Z', start)).toBe(true);
-  });
-  it('a row written by this call is ours', () => {
-    expect(wasPostedBeforeThisCall('2026-10-24T08:00:00.300Z', start)).toBe(false);
-  });
-  it('no row / unreadable date is not treated as a hit', () => {
-    expect(wasPostedBeforeThisCall(null, start)).toBe(false);
-    expect(wasPostedBeforeThisCall('not a date', start)).toBe(false);
-  });
-});
-
 describe('isPartnerReturnCredit (direct and scheduled credits)', () => {
   it('flags any credit coded as a Partner Return', () => {
     expect(isPartnerReturnCredit('credit', 'roi_wallet_credit', 'roi_expense')).toBe(true);
@@ -135,10 +121,10 @@ const cooSrc = readFileSync(resolve(ROOT, 'src/components/coo/COOPartnersPage.ts
 
 describe('approve-wallet-operation uses the database reservation (source guards)', () => {
   it('derives the posting key only from the reservation', () => {
-    expect(approveSrc).toMatch(/import \{ reserveReturnCycle, wasPostedBeforeThisCall \} from '\.\.\/_shared\/returnCycleGuard\.ts'/);
+    expect(approveSrc).toMatch(/import \{ reserveReturnCycle \} from '\.\.\/_shared\/returnCycleGuard\.ts'/);
     expect(approveSrc).toMatch(/const decision = await reserveReturnCycle\(adminClient, op\.id\)/);
     expect(approveSrc).toMatch(/roiCycleKey = decision\.ledgerKey;/);
-    expect(approveSrc).toMatch(/idempotency_key: roiCycleKey \?\? undefined/);
+    expect(approveSrc).toMatch(/p_ledger_key: roiCycleKey,/);
   });
   it('no longer builds a key from correction_key, cycle_anchor or the date', () => {
     expect(approveSrc).not.toMatch(/roi-cycle-correction-\$\{/);
@@ -151,11 +137,23 @@ describe('approve-wallet-operation uses the database reservation (source guards)
       expect(block.slice(0, block.indexOf('continue;'))).not.toMatch(/create_ledger_transaction|apply_wallet_movement/);
     }
   });
-  it('a concurrent idempotent hit stops before wallet recovery and does not mark the request rejected', () => {
-    const hit = approveSrc.slice(approveSrc.indexOf('if (wasPostedBeforeThisCall('));
-    const body = hit.slice(0, hit.indexOf('continue;'));
-    expect(body).not.toMatch(/status: 'rejected'/);
-    expect(approveSrc.indexOf('if (wasPostedBeforeThisCall(')).toBeLessThan(approveSrc.indexOf("rpc('apply_wallet_movement'"));
+  it('a portfolio Return is posted by the one atomic database call, and nothing else runs unless THAT call posted', () => {
+    const call = approveSrc.indexOf("rpc('post_return_payout'");
+    expect(call).toBeGreaterThan(0);
+    const stop = approveSrc.indexOf("(posted as { inserted?: boolean } | null)?.inserted !== true", call);
+    expect(stop).toBeGreaterThan(call);
+    // The stop (with 'continue') comes before every later money step of this request.
+    const cont = approveSrc.indexOf('continue;', stop);
+    for (const step of ["rpc('apply_wallet_movement'", "rpc('apply_roi_advance_recovery'", 'record_rent_request_repayment_v2']) {
+      expect(approveSrc.indexOf(step, call)).toBeGreaterThan(cont);
+    }
+    // Portfolio Returns never use the plain ledger call (which cannot say whether this call posted).
+    expect(approveSrc.slice(call - 200, cont)).not.toMatch(/rpc\('create_ledger_transaction', \{ entries: ledgerEntries, idempotency_key/);
+    expect(approveSrc).not.toMatch(/wasPostedBeforeThisCall/);
+  });
+  it('the database call moves next_roi_date; the function does not move it again', () => {
+    const call = approveSrc.indexOf("rpc('post_return_payout'");
+    expect(approveSrc.slice(call, call + 1500)).toMatch(/advanceNextRoiDate = false;/);
   });
   it('only advances next_roi_date when the reservation says so', () => {
     expect(approveSrc).toMatch(/if \(advanceNextRoiDate && \(op\.category === 'roi_payout'/);
@@ -172,8 +170,19 @@ describe('every other manual path is closed (source guards)', () => {
     expect(directSrc.slice(guardAt, guardAt + 600)).toMatch(/RETURN_CREDIT_NOT_ALLOWED_HERE/);
   });
   it('approval refuses a Return request that names no portfolio', () => {
-    expect(approveSrc).toMatch(/if \(op\.category === 'roi_payout' && !\(op\.source_table === 'investor_portfolios' && op\.source_id\)\) \{/);
+    expect(approveSrc).toMatch(/if \(isRoiWalletPayout && !\(op\.source_table === 'investor_portfolios' && op\.source_id\)\) \{/);
+    // isRoiWalletPayout covers both Return categories, including supporter_platform_rewards.
+    expect(approveSrc).toMatch(/const isRoiWalletPayout = op\.category === 'roi_payout' \|\| op\.category === 'supporter_platform_rewards';/);
   });
+});
+
+describe('explicit admin edits of principal / total Returns carry a new edit token (source guards)', () => {
+  for (const f of ['src/components/coo/COOPartnersPage.tsx', 'src/components/manager/EditInvestmentAccountDialog.tsx', 'src/components/manager/RenewPortfolioDialog.tsx']) {
+    it(f, () => {
+      const src = readFileSync(resolve(ROOT, f), 'utf8');
+      expect(src).toMatch(/return_fields_edit_token: crypto\.randomUUID\(\)/);
+    });
+  }
 });
 
 describe('COO screens name the cycle and post before changing the portfolio (source guards)', () => {

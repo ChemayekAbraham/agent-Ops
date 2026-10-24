@@ -1,15 +1,26 @@
 -- Rollback for 20261024140000_return_cycle_guard.sql. PREPARED FOR REVIEW. NOT APPLIED.
--- Restores the production bodies of enforce_roi_cycle_once() and post_portfolio_roi_ledger(6 args) exactly as read
--- from production on 2026-10-24, and removes the new triggers and functions. Moves no money and changes no ledger row.
--- The two tables portfolio_return_cycle_claims / _overrides are KEPT as the audit record of what was reserved and
--- authorised; drop them separately once reviewed (re-applying the migration requires them to be absent).
--- After rollback, deploy the previous approve-wallet-operation, or its Return approvals fail closed (the claim RPC
--- will be missing). TRANSACTION: run as ONE transaction (BEGIN; ... COMMIT;).
+-- Moves no money and changes no ledger, wallet or portfolio row.
+--
+-- 1. Removes the guard's triggers (ledger, request release, portfolio return-fields) and its functions.
+-- 2. Restores enforce_roi_cycle_once() and post_portfolio_roi_ledger(6 args) EXACTLY as read from production on
+--    2026-10-24 (bodies below; CREATE OR REPLACE keeps their existing grants).
+-- 3. KEEPS portfolio_return_cycle_claims / _overrides (the record of what was reserved, paid and authorised) and the
+--    nullable investor_portfolios.return_fields_edit_token column (screens from this change set it on admin edits).
+-- 4. ADDS one small read-only check, trg_return_cycle_rollback_compat, so a month paid while the guard was live
+--    cannot be requested again after the rollback (the restored production check only knows the old
+--    roi-cycle-<portfolio>-<date> keys and would not see Returns posted under return-cycle:<claim> keys).
+--    It reads the kept claims table and refuses; it writes nothing.
+-- After rollback: redeploy the previous approve-wallet-operation and cfo-direct-credit (the new approval calls
+-- functions this drops and fails closed), and revert the frontend (new compound/split screens call the 8-argument
+-- function this drops and fail with no change). To re-apply the migration later, first drop the kept tables, column
+-- and compat trigger (its precondition requires them absent).
+-- TRANSACTION: run as ONE transaction (BEGIN; ... COMMIT;).
 
 SET lock_timeout = '5s';
 
 DROP TRIGGER IF EXISTS trg_enforce_return_cycle_ledger_key ON public.general_ledger;
 DROP TRIGGER IF EXISTS trg_release_return_cycle_claim ON public.pending_wallet_operations;
+DROP TRIGGER IF EXISTS trg_guard_portfolio_return_fields ON public.investor_portfolios;
 
 CREATE OR REPLACE FUNCTION public.enforce_roi_cycle_once()
  RETURNS trigger
@@ -155,12 +166,50 @@ END $function$
 ;
 
 DROP FUNCTION IF EXISTS public.post_portfolio_roi_ledger(text, uuid, numeric, text, text, text, date, uuid);
-DROP FUNCTION IF EXISTS public.claim_return_cycle_for_operation(uuid);
-DROP FUNCTION IF EXISTS public.authorise_return_cycle_override(uuid, date, uuid, text);
 DROP FUNCTION IF EXISTS public._post_portfolio_roi_ledger_core(text, uuid, numeric, text, text, text, date, uuid, boolean);
+DROP FUNCTION IF EXISTS public.post_return_payout(uuid, jsonb, text, numeric, uuid, text, text);
+DROP FUNCTION IF EXISTS public.claim_return_cycle_for_operation(uuid);
+DROP FUNCTION IF EXISTS public.authorise_return_cycle_override(uuid, date, uuid, numeric, text);
 DROP FUNCTION IF EXISTS public.revoke_return_cycle_override(uuid, text);
 DROP FUNCTION IF EXISTS public.release_return_cycle_claim_on_status();
 DROP FUNCTION IF EXISTS public.enforce_return_cycle_ledger_key();
+DROP FUNCTION IF EXISTS public.guard_portfolio_return_fields();
 DROP FUNCTION IF EXISTS public._return_cycle_claim_for_operation_row(public.pending_wallet_operations, boolean);
-DROP FUNCTION IF EXISTS public._claim_return_cycle(uuid, date, text, text, text, uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public._claim_return_cycle(uuid, date, text, text, text, uuid, uuid, uuid, numeric);
+DROP FUNCTION IF EXISTS public._return_cycle_posted_total(uuid);
 DROP FUNCTION IF EXISTS public._return_cycle_can_request(uuid);
+
+-- Read-only protection for months paid while the guard was live (see note 4).
+CREATE FUNCTION public._return_cycle_rollback_compat()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_cycle date;
+BEGIN
+  IF coalesce(NEW.category, '') NOT IN ('roi_payout', 'supporter_platform_rewards')
+     OR NEW.source_table IS DISTINCT FROM 'investor_portfolios' OR NEW.source_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  BEGIN
+    v_cycle := nullif(btrim(coalesce(NEW.metadata ->> 'cycle_anchor', '')), '')::date;
+  EXCEPTION WHEN OTHERS THEN v_cycle := NULL; END;
+  IF v_cycle IS NULL THEN
+    SELECT next_roi_date INTO v_cycle FROM public.investor_portfolios WHERE id = NEW.source_id;
+  END IF;
+  v_cycle := coalesce(v_cycle, (now() AT TIME ZONE 'Africa/Kampala')::date);
+  IF EXISTS (SELECT 1 FROM public.portfolio_return_cycle_claims c
+              WHERE c.portfolio_id = NEW.source_id AND c.status = 'active'
+                AND c.cycle_month = date_trunc('month', v_cycle)::date) THEN
+    RAISE EXCEPTION 'Duplicate Return blocked: portfolio % already received a Return for the % cycle (recorded while the cycle guard was live).',
+      NEW.source_id, to_char(v_cycle, 'FMMonth YYYY') USING ERRCODE = '23505';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+REVOKE EXECUTE ON FUNCTION public._return_cycle_rollback_compat() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER trg_return_cycle_rollback_compat
+  BEFORE INSERT ON public.pending_wallet_operations
+  FOR EACH ROW EXECUTE FUNCTION public._return_cycle_rollback_compat();

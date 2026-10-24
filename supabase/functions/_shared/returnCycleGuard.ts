@@ -8,6 +8,9 @@
  * the guard existed) and gets back the only ledger key the ledger will accept for it:
  * `return-cycle:<claim>:cash`.
  *
+ * Posting itself is done by the database function post_return_payout (one transaction, row lock on the request);
+ * the caller continues with wallet / advance-recovery steps only when that call reports inserted=true.
+ *
  * Decisions:
  *   post                    reservation held, nothing posted under it yet: post with `ledgerKey`
  *   already_posted          this request's Return is already in the ledger (a retry): post nothing, touch no wallet
@@ -82,15 +85,4 @@ export async function reserveReturnCycle(admin: RpcClient, operationId: string):
 export function isPartnerReturnCredit(op: string, walletCategory: string, platformCategory: string): boolean {
   return op === 'credit'
     && (walletCategory === 'roi_wallet_credit' || walletCategory === 'roi_payout' || platformCategory === 'roi_expense');
-}
-
-/**
- * create_ledger_transaction returns the EXISTING group, posting nothing, when the key was already used. If the
- * first row under the key is older than this call, a concurrent approval of the same request posted it, and the
- * caller must stop before any wallet recovery step.
- */
-export function wasPostedBeforeThisCall(firstRowCreatedAt: string | null | undefined, callStartedMs: number): boolean {
-  if (!firstRowCreatedAt) return false;
-  const t = new Date(firstRowCreatedAt).getTime();
-  return Number.isFinite(t) && t < callStartedMs - 1500;
 }
