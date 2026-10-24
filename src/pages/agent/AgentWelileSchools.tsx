@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Lock, LockOpen, MapPin, Loader2, Smartphone, Gift, MessageCircle, MessageSquare, Copy, CheckCircle2, CloudOff, Bot, ClipboardList, Pencil, Send, RotateCcw, Sparkles, ChevronRight, LogIn, LogOut, Repeat } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,12 @@ import { UG_REGIONS, useUgDistricts, type UgLocationSelection } from '@/hooks/us
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { captureSmartLocation } from '@/hooks/useSmartLocation';
 import {
-  SCHOOL_LEVELS, SCHOOL_OWNERSHIP, FACILITY_TYPES, PROFILE_ROLES, roleGroup, roleLabel,
+  SCHOOL_LEVELS, SCHOOL_OWNERSHIP, FACILITY_TYPES, PROFILE_ROLES, GATE_ROLES, roleGroup, roleLabel,
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
   readLockedSchool, writeLockedSchool, saveProfile, flushPendingProfiles, readPendingProfiles, markSignupSent,
-  type SchoolRow, type SchoolProfileRow,
+  saveGateLog, flipGateLogDirection, flushPendingGateLogs, readPendingGateLogs, readLocalGateLogs,
+  computeGateMovementSummary, formatEatTime,
+  type SchoolRow, type SchoolProfileRow, type SchoolGateLogRow,
 } from '@/lib/welileSchools';
 
 const db = supabase as any;
