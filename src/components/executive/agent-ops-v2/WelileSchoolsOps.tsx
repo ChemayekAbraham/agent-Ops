@@ -150,11 +150,17 @@ export function WelileSchoolsOps({ onBack }: { onBack: () => void }) {
 const LEVELS = ['country', 'region', 'district', 'town', 'village'] as const;
 type Level = (typeof LEVELS)[number];
 
-function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profiles: SchoolProfileRow[]; agents: Record<string, string> }) {
+function Explorer({ schools, profiles, agents, gateLogs }: { schools: SchoolRow[]; profiles: SchoolProfileRow[]; agents: Record<string, string>; gateLogs: SchoolGateLogRow[] }) {
   const [path, setPath] = useState<Partial<Record<Level, string>>>({});
   const [schoolId, setSchoolId] = useState<string | null>(null);
   const [personId, setPersonId] = useState<string | null>(null);
   const schoolMap = useMemo(() => Object.fromEntries(schools.map((s) => [s.id, s])), [schools]);
+  const gateBySchool = useMemo(() => {
+    const m: Record<string, { in: number; out: number; inside: number }> = {};
+    schools.forEach((s) => { m[s.id] = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id)); }).forEach(() => {});
+    schools.forEach((s) => { const g = computeGateMovementSummary(gateLogs.filter((l) => l.school_id === s.id)); m[s.id] = { in: g.enteredToday, out: g.exitedToday, inside: g.currentlyInside }; });
+    return m;
+  }, [schools, gateLogs]);
   const inPath = (s: SchoolRow) => LEVELS.every((l) => !path[l] || (s[l] ?? '—') === path[l]);
   const scoped = schools.filter(inPath);
   const nextLevel = LEVELS.find((l) => !path[l]);
@@ -169,6 +175,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
     <Tabs defaultValue="geo">
       <TabsList className="flex-wrap h-auto">
         <TabsTrigger value="geo">Schools & locations</TabsTrigger>
+        <TabsTrigger value="gate">Gate IN / OUT live log</TabsTrigger>
         <TabsTrigger value="profiles">Every profile</TabsTrigger>
         <TabsTrigger value="links">Sign-up links</TabsTrigger>
         <TabsTrigger value="phones">Free smartphone queue</TabsTrigger>
@@ -219,7 +226,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
         {!schoolId && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">School</th><th className="p-2">Location</th><th className="p-2">GPS</th><th className="p-2">Pupils</th><th className="p-2">Teachers</th><th className="p-2">Staff</th><th className="p-2">Parents</th></tr></thead>
+              <thead><tr className="text-left text-xs text-muted-foreground"><th className="p-2">School</th><th className="p-2">Location</th><th className="p-2">GPS</th><th className="p-2">Pupils</th><th className="p-2">Teachers</th><th className="p-2">Staff</th><th className="p-2">Parents</th><th className="p-2">Today IN / OUT / Inside</th></tr></thead>
               <tbody>
                 {scoped.map((s) => { const c = counts(s.id); const g = mapLink(s.latitude, s.longitude); return (
                   <tr key={s.id} className="border-t border-border">
@@ -227,6 +234,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
                     <td className="p-2 text-xs">{locationPath(s)}</td>
                     <td className="p-2 text-xs">{g ? <span className="flex flex-col"><a className="underline flex items-center gap-1" href={g} target="_blank" rel="noreferrer"><MapPin className="h-3 w-3" />{s.latitude?.toFixed(5)}, {s.longitude?.toFixed(5)}</a><a className="underline" href={osmLink(s.latitude, s.longitude)!} target="_blank" rel="noreferrer">OpenStreetMap</a>{s.gps_accuracy_m != null && <span>±{s.gps_accuracy_m} m</span>}</span> : '—'}</td>
                     <td className="p-2">{c.pupil}</td><td className="p-2">{c.teacher}</td><td className="p-2">{c.staff}</td><td className="p-2">{c.parent}</td>
+                    <td className="p-2 text-xs">{gateBySchool[s.id] ? `${gateBySchool[s.id].in} / ${gateBySchool[s.id].out} / ${gateBySchool[s.id].inside}` : '—'}</td>
                   </tr>); })}
               </tbody>
             </table>
@@ -234,6 +242,7 @@ function Explorer({ schools, profiles, agents }: { schools: SchoolRow[]; profile
         )}
       </TabsContent>
 
+      <TabsContent value="gate"><GateLogTable gateLogs={gateLogs} schoolMap={schoolMap} /></TabsContent>
       <TabsContent value="profiles"><ProfileTable profiles={profiles} schoolMap={schoolMap} agents={agents} mode="all" /></TabsContent>
       <TabsContent value="links"><ProfileTable profiles={profiles.filter((p) => p.has_smartphone != null)} schoolMap={schoolMap} agents={agents} mode="links" /></TabsContent>
       <TabsContent value="phones"><ProfileTable profiles={profiles.filter((p) => p.needs_free_smartphone)} schoolMap={schoolMap} agents={agents} mode="phones" /></TabsContent>
