@@ -52,4 +52,26 @@ describe('Payables page loading boundaries', () => {
     ]);
     unmount(); client.clear();
   });
+
+  it('shows only the payout report for the partner category, keeping product drill-down elsewhere', async () => {
+    const product = (counterparty: string) => ({ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 500, item_count: 1, scheduled_amount: 500, projected_amount: 0, items: [{ item_id: 'x1', counterparty, amount: 500, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] });
+    const breakdown = { as_at: '2026-10-24', total: 1000, categories: [
+      { key: 'partner', label: 'Partner Products', outstanding: 500, item_count: 1, products: [product('Example Partner')] },
+      { key: 'landlord', label: 'Landlord Products', outstanding: 500, item_count: 1, products: [product('Example Landlord')] },
+    ], validation: { ties_out: true, difference: 0 } };
+    mocks.rpc.mockImplementation(async (name: string) => name === 'get_payables_breakdown' ? { data: breakdown, error: null }
+      : name === 'get_payables_total' ? { data: { total: 1000, overdue: 0, due_today: 0, item_count: 2 }, error: null }
+      : name === 'get_partner_paid_outstanding' ? { data: null, error: { code: '42501', message: 'denied' } }
+      : { data: { periods: [], actual: {} }, error: null });
+    const partner = setup('/cfo/payables?cat=partner');
+    await waitFor(() => expect(partner.getByRole('heading', { name: 'Partner Products' })).toBeInTheDocument());
+    await waitFor(() => expect(partner.getByText(/Could not load paid and outstanding/)).toBeInTheDocument());
+    expect(partner.queryByRole('tablist', { name: 'Payable products' })).toBeNull();
+    expect(partner.queryByText('Example Partner')).toBeNull();
+    partner.unmount(); partner.client.clear();
+    const landlord = setup('/cfo/payables?cat=landlord');
+    await waitFor(() => expect(landlord.getByRole('tablist', { name: 'Payable products' })).toBeInTheDocument());
+    expect(landlord.getByText('Example Landlord')).toBeInTheDocument();
+    landlord.unmount(); landlord.client.clear();
+  });
 });
