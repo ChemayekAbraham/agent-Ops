@@ -220,6 +220,14 @@ Deno.serve(async (req) => {
         // unexpected fails closed: nothing is posted, the request stays put.
         let roiCycleKey: string | null = null;
         let advanceNextRoiDate = true;
+        if (op.category === 'roi_payout' && !(op.source_table === 'investor_portfolios' && op.source_id)) {
+          // A Partner Return that names no portfolio cannot be checked against its cycle: never pay it.
+          failedResults.push({
+            id: op.id,
+            error: 'This Return request names no portfolio, so its cycle cannot be checked. Nothing was paid; request it from the Partners page.',
+          });
+          continue;
+        }
         if (isRoiWalletPayout && op.source_table === 'investor_portfolios' && op.source_id) {
           const decision = await reserveReturnCycle(adminClient, op.id);
           if (decision.action === 'fail_closed') {

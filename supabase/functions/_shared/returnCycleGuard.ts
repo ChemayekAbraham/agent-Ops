@@ -75,6 +75,16 @@ export async function reserveReturnCycle(admin: RpcClient, operationId: string):
 }
 
 /**
+ * A credit coded as a Partner Return (wallet roi_wallet_credit / roi_payout, or platform roi_expense). These must
+ * go through the Return payout flow, which reserves the portfolio's cycle; cfo-direct-credit (and the scheduled
+ * payouts that call it) name no portfolio or cycle, so they refuse such credits. Debits are not Returns paid.
+ */
+export function isPartnerReturnCredit(op: string, walletCategory: string, platformCategory: string): boolean {
+  return op === 'credit'
+    && (walletCategory === 'roi_wallet_credit' || walletCategory === 'roi_payout' || platformCategory === 'roi_expense');
+}
+
+/**
  * create_ledger_transaction returns the EXISTING group, posting nothing, when the key was already used. If the
  * first row under the key is older than this call, a concurrent approval of the same request posted it, and the
  * caller must stop before any wallet recovery step.

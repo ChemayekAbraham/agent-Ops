@@ -455,6 +455,31 @@ d('Partner Return cycle guard (isolated local database)', () => {
     await c1`update public.pending_wallet_operations set status = 'cancelled' where id = ${op2.id}`;
     const [{ status: released }] = await c1`select status from public.portfolio_return_cycle_claims where pending_operation_id = ${op2.id}`;
     expect(released).toBe('released');
+    // After a reversal the month may be paid again, once: net one Return.
+    await c1`update public.investor_portfolios set next_roi_date = ${day(m1, 10)} where id = ${PF(17)}`;
+    const repay = await requestPayout(c1, { pf: PF(17), partner: PARTNER(17), amount: 200000 });
+    expect((await approve(c1, repay.id)).action).toBe('post');
+    expect(await walletOf(c1, PARTNER(17))).toBe(200000);
+    expect((await errorOf(requestPayout(c1, { pf: PF(17), partner: PARTNER(17), amount: 200000, metadata: { cycle_anchor: day(m1, 10) } })))?.code).toBe('23505');
+  });
+
+  it('a Partner Return payout request must name its portfolio', async () => {
+    const err = await errorOf(asUser(c1, COO, (tx) => tx`
+      insert into public.pending_wallet_operations (user_id, amount, direction, category, source_table, source_id, reference_id, status)
+      values (${PARTNER(24)}, 200000, 'cash_in', 'roi_payout', 'cfo_direct_credit', null, ${ref()}, 'pending_coo_approval')`));
+    expect(err?.code).toBe('23514');
+    expect(err?.message).toMatch(/must name its portfolio/);
+  });
+
+  it('a split that reinvests: the reinvested part and the cash portion share one month', async () => {
+    const r = ref('SPL');
+    await asUser(c1, COO, (tx) => tx`select public.post_portfolio_roi_ledger('split_reinvest', ${PF(23)}::uuid, 120000, ${r}, 'out', 'in', ${day(m1, 10)}::date)`);
+    const cash = await requestPayout(c1, { pf: PF(23), partner: PARTNER(23), amount: 80000, reference: r, opType: 'roi_split_cash' });
+    expect((await approve(c1, cash.id)).action).toBe('post');
+    const legs = await returnLegs(c1, PF(23));
+    expect(legs.map((l) => l.idempotency_key.split(':')[2]).sort()).toEqual(['cash', 'reinvest']);
+    expect(await walletOf(c1, PARTNER(23))).toBe(80000);
+    expect((await errorOf(compound(c1, { pf: PF(23), amount: 200000, cycleDate: day(m1, 10) })))?.code).toBe('23505');
   });
 
   describe('CFO override (authorises only; no Return is posted under it in these tests)', () => {

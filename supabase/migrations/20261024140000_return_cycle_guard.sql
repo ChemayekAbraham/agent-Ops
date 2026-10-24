@@ -347,6 +347,11 @@ DECLARE
   v_claim uuid;
   v_month date;
 BEGIN
+  -- A Partner Return payout must name its portfolio, or no cycle could be reserved for it. (Rent-facilitation rewards
+  -- use supporter_platform_rewards against supporter_roi_payments, one per payment, and stay as they are.)
+  IF NEW.category = 'roi_payout' AND (NEW.source_table IS DISTINCT FROM 'investor_portfolios' OR NEW.source_id IS NULL) THEN
+    RAISE EXCEPTION 'A Partner Return payout request must name its portfolio' USING ERRCODE = '23514';
+  END IF;
   IF coalesce(NEW.category, '') NOT IN ('roi_payout', 'supporter_platform_rewards')
      OR NEW.source_table IS DISTINCT FROM 'investor_portfolios'
      OR NEW.source_id IS NULL THEN

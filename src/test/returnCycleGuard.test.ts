@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { reserveReturnCycle, wasPostedBeforeThisCall } from '../../supabase/functions/_shared/returnCycleGuard';
+import { reserveReturnCycle, wasPostedBeforeThisCall, isPartnerReturnCredit } from '../../supabase/functions/_shared/returnCycleGuard';
 import { returnCycleAnchor, returnCycleMonth } from '@/lib/returnCycle';
 
 /**
@@ -102,6 +102,19 @@ describe('wasPostedBeforeThisCall (idempotent hit on the ledger key)', () => {
   });
 });
 
+describe('isPartnerReturnCredit (direct and scheduled credits)', () => {
+  it('flags any credit coded as a Partner Return', () => {
+    expect(isPartnerReturnCredit('credit', 'roi_wallet_credit', 'roi_expense')).toBe(true);
+    expect(isPartnerReturnCredit('credit', 'roi_payout', 'system_balance_correction')).toBe(true);
+    expect(isPartnerReturnCredit('credit', 'wallet_deposit', 'roi_expense')).toBe(true);
+  });
+  it('leaves debits and other categories alone', () => {
+    expect(isPartnerReturnCredit('debit', 'roi_wallet_credit', 'roi_expense')).toBe(false);
+    expect(isPartnerReturnCredit('credit', 'wallet_transfer', 'wallet_transfer')).toBe(false);
+    expect(isPartnerReturnCredit('credit', 'agent_commission_earned', 'agent_commission_earned')).toBe(false);
+  });
+});
+
 describe('returnCycle helpers', () => {
   it('names the cycle from next_roi_date, then the effective payout date, then today', () => {
     expect(returnCycleAnchor({ nextRoiDate: '2026-09-10', nextPayoutDate: '2026-09-11' })).toBe('2026-09-10');
@@ -146,6 +159,20 @@ describe('approve-wallet-operation uses the database reservation (source guards)
   });
   it('only advances next_roi_date when the reservation says so', () => {
     expect(approveSrc).toMatch(/if \(advanceNextRoiDate && \(op\.category === 'roi_payout'/);
+  });
+});
+
+describe('every other manual path is closed (source guards)', () => {
+  const directSrc = readFileSync(resolve(ROOT, 'supabase/functions/cfo-direct-credit/index.ts'), 'utf8');
+  it('cfo-direct-credit refuses a Return credit before it posts anything', () => {
+    const guardAt = directSrc.indexOf('if (isPartnerReturnCredit(op, walletCat, platformCat))');
+    expect(guardAt).toBeGreaterThan(0);
+    expect(guardAt).toBeLessThan(directSrc.indexOf("rpc('create_ledger_transaction'") === -1 ? Infinity : directSrc.indexOf("rpc('create_ledger_transaction'"));
+    expect(guardAt).toBeLessThan(directSrc.indexOf('.rpc("create_ledger_transaction"') === -1 ? Infinity : directSrc.indexOf('.rpc("create_ledger_transaction"'));
+    expect(directSrc.slice(guardAt, guardAt + 600)).toMatch(/RETURN_CREDIT_NOT_ALLOWED_HERE/);
+  });
+  it('approval refuses a Return request that names no portfolio', () => {
+    expect(approveSrc).toMatch(/if \(op\.category === 'roi_payout' && !\(op\.source_table === 'investor_portfolios' && op\.source_id\)\) \{/);
   });
 });
 
