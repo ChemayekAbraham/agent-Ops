@@ -15,10 +15,11 @@ const VIEW_IDS = ['deposits', 'offline_collections'] as const;
 
 /** Panels whose id makes an awkward URL get a readable slug instead. */
 const SLUG_ALIASES: Record<string, string> = { email_tx: 'email-transactions', cash_codes: 'cash-deposit-codes' };
+const EXTRA_SLUGS: Record<string, string> = { 'payout-queue': 'payout_verification' };
 const ID_FROM_ALIAS = Object.fromEntries(Object.entries(SLUG_ALIASES).map(([id, slug]) => [slug, id]));
 
 export const finopsSlug = (id: string): string => SLUG_ALIASES[id] ?? id.replace(/_/g, '-');
-export const finopsIdFromSlug = (slug: string): string => ID_FROM_ALIAS[slug] ?? slug.replace(/-/g, '_');
+export const finopsIdFromSlug = (slug: string): string => EXTRA_SLUGS[slug] ?? ID_FROM_ALIAS[slug] ?? slug.replace(/-/g, '_');
 export const isFinopsViewId = (id: string): boolean => (VIEW_IDS as readonly string[]).includes(id);
 
 /** The URL of a panel, or the overview when no id is given. */
