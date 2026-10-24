@@ -59929,6 +59929,336 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_medical_facilities: {
+        Row: {
+          approx_daily_patients: number | null
+          cell_or_village: string | null
+          country: string
+          created_at: string
+          district: string | null
+          entry_point_name: string
+          facility_name: string
+          facility_type: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_source: string | null
+          id: string
+          in_charge_name: string | null
+          in_charge_phone: string | null
+          ownership: string
+          parish_or_ward: string | null
+          region: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          sub_county_or_town: string | null
+          updated_at: string
+        }
+        Insert: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name?: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      welile_medical_gate_logs: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          attendant_or_kin_name: string | null
+          attendant_or_kin_phone: string | null
+          client_ref: string | null
+          department_or_ward: string | null
+          direction: string
+          entry_point_name: string | null
+          facility_id: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          person_name: string
+          phone: string | null
+          profile_id: string | null
+          recorded_at: string
+          role_type: string
+          visit_purpose_or_note: string | null
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction: string
+          entry_point_name?: string | null
+          facility_id: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type: string
+          visit_purpose_or_note?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction?: string
+          entry_point_name?: string | null
+          facility_id?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name?: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type?: string
+          visit_purpose_or_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_gate_logs_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_gate_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_profiles: {
+        Row: {
+          asset_category: string | null
+          asset_quantity: number | null
+          client_ref: string | null
+          created_at: string
+          department_or_ward: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          has_smartphone: boolean | null
+          id: string
+          next_of_kin_name: string | null
+          next_of_kin_phone: string | null
+          notes: string | null
+          phone: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          role_type: string
+          signup_channel: string | null
+          signup_link_sent: boolean
+          smartphone_queue_status: string
+        }
+        Insert: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Update: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id?: string
+          full_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type?: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_profiles_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_transactions: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          amount_ugx: number
+          category: string
+          client_ref: string | null
+          facility_id: string
+          gate_log_id: string | null
+          id: string
+          items_or_description: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone: string | null
+          payment_method: string
+          profile_id: string | null
+          receipt_number: string
+          recorded_at: string
+          tx_direction: string
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category: string
+          client_ref?: string | null
+          facility_id: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number: string
+          recorded_at?: string
+          tx_direction: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category?: string
+          client_ref?: string | null
+          facility_id?: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name?: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number?: string
+          recorded_at?: string
+          tx_direction?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_transactions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_gate_log_id_fkey"
+            columns: ["gate_log_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_gate_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_payout_source_accounts: {
         Row: {
           created_at: string
