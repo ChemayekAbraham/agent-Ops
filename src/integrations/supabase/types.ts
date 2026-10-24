@@ -13492,6 +13492,105 @@ export type Database = {
         }
         Relationships: []
       }
+      cto_controlled_rent_plans: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          note: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       daily_platform_stats: {
         Row: {
           active_users_30d: number
@@ -18811,6 +18910,30 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      financial_ops_features: {
+        Row: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          enforced?: boolean
+          grp: string
+          key: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          enforced?: boolean
+          grp?: string
+          key?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
       }
       financial_ops_restrictions: {
         Row: {
@@ -71679,6 +71802,10 @@ export type Database = {
           schedule: string
         }[]
       }
+      cto_add_controlled_plans: {
+        Args: { p_note?: string; p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
       cto_cron_jobs_overview: { Args: never; Returns: Json }
       cto_fake_account_base: {
@@ -71731,6 +71858,10 @@ export type Database = {
         Args: { p_reason: string; p_user_id: string }
         Returns: string
       }
+      cto_remove_controlled_plans: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_revoke_id_verification_exception: {
         Args: { p_reason: string; p_user_id: string }
         Returns: undefined
@@ -71755,6 +71886,19 @@ export type Database = {
           id: string
           match_rank: number
           phone: string
+        }[]
+      }
+      cto_search_rent_plans: {
+        Args: { p_limit?: number; p_term: string }
+        Returns: {
+          agent_name: string
+          controlled: boolean
+          funded_on: string
+          rent_amount: number
+          rent_request_id: string
+          status: string
+          tenant_name: string
+          tenant_phone: string
         }[]
       }
       cto_set_kyc_level: {
@@ -74831,6 +74975,35 @@ export type Database = {
       get_cto_auth_metrics_forecast: {
         Args: { p_history_days?: number }
         Returns: Json
+      }
+      get_cto_controlled_plan_collections: {
+        Args: never
+        Returns: {
+          agent_commission: number
+          agent_id: string
+          agent_name: string
+          collection_count: number
+          collections_sum: number
+          counter_mismatch: boolean
+          days_overdue: number
+          duration_days: number
+          expected_agent: number
+          expected_partner: number
+          fees_drawn: number
+          formula_due: number
+          funded_on: string
+          given: number
+          last_collection_on: string
+          partner_earned: number
+          plans_count: number
+          platform_earned: number
+          principal_back: number
+          recovered: number
+          rent_request_id: string
+          row_kind: string
+          status: string
+          tenant_name: string
+        }[]
       }
       get_cto_daily_addendum: { Args: { p_date?: string }; Returns: Json }
       get_cto_daily_report: { Args: { p_date?: string }; Returns: Json }
@@ -79280,6 +79453,16 @@ export type Database = {
           property_address: string
           verified: boolean
           village: string
+        }[]
+      }
+      list_financial_ops_features: {
+        Args: never
+        Returns: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
         }[]
       }
       list_financial_ops_restrictions: {
