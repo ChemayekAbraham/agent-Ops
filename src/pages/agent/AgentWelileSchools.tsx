@@ -11,6 +11,8 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import UgLocationPicker from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import {
   SCHOOL_LEVELS, SCHOOL_OWNERSHIP, FACILITY_TYPES, PROFILE_ROLES, roleGroup, roleLabel,
   buildSchoolSignupLink, buildSignupMessage, toIntlDigits, smartphoneFields,
@@ -326,3 +328,15 @@ export function SignupLinkCard({ row, saved, school, agentId }: { row: SchoolPro
 }
 
 export { roleLabel };
+
+/** Home cell / village from the shared Uganda location list (no free text). */
+function HomeVillagePicker({ onPick }: { onPick: (village: string) => void }) {
+  const [sel, setSel] = useState<UgLocationSelection | null>(null);
+  return (
+    <UgLocationPicker
+      label="Home cell / village"
+      value={sel}
+      onChange={(s) => { setSel(s); onPick(s ? s.fullPath || s.village : ''); }}
+    />
+  );
+}
