@@ -8,6 +8,7 @@
 - The new agent dashboard rent-request card opens the existing lazily loaded AgentRentRequestDialog; promotional presentation never duplicates submission or financial logic.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
 - Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown.
+- Welile Schools gate registration stores only in `welile_schools` / `welile_school_profiles` (agents see their own profiles, `welile_schools_ops_ok()` roles see all, no deletes); offline profiles queue locally and retry idempotently via `client_ref`.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
