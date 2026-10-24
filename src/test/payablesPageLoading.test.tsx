@@ -29,10 +29,10 @@ describe('Payables page loading boundaries', () => {
     const { unmount, client } = setup();
     await waitFor(() => expect(screen.getByText('UGX 123,456', { exact: false })).toBeInTheDocument());
     expect(mocks.rpc.mock.calls.filter(c => c[0] === 'get_payables_breakdown')).toHaveLength(1);
-    await act(async () => release({ data: { total: 123456, categories: [{ key: 'partner', label: 'Partner Products', outstanding: 123456, item_count: 2, products: [{ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 123456, item_count: 2, scheduled_amount: 123456, projected_amount: 0, items: [{ item_id: 'a', counterparty: 'Example Partner', amount: 123456, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] }] }], validation: { ties_out: true, difference: 0 } }, error: null }));
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /Partner Products/ }).length).toBeGreaterThan(0));
-    fireEvent.click(screen.getAllByRole('button', { name: /Partner Products/ })[0]);
-    await waitFor(() => expect(screen.getAllByText('Example Partner').length).toBeGreaterThan(0));
+    await act(async () => release({ data: { total: 123456, categories: [{ key: 'landlord', label: 'Landlord Products', outstanding: 123456, item_count: 2, products: [{ key: 'returns', label: 'Returns', source: 'recorded', outstanding: 123456, item_count: 2, scheduled_amount: 123456, projected_amount: 0, items: [{ item_id: 'a', counterparty: 'Example Landlord', amount: 123456, due_date: '2026-10-24', due_kind: 'scheduled', source: 'recorded', status: 'pending' }] }] }], validation: { ties_out: true, difference: 0 } }, error: null }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /Landlord Products/ }).length).toBeGreaterThan(0));
+    fireEvent.click(screen.getAllByRole('button', { name: /Landlord Products/ })[0]);
+    await waitFor(() => expect(screen.getAllByText('Example Landlord').length).toBeGreaterThan(0));
     expect(mocks.rpc.mock.calls.filter(c => c[0] === 'get_payables_breakdown')).toHaveLength(1);
     unmount(); client.clear();
   });
