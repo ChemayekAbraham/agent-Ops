@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Add six-step Welile Schools Bot registration, shared Classic Form, editable review and locked-gate greeting; verify location guard and school tests.
 - [x] Prepare standing-order production approval package — proposal fingerprinted unchanged; 27 SQL assertions, 20 control/integration/schedule tests and 9 concurrency/MFA groups pass; all guards pass. Documented staged approvals, hosted MFA blocker and non-destructive rollback in docs/standing-order-amount-production-approval.md. Documentation only; no activation.
 - [x] Final standing-order isolated safety review — 27 SQL assertions, 18 controls/integration/schedule tests and 9 review groups (45 MFA/authorization cases plus concurrent payer/editor checks) pass; all guards pass; evidence and production requirements in development report. No production changes.
 - [ ] Standing-order hosted Auth/MFA verification — blocked: no isolated hosted test stack with real signed sessions/MFA available; live MFA is shadow mode. Production activation requires separate approval and MFA decision.
