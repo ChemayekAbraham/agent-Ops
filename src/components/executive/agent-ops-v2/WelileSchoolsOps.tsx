@@ -98,6 +98,36 @@ export function WelileSchoolsCard() {
   );
 }
 
+export function WelileSchoolsOps({ onBack }: { onBack: () => void }) {
+  const { data, isLoading } = useSchoolsData();
+  const k = data ? computeSchoolKpis(data.schools, data.profiles) : null;
+  const tile = (label: string, v: number | undefined) => (
+    <div className="rounded-xl border border-border/60 p-2"><p className="text-[11px] text-muted-foreground">{label}</p><p className="text-lg font-bold">{v ?? '—'}</p></div>
+  );
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={onBack}>← Back</Button>
+        <GraduationCap className="h-5 w-5 text-primary" />
+        <h2 className="text-base font-semibold flex-1">Welile Schools</h2>
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {tile('Schools registered', k?.schools)}
+        {tile('Profiles captured', k?.profiles)}
+        {tile('Districts covered', k?.districts)}
+        {tile('GPS-verified schools', k?.gps)}
+        {tile('Sign-up links sent', k?.linksSent)}
+        {tile('Free smartphones requested', k?.phonesRequested)}
+        {tile('Pending delivery', k?.phonesPending)}
+        {tile('Pupils / students', k?.by.pupil)}
+      </div>
+      {k && <p className="text-xs text-muted-foreground">{k.countries} countries · {k.districts} districts · Teachers {k.by.teacher} · Staff {k.by.staff} · Parents {k.by.parent} · Assets {k.by.asset}</p>}
+      {data ? <Explorer {...data} /> : <Loader2 className="h-6 w-6 animate-spin mx-auto" />}
+    </div>
+  );
+}
+
 const LEVELS = ['country', 'region', 'district', 'town', 'village'] as const;
 type Level = (typeof LEVELS)[number];
 
