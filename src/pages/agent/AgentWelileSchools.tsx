@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import UgLocationPicker from '@/components/location/UgLocationPicker';
-import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { UG_REGIONS, useUgDistricts, type UgLocationSelection } from '@/hooks/useUgLocations';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { captureSmartLocation } from '@/hooks/useSmartLocation';
 import {
@@ -50,6 +50,9 @@ export default function AgentWelileSchools() {
   const [locked, setLocked] = useState<SchoolRow | null>(() => readLockedSchool());
   const [draft, setDraft] = useState<Partial<SchoolRow>>(EMPTY_SCHOOL);
   const [creating, setCreating] = useState(false);
+  const [dirRegion, setDirRegion] = useState<string | null>(null);
+  const [dirDistrict, setDirDistrict] = useState<string | null>(null);
+  const [dirSearch, setDirSearch] = useState('');
   const [savingSchool, setSavingSchool] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [pendingCount, setPendingCount] = useState(() => readPendingProfiles().length);
@@ -73,6 +76,9 @@ export default function AgentWelileSchools() {
     return () => window.removeEventListener('online', flush);
   }, []);
 
+  const dirDistricts = useMemo(() => [...new Set(schools.filter(s => s.region === dirRegion && s.district).map(s => s.district as string))].sort(), [schools, dirRegion]);
+  const shownSchools = useMemo(() => { const q = dirSearch.trim().toLowerCase(); return schools.filter(s => (!dirRegion || s.region === dirRegion) && (!dirDistrict || s.district === dirDistrict) && (!q || [s.name, s.village].some(v => v?.toLowerCase().includes(q)))); }, [schools, dirRegion, dirDistrict, dirSearch]);
+  const startBot = () => { setDraft({ ...EMPTY_SCHOOL, ...(dirRegion ? { region: dirRegion } : {}), ...(dirDistrict ? { district: dirDistrict } : {}) }); setCreating(true); };
   const lockSchool = (s: SchoolRow | null) => { setLocked(s); writeLockedSchool(s); };
 
   const captureGps = async () => {
@@ -125,11 +131,14 @@ export default function AgentWelileSchools() {
         {!locked && !creating && (
           <Card className="p-4 space-y-3">
             <h2 className="font-semibold">Choose the school you are at</h2>
-            <Button className="w-full min-h-[48px] gap-2 whitespace-normal" onClick={() => setCreating(true)}><MessageCircle className="h-5 w-5 shrink-0" />Register a School with Welile Bot</Button>
-            <Button variant="ghost" className="w-full min-h-[44px]" onClick={() => setCreating(true)}>+ Register a new school</Button>
+            <Button className="w-full min-h-[48px] gap-2 whitespace-normal" onClick={startBot}><MessageCircle className="h-5 w-5 shrink-0" />Register a School with Welile Bot</Button>
+            <Button variant="ghost" className="w-full min-h-[44px]" onClick={startBot}>+ Register a new school</Button>
             {schools.length > 0 && <p className="text-sm text-muted-foreground">Or pick a registered school:</p>}
+            <div className="flex flex-wrap gap-2">{[null, ...UG_REGIONS].map(reg => <Button key={reg ?? 'all'} size="sm" variant={dirRegion === reg ? 'default' : 'outline'} className="min-h-[40px]" onClick={() => { setDirRegion(reg); setDirDistrict(null); }}>{reg ?? 'All'}</Button>)}</div>
+            {dirRegion && dirDistricts.length > 0 && <div className="flex flex-wrap gap-2">{dirDistricts.map(dist => <Button key={dist} size="sm" variant={dirDistrict === dist ? 'default' : 'outline'} className="min-h-[40px]" onClick={() => setDirDistrict(dirDistrict === dist ? null : dist)}>{dist}</Button>)}</div>}
+            <Input aria-label="Search schools" placeholder="Search school name or village..." value={dirSearch} onChange={e => setDirSearch(e.target.value)} />
             <div className="space-y-2 max-h-[50vh] overflow-y-auto">
-              {schools.map((s) => (
+              {shownSchools.map((s) => (
                 <button key={s.id} onClick={() => lockSchool(s)} className="w-full text-left p-3 rounded-xl border border-border min-h-[52px]">
                   <p className="text-sm font-medium">{s.name}</p>
                   <p className="text-xs text-muted-foreground">{[s.school_level, s.district, s.village].filter(Boolean).join(' · ')}</p>
@@ -172,14 +181,14 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
   const coordinateText = pinned ? `${draft.latitude?.toFixed(5)}, ${draft.longitude?.toFixed(5)}${draft.gps_accuracy_m != null ? ` (±${draft.gps_accuracy_m}m)` : ''}` : 'GPS skipped for now';
   const finish = (n: number) => {
     if (n === 1 && (draft.name?.trim().length ?? 0) < 2) { toast.error('Enter the school name'); return; }
-    if (n === 4 && (draft.country === 'Uganda' ? !ugSchoolLoc : !draft.country || draft.country === 'Uganda')) { toast.error('Choose the school location'); return; }
+    if (n === 3 && (draft.country === 'Uganda' ? !(ugSchoolLoc || (draft.region && draft.district)) : !draft.country || draft.country === 'Uganda')) { toast.error('Choose the school location'); return; }
     setCompleted(c => [...new Set([...c, n])]);
     setStep(n + 1);
   };
   const reset = () => { setDraft({ ...EMPTY_SCHOOL }); setUgSchoolLoc(null); setOtherCountry(false); setCompleted([]); setStep(1); setManualGps(false); };
   const pickLocation = (sel: UgLocationSelection | null) => {
     setUgSchoolLoc(sel);
-    setDraft(d => ({ ...d, country: 'Uganda', region: sel?.region ?? null, district: sel?.district ?? null, sub_county: sel?.subcounty ?? null, parish: sel?.parish ?? null, village: sel?.village ?? null, town: d.town || sel?.county || null }));
+    setDraft(d => ({ ...d, country: 'Uganda', region: sel?.region ?? d.region ?? null, district: sel?.district ?? d.district ?? null, sub_county: sel?.subcounty ?? null, parish: sel?.parish ?? null, village: sel?.village ?? null, town: d.town || sel?.county || null }));
   };
   const chooseCountryMode = (other: boolean) => {
     setOtherCountry(other); setUgSchoolLoc(null);
@@ -188,29 +197,29 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
   const prompts = [
     <>👋 Hi! I'm the Welile Schools Bot. Let's register this school right at the gate. First, what is the <strong>name of the school</strong>?</>,
     <>Got it — <strong>{draft.name}</strong>! 🏫 What <strong>level</strong> and <strong>ownership</strong> is this school?</>,
-    <>📍 Now stand at the school gate and tap below so I can pin the exact <strong>GPS coordinates</strong> of <strong>{draft.name}</strong>.</>,
-    <>🗺️ Where is <strong>{draft.name}</strong> located? Search the village/cell or browse by region:</>,
+    <>🗺️ Where is <strong>{draft.name}</strong> located? Browse by <strong>Region → District</strong> or search the village/cell:</>,
+    <>📍 Great — <strong>{draft.name}</strong> is in <strong>{[draft.village, draft.district, draft.region ? `${draft.region} Region` : null].filter(Boolean).join(', ') || draft.country || 'this location'}</strong>! Now stand at the <strong>{draft.gate_name || 'Main Gate'}</strong> and tap below to capture the exact Gate GPS coordinates.</>,
     <>👤 Almost done! Who is the <strong>Headteacher or main contact</strong> at <strong>{draft.name}</strong>, and roughly how many learners are enrolled? (You can also tap Skip)</>,
     <>✨ Here is the summary for <strong>{draft.name}</strong>. Everything look good?</>,
   ];
-  const replies = [ `${draft.name} (${draft.gate_name || 'Main Gate'})`, `${draft.school_level} • ${draft.ownership}`, pinned ? `📍 Gate GPS pinned: ${coordinateText}` : coordinateText, locationPath, [draft.head_name, draft.head_phone, draft.estimated_enrollment != null ? `${draft.estimated_enrollment.toLocaleString()} learners` : null].filter(Boolean).join(' • ') || 'Contact details skipped for now' ];
+  const replies = [ `${draft.name} (${draft.gate_name || 'Main Gate'})`, `${draft.school_level} • ${draft.ownership}`, locationPath, pinned ? `📍 Gate GPS pinned: ${coordinateText}` : coordinateText, [draft.head_name, draft.head_phone, draft.estimated_enrollment != null ? `${draft.estimated_enrollment.toLocaleString()} learners` : null].filter(Boolean).join(' • ') || 'Contact details skipped for now' ];
   const levels = [...SCHOOL_LEVELS, 'Mixed / K-12'];
   const coords = <div className="grid grid-cols-2 gap-2">
     <Field label="Latitude"><Input type="number" step="any" min={-90} max={90} inputMode="decimal" value={draft.latitude ?? ''} onChange={e => setDraft(d => ({ ...d, latitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} /></Field>
     <Field label="Longitude"><Input type="number" step="any" min={-180} max={180} inputMode="decimal" value={draft.longitude ?? ''} onChange={e => setDraft(d => ({ ...d, longitude: e.target.value === '' ? null : Number(e.target.value), gps_accuracy_m: null, gps_source: 'manual' }))} /></Field>
   </div>;
   const gps = <div className="space-y-3">
-    <Button className="min-h-12 w-full gap-2" disabled={gpsBusy} onClick={async () => { if (await captureGps()) { if (mode === 'chat') finish(3); } }}>{gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}Capture Gate GPS Now</Button>
-    {pinned && <p className="text-sm text-primary break-words">📍 {coordinateText}</p>}
+    <Button className="min-h-12 w-full gap-2" disabled={gpsBusy} onClick={async () => { if (await captureGps()) { if (mode === 'chat') finish(4); } }}>{gpsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}Capture Gate GPS Now</Button>
+    {pinned && <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-1 text-sm"><p className="text-primary font-medium break-words">📍 {coordinateText}</p>{[draft.district, draft.region].filter(Boolean).length > 0 && <p className="text-xs text-muted-foreground">{[draft.district, draft.region].filter(Boolean).join(', ')}</p>}<a className="text-primary underline inline-flex items-center gap-1 min-h-11" href={`https://www.google.com/maps?q=${draft.latitude},${draft.longitude}`} target="_blank" rel="noreferrer"><MapPin className="h-4 w-4" />View on Google Maps</a></div>}
     <Button variant="ghost" className="min-h-11 w-full" aria-expanded={manualGps} onClick={() => setManualGps(v => !v)}>Enter coordinates manually</Button>
-    {manualGps && <div className="space-y-2">{coords}{mode === 'chat' && <Button variant="outline" className="w-full min-h-11" disabled={!pinned || Math.abs(draft.latitude ?? 0) > 90 || Math.abs(draft.longitude ?? 0) > 180} onClick={() => finish(3)}>Confirm coordinates <ChevronRight className="h-4 w-4" /></Button>}</div>}
-    {mode === 'chat' && <Button variant="ghost" className="min-h-11 w-full" onClick={() => { setDraft(d => ({ ...d, latitude: null, longitude: null, gps_accuracy_m: null, gps_source: null })); finish(3); }}>Skip GPS for now</Button>}
+    {manualGps && <div className="space-y-2">{coords}{mode === 'chat' && <Button variant="outline" className="w-full min-h-11" disabled={!pinned || Math.abs(draft.latitude ?? 0) > 90 || Math.abs(draft.longitude ?? 0) > 180} onClick={() => finish(4)}>Confirm coordinates <ChevronRight className="h-4 w-4" /></Button>}</div>}
+    {mode === 'chat' && <Button variant="ghost" className="min-h-11 w-full" onClick={() => { setDraft(d => ({ ...d, latitude: null, longitude: null, gps_accuracy_m: null, gps_source: null })); finish(4); }}>Skip GPS for now</Button>}
   </div>;
   const location = <div className="space-y-3">
     <div className="flex flex-wrap gap-2"><Button variant={!otherCountry ? 'default' : 'outline'} className="min-h-11" onClick={() => { if (otherCountry) chooseCountryMode(false); }}>🇺🇬 Uganda</Button><Button variant={otherCountry ? 'default' : 'outline'} className="min-h-11" onClick={() => { if (!otherCountry) chooseCountryMode(true); }}>🌍 Other Country</Button></div>
-    {otherCountry ? <CountryCombobox value={draft.country || ''} onChange={value => { if (value === 'Uganda') chooseCountryMode(false); else update('country', value); }} /> : <UgLocationPicker label="Search school cell / village" value={ugSchoolLoc} onChange={pickLocation} />}
+    {otherCountry ? <CountryCombobox value={draft.country || ''} onChange={value => { if (value === 'Uganda') chooseCountryMode(false); else update('country', value); }} /> : <><RegionDistrictBrowser region={draft.region ?? null} district={draft.district ?? null} onRegion={reg => { if (reg !== draft.region) { setUgSchoolLoc(null); setDraft(d => ({ ...d, region: reg, district: null, sub_county: null, parish: null, village: null })); } }} onDistrict={(dist, reg) => { if (dist !== draft.district) setUgSchoolLoc(null); setDraft(d => ({ ...d, region: reg ?? d.region ?? null, district: dist, ...(dist !== d.district ? { sub_county: null, parish: null, village: null } : {}) })); }} /><UgLocationPicker label="Search or browse school cell / village" districtName={draft.district || null} value={ugSchoolLoc} onChange={pickLocation} /></>}
     <Field label="Town / City (optional)"><Input value={draft.town ?? ''} onChange={e => update('town', e.target.value)} /></Field>
-    {mode === 'chat' && <Button className="w-full min-h-11" onClick={() => finish(4)}>Confirm Location <ChevronRight className="h-4 w-4" /></Button>}
+    {mode === 'chat' && <Button className="w-full min-h-11" onClick={() => finish(3)}>Confirm Location <ChevronRight className="h-4 w-4" /></Button>}
   </div>;
   const contact = <div className="space-y-3">
     <Field label="Headteacher name"><Input value={draft.head_name ?? ''} onChange={e => update('head_name', e.target.value)} /></Field>
@@ -229,8 +238,8 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
     <div className="divide-y divide-border">{[
       { n: 1, label: 'School & gate', value: replies[0] },
       { n: 2, label: 'Level & ownership', value: replies[1] },
-      { n: 4, label: 'Location', value: locationPath || 'Not selected' },
-      { n: 3, label: 'Gate GPS', value: coordinateText },
+      { n: 3, label: 'Location', value: locationPath || 'Not selected' },
+      { n: 4, label: 'Gate GPS', value: coordinateText },
       { n: 5, label: 'Contact & enrolment', value: replies[4] },
     ].map(row => <Button key={row.n} variant="ghost" className="h-auto min-h-14 w-full justify-between whitespace-normal gap-2 rounded-none px-0 py-3 text-left" onClick={() => setStep(row.n)}><span className="min-w-0"><span className="block text-xs text-muted-foreground">{row.label}</span><span className="block text-sm break-words">{row.value}</span></span><Pencil className="h-4 w-4 shrink-0" /></Button>)}</div>
     <div className="flex flex-wrap gap-2"><Badge variant="secondary">{draft.school_level}</Badge><Badge variant="outline">{draft.ownership}</Badge></div>
@@ -238,7 +247,7 @@ export function SchoolRegistration({ draft, setDraft, captureGps, gpsBusy, savin
     <Button className="w-full min-h-12 whitespace-normal gap-2" disabled={saving} onClick={onSave}>{saving ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}Register School & Lock Gate</Button>
     <Button variant="ghost" className="w-full min-h-11 gap-2" onClick={() => setStep(1)}><Pencil className="h-4 w-4" />Edit answers</Button>
   </div>;
-  const content = [name, level, gps, location, contact, summary];
+  const content = [name, level, location, gps, contact, summary];
   return <section className="space-y-4 min-w-0">
     <div className="sticky top-14 z-10 bg-background/95 backdrop-blur border-b border-border py-3 space-y-3">
       <div className="flex gap-3 items-center"><div className="relative p-3 rounded-full bg-primary/10 text-primary"><Bot className="h-6 w-6" /><GraduationCap className="h-3 w-3 absolute bottom-0 right-0" /></div><div className="min-w-0 flex-1"><h2 className="font-semibold text-base">Welile Schools Bot</h2><p className="text-xs text-muted-foreground">Step-by-step school gate onboarding • {navigator.onLine ? 'Online' : 'Offline'}</p></div><Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Start Over" title="Start Over" disabled={saving || gpsBusy} onClick={reset}><RotateCcw className="h-4 w-4" /></Button></div>
@@ -420,4 +429,21 @@ function HomeVillagePicker({ onPick }: { onPick: (village: string) => void }) {
       onChange={(s) => { setSel(s); onPick(s ? s.fullPath || s.village : ''); }}
     />
   );
+}
+
+function RegionDistrictBrowser({ region, district, onRegion, onDistrict }: { region: string | null; district: string | null; onRegion: (r: string) => void; onDistrict: (d: string, r: string | null) => void }) {
+  const { data: all = [] } = useUgDistricts();
+  const [filterText, setFilterText] = useState('');
+  const q = filterText.trim().toLowerCase();
+  const list = all.filter(d => (!region || d.region === region) && (!q || d.name.toLowerCase().includes(q))).sort((a, b) => a.name.localeCompare(b.name));
+  return <div className="space-y-3">
+    <p className="text-xs font-medium text-muted-foreground">1. Select Region</p>
+    <div className="grid grid-cols-2 gap-2">{UG_REGIONS.map(r => <Button key={r} variant={region === r ? 'default' : 'outline'} className="min-h-11" aria-pressed={region === r} onClick={() => onRegion(r)}>{r} ({all.filter(d => d.region === r).length})</Button>)}</div>
+    {(region || q) && <>
+      <p className="text-xs font-medium text-muted-foreground">2. Select District{region ? ` in ${region}` : ''}</p>
+      <Input aria-label="Filter districts" placeholder="Search or filter district..." value={filterText} onChange={e => setFilterText(e.target.value)} />
+      <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">{list.map(d => <Button key={d.id} size="sm" variant={district === d.name ? 'default' : 'outline'} className="min-h-[40px]" aria-pressed={district === d.name} onClick={() => onDistrict(d.name, d.region)}>{d.name}</Button>)}{list.length === 0 && <p className="text-xs text-muted-foreground">No matching district</p>}</div>
+    </>}
+    {district && <p className="text-xs font-medium text-muted-foreground">3. Sub-county / Parish / Village (optional)</p>}
+  </div>;
 }
