@@ -26628,6 +26628,7 @@ export type Database = {
           principal_allocated: number
           principal_unallocated: number
           receipt_file_url: string | null
+          return_fields_edit_token: string | null
           roi_mode: string
           roi_percentage: number
           status: string
@@ -26678,6 +26679,7 @@ export type Database = {
           principal_allocated?: number
           principal_unallocated?: number
           receipt_file_url?: string | null
+          return_fields_edit_token?: string | null
           roi_mode?: string
           roi_percentage?: number
           status?: string
@@ -26728,6 +26730,7 @@ export type Database = {
           principal_allocated?: number
           principal_unallocated?: number
           receipt_file_url?: string | null
+          return_fields_edit_token?: string | null
           roi_mode?: string
           roi_percentage?: number
           status?: string
@@ -40473,6 +40476,226 @@ export type Database = {
           },
           {
             foreignKeyName: "portfolio_renewals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_return_cycle_claims: {
+        Row: {
+          claim_seq: number
+          claimed_by: string | null
+          created_at: string
+          cycle_date: string
+          cycle_month: string
+          cycle_return_cap: number
+          id: string
+          kind: string
+          override_id: string | null
+          pending_operation_id: string | null
+          portfolio_id: string
+          reference: string | null
+          release_reason: string | null
+          released_at: string | null
+          released_by: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          claim_seq?: number
+          claimed_by?: string | null
+          created_at?: string
+          cycle_date: string
+          cycle_month: string
+          cycle_return_cap: number
+          id?: string
+          kind: string
+          override_id?: string | null
+          pending_operation_id?: string | null
+          portfolio_id: string
+          reference?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          source: string
+          status?: string
+        }
+        Update: {
+          claim_seq?: number
+          claimed_by?: string | null
+          created_at?: string
+          cycle_date?: string
+          cycle_month?: string
+          cycle_return_cap?: number
+          id?: string
+          kind?: string
+          override_id?: string | null
+          pending_operation_id?: string | null
+          portfolio_id?: string
+          reference?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_return_cycle_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_return_cycle_overrides: {
+        Row: {
+          authorised_at: string
+          authorised_by: string
+          consumed_at: string | null
+          consumed_claim_id: string | null
+          cycle_month: string
+          cycle_return_at_authorisation: number
+          expires_at: string
+          id: string
+          max_amount: number
+          portfolio_id: string
+          reason: string
+          requester_id: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          authorised_at?: string
+          authorised_by: string
+          consumed_at?: string | null
+          consumed_claim_id?: string | null
+          cycle_month: string
+          cycle_return_at_authorisation: number
+          expires_at?: string
+          id?: string
+          max_amount: number
+          portfolio_id: string
+          reason: string
+          requester_id: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          authorised_at?: string
+          authorised_by?: string
+          consumed_at?: string | null
+          consumed_claim_id?: string | null
+          cycle_month?: string
+          cycle_return_at_authorisation?: number
+          expires_at?: string
+          id?: string
+          max_amount?: number
+          portfolio_id?: string
+          reason?: string
+          requester_id?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_return_holds: {
+        Row: {
+          held_at: string
+          held_by: string
+          id: string
+          portfolio_id: string
+          reason: string
+          release_reason: string | null
+          released_at: string | null
+          released_by: string | null
+        }
+        Insert: {
+          held_at?: string
+          held_by: string
+          id?: string
+          portfolio_id: string
+          reason: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Update: {
+          held_at?: string
+          held_by?: string
+          id?: string
+          portfolio_id?: string
+          reason?: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_portfolio_pool_category"
@@ -66886,6 +67109,20 @@ export type Database = {
           ts: string
         }[]
       }
+      _claim_return_cycle: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_cycle_date: string
+          p_kind: string
+          p_override_id: string
+          p_pending_operation_id: string
+          p_portfolio_id: string
+          p_reference: string
+          p_source: string
+        }
+        Returns: string
+      }
       _classify_daily_rating:
         | { Args: { p_active_count: number; p_ratio: number }; Returns: string }
         | {
@@ -67088,6 +67325,20 @@ export type Database = {
         }
         Returns: Json
       }
+      _post_portfolio_roi_ledger_core: {
+        Args: {
+          p_amount: number
+          p_apply_portfolio: boolean
+          p_cycle_date: string
+          p_description_in: string
+          p_description_out: string
+          p_operation: string
+          p_override_id: string
+          p_portfolio_id: string
+          p_reference: string
+        }
+        Returns: string
+      }
       _post_rent_fee_collection_legacy: {
         Args: {
           p_payment_amount: number
@@ -67148,6 +67399,18 @@ export type Database = {
         }
         Returns: Json
       }
+      _return_cycle_can_request: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      _return_cycle_claim_for_operation_row: {
+        Args: {
+          p_at_approval?: boolean
+          p_op: Database["public"]["Tables"]["pending_wallet_operations"]["Row"]
+        }
+        Returns: string
+      }
+      _return_cycle_posted_total: { Args: { p_claim: string }; Returns: number }
       _rt_compute: {
         Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
         Returns: Json
@@ -69084,6 +69347,16 @@ export type Database = {
           auth_phone: string
           user_id: string
         }[]
+      }
+      authorise_return_cycle_override: {
+        Args: {
+          p_cycle_date: string
+          p_max_amount: number
+          p_portfolio_id: string
+          p_reason: string
+          p_requester: string
+        }
+        Returns: string
       }
       auto_activate_merchant_referral: {
         Args: { p_referrer: string }
@@ -71024,6 +71297,10 @@ export type Database = {
         Returns: Json
       }
       claim_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      claim_return_cycle_for_operation: {
+        Args: { p_operation_id: string }
+        Returns: Json
+      }
       claim_tenant_referrer: { Args: { p_referrer_id: string }; Returns: Json }
       claim_withdrawal_verified: {
         Args: {
@@ -78675,6 +78952,10 @@ export type Database = {
       is_phone_available: { Args: { p_phone: string }; Returns: boolean }
       is_platform_owner: { Args: never; Returns: boolean }
       is_platform_user_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_portfolio_on_hold: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
       is_proxy_agent_for_partner: {
         Args: { _agent: string; _partner: string }
         Returns: boolean
@@ -81970,6 +82251,10 @@ export type Database = {
         Args: { p_lookback_weeks?: number }
         Returns: Json
       }
+      place_portfolio_return_hold: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
       plan_reversed_money_still_held: {
         Args: { p_since: string }
         Returns: {
@@ -82029,16 +82314,39 @@ export type Database = {
         }
         Returns: Json
       }
-      post_portfolio_roi_ledger: {
+      post_portfolio_roi_ledger:
+        | {
+            Args: {
+              p_amount: number
+              p_description_in: string
+              p_description_out: string
+              p_operation: string
+              p_portfolio_id: string
+              p_reference: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_cycle_date: string
+              p_description_in: string
+              p_description_out: string
+              p_operation: string
+              p_override_id?: string
+              p_portfolio_id: string
+              p_reference: string
+            }
+            Returns: string
+          }
+      post_rent_facilitation_reward: {
         Args: {
-          p_amount: number
-          p_description_in: string
-          p_description_out: string
-          p_operation: string
-          p_portfolio_id: string
-          p_reference: string
+          p_payment_number: number
+          p_reinvest_portfolio_id?: string
+          p_rent_request_id: string
+          p_wallet_description?: string
         }
-        Returns: string
+        Returns: Json
       }
       post_rent_fee_collection: {
         Args: {
@@ -82046,6 +82354,18 @@ export type Database = {
           p_rent_request_id: string
           p_source_id: string
           p_source_table: string
+        }
+        Returns: Json
+      }
+      post_return_payout: {
+        Args: {
+          p_amount: number
+          p_entries: Json
+          p_ledger_key: string
+          p_operation_id: string
+          p_payment_method?: string
+          p_payment_reference?: string
+          p_reviewed_by: string
         }
         Returns: Json
       }
@@ -83298,6 +83618,10 @@ export type Database = {
         Args: { _amount: number; _reason: string; _user_id: string }
         Returns: Json
       }
+      release_portfolio_return_hold: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
       release_stale_cashout_claims: {
         Args: never
         Returns: {
@@ -83568,6 +83892,19 @@ export type Database = {
       rent_request_timing_history: {
         Args: { p_request_id: string }
         Returns: Json
+      }
+      rent_reward_posting_gaps: {
+        Args: never
+        Returns: {
+          last_recorded_at: string
+          posted_amount: number
+          posted_legs: number
+          recorded_amount: number
+          recorded_rows: number
+          rent_request_id: string
+          rows_without_posting: number
+          supporter_id: string
+        }[]
       }
       rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
@@ -83964,6 +84301,10 @@ export type Database = {
         Returns: Json
       }
       revoke_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      revoke_return_cycle_override: {
+        Args: { p_override_id: string; p_reason: string }
+        Returns: undefined
+      }
       run_email_auto_match_retry: {
         Args: { p_window_hours?: number }
         Returns: number
