@@ -1,3 +1,9 @@
+# Welile Assistant upgrade
+- [ ] Unify global launcher and public header entry points without duplicate assistants.
+- [ ] Refresh both chat surfaces and preserve public/signup calculators plus personal starters.
+- [ ] Route authorized personal questions securely and public questions through existing Nexa guidance.
+- [ ] Run focused tests, guards and desktop/mobile interaction checks.
+
 # Tasks
 - [x] Add consent-based Nexa inquiry signup prompts and signup bar using existing signup: 89 tests, all guards, Deno checks and preview compilation pass; desktop/phone prefill and public inquiry invitation verified. No predictable passwords, account-existence lookup, role writes or account creation from chat; unsupported bonuses excluded. Live WhatsApp delivery and completed live signup remain unverified; no accounts or SMS created during checks.
 - [x] Add Nexa auth-gated actions, deterministic private account guidance, wallet teaching, promissory reminders and canonical company facts. 75 guidance tests and all guards pass; public account guidance and sign-in return destination verified, preview build OK. No database or financial changes; live WhatsApp delivery remains blocked by existing credentials/activation.
