@@ -1,4 +1,5 @@
 # Welile Assistant upgrade
+- [ ] Add shared public financial-access guide, starter, safe local fallback and backend out-of-scope guidance; verify tests and public flow without changing financial rules.
 - [x] Unify global launcher and public header entry points without duplicate dashboard assistants.
 - [x] Refresh both chat surfaces with AI Elements, public/signup calculators and six personal starters.
 - [x] Route authorized personal questions securely and public questions through existing Nexa guidance, with isolated public history and account-transition resets.

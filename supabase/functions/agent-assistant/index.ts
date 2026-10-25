@@ -18,6 +18,7 @@ import { callModel, type ChatMessage, ModelError } from "./openai.ts";
 import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
 import { checkAnswer } from "./guards.ts";
 import { ESCALATION_OFFER_OUTCOMES, MSG } from "./messages.ts";
+import { buildNexaPublicGuideReply, buildFinancialAccessFallbackReply, isFinancialAccessQuery } from '../_shared/nexaGuides.ts';
 import { kampalaToday } from "./dates.ts";
 import { getClientUserAgent, resolveTrustedClientIp } from "../_shared/resolveClientIp.ts";
 import { classifyDevice } from "../_shared/deviceClass.ts";
@@ -304,6 +305,12 @@ Deno.serve(async (req) => {
           turn = { reply: MSG.error, outcome: "error", toolsCalled: [] };
         }
       }
+    }
+
+    if (turn.outcome === 'out_of_scope' || turn.outcome === 'unmatched'
+      || (turn.outcome === 'not_an_agent' && (isFinancialAccessQuery(request.message) || /\bwelile\b/i.test(request.message)))) {
+      // Public guidance only; preserve the outcome so clients never treat it as private data.
+      turn.reply = buildNexaPublicGuideReply(request.message) ?? buildFinancialAccessFallbackReply(request.message, true);
     }
 
     await logMessage({

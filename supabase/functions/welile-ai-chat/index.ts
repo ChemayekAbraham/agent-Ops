@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
-import { NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
+import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 const json = (data: unknown, status=200) => new Response(JSON.stringify(data), {status,headers:{...corsHeaders,"Content-Type":"application/json"}});
 const buckets = new Map<string,{count:number;at:number}>();

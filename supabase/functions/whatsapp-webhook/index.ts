@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch } from '../_shared/nexaSignup.ts';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
-import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
+import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
 import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
