@@ -42,22 +42,20 @@ function renderDialog() {
 describe('Cash Position payout & received money reports dialog', () => {
   it('shows both reports with the payment-method breakdown and the totals', async () => {
     renderDialog();
-    expect(await screen.findByText('Received Money Report')).toBeInTheDocument();
-    expect(screen.getByText('Payout Money Report')).toBeInTheDocument();
-    // Received section totals
+    // Both section totals resolve once the per-method breakdown queries settle.
+    expect(await screen.findByText('UGX 2,700,000')).toBeInTheDocument();
+    expect(screen.getByText('UGX 2,500,000')).toBeInTheDocument();
+    // Received section shows the method rows
     const receivedSection = screen.getByLabelText('Received Money Report');
-    expect(receivedSection.textContent).toContain('UGX 2,700,000');
     expect(receivedSection.textContent).toContain('Mobile Money');
     expect(receivedSection.textContent).toContain('Bank Transfer');
     expect(receivedSection.textContent).toContain('Cash');
-    // Paid section totals
-    const paidSection = screen.getByLabelText('Payout Money Report');
-    expect(paidSection.textContent).toContain('UGX 2,500,000');
   });
 
   it('opens the payout full report as an all-methods, all-time report that reconciles to the figures shown', async () => {
     renderDialog();
-    const paidSection = await screen.findByLabelText('Payout Money Report');
+    await screen.findByText('UGX 2,500,000');
+    const paidSection = screen.getByLabelText('Payout Money Report');
     fireEvent.click(within(paidSection).getByRole('button', { name: /Open full report/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_money_paid_out_page',
       expect.objectContaining({ p_method: null })));
@@ -70,7 +68,8 @@ describe('Cash Position payout & received money reports dialog', () => {
     HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) { clicks.push(this); };
     try {
       renderDialog();
-      const receivedSection = await screen.findByLabelText('Received Money Report');
+      await screen.findByText('UGX 2,700,000');
+      const receivedSection = screen.getByLabelText('Received Money Report');
       fireEvent.click(within(receivedSection).getByRole('button', { name: /Export breakdown CSV/ }));
       await waitFor(() => expect(clicks.length).toBe(1));
       const name = clicks[0].download;
