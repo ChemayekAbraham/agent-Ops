@@ -8,17 +8,23 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } 
 import { CashPositionBreakdowns } from '@/components/cfo/CashPositionBreakdowns';
 
 // Concrete per-method figures: Received = 2,700,000 across 10; Paid = 2,500,000 across 10.
-const totals: Record<string, { amount: number; count: number }> = {
+const receivedTotals: Record<string, { amount: number; count: number }> = {
   mobile_money: { amount: 2_000_000, count: 7 },
   bank_transfer: { amount: 400_000, count: 2 },
   cash: { amount: 300_000, count: 1 },
+};
+const paidTotals: Record<string, { amount: number; count: number }> = {
+  mobile_money: { amount: 1_500_000, count: 5 },
+  bank_transfer: { amount: 900_000, count: 3 },
+  cash: { amount: 100_000, count: 2 },
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
     if (name === 'get_cfo_money_drilldown_totals') {
-      const t = totals[args.p_method];
+      const table = args.p_kind === 'paid_out' ? paidTotals : receivedTotals;
+      const t = table[args.p_method];
       return { data: t ? [{ confirmed_amount: t.amount, confirmed_count: t.count }] : [], error: null };
     }
     return { data: [], error: null };
