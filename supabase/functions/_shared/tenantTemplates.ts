@@ -369,8 +369,11 @@ export async function loadRentAccessCap(admin: any): Promise<number | null> {
  */
 export function growthSentence(cap: number | null | undefined): string {
   if (!cap || !(Number(cap) > 0)) return "";
-  return ` Keep paying on time every day and your rent access can grow up to ${formatUGX(cap)}.`;
+  return ` Pay daily: rent access +UGX 10,000/day up to ${formatUGX(cap)}. Missed days: -UGX 7,000/day.`;
 }
+
+/** Campaign copy only; never changes the limit calculator or notification catalogue. */
+export const RENT_ACCESS_CAMPAIGN_NOTE = 'Pay daily: rent access +UGX 10,000/day up to UGX 30,000,000. Missed days: -UGX 7,000/day.';
 
 /** The exact amount to the next level and what it unlocks. */
 export function nextLevelSentence(vars: TenantPaymentMessageVars | undefined): string {

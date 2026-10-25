@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { RENT_ACCESS_CAMPAIGN_NOTE } from '../_shared/tenantTemplates.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,7 +65,7 @@ Deno.serve(async (req) => {
     const landlordPart = landlordName ? ` to ${landlordName.slice(0, 15)}` : "";
     const msg =
       `Welcome to Welile Homes. Your agent enrolled you${rentPart}${landlordPart}. ` +
-      `SMS receipts follow each payment.`;
+      `SMS receipts follow each payment. ${RENT_ACCESS_CAMPAIGN_NOTE}`;
 
     // One onboarding SMS per tenant, ever (idempotent).
     const ok = await sendSMS(tenant.phone, msg, {

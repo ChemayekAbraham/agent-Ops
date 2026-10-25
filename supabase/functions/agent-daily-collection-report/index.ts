@@ -10,6 +10,8 @@ import "../_shared/smsFooterInterceptor.ts";
 // Idempotent: skips an agent if today's report row already exists.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { attemptYoolaPrimary } from '../_shared/yoolaPrimary.ts';
+import { RENT_ACCESS_CAMPAIGN_NOTE } from '../_shared/tenantTemplates.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -191,7 +193,7 @@ Deno.serve(async (req) => {
         `Welile daily report (${label})\n` +
         `Collected: ${fmtUGX(collected)} from ${tenantsCollected} tenant(s)\n` +
         `Expected: ${fmtUGX(expected)} (${rate}% achieved)\n` +
-        `Still owing: ${tenantsOwing} tenant(s)`;
+        `Still owing: ${tenantsOwing} tenant(s)\n${RENT_ACCESS_CAMPAIGN_NOTE}`;
 
       // 2. In-app notification
       const { error: notifErr } = await admin.from("notifications").insert({
@@ -220,7 +222,7 @@ Deno.serve(async (req) => {
       if (profile?.phone) {
         const smsText =
           `Daily report ${label}: Collected ${fmtUGX(collected)} (${tenantsCollected} tenants). ` +
-          `Expected ${fmtUGX(expected)} (${rate}%). Owing: ${tenantsOwing}.`;
+          `Expected ${fmtUGX(expected)} (${rate}%). Owing: ${tenantsOwing}. ${RENT_ACCESS_CAMPAIGN_NOTE}`;
         const ok = await sendSMS(profile.phone, smsText);
         if (ok) stats.smsSent++;
       }
