@@ -199,7 +199,7 @@ export function CashPositionInsights({
             right={
               <select value={days} onChange={(e) => setDays(Number(e.target.value))}
                 className="h-9 rounded-md border border-border bg-card px-2 text-xs">
-                <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
+                <option value={1}>Today</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
           <div className="h-72">
