@@ -13,6 +13,8 @@ export type DrilldownPreset = {
   label: string; from: string; to: string; status: string;
   /** Preselected type filter (source group for the credits report). */
   type?: string;
+  /** Preselected payment-method filter (mobile_money | bank_transfer | cash). */
+  method?: string;
   expected?: { amount: number; count: number; basis: 'confirmed' | 'pending' };
 };
 
@@ -60,9 +62,9 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   useEffect(() => {
     if (!open) return;
     if (preset) {
-      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(preset.type ?? ''); setPerson('');
+      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(preset.method ?? ''); setType(preset.type ?? ''); setPerson('');
       setActive(preset);
-      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: preset.type ?? '', person: '' });
+      setParams({ from: preset.from, to: preset.to, status: preset.status, method: preset.method ?? '', type: preset.type ?? '', person: '' });
     } else {
       const t = kampalaDate();
       setFrom(t); setTo(t); setActive(null);

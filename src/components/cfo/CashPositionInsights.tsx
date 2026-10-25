@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CashPositionAccounts } from './CashPositionAccounts';
+import { CashPositionBreakdowns } from './CashPositionBreakdowns';
 import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import type { PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
 
@@ -219,6 +220,7 @@ export function CashPositionInsights({
           </div>
         </CardContent></Card>
 
+        <CashPositionBreakdowns />
       </div>
 
       {/* Row 2 */}
