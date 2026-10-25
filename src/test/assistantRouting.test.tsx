@@ -50,3 +50,12 @@ describe('assistant routing and privacy', () => {
     expect(result.current.messages).toEqual([]); expect(result.current.isLoading).toBe(false);
   });
 });
+
+describe('failed personal requests', () => {
+  it('uses public guidance after a personal service network failure', async () => {
+    mock.user = { id: 'TEST_USER_A' }; mock.invoke.mockRejectedValue(new Error('NETWORK_FAILURE'));
+    const { result } = renderHook(useAgentAssistant);
+    await act(async () => { await result.current.send('What is my wallet balance?'); });
+    expect(mock.publicReply).toHaveBeenCalledOnce(); expect(result.current.messages.at(-1)?.content).toBe('PUBLIC_GUIDE');
+  });
+});
