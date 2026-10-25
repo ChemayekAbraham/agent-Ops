@@ -16,6 +16,7 @@ import { NexaDeskCards } from './NexaDeskCards';
 import { ROLE_LANDINGS, buildRoleSignupHref, type AiRole } from './roleLanding';
 
 const PUBLIC_STARTERS = [
+  ['Access financial products & services', 'No-collateral credit up to UGX 30M, Wallet, BNPL & 15%/mo rewards'],
   ['What is Welile & how does it work?', 'Mission, values, HQ in Entebbe, and our products & services'],
   ['Support a tenant & earn 15%/mo', 'UGX 100,000 → UGX 15,000/month + Promissory Notes'],
   ['Get rent help (up to UGX 30M)', 'Rent facilitation & +UGX 10,000/day Access Limit growth'],

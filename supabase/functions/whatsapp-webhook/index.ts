@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
+import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch } from '../_shared/nexaSignup.ts';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
-import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
+import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
 import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
@@ -59,7 +59,7 @@ Deno.serve(async req => {
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
           answer=await buildWhatsAppAiReply(aiKey,NEXA_SALES_PROMPT+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
         }
-        if (!isRestrictedInternalStaffQuery(text)) {
+        if (!isRestrictedInternalStaffQuery(text) && !isFinancialAccessQuery(text)) {
           const lead = extractInquiryLeadDetails(text, {leadPhone:msg.from});
           answer += `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
         }
