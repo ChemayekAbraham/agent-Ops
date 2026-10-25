@@ -19,7 +19,7 @@ Deno.serve(async req => {
     const raw=await req.text(); if(raw.length>90000) return json({error:'Request too large'},413);
     const body=JSON.parse(raw);
     if(!validMessages(body.messages)) return json({error:'Use 1 to 20 user/assistant messages, each up to 4,000 characters.'},400);
-    const messages=body.messages;
+    const messages: Array<{role: 'user' | 'assistant'; content: string}>=body.messages;
     const question=messages[messages.length-1];
     if(question.role!=='user') return json({error:'Last message must be from the user'},400);
     const url=Deno.env.get('SUPABASE_URL'); const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'); const anon=Deno.env.get('SUPABASE_ANON_KEY');
