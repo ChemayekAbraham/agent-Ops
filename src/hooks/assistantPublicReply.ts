@@ -9,6 +9,7 @@ export async function requestAssistantPublicReply(turns: Turn[], signal: AbortSi
   const guide = isRestrictedInternalStaffQuery(input) ? buildInternalStaffRefusalReply() : buildNexaPublicGuideReply(input);
   if (guide) { onText(guide); return guide; }
   if (!navigator.onLine) { const reply = buildNexaOfflineSalesReply(input); onText(reply); return reply; }
+  if (turns.length > 20 || turns.some(turn => turn.content.length > 4000)) throw new Error('This conversation has reached its current limit. Start a new chat to keep asking Welile.');
   const { data: { session } } = await supabase.auth.getSession();
   let response: Response;
   try {
