@@ -1,4 +1,5 @@
 # Tasks
+- [ ] RentFlow Insights: completeness-first house feeds, access-limit campaign, secure Nexa sales/escalations/learning and Meta WhatsApp provider/webhook; verify focused tests and guards. SQL remains unapplied; Meta credentials required.
 - [x] Removed the product tabs and product detail section from CFO Payables → Partner Products and Services, leaving only the Paid & Outstanding report; other categories keep their tabs and drill-down. 16 tests, typecheck and preview build pass; live signed-in check unavailable with external authentication.
 
 - [x] Match Partner Products and Services payout presentation to the supplied screenshot; preserved figures, labels, reconciliation and record actions. Seven tests and location guard pass, preview build OK; isolated desktop/mobile layout and record drill-down verified. Live signed-in verification unavailable with external authentication.
