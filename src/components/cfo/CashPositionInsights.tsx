@@ -170,7 +170,7 @@ export function CashPositionInsights({
     {
       icon: <Info className="h-4 w-4" />, tone: 'bg-info text-info-foreground',
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
-      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} over the last ${days} days`,
+      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} ${days === 1 ? 'today' : `over the last ${days} days`}`,
       go: 'cash-position',
     },
   ].filter(Boolean) as Array<{ icon: React.ReactNode; tone: string; title: string; sub: string; go: string }>;
