@@ -80,5 +80,3 @@ describe('Cash Position payout & received money reports dialog', () => {
     }
   });
 });
-
-import { within } from '@testing-library/react';
