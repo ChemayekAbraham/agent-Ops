@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
@@ -44,10 +44,11 @@ describe('Cash Position Received by / Paid by totals', () => {
     renderPanel();
     const rows = await screen.findAllByRole('button', { name: /^Total/ });
     expect(rows).toHaveLength(2);
-    expect(rows[0].textContent).toContain('UGX 2,700,000');
-    expect(rows[0].textContent).toContain('10 transactions');
-    expect(rows[1].textContent).toContain('UGX 2,500,000');
-    expect(rows[1].textContent).toContain('10 transactions');
+    const flat = (n: Element) => (n.textContent ?? '').replace(/\u00A0/g, ' ');
+    expect(flat(rows[0])).toContain('UGX 2,700,000');
+    expect(flat(rows[0])).toContain('10 transactions');
+    expect(flat(rows[1])).toContain('UGX 2,500,000');
+    expect(flat(rows[1])).toContain('10 transactions');
   });
 
   it('opens the unfiltered report when a Total row is clicked', async () => {
@@ -60,7 +61,8 @@ describe('Cash Position Received by / Paid by totals', () => {
 
   it('keeps each method row filtered to its own payment method', async () => {
     renderPanel();
-    const mobile = await screen.findByRole('button', { name: /Mobile Money/ });
+    const panel = await screen.findByLabelText('Received by');
+    const mobile = within(panel).getByRole('button', { name: /Mobile Money/ });
     fireEvent.click(mobile);
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_money_received_page',
       expect.objectContaining({ p_method: 'mobile_money' })));
