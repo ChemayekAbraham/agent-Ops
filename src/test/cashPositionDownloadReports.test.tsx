@@ -9,14 +9,14 @@ import { CashPositionDownloadReports } from '@/components/cfo/CashPositionDownlo
 
 // Same concrete figures the Cash Position breakdown panels show: Received 2,700,000 / Paid 2,500,000 across 10 each.
 const receivedTotals: Record<string, { amount: number; count: number }> = {
-  mobile_money: { amount: 2_000_000, count: 7 },
-  bank_transfer: { amount: 400_000, count: 2 },
-  cash: { amount: 300_000, count: 1 },
+  'Operational float': { amount: 2_000_000, count: 7 },
+  'Personal deposit': { amount: 400_000, count: 2 },
+  'Rent repayment': { amount: 300_000, count: 1 },
 };
 const paidTotals: Record<string, { amount: number; count: number }> = {
-  mobile_money: { amount: 1_500_000, count: 5 },
-  bank_transfer: { amount: 900_000, count: 3 },
-  cash: { amount: 100_000, count: 2 },
+  'Landlord': { amount: 1_500_000, count: 5 },
+  'Commission': { amount: 900_000, count: 3 },
+  'Wallet withdrawal': { amount: 100_000, count: 2 },
 };
 
 beforeEach(() => {
@@ -24,7 +24,7 @@ beforeEach(() => {
   mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
     if (name === 'get_cfo_money_drilldown_totals') {
       const table = args.p_kind === 'paid_out' ? paidTotals : receivedTotals;
-      const t = table[args.p_method];
+      const t = table[args.p_type];
       return { data: t ? [{ confirmed_amount: t.amount, confirmed_count: t.count }] : [], error: null };
     }
     return { data: [], error: null };
@@ -40,28 +40,32 @@ function renderDialog() {
 }
 
 describe('Cash Position payout & received money reports dialog', () => {
-  it('shows both reports with the payment-method breakdown and the totals', async () => {
+  it('shows both reports with the money-source breakdown and the totals', async () => {
     renderDialog();
-    // Both section totals resolve once the per-method breakdown queries settle.
+    // Both section totals resolve once the per-source breakdown queries settle.
     expect(await screen.findByText('UGX 2,700,000')).toBeInTheDocument();
     expect(screen.getByText('UGX 2,500,000')).toBeInTheDocument();
-    // Received section shows the method rows
+    // Received section shows the source rows
     const receivedSection = screen.getByLabelText('Received Money Report');
-    expect(receivedSection.textContent).toContain('Mobile Money');
-    expect(receivedSection.textContent).toContain('Bank Transfer');
-    expect(receivedSection.textContent).toContain('Cash');
+    expect(receivedSection.textContent).toContain('Operational float');
+    expect(receivedSection.textContent).toContain('Personal deposit');
+    expect(receivedSection.textContent).toContain('Rent repayment');
+    // Payout section shows its sources
+    const paidSection = screen.getByLabelText('Payout Money Report');
+    expect(paidSection.textContent).toContain('Landlord float');
+    expect(paidSection.textContent).toContain('Agent commission');
   });
 
-  it('opens the payout full report as an all-methods, all-time report that reconciles to the figures shown', async () => {
+  it('opens the payout full report as an all-sources, all-time report that reconciles to the figures shown', async () => {
     renderDialog();
     await screen.findByText('UGX 2,500,000');
     const paidSection = screen.getByLabelText('Payout Money Report');
     fireEvent.click(within(paidSection).getByRole('button', { name: /Open full report/ }));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_money_paid_out_page',
-      expect.objectContaining({ p_method: null })));
+      expect.objectContaining({ p_type: null })));
   });
 
-  it('exports each breakdown as a CSV that carries the method rows and totals', async () => {
+  it('exports each breakdown as a CSV that carries the source rows and totals', async () => {
     const urls: string[] = [];
     const clicks: HTMLAnchorElement[] = [];
     vi.stubGlobal('URL', { ...URL, createObjectURL: (u: string) => { urls.push(u); return u; } });

@@ -7,16 +7,16 @@ import { ArrowDownLeft, ArrowUpRight, Download, FileText } from 'lucide-react';
 import { allTime, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
-import { useMethodBreakdown, type MethodTotal } from '@/components/cfo/CashPositionBreakdowns';
+import { useSourceBreakdown, type SourceTotal } from '@/components/cfo/CashPositionBreakdowns';
 
-/** CSV summary of one report's payment-method breakdown; amounts come straight from the server totals RPC. */
-function exportBreakdownCsv(title: string, rows: MethodTotal[], total: { amount: number; count: number }) {
+/** CSV summary of one report's money-source breakdown; amounts come straight from the server totals RPC. */
+function exportBreakdownCsv(title: string, rows: SourceTotal[], total: { amount: number; count: number }) {
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const range = allTime();
   const lines = [
     [esc(title), esc('From'), esc(range.from), esc('To'), esc(range.to)].join(','),
     '',
-    [esc('Payment method'), esc('Transactions'), esc('Amount (UGX)')].join(','),
+    [esc('Money source'), esc('Transactions'), esc('Amount (UGX)')].join(','),
     ...rows.map(r => [esc(r.label), String(r.count), String(Math.round(r.amount))].join(',')),
     [esc('Total'), String(total.count), String(Math.round(total.amount))].join(','),
   ];
@@ -33,7 +33,7 @@ function ReportSection({ title, icon, tone, status, rows, loading, error, onOpen
   icon: React.ReactNode;
   tone: string;
   status: 'approved' | 'confirmed';
-  rows: MethodTotal[];
+  rows: SourceTotal[];
   loading: boolean;
   error: unknown;
   onOpenReport: (total: { amount: number; count: number }) => void;
@@ -81,25 +81,24 @@ function ReportSection({ title, icon, tone, status, rows, loading, error, onOpen
           <FileText className="mr-1 h-4 w-4" />Open full report
         </Button>
       </div>
-      <p className="mt-2 text-[10px] text-muted-foreground">The full report opens all time, every payment method, and checks itself against these figures.</p>
+      <p className="mt-2 text-[10px] text-muted-foreground">The full report opens all time, every money source, and checks itself against these figures.</p>
     </section>
   );
 }
 
-/** "Download Reports" quick action: payout and received money reports with their payment-method breakdown. */
+/** "Download Reports" quick action: payout and received money reports with their money-source breakdown. */
 export function CashPositionDownloadReports({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const received = useMethodBreakdown('received', 'approved');
-  const paidOut = useMethodBreakdown('paid_out', 'confirmed');
+  const received = useSourceBreakdown('received', 'approved');
+  const paidOut = useSourceBreakdown('paid_out', 'confirmed');
   const [reportOpen, setReportOpen] = useState<'received' | 'paid_out' | null>(null);
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
 
   const openReport = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') =>
     (total: { amount: number; count: number }) => {
       setPreset({
-        label: 'All payment methods — all time',
+        label: 'All sources — all time',
         ...allTime(),
         status,
-        method: undefined,
         expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
       });
       onOpenChange(false);
@@ -112,7 +111,7 @@ export function CashPositionDownloadReports({ open, onOpenChange }: { open: bool
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payout &amp; Received Money Reports</DialogTitle>
-            <DialogDescription>Confirmed money in and money out, broken down by payment method, all time. Export the breakdown or open the detailed report.</DialogDescription>
+            <DialogDescription>Confirmed money in and money out, broken down by money source, all time. Export the breakdown or open the detailed report.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <ReportSection title="Received Money Report" icon={<ArrowDownLeft className="h-4 w-4" />}
@@ -131,4 +130,3 @@ export function CashPositionDownloadReports({ open, onOpenChange }: { open: bool
     </>
   );
 }
-
