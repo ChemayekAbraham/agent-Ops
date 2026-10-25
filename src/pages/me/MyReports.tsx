@@ -11,9 +11,8 @@ import {
   buildMonthPeriodWindow,
   buildWeekPeriodWindow,
   CALLING_TEAM_STAFF,
-  canAccessHrStaffReports,
   getCallingStaffByUserId,
-   getWedWeekStartYmd,
+  getWedWeekStartYmd,
   isCallingTeamHead,
   JANE_USER_ID,
   useStaffCallingReport,
@@ -26,7 +25,7 @@ import {
 } from '@/components/me/StaffCallingReportWorkspace';
 
 export default function MyReportsPage() {
-  const { user, roles } = useAuth();
+  const { user } = useAuth();
   const todayYmd = kampalaTodayYmd();
 
   const [mode, setMode] = useState<StaffReportPeriodMode>('month');
@@ -35,8 +34,6 @@ export default function MyReportsPage() {
 
   const currentStaff = useMemo(() => getCallingStaffByUserId(user?.id), [user?.id]);
   const isJaneHead = isCallingTeamHead(user?.id);
-  const isHrOrOverseer = canAccessHrStaffReports(user?.id, roles);
-  const canViewTeam = isJaneHead || isHrOrOverseer;
 
   const [activeTab, setActiveTab] = useState<string>('my');
 
@@ -45,10 +42,10 @@ export default function MyReportsPage() {
     [mode, weekStart, yearMonth, todayYmd],
   );
 
-  const canAccessPage = Boolean(currentStaff) || isHrOrOverseer;
+  // Strictly accessible to the 3 calling staff (Jane, Winnie, Hanisha)
+  const canAccessPage = Boolean(currentStaff);
   const reportQ = useStaffCallingReport(periodWindow, canAccessPage);
 
-  // Target individual staff report for the "My Calling Report" tab (defaults to Jane if opened by HR/overseer)
   const myPerson = currentStaff ?? CALLING_TEAM_STAFF.find((s) => s.id === JANE_USER_ID)!;
   const myReportData = useMemo(
     () => reportQ.data?.perStaff.find((s) => s.person.id === myPerson.id) ?? null,
@@ -58,13 +55,13 @@ export default function MyReportsPage() {
   if (!canAccessPage) {
     return (
       <PersonalLayout title="My reports">
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="flex items-center gap-3 p-6 text-sm text-destructive">
+        <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive sm:p-6">
             <ShieldAlert className="h-5 w-5 shrink-0" />
             <div>
-              <p className="font-semibold">My Calling Reports is restricted to the Calling & Pipeline Team</p>
+              <p className="font-semibold">My Calling Reports is restricted to the Calling &amp; Pipeline Team</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                This workspace is available to Jane, Winnie, Hanisha, and HR / Operations oversight.
+                This workspace is strictly available to Jane, Winnie, and Hanisha in their personal My Space.
               </p>
             </div>
           </CardContent>
@@ -75,26 +72,25 @@ export default function MyReportsPage() {
 
   return (
     <PersonalLayout title="My reports">
-      <div className="space-y-5">
-        {/* Page Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileBarChart className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-bold tracking-tight sm:text-xl">
-                My Calling & Pipeline Feedback Reports
-              </h1>
-              {isJaneHead && (
-                <Badge variant="secondary" className="border-primary/30 bg-primary/10 text-primary">
-                  Team Head (Jane)
-                </Badge>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-              Every call, verified phone number, and Rent Plan pipeline feedback across Tenant Ops & Landlord Ops
-              (Calling Centers & Rent Pipelines). Filter by Wednesday–Tuesday week or specific calendar month.
-            </p>
+      <div className="space-y-4 sm:space-y-5">
+        {/* Mobile-First Header */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileBarChart className="h-4 w-4" />
+            </span>
+            <h1 className="text-base font-bold tracking-tight sm:text-xl">
+              My Calling &amp; Pipeline Reports
+            </h1>
+            <Badge variant="secondary" className="border-primary/30 bg-primary/10 text-[11px] font-semibold text-primary">
+              {isJaneHead ? 'Team Head (Jane)' : myPerson.short}
+            </Badge>
           </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            {isJaneHead
+              ? 'View your personal calling report, the General Team report, and individual reports for Winnie and Hanisha across Tenant Ops & Landlord Ops.'
+              : `Your verified calling & Rent Plan pipeline feedback report (${myPerson.display}) across Tenant Ops & Landlord Ops.`}
+          </p>
         </div>
 
         {/* Period Selector Bar (Week Wed-Tue & Specific Month) */}
@@ -113,17 +109,17 @@ export default function MyReportsPage() {
         {/* Loading / Error / Content */}
         {reportQ.isLoading ? (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-xl" />
+                <Skeleton key={i} className="h-24 w-full rounded-2xl" />
               ))}
             </div>
-            <Skeleton className="h-72 w-full rounded-xl" />
-            <Skeleton className="h-96 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            <Skeleton className="h-80 w-full rounded-2xl" />
           </div>
         ) : reportQ.isError ? (
-          <Card className="border-destructive/30 bg-destructive/5">
-            <CardContent className="flex items-center gap-3 p-6 text-sm text-destructive">
+          <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
+            <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive">
               <AlertCircle className="h-5 w-5 shrink-0" />
               <div>
                 <p className="font-semibold">Could not load calling report</p>
@@ -134,41 +130,54 @@ export default function MyReportsPage() {
             </CardContent>
           </Card>
         ) : reportQ.data ? (
-          canViewTeam ? (
+          isJaneHead ? (
+            /* Jane (Head) sees her own report + General Team tab + Winnie & Hanisha tabs */
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="flex h-auto flex-wrap justify-start gap-1.5 bg-muted/60 p-1.5">
-                <TabsTrigger value="my" className="gap-1.5 text-xs sm:text-sm">
-                  <UserCheck className="h-3.5 w-3.5" />
-                  My Calling Report ({myPerson.short})
-                  {myReportData && (
-                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
-                      {myReportData.stats.total}
+              <div className="-mx-1 overflow-x-auto px-1 pb-1">
+                <TabsList className="inline-flex h-auto min-w-full justify-start gap-1.5 rounded-2xl border border-border/70 bg-muted/50 p-1.5 sm:min-w-0 sm:flex-wrap">
+                  <TabsTrigger
+                    value="my"
+                    className="min-h-[38px] shrink-0 gap-1.5 rounded-xl px-3 text-xs font-semibold data-[state=active]:shadow-sm sm:text-sm"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" />
+                    <span>My Report ({myPerson.short})</span>
+                    {myReportData && (
+                      <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                        {myReportData.stats.total}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="general"
+                    className="min-h-[38px] shrink-0 gap-1.5 rounded-xl px-3 text-xs font-semibold data-[state=active]:shadow-sm sm:text-sm"
+                  >
+                    <Users className="h-3.5 w-3.5" />
+                    <span>General Team</span>
+                    <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                      {reportQ.data.stats.total}
                     </Badge>
-                  )}
-                </TabsTrigger>
+                  </TabsTrigger>
 
-                <TabsTrigger value="general" className="gap-1.5 text-xs sm:text-sm">
-                  <Users className="h-3.5 w-3.5" />
-                  General Team Report (Jane, Winnie & Hanisha)
-                  <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
-                    {reportQ.data.stats.total}
-                  </Badge>
-                </TabsTrigger>
-
-                {CALLING_TEAM_STAFF.filter((s) => s.id !== myPerson.id).map((s) => {
-                  const sData = reportQ.data.perStaff.find((p) => p.person.id === s.id);
-                  return (
-                    <TabsTrigger key={s.id} value={s.id} className="gap-1.5 text-xs sm:text-sm">
-                      {s.short}&apos;s Report
-                      {sData && (
-                        <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px]">
-                          {sData.stats.total}
-                        </Badge>
-                      )}
-                    </TabsTrigger>
-                  );
-                })}
-              </TabsList>
+                  {CALLING_TEAM_STAFF.filter((s) => s.id !== myPerson.id).map((s) => {
+                    const sData = reportQ.data.perStaff.find((p) => p.person.id === s.id);
+                    return (
+                      <TabsTrigger
+                        key={s.id}
+                        value={s.id}
+                        className="min-h-[38px] shrink-0 gap-1.5 rounded-xl px-3 text-xs font-semibold data-[state=active]:shadow-sm sm:text-sm"
+                      >
+                        <span>{s.short}&apos;s Report</span>
+                        {sData && (
+                          <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                            {sData.stats.total}
+                          </Badge>
+                        )}
+                      </TabsTrigger>
+                    );
+                  })}
+                </TabsList>
+              </div>
 
               <TabsContent value="my" className="mt-0">
                 {myReportData && (
@@ -196,6 +205,7 @@ export default function MyReportsPage() {
               })}
             </Tabs>
           ) : (
+            /* Winnie and Hanisha see ONLY their own report */
             myReportData && (
               <IndividualStaffReportPanel data={myReportData} periodWindow={periodWindow} />
             )

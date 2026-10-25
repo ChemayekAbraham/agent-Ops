@@ -8,7 +8,6 @@ import {
   AlertCircle,
   ClipboardList,
   FileDown,
-  Filter,
   Loader2,
   PhoneCall,
   ShieldAlert,
@@ -49,6 +48,7 @@ export default function StaffReportsPage() {
   const [yearMonth, setYearMonth] = useState<string>(() => todayYmd.slice(0, 7) || '2026-10');
   const [exportingAll, setExportingAll] = useState(false);
 
+  // Strictly gated to HR Mark Bwayo
   const canAccess = canAccessHrStaffReports(user?.id, roles);
 
   const periodWindow = useMemo(
@@ -77,13 +77,13 @@ export default function StaffReportsPage() {
   if (!canAccess) {
     return (
       <PersonalLayout title="Staff reports">
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="flex items-center gap-3 p-6 text-sm text-destructive">
+        <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
+          <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive sm:p-6">
             <ShieldAlert className="h-5 w-5 shrink-0" />
             <div>
-              <p className="font-semibold">Staff Reports is restricted to HR & Executive Oversight</p>
+              <p className="font-semibold">Staff Reports is restricted to HR (Mark Bwayo)</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Only HR (Mark Bwayo) and authorized management roles can view and export staff calling reports.
+                This My Space page is exclusively available to HR Mark Bwayo.
               </p>
             </div>
           </CardContent>
@@ -94,39 +94,44 @@ export default function StaffReportsPage() {
 
   return (
     <PersonalLayout title="Staff reports">
-      <div className="space-y-5">
-        {/* Page Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" />
-              <h1 className="text-lg font-bold tracking-tight sm:text-xl">HR Staff Reports</h1>
-              <Badge variant="secondary" className="border-primary/30 bg-primary/10 text-primary">
-                HR & Management
-              </Badge>
-            </div>
-            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-              Review weekly (Wednesday–Tuesday) and monthly staff performance, call logs, verified phone numbers, and
-              Rent Plan pipeline feedback with branded PDF exports.
-            </p>
+      <div className="space-y-4 sm:space-y-5">
+        {/* Mobile-First Page Header */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <ClipboardList className="h-4 w-4" />
+            </span>
+            <h1 className="text-base font-bold tracking-tight sm:text-xl">HR Staff Reports</h1>
+            <Badge variant="secondary" className="border-primary/30 bg-primary/10 text-[11px] font-semibold text-primary">
+              HR &bull; Mark Bwayo
+            </Badge>
           </div>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            Review weekly (Wednesday&ndash;Tuesday) and monthly staff performance, call logs, verified phone numbers, and
+            Rent Plan pipeline feedback with branded PDF exports.
+          </p>
         </div>
 
         {/* Top-Level Category Tabs (Call Center Reports) */}
         <Tabs value={sectionTab} onValueChange={setSectionTab} className="space-y-4">
-          <TabsList className="flex h-auto flex-wrap justify-start gap-1.5 bg-muted/60 p-1.5">
-            <TabsTrigger value="call-center" className="gap-2 text-xs sm:text-sm">
-              <PhoneCall className="h-3.5 w-3.5" />
-              Call Center Reports (Jane, Winnie, Hanisha & General)
-              {reportQ.data && (
-                <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
-                  {reportQ.data.stats.total.toLocaleString()} calls
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <TabsList className="inline-flex h-auto min-w-full justify-start gap-1.5 rounded-2xl border border-border/70 bg-muted/50 p-1.5 sm:min-w-0">
+              <TabsTrigger
+                value="call-center"
+                className="min-h-[38px] shrink-0 gap-2 rounded-xl px-3.5 text-xs font-semibold data-[state=active]:shadow-sm sm:text-sm"
+              >
+                <PhoneCall className="h-3.5 w-3.5" />
+                <span>Call Center Reports</span>
+                {reportQ.data && (
+                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-[10px] font-bold">
+                    {reportQ.data.stats.total.toLocaleString()} calls
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="call-center" className="mt-0 space-y-5">
+          <TabsContent value="call-center" className="mt-0 space-y-4 sm:space-y-5">
             {/* Period Filter Bar (Week Wed-Tue & Specific Month) */}
             <CallingReportPeriodBar
               mode={mode}
@@ -146,7 +151,7 @@ export default function StaffReportsPage() {
                     variant="secondary"
                     onClick={handleDownloadAllFourPdfs}
                     disabled={exportingAll}
-                    className="h-8 gap-1.5 text-xs font-semibold"
+                    className="h-9 flex-1 gap-1.5 rounded-xl text-xs font-semibold sm:flex-initial"
                   >
                     {exportingAll ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -159,87 +164,74 @@ export default function StaffReportsPage() {
               }
             />
 
-            {/* Staff / General Filter Bar */}
-            <div className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-3.5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Button
+            {/* Mobile-First Horizontally Scrollable Staff / General Switcher */}
+            <div className="-mx-1 overflow-x-auto px-1 pb-1">
+              <div className="inline-flex min-w-full items-center gap-1.5 rounded-2xl border border-border/70 bg-card p-1.5 shadow-sm sm:min-w-0 sm:flex-wrap">
+                <button
                   type="button"
-                  size="sm"
-                  variant={staffView === 'general' ? 'default' : 'outline'}
                   onClick={() => setStaffView('general')}
-                  className="h-8 gap-1.5 text-xs"
+                  className={`inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                    staffView === 'general'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                  }`}
                 >
                   <Users className="h-3.5 w-3.5" />
-                  General Team Report
+                  <span>General Team</span>
                   {reportQ.data && (
                     <Badge
                       variant={staffView === 'general' ? 'secondary' : 'outline'}
-                      className="ml-1 px-1.5 py-0 text-[10px]"
+                      className="ml-0.5 px-1.5 py-0 text-[10px] font-bold"
                     >
                       {reportQ.data.stats.total}
                     </Badge>
                   )}
-                </Button>
+                </button>
 
                 {CALLING_TEAM_STAFF.map((s) => {
                   const sData = reportQ.data?.perStaff.find((p) => p.person.id === s.id);
                   const active = staffView === s.id;
                   return (
-                    <Button
+                    <button
                       key={s.id}
                       type="button"
-                      size="sm"
-                      variant={active ? 'default' : 'outline'}
                       onClick={() => setStaffView(s.id)}
-                      className="h-8 gap-1.5 text-xs"
+                      className={`inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                        active
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                      }`}
                     >
                       <UserCheck className="h-3.5 w-3.5" />
-                      {s.short} ({s.display})
+                      <span>{s.short}</span>
                       {sData && (
                         <Badge
                           variant={active ? 'secondary' : 'outline'}
-                          className="ml-1 px-1.5 py-0 text-[10px]"
+                          className="ml-0.5 px-1.5 py-0 text-[10px] font-bold"
                         >
                           {sData.stats.total}
                         </Badge>
                       )}
-                    </Button>
+                    </button>
                   );
                 })}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-                <select
-                  aria-label="Filter report by staff member"
-                  value={staffView}
-                  onChange={(e) => setStaffView(e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="general">General Team Report (All 3 Staff)</option>
-                  {CALLING_TEAM_STAFF.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.short} - {s.display}
-                    </option>
-                  ))}
-                </select>
               </div>
             </div>
 
             {/* Report Content */}
             {reportQ.isLoading ? (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <Skeleton key={i} className="h-24 w-full rounded-xl" />
+                    <Skeleton key={i} className="h-24 w-full rounded-2xl" />
                   ))}
                 </div>
-                <Skeleton className="h-72 w-full rounded-xl" />
-                <Skeleton className="h-96 w-full rounded-xl" />
+                <Skeleton className="h-64 w-full rounded-2xl" />
+                <Skeleton className="h-80 w-full rounded-2xl" />
               </div>
             ) : reportQ.isError ? (
-              <Card className="border-destructive/30 bg-destructive/5">
-                <CardContent className="flex items-center gap-3 p-6 text-sm text-destructive">
+              <Card className="rounded-2xl border-destructive/30 bg-destructive/5">
+                <CardContent className="flex items-center gap-3 p-5 text-sm text-destructive">
                   <AlertCircle className="h-5 w-5 shrink-0" />
                   <div>
                     <p className="font-semibold">Could not load Call Center report</p>

@@ -59,24 +59,16 @@ export function isCallingTeamHead(userId: string | null | undefined): boolean {
   return userId === JANE_USER_ID;
 }
 
-const STAFF_REPORTS_ROLES: AppRole[] = [
-  'hr',
-  'super_admin',
-  'coo',
-  'ceo',
-  'cfo',
-  'manager',
-  'operations',
-];
-
+/**
+ * Strictly gated to HR Mark Bwayo (`fe1e9f51-a2c3-49fc-bd40-b2c143afe628`)
+ * so no other user sees "Staff reports" in their personal My Space.
+ */
 export function canAccessHrStaffReports(
   userId: string | null | undefined,
-  roles: AppRole[] | null | undefined,
+  _roles?: AppRole[] | null | undefined,
 ): boolean {
   if (!userId) return false;
-  if (userId === MARK_BWAYO_USER_ID) return true;
-  if (!roles || roles.length === 0) return false;
-  return roles.some((r) => STAFF_REPORTS_ROLES.includes(r));
+  return userId === MARK_BWAYO_USER_ID;
 }
 
 /**

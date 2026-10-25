@@ -57,7 +57,7 @@ describe('staffCallingReport helpers & PDF generation', () => {
     expect(win.shortLabel).toBe('October 2026');
   });
 
-  it('gates My Reports to the 3 calling staff (with Jane as head) and Staff Reports to HR / Mark Bwayo', () => {
+  it('gates My Reports strictly to the 3 calling staff (with Jane as head) and Staff Reports strictly to HR Mark Bwayo', () => {
     expect(isCallingTeamStaff(JANE_USER_ID)).toBe(true);
     expect(isCallingTeamStaff(WINNIE_USER_ID)).toBe(true);
     expect(isCallingTeamStaff(HANISHA_USER_ID)).toBe(true);
@@ -65,9 +65,11 @@ describe('staffCallingReport helpers & PDF generation', () => {
 
     expect(isCallingTeamHead(JANE_USER_ID)).toBe(true);
     expect(isCallingTeamHead(WINNIE_USER_ID)).toBe(false);
+    expect(isCallingTeamHead(HANISHA_USER_ID)).toBe(false);
 
     expect(canAccessHrStaffReports(MARK_BWAYO_USER_ID, ['employee'])).toBe(true);
-    expect(canAccessHrStaffReports('00000000-0000-0000-0000-000000000001', ['hr'])).toBe(true);
+    expect(canAccessHrStaffReports('00000000-0000-0000-0000-000000000001', ['hr', 'super_admin', 'ceo'])).toBe(false);
+    expect(canAccessHrStaffReports(JANE_USER_ID, ['operations'])).toBe(false);
     expect(canAccessHrStaffReports(WINNIE_USER_ID, ['tenant_ops'])).toBe(false);
   });
 
