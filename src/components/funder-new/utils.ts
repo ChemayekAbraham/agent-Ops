@@ -15,7 +15,8 @@ export * from '@/lib/funderHouseSort';
 
 type OpportunitySort = 'urgent' | 'rent-asc' | 'rent-desc' | 'return-desc' | 'newest';
 export function sortOpportunities<T extends object>(items: readonly T[], sort?: OpportunitySort | ((a: T, b: T) => number)): T[] {
-  if (typeof sort === 'function' || !sort) return sortFunderHousesByCompleteness(items, sort);
+  if (typeof sort === 'function') return sortFunderHousesByCompleteness(items, sort);
+  if (!sort) return sortFunderHousesByCompleteness(items);
   const value = (item:T, key:string) => Number((item as Record<string,unknown>)[key] ?? 0) || 0;
   const amount = (item:T) => value(item,'funding_amount') || value(item,'rent_amount') || value(item,'monthly_rent');
   const created = (item:T) => Date.parse(String((item as Record<string,unknown>).created_at ?? '')) || 0;
