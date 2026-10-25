@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWelileAI } from '@/hooks/useWelileAI';
 
 const { getSession, signInWithPassword } = vi.hoisted(() => ({getSession:vi.fn(),signInWithPassword:vi.fn()}));
-vi.mock('@/integrations/supabase/client', () => ({supabase:{auth:{getSession,signInWithPassword}}}));
+vi.mock('@/integrations/supabase/client', () => ({supabase:{auth:{getSession,signInWithPassword},from:() => ({select:() => ({eq:() => ({eq:() => ({limit:async () => ({data:[],error:null})})})})})}}));
 
 describe('Nexa inquiry signup session safety', () => {
   beforeEach(() => {
