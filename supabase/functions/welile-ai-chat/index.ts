@@ -48,8 +48,8 @@ Deno.serve(async req => {
     }
     const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).in('role_scope',scopes).order('created_at',{ascending:false}).limit(20);
     const key=Deno.env.get('LOVABLE_API_KEY'); if(!key) return json({error:'AI not configured'},503);
-    const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:[{role:'system',content:NEXA_SALES_PROMPT+knowledgeContext(knowledge ?? [])},...messages],stream:true}),signal:AbortSignal.timeout(45000)});
-    if(!response.ok) return json({error:response.status===429?'Please try again shortly':'AI temporarily unavailable'},response.status===429?429:503);
+    const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:[{role:'system',content:NEXA_SALES_PROMPT+knowledgeContext(knowledge ?? [])},...messages],stream:true})});
+    if(!response.ok) return json({error:response.status===429?'Please try again shortly':response.status===402?'AI credits are unavailable. Check Plans & credits.':response.status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},response.status>=400&&response.status<500?response.status:503);
     return new Response(response.body,{headers:{...corsHeaders,'Content-Type':'text/event-stream'}});
   } catch { return json({error:'Unable to answer right now'},500); }
 });

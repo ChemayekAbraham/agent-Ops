@@ -51,6 +51,7 @@ export function useWelileAI() {
     }));
 
     let assistantContent = '';
+    let httpFailed = false;
     const controller = new AbortController();
     abortRef.current = controller;
 
@@ -72,6 +73,7 @@ export function useWelileAI() {
       });
 
       if (!resp.ok) {
+        httpFailed = true;
         const err = await resp.json().catch(() => ({ error: 'Failed' }));
         throw new Error(err.error || `Error ${resp.status}`);
       }
@@ -126,7 +128,7 @@ export function useWelileAI() {
       console.error('Welile AI error:', e);
       toast.error(e.message || 'Failed to get AI response');
       setMessages(prev => prev.filter(m => m.id !== 'streaming'));
-      if (!isNexaHumanEscalationRequest(input) && !assistantContent) {
+      if (!httpFailed && !isNexaHumanEscalationRequest(input) && !assistantContent) {
         setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input), created_at:new Date().toISOString() }]);
       } else if (isNexaHumanEscalationRequest(input)) {
         setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:'Your request was not confirmed as sent. Please try again or contact Welile support.', created_at:new Date().toISOString() }]);
