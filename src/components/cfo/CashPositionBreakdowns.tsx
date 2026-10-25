@@ -14,7 +14,7 @@ const METHODS = [
   { key: 'cash', label: 'Cash' },
 ] as const;
 
-type MethodTotal = { key: string; label: string; amount: number; count: number };
+export type MethodTotal = { key: string; label: string; amount: number; count: number };
 
 const rangeArgs = () => {
   const range = allTime();
@@ -27,7 +27,7 @@ const rangeArgs = () => {
   };
 };
 
-function useMethodBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') {
+export function useMethodBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') {
   return useQuery({
     queryKey: ['cfo-cash-position-method-breakdown', kind],
     retry: cfoReportRetry,
