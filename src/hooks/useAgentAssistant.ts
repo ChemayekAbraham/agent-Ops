@@ -11,9 +11,9 @@ import { toAuthGatedUrl } from '@/lib/nexaSalesEngine';
  * Data hook for the agent assistant (read-only personal assistant). Logic only; presentation is
  * the chat component's job.
  *
- * Everything goes through the `agent-assistant` edge function. The client sends ONLY the new
- * message and the server-issued conversation id: no history, role, persona or user id. The
- * server verifies the JWT, gates on agent status, owns the history and logs for the CRM.
+ * Personal work uses agent-assistant with server-owned history and JWT checks. Public turns
+ * use the existing Nexa boundary with a separate complete public transcript; private replies
+ * never enter that transcript. No client-provided role or user id can authorize account reads.
  */
 
 export type AssistantOutcome =
@@ -119,7 +119,7 @@ export function useAgentAssistant() {
     const generation = generationRef.current;
     const result = await captureSmartLocation();
     if (generation !== generationRef.current) return;
-    if (result.ok) {
+    if (result.ok === true) {
       geoRef.current = { lat: result.latitude, lng: result.longitude, accuracy_m: result.accuracy };
       setLocationStatus('granted');
     } else setLocationStatus(result.reason === 'denied' ? 'denied' : 'unavailable');
@@ -149,7 +149,7 @@ export function useAgentAssistant() {
             ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
             client_context: { device: collectDevice(), ...(geoRef.current ? { geo: geoRef.current } : {}) },
           },
-        });
+        }).catch(() => ({ data: null, error: new Error(FALLBACK_ERROR) }));
         const res = await readResponse(data, error);
         if (generation !== generationRef.current) return;
         if (res.conversation_id) {

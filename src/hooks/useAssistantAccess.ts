@@ -3,12 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * Whether the assistant is visible for the signed-in user.
+ * Public assistant visibility is unconditional; only live personal telemetry is gated.
  *
  * The answer comes from the server, never from an email or role in the browser: sign-in is
  * phone-based, so the signed-in email is a synthetic address, and anything computed in the
- * browser can be edited. The server says the assistant is visible to anyone signed in; it fails
- * closed, so while loading, or on any error, `enabled` is false.
+ * browser can be edited. The server check fails closed for isAgentAccess, not launcher visibility.
  *
  * `reason` says whether this account has agent data behind the chat ('ok' vs 'not_an_agent').
  * It never hides the button — the assistant's own answers and the support route cover both.
