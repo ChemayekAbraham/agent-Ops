@@ -38,7 +38,7 @@ export interface AssistantChatSurfaceProps {
 export function AssistantChatSurface({ open, onOpenChange, initialRole, signupSource, referralCode }: AssistantChatSurfaceProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const { messages, isLoading, send, reset, escalate, escalated, locationStatus, requestLocation } = useAgentAssistant();
+  const { messages, isLoading, send, reset, stop, escalate, escalated, locationStatus, requestLocation } = useAgentAssistant();
   const [text, setText] = useState('');
   const [hubOpen, setHubOpen] = useState(false);
   const [starterTab, setStarterTab] = useState<'public' | 'work'>('public');
@@ -67,7 +67,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole, signupSo
   };
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(820px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[600px] rounded-2xl'}`}>
-      <SheetHeader className="flex flex-row items-center gap-0.5 space-y-0 border-b border-border px-3 py-2 text-left">
+      <SheetHeader className="flex flex-row items-center gap-0.5 space-y-0 border-b border-border px-3 py-2 text-left [&>button:first-child]:hidden">
         <div className="min-w-0 flex-1">
           <Button variant="ghost" className="h-auto min-h-0 justify-start gap-1 px-1 py-1 text-[15px]" onClick={() => setStarterTab(tab => tab === 'public' ? 'work' : 'public')}>
             <SheetTitle className="text-[15px] font-semibold">Welile Assistant</SheetTitle><ChevronDown className="h-3 w-3" /><span className="h-1.5 w-1.5 rounded-full bg-success" />
@@ -83,7 +83,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole, signupSo
         </DropdownMenuContent></DropdownMenu>
         <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Close assistant" onClick={() => onOpenChange(false)}><X /></Button>
       </SheetHeader>
-      <Conversation className="min-h-0 flex-1" aria-live="polite">
+      <Conversation initial={false} resize={messages.length ? 'smooth' : false} className="min-h-0 flex-1" aria-live="polite">
         <ConversationContent className="gap-5 px-4 py-5">
           {messages.length === 0 && <div className="flex flex-col items-center py-5 text-center">
             <span className="assistant-emblem mb-3 flex h-11 w-11 items-center justify-center rounded-full"><Sparkles className="h-6 w-6" /></span>
@@ -117,7 +117,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole, signupSo
           <PromptInputTextarea ref={inputRef} value={text} onChange={event => { setText(event.target.value); event.target.style.height = 'auto'; event.target.style.height = `${Math.min(event.target.scrollHeight, 128)}px`; }} maxLength={500} rows={1} placeholder="Ask anything about Welile or your work..." aria-label="Message the assistant" className="min-h-11 px-4 py-3 text-base md:text-[15px]" />
           <PromptInputFooter className="justify-between px-2 pb-2 pt-0">
             <Button type="button" variant="ghost" size="icon-sm" className="rounded-full" aria-label="Share my location (optional)" title={locationStatus === 'granted' ? 'Location shared' : 'Share my location (optional)'} disabled={locationStatus === 'requesting'} onClick={() => void requestLocation()}>{locationStatus === 'granted' ? <Check className="text-success" /> : <MapPin />}</Button>
-            <PromptInputSubmit status={isLoading ? 'submitted' : 'ready'} disabled={!text.trim() || isLoading} className="assistant-send h-9 w-9 min-h-9 min-w-9 rounded-full p-0" aria-label="Send message"><ArrowUp /></PromptInputSubmit>
+            <PromptInputSubmit status={isLoading ? 'submitted' : 'ready'} onStop={stop} disabled={!isLoading && !text.trim()} className="assistant-send h-9 w-9 min-h-9 min-w-9 rounded-full p-0" aria-label={isLoading ? 'Stop response' : 'Send message'}>{!isLoading && <ArrowUp />}</PromptInputSubmit>
           </PromptInputFooter>
         </PromptInput>
         {(locationStatus === 'denied' || locationStatus === 'unavailable') && <p role="status" className="mt-1 text-center text-xs text-muted-foreground">Location not shared. You can still chat.</p>}

@@ -227,6 +227,13 @@ export function useAgentAssistant() {
     [append, user],
   );
 
+  const stop = useCallback(() => {
+    generationRef.current += 1;
+    abortRef.current?.abort();
+    inFlightRef.current = false;
+    setIsLoading(false);
+  }, []);
+
   /** Start over locally. The server also rotates sessions after 30 idle minutes. */
   const reset = useCallback(() => {
     generationRef.current += 1;
@@ -243,5 +250,5 @@ export function useAgentAssistant() {
 
   useEffect(() => { reset(); return () => { generationRef.current += 1; abortRef.current?.abort(); }; }, [user?.id, reset]);
 
-  return { messages, isLoading, escalated, locationStatus, requestLocation, send, escalate, reset };
+  return { messages, isLoading, escalated, locationStatus, requestLocation, send, escalate, reset, stop };
 }
