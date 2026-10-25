@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { MoveInOfferBadge } from '@/components/house/MoveInOfferBadge';
 import { ShareHouseButton } from '@/components/tenant/ShareHouseButton';
+import { compareFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 interface House {
   id: string;
@@ -361,6 +362,8 @@ export function FunderDirectHouseListing() {
     }
 
     result.sort((a, b) => {
+      const completeness = compareFunderHousesByCompleteness(a, b);
+      if (completeness) return completeness;
       if (sortBy === 'newest') {
         return (
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()

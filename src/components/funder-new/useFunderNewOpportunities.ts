@@ -9,6 +9,7 @@ import type {
   FunderNewReadyPlan,
 } from './types';
 import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -111,7 +112,7 @@ export function useFunderNewEmptyHouses(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
 
     getNextPageParam: (lastPage, allPages) => {
@@ -169,7 +170,7 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
       const plans = Array.isArray(payload.plans) ? (payload.plans as FunderNewReadyPlan[]) : [];
       const filtered = plans.filter((plan) => matchesReadyPlanSearch(plan, filters));
       return {
-        items: filtered,
+        items: sortFunderHousesByCompleteness(filtered),
         total: toNumber(payload.total) || plans.length,
         limitation: filters.search.trim()
           ? 'Tenant-ready search is applied to the results already loaded, because this read service supports city and amount only.'
@@ -236,7 +237,7 @@ export function useFunderNewMapHouses(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
@@ -286,7 +287,7 @@ export function useFunderNewRecommendations(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
