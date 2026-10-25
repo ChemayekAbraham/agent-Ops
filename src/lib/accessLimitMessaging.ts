@@ -4,6 +4,8 @@ export { RENT_ACCESS_MAX_LIMIT_UGX, RENT_ACCESS_PAID_INCREMENT_UGX, RENT_ACCESS_
 export const ACCESS_LIMIT_MAX_UGX = RENT_ACCESS_MAX_LIMIT_UGX;
 export const ACCESS_LIMIT_DAILY_GROWTH_UGX = RENT_ACCESS_PAID_INCREMENT_UGX;
 export const ACCESS_LIMIT_MISSED_DAY_REDUCTION_UGX = RENT_ACCESS_MISSED_DECREMENT_UGX;
+export const ACCESS_LIMIT_MISSED_DROP_UGX = ACCESS_LIMIT_MISSED_DAY_REDUCTION_UGX;
+export const ACCESS_LIMIT_MIN_UGX = 30_000;
 export const formatAccessUgx = formatFixedUGX;
 export function toWhatsAppPhone(phone?: string | null): string | null {
   let digits = (phone ?? '').replace(/\D/g, '');
@@ -37,6 +39,10 @@ function email(agent: boolean): AccessLimitEmail {
 }
 export const buildTenantAccessLimitEmail = () => email(false);
 export const buildAgentAccessLimitEmail = () => email(true);
+export const buildTenantAccessLimitSmsCopy = buildTenantAccessLimitSms;
+export const buildAgentAccessLimitSmsCopy = buildAgentAccessLimitSms;
+export const buildTenantAccessLimitEmailTemplate = buildTenantAccessLimitEmail;
+export const buildAgentAccessLimitEmailTemplate = buildAgentAccessLimitEmail;
 export function buildAccessLimitMailtoHref(to: string, message: AccessLimitEmail = buildTenantAccessLimitEmail()): string {
   const emailAddress = /^[^\s@?&#]+@[^\s@?&#]+\.[^\s@?&#]+$/.test(to) ? to : '';
   return `mailto:${emailAddress}?subject=${encodeURIComponent(message.subject)}&body=${encodeURIComponent(message.text)}`;
