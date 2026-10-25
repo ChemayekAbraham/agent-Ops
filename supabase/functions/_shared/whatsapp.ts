@@ -14,18 +14,21 @@ export async function sendViaMetaCloudApi(phone:string,body:string,opts?:WhatsAp
   if(!/^\d+$/.test(id)) return {ok:false,error:'invalid_meta_sender'};
   const to=toMetaRecipient(phone); if(!to) return {ok:false,error:'invalid_phone'};
   async function send(payload:unknown) {
-    const response=await fetch(`https://graph.facebook.com/v23.0/${id}/messages`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});
+    const response=await fetch(`https://graph.facebook.com/v21.0/${id}/messages`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(15000)});
     const data=await response.json().catch(()=>({}));
     return {response,data};
   }
   try {
-    let result=await send({messaging_product:'whatsapp',to,type:'text',text:{body}});
+    const templatePayload = (name:string) => {
+      const parameters=opts?.templateParameters ?? Object.values(opts?.contentVariables ?? {});
+      return {messaging_product:'whatsapp',to,type:'template',template:{name,language:{code:opts?.templateLanguage ?? Deno.env.get('META_WHATSAPP_TEMPLATE_LANGUAGE') ?? 'en'},...(parameters.length?{components:[{type:'body',parameters:parameters.map(text=>({type:'text',text}))}]}:{})}};
+    };
+    let result=await send(opts?.templateName ? templatePayload(opts.templateName) : {messaging_product:'whatsapp',to,type:'text',text:{preview_url:true,body}});
     // Only a definitive closed-service-window rejection warrants a template send.
-    if(!result.response.ok && Number(result.data.error?.code)===131047) {
+    if(!opts?.templateName && !result.response.ok && Number(result.data.error?.code)===131047) {
       const name=opts?.templateName ?? Deno.env.get('META_WHATSAPP_FALLBACK_TEMPLATE');
       if(!name) return {ok:false,error:'meta_template_required'};
-      const parameters=opts?.templateParameters ?? Object.values(opts?.contentVariables ?? {});
-      result=await send({messaging_product:'whatsapp',to,type:'template',template:{name,language:{code:opts?.templateLanguage ?? Deno.env.get('META_WHATSAPP_TEMPLATE_LANGUAGE') ?? 'en'},...(parameters.length?{components:[{type:'body',parameters:parameters.map(text=>({type:'text',text}))}]}:{})}});
+      result=await send(templatePayload(name));
     }
     if(!result.response.ok) return {ok:false,error:`meta_rejected_${result.data.error?.code ?? result.response.status}`,provider:'meta'};
     return {ok:true,sid:result.data.messages?.[0]?.id ?? null,provider:'meta'};
