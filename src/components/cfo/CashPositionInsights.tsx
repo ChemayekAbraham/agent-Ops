@@ -201,17 +201,17 @@ export function CashPositionInsights({
                 <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
-          <div className="h-40">
+          <div className="h-64">
             {flow.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
-                  <YAxis tick={{ fontSize: 10 }} width={44} tickFormatter={short} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[2, 2, 0, 0]} />
-                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 8, bottom: 4 }} barCategoryGap="28%" barGap={3}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                  <YAxis tick={{ fontSize: 11 }} width={52} tickFormatter={short} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
+                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[3, 3, 0, 0]} maxBarSize={22} />
+                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}
