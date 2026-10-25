@@ -54,7 +54,7 @@ export function buildNexaSalesContextPrompt(userText = ''): string {
 }
 export function buildNexaOfflineSalesReply(input: string, isAuthenticated = false): string {
   if (isRestrictedInternalStaffQuery(input)) return buildInternalStaffRefusalReply();
-  const guide = buildNexaPublicGuideReply(input);
+  const guide = buildNexaPublicGuideReply(input, isAuthenticated);
   if (guide) return guide;
   if (/founder|ceo|mission|angel pool|careers|internship|schools|medicine|catalog/i.test(input)) {
     const c = WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG;

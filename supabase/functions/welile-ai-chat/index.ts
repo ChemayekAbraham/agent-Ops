@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
+import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
 import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
@@ -42,8 +42,8 @@ Deno.serve(async req => {
     const lead = extractInquiryLeadDetails(question.content, {leadName:body.leadName,leadPhone:body.leadPhone ?? body.userPhone,leadRole:body.leadRole});
     const signup = userId ? undefined : buildInquirySignupResult(lead.role);
     const pitch = userId ? '' : `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
-    const guide = buildNexaPublicGuideReply(question.content);
-    if (guide) return sse(guide + pitch, signup);
+    const guide = buildNexaPublicGuideReply(question.content, !!userId);
+    if (guide) return sse(guide + (isFinancialAccessQuery(question.content) ? '' : pitch), signup);
     if(wantsHuman(question.content)) {
       if(!userId || !auth) return sse(`Sign in to send your question to Benjamin’s Desk and receive a private reply: ${toAuthGatedUrl('/dashboard')}. You can also contact Welile support: https://wa.me/256777607640${pitch}`, signup);
       const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});

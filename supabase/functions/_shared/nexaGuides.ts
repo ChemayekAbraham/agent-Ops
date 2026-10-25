@@ -48,14 +48,14 @@ export function isPromissoryNoteQuery(text: string): boolean {
 export function buildPromissoryNoteReminderReply(): string {
   return `If you created a **Promissory Note** (pledged support commitment), **fulfill your promissory note** by depositing into your Welile Wallet (MTN Merchant **090777** / Airtel **4380664**), then completing the support commitment on your dashboard. Alternatively, **renew/update your promissory note date** before the pledge date passes. This helps keep your matched tenant's landlord payout on schedule and your **15% monthly Returns** starting without delay, subject to funding, approval and contract terms. [Sign In / Fulfill or Renew Promissory Note](${toAuthGatedUrl('/dashboard/funder-new')}).`;
 }
-export function buildNexaPublicGuideReply(text: string): string | null {
+export function buildNexaPublicGuideReply(text: string, isAuthenticated = false): string | null {
   if (isRestrictedInternalStaffQuery(text)) return buildInternalStaffRefusalReply();
   // Wallet teaching and pledge guidance take priority over generic account words.
   if (extractPhoneNumberFromText(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
   if (isAccountOrBalanceQuery(text)) return buildAccountPhoneAndDashboardGuideReply(text);
-  if (isFinancialAccessQuery(text)) return buildFinancialAccessFallbackReply(text);
+  if (isFinancialAccessQuery(text)) return buildFinancialAccessFallbackReply(text, isAuthenticated);
   return null;
 }
 

@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
     if (turn.outcome === 'out_of_scope' || turn.outcome === 'unmatched'
       || (turn.outcome === 'not_an_agent' && (isFinancialAccessQuery(request.message) || /\bwelile\b/i.test(request.message)))) {
       // Public guidance only; preserve the outcome so clients never treat it as private data.
-      turn.reply = buildNexaPublicGuideReply(request.message) ?? buildFinancialAccessFallbackReply(request.message, true);
+      turn.reply = buildNexaPublicGuideReply(request.message, true) ?? buildFinancialAccessFallbackReply(request.message, true);
     }
 
     await logMessage({
