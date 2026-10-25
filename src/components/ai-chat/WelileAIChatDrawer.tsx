@@ -10,6 +10,7 @@ import { NexaSalesHub } from './NexaSalesHub';
 import { NexaDeskCards } from './NexaDeskCards';
 import { useAuth } from '@/hooks/useAuth';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
+import { NexaInquirySignupBar } from './NexaInquirySignupBar';
 
 const EarningPredictionCard = lazy(() => import('@/components/ai-chat/EarningPredictionCard'));
 
@@ -33,7 +34,7 @@ interface Props {
 
 export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, signupSource, referralCode }: Props) {
   const { user } = useAuth();
-  const { messages, isLoading, sendMessage, clearHistory, cancelStream } = useWelileAI();
+  const { messages, isLoading, sendMessage, clearHistory, cancelStream, signupResult } = useWelileAI();
   const landing = initialRole ? ROLE_LANDINGS[initialRole] : null;
   const roleSuggestions = landing?.suggestions ?? SUGGESTIONS;
   const roleSignupHref = landing
@@ -248,6 +249,7 @@ export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, si
               style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
             >
               <>
+                {!user && <NexaInquirySignupBar result={signupResult} initialRole={initialRole} />}
                 <NexaSalesHub onAsk={(question) => { void sendMessage(question); }} />
                 <NexaDeskCards open={open} />
                 {!hasMessages && !isLoading ? (

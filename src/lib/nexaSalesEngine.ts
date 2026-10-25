@@ -1,6 +1,7 @@
 import { calcFunderEarnings } from './funderEarnings';
 import { buildNexaPublicGuideReply, buildPromissoryNoteReminderReply, NEXA_ACTION_LINKS } from '../../supabase/functions/_shared/nexaGuides';
 export { toAuthGatedPath, toAuthGatedUrl, extractPhoneNumberFromText, isAccountOrBalanceQuery, buildAccountPhoneAndDashboardGuideReply, isWalletHowToQuery, buildWelileWalletGuideReply, isPromissoryNoteQuery, buildPromissoryNoteReminderReply, buildNexaPublicGuideReply } from '../../supabase/functions/_shared/nexaGuides';
+export { extractInquiryLeadDetails, detectInquiryIntendedRole, buildSignupPersuasionPitch, buildAutoSignupConfirmationBanner, buildInquirySignupResult, parseInquirySignupResult, type InquiryLeadOptions, type InquirySignupResult } from '../../supabase/functions/_shared/nexaSignup';
 import { calculateRentRepayment } from './rentCalculations';
 import { formatFixedUGX } from './supportPlanExample';
 import { sortFunderHousesByCompleteness } from './funderHouseSort';
