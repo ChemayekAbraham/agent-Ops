@@ -543,7 +543,7 @@ export function CFOOverviewDashboard({
             <WithdrawableCreditsLivePanel moneyWeHaveTotal={actualMoneyTotal} />
             <MoneyPaidOutCard moneyWeHaveTotal={actualMoneyTotal} />
             <SmsProvidersPaidCard onOpenReport={onTabChange ? () => onTabChange('sms-otp-costs') : undefined} />
-            <MoneyReceivedCard moneyWeHaveTotal={actualMoneyTotal} />
+            {!cashPositionOnly && <MoneyReceivedCard moneyWeHaveTotal={actualMoneyTotal} />}
           </div>
 
           {/* Transaction-level reconciliation behind Money We Can Use. */}
@@ -569,7 +569,6 @@ export function CFOOverviewDashboard({
             onSelectAccount={setActualMoneyLine}
           />
         )}
-        {cashPositionOnly && <MoneyWeCanUseBreakdown />}
 
 
         {!cashPositionOnly && <>
