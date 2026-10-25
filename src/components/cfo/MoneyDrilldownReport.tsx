@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { CheckCircle2, AlertTriangle, Download, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Download, Loader2, ArrowRightLeft, Search } from 'lucide-react';
 
 /** A preset opened from a card metric. `expected` is the figure shown on the card. */
 export type DrilldownPreset = {
@@ -182,13 +182,15 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   });
 
   const loading = q.isFetching || totalsQ.isFetching;
+  const isPayout = config.kind === 'paid_out';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{config.title}{active ? ` — ${active.label}` : ''}</DialogTitle>
-          <DialogDescription>{config.description}</DialogDescription>
+      <DialogContent className={isPayout ? 'w-[calc(100%-16px)] max-w-6xl max-h-[94vh] overflow-hidden flex flex-col gap-5 rounded-lg bg-card p-4 sm:p-5' : 'max-w-6xl max-h-[90vh] overflow-hidden flex flex-col'}>
+        <DialogHeader className={isPayout ? 'relative pl-12 pr-10 text-left space-y-1' : undefined}>
+          {isPayout && <div className="absolute left-0 top-0 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><ArrowRightLeft className="h-5 w-5" aria-hidden="true" /></div>}
+          <DialogTitle className={isPayout ? 'text-xl font-semibold leading-6 tracking-normal' : undefined}>{config.title}{active ? ` — ${active.label}` : ''}</DialogTitle>
+          <DialogDescription className={isPayout ? 'text-[11px] leading-4' : undefined}>{config.description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap gap-2">
@@ -203,13 +205,13 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             const rt = ago(r.t);
             const on = !projecting && from === rf && to === rt;
             return (
-              <Button key={r.label} type="button" size="sm" variant={on ? 'default' : 'outline'}
+              <Button key={r.label} type="button" size="sm" variant={on ? 'default' : 'outline'} className={isPayout ? 'h-9 rounded-lg px-5 text-[11px] font-medium shadow-none' : undefined}
                 onClick={() => { setProjecting(false); setFrom(rf); setTo(rt); setActive(null); setParams({ from: rf, to: rt, status, method, type, person }); }}>
                 {r.label}
               </Button>
             );
           })}
-          <Button type="button" size="sm" variant={projecting ? 'default' : 'outline'} onClick={() => setProjecting(true)}>
+          <Button type="button" size="sm" variant={projecting ? 'default' : 'outline'} className={isPayout ? 'h-9 rounded-lg px-5 text-[11px] font-medium shadow-none' : undefined} onClick={() => setProjecting(true)}>
             Next 7 days (projection)
           </Button>
         </div>
@@ -233,31 +235,31 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+        <div className={isPayout ? 'grid grid-cols-2 gap-3 items-end md:grid-cols-[1fr_1fr_1fr_1.15fr_0.82fr] [&_label]:gap-1.5 [&_label]:text-[11px]' : 'grid grid-cols-2 md:grid-cols-5 gap-2 items-end'}>
           <label className="text-xs flex flex-col">Type
-            <select className={sel} value={type} onChange={e => setType(e.target.value)}>
+            <select className={isPayout ? `${sel} w-full rounded-lg bg-card text-xs` : sel} value={type} onChange={e => setType(e.target.value)}>
               <option value="">All</option>{config.types.map(t => <option key={t}>{t}</option>)}
             </select></label>
           {config.kind !== 'credits' && (<>
           <label className="text-xs flex flex-col">Method
-            <select className={sel} value={method} onChange={e => setMethod(e.target.value)}>
+            <select className={isPayout ? `${sel} w-full rounded-lg bg-card text-xs` : sel} value={method} onChange={e => setMethod(e.target.value)}>
               <option value="">All</option><option value="mobile_money">Mobile money</option>
               <option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option>
             </select></label>
           <label className="text-xs flex flex-col">Status
-            <select className={sel} value={status} onChange={e => setStatus(e.target.value)}>
+            <select className={isPayout ? `${sel} w-full rounded-lg bg-card text-xs` : sel} value={status} onChange={e => setStatus(e.target.value)}>
               <option value="">All</option>{config.statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select></label>
           </>)}
-          <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></label>
-          <Button onClick={generate} disabled={loading}>
+          <label className={isPayout ? 'text-xs flex flex-col' : 'text-xs'}>{config.personLabel}<div className="relative">{isPayout && <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />}<Input className={isPayout ? 'h-9 rounded-lg bg-card pl-9 text-xs' : undefined} placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></div></label>
+          <Button className={isPayout ? 'h-9 rounded-lg text-xs shadow-none col-span-2 md:col-span-1' : undefined} onClick={generate} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
           </Button>
         </div>
 
         {params && (
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span>
+            <span className={isPayout ? 'font-semibold text-[13px]' : undefined}>
               {totalsQ.error ? <span className="text-destructive">{errText(totalsQ.error)}</span>
                 : !t ? <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Calculating totals…</span>
                 : <>
@@ -266,7 +268,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
                     {matchCount > rows.length && <span className="text-muted-foreground"> · showing {rows.length.toLocaleString()} (totals cover all)</span>}
                   </>}
             </span>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length || exporting}>
+            <Button size="sm" variant="outline" className={isPayout ? 'h-9 rounded-lg text-[11px] shadow-none' : undefined} onClick={exportCsv} disabled={!rows.length || exporting}>
               {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />} Export CSV
             </Button>
           </div>
@@ -277,7 +279,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
           </div>
         )}
 
-        <div className="overflow-auto flex-1 border rounded-md">
+        <div className={isPayout ? 'overflow-auto min-h-0 flex-1 border border-border rounded-lg' : 'overflow-auto flex-1 border rounded-md'}>
           {!params ? <p className="p-6 text-sm text-muted-foreground">Choose filters and tap Generate.</p>
             : q.error && !rows.length ? (
               <div className="p-6 text-sm text-destructive space-y-2">
@@ -289,14 +291,14 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             : !rows.length ? <p className="p-6 text-sm text-muted-foreground">No transactions match these filters.</p>
             : (
               <>
-                <table className="w-full text-xs">
-                  <thead className="bg-muted sticky top-0">
-                    <tr>{config.columns.map(c => <th key={c.head} className="text-left p-2 whitespace-nowrap">{c.head}</th>)}</tr>
+                <table className={isPayout ? 'w-full min-w-[1020px] text-[10px] leading-[14px]' : 'w-full text-xs'}>
+                  <thead className={isPayout ? 'bg-muted/70 sticky top-0 z-10' : 'bg-muted sticky top-0'}>
+                    <tr>{config.columns.map(c => <th key={c.head} className={isPayout ? 'text-left px-2.5 py-3 whitespace-nowrap font-semibold text-[9px]' : 'text-left p-2 whitespace-nowrap'}>{c.head}</th>)}</tr>
                   </thead>
                   <tbody>
                     {rows.map(r => (
-                      <tr key={r.id} className="border-t align-top">
-                        {config.columns.map(c => <td key={c.head} className={`p-2 ${c.className ?? ''}`}>{c.cell(r)}</td>)}
+                      <tr key={r.id} className={isPayout ? 'border-t border-border/70 align-middle hover:bg-muted/30' : 'border-t align-top'}>
+                        {config.columns.map(c => <td key={c.head} className={`${isPayout ? 'px-2.5 py-3' : 'p-2'} ${c.className ?? ''}`}>{c.cell(r)}</td>)}
                       </tr>
                     ))}
                   </tbody>
