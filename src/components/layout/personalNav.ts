@@ -19,6 +19,8 @@ import {
   UtensilsCrossed,
   ChefHat,
   Clapperboard,
+  FileBarChart,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -34,6 +36,10 @@ export interface PersonalNavItem {
   requiresFoodCoordinator?: boolean;
   /** Only shown to someone the server admits to the canteen (staff or coordinator). */
   requiresCanteen?: boolean;
+  /** Only shown to the 3 calling & pipeline staff (Jane, Winnie, Hanisha). */
+  requiresCallingStaff?: boolean;
+  /** Only shown to HR (Mark Bwayo) and management oversight roles. */
+  requiresHrStaffReports?: boolean;
 }
 
 export const PERSONAL_NAV: PersonalNavItem[] = [
@@ -46,6 +52,20 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     title: 'Concerns',
     description: 'Caller concerns forwarded to you from the Calling Center',
     requiresStaff: true,
+  },
+  {
+    to: '/me/reports',
+    icon: FileBarChart,
+    title: 'My reports',
+    description: 'Your weekly (Wed-Tue) and monthly calling & Rent Plan pipeline feedback reports with PDF export',
+    requiresCallingStaff: true,
+  },
+  {
+    to: '/me/staff-reports',
+    icon: ClipboardList,
+    title: 'Staff reports',
+    description: 'Call Center & Rent Plan pipeline reports for Jane, Winnie, Hanisha, and the General Team',
+    requiresHrStaffReports: true,
   },
   { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },

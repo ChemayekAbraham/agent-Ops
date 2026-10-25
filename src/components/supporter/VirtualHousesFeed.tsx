@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { VirtualHouseCard, VirtualHouse } from './VirtualHouseCard';
 import { Badge } from '@/components/ui/badge';
 import { Home } from 'lucide-react';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 
 interface VirtualHousesFeedProps {
@@ -16,8 +17,7 @@ export function VirtualHousesFeed({ houses, loading, onHouseTap }: VirtualHouses
   const [healthFilter, setHealthFilter] = useState<HealthFilter>('all');
 
   const filtered = useMemo(() => {
-    if (healthFilter === 'all') return houses;
-    return houses.filter(h => h.paymentHealth === healthFilter);
+    return sortFunderHousesByCompleteness(healthFilter === 'all' ? houses : houses.filter(h => h.paymentHealth === healthFilter));
   }, [houses, healthFilter]);
 
   const filters: { value: HealthFilter; label: string }[] = [

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { sortFunderHousesByCompleteness, compareFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -330,7 +331,7 @@ export function SelfPortfolioFundingCard({
       });
 
       return {
-        plans: items,
+        plans: sortFunderHousesByCompleteness(items),
         total,
         available: meta?.available ?? 0,
       };
@@ -414,7 +415,7 @@ export function SelfPortfolioFundingCard({
     const fetched = housesQuery.data?.houses ?? [];
     const seen = new Set(fetched.map((h) => h.house_id));
     const extra = Object.values(discoveredHouses).filter((h) => !seen.has(h.house_id));
-    return extra.length ? [...fetched, ...extra] : fetched;
+    return sortFunderHousesByCompleteness(extra.length ? [...fetched, ...extra] : fetched);
   }, [housesQuery.data, discoveredHouses]);
 
   // Drop picked houses that are no longer listed (already funded by someone else).
@@ -870,6 +871,8 @@ export function SelfPortfolioFundingCard({
       }
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
+      const completeness = compareFunderHousesByCompleteness(a, b);
+      if (completeness) return completeness;
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
       const distanceTo = (h: SupportableHouse) => {

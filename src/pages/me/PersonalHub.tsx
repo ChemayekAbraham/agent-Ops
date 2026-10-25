@@ -11,6 +11,8 @@ import { getMyStaff } from '@/hr/api';
 import { supabase } from '@/hr/api/client';
 import type { Employee } from '@/hr/types';
 import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
+import { useAuth } from '@/hooks/useAuth';
+import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
 
 interface HubBadge {
   label: string;
@@ -72,6 +74,7 @@ const CARDS = PERSONAL_NAV;
 
 
 const PersonalHub = () => {
+  const { user, roles } = useAuth();
   const { data: reqCounts = { pending: 0, approved: 0 } } = useQuery({
     queryKey: ['staff-requisitions-counts'],
     staleTime: 60_000,
@@ -116,7 +119,10 @@ const PersonalHub = () => {
     (card) => (!card.requiresPsoOfficer || isPsoOfficer === true)
       && (!card.requiresStaff || !!staffRecord)
       && (!card.requiresFoodCoordinator || foodStatus?.isCoordinator === true)
-      && (!card.requiresCanteen || canUseCanteen === true) && (!card.requiresTutorialAccess || tutorialAccess === true),
+      && (!card.requiresCanteen || canUseCanteen === true)
+      && (!card.requiresTutorialAccess || tutorialAccess === true)
+      && (!card.requiresCallingStaff || isCallingTeamStaff(user?.id))
+      && (!card.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles)),
   );
 
   return (

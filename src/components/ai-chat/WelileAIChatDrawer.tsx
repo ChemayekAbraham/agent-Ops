@@ -6,6 +6,10 @@ import { useWelileAI } from '@/hooks/useWelileAI';
 import ReactMarkdown from 'react-markdown';
 import ShareWelileAIBanner from './ShareWelileAIBanner';
 import { ROLE_LANDINGS, buildRoleSignupHref, type AiRole } from './roleLanding';
+import { NexaSalesHub } from './NexaSalesHub';
+import { NexaDeskCards } from './NexaDeskCards';
+import { useAuth } from '@/hooks/useAuth';
+import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 
 const EarningPredictionCard = lazy(() => import('@/components/ai-chat/EarningPredictionCard'));
 
@@ -28,11 +32,12 @@ interface Props {
 }
 
 export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, signupSource, referralCode }: Props) {
+  const { user } = useAuth();
   const { messages, isLoading, sendMessage, clearHistory, cancelStream } = useWelileAI();
   const landing = initialRole ? ROLE_LANDINGS[initialRole] : null;
   const roleSuggestions = landing?.suggestions ?? SUGGESTIONS;
   const roleSignupHref = landing
-    ? buildRoleSignupHref(landing.role, { source: signupSource, ref: referralCode })
+    ? buildRoleSignupHref(landing.role, { source: signupSource, ref: referralCode, authenticated: !!user })
     : null;
   const [input, setInput] = useState('');
   const [confirmClear, setConfirmClear] = useState(false);
@@ -143,6 +148,14 @@ export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, si
   };
 
   const hasMessages = messages.length > 0;
+  const actionHref = (href?: string) => {
+    if (!href || user) return href;
+    try {
+      const url = new URL(href, window.location.origin);
+      if (url.origin === window.location.origin || url.origin === 'https://welileapp.com') return toAuthGatedPath(url.pathname + url.search + url.hash);
+    } catch { return undefined; }
+    return href;
+  };
 
   return (
     <>
@@ -235,6 +248,8 @@ export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, si
               style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
             >
               <>
+                <NexaSalesHub onAsk={(question) => { void sendMessage(question); }} />
+                <NexaDeskCards open={open} />
                 {!hasMessages && !isLoading ? (
                   /* ─── Empty state ─── */
                   <div
@@ -318,7 +333,7 @@ export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, si
                                     components={{
                                       a: ({ href, children }) => (
                                         <a
-                                          href={href}
+                                          href={actionHref(href)}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium"
