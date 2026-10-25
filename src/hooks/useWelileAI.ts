@@ -2,7 +2,7 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { buildNexaOfflineSalesReply, isNexaHumanEscalationRequest, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, type NexaLearnedKnowledge } from '@/lib/nexaSalesEngine';
+import { buildNexaOfflineSalesReply, buildNexaPublicGuideReply, isNexaHumanEscalationRequest, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, type NexaLearnedKnowledge } from '@/lib/nexaSalesEngine';
 
 export interface AIChatMessage {
   id: string;
@@ -45,6 +45,11 @@ export function useWelileAI() {
     setMessages(prev => [...prev, userMsg]);
     if (isRestrictedInternalStaffQuery(input)) {
       setMessages(prev => [...prev, {id:safeUUID(),role:'assistant',content:buildInternalStaffRefusalReply(),created_at:new Date().toISOString()}]);
+      return;
+    }
+    const guide = buildNexaPublicGuideReply(input);
+    if (guide) {
+      setMessages(prev => [...prev, {id:safeUUID(),role:'assistant',content:guide,created_at:new Date().toISOString()}]);
       return;
     }
     setIsLoading(true);

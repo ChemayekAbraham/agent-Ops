@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
 import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
@@ -42,13 +43,16 @@ Deno.serve(async req => {
         // A WhatsApp number is a contact channel, NOT an authenticated app identity.
         // Never attach private in-app data based on a phone match alone.
         let answer:string;
+        const guide = buildNexaPublicGuideReply(text);
         if(isRestrictedInternalStaffQuery(text)) {
           answer=buildInternalStaffRefusalReply();
+        } else if(guide) {
+          answer=guide;
         } else if(wantsHuman(text)) {
           const {error}=await admin.from('nexa_human_escalations').insert({user_id:null,user_phone:`+${msg.from}`,user_role:'whatsapp_contact',user_question:text,conversation_context:[],provider_message_id:msg.id});
           if(error?.code==='23505') {seen.set(msg.id,now);continue;}
           if(error) return reply('Escalation unavailable',503);
-          answer='Your question has been sent to Benjamin’s Desk. Sign in at https://welileapp.com to send and receive private account questions. Welile support: https://wa.me/256777607640';
+          answer=`Your question has been sent to Benjamin’s Desk. Sign in at ${toAuthGatedUrl('/dashboard')} to send and receive private account questions. Welile support: https://wa.me/256777607640`;
         } else {
           const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);

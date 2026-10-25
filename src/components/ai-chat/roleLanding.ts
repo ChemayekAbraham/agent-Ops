@@ -3,6 +3,7 @@
 // prospective user lands in the Welile AI onboarding chat already scoped to the
 // right role, with tailored suggestions and the correct signup CTA.
 
+import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 export const AI_ROLES = ["tenant", "agent", "landlord", "supporter"] as const;
 export type AiRole = (typeof AI_ROLES)[number];
 
@@ -81,9 +82,13 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
 /** Builds the role-scoped signup CTA link, preserving attribution params. */
 export function buildRoleSignupHref(
   role: AiRole,
-  opts?: { source?: string | null; ref?: string | null },
+  opts?: { source?: string | null; ref?: string | null; authenticated?: boolean },
 ): string {
-  const params = new URLSearchParams({ signup: "1", role });
+  const target = { tenant: '/register-tenant', agent: '/become-agent', landlord: '/register-landlord', supporter: '/dashboard/funder-new' }[role];
+  if (opts?.authenticated) return target;
+  const params = new URLSearchParams(toAuthGatedPath(target).split('?')[1]);
+  params.set('signup', '1');
+  params.set('role', role);
   const source = (opts?.source ?? "chatgpt").trim();
   if (source) params.set("signup_source", source);
   const ref = (opts?.ref ?? "").trim();

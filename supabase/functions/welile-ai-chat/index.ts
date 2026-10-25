@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 const json = (data: unknown, status=200) => new Response(JSON.stringify(data), {status,headers:{...corsHeaders,"Content-Type":"application/json"}});
@@ -18,7 +19,7 @@ Deno.serve(async req => {
     const raw=await req.text(); if(raw.length>90000) return json({error:'Request too large'},413);
     const body=JSON.parse(raw);
     if(!validMessages(body.messages)) return json({error:'Use 1 to 20 user/assistant messages, each up to 4,000 characters.'},400);
-    const messages=body.messages;
+    const messages: Array<{role: 'user' | 'assistant'; content: string}>=body.messages;
     const question=messages[messages.length-1];
     if(question.role!=='user') return json({error:'Last message must be from the user'},400);
     const url=Deno.env.get('SUPABASE_URL'); const service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'); const anon=Deno.env.get('SUPABASE_ANON_KEY');
@@ -33,8 +34,10 @@ Deno.serve(async req => {
     }
     if(!allowed(userId ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'public')) return json({error:'Please wait before asking again'},429);
     if(messages.some(m => m.role === 'user' && isRestrictedInternalStaffQuery(m.content))) return sse(buildInternalStaffRefusalReply());
+    const guide = buildNexaPublicGuideReply(question.content);
+    if (guide) return sse(guide);
     if(wantsHuman(question.content)) {
-      if(!userId || !auth) return sse('Sign in to send your question to Benjamin’s Desk and receive a private reply. You can also contact Welile support: https://wa.me/256777607640');
+      if(!userId || !auth) return sse(`Sign in to send your question to Benjamin’s Desk and receive a private reply: ${toAuthGatedUrl('/dashboard')}. You can also contact Welile support: https://wa.me/256777607640`);
       const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});
       const lastReply=[...messages].reverse().find(m=>m.role==='assistant')?.content ?? null;
       const {error}=await client.rpc('nexa_submit_escalation',{p_question:question.content,p_last_reply:lastReply,p_context:messages.slice(-6)});
