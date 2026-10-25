@@ -53,15 +53,17 @@ function useMethodBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 
   });
 }
 
-function BreakdownPanel({ title, icon, tone, query, onSelect }: {
+function BreakdownPanel({ title, icon, tone, query, onSelect, onSelectTotal }: {
   title: string;
   icon: React.ReactNode;
   tone: string;
   query: ReturnType<typeof useMethodBreakdown>;
   onSelect: (row: MethodTotal) => void;
+  onSelectTotal: (total: { amount: number; count: number }) => void;
 }) {
   const rows = query.data ?? [];
   const total = rows.reduce((s, r) => s + r.amount, 0);
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
   return (
     <section className="cash-panel" aria-label={title}>
       <div className="mb-3 flex items-center gap-2.5">
@@ -85,6 +87,17 @@ function BreakdownPanel({ title, icon, tone, query, onSelect }: {
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
         ))}
+        {!query.isLoading && !query.error && rows.length > 0 && (
+          <button type="button" onClick={() => onSelectTotal({ amount: total, count: totalCount })}
+            className="flex w-full items-center gap-3 pt-3 pb-1 text-left">
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-bold">Total</span>
+              <span className="block text-[11px] text-muted-foreground">{totalCount.toLocaleString()} transactions</span>
+            </span>
+            <span className="text-sm font-bold tabular-nums">{formatUGX(total)}</span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        )}
       </div>
     </section>
   );
@@ -109,13 +122,26 @@ export function CashPositionBreakdowns() {
     if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
   };
 
+  const openAll = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (total: { amount: number; count: number }) => {
+    setPreset({
+      label: 'All payment methods — all time',
+      ...allTime(),
+      status,
+      method: undefined,
+      expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
+    });
+    if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
+  };
+
   return (
     <>
       <div className="cash-breakdowns">
         <BreakdownPanel title="Received by" icon={<ArrowDownLeft className="h-4 w-4" />}
-          tone="bg-success/10 text-success" query={received} onSelect={open('received', 'approved')} />
+          tone="bg-success/10 text-success" query={received} onSelect={open('received', 'approved')}
+          onSelectTotal={openAll('received', 'approved')} />
         <BreakdownPanel title="Paid by" icon={<ArrowUpRight className="h-4 w-4" />}
-          tone="bg-destructive/10 text-destructive" query={paidOut} onSelect={open('paid_out', 'confirmed')} />
+          tone="bg-destructive/10 text-destructive" query={paidOut} onSelect={open('paid_out', 'confirmed')}
+          onSelectTotal={openAll('paid_out', 'confirmed')} />
       </div>
       <MoneyReceivedReport open={receivedOpen} onOpenChange={setReceivedOpen} preset={preset} />
       <MoneyPaidOutReport open={paidOpen} onOpenChange={setPaidOpen} preset={preset} />
