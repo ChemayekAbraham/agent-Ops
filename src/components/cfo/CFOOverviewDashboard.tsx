@@ -232,7 +232,7 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto'}>
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
       {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -261,13 +261,13 @@ export function CFOOverviewDashboard({
       </div>}
 
       {cashPositionOnly && (
-        <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="cash-position-heading flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary">Finance command centre</p>
-            <h1 className="font-serif text-3xl font-semibold tracking-normal sm:text-4xl">Cash Position</h1>
+            <h1 className="text-3xl font-bold tracking-normal">Cash Position</h1>
             <p className="mt-1 text-sm text-muted-foreground">{greeting}, CFO. Live liquidity, obligations and cash movement.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium shadow-sm">
               <CalendarDays className="h-4 w-4 text-primary" />
               {monthRangeLabel}
@@ -276,6 +276,7 @@ export function CFOOverviewDashboard({
               <RefreshCw className={refreshingCashPosition ? 'animate-spin' : ''} />
               Refresh
             </Button>
+            <p className="w-full text-right text-[10px] text-muted-foreground">Last updated: {actualUpdatedAt ? new Date(actualUpdatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' EAT' : '—'}</p>
           </div>
         </div>
       )}
@@ -298,7 +299,7 @@ export function CFOOverviewDashboard({
           {/* Four across and two down on wide screens; two across on tablets
               and one on phones, because below ~1280px the UGX amounts stop
               fitting on one line inside a quarter of the page. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className={cashPositionOnly ? 'cash-position-kpis' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3'}>
 
             <Card className="rounded-xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full min-w-0">
               <CardContent className="p-4 h-full flex flex-col">
@@ -546,7 +547,7 @@ export function CFOOverviewDashboard({
           </div>
 
           {/* Transaction-level reconciliation behind Money We Can Use. */}
-          <MoneyWeCanUseBreakdown />
+          {!cashPositionOnly && <MoneyWeCanUseBreakdown />}
 
         </Band>}
 
@@ -563,8 +564,12 @@ export function CFOOverviewDashboard({
             receivablesReady={!receivablesLoading && !receivablesError && !!receivables}
             moneyReady={!actualLoading && !!actualMoney && !merchantOwedLoading && !!merchantOwed}
             onNavigate={onTabChange}
+            accountMoney={actualMoney}
+            accountUpdatedAt={actualUpdatedAt}
+            onSelectAccount={setActualMoneyLine}
           />
         )}
+        {cashPositionOnly && <MoneyWeCanUseBreakdown />}
 
 
         {!cashPositionOnly && <>
