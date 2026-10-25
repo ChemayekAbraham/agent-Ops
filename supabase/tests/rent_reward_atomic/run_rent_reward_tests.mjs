@@ -34,10 +34,70 @@ CREATE TABLE public.rent_requests (id uuid PRIMARY KEY, supporter_id uuid, rent_
   next_roi_due_date timestamptz, total_roi_paid numeric DEFAULT 0, roi_payments_count integer DEFAULT 0);
 ALTER TABLE public.supporter_roi_payments ADD CONSTRAINT supporter_roi_payments_rent_request_id_fkey FOREIGN KEY (rent_request_id) REFERENCES public.rent_requests(id);
 GRANT SELECT ON public.rent_requests, public.supporter_roi_payments TO authenticated;
+-- Production trigger trg_enforce_managed_proxy_roi_routing (body verbatim from production, read 2026-10-25).
+CREATE TABLE public.managed_proxy_roi_routing_violations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), attempted_user_id uuid,
+  expected_agent_id uuid, linked_party uuid, amount numeric, category text, direction text, reference text, description text,
+  created_at timestamptz DEFAULT now());
+CREATE FUNCTION public.enforce_managed_proxy_roi_routing() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $fn$
+DECLARE
+  v_lp uuid;
+  v_agent uuid;
+BEGIN
+  IF NEW.category NOT IN ('roi_wallet_credit', 'roi_payout') THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.direction <> 'cash_in' THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.user_id IS NULL OR NEW.linked_party IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  BEGIN
+    v_lp := NEW.linked_party::uuid;
+  EXCEPTION WHEN others THEN
+    RETURN NEW;
+  END;
+
+  SELECT agent_id INTO v_agent
+  FROM public.proxy_agent_assignments
+  WHERE beneficiary_id = v_lp
+    AND is_active = true
+    AND is_managed_account = true
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_agent IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.user_id = v_agent THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.user_id = v_lp THEN
+    INSERT INTO public.managed_proxy_roi_routing_violations(
+      attempted_user_id, expected_agent_id, linked_party,
+      amount, category, direction, reference, description
+    ) VALUES (
+      NEW.user_id, v_agent, v_lp,
+      NEW.amount, NEW.category, NEW.direction, NEW.reference_id, NEW.description
+    );
+
+    RAISE EXCEPTION
+      'Managed-proxy ROI routing violation: partner % is under managed proxy agent %; ROI must land 100%% on agent wallet, not partner wallet. (category=%, amount=%)',
+      v_lp, v_agent, NEW.category, NEW.amount
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$fn$;
+CREATE TRIGGER trg_enforce_managed_proxy_roi_routing BEFORE INSERT ON public.general_ledger FOR EACH ROW EXECUTE FUNCTION public.enforce_managed_proxy_roi_routing();
 `;
 
 const ID = (n) => `0f0a0000-0000-4000-8000-${String(n).padStart(12, '0')}`;
-const CFO = ID(1), COO = ID(2), SUP = ID(3), OTHER = ID(4);
+const CFO = ID(1), COO = ID(2), SUP = ID(3), OTHER = ID(4), AGENT = ID(5);
 const REASON = 'Investigation of duplicate Returns and unsupported principal edits';
 
 const port = 59500 + Math.floor(Math.random() * 300);
@@ -62,6 +122,7 @@ async function postReward(rr, n, pf = null, cl = c) {
   try { const r = (await cl.query(`select public.post_rent_facilitation_reward($1, $2, $3, null) r`, [rr, n, pf])).rows[0].r; await cl.query('commit'); return r; }
   catch (e) { await cl.query('rollback'); throw e; }
 }
+const post = (entries) => c.query(`select public.create_ledger_transaction($1::jsonb, null, false)`, [JSON.stringify(entries)]);
 const state = async (rr, pf) => q1(`select (select count(*) from supporter_roi_payments where rent_request_id=$1)::int rows,
    (select count(*) from general_ledger where source_table='supporter_roi_payments' and source_id=$1)::int exp_legs,
    (select count(*) from general_ledger where category in ('roi_wallet_credit','roi_reinvestment') and (source_id=$1 or source_id=$2))::int ret_legs,
@@ -181,6 +242,26 @@ try {
     ok((await state(rr)).exp_legs === 0, 'posted over legacy row');
     const g = await q1(`select * from rent_reward_posting_gaps() where rent_request_id=$1`, [rr]);
     ok(g && Number(g.rows_without_posting) === 1, JSON.stringify(g));
+  });
+
+  await test('managed-proxy partner: the reward lands on the PARTNER wallet; the production routing trigger accepts it (0 violations)', async () => {
+    await c.query(`insert into proxy_agent_assignments (beneficiary_id, agent_id, is_managed_account, is_active, approval_status) values ($1,$2,true,true,'approved')`, [SUP, AGENT]);
+    try {
+      const rr = await newRequest();
+      const before = await q1(`select coalesce((select withdrawable from wallets where user_id=$1),0)::numeric p, coalesce((select withdrawable from wallets where user_id=$2),0)::numeric a`, [SUP, AGENT]);
+      const r = await postReward(rr, 1); ok(r.status === 'posted', JSON.stringify(r));
+      const leg = await q1(`select user_id, linked_party from general_ledger where source_id=$1 and category='roi_wallet_credit'`, [rr]);
+      const after = await q1(`select coalesce((select withdrawable from wallets where user_id=$1),0)::numeric p, coalesce((select withdrawable from wallets where user_id=$2),0)::numeric a`, [SUP, AGENT]);
+      const v = await q1(`select count(*)::int n from managed_proxy_roi_routing_violations`);
+      ok(leg.user_id === SUP && leg.linked_party === 'platform', JSON.stringify(leg));
+      ok(Number(after.p) === Number(before.p) + 67500 && Number(after.a) === Number(before.a), JSON.stringify({ before, after }));
+      ok(v.n === 0, 'violation recorded');
+      // Control: the same trigger IS live — a Return credit naming the partner as linked party is refused.
+      const e = await codeOf(post([{ user_id: SUP, amount: 1000, direction: 'cash_in', category: 'roi_wallet_credit', ledger_scope: 'wallet', wallet_bucket: 'withdrawable', source_table: 'investor_portfolios', source_id: ID(777), linked_party: SUP }]));
+      ok(e && e.includes('Managed-proxy ROI routing violation'), 'routing trigger not active: ' + e);
+    } finally {
+      await c.query(`delete from proxy_agent_assignments where beneficiary_id=$1 and agent_id=$2`, [SUP, AGENT]);
+    }
   });
 
   await test('access: browser roles cannot post; gaps report is CFO-approver only', async () => {
