@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { calculateSupporterSalesProjection,calculateTenantRentSalesProjection,toAuthGatedPath,buildPromissoryNoteReminderReply } from '@/lib/nexaSalesEngine';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import ReactMarkdown from 'react-markdown';
 import { formatFixedUGX } from '@/lib/supportPlanExample';
 import { ACCESS_LIMIT_CAMPAIGN_COPY,buildAgentAccessLimitWhatsAppUrl } from '@/lib/accessLimitMessaging';

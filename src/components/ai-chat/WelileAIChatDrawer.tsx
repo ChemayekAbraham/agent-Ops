@@ -8,7 +8,7 @@ import ShareWelileAIBanner from './ShareWelileAIBanner';
 import { ROLE_LANDINGS, buildRoleSignupHref, type AiRole } from './roleLanding';
 import { NexaSalesHub } from './NexaSalesHub';
 import { NexaDeskCards } from './NexaDeskCards';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 
 const EarningPredictionCard = lazy(() => import('@/components/ai-chat/EarningPredictionCard'));

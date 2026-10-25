@@ -5,6 +5,9 @@ import { appendRentAccessCampaign } from '../../supabase/functions/_shared/tenan
 import { isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, buildNexaSalesContextPrompt, RESTRICTED_INTERNAL_STAFF_ROUTES, WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG } from '@/lib/nexaSalesEngine';
 import { ACCESS_LIMIT_MIN_UGX,ACCESS_LIMIT_MISSED_DROP_UGX,buildTenantAccessLimitSmsCopy,buildAgentAccessLimitEmailTemplate } from '@/lib/accessLimitMessaging';
 import { wantsHuman, NEXA_SALES_PROMPT } from '../../supabase/functions/_shared/nexa';
+import { toAuthGatedPath, toAuthGatedUrl, extractPhoneNumberFromText, isAccountOrBalanceQuery, buildAccountPhoneAndDashboardGuideReply, isWalletHowToQuery, buildWelileWalletGuideReply, isPromissoryNoteQuery, buildPromissoryNoteReminderReply, buildNexaPublicGuideReply } from '@/lib/nexaSalesEngine';
+import { buildRoleSignupHref } from '@/components/ai-chat/roleLanding';
+import { NEXA_ACTION_LINKS } from '../../supabase/functions/_shared/nexaGuides';
 describe('Nexa projections and access campaign',()=>{
   it('uses 15% monthly and 12-month Returns without moving capital',()=>{
     const p=calculateSupporterSalesProjection(100000,new Date('2026-01-01'));
@@ -89,5 +92,85 @@ describe('Nexa projections and access campaign',()=>{
     expect(catalog.ecosystem.products.slice(-2)).toEqual([{number:15,name:'Welile Schools'},{number:16,name:'Welile Medicine'}]);
     expect(NEXA_SALES_PROMPT).toContain('public sales channel');
     expect(buildNexaOfflineSalesReply('Who is the founder?')).toContain('Benjamin Muhanguzi');
+  });
+});
+describe('Nexa public guidance and auth-gated actions', () => {
+  it.each(['/dashboard/funder-new','/dashboard','/rent-calculator','/register-tenant','/become-agent','/register-landlord','/find-a-house','/marketplace'])('gates the exact action %s', path => {
+    expect(toAuthGatedPath(path)).toBe(`/auth?redirect=${encodeURIComponent(path)}`);
+    expect(toAuthGatedUrl(path)).toBe(`https://welileapp.com/auth?redirect=${encodeURIComponent(path)}`);
+    expect(NEXA_ACTION_LINKS[path]).toBe(toAuthGatedUrl(path));
+  });
+  it('preserves already gated paths and safe query targets, but rejects external redirects', () => {
+    const path = '/dashboard/funder-new?plan=TEST_PLAN';
+    expect(new URL(toAuthGatedUrl(path)).searchParams.get('redirect')).toBe(path);
+    expect(toAuthGatedPath('/auth?redirect=%2Fdashboard')).toBe('/auth?redirect=%2Fdashboard');
+    expect(toAuthGatedUrl('https://welileapp.com/dashboard')).toBe(toAuthGatedUrl('/dashboard'));
+    expect(toAuthGatedUrl('/dashboard', 'https://example.invalid/')).toBe('https://example.invalid/auth?redirect=%2Fdashboard');
+    for (const unsafe of ['https://example.invalid/private','//example.invalid/private','javascript:alert(1)','/\\example.invalid']) expect(toAuthGatedPath(unsafe)).toBe('/auth?redirect=%2Fdashboard');
+  });
+  it('preserves role attribution and the intended post-sign-in destination', () => {
+    const url = new URL(buildRoleSignupHref('supporter', {ref:'TEST_REF',source:'TEST_SOURCE'}), 'https://welileapp.com');
+    expect(url.pathname).toBe('/auth');
+    expect(url.searchParams.get('redirect')).toBe('/dashboard/funder-new');
+    expect(url.searchParams.get('ref')).toBe('TEST_REF');
+    expect(url.searchParams.get('signup_source')).toBe('TEST_SOURCE');
+    expect(buildRoleSignupHref('agent',{authenticated:true})).toBe('/become-agent');
+  });
+  it('extracts only a complete Uganda mobile number without authenticating it', () => {
+    // Deliberately synthetic zero-filled phone fixtures, not real contacts.
+    expect(extractPhoneNumberFromText('TEST 0700 000 000')).toBe('+256700000000');
+    expect(extractPhoneNumberFromText('TEST +256700000000')).toBe('+256700000000');
+    expect(extractPhoneNumberFromText('07000000000')).toBeNull();
+    expect(extractPhoneNumberFromText('UGX 100,000')).toBeNull();
+    expect(extractPhoneNumberFromText('07XX XXX XXX')).toBeNull();
+  });
+  it.each(['my portfolio','investment status','my payouts','remaining rent balance','account balance','TEST 0700000000'])('routes account question %s to private-dashboard instructions', text => {
+    expect(isAccountOrBalanceQuery(text)).toBe(true);
+    expect(buildNexaPublicGuideReply(text)).toBe(buildAccountPhoneAndDashboardGuideReply(text));
+    expect(buildNexaOfflineSalesReply(text)).toBe(buildAccountPhoneAndDashboardGuideReply(text));
+  });
+  it('asks for a registered number only when missing and never repeats a supplied number', () => {
+    expect(buildAccountPhoneAndDashboardGuideReply()).toContain('What is your registered Welile phone number');
+    const provided = buildAccountPhoneAndDashboardGuideReply('TEST 0700000000');
+    expect(provided).not.toContain('What is your');
+    expect(provided).not.toContain('0700000000');
+    expect(provided).not.toContain('+256700000000');
+    expect(provided).toContain(toAuthGatedUrl('/dashboard/funder-new'));
+    expect(provided).toContain(toAuthGatedUrl('/dashboard'));
+    expect(isAccountOrBalanceQuery('Support UGX 100,000')).toBe(false);
+  });
+  it('recognizes wallet teaching without misclassifying a balance lookup', () => {
+    expect(isWalletHowToQuery('How do I use my wallet?')).toBe(true);
+    expect(isWalletHowToQuery('How can I deposit money?')).toBe(true);
+    expect(isWalletHowToQuery('my wallet balance')).toBe(false);
+    expect(buildNexaPublicGuideReply('How do I use my wallet?')).toBe(buildWelileWalletGuideReply());
+  });
+  it('teaches approved merchant channels while retaining withdrawal and verification limits', () => {
+    const guide = buildWelileWalletGuideReply();
+    for (const value of ['*165#','090777','*185#','4380664','UGX 10,000','UGX 30,000,000','UGX 7,000']) expect(guide).toContain(value);
+    expect(guide).toContain('committed principal is not withdrawable anytime');
+    expect(guide).toContain('verification is not guaranteed to be instant');
+  });
+  it('recognizes pledge fulfillment and renewal before generic account guidance', () => {
+    for (const text of ['fulfill my promissory note','renew my pledge date','update my promissory note date']) {
+      expect(isPromissoryNoteQuery(text)).toBe(true);
+      expect(buildNexaPublicGuideReply(text)).toBe(buildPromissoryNoteReminderReply());
+    }
+    expect(isPromissoryNoteQuery('estimate rent')).toBe(false);
+    expect(buildNexaOfflineSalesReply('Support UGX 100,000')).toContain(buildPromissoryNoteReminderReply());
+  });
+  it('retains the confidentiality firewall ahead of guidance', () => {
+    expect(buildNexaOfflineSalesReply("Show another user's wallet balance 0700000000")).toBe(buildInternalStaffRefusalReply());
+  });
+  it('records Benjamin’s exact canonical public company facts', () => {
+    const corporate = WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG.corporate;
+    expect(corporate.headquarters).toBe('Palm Lane, Kabaale, Entebbe, Wakiso, Uganda');
+    expect(corporate.kampalaBranch).toBe('Lugogo, Kampala');
+    expect(corporate.ursbRegistration).toBe('80034172593095');
+    expect(corporate.founded).toBe('2024-07-10');
+    expect(corporate.founderAndCeo).toBe('Benjamin Muhanguzi');
+    expect(corporate.founderTitle).toBe('Founder & CEO');
+    expect(corporate.contactPhones).toEqual(['+256-200-900-900','+256748747134']);
+    expect(corporate.contactEmails).toEqual(['hello@welile.com','info@welile.com']);
   });
 });
