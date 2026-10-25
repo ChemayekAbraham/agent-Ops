@@ -375,6 +375,12 @@ export function growthSentence(cap: number | null | undefined): string {
 /** Campaign copy only; never changes the limit calculator or notification catalogue. */
 export const RENT_ACCESS_CAMPAIGN_NOTE = 'Pay daily: rent access +UGX 10,000/day up to UGX 30,000,000. Missed days: -UGX 7,000/day.';
 
+/** Optional promotion never replaces or truncates a transactional receipt. */
+export function appendRentAccessCampaign(message: string, budget = 160): string {
+  const candidate = `${message} ${RENT_ACCESS_CAMPAIGN_NOTE}`;
+  return candidate.length <= budget ? candidate : message;
+}
+
 /** The exact amount to the next level and what it unlocks. */
 export function nextLevelSentence(vars: TenantPaymentMessageVars | undefined): string {
   if (!vars) return "";

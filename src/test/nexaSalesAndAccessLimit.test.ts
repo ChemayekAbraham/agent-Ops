@@ -1,6 +1,7 @@
 import { describe,it,expect } from 'vitest';
 import { extractUgxAmount,calculateSupporterSalesProjection,calculateTenantRentSalesProjection,normalizeAndSortNexaOpportunities,detectNexaSalesIntent,isNexaHumanEscalationRequest,matchLearnedKnowledgeAnswer,formatLearnedKnowledgeForPrompt,buildNexaOfflineSalesReply } from '@/lib/nexaSalesEngine';
 import { ACCESS_LIMIT_MAX_UGX,ACCESS_LIMIT_DAILY_GROWTH_UGX,ACCESS_LIMIT_MISSED_DAY_REDUCTION_UGX,toWhatsAppPhone,buildTenantAccessLimitSms,buildAgentAccessLimitSms,buildTenantAccessLimitEmail,buildAgentAccessLimitEmail,buildTenantAccessLimitWhatsAppUrl,buildAccessLimitMailtoHref } from '@/lib/accessLimitMessaging';
+import { appendRentAccessCampaign } from '../../supabase/functions/_shared/tenantTemplates';
 describe('Nexa projections and access campaign',()=>{
   it('uses 15% monthly and 12-month Returns without moving capital',()=>{
     const p=calculateSupporterSalesProjection(100000,new Date('2026-01-01'));
@@ -35,6 +36,12 @@ describe('Nexa projections and access campaign',()=>{
   it('keeps both SMS campaigns within 160 characters, with exact figures and no em dashes',()=>{
     for(const sms of [buildTenantAccessLimitSms(),buildAgentAccessLimitSms()]) {expect(sms.length).toBeLessThanOrEqual(160);expect(sms).not.toContain('—');expect(sms).toContain('UGX 10,000/day');expect(sms).toContain('UGX 7,000/day');expect(sms).toContain('UGX 30,000,000');}
     expect(buildTenantAccessLimitEmail().text).toContain('UGX 10,000');expect(buildAgentAccessLimitEmail().text).toContain('UGX 7,000');
+  });
+  it('drops optional promotion rather than truncating transactional amounts',()=>{
+    const receipt='TEST receipt '.repeat(14)+'UGX 100,000';
+    expect(appendRentAccessCampaign(receipt)).toBe(receipt);
+    expect(appendRentAccessCampaign('WELILE: paid UGX 1,000.')).toContain('UGX 7,000/day');
+    expect(appendRentAccessCampaign('WELILE: paid UGX 1,000.').length).toBeLessThanOrEqual(160);
   });
   it('detects explicit escalation without claiming an offline request was sent',()=>{
     expect(isNexaHumanEscalationRequest('I want a real person')).toBe(true);expect(isNexaHumanEscalationRequest('Do not escalate this')).toBe(false);

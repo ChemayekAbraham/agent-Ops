@@ -10,7 +10,7 @@ import "../_shared/smsFooterInterceptor.ts";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isPhoneBlocked } from "../_shared/smsExceptions.ts";
-import { RENT_ACCESS_CAMPAIGN_NOTE } from '../_shared/tenantTemplates.ts';
+import { appendRentAccessCampaign } from '../_shared/tenantTemplates.ts';
 import { logSmsDelivery } from '../_shared/smsDeliveryLog.ts';
 
 const corsHeaders = {
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
       message = parts.join(" ");
     }
 
-    message += ` ${RENT_ACCESS_CAMPAIGN_NOTE}`;
+    message = appendRentAccessCampaign(message);
     // Honour CTO-managed SMS exceptions for this message type.
     const blocked = await isPhoneBlocked(adminClient, tenant_phone, "rent_access");
     const result = blocked ? { ok: false, provider: null } : await sendSMS(tenant_phone, message);

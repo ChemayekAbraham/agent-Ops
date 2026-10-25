@@ -48,7 +48,13 @@ GRANT ALL ON public.nexa_learned_knowledge TO service_role;
 REVOKE ALL ON public.nexa_learned_knowledge FROM anon;
 ALTER TABLE public.nexa_learned_knowledge ENABLE ROW LEVEL SECURITY;
 CREATE POLICY nexa_knowledge_active_read ON public.nexa_learned_knowledge FOR SELECT TO authenticated
-  USING (active AND (role_scope='all' OR public.has_role((select auth.uid()), role_scope::public.app_role)));
+  USING (active AND CASE role_scope
+    WHEN 'all' THEN true
+    WHEN 'tenant' THEN public.has_role((select auth.uid()), 'tenant')
+    WHEN 'agent' THEN public.has_role((select auth.uid()), 'agent')
+    WHEN 'landlord' THEN public.has_role((select auth.uid()), 'landlord')
+    WHEN 'supporter' THEN public.has_role((select auth.uid()), 'supporter')
+    ELSE false END);
 CREATE POLICY nexa_knowledge_desk_read ON public.nexa_learned_knowledge FOR SELECT TO authenticated
   USING (public.has_role((select auth.uid()), 'super_admin'));
 CREATE POLICY mfa_required_for_staff ON public.nexa_learned_knowledge AS RESTRICTIVE FOR ALL TO authenticated
@@ -62,7 +68,7 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_id uuid; v_user uuid := auth.uid();
 BEGIN
   IF v_user IS NULL OR NOT public.staff_mfa_ok() THEN RAISE EXCEPTION 'Not authorized' USING ERRCODE='42501'; END IF;
-  IF length(trim(p_question)) NOT BETWEEN 1 AND 4000 OR jsonb_typeof(p_context) <> 'array' OR pg_column_size(p_context)>30000 THEN RAISE EXCEPTION 'Invalid conversation'; END IF;
+  IF p_question IS NULL OR p_context IS NULL OR length(trim(p_question)) NOT BETWEEN 1 AND 4000 OR jsonb_typeof(p_context) <> 'array' OR pg_column_size(p_context)>30000 THEN RAISE EXCEPTION 'Invalid conversation'; END IF;
   PERFORM pg_advisory_xact_lock(hashtext('nexa:'||v_user::text));
   IF EXISTS(SELECT 1 FROM public.nexa_human_escalations WHERE user_id=v_user AND created_at>now()-interval '1 minute') THEN RAISE EXCEPTION 'Please wait before sending another request'; END IF;
   INSERT INTO public.nexa_human_escalations(user_id,user_name,user_phone,user_role,user_question,nexa_last_reply,conversation_context)
@@ -78,7 +84,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public AS $$
 DECLARE v_user uuid := auth.uid();
 BEGIN
   IF v_user IS NULL OR NOT public.has_role(v_user,'super_admin') OR NOT public.staff_mfa_ok() THEN RAISE EXCEPTION 'Not authorized' USING ERRCODE='42501'; END IF;
-  IF length(trim(p_response)) NOT BETWEEN 1 AND 4000 THEN RAISE EXCEPTION 'Invalid response'; END IF;
+  IF p_response IS NULL OR length(trim(p_response)) NOT BETWEEN 1 AND 4000 THEN RAISE EXCEPTION 'Invalid response'; END IF;
   PERFORM 1 FROM public.nexa_human_escalations WHERE id=p_id AND status='pending' FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Request no longer pending'; END IF;
   UPDATE public.nexa_human_escalations SET founder_response=trim(p_response),responded_by=v_user,responded_at=now(),status='answered',updated_at=now() WHERE id=p_id;

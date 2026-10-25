@@ -10,12 +10,12 @@ export function useNexaDesk(enabled:boolean) {
   const [busy,setBusy] = useState(false);
   const canAnswer=roles.includes('super_admin'); // visibility only; RPC is the authority
   const refresh=useCallback(async()=>{
-    if(!user || !enabled) {setRows([]);return;}
+    if(!user || !enabled) {setRows([]);setError(null);return;}
     const client=supabase as unknown as {from:(name:string)=>any};
     let query=client.from('nexa_human_escalations').select('id,user_question,founder_response,status,created_at,responded_at').order('created_at',{ascending:false}).limit(30);
     if(!canAnswer)query=query.eq('user_id',user.id);
     const {data,error:readError}=await query;
-    if(readError) {setError('Benjamin’s Desk is not available yet.');return;}
+    if(readError) {setRows([]);setError('Benjamin’s Desk is not available yet.');return;}
     setError(null);setRows(data ?? []);
   },[user?.id,enabled,canAnswer]);
   useEffect(()=>{void refresh();},[refresh]);

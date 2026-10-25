@@ -11,7 +11,7 @@ import "../_shared/smsFooterInterceptor.ts";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { attemptYoolaPrimary } from '../_shared/yoolaPrimary.ts';
-import { RENT_ACCESS_CAMPAIGN_NOTE } from '../_shared/tenantTemplates.ts';
+import { RENT_ACCESS_CAMPAIGN_NOTE, appendRentAccessCampaign } from '../_shared/tenantTemplates.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,9 +220,9 @@ Deno.serve(async (req) => {
         .eq("id", agentId)
         .maybeSingle();
       if (profile?.phone) {
-        const smsText =
+        const smsText = appendRentAccessCampaign(
           `Daily report ${label}: Collected ${fmtUGX(collected)} (${tenantsCollected} tenants). ` +
-          `Expected ${fmtUGX(expected)} (${rate}%). Owing: ${tenantsOwing}. ${RENT_ACCESS_CAMPAIGN_NOTE}`;
+          `Expected ${fmtUGX(expected)} (${rate}%). Owing: ${tenantsOwing}.`);
         const ok = await sendSMS(profile.phone, smsText);
         if (ok) stats.smsSent++;
       }

@@ -22,9 +22,10 @@ export function useWelileAI() {
     let active = true;
     const load = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) { if (active) setLearnedKnowledge([]); return; }
       const client = supabase as unknown as { from: (name: string) => any };
-      const { data, error } = await client.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope,active').eq('active',true).limit(20);
+      // Cache only non-private general reference data; scoped learning stays server-side.
+      const { data, error } = await client.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope,active').eq('active',true).eq('role_scope','all').limit(20);
       if (active && !error) setLearnedKnowledge(data ?? []);
     };
     void load();
@@ -127,6 +128,8 @@ export function useWelileAI() {
       setMessages(prev => prev.filter(m => m.id !== 'streaming'));
       if (!isNexaHumanEscalationRequest(input) && !assistantContent) {
         setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input), created_at:new Date().toISOString() }]);
+      } else if (isNexaHumanEscalationRequest(input)) {
+        setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:'Your request was not confirmed as sent. Please try again or contact Welile support.', created_at:new Date().toISOString() }]);
       }
     } finally {
       setIsLoading(false);
