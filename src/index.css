@@ -1854,10 +1854,11 @@ html.reduce-motion *::after {
   .cash-position-kpis > div:nth-child(9) > button > div:not(:first-child) { padding: 0; min-height: 24px; }
   .cash-position-kpis > div:nth-child(9) > button > p:last-child { grid-column: 2 / -1; font-size: 10px; }
   .cash-insights-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
-  .cash-flow-chart { grid-column: 1 / 9; grid-row: 1; }
-  .cash-key-insights { grid-column: 9 / 13; grid-row: 1; }
+  .cash-flow-chart { grid-column: 1 / -1; grid-row: 1; }
   .cash-account-table { grid-column: 1 / 9; grid-row: 2; }
-  .cash-quick-actions { grid-column: 9 / 13; grid-row: 2; align-self: stretch; }
+  .cash-key-insights { grid-column: 9 / 13; grid-row: 2; }
+  .cash-quick-actions { grid-column: 1 / -1; grid-row: 3; }
+  .cash-quick-actions > div > div:last-child { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cash-decision-brief, .cash-analysis-heading { grid-column: 1 / -1; }
   .cash-analysis-primary > .rounded-md:not(.cash-flow-chart),
   .cash-analysis-secondary > .rounded-md:not(.cash-key-insights):not(.cash-quick-actions) { grid-column: span 4; }
