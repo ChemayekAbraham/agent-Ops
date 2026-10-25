@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import {
   LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
@@ -17,10 +17,10 @@ import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import type { PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
 
 const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
-const short = (n: number) => {
+const axisShort = (n: number) => {
   const a = Math.abs(n);
   if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(a % 1e6 === 0 ? 0 : 1)}M`;
   if (a >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
   return String(Math.round(n));
 };
@@ -76,7 +76,9 @@ export function CashPositionInsights({
       return ((data as any[]) || []).map((r) => {
         const inflow = Number(r.inflow) || 0;
         const outflow = Number(r.outflow) || 0;
-        return { label: String(r.day).slice(5, 10), inflow, outflow, net: inflow - outflow };
+        const dayLabel = new Date(`${String(r.day).slice(0, 10)}T00:00:00`)
+          .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        return { label: dayLabel, inflow, outflow, net: inflow - outflow };
       });
     },
     staleTime: 60_000,
@@ -197,25 +199,23 @@ export function CashPositionInsights({
                 <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
-          <div className="h-64">
+          <div className="h-72">
             {flow.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 8, bottom: 4 }} barCategoryGap="28%" barGap={3}>
+                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 4, bottom: 4 }} barCategoryGap="22%" barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                  <YAxis tick={{ fontSize: 11 }} width={52} tickFormatter={short} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} width={44} tickFormatter={axisShort} tickLine={false} axisLine={false} />
                   <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
-                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[3, 3, 0, 0]} maxBarSize={22} />
-                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={false} />
+                  <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8}
+                    wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} />
+                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} maxBarSize={34} />
+                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[3, 3, 0, 0]} maxBarSize={34} />
+                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2.5}
+                    dot={{ r: 3, fill: 'hsl(var(--primary))', strokeWidth: 0 }} />
                 </ComposedChart>
               </ResponsiveContainer>
             )}
-          </div>
-          <div className="flex flex-wrap justify-center gap-4 text-[11px] mt-2">
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-success" />Money Received</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-warning" />Money Paid Out</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-primary" />Net Movement</span>
           </div>
         </CardContent></Card>
 
