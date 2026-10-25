@@ -83,7 +83,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole, signupSo
         </DropdownMenuContent></DropdownMenu>
         <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Close assistant" onClick={() => onOpenChange(false)}><X /></Button>
       </SheetHeader>
-      <Conversation initial={false} resize={messages.length ? 'smooth' : false} className="min-h-0 flex-1" aria-live="polite">
+      <Conversation initial={false} resize="instant" className="min-h-0 flex-1" aria-live="polite">
         <ConversationContent className="gap-5 px-4 py-5">
           {messages.length === 0 && <div className="flex flex-col items-center py-5 text-center">
             <span className="assistant-emblem mb-3 flex h-11 w-11 items-center justify-center rounded-full"><Sparkles className="h-6 w-6" /></span>
