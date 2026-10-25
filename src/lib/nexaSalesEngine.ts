@@ -66,7 +66,7 @@ export function buildNexaOfflineSalesReply(input: string, isAuthenticated = fals
   const intent = detectNexaSalesIntent(input);
   if (intent === 'human') return 'You are offline. Your request has not been sent to Benjamin. Reconnect and ask again, or contact Welile support.';
   if (intent === 'tenant' || intent === 'agent') return `${ACCESS_LIMIT_CAMPAIGN_COPY}\nReconnect to see your current account figures.`;
-  if (intent === 'general') return buildFinancialAccessFallbackReply(input, isAuthenticated);
+  if (intent === 'general' && !/\bsupport\b.*\b(?:UGX|\d)/i.test(input)) return buildFinancialAccessFallbackReply(input, isAuthenticated);
   const amount = extractUgxAmount(input) ?? 100000;
   const p = calculateSupporterSalesProjection(amount);
   return `Illustrative Tenant Support: ${formatFixedUGX(amount)} gives ${formatFixedUGX(p.monthly)} monthly Returns at 15%, or ${formatFixedUGX(p.annual)} over 12 months. Approved terms apply. Reconnect to choose an available plan.\n\n${buildPromissoryNoteReminderReply()}`;

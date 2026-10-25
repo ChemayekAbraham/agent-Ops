@@ -3,8 +3,8 @@ const mocks = vi.hoisted(() => ({ getSession: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { auth: { getSession: mocks.getSession } } }));
 import { requestAssistantPublicReply } from '@/hooks/assistantPublicReply';
 beforeEach(() => {
-  mocks.getSession.mockResolvedValue({ data: { session: null } });
   vi.restoreAllMocks();
+  mocks.getSession.mockResolvedValue({ data: { session: null } });
   Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
 });
 describe('public guidance recovery boundaries', () => {
