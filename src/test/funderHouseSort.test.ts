@@ -1,6 +1,7 @@
 import { describe,it,expect } from 'vitest';
 import { hasFunderTenant,hasFunderLandlord,hasFunderGps,getFunderHouseCompleteness,getFunderHouseCompletenessRank,sortFunderHousesByCompleteness,sortFunderFeedEntries } from '@/lib/funderHouseSort';
 const complete={id:'test-complete',tenant_first_name:'TEST_TENANT',landlord_name:'TEST_LANDLORD',request_latitude:0.3,request_longitude:32.5};
+import { sortOpportunities } from '@/components/funder-new/utils';
 describe('funder house completeness',()=>{
   it('rejects tenant placeholders and accepts a recorded tenant name',()=>{
     expect(hasFunderTenant({tenant_name:'No tenant'})).toBe(false);
@@ -44,5 +45,14 @@ describe('funder house completeness',()=>{
   it('places complete tenant plans above empty houses across the combined feed',()=>{
     const entries=[{category:'empty',item:{id:'test-empty'}},{category:'ready',item:complete}];
     expect(sortFunderFeedEntries(entries).map(e=>e.category)).toEqual(['ready','empty']);
+  });
+  it.each(['urgent','rent-asc','rent-desc','return-desc','newest'] as const)('keeps completeness first for %s',mode=>{
+    const rows=[{id:'TEST_PARTIAL',tenant_name:'TEST_TENANT',funding_amount:99999999,urgency_score:100,created_at:'2026-12-31'}, {...complete,funding_amount:100000,created_at:'2026-01-01'}];
+    expect(sortOpportunities(rows,mode)[0].id).toBe('test-complete');
+  });
+  it('applies the selected amount ordering for equally complete plans',()=>{
+    const rows=[{...complete,id:'TEST_HIGH',funding_amount:200000},{...complete,id:'TEST_LOW',funding_amount:100000}];
+    expect(sortOpportunities(rows,'rent-asc').map(r=>r.id)).toEqual(['TEST_LOW','TEST_HIGH']);
+    expect(sortOpportunities(rows,'rent-desc').map(r=>r.id)).toEqual(['TEST_HIGH','TEST_LOW']);
   });
 });
