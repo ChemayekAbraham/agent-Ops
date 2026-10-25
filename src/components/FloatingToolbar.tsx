@@ -2,20 +2,10 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import WelileAIChatDrawer from './ai-chat/WelileAIChatDrawer';
+import { AgentAssistant } from './agent/AgentAssistant';
 import RaiseTicketButton from './RaiseTicketButton';
 
-const GeminiSparkle = ({ size = 28 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path
-      d="M14 2C14 2 16.5 9 18.5 11.5C20.5 14 26 14 26 14C26 14 20.5 14 18.5 16.5C16.5 19 14 26 14 26C14 26 11.5 19 9.5 16.5C7.5 14 2 14 2 14C2 14 7.5 14 9.5 11.5C11.5 9 14 2 14 2Z"
-      fill="currentColor"
-    />
-  </svg>
-);
-
 export default function FloatingToolbar() {
-  const [aiOpen, setAiOpen] = useState(false);
   const location = useLocation();
 
   // Hide the floating FABs on settings, withdraw routes, and whenever a modal/sheet is open
@@ -103,7 +93,7 @@ export default function FloatingToolbar() {
         </>
       )}
 
-      <WelileAIChatDrawer open={aiOpen} onOpenChange={setAiOpen} />
+      <AgentAssistant hideLauncher={modalOpen && !document.querySelector('.assistant-chat[data-state="open"]')} />
     </>
   );
 }

@@ -5,19 +5,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import {
   LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
   TrendingUp, TrendingDown, AlertTriangle, Info, CheckCircle2, Landmark, Gauge, ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CashPositionAccounts } from './CashPositionAccounts';
+import { CashPositionBreakdowns } from './CashPositionBreakdowns';
+import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
+import type { PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
 
 const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
-const short = (n: number) => {
+const axisShort = (n: number) => {
   const a = Math.abs(n);
   if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(a % 1e6 === 0 ? 0 : 1)}M`;
   if (a >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
   return String(Math.round(n));
 };
@@ -40,6 +44,9 @@ interface Props {
   moneyWeOwe: number;
   bankReconciled?: boolean;
   onNavigate?: (section: string) => void;
+  accountMoney?: ActualMoneyHeld;
+  accountUpdatedAt?: number;
+  onSelectAccount?: (line: PhoneMoneyLine) => void;
 }
 
 function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: string; sub?: string; right?: React.ReactNode }) {
@@ -58,7 +65,7 @@ function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: strin
 }
 
 export function CashPositionInsights({
-  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate, receivablesReady = true, moneyReady = true,
+  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate, receivablesReady = true, moneyReady = true, accountMoney, accountUpdatedAt = 0, onSelectAccount,
 }: Props) {
   const [days, setDays] = useState(30);
 
@@ -70,7 +77,9 @@ export function CashPositionInsights({
       return ((data as any[]) || []).map((r) => {
         const inflow = Number(r.inflow) || 0;
         const outflow = Number(r.outflow) || 0;
-        return { label: String(r.day).slice(5, 10), inflow, outflow, net: inflow - outflow };
+        const dayLabel = new Date(`${String(r.day).slice(0, 10)}T00:00:00`)
+          .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        return { label: dayLabel, inflow, outflow, net: inflow - outflow };
       });
     },
     staleTime: 60_000,
@@ -122,10 +131,6 @@ export function CashPositionInsights({
   const payablesTotal = rp.data?.outstanding ?? 0; // receivables show immediately; payables fill in when ready
   const outstanding = totalReceivables + payablesTotal;
   const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
-  const pie = [
-    { name: 'Receivables', value: totalReceivables, color: 'hsl(var(--success))' },
-    { name: 'Payables', value: payablesTotal, color: 'hsl(var(--destructive))' },
-  ];
 
   const topPayables = rp.data?.top ?? [];
   const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
@@ -183,165 +188,45 @@ export function CashPositionInsights({
   };
 
   return (
-    <div className="space-y-5">
-      <section aria-labelledby="executive-brief-title" className="border-y border-border/70 bg-muted/20 py-4">
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Decision brief</p>
-            <h2 id="executive-brief-title" className="font-serif text-xl font-semibold">Liquidity at a glance</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Figures reconcile the live cash, receivables and payables shown below.</p>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-border/70 border border-border/70 bg-card sm:grid-cols-4 sm:divide-y-0">
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Gauge className="h-4 w-4" /><span className="text-[11px] font-semibold">Payables coverage</span></div>
-            <p className="mt-2 text-lg font-bold tabular-nums">{liquidityCoverage === null ? '—' : `${liquidityCoverage.toFixed(2)}×`}</p>
-            <p className={`mt-1 text-[11px] font-semibold ${liquidityState.tone}`}>{liquidityState.label}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Landmark className="h-4 w-4" /><span className="text-[11px] font-semibold">Net outstanding</span></div>
-            <p className={`mt-2 truncate text-lg font-bold tabular-nums ${netOutstanding < 0 ? 'text-destructive' : 'text-success'}`}>{obligationsReady ? `${netOutstanding >= 0 ? '+' : '−'}${fmt(Math.abs(netOutstanding))}` : '—'}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Receivables less payables</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><AlertTriangle className="h-4 w-4" /><span className="text-[11px] font-semibold">Due within 30 days</span></div>
-            <p className="mt-2 truncate text-lg font-bold tabular-nums">{rp.isLoading ? '—' : fmt(rp.data?.dueInRange ?? 0)}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{rp.isLoading ? 'Checking obligations' : `${rp.data?.count ?? 0} payable items`}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4" /><span className="text-[11px] font-semibold">Control status</span></div>
-            <p className={`mt-2 text-sm font-bold ${bankReconciled === false ? 'text-warning' : 'text-success'}`}>{bankReconciled === undefined ? 'Checking bank reconciliation' : bankReconciled === false ? 'Review bank variance' : 'Bank reconciled'}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">External money owed: {moneyReady ? `${obligationsShare.toFixed(1)}% of cash` : '—'}</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Analysis</p>
-          <h2 className="font-serif text-xl font-semibold">Cash movement and obligations</h2>
-        </div>
-        {onNavigate && (
-          <Button variant="ghost" size="sm" className="hidden rounded-md sm:inline-flex" onClick={() => onNavigate('statements')}>
-            Financial reports <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+    <div className="cash-insights-layout">
+      {onSelectAccount && <CashPositionAccounts money={accountMoney} updatedAt={accountUpdatedAt} onSelect={onSelectAccount} />}
       {/* Row 1 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.4fr_1fr_1.1fr_1.1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<LineIcon className="h-4 w-4" />} title="Cash Flow Trend" sub="Money in, money out and net movement"
+      <div className="cash-analysis-primary">
+        <Card className="cash-flow-chart min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+          <Head icon={<LineIcon className="h-4 w-4" />} title="Cash Position Overview" sub="Money in, money out and net movement"
             right={
               <select value={days} onChange={(e) => setDays(Number(e.target.value))}
                 className="h-9 rounded-md border border-border bg-card px-2 text-xs">
                 <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
-          <div className="h-56">
+          <div className="h-72">
             {flow.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={series} margin={{ left: 0, right: 8, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
-                  <YAxis tick={{ fontSize: 10 }} width={44} tickFormatter={short} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Area type="monotone" dataKey="inflow" name="Money Received" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.12)" />
-                  <Area type="monotone" dataKey="outflow" name="Money Paid Out" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.08)" />
-                  <Area type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--info))" fill="hsl(var(--info) / 0.08)" />
-                </AreaChart>
+                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 4, bottom: 4 }} barCategoryGap="22%" barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
+                  <YAxis tick={{ fontSize: 11 }} width={44} tickFormatter={axisShort} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
+                  <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8}
+                    wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} />
+                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} maxBarSize={34} />
+                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[3, 3, 0, 0]} maxBarSize={34} />
+                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2.5}
+                    dot={{ r: 3, fill: 'hsl(var(--primary))', strokeWidth: 0 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             )}
           </div>
-          <div className="flex flex-wrap justify-center gap-4 text-[11px] mt-2">
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-success" />Money Received</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-destructive" />Money Paid Out</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-info" />Net Movement</span>
-          </div>
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Scale className="h-4 w-4" />} title="Receivables vs Payables" sub="Outstanding amounts" />
-          {outstanding <= 0 && rp.isLoading ? <p className="text-xs text-muted-foreground animate-pulse">Loading…</p> : outstanding <= 0 ? (
-            <p className="text-xs text-muted-foreground">No data yet.</p>
-          ) : (
-            <div className="flex flex-col sm:flex-row 2xl:flex-col items-center gap-3">
-              <div className="relative h-44 w-44 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart><Pie data={pie} dataKey="value" innerRadius={58} outerRadius={78} startAngle={90} endAngle={-270} stroke="none">
-                    {pie.map((p) => <Cell key={p.name} fill={p.color} />)}
-                  </Pie><Tooltip formatter={(v: number) => fmt(v)} /></PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                  <span className="text-[10px] text-muted-foreground">Total Outstanding</span>
-                  <span className="text-xs font-bold tabular-nums">{fmt(outstanding)}</span>
-                </div>
-              </div>
-              <div className="space-y-3 text-xs">
-                <div><p className="flex items-center gap-1.5 text-muted-foreground"><i className="h-2 w-2 rounded-full bg-success" />Receivables</p>
-                  <p className="font-bold tabular-nums">{fmt(totalReceivables)}</p><p className="text-muted-foreground">{recvPct.toFixed(1)}%</p></div>
-                <div><p className="flex items-center gap-1.5 text-muted-foreground"><i className="h-2 w-2 rounded-full bg-destructive" />Payables</p>
-                  <p className="font-bold tabular-nums">{fmt(payablesTotal)}</p><p className="text-muted-foreground">{(100 - recvPct).toFixed(1)}%</p></div>
-              </div>
-            </div>
-          )}
-        </CardContent></Card>
-
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest sources due now or within 30 days"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
-          {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Source</th><th className="font-medium">Amount</th><th className="font-medium">Next Due</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{topPayables.map((p) => (
-                <tr key={p.id} className="border-t border-border/60">
-                  <td className="py-2 pr-2 max-w-[160px] truncate">{p.name}<span className="block text-[10px] text-muted-foreground truncate">{p.count} payment{p.count === 1 ? '' : 's'}</span></td>
-                  <td className="pr-2 tabular-nums whitespace-nowrap">{fmt(p.amount)}</td>
-                  <td className="pr-2 whitespace-nowrap">{fmtDate(p.due_date)}</td>
-                  <td>{statusBadge(p.due_date)}</td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
-
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Receivables" sub="Largest outstanding sources"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('reconciliation')}>View All</button>} />
-          {topReceivables.length === 0 ? <p className="text-xs text-muted-foreground">No data yet.</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Source</th><th className="font-medium">Amount</th><th className="font-medium">Share</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{topReceivables.map((r) => (
-                <tr key={r.key} className="border-t border-border/60">
-                  <td className="py-2 pr-2 max-w-[130px] truncate">{r.label}</td>
-                  <td className="pr-2 tabular-nums whitespace-nowrap">{fmt(r.outstanding)}</td>
-                  <td className="pr-2">{totalReceivables > 0 ? `${((r.outstanding / totalReceivables) * 100).toFixed(1)}%` : '—'}</td>
-                  <td><Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px]">Outstanding</Badge></td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
+        <CashPositionBreakdowns />
       </div>
 
       {/* Row 2 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.8fr_1fr_1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm lg:col-span-2 2xl:col-span-1"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Recent Transactions" sub="Latest financial activity"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('ledger')}>View All</button>} />
-          {(recent.data ?? []).length === 0 ? <p className="text-xs text-muted-foreground">{recent.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Date & Time</th><th className="font-medium">Description</th><th className="font-medium">Category</th><th className="font-medium">Amount</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{(recent.data ?? []).map((t: any) => (
-                <tr key={t.id} className="border-t border-border/60">
-                  <td className="py-2 pr-2 whitespace-nowrap">{new Date(t.transaction_date).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="pr-2 max-w-[220px] truncate">{t.description || label(t.category)}</td>
-                  <td className="pr-2 whitespace-nowrap">{label(t.category)}</td>
-                  <td className={`pr-2 tabular-nums whitespace-nowrap ${t.direction === 'cash_in' ? 'text-success' : 'text-destructive'}`}>{t.direction === 'cash_in' ? '+' : '−'}{fmt(Number(t.amount))}</td>
-                  <td><Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px]">Posted</Badge></td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
+      <div className="cash-analysis-secondary">
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="cash-key-insights min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
           <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" />
           <div className="divide-y divide-border/60">
             {insights.map((i) => (
@@ -354,16 +239,16 @@ export function CashPositionInsights({
           </div>
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="cash-quick-actions min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
           <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" />
           <div className="space-y-2">
             {actions.map((a) => (
-              <button key={a.title} type="button" onClick={() => onNavigate?.(a.go)}
-                className="w-full flex items-center gap-3 rounded-lg border border-border/70 px-3 py-2.5 text-left hover:bg-muted/50 min-h-11">
+              <Button key={a.title} variant="outline" type="button" onClick={() => onNavigate?.(a.go)}
+                className="w-full flex h-auto items-center gap-2 rounded-md border border-border/70 px-2 py-2.5 text-left hover:bg-muted/50 min-h-11 whitespace-normal">
                 <span className="text-primary shrink-0">{a.icon}</span>
                 <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{a.title}</span><span className="block text-[11px] text-muted-foreground truncate">{a.sub}</span></span>
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
+              </Button>
             ))}
           </div>
         </CardContent></Card>
