@@ -1,4 +1,5 @@
 # Welile Assistant upgrade
+- [x] Simplify assistant empty state to one rotating pill, hidden header description and centered short composer; 151 assistant tests and all guards pass, preview build OK. Verified /ai at desktop, 390px and 320px, starter cycling and live financial-guide submission. Full Vitest: 2865 passed, 62 unrelated failures across 20 files with 16 errors; no unrelated code changed. Welcome/auth launcher did not open in browser checks; direct /ai verified.
 - [x] Add shared public financial-access guide, starter, safe local fallback and backend out-of-scope guidance: 151 tests, all guards, Deno checks and preview compilation pass; deployed public endpoint returns guide and signup, desktop/mobile starter and sign-in links verified. Unsupported bonus/zero-fee guarantees omitted; terminal service errors and refusals remain visible. No migrations or financial changes.
 - [x] Unify global launcher and public header entry points without duplicate dashboard assistants.
 - [x] Refresh both chat surfaces with AI Elements, public/signup calculators and six personal starters.
