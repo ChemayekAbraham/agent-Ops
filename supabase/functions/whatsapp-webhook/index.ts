@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
 import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
+import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
 const reply = (text:string,status=200) => new Response(text,{status,headers:corsHeaders});
 // Warm-instance bounded cache; provider ID is also persisted for escalation deduplication.
@@ -49,22 +50,7 @@ Deno.serve(async req => {
         } else {
           const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
-          // Reuse the established Nexa model and streaming contract rather than another engine.
-          const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${aiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',stream:true,messages:[{role:'system',content:NEXA_SALES_PROMPT+knowledgeContext(knowledge ?? [])},{role:'user',content:text}]})});
-          if(!response.ok || !response.body) return reply('AI unavailable',503);
-          const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer=''; answer='';
-          while(true) {
-            const {done,value}=await reader.read(); if(done)break;
-            buffer+=decoder.decode(value,{stream:true});
-            let end:number;
-            while((end=buffer.indexOf('\n'))>=0) {
-              const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);
-              if(!line.startsWith('data: ') || line==='data: [DONE]')continue;
-              try {answer+=JSON.parse(line.slice(6)).choices?.[0]?.delta?.content ?? '';} catch { /* ignore non-data events */ }
-            }
-            if(answer.length>4000) {await reader.cancel();break;}
-          }
-          answer=answer.slice(0,4000).trim(); if(!answer)return reply('AI unavailable',503);
+          answer=await buildWhatsAppAiReply(aiKey,NEXA_SALES_PROMPT+knowledgeContext(knowledge ?? []),text,req.signal);
         }
         const sent=await sendWhatsApp(msg.from,answer);
         // On unknown delivery do not retry the same provider event and duplicate messages.

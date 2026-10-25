@@ -233,7 +233,10 @@ Deno.serve(async (req) => {
     // tenant_id was passed), leaving Yoola spend reporting blind to every
     // rent-access-limit SMS sent from here.
     try {
-      await logSmsDelivery(adminClient, {
+      await logSmsDelivery({ from: () => ({ insert: async (rows: unknown) => {
+        const { error } = await adminClient.from('sms_delivery_log').insert(rows as Record<string, unknown>);
+        return { error };
+      } }) }, {
         recipient_phone: tenant_phone,
         recipient_user_id: tenant_id ?? null,
         recipient_name: tenant_name ?? null,

@@ -9,7 +9,7 @@ import "../_shared/smsFooterInterceptor.ts";
 //
 // Idempotent: skips an agent if today's report row already exists.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { attemptYoolaPrimary } from '../_shared/yoolaPrimary.ts';
 import { RENT_ACCESS_CAMPAIGN_NOTE, appendRentAccessCampaign } from '../_shared/tenantTemplates.ts';
 
@@ -93,7 +93,7 @@ async function sendSMS(phone: string, message: string): Promise<boolean> {
 }
 
 async function buildAgentTenantIds(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   agentId: string,
 ): Promise<string[]> {
   // Mirror the My Tenants allowlist: referrer_id ∪ referrals ∪ rent_requests.agent_id
