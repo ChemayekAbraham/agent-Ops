@@ -39,8 +39,9 @@ export function useAssistantAccess() {
   });
 
   return {
-    enabled: query.data?.enabled === true,
+    enabled: true,
+    isAgentAccess: query.data?.enabled === true && query.data?.reason === 'ok',
     reason: query.data?.reason ?? ('not_enabled' as AssistantAccessReason),
-    isLoading: query.isLoading,
+    isLoading: false,
   };
 }
