@@ -122,13 +122,26 @@ export function CashPositionBreakdowns() {
     if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
   };
 
+  const openAll = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (total: { amount: number; count: number }) => {
+    setPreset({
+      label: 'All payment methods — all time',
+      ...allTime(),
+      status,
+      method: undefined,
+      expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
+    });
+    if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
+  };
+
   return (
     <>
       <div className="cash-breakdowns">
         <BreakdownPanel title="Received by" icon={<ArrowDownLeft className="h-4 w-4" />}
-          tone="bg-success/10 text-success" query={received} onSelect={open('received', 'approved')} />
+          tone="bg-success/10 text-success" query={received} onSelect={open('received', 'approved')}
+          onSelectTotal={openAll('received', 'approved')} />
         <BreakdownPanel title="Paid by" icon={<ArrowUpRight className="h-4 w-4" />}
-          tone="bg-destructive/10 text-destructive" query={paidOut} onSelect={open('paid_out', 'confirmed')} />
+          tone="bg-destructive/10 text-destructive" query={paidOut} onSelect={open('paid_out', 'confirmed')}
+          onSelectTotal={openAll('paid_out', 'confirmed')} />
       </div>
       <MoneyReceivedReport open={receivedOpen} onOpenChange={setReceivedOpen} preset={preset} />
       <MoneyPaidOutReport open={paidOpen} onOpenChange={setPaidOpen} preset={preset} />
