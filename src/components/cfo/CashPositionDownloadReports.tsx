@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Download, FileText, Loader2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Download, FileText } from 'lucide-react';
 import { allTime, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
@@ -132,6 +132,3 @@ export function CashPositionDownloadReports({ open, onOpenChange }: { open: bool
   );
 }
 
-// ChevronRight is kept for visual parity with other quick-action rows that may render this panel inline.
-export const _chevron = ChevronRight;
-export { Loader2 as _loader };
