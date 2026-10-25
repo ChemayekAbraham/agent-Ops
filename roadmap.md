@@ -1,4 +1,5 @@
 # Welile Assistant upgrade
+- [ ] Simplify assistant empty state to one rotating pill, hidden header description and centered short composer; run Vitest, guards and desktop/mobile checks.
 - [x] Add shared public financial-access guide, starter, safe local fallback and backend out-of-scope guidance: 151 tests, all guards, Deno checks and preview compilation pass; deployed public endpoint returns guide and signup, desktop/mobile starter and sign-in links verified. Unsupported bonus/zero-fee guarantees omitted; terminal service errors and refusals remain visible. No migrations or financial changes.
 - [x] Unify global launcher and public header entry points without duplicate dashboard assistants.
 - [x] Refresh both chat surfaces with AI Elements, public/signup calculators and six personal starters.
