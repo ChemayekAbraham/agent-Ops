@@ -1,5 +1,6 @@
 # Architecture Decisions
 - Nexa public account, wallet and pledge guidance shares pure helpers under `supabase/functions/_shared/` with browser re-exports; deterministic guidance precedes model/learning reads, phone input never authenticates, and app actions preserve safe internal targets through sign-in without changing financial rules.
+- Nexa inquiry signup uses shared intent helpers and the existing consent-based signup page; chat never creates accounts, checks public account existence, transports passwords or grants roles, because a supplied phone is not proof of ownership.
 - Nexa sales helpers are projections only; house completeness sorts already authorized loaded rows without replacing verification or funding rules. Private escalation writes and teaching use caller-checked RPCs; role-scoped knowledge never crosses roles and WhatsApp contact numbers never authenticate app accounts.
 - Nexa schema proposals remain under docs/pending-migrations until applied through the approved migration workflow; Meta webhook requires a signed body and configured sender, with no duplicate fallback after uncertain delivery.
 - Nexa public catalog and internal-query firewall are shared between browser and server; public chat refuses internal questions before escalation or model calls, even for staff sessions, to prevent public-channel disclosure.

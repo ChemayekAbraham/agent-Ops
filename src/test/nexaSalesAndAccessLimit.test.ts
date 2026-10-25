@@ -8,6 +8,34 @@ import { wantsHuman, NEXA_SALES_PROMPT } from '../../supabase/functions/_shared/
 import { toAuthGatedPath, toAuthGatedUrl, extractPhoneNumberFromText, isAccountOrBalanceQuery, buildAccountPhoneAndDashboardGuideReply, isWalletHowToQuery, buildWelileWalletGuideReply, isPromissoryNoteQuery, buildPromissoryNoteReminderReply, buildNexaPublicGuideReply } from '@/lib/nexaSalesEngine';
 import { buildRoleSignupHref } from '@/components/ai-chat/roleLanding';
 import { NEXA_ACTION_LINKS } from '../../supabase/functions/_shared/nexaGuides';
+import { extractInquiryLeadDetails, detectInquiryIntendedRole, buildInquirySignupResult, parseInquirySignupResult } from '@/lib/nexaSalesEngine';
+describe('Nexa consent-based inquiry signup', () => {
+  it.each(['0700000000', '+256700000000', '256700000000'])('normalizes Uganda contact %s without creating an account', phone => {
+    expect(extractInquiryLeadDetails(`TEST_PERSON, ${phone}`)).toMatchObject({phoneKey:'700000000',fullPhone:'256700000000',displayPhone:'0700000000'});
+  });
+  it('extracts explicit name and role preferences without granting privileged roles', () => {
+    expect(extractInquiryLeadDetails('my name is Test Person, 0700000000')).toMatchObject({name:'Test Person',role:'tenant'});
+    expect(extractInquiryLeadDetails('I am looking for rent')).toMatchObject({name:null,phoneKey:null});
+    expect(extractInquiryLeadDetails('rent', {leadName:'Test Person',leadPhone:'256700000000',leadRole:'super_admin'})).toMatchObject({name:'Test Person',role:'tenant'});
+  });
+  it.each([['15% Returns','supporter'],['promissory note','supporter'],['agent commission','agent'],['landlord property','landlord'],['rent help','tenant']])('routes %s to public signup role %s', (text, role) => {
+    expect(detectInquiryIntendedRole(text)).toBe(role);
+    const result = buildInquirySignupResult(text);
+    const url = new URL(result.loginUrl);
+    expect(url.pathname).toBe('/auth'); expect(url.searchParams.get('signup')).toBe('1'); expect(url.searchParams.get('role')).toBe(role);
+    expect(result.status).toBe('signup_required');
+    expect(url.searchParams.get('redirect')).toBe(role === 'supporter' ? '/dashboard/funder-new' : role === 'agent' ? '/become-agent' : role === 'landlord' ? '/register-landlord' : '/dashboard');
+  });
+  it('rejects account-created claims, credentials, arbitrary URLs and privileged roles from chat events', () => {
+    expect(parseInquirySignupResult({status:'created',email:'test@example.invalid',tempPassword:'TEST_SECRET'})).toBeNull();
+    expect(parseInquirySignupResult({status:'existing_account',role:'tenant'})).toBeNull();
+    expect(parseInquirySignupResult({status:'signup_required',role:'super_admin'})).toBeNull();
+    const safe = parseInquirySignupResult({status:'signup_required',role:'tenant',loginUrl:'https://example.invalid',tempPassword:'TEST_SECRET'});
+    expect(safe).toEqual(buildInquirySignupResult('tenant'));
+    expect(safe).not.toHaveProperty('tempPassword');
+    expect(safe).not.toHaveProperty('email');
+  });
+});
 describe('Nexa projections and access campaign',()=>{
   it('uses 15% monthly and 12-month Returns without moving capital',()=>{
     const p=calculateSupporterSalesProjection(100000,new Date('2026-01-01'));

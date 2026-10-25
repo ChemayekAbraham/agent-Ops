@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildNexaPublicGuideReply, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
+import { extractInquiryLeadDetails, buildSignupPersuasionPitch } from '../_shared/nexaSignup.ts';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
 import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
@@ -56,7 +57,11 @@ Deno.serve(async req => {
         } else {
           const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
-          answer=await buildWhatsAppAiReply(aiKey,NEXA_SALES_PROMPT+knowledgeContext(knowledge ?? []),text,req.signal);
+          answer=await buildWhatsAppAiReply(aiKey,NEXA_SALES_PROMPT+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
+        }
+        if (!isRestrictedInternalStaffQuery(text)) {
+          const lead = extractInquiryLeadDetails(text, {leadPhone:msg.from});
+          answer += `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
         }
         const sent=await sendWhatsApp(msg.from,answer);
         // On unknown delivery do not retry the same provider event and duplicate messages.
