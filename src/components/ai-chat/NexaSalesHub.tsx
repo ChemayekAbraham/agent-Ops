@@ -3,11 +3,14 @@ import { Tabs,TabsList,TabsTrigger,TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { calculateSupporterSalesProjection,calculateTenantRentSalesProjection } from '@/lib/nexaSalesEngine';
+import { calculateSupporterSalesProjection,calculateTenantRentSalesProjection,toAuthGatedPath,buildPromissoryNoteReminderReply } from '@/lib/nexaSalesEngine';
+import { useAuth } from '@/contexts/AuthContext';
+import ReactMarkdown from 'react-markdown';
 import { formatFixedUGX } from '@/lib/supportPlanExample';
 import { ACCESS_LIMIT_CAMPAIGN_COPY,buildAgentAccessLimitWhatsAppUrl } from '@/lib/accessLimitMessaging';
 import { HandCoins,TrendingUp,Share2,MessageCircle,ArrowRight } from 'lucide-react';
 export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
+  const { user } = useAuth();
   const [amount,setAmount]=useState('100000');
   const [days,setDays]=useState('30');
   const value=Number(amount); const valid=Number.isFinite(value)&&value>0;
@@ -28,7 +31,8 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
         <p className="text-xs text-muted-foreground">Illustrative projection. Approved plan terms apply.</p>
         {valid && <ol className="list-decimal space-y-2 pl-5">{supporter.workedExample.map(step=><li key={step}>{step}</li>)}</ol>}
         <p>{supporter.operationalGuarantee}</p>
-        <Button asChild className="min-h-11 w-full"><a href="/dashboard/funder-new">Choose a Support Plan<ArrowRight className="h-4 w-4" /></a></Button>
+        <div className="space-y-2"><ReactMarkdown>{buildPromissoryNoteReminderReply()}</ReactMarkdown></div>
+        <Button asChild className="min-h-11 w-full"><a href={user ? '/dashboard/funder-new' : toAuthGatedPath('/dashboard/funder-new')}>Choose a Support Plan<ArrowRight className="h-4 w-4" /></a></Button>
       </TabsContent>
       <TabsContent value="tenant" className="space-y-3">
         <p>{ACCESS_LIMIT_CAMPAIGN_COPY}</p>
