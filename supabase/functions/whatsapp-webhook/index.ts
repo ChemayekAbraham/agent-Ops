@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
-import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext } from '../_shared/nexa.ts';
+import { NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { verifyMetaSignature } from './security.ts';
 import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
@@ -42,7 +42,9 @@ Deno.serve(async req => {
         // A WhatsApp number is a contact channel, NOT an authenticated app identity.
         // Never attach private in-app data based on a phone match alone.
         let answer:string;
-        if(wantsHuman(text)) {
+        if(isRestrictedInternalStaffQuery(text)) {
+          answer=buildInternalStaffRefusalReply();
+        } else if(wantsHuman(text)) {
           const {error}=await admin.from('nexa_human_escalations').insert({user_id:null,user_phone:`+${msg.from}`,user_role:'whatsapp_contact',user_question:text,conversation_context:[],provider_message_id:msg.id});
           if(error?.code==='23505') {seen.set(msg.id,now);continue;}
           if(error) return reply('Escalation unavailable',503);

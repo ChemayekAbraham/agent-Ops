@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext } from "../_shared/nexa.ts";
+import { NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 const json = (data: unknown, status=200) => new Response(JSON.stringify(data), {status,headers:{...corsHeaders,"Content-Type":"application/json"}});
 const buckets = new Map<string,{count:number;at:number}>();
@@ -32,6 +32,7 @@ Deno.serve(async req => {
       userId=data.user.id;
     }
     if(!allowed(userId ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'public')) return json({error:'Please wait before asking again'},429);
+    if(messages.some(m => m.role === 'user' && isRestrictedInternalStaffQuery(m.content))) return sse(buildInternalStaffRefusalReply());
     if(wantsHuman(question.content)) {
       if(!userId || !auth) return sse('Sign in to send your question to Benjamin’s Desk and receive a private reply. You can also contact Welile support: https://wa.me/256777607640');
       const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});
