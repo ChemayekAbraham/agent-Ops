@@ -10,6 +10,12 @@ import type {
 import { formatHouseCategory, prettyName } from '@/lib/formatting';
 import { formatDynamicCompact, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import { readCoordinate } from './distance';
+import { compareFunderHousesByCompleteness, sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+export * from '@/lib/funderHouseSort';
+
+export function sortOpportunities<T extends object>(items: readonly T[], tieBreaker?: (a: T, b: T) => number): T[] {
+  return sortFunderHousesByCompleteness(items, tieBreaker);
+}
 
 const MONTHLY_RETURN_RATE = 0.15;
 

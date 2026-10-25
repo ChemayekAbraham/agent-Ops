@@ -1,4 +1,6 @@
 # Architecture Decisions
+- Nexa sales helpers are projections only; house completeness sorts already authorized loaded rows without replacing verification or funding rules. Private escalation writes and teaching use caller-checked RPCs; role-scoped knowledge never crosses roles and WhatsApp contact numbers never authenticate app accounts.
+- Nexa schema proposals remain under docs/pending-migrations until applied through the approved migration workflow; Meta webhook requires a signed body and configured sender, with no duplicate fallback after uncertain delivery.
 - Partner payout presentation reuses the existing paid/outstanding reports and record drill-downs; summary tiles preserve their original totals and due-by cutoff rather than inventing a next due date.
 - Standing order amount revisions use only `standing_order_set_amount` for locked configuration plus atomic audit, never the payer or lifecycle audit helper; authorized users may preview the controls, but saves remain loopback-development-only until separately approved activation.
 - CFO loading separates authoritative summaries from optional detail reads; shared wallet responses retain distinct balance/float fields and reconciliation still waits for the full verification scan, so faster presentation cannot change financial definitions.

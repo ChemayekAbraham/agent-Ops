@@ -70,7 +70,7 @@ describe('staffCallingReport helpers & PDF generation', () => {
     expect(canAccessHrStaffReports(MARK_BWAYO_USER_ID, ['employee'])).toBe(true);
     expect(canAccessHrStaffReports('00000000-0000-0000-0000-000000000001', ['hr', 'super_admin', 'ceo'])).toBe(false);
     expect(canAccessHrStaffReports(JANE_USER_ID, ['operations'])).toBe(false);
-    expect(canAccessHrStaffReports(WINNIE_USER_ID, ['tenant_ops'])).toBe(false);
+    expect(canAccessHrStaffReports(WINNIE_USER_ID, ['operations'])).toBe(false);
   });
 
   it('generates both Individual and General Team PDF blobs with Landlord Calling Center & Rent Pipeline rows', async () => {

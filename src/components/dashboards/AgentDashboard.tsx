@@ -9,6 +9,7 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
+import { AgentAccessLimitCampaignCard } from '@/components/agent/AgentAccessLimitCampaignCard';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
 import TenantLocationCorrectionPopup from '@/components/agent/TenantLocationCorrectionPopup';
 import { AgentCompanyDebtCard } from '@/components/agent/AgentCompanyDebtCard';
@@ -1149,6 +1150,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
         <AgentAgreementBanner />
         <MissionBanner dashboardRole="agent" />
+        {activeTab === 'home' && <AgentAccessLimitCampaignCard />}
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}
 

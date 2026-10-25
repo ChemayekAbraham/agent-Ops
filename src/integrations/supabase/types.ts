@@ -84974,6 +84974,30 @@ export type Database = {
           user_id: string
         }[]
       }
+      staff_calling_detailed_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          answered: boolean
+          day: string
+          excluded_reveals: number
+          extra: Json
+          feedback: string
+          hhmm: string
+          name: string
+          outcome: string
+          person_id: string
+          phone: string
+          phone9: string
+          prio: number
+          role: string
+          rr_id: string
+          short_name: string
+          source: string
+          staff_id: string
+          staff_name: string
+          ts: string
+        }[]
+      }
       staff_create_redemption_request: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string

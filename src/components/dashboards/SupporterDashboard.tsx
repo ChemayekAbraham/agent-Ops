@@ -1,6 +1,7 @@
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
@@ -273,7 +274,7 @@ export default function SupporterDashboard({
   const [virtualHouses, setVirtualHouses] = useState<VirtualHouse[]>(() => {
     try {
       const raw = localStorage.getItem(`supporter_houses_${user.id}`);
-      if (raw) return JSON.parse(raw).houses || [];
+      if (raw) return sortFunderHousesByCompleteness<VirtualHouse>(JSON.parse(raw).houses || []);
     } catch {}
     return [];
   });

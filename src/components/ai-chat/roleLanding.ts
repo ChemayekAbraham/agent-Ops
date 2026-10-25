@@ -29,7 +29,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "🏠",
     cta: "Get rent help — free account",
     headline: "Need help with rent? 🏠",
-    subtitle: "Ask about your Rent Plan, then create a free account to get funded.",
+    subtitle: "Grow Rent Access up to UGX 30,000,000 with daily payments, or support tenants for 15% monthly Returns.",
     suggestions: [
       { icon: "💸", text: "How does a Rent Plan work?" },
       { icon: "🧮", text: "Estimate my rent access" },
@@ -42,7 +42,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "⚡",
     cta: "Become an agent — free account",
     headline: "Earn as a Welile agent ⚡",
-    subtitle: "Register tenants, list houses, collect rent — earn commission in UGX.",
+    subtitle: "Help tenants grow Rent Access up to UGX 30,000,000. Tenant Support projects 15% monthly Returns.",
     suggestions: [
       { icon: "💰", text: "How much can agents make?" },
       { icon: "📋", text: "What does an agent do daily?" },
@@ -55,7 +55,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "🏢",
     cta: "List your house — free account",
     headline: "Guaranteed rent for landlords 🏢",
-    subtitle: "List your houses and receive on-time rent instead of chasing tenants.",
+    subtitle: "Support tenants for 15% monthly Returns, and help them grow Rent Access up to UGX 30,000,000.",
     suggestions: [
       { icon: "✅", text: "How do I get guaranteed rent?" },
       { icon: "🏠", text: "How do I list my house?" },
@@ -68,7 +68,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "💰",
     cta: "Become a Supporter — free account",
     headline: "Support tenants, earn Returns 💰",
-    subtitle: "Your funds help tenants access rent and earn periodic Returns in UGX.",
+    subtitle: "Tenant Support projects 15% monthly Returns. Daily payments grow Rent Access up to UGX 30,000,000.",
     suggestions: [
       { icon: "📈", text: "Estimate my Supporter Returns" },
       { icon: "❓", text: "What is the Supporter programme?" },
