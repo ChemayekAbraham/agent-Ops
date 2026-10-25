@@ -148,3 +148,40 @@ No rows in any of the three tables.
 | last 24h | agent_repayment | merchandise_recovery_plans | 5 | UGX 6,744 |
 
 Note: "earlier Sat" withdrawal legs (UGX 276,000) come from requests processed after midnight but before 09:53, which is why Saturday's full-day total (UGX 1,536,500) exceeds the 24-hour figure.
+
+---
+
+# Wallet totals and last-24h wallet movements (read-only, run 25 Oct ~10:58 EAT)
+
+## W1a. Wallet totals cache (computed 2026-10-25 10:57:00 EAT)
+| total_wallets | active_wallets | total_balance | total_withdrawable | total_float | strict_total | drifted_wallets | total_drift |
+|---|---|---|---|---|---|---|---|
+| 97,822 | 1,133 | UGX 121,888,015.03 | UGX 62,503,085.03 | UGX 59,384,930 | UGX 79,616,382.03 | 1,095 | UGX 0 |
+
+## W1b. Wallet balances projection + open withdrawals
+| proj_users | active_users | total_visible | withdrawable | float | advance | pending_holds | restricted_held | open withdrawals | open withdrawals UGX |
+|---|---|---|---|---|---|---|---|---|---|
+| 58,371 | 1,121 | UGX 121,867,815.03 | UGX 62,484,385.03 | UGX 59,383,430 | UGX 17,332,792 | UGX 740,000 | UGX 0 | 119 | UGX 25,338,014 |
+
+## W2. Last 24h wallet ledger by bucket / direction / category
+| Bucket | Direction | Category | Source | Rows | Total |
+|---|---|---|---|---|---|
+| advance_credit | cash_in | agent_advance_credit | agent_advances | 296 | UGX 337,761 |
+| float | cash_in | agent_float_deposit | deposit_requests | 61 | UGX 3,271,200 |
+| float | cash_in | agent_float_deposit | cfo_direct_credit | 1 | UGX 1,000,000 |
+| float | cash_in | bucket_reclass_in | agent_withdrawable_to_float | 16 | UGX 104,801 |
+| float | cash_out | agent_float_used_for_rent | agent_collections | 198 | UGX 3,401,965 |
+| float | cash_out | agent_float_settlement | withdrawal_requests | 24 | UGX 1,297,000 |
+| float | cash_out | agent_float_deposit | deposit_requests | 1 | UGX 15,000 |
+| withdrawable | cash_in | system_balance_correction | payroll_growth_balances | 85 | UGX 879,523 |
+| withdrawable | cash_in | agent_commission_earned | agent_collections | 329 | UGX 340,196.50 |
+| withdrawable | cash_in | wallet_deposit | cfo_direct_credit | 30 | UGX 111,000 |
+| withdrawable | cash_in | wallet_transfer | wallet_transactions | 1 | UGX 10,000 |
+| withdrawable | cash_in | agent_commission_earned | withdrawal_requests | 12 | UGX 6,443 |
+| withdrawable | cash_out | wallet_withdrawal | withdrawal_requests | 12 | UGX 1,288,500 |
+| withdrawable | cash_out | agent_repayment | agent_advances | 50 | UGX 122,039.44 |
+| withdrawable | cash_out | bucket_reclass_out | agent_withdrawable_to_float | 16 | UGX 104,801 |
+| withdrawable | cash_out | wallet_transfer | wallet_transactions | 1 | UGX 10,000 |
+| withdrawable | cash_out | agent_repayment | merchandise_recovery_plans | 5 | UGX 6,744 |
+
+
