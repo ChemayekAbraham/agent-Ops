@@ -471,6 +471,7 @@ export default function Auth() {
       >
 
         <div className="screen-top-header">
+          <Button variant="outline" className="ml-auto rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button>
           <button
             type="button"
             className="btn-circle-nav"

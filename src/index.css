@@ -1760,3 +1760,22 @@ html.reduce-motion *::after {
   .nudge-enter, .nudge-badge { animation: none; }
   .nudge-sparkle { display: none; }
 }
+
+/* Assistant-only neutral tokens; unrelated workspaces retain their own palette. */
+.assistant-chat {
+  --background: 0 0% 100%; --foreground: 0 0% 9%; --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 43%; --border: 0 0% 91%; --assistant-emblem: 0 0% 9%;
+  --assistant-emblem-foreground: 0 0% 100%; --assistant-user: 0 0% 96%;
+  --assistant-user-foreground: 0 0% 9%;
+  background: hsl(var(--background)); color: hsl(var(--foreground));
+}
+.dark .assistant-chat {
+  --background: 0 0% 13%; --foreground: 0 0% 96%; --muted: 0 0% 18%;
+  --muted-foreground: 0 0% 69%; --border: 0 0% 24%; --assistant-emblem: 0 0% 100%;
+  --assistant-emblem-foreground: 0 0% 9%; --assistant-user: 0 0% 18%;
+  --assistant-user-foreground: 0 0% 96%;
+}
+.assistant-emblem, .assistant-send { background: hsl(var(--assistant-emblem)); color: hsl(var(--assistant-emblem-foreground)); }
+.assistant-user { background: hsl(var(--assistant-user)) !important; color: hsl(var(--assistant-user-foreground)) !important; border-radius: 24px !important; }
+.assistant-composer > [data-slot="input-group"] { border-radius: 26px; background: hsl(var(--muted)); border-color: hsl(var(--border)); }
+.assistant-starter:hover { background: hsl(var(--muted)); }
