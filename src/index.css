@@ -1831,10 +1831,9 @@ html.reduce-motion *::after {
 .cash-insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .cash-analysis-primary, .cash-analysis-secondary { display: contents; }
 .cash-flow-chart { grid-row: 1; }
-.cash-account-chart { grid-row: 2; }
-.cash-account-table { grid-row: 3; }
-.cash-key-insights { grid-row: 4; }
-.cash-quick-actions { grid-row: 5; }
+.cash-account-table { grid-row: 2; }
+.cash-key-insights { grid-row: 3; }
+.cash-quick-actions { grid-row: 4; }
 .cash-analysis-heading { margin-top: 10px; }
 .cash-insights-layout .cash-quick-actions > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .cash-quick-actions button { margin: 0; justify-content: flex-start; }
@@ -1855,13 +1854,10 @@ html.reduce-motion *::after {
   .cash-position-kpis > div:nth-child(9) > button > div:not(:first-child) { padding: 0; min-height: 24px; }
   .cash-position-kpis > div:nth-child(9) > button > p:last-child { grid-column: 2 / -1; font-size: 10px; }
   .cash-insights-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
-  .cash-flow-chart { grid-column: 1 / 6; grid-row: 1; height: 252px; }
-  .cash-account-chart { grid-column: 6 / 10; grid-row: 1; height: 252px; }
-  .cash-account-chart > div { gap: 4px; }
-  .cash-account-chart > div > div:first-child { width: 120px; height: 144px; }
-  .cash-key-insights { grid-column: 10 / 13; grid-row: 1; }
-  .cash-account-table { grid-column: 1 / 10; grid-row: 2; }
-  .cash-quick-actions { grid-column: 10 / 13; grid-row: 2; align-self: stretch; }
+  .cash-flow-chart { grid-column: 1 / 9; grid-row: 1; }
+  .cash-key-insights { grid-column: 9 / 13; grid-row: 1; }
+  .cash-account-table { grid-column: 1 / 9; grid-row: 2; }
+  .cash-quick-actions { grid-column: 9 / 13; grid-row: 2; align-self: stretch; }
   .cash-decision-brief, .cash-analysis-heading { grid-column: 1 / -1; }
   .cash-analysis-primary > .rounded-md:not(.cash-flow-chart),
   .cash-analysis-secondary > .rounded-md:not(.cash-key-insights):not(.cash-quick-actions) { grid-column: span 4; }

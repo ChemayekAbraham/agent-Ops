@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import {
   LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
@@ -128,10 +128,6 @@ export function CashPositionInsights({
   const payablesTotal = rp.data?.outstanding ?? 0; // receivables show immediately; payables fill in when ready
   const outstanding = totalReceivables + payablesTotal;
   const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
-  const pie = [
-    { name: 'Receivables', value: totalReceivables, color: 'hsl(var(--success))' },
-    { name: 'Payables', value: payablesTotal, color: 'hsl(var(--destructive))' },
-  ];
 
   const topPayables = rp.data?.top ?? [];
   const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
