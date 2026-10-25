@@ -50274,6 +50274,251 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_assistant_config: {
+        Row: {
+          enabled: boolean
+          history_days: number
+          id: boolean
+          max_emails_per_day: number
+          max_questions_per_day: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          history_days?: number
+          id?: boolean
+          max_emails_per_day?: number
+          max_questions_per_day?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          history_days?: number
+          id?: boolean
+          max_emails_per_day?: number
+          max_questions_per_day?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      staff_assistant_conversations: {
+        Row: {
+          closed_at: string | null
+          device_browser: string | null
+          device_class: string | null
+          device_os: string | null
+          id: string
+          ip_address: string | null
+          last_active_at: string
+          message_count: number
+          persona: string
+          started_at: string
+          status: string
+          title: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          message_count?: number
+          persona?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          closed_at?: string | null
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          message_count?: number
+          persona?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_feedback: {
+        Row: {
+          comment: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string
+          rating: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          comment?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          latency_ms: number | null
+          model: string | null
+          outcome: string | null
+          period_label: string | null
+          report_payload: Json | null
+          role: string
+          source_label: string | null
+          tools_called: string[]
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          report_payload?: Json | null
+          role: string
+          source_label?: string | null
+          tools_called?: string[]
+          user_id?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          report_payload?: Json | null
+          role?: string
+          source_label?: string | null
+          tools_called?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_unanswered: {
+        Row: {
+          caller_roles: string[]
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          question_text: string
+          reason: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          caller_roles?: string[]
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          question_text: string
+          reason?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Update: {
+          caller_roles?: string[]
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          question_text?: string
+          reason?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_unanswered_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_facilitation_notes: {
         Row: {
           id: string
@@ -84974,6 +85219,22 @@ export type Database = {
           user_id: string
         }[]
       }
+      staff_assistant_email_recipients: {
+        Args: { p_search?: string }
+        Returns: {
+          email: string
+          full_name: string
+          roles: string[]
+          staff_user_id: string
+        }[]
+      }
+      staff_assistant_has_access: { Args: never; Returns: boolean }
+      staff_assistant_is_staff_email: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
+      staff_assistant_purge_old_history: { Args: never; Returns: number }
+      staff_assistant_require_staff: { Args: never; Returns: undefined }
       staff_calling_detailed_report: {
         Args: { p_from: string; p_to: string }
         Returns: {

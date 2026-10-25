@@ -170,7 +170,7 @@ export function CashPositionInsights({
     {
       icon: <Info className="h-4 w-4" />, tone: 'bg-info text-info-foreground',
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
-      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} over the last ${days} days`,
+      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} ${days === 1 ? 'today' : `over the last ${days} days`}`,
       go: 'cash-position',
     },
   ].filter(Boolean) as Array<{ icon: React.ReactNode; tone: string; title: string; sub: string; go: string }>;
@@ -199,7 +199,7 @@ export function CashPositionInsights({
             right={
               <select value={days} onChange={(e) => setDays(Number(e.target.value))}
                 className="h-9 rounded-md border border-border bg-card px-2 text-xs">
-                <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
+                <option value={1}>Today</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
           <div className="h-72">
