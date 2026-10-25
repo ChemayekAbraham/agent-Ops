@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { CashPositionAccounts } from './CashPositionAccounts';
 import { CashPositionBreakdowns } from './CashPositionBreakdowns';
+import { CashPositionDownloadReports } from './CashPositionDownloadReports';
 import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import type { PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
 
@@ -68,6 +69,7 @@ export function CashPositionInsights({
   totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate, receivablesReady = true, moneyReady = true, accountMoney, accountUpdatedAt = 0, onSelectAccount,
 }: Props) {
   const [days, setDays] = useState(30);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const flow = useQuery({
     queryKey: ['cfo-cash-flow-trend', days],
@@ -168,15 +170,15 @@ export function CashPositionInsights({
     {
       icon: <Info className="h-4 w-4" />, tone: 'bg-info text-info-foreground',
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
-      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} over the last ${days} days`,
+      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} ${days === 1 ? 'today' : `over the last ${days} days`}`,
       go: 'cash-position',
     },
   ].filter(Boolean) as Array<{ icon: React.ReactNode; tone: string; title: string; sub: string; go: string }>;
 
-  const actions = [
+  const actions: Array<{ icon: React.ReactNode; title: string; sub: string; go?: string; onClick?: () => void }> = [
     { icon: <FileText className="h-4 w-4" />, title: 'View Detailed Reports', sub: 'Financial, collections, payables & more', go: 'statements' },
     { icon: <Scale className="h-4 w-4" />, title: 'Reconcile Accounts', sub: 'Check balances and resolve discrepancies', go: 'reconciliation' },
-    { icon: <Download className="h-4 w-4" />, title: 'Download Reports', sub: 'Export payout reports (PDF)', go: 'payout-reports' },
+    { icon: <Download className="h-4 w-4" />, title: 'Money Reports', sub: 'Payout & received reports with breakdown', onClick: () => setReportsOpen(true) },
     { icon: <ShieldCheck className="h-4 w-4" />, title: 'Audit Log', sub: 'View recent approvals history', go: 'approval-audit' },
   ];
 
@@ -197,7 +199,7 @@ export function CashPositionInsights({
             right={
               <select value={days} onChange={(e) => setDays(Number(e.target.value))}
                 className="h-9 rounded-md border border-border bg-card px-2 text-xs">
-                <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
+                <option value={1}>Today</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
           <div className="h-72">
@@ -243,7 +245,7 @@ export function CashPositionInsights({
           <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" />
           <div className="space-y-2">
             {actions.map((a) => (
-              <Button key={a.title} variant="outline" type="button" onClick={() => onNavigate?.(a.go)}
+              <Button key={a.title} variant="outline" type="button" onClick={() => (a.onClick ? a.onClick() : onNavigate?.(a.go!))}
                 className="w-full flex h-auto items-center gap-2 rounded-md border border-border/70 px-2 py-2.5 text-left hover:bg-muted/50 min-h-11 whitespace-normal">
                 <span className="text-primary shrink-0">{a.icon}</span>
                 <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{a.title}</span><span className="block text-[11px] text-muted-foreground truncate">{a.sub}</span></span>
@@ -253,6 +255,7 @@ export function CashPositionInsights({
           </div>
         </CardContent></Card>
       </div>
+      <CashPositionDownloadReports open={reportsOpen} onOpenChange={setReportsOpen} />
     </div>
   );
 }

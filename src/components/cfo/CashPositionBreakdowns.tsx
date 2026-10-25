@@ -8,13 +8,29 @@ import { allTime, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownRe
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
 
-const METHODS = [
-  { key: 'mobile_money', label: 'Mobile Money' },
-  { key: 'bank_transfer', label: 'Bank Transfer' },
-  { key: 'cash', label: 'Cash' },
+/** Money sources for each report — must stay in sync with the `types` lists in MoneyReceivedReport / MoneyPaidOutReport. */
+export const RECEIVED_SOURCES = [
+  { key: 'operational_float', label: 'Operational float', type: 'Operational float' },
+  { key: 'personal_deposit', label: 'Personal deposit', type: 'Personal deposit' },
+  { key: 'partnership_deposit', label: 'Partnership deposit', type: 'Partnership deposit' },
+  { key: 'rent_repayment', label: 'Rent repayment', type: 'Rent repayment' },
+  { key: 'other', label: 'Other', type: 'Other' },
 ] as const;
 
-type MethodTotal = { key: string; label: string; amount: number; count: number };
+export const PAID_OUT_SOURCES = [
+  { key: 'wallet_withdrawal', label: 'Wallet withdrawal', type: 'Wallet withdrawal' },
+  { key: 'supporter_returns', label: 'Supporter returns', type: 'Supporter returns' },
+  { key: 'commission', label: 'Agent commission', type: 'Commission' },
+  { key: 'landlord', label: 'Landlord float', type: 'Landlord' },
+  { key: 'salary', label: 'Salary', type: 'Salary' },
+] as const;
+
+export type SourceTotal = { key: string; label: string; type: string; amount: number; count: number };
+/** Kept for existing imports (download reports dialog, tests). */
+export type MethodTotal = SourceTotal;
+
+export const sourcesFor = (kind: 'received' | 'paid_out') =>
+  kind === 'received' ? RECEIVED_SOURCES : PAID_OUT_SOURCES;
 
 const rangeArgs = () => {
   const range = allTime();
@@ -27,23 +43,26 @@ const rangeArgs = () => {
   };
 };
 
-function useMethodBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') {
+/** All-time confirmed totals per money source, from the same server aggregate the reports use. */
+export function useSourceBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') {
+  const sources = sourcesFor(kind);
   return useQuery({
-    queryKey: ['cfo-cash-position-method-breakdown', kind],
+    queryKey: ['cfo-cash-position-source-breakdown', kind],
     retry: cfoReportRetry,
-    queryFn: async (): Promise<MethodTotal[]> => {
+    queryFn: async (): Promise<SourceTotal[]> => {
       const { p_from, p_to } = rangeArgs();
       const results = await Promise.all(
-        METHODS.map(m => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
-          p_kind: kind, p_from, p_to, p_status: status, p_method: m.key, p_type: null, p_person: null,
+        sources.map(s => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
+          p_kind: kind, p_from, p_to, p_status: status, p_method: null, p_type: s.type, p_person: null,
         })),
       );
       return results.map((result, index) => {
         if (result.error) throw result.error;
         const row = (result.data ?? [])[0] ?? {};
         return {
-          key: METHODS[index].key,
-          label: METHODS[index].label,
+          key: sources[index].key,
+          label: sources[index].label,
+          type: sources[index].type,
           amount: Number(row.confirmed_amount ?? 0),
           count: Number(row.confirmed_count ?? 0),
         };
@@ -53,12 +72,15 @@ function useMethodBreakdown(kind: 'received' | 'paid_out', status: 'approved' | 
   });
 }
 
+/** @deprecated Use useSourceBreakdown — kept so existing imports keep working. */
+export const useMethodBreakdown = useSourceBreakdown;
+
 function BreakdownPanel({ title, icon, tone, query, onSelect, onSelectTotal }: {
   title: string;
   icon: React.ReactNode;
   tone: string;
-  query: ReturnType<typeof useMethodBreakdown>;
-  onSelect: (row: MethodTotal) => void;
+  query: ReturnType<typeof useSourceBreakdown>;
+  onSelect: (row: SourceTotal) => void;
   onSelectTotal: (total: { amount: number; count: number }) => void;
 }) {
   const rows = query.data ?? [];
@@ -103,20 +125,20 @@ function BreakdownPanel({ title, icon, tone, query, onSelect, onSelectTotal }: {
   );
 }
 
-/** Read-only "Received by" / "Paid by" payment-method breakdowns for the Cash Position page. */
+/** Read-only "Received by" / "Paid by" money-source breakdowns for the Cash Position page. */
 export function CashPositionBreakdowns() {
-  const received = useMethodBreakdown('received', 'approved');
-  const paidOut = useMethodBreakdown('paid_out', 'confirmed');
+  const received = useSourceBreakdown('received', 'approved');
+  const paidOut = useSourceBreakdown('paid_out', 'confirmed');
   const [receivedOpen, setReceivedOpen] = useState(false);
   const [paidOpen, setPaidOpen] = useState(false);
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
 
-  const open = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (row: MethodTotal) => {
+  const open = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (row: SourceTotal) => {
     setPreset({
       label: `${row.label} — all time`,
       ...allTime(),
       status,
-      method: row.key,
+      type: row.type,
       expected: { amount: row.amount, count: row.count, basis: 'confirmed' },
     });
     if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
@@ -124,10 +146,9 @@ export function CashPositionBreakdowns() {
 
   const openAll = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (total: { amount: number; count: number }) => {
     setPreset({
-      label: 'All payment methods — all time',
+      label: 'All sources — all time',
       ...allTime(),
       status,
-      method: undefined,
       expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
     });
     if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
