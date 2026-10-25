@@ -13492,6 +13492,105 @@ export type Database = {
         }
         Relationships: []
       }
+      cto_controlled_rent_plans: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          note: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       daily_platform_stats: {
         Row: {
           active_users_30d: number
@@ -17039,6 +17138,7 @@ export type Database = {
           code_hash: string
           consumed_at: string | null
           created_at: string
+          detail: string
           expires_at: string
           failure_reason: string | null
           fingerprint: string
@@ -17046,6 +17146,7 @@ export type Database = {
           kind: string
           max_attempts: number
           requested_by: string
+          scope_fp: string | null
           verified_at: string | null
         }
         Insert: {
@@ -17054,6 +17155,7 @@ export type Database = {
           code_hash: string
           consumed_at?: string | null
           created_at?: string
+          detail?: string
           expires_at: string
           failure_reason?: string | null
           fingerprint: string
@@ -17061,6 +17163,7 @@ export type Database = {
           kind: string
           max_attempts?: number
           requested_by: string
+          scope_fp?: string | null
           verified_at?: string | null
         }
         Update: {
@@ -17069,6 +17172,7 @@ export type Database = {
           code_hash?: string
           consumed_at?: string | null
           created_at?: string
+          detail?: string
           expires_at?: string
           failure_reason?: string | null
           fingerprint?: string
@@ -17076,6 +17180,7 @@ export type Database = {
           kind?: string
           max_attempts?: number
           requested_by?: string
+          scope_fp?: string | null
           verified_at?: string | null
         }
         Relationships: []
@@ -18805,6 +18910,30 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      financial_ops_features: {
+        Row: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          enforced?: boolean
+          grp: string
+          key: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          enforced?: boolean
+          grp?: string
+          key?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
       }
       financial_ops_restrictions: {
         Row: {
@@ -36389,6 +36518,54 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_security_alerts: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          actor_phone: string | null
+          actor_roles: string[] | null
+          attempted: string
+          blocked: boolean
+          detail: Json | null
+          emailed: boolean
+          id: string
+          ip_address: string | null
+          occurred_at: string
+          target: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted: string
+          blocked: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted?: string
+          blocked?: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       partner_agreement_company_defaults: {
         Row: {
           created_at: string
@@ -39539,6 +39716,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_owner: {
+        Row: {
+          created_at: string
+          email: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       platform_wallet_corrections: {
         Row: {
@@ -59857,6 +60052,336 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_medical_facilities: {
+        Row: {
+          approx_daily_patients: number | null
+          cell_or_village: string | null
+          country: string
+          created_at: string
+          district: string | null
+          entry_point_name: string
+          facility_name: string
+          facility_type: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_source: string | null
+          id: string
+          in_charge_name: string | null
+          in_charge_phone: string | null
+          ownership: string
+          parish_or_ward: string | null
+          region: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          sub_county_or_town: string | null
+          updated_at: string
+        }
+        Insert: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name?: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      welile_medical_gate_logs: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          attendant_or_kin_name: string | null
+          attendant_or_kin_phone: string | null
+          client_ref: string | null
+          department_or_ward: string | null
+          direction: string
+          entry_point_name: string | null
+          facility_id: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          person_name: string
+          phone: string | null
+          profile_id: string | null
+          recorded_at: string
+          role_type: string
+          visit_purpose_or_note: string | null
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction: string
+          entry_point_name?: string | null
+          facility_id: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type: string
+          visit_purpose_or_note?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction?: string
+          entry_point_name?: string | null
+          facility_id?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name?: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type?: string
+          visit_purpose_or_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_gate_logs_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_gate_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_profiles: {
+        Row: {
+          asset_category: string | null
+          asset_quantity: number | null
+          client_ref: string | null
+          created_at: string
+          department_or_ward: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          has_smartphone: boolean | null
+          id: string
+          next_of_kin_name: string | null
+          next_of_kin_phone: string | null
+          notes: string | null
+          phone: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          role_type: string
+          signup_channel: string | null
+          signup_link_sent: boolean
+          smartphone_queue_status: string
+        }
+        Insert: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Update: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id?: string
+          full_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type?: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_profiles_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_transactions: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          amount_ugx: number
+          category: string
+          client_ref: string | null
+          facility_id: string
+          gate_log_id: string | null
+          id: string
+          items_or_description: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone: string | null
+          payment_method: string
+          profile_id: string | null
+          receipt_number: string
+          recorded_at: string
+          tx_direction: string
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category: string
+          client_ref?: string | null
+          facility_id: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number: string
+          recorded_at?: string
+          tx_direction: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category?: string
+          client_ref?: string | null
+          facility_id?: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name?: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number?: string
+          recorded_at?: string
+          tx_direction?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_transactions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_gate_log_id_fkey"
+            columns: ["gate_log_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_gate_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_payout_source_accounts: {
         Row: {
           created_at: string
@@ -66409,6 +66934,10 @@ export type Database = {
           lease_id: string
         }[]
       }
+      _file_allocation_return_for_rejected_payout: {
+        Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
+        Returns: string
+      }
       _food_default_period: { Args: never; Returns: string }
       _food_list_meal_on_day: {
         Args: { p_day: string; p_meal_id: string }
@@ -71273,6 +71802,10 @@ export type Database = {
           schedule: string
         }[]
       }
+      cto_add_controlled_plans: {
+        Args: { p_note?: string; p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
       cto_cron_jobs_overview: { Args: never; Returns: Json }
       cto_fake_account_base: {
@@ -71325,6 +71858,10 @@ export type Database = {
         Args: { p_reason: string; p_user_id: string }
         Returns: string
       }
+      cto_remove_controlled_plans: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_revoke_id_verification_exception: {
         Args: { p_reason: string; p_user_id: string }
         Returns: undefined
@@ -71349,6 +71886,19 @@ export type Database = {
           id: string
           match_rank: number
           phone: string
+        }[]
+      }
+      cto_search_rent_plans: {
+        Args: { p_limit?: number; p_term: string }
+        Returns: {
+          agent_name: string
+          controlled: boolean
+          funded_on: string
+          rent_amount: number
+          rent_request_id: string
+          status: string
+          tenant_name: string
+          tenant_phone: string
         }[]
       }
       cto_set_kyc_level: {
@@ -71885,6 +72435,10 @@ export type Database = {
       }
       exception_otp_fingerprint: {
         Args: { p_ids: string[]; p_kind: string; p_reason: string }
+        Returns: string
+      }
+      exception_otp_scope: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
         Returns: string
       }
       expire_landlord_number_change_requests: { Args: never; Returns: number }
@@ -74421,6 +74975,35 @@ export type Database = {
       get_cto_auth_metrics_forecast: {
         Args: { p_history_days?: number }
         Returns: Json
+      }
+      get_cto_controlled_plan_collections: {
+        Args: never
+        Returns: {
+          agent_commission: number
+          agent_id: string
+          agent_name: string
+          collection_count: number
+          collections_sum: number
+          counter_mismatch: boolean
+          days_overdue: number
+          duration_days: number
+          expected_agent: number
+          expected_partner: number
+          fees_drawn: number
+          formula_due: number
+          funded_on: string
+          given: number
+          last_collection_on: string
+          partner_earned: number
+          plans_count: number
+          platform_earned: number
+          principal_back: number
+          recovered: number
+          rent_request_id: string
+          row_kind: string
+          status: string
+          tenant_name: string
+        }[]
       }
       get_cto_daily_addendum: { Args: { p_date?: string }; Returns: Json }
       get_cto_daily_report: { Args: { p_date?: string }; Returns: Json }
@@ -78090,6 +78673,7 @@ export type Database = {
       is_partner_ops: { Args: { _uid: string }; Returns: boolean }
       is_payout_ops_staff: { Args: { _user_id: string }; Returns: boolean }
       is_phone_available: { Args: { p_phone: string }; Returns: boolean }
+      is_platform_owner: { Args: never; Returns: boolean }
       is_platform_user_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_proxy_agent_for_partner: {
         Args: { _agent: string; _partner: string }
@@ -78871,6 +79455,16 @@ export type Database = {
           village: string
         }[]
       }
+      list_financial_ops_features: {
+        Args: never
+        Returns: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
+        }[]
+      }
       list_financial_ops_restrictions: {
         Args: never
         Returns: {
@@ -78906,6 +79500,20 @@ export type Database = {
           sale_id: string
           selected_size: string
           total_revenue: number
+        }[]
+      }
+      list_owner_security_alerts: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_name: string
+          actor_phone: string
+          actor_roles: string[]
+          attempted: string
+          blocked: boolean
+          detail: Json
+          ip_address: string
+          occurred_at: string
+          target: string
         }[]
       }
       list_proxy_agent_partners: {
@@ -79051,6 +79659,15 @@ export type Database = {
         Returns: undefined
       }
       log_overdue_vetting_alert_shown: { Args: never; Returns: boolean }
+      log_owner_tamper: {
+        Args: {
+          p_attempted: string
+          p_blocked: boolean
+          p_detail: Json
+          p_target: string
+        }
+        Returns: undefined
+      }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -83052,6 +83669,15 @@ export type Database = {
         }
         Returns: Json
       }
+      request_landlord_payout_change_otp: {
+        Args: {
+          p_detail: string
+          p_kind: string
+          p_reason: string
+          p_target_ids: string[]
+        }
+        Returns: Json
+      }
       request_national_id_link: { Args: { p_nin: string }; Returns: Json }
       request_national_id_unlink: {
         Args: { p_member_id: string; p_reason: string }
@@ -83669,7 +84295,15 @@ export type Database = {
         Args: { p_allow: boolean; p_withdrawal_ids: string[] }
         Returns: number
       }
+      set_landlord_payout_block_exemption_unchecked: {
+        Args: { p_allow: boolean; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       set_landlord_payout_budget: {
+        Args: { p_budget: number; p_restart?: boolean }
+        Returns: number
+      }
+      set_landlord_payout_budget_unchecked: {
         Args: { p_budget: number; p_restart?: boolean }
         Returns: number
       }
@@ -86529,6 +87163,10 @@ export type Database = {
       }
       use_verified_exception_approval: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
+        Returns: string
+      }
+      use_verified_scope_approval: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
         Returns: string
       }
       user_can_access_landlord: {

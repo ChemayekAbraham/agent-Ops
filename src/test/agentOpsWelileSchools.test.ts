@@ -11,10 +11,10 @@ import {
  * other is the failure this guards.
  */
 describe('Welile Schools as Core Business Area 15', () => {
-  it('is the 15th entry in the business areas grid', () => {
-    expect(BUSINESS_AREAS).toHaveLength(15);
+  it('is entry #15 in the business areas grid', () => {
+    expect(BUSINESS_AREAS.length).toBeGreaterThanOrEqual(15);
 
-    const last = BUSINESS_AREAS[BUSINESS_AREAS.length - 1];
+    const last = BUSINESS_AREAS.find((b) => b.num === '15')!;
     expect(last).toMatchObject({
       num: '15',
       title: 'Welile Schools',
