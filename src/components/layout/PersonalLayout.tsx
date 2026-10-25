@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { PERSONAL_NAV } from './personalNav';
 import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
 import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
-import { isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
+import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
 
 const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
 const SIDEBAR_MIN = 200;
@@ -182,7 +182,7 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true) && (!item.requiresTutorialAccess || tutorialAccess === true) && (!item.requiresCallingStaff || isCallingTeamStaff(user?.id)))
+          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true) && (!item.requiresTutorialAccess || tutorialAccess === true) && (!item.requiresCallingStaff || isCallingTeamStaff(user?.id)) && (!item.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles)))
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}
