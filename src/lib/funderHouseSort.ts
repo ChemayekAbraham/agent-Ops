@@ -6,6 +6,11 @@ export interface FunderHouseCompleteness {
   hasLandlord: boolean;
   hasGps: boolean;
   complete: boolean;
+  isComplete: boolean;
+  isFullyVerified: boolean;
+  completenessScore: number;
+  rank: number;
+  badgeLabel: string | null;
 }
 type HouseLike = object;
 const fields = (house: HouseLike) => house as Record<string, unknown>;
@@ -28,19 +33,20 @@ function coordinate(value: unknown): number | null {
 export function hasFunderGps(house: HouseLike): boolean {
   const h = fields(house);
   // Choose a pair together; never combine coordinates from different sources.
-  return [['request_latitude', 'request_longitude'], ['latitude', 'longitude'], ['lat', 'lng']].some(([a, b]) => {
+  return h.has_gps === true || h.gps_verified === true || [['request_latitude', 'request_longitude'], ['location_lat', 'location_lng'], ['location_lat', 'location_lon'], ['latitude', 'longitude'], ['lat', 'lng']].some(([a, b]) => {
     const lat = coordinate(h[a]); const lng = coordinate(h[b]);
-    return lat !== null && lng !== null && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0);
+    return lat !== null && lng !== null && lat >= -2.5 && lat <= 5.5 && lng >= 28.5 && lng <= 36.0;
   });
 }
 export function getFunderHouseCompleteness(house: HouseLike): FunderHouseCompleteness {
   const hasTenant = hasFunderTenant(house), hasLandlord = hasFunderLandlord(house), hasGps = hasFunderGps(house);
-  return { hasTenant, hasLandlord, hasGps, complete: hasTenant && hasLandlord && hasGps };
+  const completenessScore = Number(hasTenant) + Number(hasLandlord) + Number(hasGps);
+  const isComplete = completenessScore === 3;
+  return { hasTenant, hasLandlord, hasGps, complete: isComplete, isComplete, isFullyVerified: isComplete, completenessScore, rank: 3 - completenessScore, badgeLabel: isComplete ? 'Verified: Tenant + Landlord + GPS' : null };
 }
-/** Lower rank sorts first. Tenant > landlord > GPS; all three = rank zero. */
+/** Lower rank sorts first. Equal completeness retains the selected feed ordering. */
 export function getFunderHouseCompletenessRank(house: HouseLike): number {
-  const c = getFunderHouseCompleteness(house);
-  return 7 - (Number(c.hasTenant) * 4 + Number(c.hasLandlord) * 2 + Number(c.hasGps));
+  return getFunderHouseCompleteness(house).rank;
 }
 export function compareFunderHousesByCompleteness(a: HouseLike, b: HouseLike): number {
   return getFunderHouseCompletenessRank(a) - getFunderHouseCompletenessRank(b);
