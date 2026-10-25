@@ -1,4 +1,3 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { Smartphone, Landmark, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
@@ -18,28 +17,6 @@ export function CashPositionAccounts({ money, updatedAt, onSelect }: {
   ];
   const updated = updatedAt ? new Date(updatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
   return <>
-    <section className="cash-account-chart cash-panel" aria-label="Cash by Account Type">
-      <h2 className="text-sm font-semibold">Cash by Account Type</h2>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="relative h-36 w-36 shrink-0">
-          {money && money.total > 0 && <ResponsiveContainer width="100%" height="100%"><PieChart>
-            <Pie data={rows} dataKey="value" nameKey="name" innerRadius={48} outerRadius={66} startAngle={90} endAngle={-270} stroke="none">
-              {rows.map(row => <Cell key={row.line} fill={`hsl(var(--${row.token}))`} />)}
-            </Pie><Tooltip formatter={(value: number) => fmt(value)} />
-          </PieChart></ResponsiveContainer>}
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-[10px] text-muted-foreground">UGX</span>
-            <strong className="text-lg">{money ? `${(money.total / 1e9).toFixed(2)}B` : '—'}</strong>
-            <span className="text-[10px] text-muted-foreground">Total cash</span>
-          </div>
-        </div>
-        <div className="min-w-0 flex-1 space-y-3">{rows.map(row => <div key={row.line} className="text-[10px]">
-          <p className="flex items-center gap-1.5 text-muted-foreground"><span className={`cash-dot cash-dot-${row.token}`} />{row.name}</p>
-          <p className="mt-1 font-medium tabular-nums">{money ? fmt(row.value) : '—'}</p>
-          <p className="text-muted-foreground">{money && money.total > 0 ? `${(row.value / money.total * 100).toFixed(1)}%` : '—'}</p>
-        </div>)}</div>
-      </div>
-    </section>
     <section className="cash-account-table cash-panel" aria-label="Account Balances">
       <h2 className="mb-3 text-sm font-semibold">Account Balances</h2>
       <div className="overflow-x-auto"><table className="w-full text-left text-[11px]">
