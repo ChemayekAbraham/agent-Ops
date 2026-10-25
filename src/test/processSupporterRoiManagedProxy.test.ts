@@ -2,30 +2,27 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 
 /**
- * Managed-Proxy Payout Routing — automated tests
+ * Rent-facilitation reward for a partner under a managed proxy — automated tests
  *
- * Real-world fixture used here mirrors production:
+ * CONTRACT (CFO decision, 25 Oct 2026): the reward is credited to the PARTNER'S OWN wallet. The managed proxy agent
+ * is notified and delivers it later by initiating a withdrawal from the partner's wallet. (Portfolio Returns are
+ * different: their approval credits the proxy agent's wallet. That path is not tested here.)
+ *
+ * How the contract holds in production:
+ *   - process-supporter-roi posts every reward through ONE database call, post_rent_facilitation_reward
+ *     (migration 20261024170000). The call takes no recipient: the database credits the rent request's supporter.
+ *   - The wallet leg carries linked_party 'platform'. The production trigger trg_enforce_managed_proxy_roi_routing
+ *     only enforces proxy routing when linked_party is a partner uuid, so it leaves this credit on the partner's
+ *     wallet (verified read-only against production: every rent-reward credit since June landed on the partner;
+ *     0 routing violations recorded).
+ *
+ * Real-world fixture mirroring production:
  *   - Partner: SSENKAALI PIUS (portfolio WIP2604226578)
- *       id:    0b109aad-212a-4fd0-ab03-3d7aee9cf397
  *   - Active + approved + managed proxy: LUKODDA JOSEPH
- *       id:    b4d7c324-1f7e-4e1c-91a8-3f0e10e0b25c
- *       email: 256751424629@welile.user
  *   - Stale (is_active=false) proxy that must NOT be picked: ATUHAIRE CAROLYNE
- *       id:    ae194750-4827-47e8-839e-5e772565138b
  *
- * These tests assert two things end-to-end:
- *   1. `resolveManagedProxy` selects the ACTIVE+APPROVED+MANAGED row only,
- *      and the wallet leg of the ROI ledger transaction credits the PROXY
- *      agent's user_id — never the partner's.
- *   2. Both the partner notification (routed_to_proxy_agent_id) and the
- *      proxy-agent notification (on_behalf_of_partner_id) are inserted,
- *      AND both transactional emails (`returns-disbursement-confirmation`
- *      with isManagedByAgent=true + `proxy-managed-payout-notice`) are
- *      dispatched.
- *
- * In addition we keep source-guards on the real edge function file so a
- * future refactor that drops the routing or the dual notifications fails
- * the suite loudly.
+ * The behavioural tests mirror the edge function's reward loop; the source guards pin the real edge function and the
+ * migration so a change to either that breaks the contract fails this suite.
  */
 
 const PARTNER_ID = "0b109aad-212a-4fd0-ab03-3d7aee9cf397"; // SSENKAALI PIUS
@@ -76,7 +73,7 @@ const FIXTURE = {
 
 /** Captured side effects we assert against. */
 interface Captured {
-  ledgerEntries: any[];
+  rpcCalls: Array<{ fn: string; args: any }>;
   notifications: any[];
   emails: any[];
 }
@@ -128,8 +125,9 @@ function makeSupabaseMock(captured: Captured) {
   return {
     from: vi.fn((table: string) => tableBuilder(table)),
     rpc: vi.fn(async (fn: string, args: any) => {
-      if (fn === "create_ledger_transaction") {
-        captured.ledgerEntries.push(...(args?.entries ?? []));
+      captured.rpcCalls.push({ fn, args });
+      if (fn === "post_rent_facilitation_reward") {
+        return { data: { status: "posted", mode: "wallet", amount: ROI_AMOUNT, payment_number: args.p_payment_number }, error: null };
       }
       return { data: null, error: null };
     }),
@@ -164,12 +162,10 @@ async function resolveManagedProxy(supabase: any, partnerId: string) {
 }
 
 /**
- * Mirrors the STANDARD WALLET CREDIT branch of process-supporter-roi.
- * Kept narrow on purpose so the test fails when the production routing
- * rule (proxy gets the wallet leg, partner stays on the platform leg)
- * diverges from this contract.
+ * Mirrors the wallet-credit path of the process-supporter-roi reward loop: resolve the proxy (for the description and
+ * the notices only), post through post_rent_facilitation_reward, then notify and email only after it posted.
  */
-async function runRoiPayout(
+async function runRewardPayout(
   supabase: any,
   rr: { id: string; supporter_id: string; rent_amount: number },
   roiAmount: number,
@@ -177,47 +173,50 @@ async function runRoiPayout(
   dispatch: (req: any) => void,
 ) {
   const managedProxy = await resolveManagedProxy(supabase, rr.supporter_id);
-  const walletRecipientId = managedProxy ? managedProxy.agentId : rr.supporter_id;
+  const walletRecipientId = rr.supporter_id;
+  const walletDescription = managedProxy
+    ? `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()} (managed by ${managedProxy.agentName || "proxy agent"})`
+    : `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`;
 
-  await supabase.rpc("create_ledger_transaction", {
-    entries: [
-      {
-        user_id: rr.supporter_id,
-        direction: "cash_out",
-        amount: roiAmount,
-        category: "roi_expense",
-        ledger_scope: "platform",
-      },
-      {
-        user_id: walletRecipientId,
-        direction: "cash_in",
-        amount: roiAmount,
-        category: "roi_wallet_credit",
-        ledger_scope: "wallet",
-      },
-    ],
+  const { data: posted, error } = await supabase.rpc("post_rent_facilitation_reward", {
+    p_rent_request_id: rr.id,
+    p_payment_number: paymentNumber,
+    p_reinvest_portfolio_id: null,
+    p_wallet_description: walletDescription,
   });
+  if (error || posted?.status !== "posted") return { walletRecipientId, posted: false };
 
   if (managedProxy) {
     await supabase.from("notifications").insert({
       user_id: rr.supporter_id,
-      title: "💰 Monthly Reward Sent to Your Proxy Agent",
+      title: "⏳ Monthly Return Approved — Processing",
       type: "earning",
       metadata: {
         rent_request_id: rr.id,
+        roi_amount: roiAmount,
+        payment_number: paymentNumber,
         routed_to_proxy_agent_id: managedProxy.agentId,
         proxy_assignment_id: managedProxy.assignmentId,
       },
     });
     await supabase.from("notifications").insert({
       user_id: managedProxy.agentId,
-      title: "🤝 Proxy Payout Received",
+      title: "🤝 Proxy Payout Ready for Delivery",
       type: "earning",
       metadata: {
         rent_request_id: rr.id,
+        roi_amount: roiAmount,
+        payment_number: paymentNumber,
         on_behalf_of_partner_id: rr.supporter_id,
         proxy_assignment_id: managedProxy.assignmentId,
       },
+    });
+  } else {
+    await supabase.from("notifications").insert({
+      user_id: rr.supporter_id,
+      title: "⏳ Monthly Return Approved — Processing",
+      type: "earning",
+      metadata: { rent_request_id: rr.id, roi_amount: roiAmount, payment_number: paymentNumber },
     });
   }
 
@@ -225,39 +224,42 @@ async function runRoiPayout(
     .from("profiles").select("email, full_name").eq("id", rr.supporter_id).maybeSingle();
   if (partnerProfile?.email) {
     dispatch({
-      templateName: "returns-disbursement-confirmation",
+      builder: "buildReturnsProcessingRequest",
       recipientEmail: partnerProfile.email,
-      templateData: {
-        partner_name: partnerProfile.full_name,
-        is_managed_by_agent: !!managedProxy,
-        agent_name: managedProxy?.agentName || "",
-        payout_method: managedProxy
-          ? `Proxy Agent Wallet (${managedProxy.agentName || "Agent"})`
-          : "Wallet",
-      },
-      idempotencyKey: `returns-disbursement-${rr.supporter_id}-${rr.id}-${paymentNumber}`,
+      partnerId: rr.supporter_id,
+      amount: roiAmount,
+      payoutMethod: "Wallet",
+      isManagedByAgent: !!managedProxy,
+      agentName: managedProxy?.agentName || undefined,
     });
   }
   if (managedProxy?.agentEmail) {
     dispatch({
-      templateName: "proxy-managed-payout-notice",
+      builder: "buildProxyManagedPayoutRequest",
       recipientEmail: managedProxy.agentEmail,
-      templateData: {
-        agent_name: managedProxy.agentName,
-        partner_name: partnerProfile?.full_name,
-        amount: roiAmount,
-      },
-      idempotencyKey: `proxy-managed-payout-${managedProxy.agentId}-${rr.supporter_id}-${rr.id}-${paymentNumber}`,
+      agentId: managedProxy.agentId,
+      partnerId: rr.supporter_id,
+      amount: roiAmount,
+      reason: "Partner wallet credited. Please initiate delivery withdrawal.",
     });
   }
+  return { walletRecipientId, posted: true };
 }
 
-describe("process-supporter-roi · managed-proxy routing (SSENKAALI PIUS / WIP2604226578)", () => {
+describe("process-supporter-roi · rent reward for a managed-proxy partner (SSENKAALI PIUS / WIP2604226578)", () => {
   let captured: Captured;
   let supabase: any;
+  const run = () =>
+    runRewardPayout(
+      supabase,
+      { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
+      ROI_AMOUNT,
+      PAYMENT_NUMBER,
+      (req) => captured.emails.push(req),
+    );
 
   beforeEach(() => {
-    captured = { ledgerEntries: [], notifications: [], emails: [] };
+    captured = { rpcCalls: [], notifications: [], emails: [] };
     supabase = makeSupabaseMock(captured);
   });
 
@@ -270,134 +272,80 @@ describe("process-supporter-roi · managed-proxy routing (SSENKAALI PIUS / WIP26
     expect(proxy!.agentEmail).toBe(ACTIVE_PROXY_EMAIL);
   });
 
-  it("credits the proxy wallet — NOT the partner wallet — on the wallet leg", async () => {
-    await runRoiPayout(
-      supabase,
-      { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
-      ROI_AMOUNT,
-      PAYMENT_NUMBER,
-      (req) => captured.emails.push(req),
-    );
-
-    const walletLeg = captured.ledgerEntries.find(
-      (e) => e.ledger_scope === "wallet" && e.direction === "cash_in",
-    );
-    const platformLeg = captured.ledgerEntries.find(
-      (e) => e.ledger_scope === "platform" && e.direction === "cash_out",
-    );
-
-    expect(walletLeg).toBeDefined();
-    expect(walletLeg.user_id).toBe(ACTIVE_PROXY_ID);
-    expect(walletLeg.user_id).not.toBe(PARTNER_ID);
-    expect(walletLeg.amount).toBe(ROI_AMOUNT);
-    expect(walletLeg.category).toBe("roi_wallet_credit");
-
-    // Platform leg still references the partner for accounting.
-    expect(platformLeg).toBeDefined();
-    expect(platformLeg.user_id).toBe(PARTNER_ID);
+  it("the reward is credited to the PARTNER'S wallet, never the proxy's", async () => {
+    const r = await run();
+    expect(r.walletRecipientId).toBe(PARTNER_ID);
+    expect(r.walletRecipientId).not.toBe(ACTIVE_PROXY_ID);
   });
 
-  it("HARD GUARANTEE: zero wallet-scope ledger entries are ever attributed to the partner", async () => {
-    await runRoiPayout(
-      supabase,
-      { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
-      ROI_AMOUNT,
-      PAYMENT_NUMBER,
-      (req) => captured.emails.push(req),
+  it("posts exactly once, through the atomic database function, which takes no recipient", async () => {
+    await run();
+    const posts = captured.rpcCalls.filter((c) => c.fn === "post_rent_facilitation_reward");
+    expect(posts).toHaveLength(1);
+    expect(Object.keys(posts[0].args).sort()).toEqual(
+      ["p_payment_number", "p_reinvest_portfolio_id", "p_rent_request_id", "p_wallet_description"],
     );
-
-    const partnerWalletLegs = captured.ledgerEntries.filter(
-      (e) => e.ledger_scope === "wallet" && e.user_id === PARTNER_ID,
-    );
-    // ROI must NEVER reflect on the proxy partner's wallet — not as cash_in,
-    // cash_out, correction, or any other movement.
-    expect(partnerWalletLegs).toHaveLength(0);
-
-    const proxyWalletLegs = captured.ledgerEntries.filter(
-      (e) => e.ledger_scope === "wallet" && e.user_id === ACTIVE_PROXY_ID,
-    );
-    // Exactly one wallet leg, and it belongs to the proxy.
-    expect(proxyWalletLegs).toHaveLength(1);
-    expect(proxyWalletLegs[0].direction).toBe("cash_in");
+    expect(posts[0].args.p_rent_request_id).toBe(RR_ID);
+    expect(posts[0].args.p_reinvest_portfolio_id).toBeNull();
+    // The edge function never posts ledger legs itself any more.
+    expect(captured.rpcCalls.some((c) => c.fn === "create_ledger_transaction")).toBe(false);
   });
 
-  it("sends BOTH in-app notifications: partner sees proxy routing, proxy sees on_behalf_of_partner_id", async () => {
-    await runRoiPayout(
-      supabase,
-      { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
-      ROI_AMOUNT,
-      PAYMENT_NUMBER,
-      (req) => captured.emails.push(req),
-    );
+  it("the wallet credit names the managing agent in its description", async () => {
+    await run();
+    const post = captured.rpcCalls.find((c) => c.fn === "post_rent_facilitation_reward")!;
+    expect(post.args.p_wallet_description).toContain(`managed by ${ACTIVE_PROXY_NAME}`);
+  });
 
-    const partnerNotif = captured.notifications.find(
-      (n) => n.user_id === PARTNER_ID,
-    );
-    const proxyNotif = captured.notifications.find(
-      (n) => n.user_id === ACTIVE_PROXY_ID,
-    );
+  it("notifies BOTH: the partner (with the proxy routing) and the proxy (to deliver on the partner's behalf)", async () => {
+    await run();
+    const partnerNotif = captured.notifications.find((n) => n.user_id === PARTNER_ID);
+    const proxyNotif = captured.notifications.find((n) => n.user_id === ACTIVE_PROXY_ID);
 
     expect(partnerNotif).toBeDefined();
-    expect(partnerNotif.title).toMatch(/Proxy Agent/i);
+    expect(partnerNotif.title).toMatch(/Monthly Return Approved/i);
     expect(partnerNotif.metadata.routed_to_proxy_agent_id).toBe(ACTIVE_PROXY_ID);
 
     expect(proxyNotif).toBeDefined();
-    expect(proxyNotif.title).toMatch(/Proxy Payout Received/i);
+    expect(proxyNotif.title).toMatch(/Proxy Payout Ready for Delivery/i);
     expect(proxyNotif.metadata.on_behalf_of_partner_id).toBe(PARTNER_ID);
   });
 
-  it("dispatches BOTH transactional emails: returns-disbursement (isManagedByAgent=true) and proxy-managed-payout-notice", async () => {
-    await runRoiPayout(
-      supabase,
-      { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
-      ROI_AMOUNT,
-      PAYMENT_NUMBER,
-      (req) => captured.emails.push(req),
-    );
-
-    const partnerEmail = captured.emails.find(
-      (e) => e.templateName === "returns-disbursement-confirmation",
-    );
-    const proxyEmail = captured.emails.find(
-      (e) => e.templateName === "proxy-managed-payout-notice",
-    );
+  it("emails BOTH: the partner (isManagedByAgent=true) and the proxy delivery notice", async () => {
+    await run();
+    const partnerEmail = captured.emails.find((e) => e.builder === "buildReturnsProcessingRequest");
+    const proxyEmail = captured.emails.find((e) => e.builder === "buildProxyManagedPayoutRequest");
 
     expect(partnerEmail).toBeDefined();
     expect(partnerEmail.recipientEmail).toBe(PARTNER_EMAIL);
-    expect(partnerEmail.templateData.is_managed_by_agent).toBe(true);
-    expect(partnerEmail.templateData.agent_name).toBe(ACTIVE_PROXY_NAME);
-    expect(partnerEmail.templateData.payout_method).toContain(ACTIVE_PROXY_NAME);
+    expect(partnerEmail.isManagedByAgent).toBe(true);
+    expect(partnerEmail.agentName).toBe(ACTIVE_PROXY_NAME);
+    expect(partnerEmail.payoutMethod).toBe("Wallet");
 
     expect(proxyEmail).toBeDefined();
     expect(proxyEmail.recipientEmail).toBe(ACTIVE_PROXY_EMAIL);
-    expect(proxyEmail.templateData.partner_name).toBe(PARTNER_NAME);
-    expect(proxyEmail.templateData.amount).toBe(ROI_AMOUNT);
-    expect(proxyEmail.idempotencyKey).toContain(`proxy-managed-payout-${ACTIVE_PROXY_ID}-${PARTNER_ID}-`);
+    expect(proxyEmail.partnerId).toBe(PARTNER_ID);
+    expect(proxyEmail.amount).toBe(ROI_AMOUNT);
   });
 
-  it("regression: when no managed proxy exists, wallet leg credits the partner directly", async () => {
-    // Drop the active row so only the stale one remains.
+  it("nothing is sent when the reward did not post (it is retried on the next run)", async () => {
+    supabase.rpc = vi.fn(async (fn: string, args: any) => {
+      captured.rpcCalls.push({ fn, args });
+      return { data: null, error: { message: "simulated failure" } };
+    });
+    const r = await run();
+    expect(r.posted).toBe(false);
+    expect(captured.notifications).toHaveLength(0);
+    expect(captured.emails).toHaveLength(0);
+  });
+
+  it("regression: with no managed proxy the partner is still the recipient and no proxy notice or email is sent", async () => {
     const restore = [...FIXTURE.proxy_agent_assignments];
-    FIXTURE.proxy_agent_assignments = FIXTURE.proxy_agent_assignments.filter(
-      (r) => r.id !== "active-1",
-    );
+    FIXTURE.proxy_agent_assignments = FIXTURE.proxy_agent_assignments.filter((r) => r.id !== "active-1");
     try {
-      await runRoiPayout(
-        supabase,
-        { id: RR_ID, supporter_id: PARTNER_ID, rent_amount: 1_000_000 },
-        ROI_AMOUNT,
-        PAYMENT_NUMBER,
-        (req) => captured.emails.push(req),
-      );
-      const walletLeg = captured.ledgerEntries.find(
-        (e) => e.ledger_scope === "wallet" && e.direction === "cash_in",
-      );
-      expect(walletLeg.user_id).toBe(PARTNER_ID);
-      // No proxy email when there's no managed proxy.
-      expect(
-        captured.emails.some((e) => e.templateName === "proxy-managed-payout-notice"),
-      ).toBe(false);
-      // No proxy notification either.
+      const r = await run();
+      expect(r.walletRecipientId).toBe(PARTNER_ID);
+      expect(captured.emails.some((e) => e.builder === "buildProxyManagedPayoutRequest")).toBe(false);
       expect(captured.notifications.find((n) => n.user_id === ACTIVE_PROXY_ID)).toBeUndefined();
     } finally {
       FIXTURE.proxy_agent_assignments = restore;
@@ -406,18 +354,34 @@ describe("process-supporter-roi · managed-proxy routing (SSENKAALI PIUS / WIP26
 });
 
 /**
- * Source guards — pin the actual edge function file so a future refactor
- * that drops any piece of the managed-proxy routing fails this suite.
+ * Source guards — pin the real edge function and the migration so a change that breaks the contract fails here.
  */
-describe("source guards · process-supporter-roi managed-proxy wiring", () => {
-  const src = readFileSync("supabase/functions/process-supporter-roi/index.ts", "utf8");
+describe("source guards · rent reward for a managed-proxy partner", () => {
+  const src = readFileSync("supabase/functions/process-supporter-roi/index.ts", "utf8").replace(/\r\n/g, "\n");
+  const migration = readFileSync("supabase/migrations/20261024170000_rent_reward_atomic_post.sql", "utf8").replace(/\r\n/g, "\n");
+  const walletBranch = migration.slice(migration.indexOf("  ELSE\n    INSERT INTO public.supporter_roi_payments"), migration.indexOf("  UPDATE public.rent_requests"));
 
   it("calls resolveManagedProxy with the partner id", () => {
     expect(src).toMatch(/resolveManagedProxy\s*\(\s*supabase\s*,\s*rr\.supporter_id\s*\)/);
   });
 
-  it("uses managedProxy.agentId as the wallet recipient", () => {
-    expect(src).toMatch(/managedProxy\s*\?\s*managedProxy\.agentId\s*:\s*rr\.supporter_id/);
+  it("the edge function's wallet recipient is the partner, not the proxy agent", () => {
+    expect(src).toMatch(/const walletRecipientId = rr\.supporter_id;/);
+    expect(src).not.toMatch(/managedProxy\s*\?\s*managedProxy\.agentId\s*:\s*rr\.supporter_id/);
+  });
+
+  it("the edge function posts through post_rent_facilitation_reward with no recipient argument", () => {
+    const call = src.slice(src.indexOf("rpc('post_rent_facilitation_reward'"), src.indexOf("const outcome = classifyRentRewardPost"));
+    expect(call).toContain("p_rent_request_id: rr.id");
+    expect(call).not.toMatch(/user_id|recipient|agentId/);
+  });
+
+  it("the migration credits the supporter's own wallet, withdrawable bucket, linked_party 'platform'", () => {
+    expect(walletBranch).toContain("'category', 'roi_wallet_credit'");
+    expect(walletBranch).toMatch(/'user_id', rr\.supporter_id, 'direction', 'cash_in', 'amount', v_amount, 'category', 'roi_wallet_credit'/);
+    expect(walletBranch).toContain("'wallet_bucket', 'withdrawable'");
+    // 'platform' (not a partner uuid) keeps trg_enforce_managed_proxy_roi_routing from requiring the proxy wallet.
+    expect(walletBranch).toMatch(/'source_table', 'supporter_roi_payments', 'source_id', rr\.id, 'linked_party', 'platform'/);
   });
 
   it("inserts both partner and proxy notifications with routing metadata", () => {
@@ -425,11 +389,11 @@ describe("source guards · process-supporter-roi managed-proxy wiring", () => {
     expect(src).toMatch(/on_behalf_of_partner_id\s*:\s*rr\.supporter_id/);
   });
 
-  it("dispatches returns-disbursement email with isManagedByAgent flag", () => {
+  it("dispatches the partner email with the isManagedByAgent flag", () => {
     expect(src).toMatch(/isManagedByAgent\s*:\s*!!\s*managedProxy/);
   });
 
-  it("dispatches proxy-managed-payout-notice when the proxy has an email", () => {
+  it("dispatches the proxy delivery notice when the proxy has an email", () => {
     expect(src).toMatch(/managedProxy\?\.agentEmail/);
     expect(src).toMatch(/buildProxyManagedPayoutRequest\s*\(/);
   });
