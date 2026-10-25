@@ -6,6 +6,8 @@ import { useWelileAI } from '@/hooks/useWelileAI';
 import ReactMarkdown from 'react-markdown';
 import ShareWelileAIBanner from './ShareWelileAIBanner';
 import { ROLE_LANDINGS, buildRoleSignupHref, type AiRole } from './roleLanding';
+import { NexaSalesHub } from './NexaSalesHub';
+import { NexaDeskCards } from './NexaDeskCards';
 
 const EarningPredictionCard = lazy(() => import('@/components/ai-chat/EarningPredictionCard'));
 
@@ -235,6 +237,8 @@ export default function WelileAIChatDrawer({ open, onOpenChange, initialRole, si
               style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
             >
               <>
+                <NexaSalesHub onAsk={(question) => { void sendMessage(question); }} />
+                <NexaDeskCards open={open} />
                 {!hasMessages && !isLoading ? (
                   /* ─── Empty state ─── */
                   <div

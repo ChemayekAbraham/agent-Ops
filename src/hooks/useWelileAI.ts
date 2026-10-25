@@ -1,6 +1,8 @@
 import { safeUUID } from '@/lib/safeUUID';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { buildNexaOfflineSalesReply, isNexaHumanEscalationRequest, type NexaLearnedKnowledge } from '@/lib/nexaSalesEngine';
 
 export interface AIChatMessage {
   id: string;
@@ -15,6 +17,19 @@ export function useWelileAI() {
   const [messages, setMessages] = useState<AIChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const [learnedKnowledge, setLearnedKnowledge] = useState<NexaLearnedKnowledge[]>([]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const client = supabase as unknown as { from: (name: string) => any };
+      const { data, error } = await client.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope,active').eq('active',true).limit(20);
+      if (active && !error) setLearnedKnowledge(data ?? []);
+    };
+    void load();
+    return () => { active = false; abortRef.current?.abort(); };
+  }, []);
 
   const sendMessage = useCallback(async (input: string) => {
     if (!input.trim() || isLoading) return;
@@ -39,11 +54,17 @@ export function useWelileAI() {
     abortRef.current = controller;
 
     try {
+      if (!navigator.onLine) {
+        setMessages(prev => [...prev, { id: safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input), created_at:new Date().toISOString() }]);
+        return;
+      }
+      const { data: { session } } = await supabase.auth.getSession();
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
         body: JSON.stringify({ messages: recentMessages }),
         signal: controller.signal,
@@ -104,6 +125,9 @@ export function useWelileAI() {
       console.error('Welile AI error:', e);
       toast.error(e.message || 'Failed to get AI response');
       setMessages(prev => prev.filter(m => m.id !== 'streaming'));
+      if (!isNexaHumanEscalationRequest(input) && !assistantContent) {
+        setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input), created_at:new Date().toISOString() }]);
+      }
     } finally {
       setIsLoading(false);
       abortRef.current = null;
@@ -119,5 +143,5 @@ export function useWelileAI() {
     setIsLoading(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, clearHistory, cancelStream, historyLoaded: true };
+  return { messages, isLoading, sendMessage, clearHistory, cancelStream, historyLoaded: true, learnedKnowledge };
 }
