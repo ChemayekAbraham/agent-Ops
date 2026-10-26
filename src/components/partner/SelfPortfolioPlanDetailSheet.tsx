@@ -473,7 +473,7 @@ export function SelfPortfolioPlanDetailSheet({
                   ))}
                   <li className="flex items-center justify-between gap-3 py-2.5">
                     <span className="text-xs text-muted-foreground">
-                      Over {months} {months === 1 ? 'month' : 'months'}
+                      Over {months} months
                     </span>
                     <span className="text-base font-black text-primary">
                       {formatDynamic(Math.round(total))}
