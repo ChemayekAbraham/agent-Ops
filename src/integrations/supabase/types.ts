@@ -59177,6 +59177,7 @@ export type Database = {
           last_tick_at: string | null
           last_tick_result: Json | null
           low_balance: boolean
+          staff_reserved_until: string | null
           updated_at: string
         }
         Insert: {
@@ -59195,6 +59196,7 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Update: {
@@ -59213,6 +59215,7 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -88454,6 +88457,9 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      voice_line_robot_state: { Args: never; Returns: Json }
+      voice_line_staff_busy: { Args: never; Returns: boolean }
+      voice_line_try_staff: { Args: { p_bridging?: boolean }; Returns: Json }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }
         Returns: undefined
