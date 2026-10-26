@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import {
   Dialog,
   DialogContent,
@@ -130,7 +131,7 @@ export function SelfPortfolioDeployDialog({
 
   const cyclesRemaining = Number(eligibility?.cycles_remaining ?? 0);
   const topupProjection = prorata + fullMonthly * cyclesRemaining;
-  const newProjection = fullMonthly;
+  const newProjection = fullMonthly * CONTRACT_TERM_MONTHS;
   const canTopUp = !!eligibility?.allow_topup;
   const covered = capacity !== null && capacity >= total && total > 0;
   const needsDepositDate = choice === 'direct' && !covered;
@@ -168,7 +169,6 @@ export function SelfPortfolioDeployDialog({
         const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
           p_rent_request_ids: selectedIds,
           p_promised_deposit_date: depositDate || null,
-          p_term_months: 1,
         });
         if (error) throw error;
         const payload = (data ?? {}) as { funding_mode?: string; from_float?: number };
@@ -200,7 +200,6 @@ export function SelfPortfolioDeployDialog({
       } else {
         const { error } = await supabase.rpc('partner_self_confirm_commitment', {
           p_rent_request_ids: selectedIds,
-          p_term_months: 1,
         });
         if (error) throw error;
         toast.success('Submitted — pending approval', {
@@ -429,7 +428,7 @@ export function SelfPortfolioDeployDialog({
               <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground">
                 Returns pay monthly into your withdrawable balance and are never compounded
-                automatically. At the end of the monthly term, principal is returned over the
+                automatically. At the end of the 12-month term, principal is returned over the
                 standard settlement window.
               </p>
             </div>
