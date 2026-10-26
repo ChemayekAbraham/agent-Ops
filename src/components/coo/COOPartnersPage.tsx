@@ -5405,6 +5405,38 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         return;
       }
 
+      // ── CFO permission from an approved Compound Request ──────────────────
+      // When the CFO returned a reinvested Return to Nearing Payout, the database
+      // holds a one-time permission for this portfolio and month, usable only by
+      // the person who raised the request. Attach it so the cycle check accepts
+      // the Return, capped at the amount the CFO authorised. The database still
+      // verifies requester, expiry, month and amount.
+      let overrideId: string | null = null;
+      {
+        const { data: overrides } = await supabase
+          .from('portfolio_return_cycle_overrides' as never)
+          .select('id, max_amount, requester_id')
+          .eq('portfolio_id', p.portfolioId)
+          .eq('cycle_month', returnCycleMonth(cycleAnchor))
+          .is('consumed_at', null)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .limit(1);
+        const ovr = ((overrides as unknown as Array<{ id: string; max_amount: number | null; requester_id: string | null }>) || [])[0];
+        if (ovr) {
+          if (ovr.requester_id && ovr.requester_id !== user.id) {
+            toast.error('Only the person who raised the Compound Request can queue this Return', {
+              description: `The CFO-approved permission for ${p.name} must be used from the requester's own account.`,
+            });
+            setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
+            return;
+          }
+          overrideId = ovr.id;
+          const cap = Number(ovr.max_amount);
+          if (Number.isFinite(cap) && cap > 0 && roiAmount > cap) roiAmount = Math.round(cap);
+        }
+      }
+
       // Date stays unchanged — only advances when CFO approves the payout
 
       // Managed-proxy ROI rule: the full ROI goes to the proxy agent wallet,
