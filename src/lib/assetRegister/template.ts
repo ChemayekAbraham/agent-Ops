@@ -1,7 +1,7 @@
 /**
  * Asset Register import template and rejected-row report (built with the lazily loaded `xlsx` module).
  */
-import { ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES } from './types';
+import { ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, type AssetSite } from './types';
 import { TEMPLATE_COLUMNS, type ImportRow } from './importParser';
 
 type XLSXModule = typeof import('xlsx');
@@ -18,8 +18,8 @@ export function importStatusText(status: ImportRow['status']): string {
   return STATUS_TEXT[status];
 }
 
-/** Workbook with the Assets sheet (headers + one example row) and an Allowed values sheet. */
-export function buildTemplateWorkbook(XLSX: XLSXModule) {
+/** Workbook with the Assets sheet (headers + one example row) and an Allowed values sheet (sites from reference data). */
+export function buildTemplateWorkbook(XLSX: XLSXModule, sites: AssetSite[] = []) {
   const wb = XLSX.utils.book_new();
   const headers = TEMPLATE_COLUMNS.map((c) => (c.required ? `${c.header} *` : c.header));
   const example = TEMPLATE_COLUMNS.map((c) => c.example);
@@ -27,18 +27,20 @@ export function buildTemplateWorkbook(XLSX: XLSXModule) {
   sheet['!cols'] = TEMPLATE_COLUMNS.map((c) => ({ wch: Math.max(14, c.header.length + 4) }));
   XLSX.utils.book_append_sheet(wb, sheet, 'Assets');
 
-  const longest = Math.max(ASSET_CATEGORIES.length, ASSET_CONDITIONS.length, ASSET_STATUSES.length);
-  const allowed: (string | null)[][] = [['Category', 'Condition', 'Status']];
+  const longest = Math.max(ASSET_CATEGORIES.length, ASSET_CONDITIONS.length, ASSET_STATUSES.length, sites.length);
+  const allowed: (string | null)[][] = [['Category', 'Condition', 'Status', 'Site']];
   for (let i = 0; i < longest; i += 1) {
-    allowed.push([ASSET_CATEGORIES[i]?.label ?? null, ASSET_CONDITIONS[i]?.label ?? null, ASSET_STATUSES[i]?.label ?? null]);
+    allowed.push([ASSET_CATEGORIES[i]?.label ?? null, ASSET_CONDITIONS[i]?.label ?? null, ASSET_STATUSES[i]?.label ?? null,
+      sites[i] ? `${sites[i].name} (${sites[i].tag_code})` : null]);
   }
   allowed.push([], ['Notes']);
-  allowed.push(['* Asset Name and Category are required. Asset IDs (WEL-AST-…) are created by the system.']);
+  allowed.push(['* Asset Name, Category and Site are required. Site: the site name or its code (e.g. HQ, KOL).']);
+  allowed.push(['Asset IDs (WEL-AST-…) and asset tags (e.g. WEL-ICT-HQ-001) are created by the system and never change.']);
   allowed.push(['Purchase Date: YYYY-MM-DD or DD/MM/YYYY. Purchase Cost: numbers only (register information, not posted to the ledger).']);
   allowed.push(['Department: the department name or key as shown in Welile. Up to 1,000 rows per file.']);
   allowed.push(['Serial numbers must be unique within a category. Existing assets are never updated by an import.']);
   const ref = XLSX.utils.aoa_to_sheet(allowed);
-  ref['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 16 }];
+  ref['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 16 }, { wch: 26 }];
   XLSX.utils.book_append_sheet(wb, ref, 'Allowed values');
   return wb;
 }

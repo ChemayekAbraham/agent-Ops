@@ -69,7 +69,8 @@ export function useAssetDetail(id: string | null) {
     enabled: !!id,
     queryFn: () => call<AssetDetail>('asset_register_get', { p_id: id }),
     staleTime: STALE_TIME,
-    retry: cfoReportRetry,
+    // ASSET_NOT_FOUND (P0002) is final — e.g. a scanned label for an unknown id — so don't retry it.
+    retry: (n, err) => (err as { code?: string } | null)?.code !== 'P0002' && cfoReportRetry(n, err),
   });
 }
 

@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X, Printer, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAssetList, useAssetReferenceData } from '@/hooks/useAssetRegister';
 import {
-  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, categoryLabel, conditionLabel, statusLabel,
+  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, assetCodes, categoryLabel, conditionLabel, statusLabel,
   type AssetListFilters,
 } from '@/lib/assetRegister/types';
+import { MAX_LABELS_PER_PRINT, toAssetLabel, type AssetLabel } from '@/lib/assetRegister/qr';
+import { printAssetLabels } from './printAssetLabels';
 
 const PAGE_SIZE = 25;
 const ALL = '__all__';
@@ -23,12 +26,17 @@ const STATUS_TONE: Record<string, string> = {
   disposed: 'bg-muted text-muted-foreground',
 };
 
-/** Searchable, filterable, server-paged register table. Row click opens the asset detail. */
+/**
+ * Searchable, filterable, server-paged register table. Row click opens the asset detail; ticked rows (kept across pages
+ * and filters) print as one label sheet.
+ */
 export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
   const [filters, setFilters] = useState<AssetListFilters>(EMPTY_FILTERS);
   const [searchText, setSearchText] = useState('');
   const [offset, setOffset] = useState(0);
   const ref = useAssetReferenceData();
+  const [selected, setSelected] = useState<Map<string, AssetLabel>>(new Map());
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -43,6 +51,25 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
   const items = q.data?.items ?? [];
   const filtered = filters.search || filters.category || filters.status || filters.condition || filters.department;
 
+  const toggle = (a: AssetLabel, on: boolean) => setSelected((prev) => {
+    const next = new Map(prev);
+    if (on) next.set(a.id, toAssetLabel(a)); else next.delete(a.id);
+    return next;
+  });
+  const pageAllSelected = items.length > 0 && items.every((a) => selected.has(a.id));
+  const togglePage = (on: boolean) => setSelected((prev) => {
+    const next = new Map(prev);
+    for (const a of items) {
+      if (on) next.set(a.id, toAssetLabel(a)); else next.delete(a.id);
+    }
+    return next;
+  });
+  const printSelected = async () => {
+    setPrinting(true);
+    await printAssetLabels([...selected.values()]);
+    setPrinting(false);
+  };
+
   const setFilter = (key: keyof Omit<AssetListFilters, 'search'>, v: string) => {
     setFilters((f) => ({ ...f, [key]: v === ALL ? null : v }));
     setOffset(0);
@@ -56,7 +83,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           <Input
             id="asset-register-search"
             aria-label="Search assets"
-            placeholder="Search by asset ID, name, serial, custodian, supplier…"
+            placeholder="Search by asset tag or ID, name, site, serial, custodian, supplier…"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             maxLength={100}
@@ -80,11 +107,27 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
         )}
       </div>
 
+      {selected.size > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs">
+          <span>{selected.size.toLocaleString()} selected{selected.size > MAX_LABELS_PER_PRINT ? ` — print at most ${MAX_LABELS_PER_PRINT} at a time` : ''}</span>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelected(new Map())}>Clear selection</Button>
+            <Button id="asset-print-labels" size="sm" className="h-8 text-xs" disabled={printing || selected.size > MAX_LABELS_PER_PRINT} onClick={() => void printSelected()}>
+              {printing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Printer className="mr-1.5 h-3.5 w-3.5" />} Print labels ({selected.size})
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-muted/40 text-[11px] text-muted-foreground">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium">Asset ID</th>
+              <th className="w-8 px-3 py-2.5">
+                <Checkbox aria-label="Select all assets on this page" checked={pageAllSelected} disabled={items.length === 0}
+                  onCheckedChange={(v) => togglePage(v === true)} />
+              </th>
+              <th className="px-3 py-2.5 text-left font-medium">Asset tag / ID</th>
               <th className="px-3 py-2.5 text-left font-medium">Name</th>
               <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Category</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Serial</th>
@@ -96,13 +139,13 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           </thead>
           <tbody className="divide-y divide-border/50">
             {q.isLoading && (
-              <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
+              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
             )}
             {q.isError && (
-              <tr><td colSpan={8} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
+              <tr><td colSpan={9} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
             )}
             {!q.isLoading && !q.isError && items.length === 0 && (
-              <tr><td colSpan={8} className="py-10 text-center text-muted-foreground">
+              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">
                 {filtered ? 'No assets match these filters.' : 'No assets registered yet. Add one or import from Excel.'}
               </td></tr>
             )}
@@ -114,7 +157,13 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(a.id); } }}
                 className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/40 focus-visible:outline-none"
               >
-                <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-primary">{a.asset_code}</td>
+                <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                  <Checkbox aria-label={`Select ${assetCodes(a).primary}`} checked={selected.has(a.id)} onCheckedChange={(v) => toggle(a, v === true)} />
+                </td>
+                <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-primary">
+                  {assetCodes(a).primary}
+                  {assetCodes(a).secondary && <span className="block text-[10px] text-muted-foreground">{assetCodes(a).secondary}</span>}
+                </td>
                 <td className="max-w-[16rem] px-3 py-2.5">
                   <span className="block truncate font-medium text-foreground">{a.name}</span>
                   <span className="block truncate text-[10px] text-muted-foreground">

@@ -54,7 +54,7 @@ export function AssetImportDialog({ open, onOpenChange }: { open: boolean; onOpe
 
   const downloadTemplate = async () => {
     const XLSX = await loadXLSX();
-    XLSX.writeFile(buildTemplateWorkbook(XLSX), 'welile_asset_register_template.xlsx');
+    XLSX.writeFile(buildTemplateWorkbook(XLSX, ref.data?.sites ?? []), 'welile_asset_register_template.xlsx');
   };
 
   const downloadErrors = async () => {
@@ -72,7 +72,7 @@ export function AssetImportDialog({ open, onOpenChange }: { open: boolean; onOpe
       const sheetName = wb.SheetNames.includes('Assets') ? 'Assets' : wb.SheetNames[0];
       const sheet = wb.Sheets[sheetName];
       const aoa = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '', blankrows: false, raw: true });
-      const parsed = parseAssetSheet(aoa, { departments: ref.data?.departments ?? [] });
+      const parsed = parseAssetSheet(aoa, { departments: ref.data?.departments ?? [], sites: ref.data?.sites ?? [] });
       setHeaderErrors(parsed.headerErrors);
       setUnknownHeaders(parsed.unknownHeaders);
       let next = parsed.rows;

@@ -10,6 +10,9 @@ BEGIN
   IF to_regclass('public.assets') IS NULL THEN
     RAISE EXCEPTION 'precondition failed: 20261026200000_asset_register_stage1 is not applied; nothing was changed';
   END IF;
+  IF to_regclass('public.asset_sites') IS NOT NULL THEN
+    RAISE EXCEPTION 'precondition failed: roll back 20261027150000_asset_register_asset_tags first; nothing was changed';
+  END IF;
   -- Name-agnostic: any storage.objects policy that reaches the bucket or calls the register gates blocks the rollback
   -- (in production the dashboard named them "asset_evidence_read 1iodt3o_0" / "asset_evidence_insert 1iodt3o_0").
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'

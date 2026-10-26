@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, FileText, History, Loader2, Pencil, Paperclip, ExternalLink } from 'lucide-react';
+import { Camera, FileText, History, Loader2, Pencil, Paperclip, ExternalLink, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -7,16 +7,17 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAssetDetail, useAssetEvidenceUrl, useAttachAssetEvidence, evidenceFileProblem } from '@/hooks/useAssetRegister';
 import { describeAssetRpcError } from '@/lib/assetRegister/validation';
 import {
-  ASSET_EVIDENCE_MIME, categoryLabel, conditionLabel, statusLabel, type Asset, type AssetEvent,
+  ASSET_EVIDENCE_MIME, assetCodes, categoryLabel, conditionLabel, statusLabel, type Asset, type AssetEvent,
 } from '@/lib/assetRegister/types';
 import { AssetFormDialog } from './AssetFormDialog';
+import { AssetQrDialog } from './AssetQrDialog';
 
 const FIELD_LABELS: Record<string, string> = {
   name: 'Name', category: 'Category', brand: 'Brand', model: 'Model', serial_number: 'Serial number',
   purchase_date: 'Purchase date', supplier: 'Supplier', purchase_cost: 'Purchase cost', currency: 'Currency',
   invoice_reference: 'Invoice / evidence ref.', department_key: 'Department', location: 'Location',
   custodian_user_id: 'Custodian account', custodian_name: 'Custodian name', condition: 'Condition', status: 'Status',
-  notes: 'Notes', photo_paths: 'Photos', evidence_paths: 'Evidence',
+  notes: 'Notes', photo_paths: 'Photos', evidence_paths: 'Evidence', site_key: 'Site', asset_tag: 'Asset tag',
 };
 
 const fmtDateTime = (iso: string) =>
@@ -30,6 +31,7 @@ function costText(a: Asset) {
 export function AssetDetailSheet({ assetId, onOpenChange }: { assetId: string | null; onOpenChange: (open: boolean) => void }) {
   const q = useAssetDetail(assetId);
   const [editing, setEditing] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const a = q.data?.asset;
 
   return (
@@ -37,7 +39,7 @@ export function AssetDetailSheet({ assetId, onOpenChange }: { assetId: string | 
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader className="text-left">
           <SheetTitle className="flex flex-wrap items-center gap-2">
-            {a ? <><span className="font-mono text-sm text-primary">{a.asset_code}</span><span>{a.name}</span></> : 'Asset'}
+            {a ? <><AssetCodeHeading asset={a} /><span>{a.name}</span></> : 'Asset'}
           </SheetTitle>
           <SheetDescription>
             {a ? `${categoryLabel(a.category)} · ${statusLabel(a.status)} · ${conditionLabel(a.condition)}` : 'Loading asset…'}
@@ -49,38 +51,64 @@ export function AssetDetailSheet({ assetId, onOpenChange }: { assetId: string | 
 
         {a && (
           <div className="mt-5 space-y-6">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button id="asset-detail-qr" size="sm" variant="outline" onClick={() => setShowQr(true)}>
+                <QrCode className="mr-1.5 h-3.5 w-3.5" /> View QR
+              </Button>
               <Button id="asset-detail-edit" size="sm" variant="outline" onClick={() => setEditing(true)}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
               </Button>
             </div>
-
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-xs sm:grid-cols-2">
-              <Item label="Brand" value={a.brand} />
-              <Item label="Model" value={a.model} />
-              <Item label="Serial number" value={a.serial_number} mono />
-              <Item label="Purchase date" value={a.purchase_date} />
-              <Item label="Supplier" value={a.supplier} />
-              <Item label="Purchase cost" value={costText(a)} hint="Register information only — not posted to the ledger" />
-              <Item label="Invoice / evidence reference" value={a.invoice_reference} />
-              <Item label="Department" value={a.department_name ?? a.department_key} />
-              <Item label="Location" value={a.location} />
-              <Item label="Custodian" value={a.custodian_display} />
-              <Item label="Condition" value={conditionLabel(a.condition)} />
-              <Item label="Status" value={statusLabel(a.status)} />
-              {a.notes && <Item label="Notes" value={a.notes} wide />}
-              <Item label="Registered" value={`${fmtDateTime(a.created_at)}${a.created_by_name ? ` by ${a.created_by_name}` : ''}`} />
-              <Item label="Last changed" value={`${fmtDateTime(a.updated_at)}${a.updated_by_name ? ` by ${a.updated_by_name}` : ''}`} />
-            </dl>
-
-            <EvidenceSection asset={a} />
-            <Timeline events={q.data?.events ?? []} />
+            <AssetDetailBody asset={a} events={q.data?.events ?? []} />
           </div>
         )}
 
         <AssetFormDialog open={editing} onOpenChange={setEditing} asset={a ?? null} />
+        <AssetQrDialog open={showQr} onOpenChange={setShowQr} asset={a ?? null} />
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** Asset fields, photos/evidence and history. `readOnly` hides the evidence upload actions (QR deep-link page). */
+export function AssetDetailBody({ asset: a, events, readOnly = false }: { asset: Asset; events: AssetEvent[]; readOnly?: boolean }) {
+  return (
+    <div className="space-y-6">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-xs sm:grid-cols-2">
+        <Item label="Asset tag" value={a.asset_tag ?? 'Not issued (registered before asset tags)'} mono={!!a.asset_tag} />
+        <Item label="Asset code (permanent)" value={a.asset_code} mono />
+        <Item label="Site" value={a.site_name} />
+        <Item label="Brand" value={a.brand} />
+        <Item label="Model" value={a.model} />
+        <Item label="Serial number" value={a.serial_number} mono />
+        <Item label="Purchase date" value={a.purchase_date} />
+        <Item label="Supplier" value={a.supplier} />
+        <Item label="Purchase cost" value={costText(a)} hint="Register information only — not posted to the ledger" />
+        <Item label="Invoice / evidence reference" value={a.invoice_reference} />
+        <Item label="Department" value={a.department_name ?? a.department_key} />
+        <Item label="Location" value={a.location} />
+        <Item label="Custodian" value={a.custodian_display} />
+        <Item label="Condition" value={conditionLabel(a.condition)} />
+        <Item label="Status" value={statusLabel(a.status)} />
+        {a.notes && <Item label="Notes" value={a.notes} wide />}
+        <Item label="Registered" value={`${fmtDateTime(a.created_at)}${a.created_by_name ? ` by ${a.created_by_name}` : ''}`} />
+        <Item label="Last changed" value={`${fmtDateTime(a.updated_at)}${a.updated_by_name ? ` by ${a.updated_by_name}` : ''}`} />
+      </dl>
+
+      <EvidenceSection asset={a} readOnly={readOnly} />
+      <Timeline events={events} />
+    </div>
+  );
+}
+
+/** Asset tag prominently, with the permanent WEL-AST code in smaller text (code alone when no tag was issued). */
+export function AssetCodeHeading({ asset }: { asset: Pick<Asset, 'asset_code' | 'asset_tag'> }) {
+  const { primary, secondary } = assetCodes(asset);
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span className="font-mono text-sm font-semibold text-primary">{primary}</span>
+      {secondary && <span className="font-mono text-[10px] font-normal text-muted-foreground">{secondary}</span>}
+    </span>
   );
 }
 
@@ -94,7 +122,7 @@ function Item({ label, value, mono, wide, hint }: { label: string; value: string
   );
 }
 
-function EvidenceSection({ asset }: { asset: Asset }) {
+function EvidenceSection({ asset, readOnly }: { asset: Asset; readOnly: boolean }) {
   const attach = useAttachAssetEvidence();
   const photoInput = useRef<HTMLInputElement>(null);
   const docInput = useRef<HTMLInputElement>(null);
@@ -116,7 +144,7 @@ function EvidenceSection({ asset }: { asset: Asset }) {
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-2 text-sm font-semibold"><Paperclip className="h-4 w-4 text-primary" /> Photos & evidence</h4>
-        <div className="flex gap-2">
+        {!readOnly && <div className="flex gap-2">
           <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
             onChange={(e) => void onPick('photo', e.target.files?.[0], photoInput.current)} />
           <input ref={docInput} type="file" accept={ASSET_EVIDENCE_MIME.join(',')} className="hidden"
@@ -127,7 +155,7 @@ function EvidenceSection({ asset }: { asset: Asset }) {
           <Button id="asset-attach-evidence" size="sm" variant="outline" className="h-8 text-xs" disabled={attach.isPending} onClick={() => docInput.current?.click()}>
             <FileText className="mr-1 h-3.5 w-3.5" /> Evidence
           </Button>
-        </div>
+        </div>}
       </div>
       {asset.photo_paths.length + asset.evidence_paths.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">

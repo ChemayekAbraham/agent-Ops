@@ -9,6 +9,11 @@
  * are excluded pending a separate scope review, so they have no category.
  *
  * Purchase cost is register information only. It is never posted to the ledger.
+ *
+ * Identifiers: `id` (uuid) is the permanent identity used by links and QR codes; `asset_code` (WEL-AST-NNNNNN) is the
+ * permanent system code; `asset_tag` (WEL-<category>-<site>-<number>, e.g. WEL-ICT-HQ-001) is the printed label code,
+ * issued by the server at registration (20261027150000) and never changed. Assets registered before tags existed
+ * have no tag until the separately approved backfill. The browser never builds a tag.
  */
 
 export const ASSET_CATEGORIES = [
@@ -52,6 +57,14 @@ export const categoryLabel = (k: string | null | undefined) => labelOf(ASSET_CAT
 export const conditionLabel = (k: string | null | undefined) => labelOf(ASSET_CONDITIONS, k);
 export const statusLabel = (k: string | null | undefined) => labelOf(ASSET_STATUSES, k);
 
+/**
+ * Which code to show prominently: the asset tag when issued, otherwise the permanent asset code. `secondary` is the
+ * permanent code shown in smaller text alongside a tag (null when the tag is absent, to avoid printing it twice).
+ */
+export function assetCodes(a: Pick<Asset, 'asset_code' | 'asset_tag'>): { primary: string; secondary: string | null } {
+  return a.asset_tag ? { primary: a.asset_tag, secondary: a.asset_code } : { primary: a.asset_code, secondary: null };
+}
+
 /** Editable fields accepted by `asset_register_create` / `asset_register_update`. */
 export interface AssetInput {
   name: string | null;
@@ -71,6 +84,8 @@ export interface AssetInput {
   condition: string | null;
   status: string | null;
   notes: string | null;
+  /** asset_sites key; required when registering, cannot be cleared. Changing it never changes the asset tag. */
+  site_key: string | null;
 }
 
 export type AssetField = keyof AssetInput;
@@ -78,12 +93,17 @@ export type AssetField = keyof AssetInput;
 export const ASSET_FIELDS: AssetField[] = [
   'name', 'category', 'brand', 'model', 'serial_number', 'purchase_date', 'supplier', 'purchase_cost', 'currency',
   'invoice_reference', 'department_key', 'location', 'custodian_user_id', 'custodian_name', 'condition', 'status', 'notes',
+  'site_key',
 ];
 
 /** A register row as returned by the server (display names resolved server-side). */
 export interface Asset {
   id: string;
   asset_code: string;
+  /** Printed label code, fixed once issued; null for assets registered before tags existed. */
+  asset_tag: string | null;
+  site_key: string | null;
+  site_name: string | null;
   name: string;
   category: AssetCategory;
   brand: string | null;
@@ -164,8 +184,15 @@ export interface AssetSummary {
   by_category: Array<{ category: AssetCategory; count: number; cost_ugx: number }>;
 }
 
+export interface AssetSite {
+  key: string;
+  name: string;
+  tag_code: string;
+}
+
 export interface AssetReferenceData {
   departments: Array<{ key: string; name: string }>;
+  sites: AssetSite[];
   custodians: Array<{ user_id: string; name: string; employee_id: string; department: string }>;
 }
 

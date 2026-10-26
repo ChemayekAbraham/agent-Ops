@@ -241,6 +241,31 @@ r = await asUser(cfo, () => q(`delete from storage.objects where bucket_id = 'as
 ok((await q(`select count(*)::int n from storage.objects where name = $1`, [good]))[0].n === 1,
   'evidence cannot be deleted from the client (no DELETE policy)', r.err?.message);
 
+// ---- 6a. QR deep link (/cfo/assets/<uuid>): the server, not the route, decides who sees an asset -------------
+// The QR carries only the uuid; scanning it calls asset_register_get(<uuid>) and reads evidence through storage RLS.
+const cto = uuid();
+await db.query(`insert into public.user_roles (user_id, role) values ($1, 'cto')`, [cto]);
+const deskCode = (await q(`select asset_code from public.assets where id = $1`, [desk]))[0].asset_code;
+for (const [who, id] of [['cfo', cfo], ['super_admin', admin]]) {
+  r = await asUser(id, () => q(`select public.asset_register_get($1) x`, [desk]));
+  ok(r.out?.[0].x.asset.id === desk && r.out[0].x.asset.asset_code === deskCode, `QR: ${who} opens the scanned asset (matching id and code)`,
+    JSON.stringify(r.out ?? r.err?.message));
+}
+for (const [who, id] of [['coo', coo], ['ceo', ceo], ['cto', cto], ['role-less user', nobody], ['disabled cfo role', disabledCfo]]) {
+  r = await asUser(id, () => q(`select public.asset_register_get($1) x`, [desk]));
+  ok(r.err?.code === '42501' && !r.out, `QR: ${who} scanning a label gets 42501 and no asset data`, r.err?.message);
+  r = await asUser(id, () => q(`select count(*)::int n from storage.objects where bucket_id = 'asset-evidence'`));
+  ok(r.out?.[0].n === 0, `QR: ${who} cannot reach the asset's evidence`, JSON.stringify(r.out ?? r.err?.message));
+}
+r = await asUser(null, () => q(`select public.asset_register_get($1) x`, [desk]), { role: 'anon' });
+ok(r.err && /permission denied/.test(r.err.message), 'QR: a signed-out (anon) caller cannot execute asset_register_get', r.err?.message);
+r = await asUser(null, () => q(`select count(*)::int n from storage.objects where bucket_id = 'asset-evidence'`), { role: 'anon' });
+ok(r.out?.[0].n === 0, 'QR: a signed-out (anon) caller sees no evidence objects', JSON.stringify(r.out ?? r.err?.message));
+r = await asUser(cfo, () => q(`select public.asset_register_get($1) x`, [uuid()]));
+ok(r.err?.code === 'P0002' && /ASSET_NOT_FOUND/.test(r.err.message), 'QR: an unknown uuid is ASSET_NOT_FOUND (P0002)', r.err?.message);
+r = await asUser(cfo, () => q(`select public.asset_register_get($1) x`, [deskCode]));
+ok(r.err?.code === '22P02', 'QR: an asset code is not accepted in place of the uuid', r.err?.message);
+
 // ---- 6b. Contract with the app (src/lib/assetRegister/types.ts and useAssetRegister.ts) ------------------------
 const ASSET_KEYS = ['id', 'asset_code', 'name', 'category', 'brand', 'model', 'serial_number', 'purchase_date', 'supplier',
   'purchase_cost', 'currency', 'invoice_reference', 'department_key', 'department_name', 'location', 'custodian_user_id',
