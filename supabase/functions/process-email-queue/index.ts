@@ -3,6 +3,10 @@ import {
   isPlaceholderRecipient,
   PLACEHOLDER_SUPPRESSION_REASON,
 } from '../_shared/recipientMailbox.ts'
+import {
+  ensureWelileEmailHeader,
+  ensureWelileEmailTextHeader,
+} from '../_shared/emailHeader.ts'
 
 const DEFAULT_MAX_ATTEMPTS = 1
 const WALLET_CONFIRMATION_MAX_ATTEMPTS = 5
@@ -134,6 +138,9 @@ async function sendViaMailgun(
   },
   cfg: MailgunConfig
 ): Promise<void> {
+  // Stamp the official Welile letterhead on every outgoing message (idempotent).
+  const brandedHtml = payload.html ? ensureWelileEmailHeader(payload.html) : payload.html
+  const brandedText = payload.text ? ensureWelileEmailTextHeader(payload.text) : payload.text
   const hasAttachment = Boolean(payload.attachment?.content_base64 && payload.attachment.filename)
   let body: BodyInit
   const headers: Record<string, string> = {
