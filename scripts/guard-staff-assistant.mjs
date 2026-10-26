@@ -64,7 +64,7 @@ const IDENTITY_ARG_RE =
   /(^|[\s,(])(p_)?(user|staff|agent|tenant|landlord|account|owner|caller|employee|requester)_?id\b/i;
 
 const ROLE_CHECK_HELPER_RE =
-  /\b(_has_enabled_role|is_ops_role|_am_staff_ok|_landlord_cc_staff_ok|food_can_use_canteen|cfo_check|is_cfo_or_super_admin|hr_is_admin|is_welile_staff|has_role)\s*\(/i;
+  /\b(_has_enabled_role|is_ops_role|_am_staff_ok|_landlord_cc_staff_ok|food_can_use_canteen|cfo_check|is_cfo_or_super_admin|hr_is_admin|hr_is_executive|can_view_finance_reports|can_view_staff_reports|agent_ops_report_authorized|partner_ops_can_view|pso_can_view_my_performance|is_welile_staff|has_role)\s*\(/i;
 
 const WRITE_SQL_RE =
   /\b(insert\s+into|update\s+[a-z0-9_.]+?\s+set|delete\s+from|truncate\s+|alter\s+table|drop\s+table|create\s+table)\b/i;
@@ -136,6 +136,11 @@ export function auditSqlMigration(fileLabel, rawSql) {
     // 6. Must not contain write SQL inside the function body
     if (WRITE_SQL_RE.test(fnBody)) {
       errors.push(`${where} contains a write/DDL statement; assistant_staff_* functions must be read-only.`);
+    }
+
+    // 6b. Cash position tools must source platform cash strictly from get_treasury_cash_position
+    if (/(cash_position|treasury_cash)/i.test(name) && !/\bget_treasury_cash_position\s*\(/i.test(fnBody)) {
+      errors.push(`${where} must read platform cash exclusively from public.get_treasury_cash_position().`);
     }
 
     // 7. Must REVOKE EXECUTE/ALL FROM PUBLIC, anon and must NEVER GRANT to anon or PUBLIC
@@ -451,6 +456,16 @@ export function runSelfTests() {
     /without calling staff_assistant_is_staff_email/i,
   );
 
+  // Broken 11: Cash position tool that does not call get_treasury_cash_position
+  expectError(
+    'cash tool without get_treasury_cash_position',
+    auditSqlMigration(
+      'broken-cash.sql',
+      validSql.replaceAll('assistant_staff_tops_demo', 'assistant_staff_cfo_treasury_cash_position'),
+    ).errors,
+    /get_treasury_cash_position/i,
+  );
+
   // Valid send-email function that calls staff_assistant_is_staff_email passes
   const validEmailErrs = auditStaffEmailFunction(
     'supabase/functions/staff-assistant-email/index.ts',
@@ -474,7 +489,7 @@ export function runSelfTests() {
 const errors = [];
 const fail = (msg) => errors.push(msg);
 const seen = {
-  selfTests: 10,
+  selfTests: 11,
   edgeSources: 0,
   toolRpcs: 0,
   sqlFunctions: 0,

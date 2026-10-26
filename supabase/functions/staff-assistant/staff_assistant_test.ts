@@ -208,11 +208,15 @@ Deno.test("request: bad ids, empty and oversized messages are rejected", () => {
 
 // ---- tool registry & role filtering ---------------------------------------------------------
 
-Deno.test("tools: all 22 Batch 1 assistant_staff_* tools are registered", () => {
-  assertEquals(STAFF_TOOLS.length, 22);
+Deno.test("tools: all 42 Batch 1 + Batch 2 assistant_staff_* tools are registered", () => {
+  assertEquals(STAFF_TOOLS.length, 42);
   for (const t of STAFF_TOOLS) {
-    assert(/^assistant_staff_[a-z0-9_]+$/.test(t.rpc), `${t.name} -> ${t.rpc}`);
+    assert(/^assistant_staff_[a-z_]+$/.test(t.rpc), `${t.name} -> ${t.rpc}`);
   }
+  // Treasury cash position must map exclusively to assistant_staff_cfo_treasury_cash_position
+  const cashTool = findTool("get_cfo_treasury_cash_position")!;
+  assertEquals(cashTool.rpc, "assistant_staff_cfo_treasury_cash_position");
+  assert(cashTool.description.includes("get_treasury_cash_position"));
 });
 
 Deno.test("tools: no tool exposes an identity parameter", () => {
@@ -232,28 +236,58 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assertEquals(employeeTools.length, 9);
   assert(employeeTools.every((name) => name.startsWith("get_my_")));
 
-  // Tenant Ops staff gets the 9 My Space tools + 8 Tenant Ops tools (17 total), and NO Landlord Ops tools
+  // Tenant Ops staff gets 9 My Space + 8 Tenant Ops + silent collectors + calling detailed report (19 total)
   const topsTools = toolsForRoles(["tenant_ops"]).map((t) => t.name);
-  assertEquals(topsTools.length, 17);
+  assertEquals(topsTools.length, 19);
   assert(topsTools.includes("get_tops_arrears_ageing"));
-  assert(topsTools.includes("get_tops_first_seven_summary"));
+  assert(topsTools.includes("get_aops_silent_collectors"));
+  assert(topsTools.includes("get_hr_calling_detailed_report"));
   assert(!topsTools.includes("get_lops_paid_lists"));
-  assert(!topsTools.includes("get_lops_home_range"));
+  assert(!topsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Landlord Ops staff gets the 9 My Space tools + 5 Landlord Ops tools (14 total), and NO Tenant Ops tools
+  // Landlord Ops staff gets 9 My Space + 5 Landlord Ops + calling detailed report (15 total)
   const lopsTools = toolsForRoles(["landlord_ops"]).map((t) => t.name);
-  assertEquals(lopsTools.length, 14);
+  assertEquals(lopsTools.length, 15);
   assert(lopsTools.includes("get_lops_home_range"));
   assert(lopsTools.includes("get_lops_paid_lists"));
   assert(lopsTools.includes("get_lops_principal_comparison"));
-  assert(lopsTools.includes("get_lops_calling_summary"));
   assert(!lopsTools.includes("get_tops_arrears_ageing"));
+  assert(!lopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // HR staff gets the 9 My Space tools + the 2 Landlord Calling Center tools (11 total)
+  // Agent Ops staff gets 9 My Space + 4 Agent Ops tools (13 total)
+  const aopsTools = toolsForRoles(["agent_ops"]).map((t) => t.name);
+  assertEquals(aopsTools.length, 13);
+  assert(aopsTools.includes("get_aops_metrics_totals"));
+  assert(aopsTools.includes("get_aops_metrics_agents"));
+  assert(aopsTools.includes("get_aops_listing_quality_and_risk"));
+  assert(aopsTools.includes("get_aops_silent_collectors"));
+  assert(!aopsTools.includes("get_cfo_treasury_cash_position"));
+
+  // Partner Ops staff gets 9 My Space + 4 Partner Ops / PSO tools (13 total)
+  const popsTools = toolsForRoles(["partner_ops"]).map((t) => t.name);
+  assertEquals(popsTools.length, 13);
+  assert(popsTools.includes("get_pops_pending_summary"));
+  assert(popsTools.includes("get_pops_report_overview"));
+  assert(popsTools.includes("get_pops_search_supporters"));
+  assert(popsTools.includes("get_pso_cohort_performance"));
+  assert(!popsTools.includes("get_cfo_treasury_cash_position"));
+
+  // Financial Ops staff gets 9 My Space + principal comparison + partner report + 4 finance tools (15 total)
+  const fopsTools = toolsForRoles(["financial_ops"]).map((t) => t.name);
+  assertEquals(fopsTools.length, 15);
+  assert(fopsTools.includes("get_cfo_treasury_cash_position"));
+  assert(fopsTools.includes("get_cfo_receivables_and_payables"));
+  assert(fopsTools.includes("get_cfo_seven_day_expenses"));
+  assert(fopsTools.includes("get_fops_verification_and_requisitions"));
+  assert(!fopsTools.includes("get_cfo_money_flow_summary"));
+
+  // HR staff gets 9 My Space + 2 Landlord CC + PSO + 3 HR tools (15 total)
   const hrTools = toolsForRoles(["hr"]).map((t) => t.name);
-  assertEquals(hrTools.length, 11);
+  assertEquals(hrTools.length, 15);
   assert(hrTools.includes("get_lops_calling_summary"));
-  assert(hrTools.includes("get_lops_calling_coverage"));
+  assert(hrTools.includes("get_hr_calling_detailed_report"));
+  assert(hrTools.includes("get_hr_contracts_and_birthdays"));
+  assert(hrTools.includes("get_hr_payroll_cost_by_department"));
   assert(!hrTools.includes("get_lops_paid_lists"));
 
   // OpenAI tool list includes ask_clarification + role-filtered tools
@@ -265,11 +299,26 @@ Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2
   assertEquals(
     sensitiveNames,
     [
+      "get_aops_listing_quality_and_risk",
+      "get_aops_metrics_agents",
+      "get_aops_silent_collectors",
+      "get_ceo_growth_and_approvals",
+      "get_cfo_budget_revised_position",
+      "get_cfo_money_flow_summary",
+      "get_cfo_receivables_and_payables",
+      "get_cfo_seven_day_expenses",
+      "get_cfo_treasury_cash_position",
+      "get_coo_overview",
+      "get_fops_verification_and_requisitions",
+      "get_hr_calling_detailed_report",
+      "get_hr_payroll_cost_by_department",
       "get_lops_paid_lists",
       "get_lops_principal_comparison",
       "get_my_advances",
       "get_my_payslips",
       "get_my_wallet",
+      "get_pops_report_overview",
+      "get_pops_search_supporters",
       "get_tops_arrears_ageing",
       "get_tops_landlord_not_paid",
       "get_tops_no_payment_report",
@@ -277,6 +326,7 @@ Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2
   );
   assertEquals(findTool("get_my_tasks")?.sensitive, false);
   assertEquals(findTool("get_my_payslips")?.sensitive, true);
+  assertEquals(findTool("get_cfo_treasury_cash_position")?.sensitive, true);
 });
 
 Deno.test("tools: argument validation rejects unknown keys and maps RPC parameters cleanly", () => {
