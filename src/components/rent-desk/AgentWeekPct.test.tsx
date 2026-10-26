@@ -14,9 +14,9 @@ const [empty] = normalizeAgentWeekPct([{ agent_id: 'a2', week_start: '2026-10-22
 describe('AgentWeekPct', () => {
   it('shows the main figure to one decimal, the expired figure beside it, and the full detail on hover', () => {
     render(<AgentWeekPct week={mixed} />);
-    expect(screen.getByTestId('agent-week-pct-main').textContent).toContain('62.5%');
-    expect(screen.getByTestId('agent-week-pct-expired').textContent).toContain('40.0%');
-    expect(screen.getByTestId('agent-week-pct').getAttribute('title')).toContain('UGX 125,000 collected of UGX 200,000');
+    expect(screen.getByTestId('agent-week-pct-main').textContent).toContain('78.1%');
+    expect(screen.getByTestId('agent-week-pct-expired').textContent).toContain('50.0%');
+    expect(screen.getByTestId('agent-week-pct').getAttribute('title')).toContain('UGX 125,000 collected of UGX 160,000 expected so far');
   });
   it('shows a dash when nothing was billed this week', () => {
     render(<AgentWeekPct week={empty} />);
