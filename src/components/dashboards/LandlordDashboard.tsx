@@ -31,6 +31,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WelileHomesLandlordBadge } from '@/components/landlord/WelileHomesLandlordBadge';
 import RegisterPropertyDialog from '@/components/landlord/RegisterPropertyDialog';
+import { LandlordRegisterHouseCard } from '@/components/landlord/LandlordRegisterHouseCard';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
@@ -134,20 +135,20 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto">
 
-          {/* Register your house — primary CTA, first in the body */}
-          <button
-            onClick={handleOpenRegisterProperty}
-            className="w-full min-h-[116px] flex items-center gap-4 px-5 py-7 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform touch-manipulation text-left"
-          >
-            <span className="h-14 w-14 rounded-2xl bg-primary-foreground/15 ring-1 ring-primary-foreground/25 flex items-center justify-center shrink-0">
-              <Building2 className="h-7 w-7" />
-            </span>
-            <span className="flex-1 min-w-0 text-left">
-              <span className="block font-bold text-lg leading-tight">Register your House Here</span>
-              <span className="block text-sm text-primary-foreground/80 mt-1">Start earning guaranteed monthly rent</span>
-            </span>
-            <ArrowRight className="h-5 w-5 shrink-0" />
-          </button>
+          {/* Register your house — the page's major action, same layout as the agent
+              dashboard's "Post a rent request here": tall card, then a one-line caption. */}
+          <div className="flex flex-col space-y-2">
+            <LandlordRegisterHouseCard
+              onOpen={handleOpenRegisterProperty}
+              className="w-full min-h-[300px] sm:min-h-[360px]"
+            />
+            <p
+              onClick={handleOpenRegisterProperty}
+              className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
+            >
+              and <span className="font-semibold text-green-600 dark:text-green-400">start earning guaranteed monthly rent</span>
+            </p>
+          </div>
 
           <MissionBanner dashboardRole="landlord" />
 
