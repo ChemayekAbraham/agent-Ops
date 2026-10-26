@@ -12,16 +12,19 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { extractZoeExportableReport } from '@/lib/zoe';
 import {
   getSuggestionsForRoles,
   resolveSourceScreenLink,
   type ZoeSuggestion,
 } from './zoeConfig';
+import { ZoeReportCard } from './ZoeReportCard';
 import type { ZoeFeedbackRating, ZoeMessage } from './useZoeAssistant';
 
 export interface ZoeChatSurfaceProps {
   messages: ZoeMessage[];
   roles?: readonly string[];
+  generatedBy?: string | null;
   isLoading: boolean;
   isHistoryLoading?: boolean;
   errorMessage?: string | null;
@@ -63,6 +66,7 @@ function parseMessageBodyAndMeta(msg: ZoeMessage): {
 export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   messages,
   roles = [],
+  generatedBy = null,
   isLoading,
   isHistoryLoading = false,
   errorMessage = null,
@@ -212,6 +216,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           const { bodyText, sourceLabel, periodLabel } = parseMessageBodyAndMeta(msg);
           const hasSourceMeta = Boolean(sourceLabel || periodLabel);
           const screenLink = hasSourceMeta ? resolveSourceScreenLink(sourceLabel) : null;
+          const exportableReport = extractZoeExportableReport(msg, {
+            generatedBy,
+            generatedAt: msg.createdAt,
+          });
 
           return (
             <div
@@ -223,6 +231,8 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 <p className="whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-sm">
                   {bodyText}
                 </p>
+
+                {exportableReport && <ZoeReportCard report={exportableReport} />}
 
                 {/* Clarifying options when Zoe calls ask_clarification */}
                 {msg.clarification?.options && msg.clarification.options.length > 0 && (

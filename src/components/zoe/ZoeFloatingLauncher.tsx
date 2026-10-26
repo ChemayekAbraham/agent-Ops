@@ -13,9 +13,13 @@ import { useZoeAccess, useZoeAssistant } from './useZoeAssistant';
  */
 export const ZoeFloatingLauncher: React.FC = () => {
   const location = useLocation();
-  const { roles } = useAuth();
+  const { user, roles } = useAuth();
   const { data: hasAccess } = useZoeAccess();
   const [open, setOpen] = useState(false);
+  const generatedBy =
+    (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
+    user?.email ||
+    null;
 
   // Only load conversation history when the floating sheet is actually opened
   const assistant = useZoeAssistant(open && hasAccess === true);
@@ -51,6 +55,7 @@ export const ZoeFloatingLauncher: React.FC = () => {
               compact
               messages={assistant.messages}
               roles={roles}
+              generatedBy={generatedBy}
               isLoading={assistant.isLoading}
               isHistoryLoading={assistant.isHistoryLoading}
               errorMessage={assistant.errorMessage}

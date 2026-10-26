@@ -142,4 +142,51 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(clearBtn);
     expect(onClearHistory).toHaveBeenCalledTimes(1);
   });
+
+  it('renders the report card with title, dates, row count, metadata, and PDF/Excel buttons for table or period summary answers', () => {
+    const messages: ZoeMessage[] = [
+      { id: 'u-1', role: 'user', content: 'Show Tenant Ops repayments for October' },
+      {
+        id: 'a-1',
+        role: 'assistant',
+        content: 'Here are the 2 Tenant Ops repayment rows for October 2026.',
+        outcome: 'answered',
+        source: 'get_tenant_ops_repayments',
+        period: '2026-10-01 to 2026-10-26',
+        createdAt: '2026-10-26T06:30:00.000Z',
+        reportPayload: {
+          tool: 'tenant_ops_repayments',
+          rpc: 'assistant_staff_tenant_ops_repayments',
+          source: 'get_tenant_ops_repayments',
+          period: { from: '2026-10-01', to: '2026-10-26' },
+          row_count: 2,
+          rows: [
+            { tenant_name: 'Namukasa Grace', collected_total: 300000, stage: 'repaying' },
+            { tenant_name: 'Okello Ronald', collected_total: 600000, stage: 'completed' },
+          ],
+        },
+      },
+    ];
+
+    renderSurface({
+      messages,
+      roles: ['tenant_ops'],
+      generatedBy: 'Winfred Asiimwe (winnie@welile.com)',
+    });
+
+    expect(screen.getByTestId('zoe-report-card')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-report-title')).toHaveTextContent(
+      'Tenant Ops Repayments & Collection Rate Report',
+    );
+    expect(screen.getByTestId('zoe-report-dates')).toHaveTextContent('2026-10-01 to 2026-10-26');
+    expect(screen.getByTestId('zoe-report-row-count')).toHaveTextContent('2 rows');
+    expect(screen.getByTestId('zoe-report-generated-by')).toHaveTextContent(
+      'Winfred Asiimwe (winnie@welile.com)',
+    );
+    expect(screen.getByTestId('zoe-report-how-counted')).toHaveTextContent(
+      'get_tenant_ops_repayments',
+    );
+    expect(screen.getByTestId('zoe-report-pdf-button')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-report-excel-button')).toBeInTheDocument();
+  });
 });
