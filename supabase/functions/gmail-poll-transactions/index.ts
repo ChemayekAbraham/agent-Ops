@@ -2929,10 +2929,12 @@ async function _tryAutoCreditOperationalFloat(
       provider,
       transaction_id: parsed.transaction_id,
       transaction_date: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
-      deposit_purpose: 'operational_float',
+      deposit_purpose: learnedRoute ?? 'operational_float',
       auto_approved: true,
       auto_match_audit: auditMeta,
-      notes: nameMatchAudit?.tiebreaker === 'learned-name-match'
+      notes: nameMatchAudit?.tiebreaker === 'learned-payer-route'
+        ? `[auto] Created from incoming Gmail MoMo receipt — this payer was routed to this wallet by Financial Ops before; credited as ${learnedRoute === 'personal_deposit' ? 'a Personal Deposit' : 'Operational Float'}.`
+        : nameMatchAudit?.tiebreaker === 'learned-name-match'
         ? `[auto] Created from incoming Gmail MoMo receipt — payer name "${cp}" previously confirmed by Financial Ops (uncontested); credited to Operational Float.`
         : '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
     })
