@@ -59,7 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.rpc.mockImplementation((fn: string, args: Record<string, unknown> = {}) => Promise.resolve(respond(fn, args)));
 });
-afterEach(() => cleanup());
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('CFO Asset Register panel', () => {
   it('shows server overview figures and the register rows', async () => {
@@ -115,5 +115,53 @@ describe('CFO Asset Register panel', () => {
     expect(within(dialog).getByRole('button', { name: /Download template/ })).toBeTruthy();
     expect(within(dialog).queryByRole('button', { name: /^Import \d+ asset/ })).toBeNull();
     expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_import_commit', expect.anything());
+  });
+
+  it('View QR shows the asset QR code and downloads it as <asset code>-qr.png', async () => {
+    const clicks: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { clicks.push(this); });
+    setup();
+    fireEvent.click((await screen.findByText('WEL-AST-000001')).closest('tr')!);
+    fireEvent.click(await screen.findByRole('button', { name: /View QR/ }));
+    const img = await screen.findByAltText('QR code for WEL-AST-000001');
+    expect(img.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+    fireEvent.click(screen.getByRole('button', { name: /Download QR/ }));
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0].download).toBe('WEL-AST-000001-qr.png');
+    expect(clicks[0].href).toBe(img.getAttribute('src'));
+  });
+
+  it('Print label opens one label sheet for the asset', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    URL.createObjectURL = vi.fn(() => 'blob:labels');
+    setup();
+    fireEvent.click((await screen.findByText('WEL-AST-000001')).closest('tr')!);
+    fireEvent.click(await screen.findByRole('button', { name: /View QR/ }));
+    await screen.findByAltText('QR code for WEL-AST-000001');
+    fireEvent.click(screen.getByRole('button', { name: /Print label/ }));
+    await waitFor(() => expect(open).toHaveBeenCalledWith('blob:labels', '_blank'));
+    const blob = (URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0] as Blob;
+    const pdf = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsText(blob); });
+    expect(pdf).toContain('WEL-AST-000001');
+    expect(pdf).not.toContain('SN-1');
+  });
+
+  it('batch-prints labels for the ticked rows without opening the detail', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    URL.createObjectURL = vi.fn(() => 'blob:labels');
+    const clicks: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { clicks.push(this); });
+    setup();
+    await screen.findByText('WEL-AST-000001');
+    expect(screen.queryByRole('button', { name: /Print labels/ })).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select WEL-AST-000001' }));
+    expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_get', expect.anything());
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all assets on this page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Print labels (2)' }));
+    // pop-up blocked -> the sheet is downloaded instead
+    await waitFor(() => expect(open).toHaveBeenCalled());
+    await waitFor(() => expect(clicks.some((a) => a.download === 'welile-asset-labels-2.pdf')).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(screen.queryByRole('button', { name: /Print labels/ })).toBeNull();
   });
 });
