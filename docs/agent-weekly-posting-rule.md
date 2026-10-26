@@ -81,10 +81,14 @@ Per-tenant amount limits:
 | **Expired plan** | Window ended before the week's Thursday, and the plan is still being billed. |
 | **Group** | Each plan stays in one group (current or expired) for the whole week. |
 | **Due** | Sum of the plan's `agent_expected_day_plans.expected_ugx` over the 7 days. Expired plans are still pinned daily, so one source covers both groups. |
-| **Collected** | The agent's non-reversed `agent_collections` on that plan in the week (matched by `rent_request_id`, or by `tenant_id` when the row has no plan id), **capped at that plan's due**. |
+| **Collected** | The agent's non-reversed `agent_collections` on that plan in the week (matched by `rent_request_id`, or by `tenant_id` when the row has no plan id), **capped at that plan's due**. Exception: if the plan **finished** during the week, the whole payment counts, up to what was left on the plan at the start of the week (see below). |
+| **Finished during the week** | `status = 'completed'`, billed in the week, and no bill on any later day (a finished plan stops being billed). A plan finished in a later week is still billed through the end of the earlier one, so it gets no early credit. `rent_requests` has no completion timestamp; this is the signal. |
+| **Left at week start** | `GREATEST(total_repayment − (amount_repaid − paid this week), 0)`. Counted for a finished plan = `LEAST(paid this week, GREATEST(billed this week, left at week start))`. |
 | **Pass** | Compared on amounts: `collected ≥ required_pct × due`. Never on rounded percentages. |
 
 Why collections are capped per plan: without it, one tenant overpaying hides others who paid nothing. Dividing total collections by total expected overstated one real day as 84% when true coverage was 39.7%.
+
+Why finished plans are the exception (migration `20261026090000`): billing stops when a plan finishes, so under the plain cap, clearing a tenant's whole balance earned credit for only the days billed before it. Example: on 22 Oct a tenant cleared 35,166 on an expired plan and only that day's 9,200 counted. Applied to 15–21 Oct, the change gave 14 agents UGX 3.8m more credit and changed no one's pass/fail.
 
 ---
 
@@ -301,6 +305,7 @@ They are not recorded in `supabase_migrations.schema_migrations`. **Lovable must
 |---|---|---|
 | `supabase/tests/agent_weekly_posting_rule.sql` | 12 checks: week arithmetic, saved = live, 50/20/70 logic and reasons, per-plan cap, access (self / other agent / anon), gate with the flag on | Against the live DB. Ends in `RAISE EXCEPTION 'REPORT …'`, so nothing is kept; the error text is the report. |
 | `supabase/tests/agent_weekly_performance.sql` | 7 checks: plan lines add up to saved results for every agent, judged week matches the gate, current-week cap and projection, access | Same as above |
+| `supabase/tests/weekly_rule_count_plan_payoff.sql` | 5 checks: a cleared plan counts in full, only finished plans exceed their bill (never above paid or what was left), no early credit for plans finished later, plan lines match saved results, judged week re-saved | Same as above |
 | `supabase/tests/tenant_self_applications_not_gated.sql` | 8 checks: each insert path (agent, agent faking the flag, tenant in app, self-onboarding, register-tenant, agent as own tenant) against a blocked and a passing agent, using the real gate function on a temp table | Same as above |
 | `src/test/agentWeeklyPerformance.test.tsx` | Target arithmetic, date formatting, page renders status / groups / tenants / history / filter, error state, no banned words | `npx vitest run src/test/agentWeeklyPerformance.test.tsx` |
 | `src/lib/__tests__/renewalAdvice.test.ts` | `WEEKLY_ELIGIBILITY_BLOCKED` message pass-through | `npx vitest run src/lib/__tests__/renewalAdvice.test.ts` |
@@ -332,4 +337,5 @@ Also run `npm run guard:all` before shipping changes in this area.
 | 23 Oct 2026 | `20261023140000` | `get_my_weekly_performance`, `_agent_weekly_plan_lines`. Applied. |
 | 23 Oct 2026 | `2f1c99c8e7` | Weekly Performance page, route, More Actions tab, tests |
 | 23 Oct 2026 | `bd4b5bce97` | Top-bar menu item; agent announcement |
+| 26 Oct 2026 | `20261026090000` | A payment that finishes a Rent Plan counts in full (up to what was left). Applied; judged week re-saved. |
 | 23 Oct 2026 | `20261023150000` | Tenant self-applications no longer gated: `rent_requests.tenant_self_applied`, gate updated. Applied; `tenant-self-onboarding` v30 deployed. |

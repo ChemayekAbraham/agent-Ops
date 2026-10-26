@@ -20,9 +20,9 @@ import { useAgentWeekPct } from './useAgentWeekPct';
 const wrapper = (qc: QueryClient) => ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 const client = () => new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const week = (agent: string) => ({
-  agent_id: agent, week_start: '2026-10-22', week_end: '2026-10-28', days_left: 2, book: 'in_window_only',
-  in_window_plans: 2, in_window_collected: 50, in_window_due_so_far: 80, in_window_projected_due: 100, in_window_required_pct: 0.5,
-  expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_projected_due: 0, expired_required_pct: null,
+  agent_id: agent, week_start: '2026-10-22', week_end: '2026-10-28', through_day: '2026-10-25', book: 'in_window_only',
+  in_window_plans: 2, in_window_collected: 50, in_window_due_so_far: 80, in_window_required_pct: 0.5,
+  expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_required_pct: null,
 });
 beforeEach(() => { rpcMock.mockReset(); });
 

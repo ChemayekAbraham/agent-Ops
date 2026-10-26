@@ -13,6 +13,10 @@ import {
   isPlaceholderRecipient,
   PLACEHOLDER_SUPPRESSION_REASON,
 } from '../_shared/recipientMailbox.ts'
+import {
+  ensureWelileEmailHeader,
+  ensureWelileEmailTextHeader,
+} from '../_shared/emailHeader.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -409,13 +413,13 @@ Deno.serve(async (req) => {
   }
 
   // 4. Render React Email template to HTML and plain text
-  const html = await renderAsync(
+  const html = ensureWelileEmailHeader(await renderAsync(
     React.createElement(template.component, templateData)
-  )
-  const plainText = await renderAsync(
+  ))
+  const plainText = ensureWelileEmailTextHeader(await renderAsync(
     React.createElement(template.component, templateData),
     { plainText: true }
-  )
+  ))
 
   // Partnership top-ups carry a compact PDF receipt generated from the same
   // live values used in the email body. It is base64-encoded only for the

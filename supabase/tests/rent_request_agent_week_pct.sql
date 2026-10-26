@@ -1,16 +1,15 @@
--- Tests for 20261026170000_rent_request_agent_week_pct.sql (rent_request_agent_week_pct).
+-- Tests for 20261026190000_rent_request_agent_week_pct_through_yesterday.sql (rent_request_agent_week_pct: Thursday through yesterday).
 -- Runs the migration's function in one transaction and always rolls back (the last statement raises with the report); nothing is kept.
--- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261026170000_rent_request_agent_week_pct.sql; cat supabase/tests/rent_request_agent_week_pct.sql) | supabase db query --linked
--- "ROLLED BACK REPORT: N passed of N | failing: none" is success. Every figure is compared with what the agent's own screen reads
--- (get_my_weekly_performance, run as a staff reader) for EVERY agent returned, so the desks and the agent can never disagree.
+-- Usage: (echo 'BEGIN;'; cat supabase/migrations/20261026190000_rent_request_agent_week_pct_through_yesterday.sql; cat supabase/tests/rent_request_agent_week_pct.sql) | supabase db query --linked
+-- "ROLLED BACK REPORT: N passed of N | failing: none" is success. Every agent returned is recomputed straight from
+-- agent_expected_day_plans and agent_collections (written a different way) for Thursday through yesterday, and compared.
 DO $test$
 DECLARE
   r jsonb := '[]'::jsonb;
   v_desk uuid; v_mgr uuid; v_plain uuid; v_scm uuid;
   v_ids uuid[]; v_n int; v_bad int := 0; v_checked int := 0; v_ms numeric;
   v_t0 timestamptz;
-  ar record; w jsonb; cw jsonb; jw jsonb;
-  v_agents uuid[];
+  ar record; v_row record; v_lines record; v_cur date; v_thru date;
   v_one uuid; v_other uuid;
 BEGIN
   -- A. properties and grants
@@ -106,42 +105,52 @@ BEGIN
     END;
   END IF;
 
-  -- C. every agent equals what the agent's own screen reads
+  -- C. every agent recomputed from the base tables for Thursday through yesterday
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_desk, 'role', 'authenticated')::text, true);
   SET LOCAL ROLE authenticated;
   CREATE TEMP TABLE _wk ON COMMIT DROP AS SELECT * FROM public.rent_request_agent_week_pct(v_ids);
   RESET ROLE;
-  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_mgr, 'role', 'authenticated')::text, true);
-  SET LOCAL ROLE authenticated;
+  v_cur := (SELECT week_start FROM _wk LIMIT 1);
+  v_thru := (now() AT TIME ZONE 'Africa/Kampala')::date - 1;
   FOR ar IN SELECT * FROM _wk LOOP
-    w := public.get_my_weekly_performance(1, ar.agent_id);
-    cw := w -> 'current_week';
-    jw := (w -> 'weeks') -> 0;
     v_checked := v_checked + 1;
-    IF NOT (
-      ar.week_start = (cw ->> 'week_start')::date AND ar.week_end = (cw ->> 'week_end')::date AND ar.days_left = (cw ->> 'days_left')::int
-      AND ar.book = cw ->> 'book'
-      AND ar.in_window_plans = (cw ->> 'in_window_plans')::int AND ar.in_window_collected = (cw ->> 'in_window_collected')::numeric
-      AND ar.in_window_due_so_far = (cw ->> 'in_window_due_so_far')::numeric AND ar.in_window_projected_due = (cw ->> 'in_window_projected_due')::numeric
-      AND ar.in_window_required_pct IS NOT DISTINCT FROM (cw ->> 'in_window_required_pct')::numeric
-      AND ar.expired_plans = (cw ->> 'expired_plans')::int AND ar.expired_collected = (cw ->> 'expired_collected')::numeric
-      AND ar.expired_due_so_far = (cw ->> 'expired_due_so_far')::numeric AND ar.expired_projected_due = (cw ->> 'expired_projected_due')::numeric
-      AND ar.expired_required_pct IS NOT DISTINCT FROM (cw ->> 'expired_required_pct')::numeric
-      AND ar.last_week_start = (jw ->> 'week_start')::date AND ar.last_book IS NOT DISTINCT FROM CASE WHEN jw ->> 'book' = 'none' AND ar.last_book IS NULL THEN NULL ELSE jw ->> 'book' END
-      AND ar.last_in_window_pct IS NOT DISTINCT FROM (jw ->> 'in_window_pct')::numeric
-      AND ar.last_expired_pct IS NOT DISTINCT FROM (jw ->> 'expired_pct')::numeric
-    ) THEN v_bad := v_bad + 1; END IF;
+    SELECT COALESCE(sum(p.due) FILTER (WHERE NOT p.expired), 0) AS in_due, COALESCE(sum(LEAST(p.paid, p.due)) FILTER (WHERE NOT p.expired), 0) AS in_got,
+           COALESCE(sum(p.due) FILTER (WHERE p.expired), 0) AS ex_due, COALESCE(sum(LEAST(p.paid, p.due)) FILTER (WHERE p.expired), 0) AS ex_got,
+           count(*) FILTER (WHERE NOT p.expired) AS in_plans, count(*) FILTER (WHERE p.expired) AS ex_plans
+      INTO v_row
+      FROM (
+        SELECT e.rent_request_id, sum(e.expected_ugx) AS due,
+               bool_or(COALESCE(rr.repayment_starts_on, (rr.funded_at AT TIME ZONE 'Africa/Kampala')::date) + COALESCE(rr.duration_days, 0) - 1 < v_cur) AS expired,
+               COALESCE((SELECT sum(ac.amount) FROM public.agent_collections ac
+                          WHERE ac.reversed_at IS NULL AND ac.amount > 0 AND ac.agent_id = ar.agent_id
+                            AND (ac.rent_request_id = e.rent_request_id
+                                 OR (ac.rent_request_id IS NULL AND ac.tenant_id IS NOT NULL AND ac.tenant_id = (array_agg(e.tenant_id) FILTER (WHERE e.tenant_id IS NOT NULL))[1]))
+                            AND ac.created_at >= (v_cur::timestamp AT TIME ZONE 'Africa/Kampala')
+                            AND ac.created_at < ((v_thru + 1)::timestamp AT TIME ZONE 'Africa/Kampala')), 0) AS paid
+          FROM public.agent_expected_day_plans e JOIN public.rent_requests rr ON rr.id = e.rent_request_id
+         WHERE e.agent_id = ar.agent_id AND e.day BETWEEN v_cur AND v_thru AND e.expected_ugx > 0
+         GROUP BY e.rent_request_id
+      ) p;
+    -- the agent's own screen counts a plan that FINISHED during the week with its final payment (can exceed what was billed), so collected is compared with
+    -- that same line function; what was expected is recounted independently, and collected is never below the plain capped recount
+    SELECT COALESCE(sum(l.collected) FILTER (WHERE NOT l.expired), 0) AS in_got, COALESCE(sum(l.collected) FILTER (WHERE l.expired), 0) AS ex_got
+      INTO v_lines FROM public._agent_weekly_plan_lines(ar.agent_id, v_cur, v_thru) l WHERE v_thru >= v_cur;
+    IF NOT (ar.in_window_due_so_far = v_row.in_due AND ar.expired_due_so_far = v_row.ex_due
+            AND ar.in_window_plans = v_row.in_plans AND ar.expired_plans = v_row.ex_plans
+            AND ar.in_window_collected = v_lines.in_got AND ar.expired_collected = v_lines.ex_got
+            AND ar.in_window_collected >= v_row.in_got AND ar.expired_collected >= v_row.ex_got) THEN v_bad := v_bad + 1; END IF;
   END LOOP;
-  RESET ROLE;
-  r := r || jsonb_build_object('step', 'C every agent row equals get_my_weekly_performance for that agent (this week and the judged week)', 'pass', v_checked > 0 AND v_bad = 0,
-    'detail', format('%s agents checked, %s different', v_checked, v_bad));
+  r := r || jsonb_build_object('step', 'C every agent: expected and plan counts equal an independent recount, collected equals the agent screen''s line function, never below the capped recount', 'pass', v_checked > 0 AND v_bad = 0,
+    'detail', format('%s agents checked, %s different, through %s', v_checked, v_bad, v_thru));
+  r := r || jsonb_build_object('step', 'C through_day is yesterday (Kampala), or null on the week''s first day when nothing is counted yet',
+    'pass', (SELECT bool_and(through_day IS NOT DISTINCT FROM CASE WHEN v_thru >= week_start THEN v_thru END) FROM _wk));
+  r := r || jsonb_build_object('step', 'C nothing from today is counted: expected is only days up to yesterday',
+    'pass', NOT EXISTS (SELECT 1 FROM _wk x WHERE in_window_due_so_far + expired_due_so_far > COALESCE((SELECT sum(e.expected_ugx) FROM public.agent_expected_day_plans e WHERE e.agent_id = x.agent_id AND e.day BETWEEN v_cur AND v_thru), 0)));
   r := r || jsonb_build_object('step', 'C the week is the Thursday-Wednesday week that contains today (Kampala)',
     'pass', (SELECT bool_and(extract(isodow FROM week_start) = 4 AND week_end = week_start + 6 AND (now() AT TIME ZONE 'Africa/Kampala')::date BETWEEN week_start AND week_end) FROM _wk));
   r := r || jsonb_build_object('step', 'C the judged week is the previous Thursday-Wednesday week',
     'pass', (SELECT bool_and(extract(isodow FROM last_week_start) = 4 AND last_week_start = week_start - 7) FROM _wk));
-  r := r || jsonb_build_object('step', 'C collected never exceeds the projected full-week due, per group',
-    'pass', NOT EXISTS (SELECT 1 FROM _wk WHERE in_window_collected > in_window_projected_due OR expired_collected > expired_projected_due));
-  r := r || jsonb_build_object('step', 'C an agent with no Rent Plan billed this week has book none and no required %',
+  r := r || jsonb_build_object('step', 'C an agent with nothing expected yet has book none and no required %',
     'pass', NOT EXISTS (SELECT 1 FROM _wk WHERE book = 'none' AND (in_window_required_pct IS NOT NULL OR expired_required_pct IS NOT NULL)));
   r := r || jsonb_build_object('step', 'C the registering agent is the one used: every returned agent registered one of the requests',
     'pass', NOT EXISTS (SELECT 1 FROM _wk x WHERE NOT EXISTS (SELECT 1 FROM public.rent_requests q WHERE q.id = ANY (v_ids) AND q.agent_id = x.agent_id)));

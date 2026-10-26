@@ -58,11 +58,18 @@ BEGIN
   r := r || jsonb_build_object('step', 'B pass/fail follows 50 / 20 / 70 and every block has a reason', 'pass', v_ok);
 
   -- C ---------------------------------------------------------------------------
-  SELECT bool_and(in_window_collected <= in_window_due AND expired_collected <= expired_due
-                  AND (in_window_plans > 0) = (in_window_due > 0) AND (expired_plans > 0) = (expired_due > 0))
+  -- Since 20261026090000 a plan finished during the week may count above its bill (up to what was
+  -- left), so the cap is checked per plan in weekly_rule_count_plan_payoff.sql; here only that a group
+  -- can exceed its bill solely through finished plans.
+  SELECT bool_and((in_window_plans > 0) = (in_window_due > 0) AND (expired_plans > 0) = (expired_due > 0))
+     AND bool_and((in_window_collected <= in_window_due AND expired_collected <= expired_due)
+                  OR EXISTS (SELECT 1 FROM public.agent_expected_day_plans e
+                             JOIN public.rent_requests rr ON rr.id = e.rent_request_id
+                             WHERE e.agent_id = agent_weekly_posting_eligibility.agent_id
+                               AND e.day BETWEEN v_week AND v_week + 6 AND rr.status = 'completed'))
     INTO v_ok
   FROM public.agent_weekly_posting_eligibility WHERE week_start = v_week;
-  r := r || jsonb_build_object('step', 'C collected capped at due; plan counts match groups', 'pass', v_ok);
+  r := r || jsonb_build_object('step', 'C collected above due only via finished plans; plan counts match groups', 'pass', v_ok);
 
   -- D ---------------------------------------------------------------------------
   SELECT agent_id INTO v_fail FROM public.agent_weekly_posting_eligibility

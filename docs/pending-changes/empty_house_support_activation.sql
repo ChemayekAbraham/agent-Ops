@@ -1,3 +1,11 @@
+-- STAGED, NOT APPLIED. DO NOT MOVE BACK INTO supabase/migrations/ WITHOUT APPROVAL.
+-- Decision 2026-10-26: money for a supported EMPTY HOUSE stays in the Landlord Float Pool
+-- (A21) and is never released to an agent's landlord float, so no trigger may do that
+-- when a tenant is bound to the house. This file would do exactly that
+-- (activate_house_support_on_tenant_bound -> create_landlord_float_allocation).
+-- It was never applied to production (verified 2026-10-26: no function, trigger or
+-- partner_supported_houses.activated_line_id column exists there).
+--
 -- Empty-house support activation: hand off a pre-committed
 -- partner_supported_houses row into the existing PSM landlord-float-bucket
 -- machinery the moment the house actually gets a tenant.
