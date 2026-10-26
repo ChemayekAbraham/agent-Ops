@@ -2148,6 +2148,73 @@ async function _tryAutoCreditOperationalFloat(
     }
   }
 
+  // ── Learned payer route ───────────────────────────────────────────
+  // Phone and body-phone resolution failed. Before guessing from names, ask
+  // what Financial Ops taught the system: a payer (phone key, or for MTN a
+  // name key) that staff routed to a wallet once routes there on its own
+  // from then on (learned_payer_routes). The route also decides the deposit
+  // purpose (operational_float vs personal_deposit).
+  let learnedRoute: 'operational_float' | 'personal_deposit' | null = null;
+  if (!profile) {
+    const applyLearnedRoute = async (keyType: 'phone' | 'name', payerKey: string | null) => {
+      if (!payerKey || profile) return;
+      try {
+        const { data: lr, error: lrErr } = await supabase.rpc('resolve_learned_payer_route', {
+          p_key_type: keyType,
+          p_payer_key: payerKey,
+        });
+        if (lrErr) {
+          console.warn('[gmail-poll] resolve_learned_payer_route failed (non-fatal):', lrErr.message);
+          return;
+        }
+        const hit = Array.isArray(lr) ? lr[0] : lr;
+        if (!hit?.target_user_id) return;
+        const { data: tp } = await supabase
+          .from('profiles')
+          .select('id, phone, full_name, email')
+          .eq('id', hit.target_user_id)
+          .maybeSingle();
+        if (!tp?.id) return;
+        profile = tp as any;
+        matchMethod = keyType === 'phone' ? 'phone' : 'name';
+        learnedRoute = hit.route === 'personal_deposit' ? 'personal_deposit' : 'operational_float';
+        nameMatchAudit = {
+          raw_name: String((parsed as any).counterparty_name ?? cp ?? ''),
+          total_candidates: 1,
+          candidates: [{
+            id: tp.id,
+            full_name: (tp as any).full_name ?? null,
+            phone_last4: null,
+            has_phone: !!(tp as any).phone,
+            last_sign_in_at: null,
+            last_sign_in_ms: 0,
+            selected: true,
+          }],
+          tiebreaker: 'learned-payer-route',
+          tiebreaker_pool: 'single',
+          confidence: 'high',
+          confidence_score: 0.9,
+          confidence_reasons: [`payer ${keyType} previously routed to this wallet by Financial Ops`],
+        };
+        console.log(`[gmail-poll] learned payer route (${keyType}=${payerKey}) → user=${tp.id} route=${learnedRoute}`);
+      } catch (e) {
+        console.warn('[gmail-poll] learned payer route check failed (non-fatal):', e);
+      }
+    };
+    const phoneKey = matchedPhoneLast9
+      ?? (phoneMatch ? toLast9(phoneMatch[0]) : null)
+      ?? (emailLast9Set.size === 1 ? Array.from(emailLast9Set)[0] : null);
+    await applyLearnedRoute('phone', phoneKey);
+    if (!profile && parsed.channel === 'mtn_momo') {
+      // Name key: same normalization as public.payer_name_key — lowercase,
+      // letters only, tokens ≥ 2 chars minus stopwords, sorted.
+      const rawForKey = String((parsed as any).counterparty_name ?? cp ?? '');
+      const tokens = rawForKey.toLowerCase().replace(/[^a-z ]/g, ' ').split(' ')
+        .filter((w) => w.length >= 2 && !['you', 'have', 'received', 'from', 'the', 'and'].includes(w));
+      await applyLearnedRoute('name', tokens.length >= 2 ? tokens.sort().join(' ') : null);
+    }
+  }
+
   // ── MTN MoMo fallback ────────────────────────────────────────────
   // Reached only when the phone (now correctly extracted from the
   // "(NAME) 256XXXXXXXXX" shape above, or from the body-phone scan) didn't
