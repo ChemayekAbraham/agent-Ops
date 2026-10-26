@@ -557,7 +557,6 @@ export function FunderHouseListingsSection() {
               if (!note) throw new Error('Booking was not created');
               const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
                 p_house_ids: ids,
-                p_term_months: 1,
                 p_idempotency_key: `fund-${note.id}`,
               });
               if (fundErr) throw fundErr;
@@ -571,7 +570,6 @@ export function FunderHouseListingsSection() {
               const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
                 p_rent_request_ids: ids,
                 p_promised_deposit_date: null,
-                p_term_months: 1,
               });
               if (error) throw error;
               const payload = (data ?? {}) as { commitment_id?: string; portfolio_id?: string };
