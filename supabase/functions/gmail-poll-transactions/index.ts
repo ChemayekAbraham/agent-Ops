@@ -2888,9 +2888,30 @@ async function _tryAutoCreditOperationalFloat(
     return;
   }
 
-  // ── Notify the user via SMS ────────────────────────────────────
-  // Tell them their Operational Float wallet was just topped up and what
-  // the new balance is, so they don't have to open the app to confirm.
+  await notifyFloatCredited(supabase, {
+    profile,
+    provider,
+    parsed,
+    internalMs,
+    gmailMessageId,
+  });
+}
+
+// ── Notify the user their Operational Float was just topped up ───────
+// SMS with the new balance, plus an emailed receipt when we hold an owned
+// email address. Shared by the fresh-deposit path and the trigger-linked
+// instant-approve path.
+async function notifyFloatCredited(
+  supabase: ReturnType<typeof createClient>,
+  args: {
+    profile: { id: string; phone: string | null; full_name: string | null };
+    provider: string;
+    parsed: ReturnType<typeof parseTransaction>;
+    internalMs: number;
+    gmailMessageId: string;
+  },
+): Promise<void> {
+  const { profile, provider, parsed, internalMs, gmailMessageId } = args;
   try {
     if (!profile.phone) return;
     const { data: walletRow } = await supabase
