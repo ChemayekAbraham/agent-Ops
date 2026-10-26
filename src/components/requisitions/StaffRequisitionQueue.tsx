@@ -291,7 +291,8 @@ export function StaffRequisitionQueue() {
       if (!row.current_approver_role) return false;
       const r = roles as string[];
       if ((row.request_kind ?? 'requisition') === 'requisition') {
-        const signedEarlier = [
+        // CEO-approved exception: the CEO office holder may sign the CEO stage after an earlier stage.
+        const signedEarlier = row.stage !== 'ceo' && [
           row.stage !== 'supervisor' ? row.supervisor_decided_by : null,
           row.stage === 'ceo' || row.stage === 'cfo' ? row.coo_decided_by : null,
           row.stage === 'cfo' ? row.ceo_decided_by : null,
