@@ -325,7 +325,7 @@ export function SelfPortfolioDeployDialog({
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-primary shrink-0" />
-                    <p className="text-sm font-bold truncate">Start a new monthly portfolio</p>
+                    <p className="text-sm font-bold truncate">Start a new 12-month portfolio</p>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Fresh start date, one monthly payout on its own anniversary date.
@@ -341,7 +341,7 @@ export function SelfPortfolioDeployDialog({
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {[
                   { label: 'Per month', value: formatDynamic(fullMonthly) },
-                  { label: 'Cycles', value: '1' },
+                  { label: 'Term', value: '12 months' },
                   { label: 'Over the term', value: formatDynamic(newProjection) },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">

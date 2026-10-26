@@ -1678,11 +1678,6 @@ export function SelfPortfolioFundingCard({
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {MONTHLY_ROI_RATE}% / month
                   </span>
-                  {plan.duration_days ? (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {plan.duration_days} days
-                    </span>
-                  ) : null}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (
