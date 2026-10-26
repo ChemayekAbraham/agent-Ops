@@ -80,6 +80,7 @@ export function CtoControlledPlansPanel() {
   const [sort, setSort] = useState<SortKey>('default');
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [shown, setShown] = useState(100);
 
   const plans = data?.plans ?? [];
   const summary = data?.summary;
@@ -267,7 +268,7 @@ export function CtoControlledPlansPanel() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((p) => {
+                  {rows.slice(0, shown).map((p) => {
                     const overdue = p.daysOverdue > 0;
                     const noPayment = p.collectionCount === 0;
                     return (
@@ -299,6 +300,12 @@ export function CtoControlledPlansPanel() {
                 </TableBody>
               </Table>
             </div>
+            {rows.length > shown && (
+              <div className="flex justify-center">
+                {/* Every Rent Plan can be on the list (1,800+): 100 rows at a time keeps the page smooth while it refreshes. Totals and filters count them all. */}
+                <Button variant="outline" size="sm" onClick={() => setShown((n) => n + 100)}>Show 100 more ({rows.length - shown} left)</Button>
+              </div>
+            )}
 
             <div>
               <h3 className="mb-2 text-sm font-semibold">By agent</h3>

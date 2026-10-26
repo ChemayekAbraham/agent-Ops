@@ -38,7 +38,7 @@ export function useCtoControlledPlanCollections() {
     queryFn: fetchCollections,
     staleTime: 0,
     gcTime: 0,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
     refetchOnWindowFocus: 'always',
     refetchOnMount: 'always',
     retry: 1,

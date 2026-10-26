@@ -66,6 +66,17 @@ recovered 2,361,301 (= the collections ledger, **0 counter mismatches**), partne
 - **Adding a plan to the list changes no money.** The list is only a filter for this panel.
 - Write access is the CTO role only (`20261025100000`), so a super admin who is not CTO is refused. Reading stays CTO, CEO and CFO. If it must be limited to one person, use `is_platform_owner()` (20261024110000). Anyone who can assign roles could give themselves the CTO role; that is outside this feature.
 
+## Plans join the tracker when the CTO allows their landlord payout (`20261025110000`)
+
+A trigger on `withdrawal_requests.landlord_block_exempt_at` (empty to set) adds the payout's Rent Plan (`landlord_payouts.rent_request_id`) to
+`cto_controlled_rent_plans` with the note "Allowed to the payout queue by the CTO". It covers **both** routes (Allow selected, and Allow with
+exception), because both set that marker. Rules:
+
+- Only when the person who allowed it holds the **CTO role** (`landlord_block_exempt_by`, or the signed-in user on the exception route, which does not record one). A payout allowed by the CFO or a super admin is not added.
+- Plans already on the list are left alone; an audit row (`cto_controlled_plans_added`, source `allowed_to_payout_queue`) is written for new ones.
+- The trigger never blocks allowing a payout: errors inside it are warnings only.
+- **Forward only.** 335 payouts were allowed 25 Sep to 22 Oct, 294 of whose plans are not on the list. A commented backfill at the bottom of the migration adds them (changes the tracker totals); it is not run.
+
 ## Roll back
 
 `supabase/rollbacks/20261024130000_cto_controlled_rent_plans.rollback.sql` drops the four functions and the table. The UI then shows its error state.
