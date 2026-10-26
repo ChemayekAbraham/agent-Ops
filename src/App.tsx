@@ -255,6 +255,8 @@ const CFOCorrection5300000Page = lazy(() => import('./pages/cfo/CorrectionPackag
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
+const AssetDetailPage = lazy(() => import('./pages/cfo/AssetDetail'));
+const SignInReturnGate = lazy(() => import('./components/auth/SignInReturnGate'));
 const LedgerEntryDeepLinkPage = lazy(() => import('./pages/LedgerEntryDeepLink'));
 const VerificationRequestDetailPage = lazy(() => import('./pages/VerificationRequestDetail'));
 const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory'));
@@ -774,6 +776,8 @@ function AppRoutes() {
           <Route path="/cfo/investor-report" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto']} requiredPermission="cfo"><InvestorReportPage /></RoleGuard>} />
           <Route path="/cfo/money-flow-trace" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><MoneyFlowTracePage /></RoleGuard>} />
           <Route path="/cfo/ledger/:id" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><LedgerEntryDetailPage /></RoleGuard>} />
+          {/* Asset QR target: CFO + Super Admin only (matches asset_register_read_ok); signed-out scans return here after /auth. */}
+          <Route path="/cfo/assets/:assetId" element={<SignInReturnGate><RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><AssetDetailPage /></RoleGuard></SignInReturnGate>} />
           <Route path="/ledger/:id" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager', 'operations', 'employee']}><LedgerEntryDeepLinkPage /></RoleGuard>} />
           <Route path="/cfo/phantom-drift/:userId" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><PhantomDriftDetailPage /></RoleGuard>} />
           <Route path="/coo/dashboard" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto']} requiredPermission="coo"><COODashboardPage /></RoleGuard>} />
