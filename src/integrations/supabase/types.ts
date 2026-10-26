@@ -7529,6 +7529,197 @@ export type Database = {
           },
         ]
       }
+      asset_events: {
+        Row: {
+          actor_id: string
+          asset_id: string
+          batch_id: string | null
+          changed_fields: string[]
+          created_at: string
+          event_type: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          reason: string | null
+        }
+        Insert: {
+          actor_id: string
+          asset_id: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Update: {
+          actor_id?: string
+          asset_id?: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_events_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_events_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_import_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          errors: Json
+          file_name: string
+          file_sha256: string
+          id: string
+          inserted_count: number
+          rejected_count: number
+          row_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          errors?: Json
+          file_name: string
+          file_sha256: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count: number
+          status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          errors?: Json
+          file_name?: string
+          file_sha256?: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      assets: {
+        Row: {
+          asset_code: string
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          serial_number: string | null
+          serial_number_norm: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          asset_code: string
+          brand?: string | null
+          category: string
+          condition?: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          asset_code?: string
+          brand?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_access_allowlist: {
         Row: {
           created_at: string
@@ -67562,6 +67753,62 @@ export type Database = {
           id: string
         }[]
       }
+      _asset_register_insert: {
+        Args: {
+          p_actor: string
+          p_batch: string
+          p_event: string
+          p_value: Json
+        }
+        Returns: {
+          asset_code: string
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          serial_number: string | null
+          serial_number_norm: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "assets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _asset_register_require: { Args: { p_write: boolean }; Returns: string }
+      _asset_register_row_json: {
+        Args: { a: Database["public"]["Tables"]["assets"]["Row"] }
+        Returns: Json
+      }
+      _asset_register_serial_owner: {
+        Args: { p_category: string; p_exclude: string; p_serial: string }
+        Returns: string
+      }
+      _asset_register_validate: {
+        Args: { p: Json; p_partial: boolean }
+        Returns: Json
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -69799,6 +70046,42 @@ export type Database = {
         }
         Returns: undefined
       }
+      asset_register_add_evidence: {
+        Args: { p_id: string; p_kind: string; p_path: string }
+        Returns: Json
+      }
+      asset_register_check_duplicates: { Args: { p_rows: Json }; Returns: Json }
+      asset_register_create: { Args: { p_asset: Json }; Returns: Json }
+      asset_register_get: { Args: { p_id: string }; Returns: Json }
+      asset_register_import_commit: {
+        Args: { p_file_name: string; p_file_sha256: string; p_rows: Json }
+        Returns: Json
+      }
+      asset_register_list: {
+        Args: {
+          p_category?: string
+          p_condition?: string
+          p_department?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      asset_register_read_ok: { Args: never; Returns: boolean }
+      asset_register_reference_data: { Args: never; Returns: Json }
+      asset_register_summary: { Args: never; Returns: Json }
+      asset_register_update: {
+        Args: {
+          p_changes: Json
+          p_expected_updated_at: string
+          p_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      asset_register_write_ok: { Args: never; Returns: boolean }
       assign_bike_lease_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
