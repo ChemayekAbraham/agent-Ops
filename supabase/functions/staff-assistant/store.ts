@@ -215,6 +215,33 @@ export async function loadRecentTurns(userId: string, conversationId: string): P
     .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 }
 
+export async function loadLatestReportPayload(
+  userId: string,
+  conversationId: string,
+): Promise<Record<string, unknown> | null> {
+  const db = admin();
+  const { data } = await db
+    .from("staff_assistant_messages")
+    .select("report_payload")
+    .eq("conversation_id", conversationId)
+    .eq("user_id", userId)
+    .eq("role", "assistant")
+    .not("report_payload", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  for (const row of data ?? []) {
+    const rp = row?.report_payload;
+    if (rp && typeof rp === "object" && !Array.isArray(rp)) {
+      const obj = rp as Record<string, unknown>;
+      if (typeof obj.tool === "string" && typeof obj.rpc === "string") {
+        return obj;
+      }
+    }
+  }
+  return null;
+}
+
 export async function recordTurn(args: {
   conversationId: string;
   userId: string;

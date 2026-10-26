@@ -290,8 +290,11 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(hrTools.includes("get_hr_payroll_cost_by_department"));
   assert(!hrTools.includes("get_lops_paid_lists"));
 
-  // OpenAI tool list includes ask_clarification + role-filtered tools
-  assertEquals(openAiToolsForRoles(["employee"]).length, 10);
+  // OpenAI tool list includes ask_clarification + draft_report_email + role-filtered tools
+  const employeeOpenAiTools = openAiToolsForRoles(["employee"]);
+  assertEquals(employeeOpenAiTools.length, 11);
+  assert(employeeOpenAiTools.some((t) => t.function.name === "draft_report_email"));
+  assert(employeeOpenAiTools.some((t) => t.function.name === "ask_clarification"));
 });
 
 Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2 enforcement", () => {

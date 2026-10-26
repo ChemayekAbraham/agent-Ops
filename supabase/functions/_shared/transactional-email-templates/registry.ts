@@ -72,6 +72,7 @@ import { template as selfSupportUnallocatedTemplate } from './self-support-unall
 import { template as redemptionPaidTemplate } from './redemption-paid.tsx'
 import { template as portfolioRenewalReturnsReadyTemplate } from './portfolio-renewal-returns-ready.tsx'
 import { template as portfolioRenewalRequestReceivedTemplate } from './portfolio-renewal-request-received.tsx'
+import { template as zoeReportSharedTemplate } from './zoe-report-shared.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -148,4 +149,6 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'lending-repayment-status': lendingRepaymentStatusTemplate,
   'salary-payslip': salaryPayslipTemplate,
   'self-support-unallocated': selfSupportUnallocatedTemplate,
+  'zoe-report-shared': zoeReportSharedTemplate,
+  'report-shared-from-zoe': zoeReportSharedTemplate,
 }

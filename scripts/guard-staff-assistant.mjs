@@ -31,7 +31,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STAFF_FN_DIR = join(ROOT, 'supabase', 'functions', 'staff-assistant');
-const STAFF_EMAIL_FN_DIR = join(ROOT, 'supabase', 'functions', 'staff-assistant-email');
+const STAFF_EMAIL_FN_DIRS = [
+  join(ROOT, 'supabase', 'functions', 'staff-assistant-send-email'),
+  join(ROOT, 'supabase', 'functions', 'staff-assistant-email'),
+];
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
 const SRC_DIR = join(ROOT, 'src');
 
@@ -243,6 +246,7 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
         'staff_assistant_has_access',
         'assistant_staff_my_profile',
         'staff_assistant_is_staff_email',
+        'staff_assistant_email_recipients',
       ]);
       if (!allowedDirectRpcs.has(m[1])) {
         errors.push(
@@ -544,22 +548,30 @@ if (!existsSync(STAFF_FN_DIR)) {
   }
 }
 
-// 3. Check supabase/functions/staff-assistant-email (if present)
-if (existsSync(STAFF_EMAIL_FN_DIR)) {
-  const emailSources = walk(STAFF_EMAIL_FN_DIR).filter((f) => f.endsWith('.ts') && !f.endsWith('_test.ts'));
-  let anyEmailCheck = false;
-  for (const file of emailSources) {
-    const rel = relative(ROOT, file).replace(/\\/g, '/');
-    const raw = readFileSync(file, 'utf8');
-    for (const err of auditStaffEmailFunction(rel, raw)) fail(err);
-    if (/staff_assistant_is_staff_email/.test(stripComments(raw))) {
-      anyEmailCheck = true;
+// 3. Check supabase/functions/staff-assistant-send-email (and staff-assistant-email if present)
+for (const emailDir of STAFF_EMAIL_FN_DIRS) {
+  if (!existsSync(emailDir)) continue;
+  const emailSources = walk(emailDir).filter((f) => f.endsWith('.ts') && !f.endsWith('_test.ts'));
+  const combinedDirCode = emailSources.map((f) => stripComments(readFileSync(f, 'utf8'))).join('\n');
+  if (emailSources.length > 0) {
+    for (const file of emailSources) {
+      const rel = relative(ROOT, file).replace(/\\/g, '/');
+      const raw = readFileSync(file, 'utf8');
+      // Only enforce per-file staff_assistant_is_staff_email if the directory as a whole lacks it
+      if (!/staff_assistant_is_staff_email/.test(combinedDirCode)) {
+        for (const err of auditStaffEmailFunction(rel, raw)) fail(err);
+      }
     }
-  }
-  if (emailSources.length > 0 && !anyEmailCheck) {
-    fail(
-      'supabase/functions/staff-assistant-email must call staff_assistant_is_staff_email before sending any email.',
-    );
+    if (!/staff_assistant_is_staff_email/.test(combinedDirCode)) {
+      fail(
+        `${relative(ROOT, emailDir)} must call staff_assistant_is_staff_email before sending any email.`,
+      );
+    }
+    if (!/staff_assistant_has_access/.test(combinedDirCode)) {
+      fail(
+        `${relative(ROOT, emailDir)} must re-check staff_assistant_has_access() before sending any email.`,
+      );
+    }
   }
 }
 
