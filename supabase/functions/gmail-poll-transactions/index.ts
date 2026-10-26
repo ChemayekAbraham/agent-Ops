@@ -9,6 +9,7 @@ import {
   resolveUsersByKnownPhone,
   resolveUniqueUserByKnownPhone,
   learnDepositNumber,
+  learnDepositName,
   resolveUniqueUserByKnownName,
   resolveUsersByKnownName,
   normalizeDepositorName,
@@ -2659,6 +2660,21 @@ async function _tryAutoCreditOperationalFloat(
       .limit(1)
       .maybeSingle();
     if (existingDep?.id) {
+      // The TID is already APPROVED (typical: a delayed IFTTT forward of a
+      // receipt whose deposit was credited minutes ago). Link the gmail row
+      // to that deposit so it doesn't sit as a false "Unmatched" row in
+      // Financial Ops, then stop — nothing left to credit.
+      if (String(existingDep.status) === 'approved') {
+        await supabase
+          .from('gmail_transactions')
+          .update({
+            linked_deposit_request_id: existingDep.id,
+            auto_match_method: 'already_approved_tid',
+          })
+          .eq('id', gmailRow.id)
+          .is('linked_deposit_request_id', null);
+        return;
+      }
       if (String(existingDep.status) !== 'pending') return;
       if (Number(existingDep.amount) !== Number(parsed.amount)) {
         console.warn(
