@@ -13,7 +13,6 @@ import {
   History,
   Users,
   Share2,
-  Download,
   HelpCircle,
   ScrollText,
   FileText,
@@ -109,11 +108,9 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     // Growth
     { icon: Gift, label: 'Invite & Earn', badge: 'UGX 100', separator: true, onClick: () => { hapticTap(); setInviteOpen(true); } },
     { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', onClick: goTo('/my-receipts') },
-    { icon: Users, label: 'My Referrals', onClick: goTo('/referrals') },
     { icon: Share2, label: 'Share & Earn', onClick: goTo('/benefits') },
     // More
     { icon: ScrollText, label: 'Landlord Agreement', separator: true, onClick: goTo('/landlord-agreement') },
-    { icon: Download, label: 'Share App', onClick: goTo('/install') },
     { icon: HelpCircle, label: 'Help & Support', onClick: goTo('/settings') },
   ];
 
