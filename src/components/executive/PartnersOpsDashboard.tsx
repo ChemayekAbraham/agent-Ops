@@ -55,6 +55,7 @@ import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
 import { PartnerProfile360 } from './partner-ops/PartnerProfile360';
+import { CompoundRequestsPanel } from './partner-ops/CompoundRequestsPanel';
 import PartnerOnboardingPanel from '@/pages/PartnerOnboarding';
 import {
   PartnerRoiProjectionChart,
@@ -335,6 +336,7 @@ export function PartnersOpsDashboard() {
       );
       case 'maturity': return <MaturityRequestsQueue />;
       case 'portfolios.maturity': return <MaturityRequestsQueue />;
+      case 'portfolios.compound': return <CompoundRequestsPanel />;
       case 'approvals': return (
         <div className="space-y-6">
           <PendingFunderApprovals />
