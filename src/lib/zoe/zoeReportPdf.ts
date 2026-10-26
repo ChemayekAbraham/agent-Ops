@@ -184,7 +184,7 @@ export function buildZoeReportHtml(report: ZoeExportableReport): string {
               sub: `Source: ${report.source}`,
               variant: 'primary' as const,
             })),
-            Math.min(4, report.summaryMetrics.length) as 2 | 3 | 4,
+            4,
           )
         : '';
 
@@ -423,7 +423,7 @@ export async function exportZoeReportPdf(
   if (built.doc && typeof built.doc.save === 'function') {
     built.doc.save(built.filename);
   } else {
-    printReportHtml(built.html);
+    printReportHtml(built.html, report.title);
   }
   return built;
 }

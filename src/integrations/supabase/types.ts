@@ -69578,6 +69578,71 @@ export type Database = {
       assistant_is_agent: { Args: never; Returns: boolean }
       assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
+      assistant_staff_aops_listing_quality_and_risk: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_agents: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_totals: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_network_overview: {
+        Args: { p_from?: string; p_min_expected?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_silent_collectors: {
+        Args: { p_limit?: number; p_min_days_silent?: number }
+        Returns: Json
+      }
+      assistant_staff_ceo_growth_and_approvals: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_budget_revised_position: {
+        Args: never
+        Returns: Json
+      }
+      assistant_staff_cfo_money_flow_summary: { Args: never; Returns: Json }
+      assistant_staff_cfo_receivables_and_payables: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_seven_day_expenses: { Args: never; Returns: Json }
+      assistant_staff_cfo_treasury_cash_position: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
+      assistant_staff_coo_overview: {
+        Args: { p_days?: number; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_fops_verification_and_requisitions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_calling_detailed_report: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_contracts_and_birthdays: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_hr_payroll_cost_by_department: {
+        Args: { p_period_code?: string }
+        Returns: Json
+      }
       assistant_staff_lops_calling_coverage: {
         Args: { p_as_at?: string }
         Returns: Json
@@ -69615,6 +69680,22 @@ export type Database = {
       assistant_staff_my_tasks: { Args: { p_status?: string }; Returns: Json }
       assistant_staff_my_tickets: { Args: never; Returns: Json }
       assistant_staff_my_wallet: { Args: never; Returns: Json }
+      assistant_staff_pops_pending_summary: {
+        Args: { p_month?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_report_overview: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_search_supporters: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_staff_pso_cohort_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_tops_arrears_ageing: {
         Args: {
           p_as_at?: string

@@ -1,5 +1,5 @@
 import { buildSignupPersuasionPitch } from './nexaSignup.ts';
-import { isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from './nexaPublicCatalog.ts';
+import { isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG } from './nexaPublicCatalog.ts';
 
 /** Public guidance only: phone numbers are never proof of account ownership. */
 export function toAuthGatedPath(path: string): string {
@@ -55,6 +55,48 @@ export function buildNexaPublicGuideReply(text: string, isAuthenticated = false)
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
   if (isAccountOrBalanceQuery(text)) return buildAccountPhoneAndDashboardGuideReply(text);
+  const link = (label: string, path: string) => `[${label}](${isAuthenticated ? path : toAuthGatedPath(path)})`;
+  if (/\brequest(?:ing)? rent\b|\bget rent (?:help|support)\b/i.test(text)) {
+    return `**Tenant Rent Support & UGX 30,000,000 Access Limit Guide**
+Explore **30/60/90-day Rent Plans**: Welile pays your landlord upfront for the approved, funded amount, then you repay on your approved schedule. Identity, Tenant, Landlord and property verification and approval still apply; submitting a request is not a promise of funding.
+
+**Build your Rent Access Limit**
+On-time paid days grow your limit by **+UGX 10,000/day up to UGX 30,000,000**. Missed days reduce it by **UGX 7,000/day**. This programme illustration is not your current limit or a guarantee of access. No traditional bank collateral is required; verification and approved Rent Plan terms remain necessary.
+
+**Your next steps**
+1. ${link('Request Rent Support', '/register-tenant')} and complete your tenant details.
+2. Review the rent amount, available duration, daily repayment and full approved terms before committing.
+3. Once verified, approved and funded, the landlord is paid upfront. Keep payments on schedule and check your own dashboard for your current limit and receipts.
+
+${isAuthenticated ? 'You are already signed in; use your existing account to request support.' : buildSignupPersuasionPitch('tenant')}`;
+  }
+  if (/\bsupport(?:ing)? a tenant\b/i.test(text)) {
+    return `**Supporter 15% Monthly Returns & Verified Houses Guide**
+Start exploring tenant support with **UGX 50,000+**, subject to available plans and approved minimums. Your support facilitates rent paid straight to the landlord for an approved, funded Rent Plan.
+
+**Illustrative monthly Returns**
+At **15% monthly Returns**, **UGX 100,000 → UGX 15,000/month**, or **UGX 180,000 over 12 months** in Returns. These are illustrations, not guaranteed earnings; review the actual support amount, reward schedule and approved contract terms.
+
+**Verified houses & commitments**
+Review **Tenant + Landlord + GPS** verification before selecting a house; displayed details do not replace approval. If you create a **Promissory Note**, fulfill the pledged support by depositing into your Welile Wallet and completing the commitment, or renew/update its date before it passes. A pledge alone does not fund the plan or start Returns.
+
+**Withdrawal & operational guarantee**
+Committed support requires **90-day withdrawal notice** under approved terms; it is not withdrawable anytime. At the end of the 12-month illustration, renew or request principal withdrawal under your contract. Welile provides an operational guarantee for every tenant you support. Returns, funding and availability remain subject to approved terms.
+
+${link('Support a Tenant', '/dashboard/funder-new')} to review available verified houses and complete support using your own account.
+
+${isAuthenticated ? 'You are already signed in; no new account is needed.' : buildSignupPersuasionPitch('supporter')}`;
+  }
+  if (/\banything about welile\b|\bwhat is welile\b/i.test(text)) {
+    const company = WELILE_COM_AND_WELILEAPP_PUBLIC_CATALOG.corporate;
+    return `**Welile — Mission, Products & Services**
+**${company.founderTitle}: ${company.founderAndCeo}**. Welile was founded on ${company.founded}. **Entebbe HQ:** ${company.headquarters}. **Kampala branch:** ${company.kampalaBranch}.
+
+**Our mission:** ${company.mission}
+The ecosystem includes **Welile Homes, Welile Wallet, Welile Credit, Welile Marketplace, Welile Schools and Welile Medicine**, alongside Rent Access and Agent Advances. Explore approved rent facilitation, digital payments, productive assets and essential-service workflows; registration never guarantees funding or approval. Public company information: ${company.website}. App: https://welileapp.com.
+
+${buildFinancialAccessFallbackReply(text, isAuthenticated)}`;
+  }
   if (isFinancialAccessQuery(text)) return buildFinancialAccessFallbackReply(text, isAuthenticated);
   return null;
 }
