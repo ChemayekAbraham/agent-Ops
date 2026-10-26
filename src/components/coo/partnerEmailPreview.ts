@@ -99,5 +99,5 @@ export function renderPartnerEmailPreview(opts: {
     </td></tr>
   </table>
 </body>
-</html>`;
+</html>`);
 }
