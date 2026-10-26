@@ -12700,6 +12700,88 @@ export type Database = {
         }
         Relationships: []
       }
+      compound_reversal_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          cycle_date: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          override_id: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id?: string
+          portfolio_id?: string
+          reason?: string
+          reinvested_at?: string
+          reinvestment_ledger_id?: string
+          requested_by?: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -71985,6 +72067,16 @@ export type Database = {
         Args: { p_portfolio_id: string; p_raw_token: string }
         Returns: string
       }
+      compound_reversal_candidates: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          amount: number
+          description: string
+          ledger_id: string
+          reference_id: string
+          reinvested_at: string
+        }[]
+      }
       compute_agent_performance: {
         Args: { p_agent_id: string }
         Returns: {
@@ -72816,6 +72908,10 @@ export type Database = {
       current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
+      decide_compound_reversal: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: Json
+      }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -80371,6 +80467,29 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      list_compound_reversal_requests: {
+        Args: { p_status?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          current_principal: number
+          cycle_date: string
+          decided_at: string
+          decided_by_name: string
+          decision_note: string
+          id: string
+          override_id: string
+          partner_id: string
+          partner_name: string
+          portfolio_code: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          requested_by: string
+          requested_by_name: string
+          status: string
+        }[]
+      }
       list_eligible_landlords_for_rent_request: {
         Args: { p_limit?: number; p_rent_request_id: string; p_search?: string }
         Returns: {
@@ -84670,6 +84789,10 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      request_compound_reversal: {
+        Args: { p_ledger_id: string; p_portfolio_id: string; p_reason: string }
+        Returns: string
       }
       request_exception_otp: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
