@@ -77,3 +77,48 @@ export function postSignInPath(userId: string, redirectParam: string | null | un
   }
   return takeReturnPath(userId) ?? '/dashboard';
 }
+
+/**
+ * Session key carrying an in-app path across a sign-in that leaves the site (Google/Apple OAuth returns to the site
+ * root, so `?redirect=` is lost). Also written by OAuthConsent, TenantsOnboarding and house-support share links;
+ * read by /auth and by the root route (Index).
+ */
+export const POST_AUTH_REDIRECT_KEY = 'welile_post_auth_redirect';
+
+/** The stored path only if it is a safe, returnable in-app path (never another site, never /auth etc.). */
+function validPostAuthPath(path: string | null | undefined): string | null {
+  const safe = safeInternalPath(path);
+  return safe && isReturnablePath(safe) ? safe : null;
+}
+
+/**
+ * Before leaving for an OAuth provider: keep `?redirect=` (e.g. a scanned asset QR page) for the return trip.
+ * Invalid paths are not stored; an existing value is left alone when there is nothing valid to keep.
+ */
+export function stashPostAuthRedirect(redirectParam: string | null | undefined): void {
+  const safe = validPostAuthPath(redirectParam);
+  if (!safe) return;
+  try {
+    sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, safe);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+/** The stored post-sign-in path, validated, without consuming it (safe to call during render). */
+export function peekPostAuthRedirect(): string | null {
+  try {
+    return validPostAuthPath(sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
+  } catch {
+    return null;
+  }
+}
+
+/** Removes the stored post-sign-in path, so it applies to one sign-in only. */
+export function clearPostAuthRedirect(): void {
+  try {
+    sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}

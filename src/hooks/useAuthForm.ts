@@ -18,7 +18,7 @@ import {
   type PersonNameParts,
 } from '@/lib/authValidation';
 import { roleToSlug } from '@/lib/roleRoutes';
-import { isReturnablePath, safeInternalPath } from '@/lib/returnPath';
+import { isReturnablePath, safeInternalPath, stashPostAuthRedirect } from '@/lib/returnPath';
 import { getStoredAttributionToken } from '@/lib/campaignAttribution';
 import { captureReferralAttribution, getStoredReferrerId } from '@/lib/referralAttribution';
 import { getDeviceFingerprint, isValidFingerprintShape } from '@/lib/deviceFingerprint';
@@ -1192,6 +1192,8 @@ export function useAuthForm() {
       });
     }, 15000);
     try {
+      // OAuth returns to the site root without ?redirect=; keep a validated deep link (e.g. an asset QR page) for Index.
+      stashPostAuthRedirect(redirectQuery);
       const { error } = await signInWithGoogle();
       if (error) {
         const isProviderError = error.message?.toLowerCase().includes('not supported') || error.message?.toLowerCase().includes('provider');
@@ -1272,6 +1274,8 @@ export function useAuthForm() {
       });
     }, 15000);
     try {
+      // OAuth returns to the site root without ?redirect=; keep a validated deep link (e.g. an asset QR page) for Index.
+      stashPostAuthRedirect(redirectQuery);
       const { error } = await signInWithApple();
       if (error) {
         toast({ title: 'Apple Sign In Failed', description: error.message, variant: 'destructive' });
