@@ -766,7 +766,7 @@ Deno.serve(async (req) => {
         if (dedupHash) orParts.push(`dedup_hash.eq.${dedupHash}`);
         const { data: dup } = await supabase
           .from('gmail_transactions')
-          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name')
+          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name, linked_deposit_request_id')
           .or(orParts.join(','))
           .limit(1)
           .maybeSingle();
