@@ -67,7 +67,7 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
       if (fn === 'my_awareness_calls_log') return Promise.resolve({ data: { total: 0, limit: 5, offset: 0, rows: [] }, error: null });
       if (fn === 'get_awareness_calls_for_request') return Promise.resolve({ data: { rent_request_id: args.p_rent_request_id, total: args.p_rent_request_id === 'rr-1' ? 1 : 0, rows: [] }, error: null });
       if (fn === 'rent_request_agent_week_pct') {
-        const w = (agent: string, got: number) => ({ agent_id: agent, week_start: '2026-10-22', week_end: '2026-10-28', days_left: 2, book: 'in_window_only', in_window_plans: 2, in_window_collected: got, in_window_due_so_far: 100, in_window_projected_due: 300, in_window_required_pct: 0.5, expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_projected_due: 0, expired_required_pct: null });
+        const w = (agent: string, got: number) => ({ agent_id: agent, week_start: '2026-10-22', week_end: '2026-10-28', through_day: '2026-10-25', book: 'in_window_only', in_window_plans: 2, in_window_collected: got, in_window_due_so_far: 100, in_window_required_pct: 0.5, expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_required_pct: null });
         return Promise.resolve({ data: [w('ag-1', 40), w('ag-2', 87.5)], error: null });
       }
       if (fn === 'record_awareness_call') return Promise.resolve({ data: { id: 'c-1', already_recorded: false }, error: null });

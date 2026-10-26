@@ -84642,16 +84642,13 @@ export type Database = {
         Returns: {
           agent_id: string
           book: string
-          days_left: number
           expired_collected: number
           expired_due_so_far: number
           expired_plans: number
-          expired_projected_due: number
           expired_required_pct: number
           in_window_collected: number
           in_window_due_so_far: number
           in_window_plans: number
-          in_window_projected_due: number
           in_window_required_pct: number
           last_book: string
           last_expired_pct: number
@@ -84659,6 +84656,7 @@ export type Database = {
           last_passes: boolean
           last_week_end: string
           last_week_start: string
+          through_day: string
           week_end: string
           week_start: string
         }[]
