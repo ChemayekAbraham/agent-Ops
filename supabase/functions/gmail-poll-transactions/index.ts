@@ -2028,10 +2028,12 @@ async function _tryAutoCreditOperationalFloat(
     subject?: string | null;
     snippet?: string | null;
     rawBody?: string | null;
+    gmailRowOverride?: { id: string; linked_deposit_request_id: string | null };
   },
 ): Promise<void> {
   const { parsed, internalMs, gmailMessageId } = args;
   const { subject = null, snippet = null, rawBody = null } = args;
+  const gmailRowOverride = args.gmailRowOverride ?? null;
 
   // Eligibility gates
   if (!parsed.amount || parsed.amount <= 0) return;
