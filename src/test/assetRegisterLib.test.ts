@@ -120,8 +120,8 @@ describe('asset register — Excel import parsing', () => {
   it('flags repeated serials (normalised, same category) as duplicates in the file', () => {
     const sheet = [
       ['Asset Name', 'Category', 'Serial Number'],
-      ['Phone A', 'Phones / Tablets', 'ab-1'],
-      ['Phone B', 'Phones / Tablets', 'AB1'],
+      ['Printer A', 'Office equipment', 'ab-1'],
+      ['Printer B', 'Office equipment', 'AB1'],
       ['Desk', 'Furniture', 'AB1'],
     ];
     const rows = parseAssetSheet(sheet, { today: TODAY }).rows;

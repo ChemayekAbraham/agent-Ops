@@ -1,9 +1,12 @@
 /**
  * CFO Asset Register (Stage 1) — shared types and fixed lists.
  *
- * The server (`asset_register_*` RPCs, docs/pending-migrations/20261026150000_asset_register_stage1.sql)
+ * The server (`asset_register_*` RPCs, supabase/migrations/20261026200000_asset_register_stage1.sql)
  * is the only authority for validation, duplicate detection, asset codes and every figure. These lists
  * mirror its CHECK constraints so the browser can preview; they never widen what the server accepts.
+ *
+ * Stage 1 scope: tangible assets owned and used by Welile. Bikes, resale stock, smartphones and NFC cards
+ * are excluded pending a separate scope review, so they have no category.
  *
  * Purchase cost is register information only. It is never posted to the ledger.
  */
@@ -11,9 +14,8 @@
 export const ASSET_CATEGORIES = [
   { key: 'it_equipment', label: 'IT equipment' },
   { key: 'furniture', label: 'Furniture' },
-  { key: 'vehicles_motorbikes', label: 'Vehicles / Motorbikes' },
   { key: 'office_equipment', label: 'Office equipment' },
-  { key: 'phones_tablets', label: 'Phones / Tablets' },
+  { key: 'company_vehicles', label: 'Company vehicles' },
   { key: 'machinery', label: 'Machinery' },
   { key: 'other', label: 'Other' },
 ] as const;

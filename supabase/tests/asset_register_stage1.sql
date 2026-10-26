@@ -1,5 +1,7 @@
--- Tests for docs/pending-migrations/20261026150000_asset_register_stage1.sql (CFO Asset Register, Stage 1).
--- Run ONLY after the migration has been applied through the approved workflow, in a non-production database.
+-- Tests for supabase/migrations/20261026200000_asset_register_stage1.sql and
+-- 20261026200100_asset_register_stage1_storage_policies.sql (CFO Asset Register, Stage 1).
+-- Run ONLY after both migrations have been applied, in a non-production database (scripts/test-asset-register.mjs
+-- runs it in PGlite).
 -- Everything runs inside one DO block that always ends by raising the report, so every insert is rolled back.
 -- "ROLLED BACK REPORT: N passed of N | failing: none" is success.
 DO $test$
@@ -58,7 +60,19 @@ BEGIN
   END;
   r := r || jsonb_build_object('step', 'B role-less user is refused with 42501', 'pass', v_ok);
 
-  INSERT INTO public.user_roles (user_id, role) VALUES (v_U, 'coo'::public.app_role);
+  -- Read access is CFO / Super Admin only until the CFO reviews broader access: COO and CEO are refused.
+  INSERT INTO public.user_roles (user_id, role) VALUES (v_U, 'coo'::public.app_role), (v_U, 'ceo'::public.app_role);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_summary();
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '42501';
+  END;
+  r := r || jsonb_build_object('step', 'B coo/ceo cannot read the register yet (42501)', 'pass', v_ok);
   BEGIN
     SET LOCAL ROLE authenticated;
     PERFORM public.asset_register_create('{"name":"Test laptop","category":"it_equipment"}'::jsonb);
@@ -69,7 +83,7 @@ BEGIN
     GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
     v_ok := v_state = '42501';
   END;
-  r := r || jsonb_build_object('step', 'B coo (reader) cannot create assets', 'pass', v_ok);
+  r := r || jsonb_build_object('step', 'B coo/ceo cannot create assets', 'pass', v_ok);
 
   INSERT INTO public.user_roles (user_id, role) VALUES (v_U, 'cfo'::public.app_role);
   SELECT count(*) INTO v_ledger_before FROM public.general_ledger;
@@ -130,6 +144,23 @@ BEGIN
   END;
   r := r || jsonb_build_object('step', 'E client-supplied asset_code is refused', 'pass', v_ok);
 
+  -- Scope: out-of-scope categories (smartphones / bikes) are refused; company vehicles are accepted.
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_create('{"name":"Staff phone","category":"phones_tablets"}'::jsonb);
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '22023';
+  END;
+  r := r || jsonb_build_object('step', 'E out-of-scope category (phones_tablets) rejected with 22023', 'pass', v_ok);
+  SET LOCAL ROLE authenticated;
+  v_res := public.asset_register_create('{"name":"Pickup truck","category":"company_vehicles","serial_number":"UBA 123X"}'::jsonb);
+  RESET ROLE;
+  r := r || jsonb_build_object('step', 'E company_vehicles accepted', 'pass', v_res->>'category' = 'company_vehicles');
+
   -- F. Update: optimistic lock + audit
   SET LOCAL ROLE authenticated;
   v_res := public.asset_register_update(v_id, v_ver, '{"status":"under_repair"}'::jsonb, 'Screen replacement');
@@ -175,8 +206,8 @@ BEGIN
   SET LOCAL ROLE authenticated;
   v_res := public.asset_register_import_commit('assets.xlsx', v_sha, jsonb_build_array(
     jsonb_build_object('row_ref', 2, 'name', 'Chair', 'category', 'furniture'),
-    jsonb_build_object('row_ref', 3, 'name', 'Phone', 'category', 'phones_tablets', 'serial_number', 'S-1'),
-    jsonb_build_object('row_ref', 4, 'name', 'Phone 2', 'category', 'phones_tablets', 'serial_number', 's1')));
+    jsonb_build_object('row_ref', 3, 'name', 'Printer', 'category', 'office_equipment', 'serial_number', 'S-1'),
+    jsonb_build_object('row_ref', 4, 'name', 'Printer 2', 'category', 'office_equipment', 'serial_number', 's1')));
   RESET ROLE;
   r := r || jsonb_build_object('step', 'H in-file duplicate serial rejects the whole batch',
     'pass', v_res->>'status' = 'rejected' AND (SELECT count(*) FROM public.assets) = v_n);
@@ -184,7 +215,7 @@ BEGIN
   SET LOCAL ROLE authenticated;
   v_res := public.asset_register_import_commit('assets.xlsx', v_sha, jsonb_build_array(
     jsonb_build_object('row_ref', 2, 'name', 'Chair', 'category', 'furniture'),
-    jsonb_build_object('row_ref', 3, 'name', 'Phone', 'category', 'phones_tablets', 'serial_number', 'S-1')));
+    jsonb_build_object('row_ref', 3, 'name', 'Printer', 'category', 'office_equipment', 'serial_number', 'S-1')));
   RESET ROLE;
   r := r || jsonb_build_object('step', 'H valid batch commits every row with imported events',
     'pass', v_res->>'status' = 'committed' AND (SELECT count(*) FROM public.assets) = v_n + 2
@@ -212,6 +243,71 @@ BEGIN
   RESET ROLE;
   r := r || jsonb_build_object('step', 'I summary returns totals and breakdowns',
     'pass', v_res ? 'total_assets' AND v_res ? 'by_category' AND v_res ? 'register_cost_ugx');
+
+  -- K. Evidence paths: only assets/<this asset id>/<uuid>.<allowed ext>, only an existing private object, never twice.
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_add_evidence(v_id, 'evidence', '../' || v_id::text || '/x.pdf');
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '22023';
+  END;
+  r := r || jsonb_build_object('step', 'K traversal / malformed evidence path rejected (22023)', 'pass', v_ok);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_add_evidence(v_id, 'evidence', 'assets/' || (v_b->>'id') || '/' || gen_random_uuid()::text || '.pdf');
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '22023';
+  END;
+  r := r || jsonb_build_object('step', 'K another asset''s folder rejected (22023)', 'pass', v_ok);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_add_evidence(v_id, 'evidence', 'assets/' || v_id::text || '/' || gen_random_uuid()::text || '.exe');
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '22023';
+  END;
+  r := r || jsonb_build_object('step', 'K disallowed file type rejected (22023)', 'pass', v_ok);
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_add_evidence(v_id, 'evidence', 'assets/' || v_id::text || '/' || gen_random_uuid()::text || '.pdf');
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = 'P0002';
+  END;
+  r := r || jsonb_build_object('step', 'K evidence that was never uploaded is rejected (P0002)', 'pass', v_ok);
+  v_msg := 'assets/' || v_id::text || '/' || gen_random_uuid()::text || '.pdf';
+  INSERT INTO storage.objects (bucket_id, name) VALUES ('asset-evidence', v_msg);
+  SET LOCAL ROLE authenticated;
+  v_res := public.asset_register_add_evidence(v_id, 'evidence', v_msg);
+  RESET ROLE;
+  r := r || jsonb_build_object('step', 'K uploaded evidence attaches and records an evidence_added event',
+    'pass', v_res->'evidence_paths' ? v_msg
+        AND EXISTS (SELECT 1 FROM public.asset_events WHERE asset_id = v_id AND event_type = 'evidence_added' AND new_values->>'path' = v_msg));
+  BEGIN
+    SET LOCAL ROLE authenticated;
+    PERFORM public.asset_register_add_evidence(v_id, 'evidence', v_msg);
+    RESET ROLE;
+    v_ok := false;
+  EXCEPTION WHEN others THEN
+    RESET ROLE;
+    GET STACKED DIAGNOSTICS v_state = RETURNED_SQLSTATE;
+    v_ok := v_state = '23505';
+  END;
+  r := r || jsonb_build_object('step', 'K the same evidence cannot be attached twice (23505)', 'pass', v_ok);
 
   -- J. No ledger contact
   r := r || jsonb_build_object('step', 'J general_ledger row count unchanged',

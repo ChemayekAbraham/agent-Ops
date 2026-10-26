@@ -1,11 +1,25 @@
--- DEVELOPMENT ONLY: rollback for docs/pending-migrations/20261026150000_asset_register_stage1.sql.
--- Removes the Stage 1 asset register objects. Touches no ledger, wallet or payment object.
--- WARNING: dropping the tables discards every registered asset and its audit trail. Export first.
+-- Rollback for 20261026200000_asset_register_stage1.sql: removes the Stage 1 asset register objects. Touches no ledger, wallet or payment object.
+-- Refuses, changing nothing, unless the storage policies were rolled back first, and refuses while the register holds
+-- any asset unless the caller deliberately sets  SET LOCAL asset_register.rollback_discard_data = 'yes';  (dropping the
+-- tables discards every registered asset and its audit trail: export first).
 -- The `asset-evidence` bucket is only removed when it is empty (storage objects are never deleted here).
-BEGIN;
+-- Run as one transaction.
+SET lock_timeout = '5s';
+DO $pre$
+BEGIN
+  IF to_regclass('public.assets') IS NULL THEN
+    RAISE EXCEPTION 'precondition failed: 20261026200000_asset_register_stage1 is not applied; nothing was changed';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
+              AND policyname IN ('asset_evidence_read', 'asset_evidence_insert')) THEN
+    RAISE EXCEPTION 'precondition failed: roll back 20261026200100_asset_register_stage1_storage_policies first; nothing was changed';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.assets) AND coalesce(current_setting('asset_register.rollback_discard_data', true), '') <> 'yes' THEN
+    RAISE EXCEPTION 'precondition failed: the register holds assets; export them, then set asset_register.rollback_discard_data = yes to discard; nothing was changed';
+  END IF;
+END
+$pre$;
 
-DROP POLICY IF EXISTS asset_evidence_read ON storage.objects;
-DROP POLICY IF EXISTS asset_evidence_insert ON storage.objects;
 DELETE FROM storage.buckets b
  WHERE b.id = 'asset-evidence'
    AND NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'asset-evidence');
@@ -36,4 +50,4 @@ DROP FUNCTION IF EXISTS public._asset_register_guard_identity();
 DROP FUNCTION IF EXISTS public._asset_register_block_mutation();
 DROP SEQUENCE IF EXISTS public.asset_code_seq;
 
-COMMIT;
+RESET lock_timeout;

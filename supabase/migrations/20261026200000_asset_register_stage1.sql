@@ -1,14 +1,44 @@
--- DEVELOPMENT ONLY: unapplied proposal; production application requires explicit approval.
--- Stage 1 — CFO Asset Tracking Register (tangible assets owned by Welile).
+-- 2026-10-26: CFO Asset Tracking Register, Stage 1 (core). NOT APPLIED. Production apply needs explicit CFO approval.
+-- Register information only: nothing here reads or writes general_ledger, ledger_account_map, wallets, payments or
+-- balances. purchase_cost is a recorded register attribute, never posted.
 --
--- Register information only. Nothing here reads or writes general_ledger, ledger_account_map, wallets,
--- payments, balances or any accounting posting. purchase_cost is a recorded register attribute, never posted.
---
--- Access: read = cfo, super_admin, ceo, coo (enabled role) + staff MFA; write = cfo, super_admin + staff MFA.
--- Tables grant SELECT only (RLS-gated); every write goes through the SECURITY DEFINER RPCs below, which
--- validate, write the append-only asset_events row in the same transaction and never upsert/overwrite.
--- Evidence lives in the PRIVATE bucket `asset-evidence`, viewed through short-lived signed URLs.
-BEGIN;
+-- Scope (CFO 2026-10-26): tangible assets owned and used by Welile: computers and IT equipment, furniture, office
+-- equipment, company vehicles, machinery, other. Bikes, resale stock, smartphones and NFC cards are excluded pending a
+-- separate scope review (no category for them).
+-- Access (CFO 2026-10-26): read AND write = cfo, super_admin (enabled role) + staff MFA. Broader read access (ceo,
+-- coo) is NOT granted until it is reviewed. Tables grant SELECT only (RLS-gated); every write goes through the
+-- SECURITY DEFINER RPCs below, which validate, write the append-only asset_events row in the same transaction and
+-- never upsert or overwrite.
+-- Evidence: the PRIVATE bucket `asset-evidence` is created here. Its two storage.objects policies are in the
+-- separate migration 20261026200100_asset_register_stage1_storage_policies, because only the owner of storage.objects (supabase_storage_admin) may create them;
+-- the CLI's postgres login cannot. Until that file is applied, evidence upload and viewing are refused (deny by
+-- default); everything else works.
+-- TRANSACTION: run as ONE transaction (by hand: BEGIN; ... COMMIT;). The preflight changes nothing when it refuses.
+-- Rollback: supabase/rollbacks/20261026200000_asset_register_stage1.rollback.sql (after the storage-policy rollback, if that file was applied).
+-- Tests: scripts/test-asset-register.mjs (PGlite, runs supabase/tests/asset_register_stage1.sql + scenarios).
+
+SET lock_timeout = '5s';
+DO $pre$
+BEGIN
+  IF to_regclass('public.assets') IS NOT NULL
+     OR to_regclass('public.asset_events') IS NOT NULL
+     OR to_regclass('public.asset_import_batches') IS NOT NULL
+     OR to_regclass('public.asset_code_seq') IS NOT NULL
+     OR to_regprocedure('public.asset_register_create(jsonb)') IS NOT NULL
+     OR EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'asset-evidence')
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public._has_enabled_role(uuid,text[])'::regprocedure)
+          IS DISTINCT FROM 'd6ffa5096fedec926c3daf15d2af1aec'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.staff_mfa_ok()'::regprocedure)
+          IS DISTINCT FROM 'faf13a32385adbb45377f46a4969ad55'
+     OR (SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND (table_name, column_name) IN (('hr_departments', 'key'), ('hr_departments', 'name'), ('hr_departments', 'active'),
+                                              ('staff_profiles', 'user_id'), ('staff_profiles', 'employee_id'),
+                                              ('staff_profiles', 'department'), ('profiles', 'full_name'), ('profiles', 'deleted_at'))) <> 8 THEN
+    RAISE EXCEPTION 'precondition failed: asset register objects already exist, or a dependency changed since 2026-10-26; nothing was changed';
+  END IF;
+END
+$pre$;
 
 -- ── Sequence for server-generated asset codes (WEL-AST-000001) ────────────────────────────────────
 CREATE SEQUENCE IF NOT EXISTS public.asset_code_seq START 1;
@@ -36,7 +66,7 @@ CREATE TABLE public.assets (
   asset_code text NOT NULL UNIQUE CHECK (asset_code ~ '^WEL-AST-[0-9]{6,}$'),
   name text NOT NULL CHECK (length(btrim(name)) BETWEEN 2 AND 200),
   category text NOT NULL CHECK (category IN (
-    'it_equipment', 'furniture', 'vehicles_motorbikes', 'office_equipment', 'phones_tablets', 'machinery', 'other')),
+    'it_equipment', 'furniture', 'office_equipment', 'company_vehicles', 'machinery', 'other')),
   brand text CHECK (brand IS NULL OR length(brand) <= 120),
   model text CHECK (model IS NULL OR length(model) <= 120),
   serial_number text CHECK (serial_number IS NULL OR length(serial_number) <= 120),
@@ -119,7 +149,7 @@ CREATE TRIGGER assets_identity_immutable BEFORE UPDATE ON public.assets
 CREATE OR REPLACE FUNCTION public.asset_register_read_ok()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT auth.uid() IS NOT NULL
-     AND public._has_enabled_role(auth.uid(), ARRAY['cfo', 'super_admin', 'ceo', 'coo']);
+     AND public._has_enabled_role(auth.uid(), ARRAY['cfo', 'super_admin']);  -- ceo/coo pending CFO review
 $$;
 
 CREATE OR REPLACE FUNCTION public.asset_register_write_ok()
@@ -184,8 +214,8 @@ DECLARE
   v_allowed text[] := ARRAY['name', 'category', 'brand', 'model', 'serial_number', 'purchase_date', 'supplier',
     'purchase_cost', 'currency', 'invoice_reference', 'department_key', 'location', 'custodian_user_id',
     'custodian_name', 'condition', 'status', 'notes'];
-  v_categories text[] := ARRAY['it_equipment', 'furniture', 'vehicles_motorbikes', 'office_equipment',
-    'phones_tablets', 'machinery', 'other'];
+  v_categories text[] := ARRAY['it_equipment', 'furniture', 'office_equipment', 'company_vehicles',
+    'machinery', 'other'];
   v_conditions text[] := ARRAY['new', 'good', 'fair', 'poor', 'damaged'];
   v_statuses text[] := ARRAY['in_use', 'in_storage', 'under_repair', 'lost', 'disposed'];
 BEGIN
@@ -816,16 +846,4 @@ VALUES ('asset-evidence', 'asset-evidence', false, 10485760,
 ON CONFLICT (id) DO NOTHING;
 UPDATE storage.buckets SET public = false WHERE id = 'asset-evidence';
 
--- Read: register readers only. Upload: register writers only, under assets/<asset id>/.
--- No UPDATE or DELETE policy: evidence is never replaced or removed from the client.
-CREATE POLICY asset_evidence_read ON storage.objects FOR SELECT TO authenticated
-  USING (bucket_id = 'asset-evidence'
-         AND (select public.asset_register_read_ok())
-         AND (select public.staff_mfa_ok()));
-CREATE POLICY asset_evidence_insert ON storage.objects FOR INSERT TO authenticated
-  WITH CHECK (bucket_id = 'asset-evidence'
-              AND name ~ '^assets/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'
-              AND (select public.asset_register_write_ok())
-              AND (select public.staff_mfa_ok()));
-
-COMMIT;
+RESET lock_timeout;
