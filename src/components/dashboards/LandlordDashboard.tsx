@@ -135,8 +135,9 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto">
 
-          {/* Register your house — the page's major action, same layout as the agent
-              dashboard's "Post a rent request here": tall card, then a one-line caption. */}
+          {/* Register your house — the page's major action. Same card, same size
+              (min 300px, 360px from sm up) and same caption as the agent dashboard's
+              "Post a rent request here". */}
           <div className="flex flex-col space-y-2">
             <LandlordRegisterHouseCard
               onOpen={handleOpenRegisterProperty}
