@@ -118,6 +118,22 @@ ok(!e, 'storage-policy file applies for an owner-level role', e?.message);
 e = await errOf(() => inTxn(STORAGE));
 ok(e && /already exist/.test(e.message), 'storage-policy file refuses a second run', e?.message);
 
+// The file must reproduce production exactly: the dashboard-suffixed names and the stored conditions read from
+// production (pg_policies, project byrzshwlentqvktcksem) on 2026-10-26.
+const PROD_POLICIES = {
+  'asset_evidence_read 1iodt3o_0': { cmd: 'SELECT', permissive: 'PERMISSIVE', roles: '{authenticated}', with_check: null,
+    qual: "((bucket_id = 'asset-evidence'::text) AND ( SELECT asset_register_read_ok() AS asset_register_read_ok) AND ( SELECT staff_mfa_ok() AS staff_mfa_ok))" },
+  'asset_evidence_insert 1iodt3o_0': { cmd: 'INSERT', permissive: 'PERMISSIVE', roles: '{authenticated}', qual: null,
+    with_check: "((bucket_id = 'asset-evidence'::text) AND (name ~ '^assets/[0-9a-f-]{36}/[0-9a-f-]{36}\\.(jpg|jpeg|png|webp|pdf)$'::text) AND ( SELECT asset_register_write_ok() AS asset_register_write_ok) AND ( SELECT staff_mfa_ok() AS staff_mfa_ok))" },
+};
+const created = await q(`select policyname, cmd, permissive, roles::text roles, qual, with_check from pg_policies
+                          where schemaname = 'storage' and tablename = 'objects' order by policyname`);
+ok(JSON.stringify(created.map((p) => p.policyname).sort()) === JSON.stringify(Object.keys(PROD_POLICIES).sort()),
+  'storage-policy file creates exactly the two production policy names', JSON.stringify(created.map((p) => p.policyname)));
+ok(created.every((p) => { const want = PROD_POLICIES[p.policyname];
+     return want && ['cmd', 'permissive', 'roles', 'qual', 'with_check'].every((k) => p[k] === want[k]); }),
+  'stored operation, mode, role and conditions equal production character for character', JSON.stringify(created));
+
 // ---- 2. The SQL test file (rolls itself back and raises its report) ------------------------------------------
 e = await errOf(() => db.exec(SQL_TESTS));
 const report = e?.message ?? '';
@@ -269,6 +285,13 @@ ok(moneyRefs === 0, 'no asset-register function mentions the ledger, wallets, pa
 // ---- 8. Rollbacks -----------------------------------------------------------------------------------------
 e = await errOf(() => inTxn(CORE_RB));
 ok(e && /storage_policies first/.test(e.message), 'core rollback refuses while the storage policies exist', e?.message);
+// A policy that reaches the bucket under any other name must also block both rollbacks (name-agnostic checks).
+await db.exec(`create policy "renamed by hand" on storage.objects for select to authenticated using (bucket_id = 'asset-evidence')`);
+e = await errOf(() => inTxn(STORAGE_RB));
+ok(e && /still reaches asset-evidence/.test(e.message)
+   && (await q(`select count(*)::int n from pg_policies where policyname like 'asset_evidence%'`))[0].n === 2,
+  'storage rollback is undone if any policy still reaches the bucket', e?.message);
+await db.exec(`drop policy "renamed by hand" on storage.objects`);
 e = await errOf(() => inTxn(`SET LOCAL ROLE cli_postgres;\n${STORAGE_RB}`));
 ok(e && /does not own storage\.objects/.test(e.message), 'storage rollback refused for a non-owner login', e?.message);
 e = await errOf(() => inTxn(STORAGE_RB));

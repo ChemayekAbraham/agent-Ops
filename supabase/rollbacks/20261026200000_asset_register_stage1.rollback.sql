@@ -10,8 +10,10 @@ BEGIN
   IF to_regclass('public.assets') IS NULL THEN
     RAISE EXCEPTION 'precondition failed: 20261026200000_asset_register_stage1 is not applied; nothing was changed';
   END IF;
+  -- Name-agnostic: any storage.objects policy that reaches the bucket or calls the register gates blocks the rollback
+  -- (in production the dashboard named them "asset_evidence_read 1iodt3o_0" / "asset_evidence_insert 1iodt3o_0").
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
-              AND policyname IN ('asset_evidence_read', 'asset_evidence_insert')) THEN
+              AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ '(asset-evidence|asset_register_(read|write)_ok)') THEN
     RAISE EXCEPTION 'precondition failed: roll back 20261026200100_asset_register_stage1_storage_policies first; nothing was changed';
   END IF;
   IF EXISTS (SELECT 1 FROM public.assets) AND coalesce(current_setting('asset_register.rollback_discard_data', true), '') <> 'yes' THEN
