@@ -42,6 +42,7 @@ export function FunderNewHouseCard({
   const amount = itemAmount(category, item);
   const monthlyReturn = itemMonthlyReturn(category, item);
   const photo = firstPhoto(category, item);
+  const coords = itemCoordinates(item, category);
 
   return (
     <article
