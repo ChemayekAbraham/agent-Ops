@@ -34,7 +34,6 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { motion } from 'framer-motion';
 import { hapticTap } from '@/lib/haptics';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CreditAccessCard } from '@/components/CreditAccessCard';
 import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
@@ -108,25 +107,22 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
           {/* Register your house — primary CTA, first in the body */}
           <button
             onClick={handleOpenRegisterProperty}
-            className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform touch-manipulation text-left"
+            className="w-full min-h-[116px] flex items-center gap-4 px-5 py-7 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform touch-manipulation text-left"
           >
-            <span className="h-10 w-10 rounded-xl bg-primary-foreground/15 ring-1 ring-primary-foreground/25 flex items-center justify-center shrink-0">
-              <Building2 className="h-5 w-5" />
+            <span className="h-14 w-14 rounded-2xl bg-primary-foreground/15 ring-1 ring-primary-foreground/25 flex items-center justify-center shrink-0">
+              <Building2 className="h-7 w-7" />
             </span>
             <span className="flex-1 min-w-0 text-left">
-              <span className="block font-bold text-base leading-tight">Register your House Here</span>
-              <span className="block text-xs text-primary-foreground/80 mt-0.5">Start earning guaranteed monthly rent</span>
+              <span className="block font-bold text-lg leading-tight">Register your House Here</span>
+              <span className="block text-sm text-primary-foreground/80 mt-1">Start earning guaranteed monthly rent</span>
             </span>
-            <ArrowRight className="h-4 w-4 shrink-0" />
+            <ArrowRight className="h-5 w-5 shrink-0" />
           </button>
 
           <MissionBanner dashboardRole="landlord" />
 
           {/* Verification Checklist */}
           <VerificationChecklist userId={user.id} highlightRole="landlord" compact />
-
-          {/* Credit Access */}
-          <CreditAccessCard userId={user.id} />
 
           {/* Action Buttons — Clean & Minimal */}
           <div className="space-y-2">
