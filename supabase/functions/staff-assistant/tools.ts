@@ -1318,6 +1318,33 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_period_code: (p.period_code as string | undefined) ?? null,
     }),
   },
+  {
+    name: "get_my_reminders_and_schedules",
+    rpc: "assistant_staff_my_reminders_and_schedules",
+    description:
+      "List the signed-in staff member's personal Zoe reminders, scheduled daily/weekly report emails, and 07:30 Kampala morning brief settings so they can review or cancel them.",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        include_cancelled: {
+          type: "boolean",
+          description:
+            "Optional flag to include cancelled reminders and schedules (default false).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        include_cancelled: z.boolean().optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_include_cancelled: (p.include_cancelled as boolean | undefined) ?? false,
+    }),
+  },
 ];
 
 /**
@@ -1399,6 +1426,137 @@ export const DraftReportEmailArgsSchema = z
   })
   .strict();
 
+export const DRAFT_REMINDER_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_reminder",
+    description:
+      "Prepare a personal reminder draft card for the signed-in staff member ('a reminder for myself'). Never saves until the person clicks Save Reminder on the draft card.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Short reminder title using Welile terms (Rent Plan, Supporter, Returns).",
+        },
+        remind_at: {
+          type: "string",
+          description:
+            "Optional date/time in Kampala time (YYYY-MM-DD HH:mm, YYYY-MM-DD, or HH:mm).",
+        },
+        note: {
+          type: "string",
+          description: "Optional note or context for the reminder.",
+        },
+      },
+      required: ["title"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftReminderArgsSchema = z
+  .object({
+    title: z.string().trim().min(2).max(200),
+    remind_at: z.string().trim().max(40).optional(),
+    note: z.string().trim().max(600).optional(),
+  })
+  .strict();
+
+export const DRAFT_STAFF_NOTIFICATION_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_staff_notification",
+    description:
+      "Prepare an in-app notification draft card to a Welile staff colleague (notifications table). Looks up the colleague strictly via staff_assistant_email_recipients. Never sends until the person clicks Send Notification on the draft card.",
+    parameters: {
+      type: "object",
+      properties: {
+        recipient_search: {
+          type: "string",
+          description:
+            "The staff colleague's name or registered Welile staff email typed by the caller.",
+        },
+        title: {
+          type: "string",
+          description:
+            "Short notification title using Welile terms (Rent Plan, Supporter, Returns).",
+        },
+        message: {
+          type: "string",
+          description: "Short notification message body.",
+        },
+      },
+      required: ["recipient_search", "title", "message"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftStaffNotificationArgsSchema = z
+  .object({
+    recipient_search: z.string().trim().min(1).max(120),
+    title: z.string().trim().min(2).max(160),
+    message: z.string().trim().min(2).max(600),
+  })
+  .strict();
+
+export const DRAFT_REPORT_SCHEDULE_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_report_schedule",
+    description:
+      "Prepare a recurring report email schedule draft (daily or weekly) to active Welile staff only (recipients from staff_assistant_email_recipients). Never creates a schedule until the person clicks Save Schedule on the draft card.",
+    parameters: {
+      type: "object",
+      properties: {
+        recipient_search: {
+          type: "string",
+          description:
+            "The staff recipient's name or registered Welile staff email typed by the caller.",
+        },
+        frequency: {
+          type: "string",
+          enum: ["daily", "weekly"],
+          description: "Schedule frequency: 'daily' or 'weekly'.",
+        },
+        day_of_week: {
+          type: "integer",
+          minimum: 0,
+          maximum: 6,
+          description: "Optional day of week for weekly schedules (0=Sun..6=Sat, default 1=Mon).",
+        },
+        send_time_kampala: {
+          type: "string",
+          description: "Optional HH:mm Kampala time (default 07:30).",
+        },
+        custom_message: {
+          type: "string",
+          description: "Optional short message included with each scheduled report email.",
+        },
+        report_tool: {
+          type: "string",
+          description:
+            "Optional name of the Zoe report tool to schedule (if not already run in this turn).",
+        },
+      },
+      required: ["recipient_search", "frequency"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftReportScheduleArgsSchema = z
+  .object({
+    recipient_search: z.string().trim().min(1).max(120),
+    frequency: z.enum(["daily", "weekly"]),
+    day_of_week: z.number().int().min(0).max(6).optional(),
+    send_time_kampala: z.string().trim().max(10).optional(),
+    custom_message: z.string().trim().max(600).optional(),
+    report_tool: z.string().trim().min(1).max(80).optional(),
+  })
+  .strict();
+
 export function findTool(name: string): StaffTool | undefined {
   return STAFF_TOOLS.find((t) => t.name === name);
 }
@@ -1431,6 +1589,9 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
     ),
     CLARIFICATION_TOOL,
     DRAFT_REPORT_EMAIL_TOOL,
+    DRAFT_REMINDER_TOOL,
+    DRAFT_STAFF_NOTIFICATION_TOOL,
+    DRAFT_REPORT_SCHEDULE_TOOL,
   ];
 }
 
