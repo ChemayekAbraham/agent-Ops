@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const requisitionId = String(body.requisition_id || "");
     const action = String(body.action || "");
-    const comment = String(body.comment || "").trim();
+    const comment = String(body.comment ?? body.note ?? "").trim();
     if (!requisitionId || !["approve", "reject", "return_info"].includes(action)) {
       return json({ error: "bad_request" }, 400);
     }
@@ -183,8 +183,9 @@ Deno.serve(async (req) => {
 
     // ── Approve ──────────────────────────────────────────────────────────────
     let approvedAmount: number | null = null;
-    if (body.amount != null) {
-      const n = Math.round(Number(body.amount) * 100) / 100;
+    const rawAmount = body.amount ?? body.approved_amount;
+    if (rawAmount != null) {
+      const n = Math.round(Number(rawAmount) * 100) / 100;
       if (!Number.isFinite(n) || n <= 0) return json({ error: "invalid_amount" }, 400);
       // Six-eyes: a later approver may lower the amount, never raise it above
       // what the earlier approvers saw.
@@ -227,7 +228,7 @@ Deno.serve(async (req) => {
       });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_stage_approved", comment || `Approved at ${stageKey}`);
       await notifyApprovers(admin, nextStage, updated);
-      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} passed ${stageLabel(stageKey)} review and is now with ${nextStage.toUpperCase()}.`, `Req ${row.requisition_code} passed ${stageLabel(stageKey)} review, now with ${nextStage.toUpperCase()}.`);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} passed ${stageLabel(stageKey)} review and is now with ${nextStage.toUpperCase()}.${comment ? ` Note: ${comment}` : ""}`, `Req ${row.requisition_code} passed ${stageLabel(stageKey)} review, now with ${nextStage.toUpperCase()}.`);
       return json({ ok: true, requisition: updated }, 200);
     }
 
