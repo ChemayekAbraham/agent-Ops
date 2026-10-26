@@ -77320,6 +77320,7 @@ export type Database = {
       }
       get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
       get_my_landlord_properties: { Args: never; Returns: Json }
+      get_my_landlord_tenants: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_overdue_bike_asset_details: {
         Args: never
