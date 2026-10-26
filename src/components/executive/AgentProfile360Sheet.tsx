@@ -578,8 +578,8 @@ export function AgentProfile360Sheet({ agentId: rootAgentId, onOpenChange, inlin
 
             <Tabs value={tab} onValueChange={setTab}>
               <TabsList className="w-full overflow-x-auto justify-start">
-                <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
                 <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+                <TabsTrigger value="profile" className="text-xs">Profile</TabsTrigger>
                 <TabsTrigger value="rent" className="text-xs">Rent</TabsTrigger>
                 <TabsTrigger value="collections" className="text-xs">Collections</TabsTrigger>
                 <TabsTrigger value="network" className="text-xs">Recruitment</TabsTrigger>
