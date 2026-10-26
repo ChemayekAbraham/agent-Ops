@@ -13,24 +13,35 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  extractZoeActionDraft,
   extractZoeEmailDraft,
   extractZoeExportableReport,
+  extractZoeRemindersAndSchedules,
+  type ConfirmZoeActionResult,
+  type ConfirmZoeNotificationInput,
+  type ConfirmZoeReminderInput,
+  type ConfirmZoeScheduleInput,
   type SendZoeReportEmailInput,
   type SendZoeReportEmailResponse,
+  type ZoeMorningBriefPayload,
 } from '@/lib/zoe';
 import {
   getSuggestionsForRoles,
   resolveSourceScreenLink,
   type ZoeSuggestion,
 } from './zoeConfig';
+import { ZoeActionDraftCard } from './ZoeActionDraftCard';
 import { ZoeEmailDraftCard } from './ZoeEmailDraftCard';
+import { ZoeMorningBriefCard } from './ZoeMorningBriefCard';
 import { ZoeReportCard } from './ZoeReportCard';
+import { ZoeSchedulesAndRemindersCard } from './ZoeSchedulesAndRemindersCard';
 import type { ZoeFeedbackRating, ZoeMessage } from './useZoeAssistant';
 
 export interface ZoeChatSurfaceProps {
   messages: ZoeMessage[];
   roles?: readonly string[];
   generatedBy?: string | null;
+  morningBrief?: ZoeMorningBriefPayload | null;
   isLoading: boolean;
   isHistoryLoading?: boolean;
   errorMessage?: string | null;
@@ -40,6 +51,17 @@ export interface ZoeChatSurfaceProps {
   onFeedback: (messageId: string, rating: ZoeFeedbackRating) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
   onSendEmail?: (input: SendZoeReportEmailInput) => Promise<SendZoeReportEmailResponse>;
+  onConfirmReminder?: (input: ConfirmZoeReminderInput) => Promise<ConfirmZoeActionResult>;
+  onConfirmNotification?: (input: ConfirmZoeNotificationInput) => Promise<ConfirmZoeActionResult>;
+  onConfirmSchedule?: (input: ConfirmZoeScheduleInput) => Promise<ConfirmZoeActionResult>;
+  onCancelReminder?: (reminderId: string) => Promise<ConfirmZoeActionResult>;
+  onCancelSchedule?: (scheduleId: string) => Promise<ConfirmZoeActionResult>;
+  onUpdateMorningBriefPrefs?: (input: {
+    enabled: boolean;
+    brief_time?: string;
+    dismiss_today?: boolean;
+  }) => Promise<ConfirmZoeActionResult>;
+  onRefreshMorningBrief?: (force?: boolean) => Promise<ZoeMorningBriefPayload | null>;
   /** Optional extra action slot in the header (e.g., "Open full page" link inside floating drawer, or "Email report" button in step 9). */
   headerSlot?: React.ReactNode;
   /** Optional extra action slot rendered per answered assistant message (e.g., "Email this report" in step 9). */
@@ -74,6 +96,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   messages,
   roles = [],
   generatedBy = null,
+  morningBrief = null,
   isLoading,
   isHistoryLoading = false,
   errorMessage = null,
@@ -83,6 +106,13 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onFeedback,
   onClearHistory,
   onSendEmail,
+  onConfirmReminder,
+  onConfirmNotification,
+  onConfirmSchedule,
+  onCancelReminder,
+  onCancelSchedule,
+  onUpdateMorningBriefPrefs,
+  onRefreshMorningBrief,
   headerSlot,
   renderMessageAction,
   compact = false,
@@ -159,6 +189,15 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
         aria-live="polite"
         aria-label="Zoe conversation messages"
       >
+        {/* Optional 07:30 Kampala Morning Brief (off by default, turned on per person) */}
+        {morningBrief && (
+          <ZoeMorningBriefCard
+            brief={morningBrief}
+            onUpdatePrefs={onUpdateMorningBriefPrefs}
+            onRefreshBrief={onRefreshMorningBrief}
+          />
+        )}
+
         {isHistoryLoading && messages.length === 0 ? (
           <div
             data-testid="zoe-history-loading"
@@ -229,6 +268,8 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
             generatedAt: msg.createdAt,
           });
           const emailDraft = extractZoeEmailDraft(msg);
+          const actionDraft = extractZoeActionDraft(msg);
+          const remindersAndSchedules = extractZoeRemindersAndSchedules(msg);
 
           return (
             <div
@@ -241,13 +282,30 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   {bodyText}
                 </p>
 
-                {exportableReport && <ZoeReportCard report={exportableReport} />}
+                {exportableReport && !remindersAndSchedules && (
+                  <ZoeReportCard report={exportableReport} />
+                )}
                 {emailDraft && (
                   <ZoeEmailDraftCard
                     draft={emailDraft}
                     report={exportableReport}
                     messageId={msg.id}
                     onSendEmail={onSendEmail}
+                  />
+                )}
+                {actionDraft && (
+                  <ZoeActionDraftCard
+                    draft={actionDraft}
+                    onConfirmReminder={onConfirmReminder}
+                    onConfirmNotification={onConfirmNotification}
+                    onConfirmSchedule={onConfirmSchedule}
+                  />
+                )}
+                {remindersAndSchedules && (
+                  <ZoeSchedulesAndRemindersCard
+                    data={remindersAndSchedules}
+                    onCancelReminder={onCancelReminder}
+                    onCancelSchedule={onCancelSchedule}
                   />
                 )}
 

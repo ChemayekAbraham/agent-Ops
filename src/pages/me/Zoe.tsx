@@ -50,6 +50,7 @@ const ZoePage: React.FC = () => {
           messages={assistant.messages}
           roles={roles}
           generatedBy={generatedBy}
+          morningBrief={assistant.morningBrief}
           isLoading={assistant.isLoading}
           isHistoryLoading={assistant.isHistoryLoading}
           errorMessage={assistant.errorMessage}
