@@ -837,6 +837,38 @@ Deno.serve(async (req) => {
               enriched,
             },
           });
+
+          // ── Auto-credit on enrich ─────────────────────────────────────
+          // MTN MoMo sends TWO SMS for one Transaction ID: first the
+          // phone-less "Till:" shape (name only — often unmatchable, so the
+          // stored row stays unlinked), then the "(NAME) 2567XXXXXXXX" shape
+          // with the phone. When the duplicate just supplied the missing
+          // identity data (or the stored row is simply an unlinked incoming
+          // MoMo receipt), run the same instant auto-credit the original
+          // insert would have — against the STORED row, not this duplicate.
+          if (!(dup as any).linked_deposit_request_id) {
+            const isIncomingMomo = parsed.direction === 'in' &&
+              (parsed.channel === 'mtn_momo' || parsed.channel === 'airtel_money');
+            if (enriched || isIncomingMomo) {
+              try {
+                await tryAutoCreditOperationalFloat(supabase, {
+                  parsed,
+                  fromEmail,
+                  internalMs,
+                  gmailMessageId: m.id,
+                  subject,
+                  snippet,
+                  rawBody: body ?? null,
+                  gmailRowOverride: {
+                    id: (dup as any).id,
+                    linked_deposit_request_id: null,
+                  },
+                });
+              } catch (e) {
+                console.warn('[gmail-poll] enrich-duplicate auto-credit failed (non-fatal):', e);
+              }
+            }
+          }
           continue;
         }
       }
