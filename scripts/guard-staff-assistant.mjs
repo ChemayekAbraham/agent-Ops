@@ -33,6 +33,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STAFF_FN_DIR = join(ROOT, 'supabase', 'functions', 'staff-assistant');
 const STAFF_EMAIL_FN_DIRS = [
   join(ROOT, 'supabase', 'functions', 'staff-assistant-send-email'),
+  join(ROOT, 'supabase', 'functions', 'staff-assistant-schedule-runner'),
   join(ROOT, 'supabase', 'functions', 'staff-assistant-email'),
 ];
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
