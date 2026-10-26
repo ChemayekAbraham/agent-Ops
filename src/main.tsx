@@ -271,6 +271,9 @@ import('./lib/errorReporting')
 // left staring at an endless spinner. Only fires while the spinner is still up
 // (the `animation:` marker in the initial loader HTML) and the app is not ready.
 setTimeout(() => {
+  // In development, HMR and on-demand compilation can take >10s; never auto-reload!
+  if (import.meta.env.DEV) return;
+
   const appReady = (() => {
     try { return (window as any).__WELILE_APP_READY__ === true; } catch { return false; }
   })();
