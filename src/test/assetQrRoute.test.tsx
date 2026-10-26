@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -40,14 +40,15 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.f
 import RoleGuard from '@/components/auth/RoleGuard';
 import SignInReturnGate from '@/components/auth/SignInReturnGate';
 import AssetDetailPage from '@/pages/cfo/AssetDetail';
-import { safeInternalPath } from '@/lib/returnPath';
-import { assetDetailPath } from '@/lib/assetRegister/qr';
+import { postSignInPath, safeInternalPath } from '@/lib/returnPath';
+import { assetDetailPath, assetQrUrl } from '@/lib/assetRegister/qr';
 
 const ID = '3f2b8c1e-9a4d-4e6f-8b7a-1c2d3e4f5a6b';
 const OTHER = '00000000-0000-4000-8000-000000000002';
+const LEGACY = '00000000-0000-4000-8000-000000000003';
 
-const asset = (id: string, code: string, name: string) => ({
-  id, asset_code: code, name, category: 'it_equipment', brand: 'Dell', model: 'Latitude', serial_number: 'SN-1',
+const asset = (id: string, code: string, name: string, tag: string | null, site: [string, string] | null) => ({
+  id, asset_code: code, asset_tag: tag, site_key: site?.[0] ?? null, site_name: site?.[1] ?? null, name, category: 'it_equipment', brand: 'Dell', model: 'Latitude', serial_number: 'SN-1',
   purchase_date: '2025-01-15', supplier: 'Kampala Computers', purchase_cost: 3500000, currency: 'UGX',
   invoice_reference: 'INV-1', department_key: 'finance', department_name: 'Finance', location: 'Head office',
   custodian_user_id: null, custodian_name: 'Jane', custodian_display: 'Jane', condition: 'good', status: 'in_use',
@@ -57,8 +58,9 @@ const asset = (id: string, code: string, name: string) => ({
 });
 
 const ASSETS: Record<string, ReturnType<typeof asset>> = {
-  [ID]: asset(ID, 'WEL-AST-000001', 'Finance laptop'),
-  [OTHER]: asset(OTHER, 'WEL-AST-000002', 'Board room table'),
+  [ID]: asset(ID, 'WEL-AST-000001', 'Finance laptop', 'WEL-ICT-HQ-001', ['entebbe_hq', 'Entebbe Head Office']),
+  [OTHER]: asset(OTHER, 'WEL-AST-000002', 'Board room table', 'WEL-ICT-KOL-002', ['kololo', 'Kololo']),
+  [LEGACY]: asset(LEGACY, 'WEL-AST-000003', 'Old printer', null, null),
 };
 
 /** Server stand-in for asset_register_get: the same gate as asset_register_read_ok (cfo/super_admin). */
@@ -134,8 +136,16 @@ describe('scanning an asset QR code', () => {
     signIn(['cfo'], ['cfo']);
     renderAt(assetDetailPath(OTHER));
     expect(await screen.findByText('Board room table')).toBeTruthy();
-    expect(screen.getByText('WEL-AST-000002')).toBeTruthy();
+    // header: the tag prominently, the permanent code in small text; details repeat both plus the site
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading.textContent).toContain('WEL-ICT-KOL-002');
+    expect(heading.textContent).toContain('WEL-AST-000002');
+    expect(within(heading).getByText('WEL-ICT-KOL-002').className).toMatch(/text-sm/);
+    expect(within(heading).getByText('WEL-AST-000002').className).toMatch(/text-\[10px\]/);
+    expect(screen.getAllByText('WEL-ICT-KOL-002')).toHaveLength(2);
+    expect(screen.getByText('Kololo')).toBeTruthy();
     expect(screen.queryByText('Finance laptop')).toBeNull();
+    expect(screen.queryByText('WEL-ICT-HQ-001')).toBeNull();
     expect(mocks.rpc).toHaveBeenCalledWith('asset_register_get', { p_id: OTHER });
     await waitFor(() => expect(mocks.storageFrom).toHaveBeenCalledWith('asset-evidence'));
     // read-only: no edit and no evidence upload
@@ -144,10 +154,54 @@ describe('scanning an asset QR code', () => {
     expect(document.getElementById('asset-attach-evidence')).toBeNull();
   });
 
+  it('every asset: its QR link opens that exact asset’s page, never the register list', async () => {
+    signIn(['cfo'], ['cfo']);
+    for (const a of Object.values(ASSETS)) {
+      vi.clearAllMocks();
+      mocks.rpc.mockImplementation((fn: string, args: { p_id: string }) =>
+        Promise.resolve(fn === 'asset_register_get' ? serverGet(args) : { data: null, error: { message: `unexpected ${fn}` } }));
+      const url = new URL(assetQrUrl(a.id));
+      expect(url.pathname).toBe(`/cfo/assets/${a.id}`); // the uuid, not the code or tag
+      const { unmount } = renderAt(url.pathname);
+      expect(await screen.findByText(a.name)).toBeTruthy();
+      expect(screen.getByRole('heading', { level: 1 }).textContent).toContain(a.asset_tag ?? a.asset_code);
+      for (const other of Object.values(ASSETS).filter((o) => o.id !== a.id)) expect(screen.queryByText(other.name)).toBeNull();
+      expect(mocks.rpc.mock.calls).toEqual([['asset_register_get', { p_id: a.id }]]); // one detail read, no list query
+      expect(screen.queryByLabelText('Search assets')).toBeNull(); // not the Asset Register list
+      unmount();
+    }
+  });
+
+  it('signed out: after sign-in the return path leads back to the same asset, not the dashboard list', async () => {
+    const path = new URL(assetQrUrl(OTHER)).pathname;
+    const first = renderAt(path);
+    const probe = await first.findByTestId('auth-page');
+    const redirect = new URLSearchParams(probe.textContent!.split('?')[1]).get('redirect');
+    first.unmount();
+    signIn(['cfo'], ['cfo']);
+    const next = postSignInPath('staff-1', redirect); // what /auth navigates to once signed in
+    expect(next).toBe(path);
+    renderAt(next);
+    expect(await screen.findByText('Board room table')).toBeTruthy();
+    expect(mocks.rpc).toHaveBeenCalledWith('asset_register_get', { p_id: OTHER });
+  });
+
   it('Super Admin: opens the asset', async () => {
     signIn(['super_admin']);
     renderAt(assetDetailPath(ID));
     expect(await screen.findByText('Finance laptop')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('WEL-ICT-HQ-001');
+    expect(screen.getByText('Entebbe Head Office')).toBeTruthy();
+  });
+
+  it('an asset registered before tags shows its permanent code and no invented tag', async () => {
+    signIn(['cfo'], ['cfo']);
+    renderAt(assetDetailPath(LEGACY));
+    expect(await screen.findByText('Old printer')).toBeTruthy();
+    const heading = screen.getByRole('heading', { level: 1 });
+    expect(heading.textContent).toContain('WEL-AST-000003');
+    expect(heading.textContent).not.toMatch(/WEL-(ICT|FUR|OFE|VEH|MAC|OTH)-/);
+    expect(screen.getByText(/Not issued/)).toBeTruthy();
   });
 
   it('accepts an upper-case uuid and asks the server for the lower-case id', async () => {

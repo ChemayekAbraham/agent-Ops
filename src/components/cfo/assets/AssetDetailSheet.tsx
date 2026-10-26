@@ -7,7 +7,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAssetDetail, useAssetEvidenceUrl, useAttachAssetEvidence, evidenceFileProblem } from '@/hooks/useAssetRegister';
 import { describeAssetRpcError } from '@/lib/assetRegister/validation';
 import {
-  ASSET_EVIDENCE_MIME, categoryLabel, conditionLabel, statusLabel, type Asset, type AssetEvent,
+  ASSET_EVIDENCE_MIME, assetCodes, categoryLabel, conditionLabel, statusLabel, type Asset, type AssetEvent,
 } from '@/lib/assetRegister/types';
 import { AssetFormDialog } from './AssetFormDialog';
 import { AssetQrDialog } from './AssetQrDialog';
@@ -17,7 +17,7 @@ const FIELD_LABELS: Record<string, string> = {
   purchase_date: 'Purchase date', supplier: 'Supplier', purchase_cost: 'Purchase cost', currency: 'Currency',
   invoice_reference: 'Invoice / evidence ref.', department_key: 'Department', location: 'Location',
   custodian_user_id: 'Custodian account', custodian_name: 'Custodian name', condition: 'Condition', status: 'Status',
-  notes: 'Notes', photo_paths: 'Photos', evidence_paths: 'Evidence',
+  notes: 'Notes', photo_paths: 'Photos', evidence_paths: 'Evidence', site_key: 'Site', asset_tag: 'Asset tag',
 };
 
 const fmtDateTime = (iso: string) =>
@@ -39,7 +39,7 @@ export function AssetDetailSheet({ assetId, onOpenChange }: { assetId: string | 
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
         <SheetHeader className="text-left">
           <SheetTitle className="flex flex-wrap items-center gap-2">
-            {a ? <><span className="font-mono text-sm text-primary">{a.asset_code}</span><span>{a.name}</span></> : 'Asset'}
+            {a ? <><AssetCodeHeading asset={a} /><span>{a.name}</span></> : 'Asset'}
           </SheetTitle>
           <SheetDescription>
             {a ? `${categoryLabel(a.category)} · ${statusLabel(a.status)} · ${conditionLabel(a.condition)}` : 'Loading asset…'}
@@ -75,6 +75,9 @@ export function AssetDetailBody({ asset: a, events, readOnly = false }: { asset:
   return (
     <div className="space-y-6">
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-xs sm:grid-cols-2">
+        <Item label="Asset tag" value={a.asset_tag ?? 'Not issued (registered before asset tags)'} mono={!!a.asset_tag} />
+        <Item label="Asset code (permanent)" value={a.asset_code} mono />
+        <Item label="Site" value={a.site_name} />
         <Item label="Brand" value={a.brand} />
         <Item label="Model" value={a.model} />
         <Item label="Serial number" value={a.serial_number} mono />
@@ -95,6 +98,17 @@ export function AssetDetailBody({ asset: a, events, readOnly = false }: { asset:
       <EvidenceSection asset={a} readOnly={readOnly} />
       <Timeline events={events} />
     </div>
+  );
+}
+
+/** Asset tag prominently, with the permanent WEL-AST code in smaller text (code alone when no tag was issued). */
+export function AssetCodeHeading({ asset }: { asset: Pick<Asset, 'asset_code' | 'asset_tag'> }) {
+  const { primary, secondary } = assetCodes(asset);
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span className="font-mono text-sm font-semibold text-primary">{primary}</span>
+      {secondary && <span className="font-mono text-[10px] font-normal text-muted-foreground">{secondary}</span>}
+    </span>
   );
 }
 

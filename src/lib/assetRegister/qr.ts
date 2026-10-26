@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { CANONICAL_ORIGIN } from '@/lib/getPublicOrigin';
-import { categoryLabel, type Asset } from './types';
+import { assetCodes, categoryLabel, type Asset } from './types';
 
 /**
  * Asset Register QR codes and labels.
@@ -56,14 +56,23 @@ export function assetQrFileName(assetCode: string): string {
 }
 
 /**
- * What a printed label carries: asset code, category and location. The id is used solely to build the QR URL and is
- * never printed as text. Serial, cost, supplier, custodian and invoice never reach a label.
+ * What a printed label carries: asset tag (prominent) with the permanent asset code in small text, category, site and
+ * location. The id is used solely to build the QR URL and is never printed as text. Serial, cost, supplier, custodian
+ * and invoice never reach a label. An asset without a tag (registered before tags existed) prints its asset code.
  */
-export type AssetLabel = Pick<Asset, 'id' | 'asset_code' | 'category' | 'location'>;
+export type AssetLabel = Pick<Asset, 'id' | 'asset_code' | 'asset_tag' | 'category' | 'site_name' | 'location'>;
 
 /** Strips a register row down to the fields a label may carry. */
 export function toAssetLabel(a: AssetLabel): AssetLabel {
-  return { id: a.id, asset_code: a.asset_code, category: a.category, location: a.location ?? null };
+  return {
+    id: a.id, asset_code: a.asset_code, asset_tag: a.asset_tag ?? null, category: a.category,
+    site_name: a.site_name ?? null, location: a.location ?? null,
+  };
+}
+
+/** Site and location on one line ("Kololo · Front desk"), whichever are present. */
+export function labelPlaceLine(l: Pick<AssetLabel, 'site_name' | 'location'>): string {
+  return [l.site_name?.trim(), l.location?.trim()].filter(Boolean).join(' · ');
 }
 
 export const MAX_LABELS_PER_PRINT = 500;
@@ -78,7 +87,7 @@ export const LABEL_SHEET = {
   labelWidth: 63.5, labelHeight: 38.1,
   marginLeft: 7.2, marginTop: 15.15,
   pitchX: 66, pitchY: 38.1,
-  qrSize: 17.5,
+  qrSize: 16,
 } as const;
 
 export const LABELS_PER_PAGE = LABEL_SHEET.cols * LABEL_SHEET.rows;
@@ -90,7 +99,7 @@ export const LABEL_FOOTER = 'PROPERTY OF WELILE';
 
 /** Vertical layout (mm from the label top): text baselines and the QR top edge. */
 export const LABEL_LAYOUT = {
-  header: 4.6, qrTop: 6.0, code: 27.4, category: 30.6, location: 33.5, footer: 36.4,
+  header: 4.2, qrTop: 5.3, code: 24.9, permanentCode: 27.7, category: 30.6, place: 33.4, footer: 36.3,
 } as const;
 
 /** Validates, de-duplicates (by id, first wins) and caps the labels to print. */
@@ -117,7 +126,10 @@ function fitLine(doc: jsPDF, text: string, width: number): string {
   return `${s.trimEnd()}...`;
 }
 
-/** Label sheet PDF: company name, centred QR code, asset code, category, location and ownership footer. */
+/**
+ * Label sheet PDF: company name, centred QR code, asset tag (bold) over the permanent asset code (small), category,
+ * site · location and ownership footer.
+ */
 export async function buildAssetLabelsPdf(labels: AssetLabel[]): Promise<jsPDF> {
   const items = prepareLabels(labels);
   const L = LABEL_SHEET;
@@ -146,14 +158,22 @@ export async function buildAssetLabelsPdf(labels: AssetLabel[]): Promise<jsPDF> 
 
     doc.addImage(qrs[i], 'PNG', cx - L.qrSize / 2, y + Y.qrTop, L.qrSize, L.qrSize);
 
+    const { primary, secondary } = assetCodes(l);
     doc.setFontSize(10);
-    doc.text(fitLine(doc, l.asset_code, tw), cx, y + Y.code, { align: 'center' });
+    doc.text(fitLine(doc, primary, tw), cx, y + Y.code, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
+    if (secondary) {
+      doc.setTextColor(90);
+      doc.setFontSize(6);
+      doc.text(fitLine(doc, secondary, tw), cx, y + Y.permanentCode, { align: 'center' });
+    }
+
     doc.setTextColor(60);
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.text(fitLine(doc, categoryLabel(l.category), tw), cx, y + Y.category, { align: 'center' });
-    if (l.location?.trim()) doc.text(fitLine(doc, l.location, tw), cx, y + Y.location, { align: 'center' });
+    const place = labelPlaceLine(l);
+    if (place) doc.text(fitLine(doc, place, tw), cx, y + Y.place, { align: 'center' });
 
     doc.setTextColor(110);
     doc.setFontSize(6);
@@ -164,7 +184,7 @@ export async function buildAssetLabelsPdf(labels: AssetLabel[]): Promise<jsPDF> 
 }
 
 export function assetLabelsFileName(labels: AssetLabel[]): string {
-  return labels.length === 1 ? `${safeFilePart(labels[0].asset_code)}-label.pdf` : `welile-asset-labels-${labels.length}.pdf`;
+  return labels.length === 1 ? `${safeFilePart(assetCodes(labels[0]).primary)}-label.pdf` : `welile-asset-labels-${labels.length}.pdf`;
 }
 
 /** Saves a data: or blob: URL as a file in the browser. */

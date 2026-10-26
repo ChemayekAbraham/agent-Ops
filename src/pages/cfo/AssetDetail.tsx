@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useAssetDetail } from '@/hooks/useAssetRegister';
 import { isAssetId } from '@/lib/assetRegister/qr';
 import { categoryLabel, conditionLabel, statusLabel } from '@/lib/assetRegister/types';
-import { AssetDetailBody } from '@/components/cfo/assets/AssetDetailSheet';
+import { AssetCodeHeading, AssetDetailBody } from '@/components/cfo/assets/AssetDetailSheet';
 
 /**
  * Read-only asset record opened by scanning an asset QR code (/cfo/assets/:assetId).
@@ -29,7 +29,7 @@ export default function AssetDetailPage() {
         </span>
         <div className="min-w-0">
           <h1 className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-            {a ? <><span className="font-mono text-primary">{a.asset_code}</span><span className="break-words">{a.name}</span></> : 'Asset'}
+            {a ? <><AssetCodeHeading asset={a} /><span className="break-words">{a.name}</span></> : 'Asset'}
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {a ? `${categoryLabel(a.category)} · ${statusLabel(a.status)} · ${conditionLabel(a.condition)}` : 'Welile Asset Register'}

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAssetReferenceData, useCreateAsset, useUpdateAsset } from '@/hooks/useAssetRegister';
 import { describeAssetRpcError, validateAssetInput } from '@/lib/assetRegister/validation';
 import {
-  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_FIELDS, ASSET_STATUSES,
+  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_FIELDS, ASSET_STATUSES, assetCodes,
   type Asset, type AssetField, type AssetInput, type FieldError,
 } from '@/lib/assetRegister/types';
 
@@ -87,7 +87,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
       const saved = editing && asset
         ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: preview.value, reason: reason.trim() || null })
         : await create.mutateAsync(preview.value);
-      toast.success(editing ? `${saved.asset_code} updated` : `${saved.asset_code} registered`);
+      toast.success(editing ? `${assetCodes(saved).primary} updated` : `${assetCodes(saved).primary} registered`);
       onSaved?.(saved);
       onOpenChange(false);
     } catch (err) {
@@ -103,11 +103,11 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
     <Dialog open={open} onOpenChange={(o) => { if (!saving) onOpenChange(o); }}>
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? `Edit ${asset?.asset_code}` : 'Register an asset'}</DialogTitle>
+          <DialogTitle>{editing && asset ? `Edit ${assetCodes(asset).primary}` : 'Register an asset'}</DialogTitle>
           <DialogDescription>
             {editing
               ? 'Only changed fields are saved. Every change is recorded in the asset history.'
-              : 'The asset ID is created automatically. Purchase cost is register information only and is not posted to the ledger.'}
+              : 'The asset ID and asset tag are created automatically from the category and site. Purchase cost is register information only and is not posted to the ledger.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -149,15 +149,24 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
             <Input id="asset-invoice" value={form.invoice_reference} maxLength={120} onChange={(e) => set('invoice_reference', e.target.value)} />
           </Field>
 
+          <Field id="asset-site" label="Site" required error={errorFor.get('site_key')}
+            hint={editing && asset?.asset_tag ? `Asset tag ${asset.asset_tag} stays the same if the site changes.` : undefined}>
+            <ListSelect
+              id="asset-site" value={form.site_key} placeholder="Choose a site"
+              options={(ref.data?.sites ?? []).map((s) => ({ key: s.key, label: `${s.name} (${s.tag_code})` }))}
+              onChange={(v) => set('site_key', v)}
+            />
+          </Field>
+          <Field id="asset-location" label="Location (room / floor)" error={errorFor.get('location')}>
+            <Input id="asset-location" placeholder="e.g. 2nd floor, finance office" value={form.location} maxLength={200} onChange={(e) => set('location', e.target.value)} />
+          </Field>
+
           <Field id="asset-department" label="Department" error={errorFor.get('department_key')}>
             <ListSelect
               id="asset-department" value={form.department_key} allowNone placeholder="No department"
               options={(ref.data?.departments ?? []).map((d) => ({ key: d.key, label: d.name }))}
               onChange={(v) => set('department_key', v)}
             />
-          </Field>
-          <Field id="asset-location" label="Location (site / office)" error={errorFor.get('location')}>
-            <Input id="asset-location" placeholder="e.g. Head office, 2nd floor" value={form.location} maxLength={200} onChange={(e) => set('location', e.target.value)} />
           </Field>
 
           <Field id="asset-custodian" label="Custodian (staff account)" error={errorFor.get('custodian_user_id')}>
@@ -203,8 +212,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   );
 }
 
-function Field({ id, label, required, error, className, children }: {
-  id: string; label: string; required?: boolean; error?: string; className?: string; children: React.ReactNode;
+function Field({ id, label, required, error, hint, className, children }: {
+  id: string; label: string; required?: boolean; error?: string; hint?: string; className?: string; children: React.ReactNode;
 }) {
   return (
     <div className={`space-y-1.5 ${className ?? ''}`}>
@@ -212,6 +221,7 @@ function Field({ id, label, required, error, className, children }: {
         {label}{required && <span className="text-destructive"> *</span>}
       </Label>
       {children}
+      {hint && !error && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       {error && <p id={`${id}-error`} className="text-[11px] text-destructive">{error}</p>}
     </div>
   );

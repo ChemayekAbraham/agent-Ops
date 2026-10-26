@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAssetList, useAssetReferenceData } from '@/hooks/useAssetRegister';
 import {
-  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, categoryLabel, conditionLabel, statusLabel,
+  ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, assetCodes, categoryLabel, conditionLabel, statusLabel,
   type AssetListFilters,
 } from '@/lib/assetRegister/types';
 import { MAX_LABELS_PER_PRINT, toAssetLabel, type AssetLabel } from '@/lib/assetRegister/qr';
@@ -83,7 +83,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           <Input
             id="asset-register-search"
             aria-label="Search assets"
-            placeholder="Search by asset ID, name, serial, custodian, supplier…"
+            placeholder="Search by asset tag or ID, name, site, serial, custodian, supplier…"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             maxLength={100}
@@ -127,7 +127,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 <Checkbox aria-label="Select all assets on this page" checked={pageAllSelected} disabled={items.length === 0}
                   onCheckedChange={(v) => togglePage(v === true)} />
               </th>
-              <th className="px-3 py-2.5 text-left font-medium">Asset ID</th>
+              <th className="px-3 py-2.5 text-left font-medium">Asset tag / ID</th>
               <th className="px-3 py-2.5 text-left font-medium">Name</th>
               <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Category</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Serial</th>
@@ -158,9 +158,12 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 className="cursor-pointer transition-colors hover:bg-muted/30 focus-visible:bg-muted/40 focus-visible:outline-none"
               >
                 <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                  <Checkbox aria-label={`Select ${a.asset_code}`} checked={selected.has(a.id)} onCheckedChange={(v) => toggle(a, v === true)} />
+                  <Checkbox aria-label={`Select ${assetCodes(a).primary}`} checked={selected.has(a.id)} onCheckedChange={(v) => toggle(a, v === true)} />
                 </td>
-                <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-primary">{a.asset_code}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-primary">
+                  {assetCodes(a).primary}
+                  {assetCodes(a).secondary && <span className="block text-[10px] text-muted-foreground">{assetCodes(a).secondary}</span>}
+                </td>
                 <td className="max-w-[16rem] px-3 py-2.5">
                   <span className="block truncate font-medium text-foreground">{a.name}</span>
                   <span className="block truncate text-[10px] text-muted-foreground">

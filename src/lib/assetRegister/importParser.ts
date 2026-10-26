@@ -32,8 +32,9 @@ export const TEMPLATE_COLUMNS: Array<{ header: string; field: AssetField; requir
   { header: 'Purchase Cost', field: 'purchase_cost', example: 3500000 },
   { header: 'Currency', field: 'currency', example: 'UGX' },
   { header: 'Invoice / Evidence Reference', field: 'invoice_reference', example: 'INV-2025-0042' },
+  { header: 'Site', field: 'site_key', required: true, example: 'Entebbe Head Office' },
   { header: 'Department', field: 'department_key', example: 'Finance' },
-  { header: 'Location', field: 'location', example: 'Head office, 2nd floor' },
+  { header: 'Location', field: 'location', example: '2nd floor, finance office' },
   { header: 'Custodian', field: 'custodian_name', example: 'Jane Namubiru' },
   { header: 'Condition', field: 'condition', example: 'Good' },
   { header: 'Status', field: 'status', example: 'In use' },
@@ -56,7 +57,8 @@ const HEADER_ALIASES: Record<string, AssetField> = (() => {
   add('currency', 'currency');
   add('invoice_reference', 'invoice / evidence reference', 'invoice reference', 'invoice', 'invoice no', 'invoice number', 'evidence reference', 'receipt', 'receipt no');
   add('department_key', 'department', 'dept');
-  add('location', 'location', 'site', 'office', 'room');
+  add('site_key', 'site', 'site name', 'site code', 'branch');
+  add('location', 'location', 'office', 'room');
   add('custodian_name', 'custodian', 'assigned to', 'holder', 'user', 'custodian name');
   add('condition', 'condition');
   add('status', 'status');
@@ -90,6 +92,8 @@ export function mapHeaders(header: unknown[]): HeaderMapping {
 
 export interface ParseOptions {
   departments?: Array<{ key: string; name: string }>;
+  /** Active sites (reference data); a Site cell may hold the site name, its tag code (HQ, KOL) or its key. */
+  sites?: Array<{ key: string; name: string; tag_code: string }>;
   today?: string;
   maxRows?: number;
 }
@@ -109,10 +113,20 @@ function resolveDepartment(raw: unknown, departments: Array<{ key: string; name:
   return hit ? { key: hit.key } : { key: null, error: `Department "${s}" is not an active department` };
 }
 
+/** Resolves a site cell (name, tag code or key, any case) to an active site key. Blank is left for validation. */
+function resolveSite(raw: unknown, sites: Array<{ key: string; name: string; tag_code: string }>): { key: string | null; error?: string } {
+  const s = String(raw ?? '').trim();
+  if (!s) return { key: null };
+  const q = squash(s);
+  const hit = sites.find((x) => squash(x.key) === q || squash(x.name) === q || squash(x.tag_code) === q);
+  return hit ? { key: hit.key } : { key: null, error: `Site "${s}" is not an active site` };
+}
+
 /** Parses an array-of-arrays sheet (first row = headers) into validated preview rows. */
 export function parseAssetSheet(sheet: unknown[][], opts: ParseOptions = {}): ParsedSheet {
   const max = opts.maxRows ?? ASSET_IMPORT_MAX_ROWS;
   const departments = opts.departments ?? [];
+  const sites = opts.sites ?? [];
   if (!sheet.length) return { rows: [], headerErrors: ['The file is empty.'], unknownHeaders: [] };
 
   const mapping = mapHeaders(sheet[0] ?? []);
@@ -134,8 +148,16 @@ export function parseAssetSheet(sheet: unknown[][], opts: ParseOptions = {}): Pa
     mapping.columns.forEach((field, col) => { if (field) input[field] = cells[col]; });
     const dept = resolveDepartment(input.department_key, departments);
     input.department_key = dept.key;
+    const site = resolveSite(input.site_key, sites);
+    input.site_key = site.key;
     const { value, errors } = validateAssetInput(input, { today: opts.today });
     if (dept.error) errors.push({ field: 'department_key', message: dept.error });
+    if (site.error) {
+      // replace the generic "Site is required" with the specific reason
+      const i = errors.findIndex((x) => x.field === 'site_key');
+      if (i >= 0) errors.splice(i, 1);
+      errors.push({ field: 'site_key', message: site.error });
+    }
     return { row_ref, value, errors, status: errors.length ? 'invalid' : 'valid' };
   });
 

@@ -182,6 +182,13 @@ export function validateAssetInput(
 
   if (has('department_key')) value.department_key = clean(input.department_key);
 
+  // Site: required when registering and cannot be cleared on edit (the server also checks it is an active site).
+  if (has('site_key')) {
+    const t = clean(input.site_key);
+    if (!t) push('site_key', 'Site is required');
+    value.site_key = t;
+  }
+
   if (has('custodian_user_id')) {
     const t = clean(input.custodian_user_id);
     if (t && !UUID_RE.test(t)) push('custodian_user_id', 'Custodian is not a valid staff account');

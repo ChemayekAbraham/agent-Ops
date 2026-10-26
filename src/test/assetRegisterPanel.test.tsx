@@ -103,6 +103,7 @@ describe('CFO Asset Register panel', () => {
     fireEvent.change(within(dialog).getByLabelText(/Purchase cost/), { target: { value: '-4' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Register asset' }));
     expect(await within(dialog).findByText('Category is required')).toBeTruthy();
+    expect(within(dialog).getByText('Site is required')).toBeTruthy();
     expect(within(dialog).getByText(/Purchase cost must be a positive number/)).toBeTruthy();
     expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_create', expect.anything());
   });
@@ -163,5 +164,78 @@ describe('CFO Asset Register panel', () => {
     await waitFor(() => expect(clicks.some((a) => a.download === 'welile-asset-labels-2.pdf')).toBe(true));
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(screen.queryByRole('button', { name: /Print labels/ })).toBeNull();
+  });
+});
+
+// Tagged assets (WEL-<category>-<site>-<register number>), as issued by the server after 20261027150000.
+describe('CFO Asset Register panel with asset tags', () => {
+  const tagged = (i: number, tag: string, siteKey: string, siteName: string) =>
+    asset(i, { asset_tag: tag, site_key: siteKey, site_name: siteName, location: i === 2 ? 'Front desk' : null });
+  const HQ = tagged(1, 'WEL-ICT-HQ-001', 'entebbe_hq', 'Entebbe Head Office');
+  const KOL = tagged(2, 'WEL-ICT-KOL-002', 'kololo', 'Kololo');
+
+  beforeEach(() => {
+    mocks.rpc.mockImplementation((fn: string, args: Record<string, unknown> = {}) => {
+      if (fn === 'asset_register_list') return Promise.resolve({ data: { total_count: 2, limit: 25, offset: 0, items: [HQ, KOL] }, error: null });
+      if (fn === 'asset_register_get') {
+        const a = args.p_id === KOL.id ? KOL : HQ;
+        return Promise.resolve({ data: { asset: a, events: [] }, error: null });
+      }
+      if (fn === 'asset_register_reference_data') {
+        return Promise.resolve({ data: { departments: [], custodians: [], sites: [
+          { key: 'entebbe_hq', name: 'Entebbe Head Office', tag_code: 'HQ' }, { key: 'kololo', name: 'Kololo', tag_code: 'KOL' }] }, error: null });
+      }
+      return Promise.resolve(respond(fn, args));
+    });
+  });
+
+  const readBlob = (blob: Blob) => new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsText(blob); });
+
+  it('lists each asset by its tag, with the permanent code beneath', async () => {
+    setup();
+    const tag = await screen.findByText('WEL-ICT-KOL-002', { exact: false });
+    const cell = tag.closest('td')!;
+    expect(cell.textContent).toBe('WEL-ICT-KOL-002WEL-AST-000002');
+    expect(within(cell).getByText('WEL-AST-000002').className).toMatch(/text-\[10px\]/);
+    expect(screen.getByRole('checkbox', { name: 'Select WEL-ICT-HQ-001' })).toBeTruthy();
+  });
+
+  it('View QR shows the tag, the permanent code and the site, and downloads <tag>-qr.png for that asset', async () => {
+    const clicks: HTMLAnchorElement[] = [];
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { clicks.push(this); });
+    setup();
+    fireEvent.click((await screen.findByText('WEL-ICT-KOL-002', { exact: false })).closest('tr')!);
+    expect(mocks.rpc).toHaveBeenCalledWith('asset_register_get', { p_id: KOL.id });
+    fireEvent.click(await screen.findByRole('button', { name: /View QR/ }));
+    const img = await screen.findByAltText('QR code for WEL-ICT-KOL-002');
+    const preview = document.getElementById('asset-qr-label-preview')!;
+    expect(preview.textContent).toContain('WEL-ICT-KOL-002');
+    expect(preview.textContent).toContain('WEL-AST-000002');
+    expect(preview.textContent).toContain('Kololo · Front desk');
+    fireEvent.click(screen.getByRole('button', { name: /Download QR/ }));
+    expect(clicks[0].download).toBe('WEL-ICT-KOL-002-qr.png');
+    expect(clicks[0].href).toBe(img.getAttribute('src'));
+  });
+
+  it('batch-prints both supplied tags with their permanent codes', async () => {
+    vi.spyOn(window, 'open').mockReturnValue({} as Window);
+    URL.createObjectURL = vi.fn(() => 'blob:labels');
+    setup();
+    await screen.findByText('WEL-ICT-HQ-001', { exact: false });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all assets on this page' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Print labels (2)' }));
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+    const pdf = await readBlob((URL.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0] as Blob);
+    for (const t of ['(WEL-ICT-HQ-001)', '(WEL-ICT-KOL-002)', '(WEL-AST-000001)', '(WEL-AST-000002)']) expect(pdf).toContain(t);
+    expect(pdf).not.toContain('SN-1');
+  });
+
+  it('the edit form keeps the tag and says a site change will not alter it', async () => {
+    setup();
+    fireEvent.click((await screen.findByText('WEL-ICT-HQ-001', { exact: false })).closest('tr')!);
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    const dialog = await screen.findByRole('dialog', { name: /Edit WEL-ICT-HQ-001/ });
+    expect(within(dialog).getByText('Asset tag WEL-ICT-HQ-001 stays the same if the site changes.')).toBeTruthy();
+    expect(within(dialog).queryByLabelText(/asset tag/i)).toBeNull(); // no editable tag field
   });
 });
