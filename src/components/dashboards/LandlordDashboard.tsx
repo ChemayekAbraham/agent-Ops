@@ -17,7 +17,6 @@ import {
   Download,
   HelpCircle,
   ScrollText,
-  PiggyBank,
   FileText,
   Gift,
 } from 'lucide-react';

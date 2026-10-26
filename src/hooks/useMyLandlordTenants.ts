@@ -63,7 +63,9 @@ export function useMyLandlordTenants() {
     enabled: !!user?.id,
     staleTime: 60_000,
     queryFn: async (): Promise<RpcResult> => {
-      const { data, error } = await (supabase as any).rpc('get_my_landlord_tenants');
+      // The function is newer than the generated database types, so call it through a narrow cast.
+      const rpc = supabase as unknown as { rpc: (fn: string) => Promise<{ data: unknown; error: Error | null }> };
+      const { data, error } = await rpc.rpc('get_my_landlord_tenants');
       if (error) throw error;
       const d = (data ?? {}) as Partial<RpcResult>;
       return {
