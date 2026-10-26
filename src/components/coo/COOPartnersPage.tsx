@@ -5474,6 +5474,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           pay_mode: mode,
           // Pins the cycle this request pays, so a later edit of next_roi_date cannot re-label it.
           cycle_anchor: cycleAnchor,
+          ...(overrideId ? { override_id: overrideId } : {}),
           ...(hasProxy ? { proxy_agent_name: managed.agentName, proxy_agent_id: managed.agentId, custody_route: isManagedProxy ? 'managed_proxy_agent_wallet_v3' : 'partner_wallet_v2' } : {}),
         },
       });
