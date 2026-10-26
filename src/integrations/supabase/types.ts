@@ -68788,6 +68788,28 @@ export type Database = {
           week_start: string
         }[]
       }
+      agent_payout_weekly_performance: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          book: string
+          collected: number
+          expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
+          passes: boolean
+          rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_performance_home_basis_range: {
         Args: { p_end: string; p_start: string }
@@ -76261,10 +76283,23 @@ export type Database = {
         Args: never
         Returns: {
           agent_id: string
+          basis: string
+          book: string
           collected: number
           expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
           meets_minimum: boolean
           rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
         }[]
       }
       get_landlord_payout_block_queue: {
@@ -84268,6 +84303,32 @@ export type Database = {
           _total_repayment: number
         }
         Returns: boolean
+      }
+      rent_request_agent_week_pct: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          days_left: number
+          expired_collected: number
+          expired_due_so_far: number
+          expired_plans: number
+          expired_projected_due: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due_so_far: number
+          in_window_plans: number
+          in_window_projected_due: number
+          in_window_required_pct: number
+          last_book: string
+          last_expired_pct: number
+          last_in_window_pct: number
+          last_passes: boolean
+          last_week_end: string
+          last_week_start: string
+          week_end: string
+          week_start: string
+        }[]
       }
       rent_request_balance_unchanged: {
         Args: { _amount_repaid: number; _id: string }
