@@ -1078,6 +1078,10 @@ async function tryAutoCreditOperationalFloat(
     subject?: string | null;
     snippet?: string | null;
     rawBody?: string | null;
+    // Enrich-on-duplicate path: credit against the ALREADY-STORED gmail row
+    // instead of looking one up by gmailMessageId (the duplicate email has
+    // no row of its own).
+    gmailRowOverride?: { id: string; linked_deposit_request_id: string | null };
   },
 ): Promise<void> {
   return await _tryAutoCreditOperationalFloat(supabase, args);
