@@ -85298,6 +85298,13 @@ export type Database = {
         Args: { p_short_code: string }
         Returns: Json
       }
+      resolve_learned_payer_route: {
+        Args: { p_key_type: string; p_payer_key: string }
+        Returns: {
+          route: string
+          target_user_id: string
+        }[]
+      }
       resolve_owned_notification_email: {
         Args: { p_user_id: string }
         Returns: string
