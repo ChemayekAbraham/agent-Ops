@@ -7622,9 +7622,34 @@ export type Database = {
         }
         Relationships: []
       }
+      asset_sites: {
+        Row: {
+          active: boolean
+          created_at: string
+          key: string
+          name: string
+          tag_code: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          key: string
+          name: string
+          tag_code: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          key?: string
+          name?: string
+          tag_code?: string
+        }
+        Relationships: []
+      }
       assets: {
         Row: {
           asset_code: string
+          asset_tag: string | null
           brand: string | null
           category: string
           condition: string
@@ -7647,6 +7672,7 @@ export type Database = {
           purchase_date: string | null
           serial_number: string | null
           serial_number_norm: string | null
+          site_key: string | null
           status: string
           supplier: string | null
           updated_at: string
@@ -7654,6 +7680,7 @@ export type Database = {
         }
         Insert: {
           asset_code: string
+          asset_tag?: string | null
           brand?: string | null
           category: string
           condition?: string
@@ -7676,6 +7703,7 @@ export type Database = {
           purchase_date?: string | null
           serial_number?: string | null
           serial_number_norm?: string | null
+          site_key?: string | null
           status?: string
           supplier?: string | null
           updated_at?: string
@@ -7683,6 +7711,7 @@ export type Database = {
         }
         Update: {
           asset_code?: string
+          asset_tag?: string | null
           brand?: string | null
           category?: string
           condition?: string
@@ -7705,6 +7734,7 @@ export type Database = {
           purchase_date?: string | null
           serial_number?: string | null
           serial_number_norm?: string | null
+          site_key?: string | null
           status?: string
           supplier?: string | null
           updated_at?: string
@@ -7717,6 +7747,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "asset_import_batches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_site_key_fkey"
+            columns: ["site_key"]
+            isOneToOne: false
+            referencedRelation: "asset_sites"
+            referencedColumns: ["key"]
           },
         ]
       }
@@ -67828,6 +67865,10 @@ export type Database = {
           id: string
         }[]
       }
+      _asset_register_category_code: {
+        Args: { p_category: string }
+        Returns: string
+      }
       _asset_register_insert: {
         Args: {
           p_actor: string
@@ -67837,6 +67878,7 @@ export type Database = {
         }
         Returns: {
           asset_code: string
+          asset_tag: string | null
           brand: string | null
           category: string
           condition: string
@@ -67859,6 +67901,7 @@ export type Database = {
           purchase_date: string | null
           serial_number: string | null
           serial_number_norm: string | null
+          site_key: string | null
           status: string
           supplier: string | null
           updated_at: string
@@ -67870,6 +67913,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      _asset_register_make_tag: {
+        Args: { p_asset_code: string; p_category: string; p_site_key: string }
+        Returns: string
       }
       _asset_register_require: { Args: { p_write: boolean }; Returns: string }
       _asset_register_row_json: {
