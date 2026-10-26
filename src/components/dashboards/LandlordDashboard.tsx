@@ -2,15 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { User } from '@supabase/supabase-js';
-import { 
-  Wallet, 
-  Building2, 
-  Menu,
+import {
+  Wallet,
+  Building2,
   Home,
   DoorOpen,
   Banknote,
   BadgeCheck,
   ArrowRight,
+  Receipt,
+  History,
+  Users,
+  Share2,
+  Download,
+  HelpCircle,
+  ScrollText,
+  PiggyBank,
+  FileText,
 } from 'lucide-react';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
@@ -21,7 +29,6 @@ import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell'
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WelileHomesLandlordBadge } from '@/components/landlord/WelileHomesLandlordBadge';
-import { LandlordMenuDrawer } from '@/components/landlord/LandlordMenuDrawer';
 import RegisterPropertyDialog from '@/components/landlord/RegisterPropertyDialog';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
@@ -57,7 +64,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
   const { profile } = useProfile();
   const { wallet, refreshWallet } = useWallet();
   const { stats: landlordStats, loading: statsLoading, refreshStats } = useLandlordStats(user.id);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [registerPropertyOpen, setRegisterPropertyOpen] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
@@ -84,10 +90,31 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
   const handleOpenRegisterProperty = () => { hapticTap(); setRegisterPropertyOpen(true); };
-  const handleOpenMenu = () => { hapticTap(); setMenuOpen(true); };
 
+  const goTo = (path: string) => () => { hapticTap(); navigate(path); };
+
+  // Top-right menu, below "Your Profile". These are the former "Menu" drawer items, one
+  // row each; `separator` starts a new group where the drawer started a new section.
+  // (The drawer's "Settings" row is omitted: the menu already ends with Settings.)
   const menuItems = [
     { icon: Building2, label: 'Register Property', onClick: () => setRegisterPropertyOpen(true) },
+    // Property management
+    { icon: DoorOpen, label: 'Daily Rent Listings', badge: 'Daily Rent', separator: true, onClick: () => { hapticTap(); setShowListedHouses(true); } },
+    { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-welile-homes') },
+    { icon: PiggyBank, label: 'Welile Homes Impact', onClick: goTo('/landlord-welile-homes') },
+    // Finances
+    { icon: Receipt, label: 'My Receipts', separator: true, onClick: goTo('/my-receipts') },
+    { icon: Banknote, label: 'My Loans', onClick: goTo('/my-loans') },
+    { icon: History, label: 'Payment History', onClick: goTo('/transactions') },
+    { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
+    // Growth
+    { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', separator: true, onClick: goTo('/my-receipts') },
+    { icon: Users, label: 'My Referrals', onClick: goTo('/referrals') },
+    { icon: Share2, label: 'Share & Earn', onClick: goTo('/benefits') },
+    // More
+    { icon: ScrollText, label: 'Landlord Agreement', separator: true, onClick: goTo('/landlord-agreement') },
+    { icon: Download, label: 'Share App', onClick: goTo('/install') },
+    { icon: HelpCircle, label: 'Help & Support', onClick: goTo('/settings') },
   ];
 
   return (
@@ -124,24 +151,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
           {/* Verification Checklist */}
           <VerificationChecklist userId={user.id} highlightRole="landlord" compact />
 
-          {/* Action Buttons — Clean & Minimal */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-0.5">Actions</p>
-
-
-            <button
-              onClick={handleOpenMenu}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 transition-colors touch-manipulation"
-            >
-              <Menu className="h-5 w-5 text-foreground/70 shrink-0" />
-              <div className="flex-1 text-left">
-                <p className="font-medium text-sm">Menu</p>
-                <p className="text-xs text-muted-foreground">Tenants, receipts, loans & more</p>
-              </div>
-              <span className="text-xs text-muted-foreground">→</span>
-            </button>
-          </div>
-
           {/* Invite & Earn */}
           <InviteAndEarnCard variant="landlord" />
 
@@ -154,13 +163,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
       {/* Properties sheet */}
       <MyPropertiesSheet open={showProperties} onOpenChange={setShowProperties} userId={user.id} />
-
-      {/* Menu Drawer */}
-      <LandlordMenuDrawer
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onViewListedHouses={() => { setMenuOpen(false); setShowListedHouses(true); }}
-      />
 
       {/* Dialogs */}
       <RegisterPropertyDialog
