@@ -19,6 +19,7 @@ import {
   ScrollText,
   PiggyBank,
   FileText,
+  Gift,
 } from 'lucide-react';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
@@ -42,7 +43,7 @@ import { motion } from 'framer-motion';
 import { hapticTap } from '@/lib/haptics';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
-import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 import { useTrackSection } from '@/hooks/useTrackSection';
@@ -68,6 +69,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
   const [showWallet, setShowWallet] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showListedHouses, setShowListedHouses] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Dynamic telemetry tracking across landlord sheets
   useEffect(() => {
@@ -108,7 +110,8 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     { icon: History, label: 'Payment History', onClick: goTo('/transactions') },
     { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
     // Growth
-    { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', separator: true, onClick: goTo('/my-receipts') },
+    { icon: Gift, label: 'Invite & Earn', badge: 'UGX 100', separator: true, onClick: () => { hapticTap(); setInviteOpen(true); } },
+    { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', onClick: goTo('/my-receipts') },
     { icon: Users, label: 'My Referrals', onClick: goTo('/referrals') },
     { icon: Share2, label: 'Share & Earn', onClick: goTo('/benefits') },
     // More
@@ -148,12 +151,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
           <MissionBanner dashboardRole="landlord" />
 
-          {/* Verification Checklist */}
-          <VerificationChecklist userId={user.id} highlightRole="landlord" compact />
-
-          {/* Invite & Earn */}
-          <InviteAndEarnCard variant="landlord" />
-
           <WalletDisclaimer />
         </main>
       </div>
@@ -163,6 +160,18 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
       {/* Properties sheet */}
       <MyPropertiesSheet open={showProperties} onOpenChange={setShowProperties} userId={user.id} />
+
+      {/* Invite & Earn: opened from the top-right menu. The card loads its stats and
+          short link only while open. */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-w-sm p-4 pt-14 gap-0">
+          <DialogTitle className="sr-only">Invite &amp; Earn</DialogTitle>
+          <DialogDescription className="sr-only">
+            Share your invite link with friends and earn for everyone who joins.
+          </DialogDescription>
+          <InviteAndEarnCard variant="landlord" />
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs */}
       <RegisterPropertyDialog
