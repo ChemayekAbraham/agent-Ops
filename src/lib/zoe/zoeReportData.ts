@@ -362,6 +362,7 @@ const SUMMARY_OBJECT_KEYS = [
 const METADATA_KEYS = new Set([
   'tool',
   'rpc',
+  'args',
   'source',
   'period',
   'row_count',
@@ -369,6 +370,7 @@ const METADATA_KEYS = new Set([
   'note',
   'how_counted',
   'generated_at',
+  'email_draft',
 ]);
 
 /**
@@ -731,7 +733,12 @@ export function extractZoeExportableReport(
   if (!message) return null;
   if (message.role && message.role !== 'assistant') return null;
   const statusOrOutcome = message.outcome ?? message.status;
-  if (statusOrOutcome && statusOrOutcome !== 'answered') return null;
+  const hasEmailDraft = Boolean(
+    message.reportPayload &&
+      typeof message.reportPayload === 'object' &&
+      'email_draft' in message.reportPayload,
+  );
+  if (statusOrOutcome && statusOrOutcome !== 'answered' && !hasEmailDraft) return null;
 
   const payload =
     message.reportPayload && typeof message.reportPayload === 'object' && !Array.isArray(message.reportPayload)

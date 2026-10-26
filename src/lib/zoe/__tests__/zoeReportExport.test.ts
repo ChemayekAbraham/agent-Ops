@@ -18,8 +18,10 @@ import {
   buildZoeReportPdfDoc,
   buildZoeReportXlsxSheets,
   exportZoeReportXlsx,
+  extractZoeEmailDraft,
   extractZoeExportableReport,
   sanitizeWelileTerms,
+  sendZoeReportEmail,
 } from '../index';
 
 describe('Zoe report extraction, PDF/HTML builder, and Excel builder', () => {
@@ -320,5 +322,104 @@ describe('Zoe report extraction, PDF/HTML builder, and Excel builder', () => {
     expect(sanitizeWelileTerms('Active loan from lender with 15% ROI and interest')).toBe(
       'Active Rent Plan from Supporter with 15% Returns and Returns',
     );
+  });
+
+  it('extracts email drafts from draft_report_email and routes Send through staff-assistant-send-email, refusing non-staff addresses', async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const invokeMock = vi.fn();
+    (supabase as unknown as { functions: { invoke: typeof invokeMock } }).functions = {
+      invoke: invokeMock,
+    };
+
+    const draft = extractZoeEmailDraft({
+      id: 'msg-draft-1',
+      role: 'assistant',
+      outcome: 'answered',
+      content: 'Prepared report email draft.',
+      reportPayload: {
+        tool: 'get_tops_arrears_ageing',
+        rpc: 'assistant_staff_tops_arrears_ageing',
+        source: 'tops_arrears_ageing_amclock',
+        period: { as_of: '2026-10-26' },
+        rows: [{ bucket: '1-7 days', overdue_ugx: 850000 }],
+        email_draft: {
+          draft_id: 'd-1',
+          status: 'ready',
+          recipient_user_id: 'staff-uuid-1',
+          recipient_name: 'Janehephzibar Gimono',
+          recipient_email: 'jane@welile.com',
+          recipient_roles: ['tenant_ops'],
+          subject: 'Loan report for lender with ROI',
+          message: 'Sharing active loan summary.',
+          report_reference: {
+            tool: 'get_tops_arrears_ageing',
+            rpc: 'assistant_staff_tops_arrears_ageing',
+            args: {},
+            source: 'tops_arrears_ageing_amclock',
+            period: 'as of 2026-10-26',
+            title: 'Tenant Ops Arrears Ageing Report',
+            row_count: 1,
+            filename: 'welile-zoe-arrears-2026-10-26.pdf',
+          },
+          candidates: [
+            {
+              staff_user_id: 'staff-uuid-1',
+              full_name: 'Janehephzibar Gimono',
+              email: 'jane@welile.com',
+              roles: ['tenant_ops'],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(draft).not.toBeNull();
+    expect(draft!.status).toBe('ready');
+    expect(draft!.recipient_email).toBe('jane@welile.com');
+    // Sanitizes Welile terms in draft subject & message
+    expect(draft!.subject).toBe('Rent Plan report for Supporter with Returns');
+    expect(draft!.message).toBe('Sharing active Rent Plan summary.');
+    // Extracting the draft never invokes staff-assistant-send-email
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    // Case 1: Typed non-staff address refused by staff-assistant-send-email
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        ok: false,
+        code: 'RECIPIENT_NOT_STAFF',
+        error: 'Refused: Zoe can only send report emails to active Welile staff members.',
+      },
+      error: null,
+    });
+    const refusedRes = await sendZoeReportEmail({
+      recipient_email: 'nonstaff@gmail.com',
+      subject: draft!.subject,
+      message: draft!.message,
+      report_reference: draft!.report_reference,
+    });
+    expect(refusedRes.ok).toBe(false);
+    expect(refusedRes.code).toBe('RECIPIENT_NOT_STAFF');
+
+    // Case 2: Verified active staff recipient succeeds
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        sent: true,
+        recipient_email: 'jane@welile.com',
+        recipient_name: 'Janehephzibar Gimono',
+        attachment_filename: 'welile-zoe-arrears-2026-10-26.pdf',
+        remaining_emails_today: 29,
+      },
+      error: null,
+    });
+    const sentRes = await sendZoeReportEmail({
+      recipient_email: draft!.recipient_email!,
+      recipient_name: draft!.recipient_name,
+      subject: draft!.subject,
+      message: draft!.message,
+      report_reference: draft!.report_reference,
+    });
+    expect(sentRes.ok).toBe(true);
+    expect(sentRes.recipient_email).toBe('jane@welile.com');
   });
 });

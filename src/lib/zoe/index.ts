@@ -26,3 +26,14 @@ export {
   buildZoeReportXlsxSheets,
   exportZoeReportXlsx,
 } from './zoeReportXlsx';
+
+export {
+  extractZoeEmailDraft,
+  sendZoeReportEmail,
+  type SendZoeReportEmailInput,
+  type SendZoeReportEmailResponse,
+  type ZoeEmailDraftPayload,
+  type ZoeEmailReportReference,
+  type ZoeStaffRecipientCandidate,
+} from './zoeEmailDraft';
+

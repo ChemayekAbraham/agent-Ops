@@ -12,12 +12,18 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { extractZoeExportableReport } from '@/lib/zoe';
+import {
+  extractZoeEmailDraft,
+  extractZoeExportableReport,
+  type SendZoeReportEmailInput,
+  type SendZoeReportEmailResponse,
+} from '@/lib/zoe';
 import {
   getSuggestionsForRoles,
   resolveSourceScreenLink,
   type ZoeSuggestion,
 } from './zoeConfig';
+import { ZoeEmailDraftCard } from './ZoeEmailDraftCard';
 import { ZoeReportCard } from './ZoeReportCard';
 import type { ZoeFeedbackRating, ZoeMessage } from './useZoeAssistant';
 
@@ -33,6 +39,7 @@ export interface ZoeChatSurfaceProps {
   onRetry?: () => void | Promise<void>;
   onFeedback: (messageId: string, rating: ZoeFeedbackRating) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
+  onSendEmail?: (input: SendZoeReportEmailInput) => Promise<SendZoeReportEmailResponse>;
   /** Optional extra action slot in the header (e.g., "Open full page" link inside floating drawer, or "Email report" button in step 9). */
   headerSlot?: React.ReactNode;
   /** Optional extra action slot rendered per answered assistant message (e.g., "Email this report" in step 9). */
@@ -75,6 +82,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onRetry,
   onFeedback,
   onClearHistory,
+  onSendEmail,
   headerSlot,
   renderMessageAction,
   compact = false,
@@ -220,6 +228,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
             generatedBy,
             generatedAt: msg.createdAt,
           });
+          const emailDraft = extractZoeEmailDraft(msg);
 
           return (
             <div
@@ -233,6 +242,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 </p>
 
                 {exportableReport && <ZoeReportCard report={exportableReport} />}
+                {emailDraft && (
+                  <ZoeEmailDraftCard
+                    draft={emailDraft}
+                    report={exportableReport}
+                    messageId={msg.id}
+                    onSendEmail={onSendEmail}
+                  />
+                )}
 
                 {/* Clarifying options when Zoe calls ask_clarification */}
                 {msg.clarification?.options && msg.clarification.options.length > 0 && (
