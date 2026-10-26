@@ -314,7 +314,7 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof ReactMarkdown>;
+export type MessageResponseProps = ComponentProps<typeof ReactMarkdown> & { className?: string };
 
 export const MessageResponse = memo(
   ({ className, children, ...props }: MessageResponseProps) => (
