@@ -8,6 +8,7 @@ import {
   emptyHouseTitle,
   firstPhoto,
   itemAmount,
+  itemCoordinates,
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
@@ -41,6 +42,7 @@ export function FunderNewHouseCard({
   const amount = itemAmount(category, item);
   const monthlyReturn = itemMonthlyReturn(category, item);
   const photo = firstPhoto(category, item);
+  const coords = itemCoordinates(item, category);
 
   return (
     <article
@@ -71,7 +73,27 @@ export function FunderNewHouseCard({
             </svg>
             Empty house
           </div>
-        ) : null}
+        ) : (
+          <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="#8024D1"
+              stroke="#8024D1"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5"
+              aria-hidden
+            >
+              <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+              <path d="m9 12 2 2 4-4" stroke="white" />
+            </svg>
+            Verified tenant
+          </div>
+        )}
 
         <button
           type="button"
@@ -140,6 +162,20 @@ export function FunderNewHouseCard({
         </div>
 
         <div className="flex items-center gap-2">
+          {coords ? (
+            <Button
+              variant="outline"
+              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg p-0"
+              onClick={() => {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
+              }}
+              aria-label={`Open Google Maps location for ${title}`}
+              title="Open in Google Maps"
+            >
+              <Navigation className="h-4 w-4" aria-hidden />
+              <span className="sr-only">Open in Google Maps</span>
+            </Button>
+          ) : null}
           <Button
             variant="default"
             className={cn(

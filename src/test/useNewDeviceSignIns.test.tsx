@@ -101,12 +101,22 @@ describe('useNewDeviceSignIns background check', () => {
 
   it('stays quiet when the retry also fails (no throw, empty list)', async () => {
     getSessionMock.mockResolvedValue(sessionFor(USER_ID));
-    refreshSessionMock.mockResolvedValue(sessionFor(USER_ID));
+    refreshSessionMock.mockResolvedValue({ data: { session: { access_token: 'refreshed-token', expires_at: Math.floor((Date.now() + 3600000) / 1000), user: { id: USER_ID } } }, error: null });
     invokeMock.mockResolvedValue({ data: null, error: { context: { status: 401 }, message: 'Not signed in' } });
 
     const { result } = renderHook(() => useNewDeviceSignIns(USER_ID));
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
     expect(result.current.pending).toEqual([]);
+  });
+
+  it('stops polling after a refreshed token is also rejected', async () => {
+    getSessionMock.mockResolvedValue(sessionFor(USER_ID));
+    refreshSessionMock.mockResolvedValue({ data: { session: { access_token: 'refreshed-token', expires_at: Math.floor((Date.now() + 3600000) / 1000), user: { id: USER_ID } } }, error: null });
+    invokeMock.mockResolvedValue({ data: null, error: { context: { status: 401 } } });
+    const { result } = renderHook(() => useNewDeviceSignIns(USER_ID));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(2));
+    await result.current.refresh();
+    expect(invokeMock).toHaveBeenCalledTimes(2);
   });
 });

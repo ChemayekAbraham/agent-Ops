@@ -41,12 +41,16 @@ import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
 import { useRentRequestAgentChain } from '@/hooks/useRentRequestAgentChain';
 import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
 import { RentAgentChain } from '@/components/rent-desk/RentAgentChain';
+import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
+import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
+import { orderByAgentWeek } from '@/lib/agentWeekPct';
 import { agentChainLines } from '@/lib/rentAgentChain';
 import { timingRow } from '@/lib/rentTiming';
 
 /** The hub's own sorts, kept in the URL beside the three server sorts (best payers, newest, oldest). */
 const HUB_EXTRA_SORTS = ['tenant_az', 'highest_rent', 'highest_outstanding', 'status'] as const;
 const HUB_SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'agent_week', label: RENT_DESK_SORT_LABELS.agent_week },
   { value: 'best_payers', label: RENT_DESK_SORT_LABELS.best_payers },
   { value: 'newest', label: RENT_DESK_SORT_LABELS.newest },
   { value: 'oldest', label: RENT_DESK_SORT_LABELS.oldest },
@@ -155,6 +159,9 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   const requests = data?.requests ?? [];
   const collections = data?.collections ?? [];
   const payouts = data?.payouts ?? [];
+  // The registering agent's collection % for this Thursday-Wednesday week: one read-only call for every request the hub loaded. Shown next to the
+  // agent's name and, in the default sort, puts the highest percentage on top. If it fails the rows keep the server order.
+  const agentWeek = useAgentWeekPct(useMemo(() => requests.map((r) => r.id), [requests]));
 
   const applyPreset = (key: string) => {
     const p = PRESETS.find((x) => x.key === key);
@@ -205,6 +212,8 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
     }
     if (q) rows = rows.filter((r) => r.search_text.includes(q));
 
+    // Default: highest agent collection % first (agents on the same % keep the server's best-payers order).
+    if (sort === 'agent_week') return orderByAgentWeek(rows, agentWeek.byAgent, (r) => r.agent_id);
     // Best payers first is the server's order, kept as it came; the rest sort on top of it.
     if (sort === 'best_payers') return rows;
     const dateSort = (dir: number) => [...rows].sort((a, b) => (new Date(a[dateBasis] || 0).getTime() - new Date(b[dateBasis] || 0).getTime()) * dir);
@@ -216,7 +225,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
       case 'oldest': return dateSort(1);
       default: return dateSort(-1); // newest
     }
-  }, [requests, dateBasis, range, statusGroup, district, agent, flag, amountBand, search, sort, deskFiltered]);
+  }, [requests, dateBasis, range, statusGroup, district, agent, flag, amountBand, search, sort, deskFiltered, agentWeek.byAgent]);
 
   /**
    * Chip counts must obey the SAME date range and non-status filters as the
@@ -1081,7 +1090,10 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                               return (<><p className="text-muted-foreground">{row.current.label}</p><p className="font-semibold tabular-nums">{row.current.value}</p></>);
                             })()}
                           </td>
-                          <td className="p-2 truncate max-w-[130px]">{r.agent_name}</td>
+                          <td className="p-2 max-w-[180px]">
+                            <span className="block truncate">{r.agent_name}</span>
+                            <AgentWeekPct week={r.agent_id ? agentWeek.byAgent.get(r.agent_id) : undefined} loading={agentWeek.isLoading} />
+                          </td>
                           <td className="p-2 truncate max-w-[130px]">{r.landlord_name}</td>
                           <td className="p-2 truncate max-w-[110px]">{r.district}</td>
                           <td className="p-2 whitespace-nowrap">{r[dateBasis] ? format(new Date(r[dateBasis] as string), 'dd MMM yyyy') : '—'}</td>
@@ -1114,6 +1126,10 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                         <div><p className="text-[10px] text-muted-foreground">Rent</p><p className="text-[11px] font-medium">{ugx(r.rent_amount)}</p></div>
                         <div><p className="text-[10px] text-muted-foreground">Repaid</p><p className="text-[11px] font-medium text-emerald-600">{ugx(r.amount_repaid)}</p></div>
                         <div><p className="text-[10px] text-muted-foreground">Outstanding</p><p className="text-[11px] font-medium">{ugx(r.outstanding)}</p></div>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span className="text-xs font-medium text-foreground truncate">{r.agent_name}</span>
+                        <AgentWeekPct week={r.agent_id ? agentWeek.byAgent.get(r.agent_id) : undefined} loading={agentWeek.isLoading} />
                       </div>
                       <p className="text-[10px] text-muted-foreground mt-1.5 truncate">
                         {r.agent_name} · {r.landlord_name} · {r[dateBasis] ? format(new Date(r[dateBasis] as string), 'dd MMM yyyy') : '—'}
@@ -1310,7 +1326,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
               <Badge variant="secondary">{STATUS_LABELS[detail.status] || detail.status}</Badge>
               <RenewalReviewPanel request={{ ...detail, duration_days: detail.duration_days ?? 0 }} />
               <RentTimingRow requestId={detail.id} timing={pageTiming.byId.get(detail.id)} loading={pageTiming.isLoading} error={pageTiming.error} onRetry={pageTiming.refetch} className="mt-0" />
-              <RentAgentChain lines={agentChainLines(pageChain.byId.get(detail.id), detail.agent_id ? { id: detail.agent_id, name: detail.agent_name, phone: null } : null)} />
+              <RentAgentChain lines={agentChainLines(pageChain.byId.get(detail.id), detail.agent_id ? { id: detail.agent_id, name: detail.agent_name, phone: null } : null)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} />
               <div className="grid grid-cols-2 gap-2">
                 {[
                   ['Phone', detail.tenant_phone],

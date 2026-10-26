@@ -41,6 +41,9 @@ import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
 import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
 import { groupPayoutRows } from '@/lib/payoutDeskGrouping';
+import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
+import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
+import { agentWeekSummary } from '@/lib/agentWeekPct';
 import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
 import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
@@ -281,7 +284,17 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const itemIds = useMemo(() => items.map(i => i.id), [items]);
   const deskOrder = useRentDeskOrder(itemIds, deskUrl.sort, deskUrl.filters);
   const scoredItems = useMemo(() => withRentDeskScores(items, deskOrder.data), [items, deskOrder.data]);
-  const showLoading = isLoading || (itemIds.length > 0 && deskOrder.isLoading);
+  // The registering agent's collection % for this Thursday-Wednesday week (one read-only call for the whole queue). Shown next to the agent's name and,
+  // in the default sort, lists the agent with the highest % first. If it fails no % shows and the previous order stays.
+  const agentWeek = useAgentWeekPct(itemIds);
+  const showLoading = isLoading || (itemIds.length > 0 && deskOrder.isLoading) || (deskUrl.sort === 'agent_week' && itemIds.length > 0 && agentWeek.isLoading);
+  const weekChip = (item: { agent_id: string | null; assigned_agent_id: string | null }) => (
+    <AgentWeekPct
+      week={item.agent_id ? agentWeek.byAgent.get(item.agent_id) : undefined}
+      loading={agentWeek.isLoading}
+      forName={item.assigned_agent_id && item.assigned_agent_id !== item.agent_id ? 'the agent who registered the tenant' : undefined}
+    />
+  );
 
   const selectedItems = useMemo(() => items.filter(i => selected.has(i.id)), [items, selected]);
 
@@ -384,7 +397,10 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   // agent's tenants at a glance.
   // Agents' tenants listed in the server's order (best payers first by default), agents by their best-ranked tenant; the previous
   // newest-first layout while the order is loading or if it failed. See src/lib/payoutDeskGrouping.ts.
-  const grouped = useMemo(() => groupPayoutRows(filteredItems, deskOrder.data), [filteredItems, deskOrder.data]);
+  const grouped = useMemo(
+    () => groupPayoutRows(filteredItems, deskOrder.data, deskUrl.sort === 'agent_week' ? (row) => (row.agent_id ? agentWeekSummary(agentWeek.byAgent.get(row.agent_id)).primary?.pct ?? null : null) : undefined),
+    [filteredItems, deskOrder.data, deskUrl.sort, agentWeek.byAgent],
+  );
 
   // Country breakdown — counts + total rent per country across the filtered queue.
   const countryStats = useMemo(() => {
@@ -1002,7 +1018,10 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                             </td>
                             <td className="px-3 py-3 align-middle text-xs text-primary max-w-[9rem]">{propertyLabel || '—'}</td>
                             <td className="px-3 py-3 align-middle text-xs font-semibold text-primary max-w-[8rem]">{item.landlord_name}</td>
-                            <td className="px-3 py-3 align-middle text-xs max-w-[9rem]">{item.agent_name}</td>
+                            <td className="px-3 py-3 align-middle text-xs max-w-[11rem]">
+                              <span className="block">{item.agent_name}</span>
+                              {weekChip(item)}
+                            </td>
                             <td className="px-3 py-3 align-middle text-xs max-w-[9rem]">{locationLabel || '—'}</td>
                             <td className="px-3 py-3 align-middle font-semibold whitespace-nowrap">{fmt(item.rent_amount)}</td>
                             <td className="px-3 py-3 align-middle whitespace-nowrap">
@@ -1134,6 +1153,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                       <span className="block truncate text-xs text-muted-foreground">
                         {item.agent_name} · {item.payout_target === 'landlord_wallet' ? 'Landlord Wallet' : 'Agent Float'}
                       </span>
+                      <span className="block">{weekChip(item)}</span>
                     </span>
                     <span className="shrink-0 text-sm font-bold">{fmt(item.rent_amount)}</span>
                   </label>
@@ -1219,7 +1239,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 {[
                   { label: 'Tenant', value: reviewTarget.tenant_name },
                   { label: 'Landlord', value: reviewTarget.landlord_name },
-                  { label: 'Agent', value: reviewTarget.agent_name },
+                  { label: 'Agent', value: <span className="inline-flex flex-wrap items-center justify-end gap-1.5"><span>{reviewTarget.agent_name}</span>{weekChip(reviewTarget)}</span> },
                   {
                     label: 'Location',
                     value:

@@ -12700,6 +12700,88 @@ export type Database = {
         }
         Relationships: []
       }
+      compound_reversal_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          cycle_date: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          override_id: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id?: string
+          portfolio_id?: string
+          reason?: string
+          reinvested_at?: string
+          reinvestment_ledger_id?: string
+          requested_by?: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -30495,6 +30577,165 @@ export type Database = {
           short_code?: string
         }
         Relationships: []
+      }
+      learned_payer_auto_routes: {
+        Row: {
+          amount: number
+          created_at: string
+          deposit_request_id: string | null
+          gmail_transaction_id: string
+          id: string
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          deposit_request_id?: string | null
+          gmail_transaction_id: string
+          id?: string
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deposit_request_id?: string | null
+          gmail_transaction_id?: string
+          id?: string
+          key_type?: string
+          payer_key?: string
+          route?: string
+          target_user_id?: string
+          transaction_id?: string | null
+        }
+        Relationships: []
+      }
+      learned_payer_route_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          max_amount: number
+          name_keys_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          max_amount?: number
+          name_keys_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          max_amount?: number
+          name_keys_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learned_payer_routes: {
+        Row: {
+          disabled: boolean
+          first_history_id: string | null
+          hits: number
+          id: string
+          key_type: string
+          last_routed_at: string
+          learned_at: string
+          payer_key: string
+          route: string
+          target_user_id: string
+        }
+        Insert: {
+          disabled?: boolean
+          first_history_id?: string | null
+          hits?: number
+          id?: string
+          key_type: string
+          last_routed_at?: string
+          learned_at?: string
+          payer_key: string
+          route: string
+          target_user_id: string
+        }
+        Update: {
+          disabled?: boolean
+          first_history_id?: string | null
+          hits?: number
+          id?: string
+          key_type?: string
+          last_routed_at?: string
+          learned_at?: string
+          payer_key?: string
+          route?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
       }
       leave_balances: {
         Row: {
@@ -59177,6 +59418,7 @@ export type Database = {
           last_tick_at: string | null
           last_tick_result: Json | null
           low_balance: boolean
+          staff_reserved_until: string | null
           updated_at: string
         }
         Insert: {
@@ -59195,6 +59437,7 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Update: {
@@ -59213,6 +59456,7 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -68788,6 +69032,28 @@ export type Database = {
           week_start: string
         }[]
       }
+      agent_payout_weekly_performance: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          book: string
+          collected: number
+          expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
+          passes: boolean
+          rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_performance_home_basis_range: {
         Args: { p_end: string; p_start: string }
@@ -71801,6 +72067,16 @@ export type Database = {
         Args: { p_portfolio_id: string; p_raw_token: string }
         Returns: string
       }
+      compound_reversal_candidates: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          amount: number
+          description: string
+          ledger_id: string
+          reference_id: string
+          reinvested_at: string
+        }[]
+      }
       compute_agent_performance: {
         Args: { p_agent_id: string }
         Returns: {
@@ -72632,6 +72908,10 @@ export type Database = {
       current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
+      decide_compound_reversal: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: Json
+      }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -76261,10 +76541,23 @@ export type Database = {
         Args: never
         Returns: {
           agent_id: string
+          basis: string
+          book: string
           collected: number
           expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
           meets_minimum: boolean
           rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
         }[]
       }
       get_landlord_payout_block_queue: {
@@ -76332,6 +76625,21 @@ export type Database = {
         Returns: {
           exists_flag: boolean
           verified: boolean
+        }[]
+      }
+      get_learned_payer_suggestions: {
+        Args: never
+        Returns: {
+          amount: number
+          gmail_transaction_id: string
+          payer_name: string
+          payer_phone: string
+          reason: string
+          received_at: string
+          route: string
+          suggested_name: string
+          suggested_user_id: string
+          transaction_id: string
         }[]
       }
       get_ledger_balance: { Args: { p_user_id: string }; Returns: number }
@@ -79993,6 +80301,15 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      learned_payer_target: {
+        Args: { p_gmail_id: string; p_ignore_limit?: boolean }
+        Returns: {
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
+        }[]
+      }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       ledger_category_allowlist_base: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
@@ -80148,6 +80465,29 @@ export type Database = {
           sale_id: string
           selected_size: string
           total_revenue: number
+        }[]
+      }
+      list_compound_reversal_requests: {
+        Args: { p_status?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          current_principal: number
+          cycle_date: string
+          decided_at: string
+          decided_by_name: string
+          decision_note: string
+          id: string
+          override_id: string
+          partner_id: string
+          partner_name: string
+          portfolio_code: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          requested_by: string
+          requested_by_name: string
+          status: string
         }[]
       }
       list_eligible_landlords_for_rent_request: {
@@ -82604,6 +82944,8 @@ export type Database = {
         }[]
       }
       payables_guard: { Args: never; Returns: undefined }
+      payer_name_key: { Args: { p_value: string }; Returns: string }
+      payer_phone_key: { Args: { p_value: string }; Returns: string }
       payout_auto_verify_ready: {
         Args: { p_destination_id: string }
         Returns: boolean
@@ -84269,6 +84611,32 @@ export type Database = {
         }
         Returns: boolean
       }
+      rent_request_agent_week_pct: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          days_left: number
+          expired_collected: number
+          expired_due_so_far: number
+          expired_plans: number
+          expired_projected_due: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due_so_far: number
+          in_window_plans: number
+          in_window_projected_due: number
+          in_window_required_pct: number
+          last_book: string
+          last_expired_pct: number
+          last_in_window_pct: number
+          last_passes: boolean
+          last_week_end: string
+          last_week_start: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       rent_request_balance_unchanged: {
         Args: { _amount_repaid: number; _id: string }
         Returns: boolean
@@ -84421,6 +84789,10 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      request_compound_reversal: {
+        Args: { p_ledger_id: string; p_portfolio_id: string; p_reason: string }
+        Returns: string
       }
       request_exception_otp: {
         Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
@@ -88367,6 +88739,9 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      voice_line_robot_state: { Args: never; Returns: Json }
+      voice_line_staff_busy: { Args: never; Returns: boolean }
+      voice_line_try_staff: { Args: { p_bridging?: boolean }; Returns: Json }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }
         Returns: undefined
