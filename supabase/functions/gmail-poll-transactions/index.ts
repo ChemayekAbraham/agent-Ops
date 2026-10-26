@@ -2462,13 +2462,156 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   // Find the gmail_transactions row we just wrote so we can link it.
-  const { data: gmailRow } = await supabase
-    .from('gmail_transactions')
-    .select('id, linked_deposit_request_id')
-    .eq('gmail_message_id', gmailMessageId)
-    .maybeSingle();
+  // (Enrich-on-duplicate passes the already-stored row in directly.)
+  let gmailRow: { id: string; linked_deposit_request_id: string | null } | null = gmailRowOverride;
+  if (!gmailRow) {
+    const { data: fetchedRow } = await supabase
+      .from('gmail_transactions')
+      .select('id, linked_deposit_request_id')
+      .eq('gmail_message_id', gmailMessageId)
+      .maybeSingle();
+    gmailRow = fetchedRow as any;
+  }
   if (!gmailRow?.id) return;
-  if (gmailRow.linked_deposit_request_id) return; // already linked
+
+  if (gmailRow.linked_deposit_request_id) {
+    // ── Trigger-linked instant approve ──────────────────────────────
+    // The synchronous AFTER INSERT trigger (trg_gmail_tx_auto_create_deposit
+    // → auto_create_deposits_from_gmail_impl) already created a PENDING
+    // deposit for this receipt and linked it. Stopping here (the old
+    // behaviour) left 80%+ of matched deposits sitting in `pending` until
+    // the linked-pending sweep ran. Instead approve it right now so the
+    // Operational Float lands instantly. Only already-approved / rejected
+    // linked deposits are left alone.
+    const { data: linkedDep } = await supabase
+      .from('deposit_requests')
+      .select('id, user_id, amount, status, provider, transaction_id, deposit_purpose, notes')
+      .eq('id', gmailRow.linked_deposit_request_id)
+      .maybeSingle();
+    if (!linkedDep) return;
+    if (linkedDep.status === 'approved' || linkedDep.status === 'rejected') return;
+    if (String(linkedDep.status) !== 'pending') return;
+    if (linkedDep.provider !== 'mtn' && linkedDep.provider !== 'airtel') return;
+    // Never approve a deposit whose amount disagrees with the receipt.
+    if (Number(linkedDep.amount) !== Number(parsed.amount)) {
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'skipped',
+        reason: 'trigger_linked_amount_mismatch',
+        deposit_request_id: linkedDep.id,
+        amount: parsed.amount ?? null,
+        metadata: { gmail_message_id: gmailMessageId, dep_amount: Number(linkedDep.amount), email_amount: Number(parsed.amount) },
+      });
+      return;
+    }
+
+    // FLOAT-BY-DEFAULT: a generic 'other' purpose is upgraded to
+    // operational_float before approval so the money lands in Float.
+    if (linkedDep.deposit_purpose === 'other') {
+      await supabase
+        .from('deposit_requests')
+        .update({ deposit_purpose: 'operational_float' })
+        .eq('id', linkedDep.id)
+        .eq('status', 'pending');
+    }
+
+    const fnBaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const fnServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    try {
+      const res = await fetch(`${fnBaseUrl}/functions/v1/approve-deposit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${fnServiceKey}`,
+          'apikey': fnServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deposit_request_id: linkedDep.id,
+          action: 'approve',
+          auto_approved: true,
+          auto_match_method: 'trigger_linked_instant_approve',
+          system_auto_credit: true,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.warn('[gmail-poll] trigger-linked approve-deposit non-200:', res.status, txt.slice(0, 300));
+        await logDepositDecision(supabase, {
+          source: 'matcher',
+          decision: 'failed',
+          reason: 'trigger_linked_approve_non_200',
+          deposit_request_id: linkedDep.id,
+          amount: parsed.amount ?? null,
+          metadata: { gmail_message_id: gmailMessageId, status: res.status, body: txt.slice(0, 300) },
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('[gmail-poll] trigger-linked approve-deposit invoke failed:', e);
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'failed',
+        reason: 'trigger_linked_approve_invoke_error',
+        deposit_request_id: linkedDep.id,
+        amount: parsed.amount ?? null,
+        metadata: { gmail_message_id: gmailMessageId, error: String(e) },
+      });
+      return;
+    }
+
+    console.log(
+      `[gmail-poll] trigger-linked instant approve: user=${profile.id} dep=${linkedDep.id} ` +
+      `amt=${parsed.amount} tid=${parsed.transaction_id}`,
+    );
+
+    // Learn the payer's number / name from this positive identification so
+    // the next deposit from them resolves instantly.
+    if (matchMethod === 'name' && nameMatchAudit?.confidence === 'high' && emailLast9Set.size === 1) {
+      await learnDepositNumber(supabase, {
+        userId: profile.id,
+        phone: Array.from(emailLast9Set)[0],
+        source: 'name_match_auto',
+        gmailTransactionId: gmailRow.id,
+        createdBy: null,
+        notes: `name match: ${nameMatchAudit.tiebreaker}`,
+      });
+    }
+    const payerName = (parsed as any).counterparty_name ?? (matchMethod === 'phone' ? cp : null);
+    if (payerName) {
+      await learnDepositName(supabase, {
+        userId: profile.id,
+        name: payerName,
+        source: 'name_match_auto',
+        gmailTransactionId: gmailRow.id,
+        createdBy: null,
+        notes: 'trigger-linked instant approve',
+      });
+    }
+
+    await logDepositDecision(supabase, {
+      source: 'matcher',
+      decision: 'auto_credited',
+      reason: 'trigger_linked_instant_approve',
+      deposit_request_id: linkedDep.id,
+      amount: parsed.amount ?? null,
+      actor_id: profile.id,
+      metadata: {
+        gmail_message_id: gmailMessageId,
+        tid: parsed.transaction_id ?? null,
+        match_source: 'trigger_linked_instant_approve',
+        match_method: matchMethod,
+      },
+    });
+
+    await notifyFloatCredited(supabase, {
+      profile,
+      provider: linkedDep.provider,
+      parsed,
+      internalMs,
+      gmailMessageId,
+    });
+    return;
+  }
 
   // ── Learn the depositor's number from a HIGH-confidence name match ────
   // MTN "received" emails usually carry only a name. When such an email DID
