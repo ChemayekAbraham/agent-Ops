@@ -65616,6 +65616,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_partner_commission_payable_lines: {
+        Row: {
+          category_key: string | null
+          category_label: string | null
+          counterparty_id: string | null
+          counterparty_name: string | null
+          created_at: string | null
+          daily_amount: number | null
+          due_date: string | null
+          due_kind: string | null
+          item_id: string | null
+          outstanding_amount: number | null
+          product_key: string | null
+          product_label: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_partner_float_notice_queue: {
         Row: {
           agent_id: string | null
@@ -68769,6 +68788,28 @@ export type Database = {
           week_start: string
         }[]
       }
+      agent_payout_weekly_performance: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          book: string
+          collected: number
+          expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
+          passes: boolean
+          rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_performance_home_basis_range: {
         Args: { p_end: string; p_start: string }
@@ -69559,6 +69600,156 @@ export type Database = {
       assistant_is_agent: { Args: never; Returns: boolean }
       assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
+      assistant_staff_aops_listing_quality_and_risk: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_agents: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_totals: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_network_overview: {
+        Args: { p_from?: string; p_min_expected?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_silent_collectors: {
+        Args: { p_limit?: number; p_min_days_silent?: number }
+        Returns: Json
+      }
+      assistant_staff_ceo_growth_and_approvals: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_budget_revised_position: {
+        Args: never
+        Returns: Json
+      }
+      assistant_staff_cfo_money_flow_summary: { Args: never; Returns: Json }
+      assistant_staff_cfo_receivables_and_payables: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_seven_day_expenses: { Args: never; Returns: Json }
+      assistant_staff_cfo_treasury_cash_position: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
+      assistant_staff_coo_overview: {
+        Args: { p_days?: number; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_fops_verification_and_requisitions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_calling_detailed_report: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_contracts_and_birthdays: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_hr_payroll_cost_by_department: {
+        Args: { p_period_code?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_calling_coverage: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_calling_summary: {
+        Args: { p_from?: string; p_to?: string; p_week_start?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_home_range: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_paid_lists: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tab?: string
+        }
+        Returns: Json
+      }
+      assistant_staff_lops_principal_comparison: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_my_advances: { Args: never; Returns: Json }
+      assistant_staff_my_canteen: {
+        Args: { p_service_date?: string }
+        Returns: Json
+      }
+      assistant_staff_my_payslips: { Args: never; Returns: Json }
+      assistant_staff_my_pending_concerns: { Args: never; Returns: Json }
+      assistant_staff_my_profile: { Args: never; Returns: Json }
+      assistant_staff_my_requisitions: { Args: never; Returns: Json }
+      assistant_staff_my_tasks: { Args: { p_status?: string }; Returns: Json }
+      assistant_staff_my_tickets: { Args: never; Returns: Json }
+      assistant_staff_my_wallet: { Args: never; Returns: Json }
+      assistant_staff_pops_pending_summary: {
+        Args: { p_month?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_report_overview: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_search_supporters: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_staff_pso_cohort_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_arrears_ageing: {
+        Args: {
+          p_as_at?: string
+          p_bucket?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      assistant_staff_tops_first_seven_summary: {
+        Args: { p_frequency?: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_landlord_not_paid: {
+        Args: { p_as_at?: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      assistant_staff_tops_no_payment_report: {
+        Args: { p_min_days?: number }
+        Returns: Json
+      }
+      assistant_staff_tops_rent_request_lifetime: { Args: never; Returns: Json }
+      assistant_staff_tops_smartphone_usage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_tenant_classification: { Args: never; Returns: Json }
+      assistant_staff_tops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
@@ -76092,10 +76283,23 @@ export type Database = {
         Args: never
         Returns: {
           agent_id: string
+          basis: string
+          book: string
           collected: number
           expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
           meets_minimum: boolean
           rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
         }[]
       }
       get_landlord_payout_block_queue: {
@@ -76699,6 +76903,21 @@ export type Database = {
       get_partner_capital_projections: {
         Args: { p_bucket?: string; p_days?: number; p_months?: number }
         Returns: Json
+      }
+      get_partner_commission_contingent: {
+        Args: never
+        Returns: {
+          base_amount: number
+          commission_kind: string
+          item_id: string
+          kind: string
+          occurred_at: string
+          partner_id: string
+          partner_name: string
+          potential_commission: number
+          reason: string
+          source_status: string
+        }[]
       }
       get_partner_forward_schedule: {
         Args: { p_days?: number; p_streams?: string[] }
@@ -84085,6 +84304,32 @@ export type Database = {
         }
         Returns: boolean
       }
+      rent_request_agent_week_pct: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          days_left: number
+          expired_collected: number
+          expired_due_so_far: number
+          expired_plans: number
+          expired_projected_due: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due_so_far: number
+          in_window_plans: number
+          in_window_projected_due: number
+          in_window_required_pct: number
+          last_book: string
+          last_expired_pct: number
+          last_in_window_pct: number
+          last_passes: boolean
+          last_week_end: string
+          last_week_start: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       rent_request_balance_unchanged: {
         Args: { _amount_repaid: number; _id: string }
         Returns: boolean
@@ -85219,6 +85464,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      staff_assistant_can_view_pii: {
+        Args: { p_scope?: string }
+        Returns: boolean
+      }
       staff_assistant_email_recipients: {
         Args: { p_search?: string }
         Returns: {
@@ -85233,8 +85482,20 @@ export type Database = {
         Args: { p_email: string }
         Returns: boolean
       }
+      staff_assistant_mask_nin: {
+        Args: { p_allow_full?: boolean; p_nin: string }
+        Returns: string
+      }
+      staff_assistant_mask_phone: {
+        Args: { p_allow_full?: boolean; p_phone: string }
+        Returns: string
+      }
       staff_assistant_purge_old_history: { Args: never; Returns: number }
       staff_assistant_require_staff: { Args: never; Returns: undefined }
+      staff_assistant_sanitize_jsonb: {
+        Args: { p_allow_phones?: boolean; p_data: Json; p_max_rows?: number }
+        Returns: Json
+      }
       staff_calling_detailed_report: {
         Args: { p_from: string; p_to: string }
         Returns: {

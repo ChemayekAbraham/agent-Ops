@@ -1,0 +1,425 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+    },
+    from: vi.fn(() => ({
+      insert: vi.fn().mockResolvedValue({ error: null }),
+    })),
+  },
+}));
+
+import * as xlsxExport from '@/lib/xlsxExport';
+import {
+  buildZoeDisplayRows,
+  buildZoeReportHtml,
+  buildZoeReportPdfDoc,
+  buildZoeReportXlsxSheets,
+  exportZoeReportXlsx,
+  extractZoeEmailDraft,
+  extractZoeExportableReport,
+  sanitizeWelileTerms,
+  sendZoeReportEmail,
+} from '../index';
+
+describe('Zoe report extraction, PDF/HTML builder, and Excel builder', () => {
+  const fixedGeneratedAt = new Date('2026-10-26T06:30:00.000Z');
+  const staffGenerator = 'Janehephzibar Gimono (jane@welile.com)';
+
+  const sampleTableChatRows = [
+    {
+      tenant_name: 'Namukasa Grace',
+      phone: '256700***111',
+      rent_amount: 450000,
+      collected_total: 300000,
+      outstanding: 150000,
+      stage: 'repaying',
+    },
+    {
+      tenant_name: 'Okello Ronald',
+      phone: '256772***222',
+      rent_amount: 600000,
+      collected_total: 600000,
+      outstanding: 0,
+      stage: 'completed',
+    },
+    {
+      tenant_name: 'Achieng Sarah',
+      phone: '256752***333',
+      rent_amount: 350000,
+      collected_total: 125000,
+      outstanding: 225000,
+      stage: 'repaying',
+    },
+  ];
+
+  it('extracts a table report whose rows equal the exact rows Zoe returned in the chat', () => {
+    const report = extractZoeExportableReport(
+      {
+        id: 'msg-table-1',
+        role: 'assistant',
+        status: 'answered',
+        content: 'Here are the 3 Tenant Ops Rent Plan repayment rows for October 2026.',
+        source: 'get_tenant_ops_repayments',
+        period: '2026-10-01 to 2026-10-26',
+        reportPayload: {
+          tool: 'tenant_ops_repayments',
+          rpc: 'assistant_staff_tenant_ops_repayments',
+          source: 'get_tenant_ops_repayments',
+          period: { from: '2026-10-01', to: '2026-10-26' },
+          row_count: 3,
+          rows: sampleTableChatRows,
+        },
+      },
+      {
+        generatedBy: staffGenerator,
+        generatedAt: fixedGeneratedAt,
+      },
+    );
+
+    expect(report).not.toBeNull();
+    expect(report!.kind).toBe('table');
+    expect(report!.title).toBe('Tenant Ops Repayments & Collection Rate Report');
+    expect(report!.periodLabel).toBe('2026-10-01 to 2026-10-26');
+    expect(report!.generatedBy).toBe(staffGenerator);
+    expect(report!.generatedAt).toContain('26 Oct 2026');
+    expect(report!.howCountedNote).toContain('get_tenant_ops_repayments');
+    expect(report!.rowCount).toBe(sampleTableChatRows.length);
+
+    // Raw row objects must equal the chat rows verbatim
+    expect(report!.rawRows).toEqual(sampleTableChatRows);
+
+    // Cell matrix must equal each row's exact values in column order
+    const expectedMatrix = sampleTableChatRows.map((r) => [
+      r.tenant_name,
+      r.phone,
+      r.rent_amount,
+      r.collected_total,
+      r.outstanding,
+      r.stage,
+    ]);
+    expect(report!.rows).toEqual(expectedMatrix);
+  });
+
+  it('builds Excel sheets where the primary sheet data equals the exact chat data and Report Info has metadata', async () => {
+    const spy = vi.spyOn(xlsxExport, 'downloadXlsxWorkbook').mockResolvedValue(undefined);
+
+    const report = extractZoeExportableReport(
+      {
+        id: 'msg-xlsx-1',
+        role: 'assistant',
+        status: 'answered',
+        content: 'Tenant Ops repayments table.',
+        source: 'get_tenant_ops_repayments',
+        period: '2026-10-01 to 2026-10-26',
+        reportPayload: {
+          tool: 'tenant_ops_repayments',
+          rpc: 'assistant_staff_tenant_ops_repayments',
+          source: 'get_tenant_ops_repayments',
+          period: { from: '2026-10-01', to: '2026-10-26' },
+          rows: sampleTableChatRows,
+        },
+      },
+      {
+        generatedBy: staffGenerator,
+        generatedAt: fixedGeneratedAt,
+      },
+    )!;
+
+    const sheets = buildZoeReportXlsxSheets(report);
+    expect(sheets).toHaveLength(2);
+
+    const [dataSheet, infoSheet] = sheets;
+    // Every row in the Excel data sheet must equal the exact chat data row
+    expect(dataSheet.headers).toEqual([
+      'Tenant Name',
+      'Phone',
+      'Rent Amount',
+      'Collected Total',
+      'Outstanding',
+      'Stage',
+    ]);
+    expect(dataSheet.rows).toEqual(
+      sampleTableChatRows.map((r) => [
+        r.tenant_name,
+        r.phone,
+        r.rent_amount,
+        r.collected_total,
+        r.outstanding,
+        r.stage,
+      ]),
+    );
+
+    // Report Info sheet must show dates, generated time, who generated it, and "how this was counted"
+    const infoMap = Object.fromEntries(infoSheet.rows.map(([k, v]) => [String(k), v]));
+    expect(infoMap['Report Title']).toBe(report.title);
+    expect(infoMap['Dates / Period']).toBe('2026-10-01 to 2026-10-26');
+    expect(infoMap['Generated Time']).toBe(report.generatedAt);
+    expect(infoMap['Generated By']).toBe(staffGenerator);
+    expect(infoMap['Row Count']).toBe(3);
+    expect(String(infoMap['How This Was Counted'])).toContain('get_tenant_ops_repayments');
+
+    await exportZoeReportXlsx(report);
+    expect(spy).toHaveBeenCalledWith(report.filenameBase, sheets);
+    spy.mockRestore();
+  });
+
+  it('builds Welile HTML and PDF report with purple header, logo, page-numbered footer, metadata, and exact chat rows', async () => {
+    const report = extractZoeExportableReport(
+      {
+        id: 'msg-pdf-1',
+        role: 'assistant',
+        status: 'answered',
+        content: 'Treasury cash position and tenant repayments.',
+        source: 'get_tenant_ops_repayments',
+        period: '2026-10-01 to 2026-10-26',
+        reportPayload: {
+          tool: 'tenant_ops_repayments',
+          rpc: 'assistant_staff_tenant_ops_repayments',
+          source: 'get_tenant_ops_repayments',
+          period: { from: '2026-10-01', to: '2026-10-26' },
+          rows: sampleTableChatRows,
+        },
+      },
+      {
+        generatedBy: staffGenerator,
+        generatedAt: fixedGeneratedAt,
+      },
+    )!;
+
+    const html = buildZoeReportHtml(report);
+
+    // 1. Purple header, embedded Welile logo, and page-numbered footer
+    expect(html).toContain('#6C21C4');
+    expect(html).toContain('class="brand-logo-img"');
+    expect(html).toContain('Page 1 of 1');
+
+    // 2. Dates, generated time, who generated it, and "how this was counted" note
+    expect(html).toContain('2026-10-01 to 2026-10-26');
+    expect(html).toContain(report.generatedAt);
+    expect(html).toContain(staffGenerator);
+    expect(html).toContain('How this was counted:');
+    expect(html).toContain(report.howCountedNote);
+
+    // 3. Exact row values and UGX money formatting ("UGX 1,234")
+    expect(html).toContain('Namukasa Grace');
+    expect(html).toContain('UGX 450,000');
+    expect(html).toContain('UGX 300,000');
+    expect(html).toContain('UGX 150,000');
+    expect(html).toContain('Okello Ronald');
+    expect(html).toContain('UGX 600,000');
+    expect(html).toContain('Achieng Sarah');
+    expect(html).toContain('UGX 350,000');
+
+    // 4. Verify raw cell attributes in the HTML table match the chat rows 1-to-1
+    for (const row of report.rows) {
+      for (const cell of row) {
+        if (cell !== null) {
+          expect(html).toContain(`data-raw-value="${String(cell)}"`);
+        }
+      }
+    }
+
+    // 5. Verify PDF doc builder produces matching rows, headers, and metadata
+    const builtPdf = await buildZoeReportPdfDoc(report);
+    expect(builtPdf.rows).toEqual(report.rows);
+    expect(builtPdf.headers).toEqual(report.headers);
+    expect(builtPdf.periodLabel).toBe('2026-10-01 to 2026-10-26');
+    expect(builtPdf.generatedBy).toBe(staffGenerator);
+    expect(builtPdf.generatedAt).toBe(report.generatedAt);
+    expect(builtPdf.howCountedNote).toBe(report.howCountedNote);
+    expect(builtPdf.totalPages).toBeGreaterThanOrEqual(1);
+    expect(builtPdf.displayRows).toEqual(buildZoeDisplayRows(report));
+  });
+
+  it('extracts a period summary report (e.g. CFO Treasury Cash Position) and matches chat summary figures exactly', () => {
+    const cashSummary = {
+      total_cash_ugx: 128450000,
+      operational_float_ugx: 42300000,
+      supporter_pool_ugx: 86150000,
+      reconciled_accounts_count: 9,
+    };
+
+    const report = extractZoeExportableReport(
+      {
+        id: 'msg-summary-1',
+        role: 'assistant',
+        status: 'answered',
+        content: 'Treasury cash position as of 2026-10-26 is UGX 128,450,000.',
+        source: 'get_treasury_cash_position',
+        period: 'as of 2026-10-26',
+        reportPayload: {
+          tool: 'cfo_cash_position',
+          rpc: 'assistant_staff_cfo_cash_position',
+          source: 'get_treasury_cash_position',
+          period: { as_of: '2026-10-26' },
+          basis: 'Read-only account totals from get_treasury_cash_position only.',
+          cash_position: cashSummary,
+        },
+      },
+      {
+        generatedBy: 'Vandamme Abaho (cfo@welile.com)',
+        generatedAt: fixedGeneratedAt,
+      },
+    );
+
+    expect(report).not.toBeNull();
+    expect(report!.kind).toBe('period_summary');
+    expect(report!.title).toBe('Treasury Cash Position Report');
+    expect(report!.periodLabel).toBe('as of 2026-10-26');
+    expect(report!.generatedBy).toBe('Vandamme Abaho (cfo@welile.com)');
+    expect(report!.howCountedNote).toContain('get_treasury_cash_position');
+
+    // Every summary metric value in the exported rows must equal the exact figure from cash_position
+    const exportedKeyValues = Object.fromEntries(report!.rows.map(([label, val]) => [label, val]));
+    expect(exportedKeyValues['Cash Position — Total Cash UGX']).toBe(128450000);
+    expect(exportedKeyValues['Cash Position — Operational Float UGX']).toBe(42300000);
+    expect(exportedKeyValues['Cash Position — Supporter Pool UGX']).toBe(86150000);
+    expect(exportedKeyValues['Cash Position — Reconciled Accounts Count']).toBe(9);
+
+    const xlsxSheets = buildZoeReportXlsxSheets(report!);
+    expect(xlsxSheets[0].rows).toEqual(report!.rows);
+
+    const html = buildZoeReportHtml(report!);
+    expect(html).toContain('UGX 128,450,000');
+    expect(html).toContain('UGX 42,300,000');
+    expect(html).toContain('UGX 86,150,000');
+  });
+
+  it('paginates multi-page HTML reports with accurate Page X of Y footers and sanitizes Welile terms', () => {
+    const manyRows = Array.from({ length: 35 }, (_, idx) => ({
+      plan_ref: `RP-${idx + 1}`,
+      amount_ugx: (idx + 1) * 10000,
+    }));
+
+    const report = extractZoeExportableReport(
+      {
+        id: 'msg-multi-1',
+        role: 'assistant',
+        status: 'answered',
+        content: '35 active Rent Plans.',
+        source: 'get_tenant_ops_overview',
+        period: '2026-10-26',
+        reportPayload: {
+          tool: 'tenant_ops_overview',
+          source: 'get_tenant_ops_overview',
+          rows: manyRows,
+        },
+      },
+      {
+        generatedBy: staffGenerator,
+        generatedAt: fixedGeneratedAt,
+      },
+    )!;
+
+    const html = buildZoeReportHtml(report);
+    expect(html).toContain('Page 1 of 2');
+    expect(html).toContain('Page 2 of 2');
+    expect(report.rows).toHaveLength(35);
+
+    expect(sanitizeWelileTerms('Active loan from lender with 15% ROI and interest')).toBe(
+      'Active Rent Plan from Supporter with 15% Returns and Returns',
+    );
+  });
+
+  it('extracts email drafts from draft_report_email and routes Send through staff-assistant-send-email, refusing non-staff addresses', async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const invokeMock = vi.fn();
+    (supabase as unknown as { functions: { invoke: typeof invokeMock } }).functions = {
+      invoke: invokeMock,
+    };
+
+    const draft = extractZoeEmailDraft({
+      id: 'msg-draft-1',
+      role: 'assistant',
+      outcome: 'answered',
+      content: 'Prepared report email draft.',
+      reportPayload: {
+        tool: 'get_tops_arrears_ageing',
+        rpc: 'assistant_staff_tops_arrears_ageing',
+        source: 'tops_arrears_ageing_amclock',
+        period: { as_of: '2026-10-26' },
+        rows: [{ bucket: '1-7 days', overdue_ugx: 850000 }],
+        email_draft: {
+          draft_id: 'd-1',
+          status: 'ready',
+          recipient_user_id: 'staff-uuid-1',
+          recipient_name: 'Janehephzibar Gimono',
+          recipient_email: 'jane@welile.com',
+          recipient_roles: ['tenant_ops'],
+          subject: 'Loan report for lender with ROI',
+          message: 'Sharing active loan summary.',
+          report_reference: {
+            tool: 'get_tops_arrears_ageing',
+            rpc: 'assistant_staff_tops_arrears_ageing',
+            args: {},
+            source: 'tops_arrears_ageing_amclock',
+            period: 'as of 2026-10-26',
+            title: 'Tenant Ops Arrears Ageing Report',
+            row_count: 1,
+            filename: 'welile-zoe-arrears-2026-10-26.pdf',
+          },
+          candidates: [
+            {
+              staff_user_id: 'staff-uuid-1',
+              full_name: 'Janehephzibar Gimono',
+              email: 'jane@welile.com',
+              roles: ['tenant_ops'],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(draft).not.toBeNull();
+    expect(draft!.status).toBe('ready');
+    expect(draft!.recipient_email).toBe('jane@welile.com');
+    // Sanitizes Welile terms in draft subject & message
+    expect(draft!.subject).toBe('Rent Plan report for Supporter with Returns');
+    expect(draft!.message).toBe('Sharing active Rent Plan summary.');
+    // Extracting the draft never invokes staff-assistant-send-email
+    expect(invokeMock).not.toHaveBeenCalled();
+
+    // Case 1: Typed non-staff address refused by staff-assistant-send-email
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        ok: false,
+        code: 'RECIPIENT_NOT_STAFF',
+        error: 'Refused: Zoe can only send report emails to active Welile staff members.',
+      },
+      error: null,
+    });
+    const refusedRes = await sendZoeReportEmail({
+      recipient_email: 'nonstaff@gmail.com',
+      subject: draft!.subject,
+      message: draft!.message,
+      report_reference: draft!.report_reference,
+    });
+    expect(refusedRes.ok).toBe(false);
+    expect(refusedRes.code).toBe('RECIPIENT_NOT_STAFF');
+
+    // Case 2: Verified active staff recipient succeeds
+    invokeMock.mockResolvedValueOnce({
+      data: {
+        ok: true,
+        sent: true,
+        recipient_email: 'jane@welile.com',
+        recipient_name: 'Janehephzibar Gimono',
+        attachment_filename: 'welile-zoe-arrears-2026-10-26.pdf',
+        remaining_emails_today: 29,
+      },
+      error: null,
+    });
+    const sentRes = await sendZoeReportEmail({
+      recipient_email: draft!.recipient_email!,
+      recipient_name: draft!.recipient_name,
+      subject: draft!.subject,
+      message: draft!.message,
+      report_reference: draft!.report_reference,
+    });
+    expect(sentRes.ok).toBe(true);
+    expect(sentRes.recipient_email).toBe('jane@welile.com');
+  });
+});

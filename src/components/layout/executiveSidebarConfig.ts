@@ -347,6 +347,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'SMS Campaigns', icon: Megaphone, id: 'sms-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Customer Leads', icon: Megaphone, id: 'customer-leads', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Agent Assistant', icon: Bot, id: 'assistant-conversations', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Zoe Conversations', icon: Bot, id: 'zoe-conversations', access: { roles: ['crm', 'cto', 'manager', 'coo', 'ceo', 'super_admin'] } },
         {
           label: 'User Behaviour',
           icon: Activity,

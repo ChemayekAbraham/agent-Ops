@@ -11,6 +11,8 @@ import { PERSONAL_NAV } from './personalNav';
 import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
 import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
+import { useZoeAccess } from '@/components/zoe/useZoeAssistant';
+import { ZoeFloatingLauncher } from '@/components/zoe/ZoeFloatingLauncher';
 
 const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
 const SIDEBAR_MIN = 200;
@@ -54,6 +56,7 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
   const isFoodCoordinator = foodStatus?.isCoordinator === true;
   const { data: canUseCanteen } = useFoodCanUseCanteen();
   const { hasAccess: tutorialAccess } = useTutorialAccess();
+  const { data: zoeAccess } = useZoeAccess();
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -182,7 +185,7 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true) && (!item.requiresTutorialAccess || tutorialAccess === true) && (!item.requiresCallingStaff || isCallingTeamStaff(user?.id)) && (!item.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles)))
+          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true) && (!item.requiresTutorialAccess || tutorialAccess === true) && (!item.requiresCallingStaff || isCallingTeamStaff(user?.id)) && (!item.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles)) && (!item.requiresZoeAccess || zoeAccess === true))
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}
@@ -308,6 +311,7 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
           <MenuBody />
         </SheetContent>
       </Sheet>
+      <ZoeFloatingLauncher />
     </div>
   );
 };

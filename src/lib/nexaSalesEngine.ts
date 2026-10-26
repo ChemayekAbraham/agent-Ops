@@ -43,7 +43,8 @@ export function isNexaHumanEscalationRequest(input: string): boolean {
 }
 export function detectNexaSalesIntent(input: string): NexaSalesIntent {
   if (isNexaHumanEscalationRequest(input)) return 'human';
-  if (/supporter|partner|returns|earn|15%|support (?:a )?tenant/i.test(input)) return 'supporter';
+  if (/supporter|partner|returns|earn|15%|support(?:ing)? (?:a )?tenant/i.test(input)) return 'supporter';
+  if (/\brequest(?:ing)? rent\b/i.test(input)) return 'tenant';
   if (/agent|commission|collect/i.test(input)) return 'agent';
   if (/tenant|rent|limit|pay/i.test(input)) return 'tenant';
   return 'general';

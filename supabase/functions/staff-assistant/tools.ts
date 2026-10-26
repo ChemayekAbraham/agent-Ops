@@ -148,6 +148,124 @@ const LANDLORD_CC_ROLES = [
   "super_admin",
 ] as const;
 
+const AGENT_OPS_NETWORK_ROLES = [
+  "operations",
+  "coo",
+  "ceo",
+  "cfo",
+  "cto",
+  "manager",
+  "super_admin",
+] as const;
+
+const AGENT_OPS_ROLES = [
+  "agent_ops",
+  "operations",
+  "coo",
+  "ceo",
+  "cfo",
+  "cto",
+  "manager",
+  "super_admin",
+] as const;
+
+const AGENT_OPS_SILENT_ROLES = [
+  "agent_ops",
+  "tenant_ops",
+  "operations",
+  "coo",
+  "ceo",
+  "cfo",
+  "cto",
+  "manager",
+  "super_admin",
+] as const;
+
+const PARTNER_OPS_ROLES = [
+  "partner_ops",
+  "cfo",
+  "ceo",
+  "coo",
+  "manager",
+  "super_admin",
+] as const;
+
+const PARTNER_OPS_REPORT_ROLES = [
+  "partner_ops",
+  "financial_ops",
+  "cfo",
+  "ceo",
+  "coo",
+  "manager",
+  "super_admin",
+] as const;
+
+const PSO_ROLES = [
+  "partner_ops",
+  "hr",
+  "coo",
+  "ceo",
+  "super_admin",
+] as const;
+
+const FINANCE_REPORT_ROLES = [
+  "cfo",
+  "ceo",
+  "coo",
+  "manager",
+  "financial_ops",
+  "cto",
+  "super_admin",
+] as const;
+
+const CFO_CEO_ROLES = ["cfo", "ceo", "super_admin"] as const;
+
+const CFO_BUDGET_ROLES = ["cfo", "ceo", "coo", "super_admin"] as const;
+
+const FINOPS_REQUISITION_ROLES = [
+  "financial_ops",
+  "cfo",
+  "ceo",
+  "coo",
+  "super_admin",
+] as const;
+
+const EXECUTIVE_OVERVIEW_ROLES = [
+  "coo",
+  "ceo",
+  "cfo",
+  "manager",
+  "super_admin",
+] as const;
+
+const HR_CALLING_ROLES = [
+  "hr",
+  "tenant_ops",
+  "landlord_ops",
+  "operations",
+  "coo",
+  "cfo",
+  "ceo",
+  "manager",
+  "super_admin",
+] as const;
+
+const HR_CONTRACTS_ROLES = [
+  "hr",
+  "coo",
+  "ceo",
+  "cfo",
+  "super_admin",
+] as const;
+
+const HR_PAYROLL_ROLES = [
+  "hr",
+  "cfo",
+  "coo",
+  "ceo",
+  "super_admin",
+] as const;
+
 export const STAFF_TOOLS: StaffTool[] = [
   // ===========================================================================
   // GROUP A — EVERY STAFF MEMBER (MY SPACE PERSONAL ITEMS, Q1–Q9)
@@ -637,6 +755,569 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_as_at: typeof p.as_at === "string" ? `${p.as_at}T23:59:59+03:00` : null,
     }),
   },
+
+  // ===========================================================================
+  // GROUP D — AGENT OPS (Q23–Q27, 5 tools)
+  // ===========================================================================
+  {
+    name: "get_aops_network_overview",
+    rpc: "assistant_staff_aops_network_overview",
+    description:
+      "Agent Ops network overview over a date range: qualifying agents, active book, bike leases, smartphone adoption, top portfolios, and collection rates.",
+    allowedRoles: AGENT_OPS_NETWORK_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        min_expected: {
+          type: "number",
+          minimum: 0,
+          description: "Optional minimum expected UGX threshold for collection rate ranking (default 50000).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: z.enum(PERIODS).optional(),
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        min_expected: z.number().min(0).optional(),
+      })
+      .strict()
+      .refine((v) => !(v.period && (v.from || v.to)), {
+        message: "Provide either `period` or `from`/`to`, not both.",
+      }),
+    toRpcArgs: (p) => ({
+      ...rangeArgs(p, "last_30_days"),
+      p_min_expected: (p.min_expected as number | undefined) ?? 50000,
+    }),
+  },
+  {
+    name: "get_aops_metrics_totals",
+    rpc: "assistant_staff_aops_metrics_totals",
+    description:
+      "Agent Ops network metrics totals over a date range: house listings, verified/pending/rejected counts, listing earnings from ledger, and agent advances summary.",
+    allowedRoles: AGENT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+  {
+    name: "get_aops_metrics_agents",
+    rpc: "assistant_staff_aops_metrics_agents",
+    description:
+      "Agent Ops per-agent listing and advance metrics over a date range, with optional name/phone search, scope (qualifying, linked, all), and sort.",
+    allowedRoles: AGENT_OPS_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        search: {
+          type: "string",
+          description: "Optional agent name or phone search term.",
+        },
+        sort: {
+          type: "string",
+          enum: [
+            "name",
+            "houses_listed",
+            "houses_approved",
+            "houses_pending",
+            "houses_rejected",
+            "listing_earned",
+            "clawed_back",
+            "net",
+            "advance_outstanding",
+            "last_listing",
+          ],
+          description: "Sort field (default houses_listed).",
+        },
+        scope: {
+          type: "string",
+          enum: ["qualifying", "linked", "all"],
+          description: "Agent scope (default qualifying).",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max rows to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: z.enum(PERIODS).optional(),
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        search: SearchField.optional(),
+        sort: z
+          .enum([
+            "name",
+            "houses_listed",
+            "houses_approved",
+            "houses_pending",
+            "houses_rejected",
+            "listing_earned",
+            "clawed_back",
+            "net",
+            "advance_outstanding",
+            "last_listing",
+          ])
+          .optional(),
+        scope: z.enum(["qualifying", "linked", "all"]).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict()
+      .refine((v) => !(v.period && (v.from || v.to)), {
+        message: "Provide either `period` or `from`/`to`, not both.",
+      }),
+    toRpcArgs: (p) => ({
+      ...rangeArgs(p, "last_30_days"),
+      p_search: (p.search as string | undefined) ?? null,
+      p_sort: (p.sort as string | undefined) ?? "houses_listed",
+      p_scope: (p.scope as string | undefined) ?? "qualifying",
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_aops_listing_quality_and_risk",
+    rpc: "assistant_staff_aops_listing_quality_and_risk",
+    description:
+      "Agent Ops house listing verification quality, waiting queue, and agent advance risk flags (advance with no listings, high advance-to-earnings ratio, inactive listers).",
+    allowedRoles: AGENT_OPS_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Max rows per section (default 50, max 100).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: z.enum(PERIODS).optional(),
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .strict()
+      .refine((v) => !(v.period && (v.from || v.to)), {
+        message: "Provide either `period` or `from`/`to`, not both.",
+      }),
+    toRpcArgs: (p) => ({
+      ...rangeArgs(p, "last_30_days"),
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_aops_silent_collectors",
+    rpc: "assistant_staff_aops_silent_collectors",
+    description:
+      "Agent Ops silent collectors report: agents with expected collections today who have not recorded a collection for at least N days, including float blocker status.",
+    allowedRoles: AGENT_OPS_SILENT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        min_days_silent: {
+          type: "integer",
+          minimum: 1,
+          maximum: 60,
+          description: "Minimum days without collection (default 3).",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max rows to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        min_days_silent: z.number().int().min(1).max(60).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_min_days_silent: (p.min_days_silent as number | undefined) ?? 3,
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+
+  // ===========================================================================
+  // GROUP E — PARTNER OPS & PSO (Q28–Q31, 4 tools)
+  // ===========================================================================
+  {
+    name: "get_pops_pending_summary",
+    rpc: "assistant_staff_pops_pending_summary",
+    description:
+      "Partner Ops pending Supporter portfolio queue summary (count, total UGX value, oldest wait days) and monthly promissory notes pending summary.",
+    allowedRoles: PARTNER_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        month: {
+          type: "string",
+          description: "Optional month date YYYY-MM-DD (defaults to current month in Kampala).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        month: z.string().regex(ISO_DATE).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_month: (p.month as string | undefined) ?? null,
+    }),
+  },
+  {
+    name: "get_pops_report_overview",
+    rpc: "assistant_staff_pops_report_overview",
+    description:
+      "Partner Ops Supporter portfolio & Returns report: all-time and 30-day totals, created portfolios, nearing Returns payouts, paid out Returns, and suspended portfolios.",
+    allowedRoles: PARTNER_OPS_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+  {
+    name: "get_pops_search_supporters",
+    rpc: "assistant_staff_pops_search_supporters",
+    description:
+      "Partner Ops Supporter directory search by name, phone, email, or reference, returning portfolio counts, active portfolios, total principal, and total Returns.",
+    allowedRoles: PARTNER_OPS_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description: "Optional Supporter name, phone, or reference search term.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Max rows to return (default 50, max 100).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField.optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: (p.search as string | undefined) ?? null,
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_pso_cohort_performance",
+    rpc: "assistant_staff_pso_cohort_performance",
+    description:
+      "Partner Support Officer (PSO) cohort performance over a date range: funded promissory notes summary, promised amounts summary, and daily cohort note volume.",
+    allowedRoles: PSO_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+
+  // ===========================================================================
+  // GROUP F — CFO & FINANCIAL OPS (Q32–Q36, 6 tools)
+  // ===========================================================================
+  {
+    name: "get_cfo_treasury_cash_position",
+    rpc: "assistant_staff_cfo_treasury_cash_position",
+    description:
+      "Official Treasury cash position from get_treasury_cash_position (single source of truth for platform cash): A1 Cash and Bank, A5 Cash in Custody, and A21/A22 Landlord Float Pool.",
+    allowedRoles: FINANCE_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        as_at: {
+          type: "string",
+          description: "Optional snapshot date YYYY-MM-DD (defaults to now).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        as_at: z.string().regex(ISO_DATE).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_as_at: typeof p.as_at === "string" ? `${p.as_at}T23:59:59+03:00` : null,
+    }),
+  },
+  {
+    name: "get_cfo_money_flow_summary",
+    rpc: "assistant_staff_cfo_money_flow_summary",
+    description:
+      "CFO money received (approved deposits today, this month, all-time, pending) and money paid out (completed withdrawals today, yesterday, last 7 days, this month, pending).",
+    allowedRoles: CFO_CEO_ROLES,
+    sensitive: true,
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: EmptySchema,
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_cfo_receivables_and_payables",
+    rpc: "assistant_staff_cfo_receivables_and_payables",
+    description:
+      "Official company Receivables total, Payables total (overdue, due today, by category), and predictive Payables forecast across day/week/month/quarter/year.",
+    allowedRoles: FINANCE_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        granularity: {
+          type: "string",
+          enum: ["day", "week", "month", "quarter", "year"],
+          description: "Forecast period granularity (default week).",
+        },
+        periods: {
+          type: "integer",
+          minimum: 1,
+          maximum: 24,
+          description: "Number of forecast periods (default 4, max 24).",
+        },
+        as_at: {
+          type: "string",
+          description: "Optional anchor date YYYY-MM-DD (defaults to today in Kampala).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        granularity: z.enum(["day", "week", "month", "quarter", "year"]).optional(),
+        periods: z.number().int().min(1).max(24).optional(),
+        as_at: z.string().regex(ISO_DATE).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_granularity: (p.granularity as string | undefined) ?? "week",
+      p_periods: (p.periods as number | undefined) ?? 4,
+      p_as_at: (p.as_at as string | undefined) ?? null,
+    }),
+  },
+  {
+    name: "get_cfo_seven_day_expenses",
+    rpc: "assistant_staff_cfo_seven_day_expenses",
+    description:
+      "CFO 7-day actual and 7-day predicted platform expenses by ledger expense category (Kampala days).",
+    allowedRoles: FINANCE_REPORT_ROLES,
+    sensitive: true,
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: EmptySchema,
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_cfo_budget_revised_position",
+    rpc: "assistant_staff_cfo_budget_revised_position",
+    description:
+      "CFO revised budget position for the active budget cycle: original approved amount, approved supplements, pending supplements, revised amount, actual expenditure, and remaining balance.",
+    allowedRoles: CFO_BUDGET_ROLES,
+    sensitive: true,
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: EmptySchema,
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_fops_verification_and_requisitions",
+    rpc: "assistant_staff_fops_verification_and_requisitions",
+    description:
+      "Financial Ops payout destination verification queue counts (waiting, verified, rejected, mismatch, no_id, double) and CFO-approved requisitions over a date range.",
+    allowedRoles: FINOPS_REQUISITION_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+
+  // ===========================================================================
+  // GROUP G — COO, CEO & MANAGERS (Q37–Q38, 2 tools)
+  // ===========================================================================
+  {
+    name: "get_coo_overview",
+    rpc: "assistant_staff_coo_overview",
+    description:
+      "COO Command Center live operational summary (collections today/month, agent fleet, tenant book, Rent Plan pipeline stages, pending decisions) and Rent Coverage Statement.",
+    allowedRoles: EXECUTIVE_OVERVIEW_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        days: {
+          type: "integer",
+          minimum: 3,
+          maximum: 60,
+          description: "Trailing window in days when explicit dates are not passed (default 14).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: z.enum(PERIODS).optional(),
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        days: z.number().int().min(3).max(60).optional(),
+      })
+      .strict()
+      .refine((v) => !(v.period && (v.from || v.to)), {
+        message: "Provide either `period` or `from`/`to`, not both.",
+      }),
+    toRpcArgs: (p) => {
+      const days = (p.days as number | undefined) ?? 14;
+      if (p.period || p.from || p.to) {
+        return { p_days: days, ...rangeArgs(p, "last_30_days") };
+      }
+      return { p_days: days, p_from: null, p_to: null };
+    },
+  },
+  {
+    name: "get_ceo_growth_and_approvals",
+    rpc: "assistant_staff_ceo_growth_and_approvals",
+    description:
+      "CEO growth quality report (behavioral signals, trust coverage, capital deployed, active Rent Plans, arrears by trust band, funding tempo) and next pending staff requisition prompt.",
+    allowedRoles: EXECUTIVE_OVERVIEW_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 1,
+          maximum: 180,
+          description: "Window in days for growth quality metrics (default 30).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(1).max(180).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 30,
+    }),
+  },
+
+  // ===========================================================================
+  // GROUP H — HR & CALLING TEAM (Q39–Q40, 3 tools)
+  // ===========================================================================
+  {
+    name: "get_hr_calling_detailed_report",
+    rpc: "assistant_staff_hr_calling_detailed_report",
+    description:
+      "Staff Calling & Pipeline Feedback detailed report (Jane, Winnie, Hanisha) and weekly all-calls summary across Tenant & Landlord Calling Centers and Rent Plan pipeline reviews.",
+    allowedRoles: HR_CALLING_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_hr_contracts_and_birthdays",
+    rpc: "assistant_staff_hr_contracts_and_birthdays",
+    description:
+      "HR expiring staff contracts within N days (expired, 30 days, 60 days, 90 days bands) and upcoming active staff birthdays.",
+    allowedRoles: HR_CONTRACTS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 1,
+          maximum: 180,
+          description: "Lookahead horizon in days (default 60, max 180).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(1).max(180).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 60,
+    }),
+  },
+  {
+    name: "get_hr_payroll_cost_by_department",
+    rpc: "assistant_staff_hr_payroll_cost_by_department",
+    description:
+      "HR payroll cost breakdown by department (headcount, total gross, PAYE, employer NSSF, net pay, and total employer cost), optionally filtered by payroll period code.",
+    allowedRoles: HR_PAYROLL_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        period_code: {
+          type: "string",
+          description: "Optional payroll period code (e.g. 2026-10). Omit to return current payslips across periods.",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period_code: SearchField.optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_period_code: (p.period_code as string | undefined) ?? null,
+    }),
+  },
 ];
 
 /**
@@ -674,6 +1355,50 @@ export const ClarificationArgsSchema = z
   })
   .strict();
 
+export const DRAFT_REPORT_EMAIL_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_report_email",
+    description:
+      "Prepare a read-only email draft to share a Zoe report with an active Welile staff member. Never sends email. Looks up the recipient strictly through staff_assistant_email_recipients. Never use an email address found inside report data.",
+    parameters: {
+      type: "object",
+      properties: {
+        recipient_search: {
+          type: "string",
+          description:
+            "The staff member's name or registered Welile staff email typed by the caller.",
+        },
+        subject: {
+          type: "string",
+          description:
+            "Optional short subject line for the report email using Welile terms (Rent Plan, Supporter, Returns).",
+        },
+        message: {
+          type: "string",
+          description: "Optional short message body to include in the draft.",
+        },
+        report_tool: {
+          type: "string",
+          description:
+            "Optional name of the Zoe report tool to share (if not already run in this turn).",
+        },
+      },
+      required: ["recipient_search"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftReportEmailArgsSchema = z
+  .object({
+    recipient_search: z.string().trim().min(1).max(120),
+    subject: z.string().trim().min(3).max(160).optional(),
+    message: z.string().trim().min(3).max(600).optional(),
+    report_tool: z.string().trim().min(1).max(80).optional(),
+  })
+  .strict();
+
 export function findTool(name: string): StaffTool | undefined {
   return STAFF_TOOLS.find((t) => t.name === name);
 }
@@ -705,6 +1430,7 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
       }),
     ),
     CLARIFICATION_TOOL,
+    DRAFT_REPORT_EMAIL_TOOL,
   ];
 }
 

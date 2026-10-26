@@ -13,6 +13,7 @@ import type { Employee } from '@/hr/types';
 import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 import { useAuth } from '@/hooks/useAuth';
 import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
+import { useZoeAccess } from '@/components/zoe/useZoeAssistant';
 
 interface HubBadge {
   label: string;
@@ -114,6 +115,7 @@ const PersonalHub = () => {
   const { data: foodStatus } = useFoodCoordinatorStatus();
   const { data: canUseCanteen } = useFoodCanUseCanteen();
   const { hasAccess: tutorialAccess } = useTutorialAccess();
+  const { data: zoeAccess } = useZoeAccess();
 
   const visibleCards = CARDS.filter(
     (card) => (!card.requiresPsoOfficer || isPsoOfficer === true)
@@ -122,7 +124,8 @@ const PersonalHub = () => {
       && (!card.requiresCanteen || canUseCanteen === true)
       && (!card.requiresTutorialAccess || tutorialAccess === true)
       && (!card.requiresCallingStaff || isCallingTeamStaff(user?.id))
-      && (!card.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles)),
+      && (!card.requiresHrStaffReports || canAccessHrStaffReports(user?.id, roles))
+      && (!card.requiresZoeAccess || zoeAccess === true),
   );
 
   return (
