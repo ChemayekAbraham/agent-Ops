@@ -9,6 +9,10 @@ import type { RentDeskOrder } from '@/hooks/useRentDeskOrder';
  * and the CFO meets them first. Without it (still loading, or the call failed) the desk keeps exactly its previous layout: the
  * agent with the newest request first, and each agent's newest request first. With the "newest" sort the two layouts are the
  * same. This only orders rows: which rows are shown, what can be selected and every payment step are untouched.
+ *
+ * In the default `agent_week` sort the agents are listed by their registering agent's collection % for the current Thursday-Wednesday week,
+ * highest first (a group takes the highest % among its rows; groups with no figure go last). Inside a group the order above is unchanged, and
+ * groups on the same % keep the order above too.
  */
 export interface PayoutGroupRow {
   id: string;
@@ -28,7 +32,7 @@ export interface PayoutGroup<T> {
 
 const time = (iso: string) => new Date(iso).getTime();
 
-export function groupPayoutRows<T extends PayoutGroupRow>(rows: T[], order?: RentDeskOrder): PayoutGroup<T>[] {
+export function groupPayoutRows<T extends PayoutGroupRow>(rows: T[], order?: RentDeskOrder, weekPct?: (row: T) => number | null): PayoutGroup<T>[] {
   const map = new Map<string, PayoutGroup<T>>();
   for (const it of rows) {
     const key = it.assigned_agent_id || it.agent_id || 'unassigned';
@@ -59,10 +63,31 @@ export function groupPayoutRows<T extends PayoutGroupRow>(rows: T[], order?: Ren
   }
 
   const groups = [...map.values()];
-  if (!useServerOrder) return groups.sort((a, b) => b.latest - a.latest);
+  const groupPct = (g: PayoutGroup<T>): number | null => {
+    if (!weekPct) return null;
+    let top: number | null = null;
+    for (const r of g.rows) {
+      const p = weekPct(r);
+      if (p !== null && (top === null || p > top)) top = p;
+    }
+    return top;
+  };
+  // highest % first; no figure last; null when the sort is not agent_week (then this step does nothing)
+  const byPct = (a: PayoutGroup<T>, b: PayoutGroup<T>): number => {
+    if (!weekPct) return 0;
+    const pa = groupPct(a);
+    const pb = groupPct(b);
+    if (pa === pb) return 0;
+    if (pa === null) return 1;
+    if (pb === null) return -1;
+    return pb - pa;
+  };
+  if (!useServerOrder) return groups.sort((a, b) => byPct(a, b) || b.latest - a.latest);
 
   const best = (g: PayoutGroup<T>) => g.rows.reduce<number>((m, r) => Math.min(m, rankOf(r.id) ?? Infinity), Infinity);
   return groups.sort((a, b) => {
+    const pc = byPct(a, b);
+    if (pc !== 0) return pc;
     const ba = best(a);
     const bb = best(b);
     if (ba !== bb) return ba - bb; // unranked-only groups (Infinity) fall to the end

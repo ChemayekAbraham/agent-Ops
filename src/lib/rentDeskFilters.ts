@@ -4,19 +4,26 @@
  * (`rent_request_desk_order`) and returns each request's `matches` flag and the count; this file only describes the choices,
  * reads and writes them in the URL, and builds the RPC arguments. It never decides whether a request matches.
  *
- *   ?desk_sort=best_payers|newest|oldest   (a desk may add its own extra sorts)
+ *   ?desk_sort=agent_week|best_payers|newest|oldest   (a desk may add its own extra sorts)
  *   &desk_labels=proven_good,watch         (any of the four paying labels)
  *   &desk_arrived=today|7d|custom
  *   &desk_from=2026-10-01&desk_to=2026-10-14   (custom range, Kampala days, either end may be left open)
  *
- * Defaults (best payers first, no filters) are left out of the URL, and parameters the desks do not own are never touched.
+ * Defaults (agent collection % first, no filters) are left out of the URL, and parameters the desks do not own are never touched.
  */
 
-export type RentDeskSort = 'best_payers' | 'newest' | 'oldest';
-export const RENT_DESK_SORTS: readonly RentDeskSort[] = ['best_payers', 'newest', 'oldest'];
-export const DEFAULT_RENT_DESK_SORT: RentDeskSort = 'best_payers';
+// `agent_week` is the desks' default: highest registering-agent collection percentage for the current Thursday-Wednesday week first
+// (lib/agentWeekPct). It is arranged on the desk from `rent_request_agent_week_pct`; the server order below it is `best_payers`, so agents on the same
+// percentage stay in best-payers order. The other three are unchanged.
+export type RentDeskSort = 'agent_week' | 'best_payers' | 'newest' | 'oldest';
+export const RENT_DESK_SORTS: readonly RentDeskSort[] = ['agent_week', 'best_payers', 'newest', 'oldest'];
+export const DEFAULT_RENT_DESK_SORT: RentDeskSort = 'agent_week';
+
+/** The sort the server understands (rent_request_desk_order): `agent_week` is applied on the desk, on top of the best-payers order. */
+export const serverRentDeskSort = (s: RentDeskSort): 'best_payers' | 'newest' | 'oldest' => (s === 'agent_week' ? 'best_payers' : s);
 
 export const RENT_DESK_SORT_LABELS: Record<RentDeskSort, string> = {
+  agent_week: 'Agent collection % first',
   best_payers: 'Best payers first',
   newest: 'Newest first',
   oldest: 'Oldest first',

@@ -13,9 +13,10 @@ import {
 const q = (s: string) => new URLSearchParams(s);
 
 describe('reading the desk state from the URL', () => {
-  it('defaults to best payers first with no filters', () => {
+  it('defaults to agent collection % first with no filters', () => {
     const s = readRentDeskUrl(q(''));
     expect(s.sort).toBe(DEFAULT_RENT_DESK_SORT);
+    expect(DEFAULT_RENT_DESK_SORT).toBe('agent_week');
     expect(s.filters).toEqual(NO_RENT_DESK_FILTERS);
   });
 
@@ -27,7 +28,7 @@ describe('reading the desk state from the URL', () => {
 
   it('ignores anything unknown or malformed', () => {
     const s = readRentDeskUrl(q('desk_sort=cheapest&desk_labels=gold,watch,watch&desk_arrived=yesterday&desk_from=nope'));
-    expect(s.sort).toBe('best_payers');
+    expect(s.sort).toBe('agent_week');
     expect(s.filters).toEqual({ labels: ['watch'], arrived: 'any', from: null, to: null });
   });
 
@@ -40,7 +41,8 @@ describe('reading the desk state from the URL', () => {
 
   it('lets a desk add sorts of its own', () => {
     expect(readRentDeskUrl(q('desk_sort=tenant_az'), ['tenant_az']).sort).toBe('tenant_az');
-    expect(readRentDeskUrl(q('desk_sort=tenant_az')).sort).toBe('best_payers');
+    expect(readRentDeskUrl(q('desk_sort=tenant_az')).sort).toBe('agent_week');
+    expect(readRentDeskUrl(q('desk_sort=best_payers')).sort).toBe('best_payers');
   });
 
   it('keeps the range days only for a custom range', () => {
@@ -51,7 +53,8 @@ describe('reading the desk state from the URL', () => {
 
 describe('writing the desk state to the URL', () => {
   it('leaves the defaults out', () => {
-    expect(writeRentDeskUrl(q(''), { sort: 'best_payers', filters: NO_RENT_DESK_FILTERS }).toString()).toBe('');
+    expect(writeRentDeskUrl(q(''), { sort: 'agent_week', filters: NO_RENT_DESK_FILTERS }).toString()).toBe('');
+    expect(writeRentDeskUrl(q(''), { sort: 'best_payers', filters: NO_RENT_DESK_FILTERS }).get('desk_sort')).toBe('best_payers');
   });
 
   it('never touches parameters the desk does not own', () => {
@@ -68,7 +71,7 @@ describe('writing the desk state to the URL', () => {
 
   it('removes the desk parameters again when cleared', () => {
     const on = writeRentDeskUrl(q('tab=review'), { sort: 'oldest', filters: { labels: ['average'], arrived: '7d', from: null, to: null } });
-    const off = writeRentDeskUrl(on, { sort: 'best_payers', filters: NO_RENT_DESK_FILTERS });
+    const off = writeRentDeskUrl(on, { sort: 'agent_week', filters: NO_RENT_DESK_FILTERS });
     expect(off.toString()).toBe('tab=review');
   });
 
