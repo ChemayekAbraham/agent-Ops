@@ -31,7 +31,7 @@ const DELTA = (t: string) => `data: ${JSON.stringify({ choices: [{ delta: { cont
 Deno.test("whatsapp ai: streamed deltas become one reply", async () => {
   const { restore } = stubFetch(
     streamed([
-      DELTA("Rent "),
+      DELTA("Rent"),
       'data: {"choices":[{"delta":{"con', // frame cut in half
       'tent":" Plans"}}]}\n\n',
       ": keep-alive\n\n",
