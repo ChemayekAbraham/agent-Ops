@@ -26,7 +26,7 @@ describe('Nexa inquiry signup session safety', () => {
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(malicious)}\n\ndata: [DONE]\n\n`)); controller.close();
     }}),{headers:{'Content-Type':'text/event-stream'}}));
     const { result } = renderHook(() => useWelileAI());
-    await act(async () => { await result.current.sendMessage('What is Welile?', {leadRole:'landlord'}); });
+    await act(async () => { await result.current.sendMessage('TEST_STREAM_INQUIRY', {leadRole:'landlord'}); });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.signupResult?.role).toBe('landlord');
     expect(result.current.signupResult).not.toHaveProperty('email');

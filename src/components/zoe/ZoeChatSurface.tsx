@@ -13,15 +13,24 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  extractZoeEmailDraft,
+  extractZoeExportableReport,
+  type SendZoeReportEmailInput,
+  type SendZoeReportEmailResponse,
+} from '@/lib/zoe';
+import {
   getSuggestionsForRoles,
   resolveSourceScreenLink,
   type ZoeSuggestion,
 } from './zoeConfig';
+import { ZoeEmailDraftCard } from './ZoeEmailDraftCard';
+import { ZoeReportCard } from './ZoeReportCard';
 import type { ZoeFeedbackRating, ZoeMessage } from './useZoeAssistant';
 
 export interface ZoeChatSurfaceProps {
   messages: ZoeMessage[];
   roles?: readonly string[];
+  generatedBy?: string | null;
   isLoading: boolean;
   isHistoryLoading?: boolean;
   errorMessage?: string | null;
@@ -30,6 +39,7 @@ export interface ZoeChatSurfaceProps {
   onRetry?: () => void | Promise<void>;
   onFeedback: (messageId: string, rating: ZoeFeedbackRating) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
+  onSendEmail?: (input: SendZoeReportEmailInput) => Promise<SendZoeReportEmailResponse>;
   /** Optional extra action slot in the header (e.g., "Open full page" link inside floating drawer, or "Email report" button in step 9). */
   headerSlot?: React.ReactNode;
   /** Optional extra action slot rendered per answered assistant message (e.g., "Email this report" in step 9). */
@@ -63,6 +73,7 @@ function parseMessageBodyAndMeta(msg: ZoeMessage): {
 export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   messages,
   roles = [],
+  generatedBy = null,
   isLoading,
   isHistoryLoading = false,
   errorMessage = null,
@@ -71,6 +82,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onRetry,
   onFeedback,
   onClearHistory,
+  onSendEmail,
   headerSlot,
   renderMessageAction,
   compact = false,
@@ -212,6 +224,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           const { bodyText, sourceLabel, periodLabel } = parseMessageBodyAndMeta(msg);
           const hasSourceMeta = Boolean(sourceLabel || periodLabel);
           const screenLink = hasSourceMeta ? resolveSourceScreenLink(sourceLabel) : null;
+          const exportableReport = extractZoeExportableReport(msg, {
+            generatedBy,
+            generatedAt: msg.createdAt,
+          });
+          const emailDraft = extractZoeEmailDraft(msg);
 
           return (
             <div
@@ -223,6 +240,16 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 <p className="whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-sm">
                   {bodyText}
                 </p>
+
+                {exportableReport && <ZoeReportCard report={exportableReport} />}
+                {emailDraft && (
+                  <ZoeEmailDraftCard
+                    draft={emailDraft}
+                    report={exportableReport}
+                    messageId={msg.id}
+                    onSendEmail={onSendEmail}
+                  />
+                )}
 
                 {/* Clarifying options when Zoe calls ask_clarification */}
                 {msg.clarification?.options && msg.clarification.options.length > 0 && (

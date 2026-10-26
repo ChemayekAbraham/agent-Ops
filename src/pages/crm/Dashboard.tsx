@@ -26,6 +26,7 @@ const UserBehaviourAnalyticsPanel = lazyNamed(() => import('@/components/executi
 const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/TenantCampaignPanel'), 'TenantCampaignPanel');
 const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
 const AssistantConversationsPanel = lazyNamed(() => import('@/components/executive/crm/AssistantConversationsPanel'), 'AssistantConversationsPanel');
+const ZoeConversationsPanel = lazyNamed(() => import('@/components/executive/crm/ZoeConversationsPanel'), 'ZoeConversationsPanel');
 const CommunicationManager = lazy(() => import('@/components/communications/CommunicationManager'));
 const AutocallCommandCenter = lazyNamed(() => import('@/components/crm/autocall/AutocallCommandCenter'), 'AutocallCommandCenter');
 
@@ -126,6 +127,12 @@ export default function CRMDashboardPage() {
         return (
           <Suspense fallback={<PanelFallback />}>
             <AssistantConversationsPanel />
+          </Suspense>
+        );
+      case 'zoe-conversations':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <ZoeConversationsPanel />
           </Suspense>
         );
       case 'customer-leads':

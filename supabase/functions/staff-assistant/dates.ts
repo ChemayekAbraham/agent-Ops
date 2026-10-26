@@ -77,3 +77,17 @@ export function currentWednesdayWeekStart(now: number = Date.now()): string {
   const sinceWednesday = (utcDay + 7 - 3) % 7;
   return addDays(today, -sinceWednesday);
 }
+
+export function formatPeriodLabel(period: unknown): string | null {
+  if (!period) return null;
+  if (typeof period === "string") return period.trim() || null;
+  if (typeof period !== "object") return null;
+  const p = period as Record<string, unknown>;
+  if (typeof p.from === "string" && typeof p.to === "string") {
+    return p.from === p.to ? p.from : `${p.from} to ${p.to}`;
+  }
+  if (typeof p.as_of === "string") return `as of ${p.as_of}`;
+  if (typeof p.service_date === "string") return p.service_date;
+  if (typeof p.anchor === "string") return `week of ${p.anchor}`;
+  return null;
+}

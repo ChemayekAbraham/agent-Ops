@@ -24,6 +24,10 @@ export const MSG = {
   unauthorized: "Please sign in again.",
   feedbackSaved: "Thanks — your feedback has been saved.",
   historyCleared: "Your Zoe chat history has been cleared.",
+  recipientNotStaff:
+    "I can only draft report emails to active Welile staff members with a registered profile email. No active staff member matched that recipient.",
+  dataEmailForbidden:
+    "For security, Zoe never uses email addresses found inside report data. Please enter the Welile staff colleague's name or registered staff email directly.",
 } as const;
 
 /** Outcomes that should be recorded in `staff_assistant_unanswered` for coverage tracking. */

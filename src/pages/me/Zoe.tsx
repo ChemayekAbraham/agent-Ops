@@ -7,9 +7,13 @@ import { ZoeChatSurface } from '@/components/zoe/ZoeChatSurface';
 import { useZoeAccess, useZoeAssistant } from '@/components/zoe/useZoeAssistant';
 
 const ZoePage: React.FC = () => {
-  const { roles } = useAuth();
+  const { user, roles } = useAuth();
   const { data: hasAccess, isLoading: accessLoading } = useZoeAccess();
   const assistant = useZoeAssistant(hasAccess === true);
+  const generatedBy =
+    (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
+    user?.email ||
+    null;
 
   return (
     <PersonalLayout title="Ask Zoe">
@@ -45,6 +49,7 @@ const ZoePage: React.FC = () => {
         <ZoeChatSurface
           messages={assistant.messages}
           roles={roles}
+          generatedBy={generatedBy}
           isLoading={assistant.isLoading}
           isHistoryLoading={assistant.isHistoryLoading}
           errorMessage={assistant.errorMessage}

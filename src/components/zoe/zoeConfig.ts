@@ -11,7 +11,15 @@ export interface ZoeSuggestion {
   id: string;
   label: string;
   prompt: string;
-  category: 'my_space' | 'tenant_ops' | 'landlord_ops';
+  category:
+    | 'my_space'
+    | 'tenant_ops'
+    | 'landlord_ops'
+    | 'agent_ops'
+    | 'partner_ops'
+    | 'finance'
+    | 'executive'
+    | 'hr';
 }
 
 export interface ZoeScreenLink {
@@ -112,18 +120,78 @@ const LANDLORD_OPS_SUGGESTIONS: readonly ZoeSuggestion[] = [
   },
 ];
 
-const HR_CALLING_SUGGESTIONS: readonly ZoeSuggestion[] = [
+const AGENT_OPS_SUGGESTIONS: readonly ZoeSuggestion[] = [
   {
-    id: 'hr-lops-calling',
-    label: 'Landlord Calling Center summary',
-    prompt: 'Show the Landlord Calling Center daily and weekly summary.',
-    category: 'landlord_ops',
+    id: 'aops-totals',
+    label: 'Agent Ops metrics totals',
+    prompt: 'Show Agent Ops house listing and advance totals for the last 30 days.',
+    category: 'agent_ops',
   },
   {
-    id: 'hr-lops-coverage',
-    label: 'Landlord calling coverage',
-    prompt: 'Show Landlord Calling Center registry coverage by region and district.',
-    category: 'landlord_ops',
+    id: 'aops-silent',
+    label: 'Silent collectors today',
+    prompt: 'Which agents with expected collections today have been silent for 3 or more days?',
+    category: 'agent_ops',
+  },
+];
+
+const PARTNER_OPS_SUGGESTIONS: readonly ZoeSuggestion[] = [
+  {
+    id: 'pops-overview',
+    label: 'Supporter portfolio summary',
+    prompt: 'Show the Partner Ops Supporter portfolio and Returns summary.',
+    category: 'partner_ops',
+  },
+  {
+    id: 'pops-pending',
+    label: 'Pending Supporter portfolios',
+    prompt: 'How many pending Supporter portfolios are waiting in Partner Ops?',
+    category: 'partner_ops',
+  },
+];
+
+const FINANCE_SUGGESTIONS: readonly ZoeSuggestion[] = [
+  {
+    id: 'cfo-cash',
+    label: 'Treasury cash position',
+    prompt: 'What is the current Treasury cash position across A1, A5, and Landlord Float Pools?',
+    category: 'finance',
+  },
+  {
+    id: 'cfo-receivables-payables',
+    label: 'Receivables & payables forecast',
+    prompt: 'Show company Receivables, Payables, and the weekly Payables forecast.',
+    category: 'finance',
+  },
+];
+
+const EXECUTIVE_SUGGESTIONS: readonly ZoeSuggestion[] = [
+  {
+    id: 'coo-overview',
+    label: 'COO Command Center',
+    prompt: 'Show the COO Command Center summary and Rent Coverage Statement.',
+    category: 'executive',
+  },
+  {
+    id: 'ceo-growth',
+    label: 'CEO growth quality',
+    prompt: 'Show the CEO growth quality summary for the last 30 days.',
+    category: 'executive',
+  },
+];
+
+const HR_CALLING_SUGGESTIONS: readonly ZoeSuggestion[] = [
+  {
+    id: 'hr-calling-report',
+    label: 'Staff calling report',
+    prompt: 'Show the Staff Calling and Pipeline Feedback report for the last 7 days.',
+    category: 'hr',
+  },
+  {
+    id: 'hr-contracts',
+    label: 'Expiring contracts & birthdays',
+    prompt: 'Which staff contracts are expiring in the next 60 days and whose birthday is coming up?',
+    category: 'hr',
   },
 ];
 
@@ -147,28 +215,77 @@ const LANDLORD_OPS_ROLE_SET = new Set([
   'super_admin',
 ]);
 
+const AGENT_OPS_ROLE_SET = new Set([
+  'agent_ops',
+  'operations',
+  'coo',
+  'ceo',
+  'cfo',
+  'cto',
+  'manager',
+  'super_admin',
+]);
+
+const PARTNER_OPS_ROLE_SET = new Set([
+  'partner_ops',
+  'cfo',
+  'ceo',
+  'coo',
+  'manager',
+  'super_admin',
+]);
+
+const FINANCE_ROLE_SET = new Set([
+  'cfo',
+  'financial_ops',
+  'ceo',
+  'coo',
+  'manager',
+  'cto',
+  'super_admin',
+]);
+
+const EXECUTIVE_ROLE_SET = new Set(['coo', 'ceo', 'cfo', 'manager', 'super_admin']);
+
 /**
  * Returns up to 8 suggestion chips tailored to the signed-in staff member's enabled roles.
  */
 export function getSuggestionsForRoles(roles: readonly string[] = []): ZoeSuggestion[] {
   const normalized = new Set(roles.map((r) => r.toLowerCase().trim()));
-  const out: ZoeSuggestion[] = [...MY_SPACE_SUGGESTIONS.slice(0, 4)];
+  const out: ZoeSuggestion[] = [...MY_SPACE_SUGGESTIONS.slice(0, 3)];
 
+  const hasFinance = [...normalized].some((r) => FINANCE_ROLE_SET.has(r));
+  const hasExecutive = [...normalized].some((r) => EXECUTIVE_ROLE_SET.has(r));
   const hasTenantOps = [...normalized].some((r) => TENANT_OPS_ROLE_SET.has(r));
   const hasLandlordOps = [...normalized].some((r) => LANDLORD_OPS_ROLE_SET.has(r));
-  const hasHrOnly = normalized.has('hr') && !hasLandlordOps;
+  const hasAgentOps = [...normalized].some((r) => AGENT_OPS_ROLE_SET.has(r));
+  const hasPartnerOps = [...normalized].some((r) => PARTNER_OPS_ROLE_SET.has(r));
+  const hasHr = normalized.has('hr');
 
+  if (hasFinance) {
+    out.push(...FINANCE_SUGGESTIONS);
+  }
+  if (hasExecutive) {
+    out.push(...EXECUTIVE_SUGGESTIONS.slice(0, 1));
+  }
   if (hasTenantOps) {
     out.push(...TENANT_OPS_SUGGESTIONS.slice(0, 2));
   }
   if (hasLandlordOps) {
     out.push(...LANDLORD_OPS_SUGGESTIONS.slice(0, 2));
-  } else if (hasHrOnly) {
+  }
+  if (hasAgentOps) {
+    out.push(...AGENT_OPS_SUGGESTIONS.slice(0, 2));
+  }
+  if (hasPartnerOps) {
+    out.push(...PARTNER_OPS_SUGGESTIONS.slice(0, 2));
+  }
+  if (hasHr) {
     out.push(...HR_CALLING_SUGGESTIONS);
   }
 
   if (out.length < 6) {
-    for (const item of MY_SPACE_SUGGESTIONS.slice(4)) {
+    for (const item of MY_SPACE_SUGGESTIONS.slice(3)) {
       if (out.length >= 6) break;
       out.push(item);
     }
@@ -210,6 +327,56 @@ export function resolveSourceScreenLink(source?: string | null): ZoeScreenLink {
   }
   if (s.includes('profiles') || s.includes('hr_assignments')) {
     return { to: '/your-profile', label: 'Open My profile' };
+  }
+  if (s.includes('get_treasury_cash_position')) {
+    return { to: '/cfo/cash-position', label: 'Open Cash Position' };
+  }
+  if (s.includes('get_receivables_total')) {
+    return { to: '/cfo/receivables-analysis', label: 'Open Receivables Analysis' };
+  }
+  if (s.includes('get_payables_total') || s.includes('get_payables_predictive_forecast')) {
+    return { to: '/cfo/payables-forecast', label: 'Open Payables Forecast' };
+  }
+  if (
+    s.includes('get_cfo_money_received') ||
+    s.includes('get_cfo_money_paid_out') ||
+    s.includes('get_cfo_seven_day_expenses') ||
+    s.includes('budget_revised_position')
+  ) {
+    return { to: '/cfo-dashboard', label: 'Open CFO Dashboard' };
+  }
+  if (s.includes('finops_payout_verification_counts') || s.includes('cfo_approved_requisitions')) {
+    return { to: '/financial-ops', label: 'Open Financial Ops' };
+  }
+  if (
+    s.includes('get_coo_command_center') ||
+    s.includes('get_coo_overview_snapshot') ||
+    s.includes('get_coo_rent_coverage_statement')
+  ) {
+    return { to: '/coo-dashboard', label: 'Open COO Dashboard' };
+  }
+  if (s.includes('get_ceo_growth_quality') || s.includes('staff_requisition_pending_prompt')) {
+    return { to: '/ceo-dashboard', label: 'Open CEO Dashboard' };
+  }
+  if (
+    s.includes('get_agent_ops_network_overview') ||
+    s.includes('agent_ops_metrics_') ||
+    s.includes('agent_ops_silent_collectors')
+  ) {
+    return { to: '/executive-hub?tab=agent-ops', label: 'Open Agent Ops' };
+  }
+  if (s.includes('partner_ops_') || s.includes('pso_')) {
+    return { to: '/executive-hub?tab=partner-ops', label: 'Open Partner Ops' };
+  }
+  if (s.includes('staff_calling_detailed_report') || s.includes('cc_weekly_all_calls_report')) {
+    return { to: '/me/staff-reports', label: 'Open Calling Reports' };
+  }
+  if (
+    s.includes('hr_contracts_expiring') ||
+    s.includes('hr_list_staff_birthdays') ||
+    s.includes('hr_pay_cost_by_department')
+  ) {
+    return { to: '/hr-dashboard', label: 'Open HR Dashboard' };
   }
   if (
     s.includes('tops_') ||

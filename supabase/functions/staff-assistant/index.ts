@@ -1,6 +1,12 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
-import { kampalaToday } from "./dates.ts";
+import { formatPeriodLabel, kampalaToday } from "./dates.ts";
+import {
+  buildReportEmailDraft,
+  extractRecipientQuery,
+  isEmailFromToolData,
+  normalizeStaffRecipients,
+} from "./emailDraft.ts";
 import { checkAnswer } from "./guards.ts";
 import { MSG } from "./messages.ts";
 import { chatCompletion, ChatMessage, classifyText } from "./openai.ts";
@@ -12,6 +18,7 @@ import {
   getAdminClientForMfa,
   getOrCreateConversation,
   loadConversationHistory,
+  loadLatestReportPayload,
   loadRecentTurns,
   recordTurn,
   recordUnanswered,
@@ -24,6 +31,7 @@ import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
+  DraftReportEmailArgsSchema,
   findTool,
   openAiToolsForRoles,
 } from "./tools.ts";
@@ -49,18 +57,6 @@ function json(status: number, body: Record<string, unknown>): Response {
 function parseCategory(raw: string): "in_scope" | "out_of_scope" {
   const m = raw.match(/"category"\s*:\s*"(in_scope|out_of_scope)"/);
   return (m?.[1] as "in_scope" | "out_of_scope" | undefined) ?? "in_scope";
-}
-
-export function formatPeriodLabel(period: unknown): string | null {
-  if (!period || typeof period !== "object") return null;
-  const p = period as Record<string, unknown>;
-  if (typeof p.from === "string" && typeof p.to === "string") {
-    return p.from === p.to ? p.from : `${p.from} to ${p.to}`;
-  }
-  if (typeof p.as_of === "string") return `as of ${p.as_of}`;
-  if (typeof p.service_date === "string") return p.service_date;
-  if (typeof p.anchor === "string") return `week of ${p.anchor}`;
-  return null;
 }
 
 /**
@@ -350,6 +346,192 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Action tool: draft_report_email (NEVER sends; looks up recipient ONLY via staff_assistant_email_recipients)
+        if (call.function.name === "draft_report_email") {
+          const d = DraftReportEmailArgsSchema.safeParse(rawArgs);
+          if (!d.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          // Rule: Never use an email address found in data
+          if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
+            return await finish(MSG.dataEmailForbidden, "blocked", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          // Ensure we have a report payload (either from this turn, from report_tool, or from conversation history)
+          if (!lastReportPayload && d.data.report_tool) {
+            const repTool = findTool(d.data.report_tool);
+            if (!repTool) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "missing_tool",
+              });
+            }
+            if (!canUseTool(repTool, callerRoles)) {
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+            if (repTool.sensitive) {
+              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              if (!mfaGate.ok) {
+                return await finish(MSG.mfaRequired, "blocked", {
+                  tools: toolsCalled,
+                  model: lastModel,
+                  mfaRequired: true,
+                });
+              }
+            }
+            const repArgs = repTool.schema.safeParse({});
+            const repRpcArgs = repTool.toRpcArgs(repArgs.success ? repArgs.data : {});
+            const { data: repData, error: repError } = await userClient.rpc(
+              repTool.rpc,
+              repRpcArgs,
+            );
+            if (repError) {
+              if (repError.code === "42501") {
+                return await finish(MSG.roleRestricted, "not_staff", {
+                  tools: toolsCalled,
+                  model: lastModel,
+                  unansweredReason: "role_restricted",
+                });
+              }
+              return await finish(MSG.error, "error", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "error",
+              });
+            }
+            toolsCalled.push(repTool.name);
+            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            if (repData && typeof repData === "object" && !Array.isArray(repData)) {
+              const payload = repData as Record<string, unknown>;
+              if (typeof payload.source === "string" && payload.source.trim()) {
+                if (!sourcesUsed.includes(payload.source)) sourcesUsed.push(payload.source);
+              }
+              const pLabel = formatPeriodLabel(payload.period);
+              if (pLabel && !periodsUsed.includes(pLabel)) periodsUsed.push(pLabel);
+              lastReportPayload = {
+                ...payload,
+                tool: repTool.name,
+                rpc: repTool.rpc,
+                args: repArgs.success ? repArgs.data : {},
+                source: payload.source ?? repTool.rpc,
+                period: payload.period ?? null,
+                row_count: payload.row_count ?? null,
+                rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
+                data: payload.data ?? null,
+              };
+            }
+          }
+
+          if (!lastReportPayload) {
+            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+          }
+
+          if (!lastReportPayload) {
+            return await finish(
+              "Which report would you like me to draft an email for? Ask for the report first or specify the report and staff colleague.",
+              "clarify",
+              {
+                tools: [...toolsCalled, "draft_report_email"],
+                model: lastModel,
+                clarification: {
+                  question: "Which report would you like to email?",
+                  options: [
+                    "My tasks and tickets",
+                    "My payslips",
+                  ],
+                },
+              },
+            );
+          }
+
+          const combinedRawOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
+          if (isEmailFromToolData(d.data.recipient_search, combinedRawOutputs, userText)) {
+            return await finish(MSG.dataEmailForbidden, "blocked", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          // Look up recipient ONLY through staff_assistant_email_recipients with caller's JWT
+          const recipientQuery = extractRecipientQuery(d.data.recipient_search);
+          const { data: recipientRows, error: recipientErr } = await userClient.rpc(
+            "staff_assistant_email_recipients",
+            { p_search: recipientQuery },
+          );
+          if (recipientErr) {
+            return await finish(MSG.error, "error", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const resolvedPeriodLabel =
+            periodsUsed[0] ?? formatPeriodLabel(lastReportPayload.period) ?? today;
+          const draftOutcome = buildReportEmailDraft({
+            recipientSearch: d.data.recipient_search,
+            recipients: normalizeStaffRecipients(recipientRows),
+            rawToolOutputs: combinedRawOutputs,
+            userText,
+            subject: d.data.subject,
+            message: d.data.message,
+            reportPayload: lastReportPayload,
+            periodLabel: resolvedPeriodLabel,
+            todayKampala: today,
+          });
+
+          if (draftOutcome.kind === "refused") {
+            return await finish(draftOutcome.message, "blocked", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          if (draftOutcome.kind === "pick_recipient") {
+            return await finish(draftOutcome.question, "clarify", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              clarification: {
+                question: draftOutcome.question,
+                options: draftOutcome.options,
+              },
+              sourceLabel: draftOutcome.draft.report_reference.source,
+              periodLabel: draftOutcome.draft.report_reference.period,
+              reportPayload: {
+                ...lastReportPayload,
+                email_draft: draftOutcome.draft,
+              },
+            });
+          }
+
+          return await finish(draftOutcome.replyText, "answered", {
+            tools: [...toolsCalled, "draft_report_email"],
+            model: lastModel,
+            sourceLabel: draftOutcome.draft.report_reference.source,
+            periodLabel: draftOutcome.draft.report_reference.period,
+            reportPayload: {
+              ...lastReportPayload,
+              email_draft: draftOutcome.draft,
+            },
+          });
+        }
+
         // Look up tool & enforce role check (Requirement b)
         const tool = findTool(call.function.name);
         if (!tool) {
@@ -423,12 +605,14 @@ Deno.serve(async (req) => {
             periodsUsed.push(pLabel);
           }
           lastReportPayload = {
+            ...payload,
             tool: tool.name,
             rpc: tool.rpc,
+            args: args.data,
             source: payload.source ?? tool.rpc,
             period: payload.period ?? null,
             row_count: payload.row_count ?? null,
-            rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 50) : [],
+            rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
           };
         }
