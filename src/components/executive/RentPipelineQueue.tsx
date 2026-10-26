@@ -57,6 +57,9 @@ import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
 import { useRentRequestAgentChain } from '@/hooks/useRentRequestAgentChain';
 import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
 import { RentAgentChain } from '@/components/rent-desk/RentAgentChain';
+import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
+import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
+import { orderByAgentWeek } from '@/lib/agentWeekPct';
 import { agentChainLines } from '@/lib/rentAgentChain';
 import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
@@ -965,7 +968,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const requestIds = useMemo(() => (requests ?? []).map((r: any) => r.id as string), [requests]);
   const deskOrder = useRentDeskOrder(requestIds, sortMode, deskFilters);
   const rows = useMemo(() => withRentDeskScores(requests ?? [], deskOrder.data), [requests, deskOrder.data]);
-  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading);
+  // The registering agent's collection % for this Thursday-Wednesday week (one read-only call for the whole desk). It is shown next to the agent's
+  // name and, in the default sort, puts the highest percentage on top. If it fails the cards show no percentage and keep the server order.
+  const agentWeek = useAgentWeekPct(requestIds);
+  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading) || (sortMode === 'agent_week' && requestIds.length > 0 && agentWeek.isLoading);
 
   // Read-only: one batched read tells every card whether it has an awareness call at its stage. It never blocks or confirms anything;
   // if it fails the badges are simply not shown.
@@ -1116,11 +1122,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   // Server order for the chosen sort. Until it arrives, or if it fails, fall back to the queue's own created_at order
   // (the query returns newest first).
-  const filtered = deskOrder.data
+  const serverOrdered = deskOrder.data
     ? orderByRentDesk(matching, deskOrder.data)
     : sortMode === 'oldest'
       ? [...matching].reverse()
       : matching;
+  // Default sort: highest agent collection % first; agents on the same % keep the server (best payers) order.
+  const filtered = sortMode === 'agent_week' ? orderByAgentWeek(serverOrdered, agentWeek.byAgent, (r) => (r as { agent_id?: string | null }).agent_id) : serverOrdered;
 
   // Desk time and the agent chain for the cards on screen: one call each for the whole desk (never one per card). A desk with more than 200 cards
   // asks for the first 200 in the order shown; the rest read "Not available" and a note says so.
@@ -2126,7 +2134,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
                       )}
                       <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
-                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} className="basis-full space-y-0.5" />
+                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} className="basis-full space-y-0.5" />
                         {req.landlord_id && (
                           <span
                             role="button"
@@ -2465,7 +2473,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <RentTimingRow requestId={selectedRequest.id} timing={deskTiming.byId.get(selectedRequest.id)} loading={deskTiming.isLoading} error={deskTiming.error} onRetry={deskTiming.refetch} ownDesk />
                 </div>
                 <div className="space-y-1 col-span-2">
-                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} />
+                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       type="button"

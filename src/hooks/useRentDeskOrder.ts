@@ -7,6 +7,7 @@ import {
   RENT_DESK_SORT_LABELS,
   isRentDeskFiltered,
   rentDeskFilterArgs,
+  serverRentDeskSort,
   type RentDeskFilters,
   type RentDeskLabel,
   type RentDeskSort,
@@ -23,7 +24,8 @@ export type { RentDeskSort };
  * it never computes a score, evaluates a label or a date, or counts the matches itself. It never changes which requests a
  * desk loads, so each desk's limit and pagination are exactly as before.
  *
- *   best_payers (default): score high to low, then created_at oldest first
+ *   agent_week (default):  the registering agent's collection % this week, high to low (arranged on the desk); the server order under it is best_payers
+ *   best_payers:           score high to low, then created_at oldest first
  *   newest / oldest:       created_at
  *   arrival:               the day the request was created, Kampala time (today, last 7 days, custom range)
  *
@@ -32,7 +34,7 @@ export type { RentDeskSort };
 
 /** Next sort when a single toggle cycles through the modes. */
 export const nextRentDeskSort = (s: RentDeskSort): RentDeskSort =>
-  s === 'best_payers' ? 'newest' : s === 'newest' ? 'oldest' : 'best_payers';
+  s === 'agent_week' ? 'best_payers' : s === 'best_payers' ? 'newest' : s === 'newest' ? 'oldest' : 'agent_week';
 
 export interface RentDeskOrderRow {
   request_id: string;
@@ -75,7 +77,7 @@ export async function fetchRentDeskOrder(
 ): Promise<RentDeskOrder> {
   const { data, error } = await (supabase.rpc as any)('rent_request_desk_order', {
     p_request_ids: ids,
-    p_sort: sort,
+    p_sort: serverRentDeskSort(sort),
     ...rentDeskFilterArgs(filters),
   });
   if (error) throw error;

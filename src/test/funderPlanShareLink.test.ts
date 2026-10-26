@@ -4,8 +4,8 @@ import { buildPlanShareLink, buildPlanShareMessage, buildWhatsAppShareUrl } from
 const item = { id: 'abc-123', category: 'ready' as const, tenantName: 'Test Tenant', tenantPhone: '+256700000000', landlordPhone: '0700000001' };
 
 describe('support plan share link', () => {
-  it('points to this home on the Partners dashboard route', () => {
-    expect(buildPlanShareLink(item, 'https://welileapp.com/')).toBe('https://welileapp.com/dashboard/funder-new?plan=ready%3Aabc-123');
+  it('points to the public support page for this home', () => {
+    expect(buildPlanShareLink(item, 'https://welileapp.com/')).toBe('https://welileapp.com/support/abc-123');
   });
   it('uses the tenant first name and the link', () => {
     const link = buildPlanShareLink(item, 'https://welileapp.com');

@@ -34,6 +34,7 @@ import type {
 } from '@/components/funder-new/types';
 import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
+import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
 /** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
@@ -168,10 +169,10 @@ export function FunderHouseListingsSection() {
 
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(
-    () => [
+    () => sortFunderFeedEntries([
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
-    ],
+    ]),
     [readyItems, emptyItems],
   );
 

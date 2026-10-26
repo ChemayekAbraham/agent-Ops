@@ -38,6 +38,7 @@ import {
   Network,
   PiggyBank,
   Target,
+  GraduationCap, Stethoscope,
 } from 'lucide-react';
 
 export type ActiveView =
@@ -50,6 +51,8 @@ export type ActiveView =
   | 'business-advance'
   | 'agent-marketplace'
   | 'welile-homes'
+  | 'welile-schools'
+  | 'welile-medicine'
   | 'agents-hope'
   | 'agents-space'
   | 'agent-ops-report'
@@ -245,6 +248,24 @@ export const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'reports',
     desc: 'Performance leaderboard & agent tier rankings',
     keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings', 'top performers'],
+  },
+  {
+    num: '15',
+    title: 'Welile Schools',
+    icon: GraduationCap,
+    section: 'welile-schools',
+    category: 'field',
+    desc: 'School gate registrations, GPS, Country → Village → School → Teacher/Staff/Pupil profiles & free smartphones',
+    keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
+  },  {
+    num: '16',
+    title: 'Welile Medicine',
+    icon: Stethoscope,
+    section: 'welile-medicine',
+    highlight: true,
+    category: 'field',
+    desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
+    keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
   },
 ];
 
@@ -446,6 +467,30 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings', 'top performers', 'champions'],
     isCoreBusinessArea: true,
     businessAreaNum: '14',
+  },
+  {
+    id: 'core-15-welile-schools',
+    title: 'Welile Schools',
+    section: 'welile-schools',
+    categoryGroup: 'Core Business Areas',
+    icon: GraduationCap,
+    color: 'bg-primary',
+    desc: 'School gate registrations, GPS, Country → Village → School → Teacher/Staff/Pupil profiles & free smartphones',
+    keywords: ['schools', 'education', 'teachers', 'students', 'pupils', 'gate', 'registration', 'smartphones', 'welile schools'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '15',
+  },
+  {
+    id: 'core-16-welile-medicine',
+    title: 'Welile Medicine',
+    section: 'welile-medicine',
+    categoryGroup: 'Core Business Areas',
+    icon: Stethoscope,
+    color: 'bg-primary',
+    desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
+    keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '16',
   },
 
   // Agents' Space

@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
+import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
 
 const MONTHLY_RATE = 0.15;
 
@@ -492,10 +493,9 @@ function HomeContacts({ item, showTitle }: { item: FunderNewSelectionItem; showT
 }
 
 
-/** In-app link to this home's support plan (opens the Partners dashboard; sign-in if needed). */
+/** Public link to this home's support plan — works for anyone, no sign-in needed to view. */
 export function buildPlanShareLink(item: Pick<FunderNewSelectionItem, 'id' | 'category'>, origin: string): string {
-  const params = new URLSearchParams({ plan: `${item.category}:${item.id}` });
-  return `${origin.replace(/\/$/, '')}/dashboard/funder-new?${params.toString()}`;
+  return `${origin.replace(/\/$/, '')}/support/${item.id}`;
 }
 
 /** Prefilled share text. Never carries phone numbers. */
@@ -584,6 +584,8 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
           ))}
         </ol>
       </div>
+
+      <SupportPlanExample fundingAmount={item.amount} />
 
       <div className="space-y-2">
         <a

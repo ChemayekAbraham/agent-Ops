@@ -60,6 +60,7 @@ import PartnerPaymentDetailsDialog from './PartnerPaymentDetailsDialog';
 import { PortfolioTopUpsCard } from './PortfolioTopUpsCard';
 import { PendingPortfoliosCard } from '@/components/executive/PendingPortfoliosCard';
 import { PendingPortfoliosQueue } from '@/components/executive/PendingPortfoliosQueue';
+import { returnCycleAnchor, returnCycleMonth } from '@/lib/returnCycle';
 
 
 /** Roll a stale next_roi_date forward month-by-month until it's >= today */
@@ -623,12 +624,6 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       newDate.setMonth(newDate.getMonth() + 1);
       const newRoiDate = newDate.toISOString().split('T')[0];
 
-      const { error: upErr } = await supabase
-        .from('investor_portfolios')
-        .update({ investment_amount: newAmount, next_roi_date: newRoiDate })
-        .eq('id', portfolio.id);
-      if (upErr) throw upErr;
-
       // Double-entry ledger: roi_expense + roi_reinvestment
       const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
         // Server-side boundary: the caller names the operation; the server checks
@@ -638,16 +633,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         p_amount: roiAmount,
         p_reference: refId,
         p_description_out: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
+        // Reserves this portfolio's cycle (calendar month of the due date being compounded); a second
+        // compound or payout for the same month is refused here, before the principal moves.
+        p_cycle_date: returnCycleAnchor({ nextRoiDate: portfolio.next_roi_date }),
         p_description_in: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
       } as never);
-      if (ledgerErr) {
-        // Undo the principal/date change so a failed ledger post never leaves the portfolio inflated.
-        await supabase
-          .from('investor_portfolios')
-          .update({ investment_amount: portfolio.investment_amount, next_roi_date: portfolio.next_roi_date })
-          .eq('id', portfolio.id);
-        throw ledgerErr;
-      }
+      if (ledgerErr) throw ledgerErr;
+
+      // post_portfolio_roi_ledger made the portfolio change (principal and next date) in the same transaction as
+      // the ledger posting, so a failure leaves neither and a retry changes nothing (migration 20261024140000).
 
       await supabase.from('audit_logs').insert({
         user_id: user.id,
@@ -1710,6 +1704,9 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       });
 
       const updatePayload: Record<string, any> = {
+        // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
+        // (migration 20261024140000; Return postings change these fields server-side).
+        return_fields_edit_token: crypto.randomUUID(),
         investment_amount: amount,
         roi_percentage: roi,
         roi_mode: editPortfolioRoiMode,
@@ -5191,12 +5188,6 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       newDate.setMonth(newDate.getMonth() + 1);
       const newRoiDate = newDate.toISOString().split('T')[0];
 
-      const { error: upErr } = await supabase
-        .from('investor_portfolios')
-        .update({ investment_amount: newAmount, next_roi_date: newRoiDate })
-        .eq('id', p.portfolioId);
-      if (upErr) throw upErr;
-
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
       const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
         // Server-side boundary: the caller names the operation; the server checks
@@ -5206,9 +5197,15 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         p_amount: roiAmount,
         p_reference: refId,
         p_description_out: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Reason: ${reason}`,
+        // Reserves this portfolio's cycle (calendar month of the due date); a second compound or payout
+        // for the same month is refused here, before the principal moves.
+        p_cycle_date: returnCycleAnchor({ nextRoiDate: p.nextRoiDate, nextPayoutDate: p.nextPayoutDate }),
         p_description_in: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
       } as never);
       if (ledgerErr) throw ledgerErr;
+
+      // post_portfolio_roi_ledger made the portfolio change (principal and next date) in the same transaction as
+      // the ledger posting, so a failure leaves neither and a retry changes nothing (migration 20261024140000).
 
       await supabase.from('audit_logs').insert({
         user_id: user.id,
@@ -5365,15 +5362,13 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // ── ROI CYCLE GUARD (once per payout cycle) ──────────────────────────
-      // Block a second payout for the same portfolio + cycle. The cycle is keyed
-      // by the portfolio's current next_roi_date (advances only on approval), so
-      // an accidental double-submit is refused before a duplicate credit / a
-      // duplicate pending approval can be created. The backend enforces the same
-      // rule idempotently as the final safety net.
-      const cycleAnchor = p.nextRoiDate || new Date().toISOString().slice(0, 10);
+      // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────
+      // Friendly early check only. The database reserves the cycle when the
+      // request is inserted and refuses a second Return for the same portfolio
+      // and month (migration 20261024140000_return_cycle_guard).
+      const cycleAnchor = returnCycleAnchor(p);
       const roiCycleKey = `roi-cycle-${p.portfolioId}-${cycleAnchor}`;
-      const [{ data: creditedRows }, { data: openOps }] = await Promise.all([
+      const [{ data: creditedRows }, { data: openOps }, { data: claimedRows }] = await Promise.all([
         supabase
           .from('general_ledger')
           .select('id')
@@ -5387,8 +5382,15 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           .eq('category', 'roi_payout')
           .in('status', ['pending', 'pending_coo_approval', 'coo_approved', 'awaiting_verification'])
           .limit(1),
+        supabase
+          .from('portfolio_return_cycle_claims' as never)
+          .select('id')
+          .eq('portfolio_id', p.portfolioId)
+          .eq('cycle_month', returnCycleMonth(cycleAnchor))
+          .eq('status', 'active')
+          .limit(1),
       ]);
-      if (creditedRows && creditedRows.length > 0) {
+      if ((creditedRows && creditedRows.length > 0) || ((claimedRows as unknown[] | null)?.length ?? 0) > 0) {
         toast.error('Already paid this cycle', {
           description: `${p.name} already received their ROI for the ${cycleAnchor} cycle. It advances after the next due date.`,
         });
@@ -5438,6 +5440,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           initiated_by: user.id,
           reason,
           pay_mode: mode,
+          // Pins the cycle this request pays, so a later edit of next_roi_date cannot re-label it.
+          cycle_anchor: cycleAnchor,
           ...(hasProxy ? { proxy_agent_name: managed.agentName, proxy_agent_id: managed.agentId, custody_route: isManagedProxy ? 'managed_proxy_agent_wallet_v3' : 'partner_wallet_v2' } : {}),
         },
       });
@@ -5586,8 +5590,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // ── ROI CYCLE GUARD (once per payout cycle) ──────────────────────────
-      const cycleAnchor = p.nextRoiDate || new Date().toISOString().slice(0, 10);
+      // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────
+      const cycleAnchor = returnCycleAnchor(p);
       const roiCycleKey = `roi-cycle-${p.portfolioId}-${cycleAnchor}`;
       const [{ data: creditedRows }, { data: openOps }] = await Promise.all([
         supabase.from('general_ledger').select('id').eq('idempotency_key', roiCycleKey).limit(1),
@@ -5634,26 +5638,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const reinvestLabel = isKeepReturns ? 'kept as returns' : 'reinvested into principal';
 
       // ── Reinvest portion: add to principal OR keep as earned returns ──
-      let newPrincipal = p.investmentAmount;
-      if (isKeepReturns) {
-        // Keep as returns — increment total_roi_earned, principal stays flat
-        const { data: currentP } = await supabase.from('investor_portfolios').select('total_roi_earned').eq('id', p.portfolioId).single();
-        const currentRoiEarned = Number(currentP?.total_roi_earned || 0);
-        const { error: upErr } = await supabase
-          .from('investor_portfolios')
-          .update({ total_roi_earned: currentRoiEarned + reinvestAmount })
-          .eq('id', p.portfolioId);
-        if (upErr) throw upErr;
-        newPrincipal = p.investmentAmount; // stays the same
-      } else {
-        // Reinvest — add to principal (current behavior)
-        newPrincipal = p.investmentAmount + reinvestAmount;
-        const { error: upErr } = await supabase
-          .from('investor_portfolios')
-          .update({ investment_amount: newPrincipal })
-          .eq('id', p.portfolioId);
-        if (upErr) throw upErr;
-      }
+      const newPrincipal = isKeepReturns ? p.investmentAmount : p.investmentAmount + reinvestAmount;
 
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
       const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
@@ -5664,11 +5649,17 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         p_amount: reinvestAmount,
         p_reference: refId,
         p_description_out: `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. ${isKeepReturns ? `Principal unchanged: ${formatUGX(p.investmentAmount)}` : `New principal: ${formatUGX(newPrincipal)}`}. Cash portion: ${formatUGX(cashAmount)} via ${modeLabel}. Reason: ${reason}`,
+        // Reserves this portfolio's cycle; a second Return for the same month is refused here, before
+        // the portfolio is touched (migration 20261024140000_return_cycle_guard).
+        p_cycle_date: cycleAnchor,
         p_description_in: (isKeepReturns && isManagedProxy)
               ? `[Split ROI → Proxy Agent ${managed!.agentName}'s Wallet] ${formatUGX(reinvestAmount)} ${reinvestLabel} for managed partner ${p.name}. Ref: ${refId}`
               : `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. Ref: ${refId}`,
       } as never);
       if (ledgerErr) throw ledgerErr;
+
+      // post_portfolio_roi_ledger made the portfolio change (principal, or total Returns earned) in the same
+      // transaction as the ledger posting (migration 20261024140000).
 
       // ── Cash portion: submit to pending_wallet_operations for CFO approval ──
       const operationType = payMode === 'agent_wallet' || payMode === 'wallet' ? 'roi_split_cash'

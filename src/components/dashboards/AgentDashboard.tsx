@@ -9,6 +9,7 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
+import { AgentAccessLimitCampaignCard } from '@/components/agent/AgentAccessLimitCampaignCard';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
 import TenantLocationCorrectionPopup from '@/components/agent/TenantLocationCorrectionPopup';
 import { AgentCompanyDebtCard } from '@/components/agent/AgentCompanyDebtCard';
@@ -127,7 +128,6 @@ import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
-import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -1149,6 +1149,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
         <AgentAgreementBanner />
         <MissionBanner dashboardRole="agent" />
+        {activeTab === 'home' && <AgentAccessLimitCampaignCard />}
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}
 
@@ -1846,7 +1847,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
-      <AgentAssistant />
 
       <LazyModal when={nationalIdGroupOpen}>
       <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />

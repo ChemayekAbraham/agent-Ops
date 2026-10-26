@@ -10,6 +10,26 @@ import type {
 import { formatHouseCategory, prettyName } from '@/lib/formatting';
 import { formatDynamicCompact, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import { readCoordinate } from './distance';
+import { compareFunderHousesByCompleteness, sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+export * from '@/lib/funderHouseSort';
+
+type OpportunitySort = 'urgent' | 'rent-asc' | 'rent-desc' | 'return-desc' | 'newest';
+export function sortOpportunities<T extends object>(items: readonly T[], sort?: OpportunitySort | ((a: T, b: T) => number)): T[] {
+  if (typeof sort === 'function') return sortFunderHousesByCompleteness(items, sort);
+  if (!sort) return sortFunderHousesByCompleteness(items);
+  const value = (item:T, key:string) => Number((item as Record<string,unknown>)[key] ?? 0) || 0;
+  const amount = (item:T) => value(item,'funding_amount') || value(item,'rent_amount') || value(item,'monthly_rent');
+  const created = (item:T) => Date.parse(String((item as Record<string,unknown>).created_at ?? '')) || 0;
+  return [...items].sort((a,b) => {
+    const completeness = compareFunderHousesByCompleteness(a,b);
+    if (completeness) return completeness;
+    if (sort === 'rent-asc') return amount(a)-amount(b);
+    if (sort === 'rent-desc') return amount(b)-amount(a);
+    if (sort === 'return-desc') return (value(b,'monthly_return') || amount(b)*MONTHLY_RETURN_RATE) - (value(a,'monthly_return') || amount(a)*MONTHLY_RETURN_RATE);
+    if (sort === 'urgent') return value(b,'urgency_score')-value(a,'urgency_score') || created(a)-created(b);
+    return created(b)-created(a);
+  });
+}
 
 const MONTHLY_RETURN_RATE = 0.15;
 

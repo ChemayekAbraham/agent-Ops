@@ -27,6 +27,7 @@ const GUARDS = [
   ['guard-privileged-function-grants.mjs', 'privileged function EXECUTE grants'],
   ['guard-tops-client-math.mjs', 'tenant ops workspace client-side money math'],
   ['guard-assistant-readonly.mjs', 'agent assistant is read-only and user-scoped'],
+  ['guard-staff-assistant.mjs', 'staff assistant (Zoe) is read-only, role-gated, and staff-email-scoped'],
 ];
 
 const bar = '='.repeat(78);
