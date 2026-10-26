@@ -37346,6 +37346,75 @@ export type Database = {
           },
         ]
       }
+      partner_float_landlord_notices: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          amount: number
+          attempts: number
+          commitment_id: string
+          created_at: string
+          id: string
+          landlord_id: string | null
+          landlord_name: string
+          landlord_phone: string | null
+          last_error: string | null
+          partner_id: string
+          provider: string | null
+          rent_request_ids: string[]
+          sent_at: string | null
+          status: string
+          tenant_count: number
+          tenant_first_names: string[]
+          topup_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_name?: string | null
+          amount: number
+          attempts?: number
+          commitment_id: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          amount?: number
+          attempts?: number
+          commitment_id?: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id?: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       partner_funding_backfill_log: {
         Row: {
           amount: number | null
@@ -37792,10 +37861,12 @@ export type Database = {
           committed_at: string
           completed_at: string | null
           created_at: string
+          end_reason: string | null
           id: string
           live_at: string | null
           monthly_rate: number
           partner_id: string
+          plan_closed_at: string | null
           principal: number
           rent_request_id: string
           status: string
@@ -37809,10 +37880,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id: string
+          plan_closed_at?: string | null
           principal: number
           rent_request_id: string
           status?: string
@@ -37826,10 +37899,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id?: string
+          plan_closed_at?: string | null
           principal?: number
           rent_request_id?: string
           status?: string
@@ -83672,6 +83747,7 @@ export type Database = {
         }
         Returns: Json
       }
+      psm_contract_term_months: { Args: never; Returns: number }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
@@ -83682,6 +83758,7 @@ export type Database = {
       }
       psm_is_partner: { Args: { p_user: string }; Returns: boolean }
       psm_is_topup_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      psm_mature_self_support_portfolios: { Args: never; Returns: Json }
       psm_plan_booked_for_other: {
         Args: { p_partner: string; p_rent_request_id: string }
         Returns: boolean
