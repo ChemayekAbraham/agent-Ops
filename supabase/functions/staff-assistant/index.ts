@@ -423,12 +423,13 @@ Deno.serve(async (req) => {
             periodsUsed.push(pLabel);
           }
           lastReportPayload = {
+            ...payload,
             tool: tool.name,
             rpc: tool.rpc,
             source: payload.source ?? tool.rpc,
             period: payload.period ?? null,
             row_count: payload.row_count ?? null,
-            rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 50) : [],
+            rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
           };
         }
