@@ -7,7 +7,6 @@ import {
   Building2,
   Home,
   DoorOpen,
-  Banknote,
   BadgeCheck,
   ArrowRight,
   Receipt,
@@ -105,7 +104,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-tenants') },
     // Finances
     { icon: Receipt, label: 'My Receipts', separator: true, onClick: goTo('/my-receipts') },
-    { icon: Banknote, label: 'My Loans', onClick: goTo('/my-loans') },
     { icon: History, label: 'Payment History', onClick: goTo('/transactions') },
     { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
     // Growth
