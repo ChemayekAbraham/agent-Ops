@@ -2306,6 +2306,58 @@ async function _tryAutoCreditOperationalFloat(
           });
         }
       } else {
+        // ── Reversed word-order tier ──────────────────────────────────
+        // MTN prints the SIM name as "FIRST LAST" but the profile may be
+        // stored "LAST FIRST" (e.g. "JUDITH KYOMUGISHA" vs "kyomugisha
+        // judith"). An exact ilike finds nothing, so the receipt used to
+        // strand in name_fuzzy_match_needs_confirmation. When every token
+        // (≥ 3 chars) of the payer name matches the exact token SET of
+        // exactly ONE non-deleted profile — same words, any order — that
+        // is a deterministic match, not a fuzzy guess.
+        const permTokens = rawName.toLowerCase().replace(/[^a-z ]/g, ' ').split(' ')
+          .filter((t) => t.length >= 3);
+        if (permTokens.length >= 2) {
+          let permQuery = supabase
+            .from('profiles')
+            .select('id, phone, full_name, email')
+            .not('full_name', 'ilike', '[DELETED]%');
+          for (const t of permTokens) permQuery = permQuery.ilike('full_name', `%${t}%`);
+          const { data: permCandidates } = await permQuery.limit(50);
+          const wantKey = [...permTokens].sort().join(' ');
+          const exactPerms = (permCandidates ?? []).filter((p: any) => {
+            const pKey = String(p.full_name ?? '').toLowerCase().replace(/[^a-z ]/g, ' ')
+              .split(' ').filter((t) => t.length >= 3).sort().join(' ');
+            return pKey === wantKey;
+          });
+          if (exactPerms.length === 1 && exactPerms[0]?.id) {
+            const only = exactPerms[0] as any;
+            profile = only;
+            matchMethod = 'name';
+            const onlyDigits = (only.phone ?? '').replace(/\D/g, '');
+            nameMatchAudit = {
+              raw_name: rawName,
+              total_candidates: 1,
+              candidates: [{
+                id: only.id,
+                full_name: only.full_name ?? null,
+                phone_last4: onlyDigits.length >= 4 ? onlyDigits.slice(-4) : null,
+                has_phone: onlyDigits.length >= 9,
+                last_sign_in_at: null,
+                last_sign_in_ms: 0,
+                selected: true,
+              }],
+              tiebreaker: 'gmail_name_token_permutation+tid+amount',
+              tiebreaker_pool: 'single',
+              confidence: 'high',
+              confidence_score: 0.9,
+              confidence_reasons: ['profile name is the exact same set of words as the payer name, in a different order'],
+            };
+            console.log(`[gmail-poll] MTN name token-permutation matched "${rawName}" → user=${only.id}`);
+          }
+        }
+      }
+
+      if (!profile && parsed.channel === 'mtn_momo' && !(nameMatches && nameMatches.length >= 1)) {
         // ── Learned-name tier ─────────────────────────────────────────────
         // No EXACT profile match (the payer is a third party depositing on
         // someone else's behalf — their name will never be in `profiles` at
