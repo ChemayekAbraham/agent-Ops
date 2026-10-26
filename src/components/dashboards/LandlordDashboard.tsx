@@ -103,8 +103,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     { icon: Building2, label: 'Register Property', onClick: () => setRegisterPropertyOpen(true) },
     // Property management
     { icon: DoorOpen, label: 'Daily Rent Listings', badge: 'Daily Rent', separator: true, onClick: () => { hapticTap(); setShowListedHouses(true); } },
-    { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-welile-homes') },
-    { icon: PiggyBank, label: 'Welile Homes Impact', onClick: goTo('/landlord-welile-homes') },
+    { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-tenants') },
     // Finances
     { icon: Receipt, label: 'My Receipts', separator: true, onClick: goTo('/my-receipts') },
     { icon: Banknote, label: 'My Loans', onClick: goTo('/my-loans') },

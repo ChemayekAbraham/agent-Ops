@@ -207,7 +207,7 @@ const DepositHistory = lazy(() => import('./pages/DepositHistory'));
 const DepositVerificationDetail = lazy(() => import('./pages/DepositVerificationDetail'));
 const WelileHomes = lazy(() => import('./pages/WelileHomes'));
 const WelileHomesDashboard = lazy(() => import('./pages/WelileHomesDashboard'));
-const LandlordWelileHomesPage = lazy(() => import('./pages/LandlordWelileHomesPage'));
+const LandlordTenantsPage = lazy(() => import('./pages/LandlordTenantsPage'));
 const TryCalculator = lazy(() => import('./pages/TryCalculator'));
 const PublicRentCalculator = lazy(() => import('./pages/PublicRentCalculator'));
 const LandlordSignup = lazy(() => import('./pages/LandlordSignup'));
@@ -736,7 +736,9 @@ function AppRoutes() {
           <Route path="/deposit-history/:id" element={<DepositVerificationDetail />} />
           <Route path="/welile-homes" element={<WelileHomes />} />
           <Route path="/welile-homes-dashboard" element={<WelileHomesDashboard />} />
-          <Route path="/landlord-welile-homes" element={<LandlordWelileHomesPage />} />
+          <Route path="/landlord-tenants" element={<LandlordTenantsPage />} />
+          {/* The old Welile Homes Impact page was replaced by My Tenants; keep old links working. */}
+          <Route path="/landlord-welile-homes" element={<Navigate to="/landlord-tenants" replace />} />
           <Route path="/try-calculator" element={<TryCalculator />} />
           <Route path="/rent-calculator" element={<PublicRentCalculator />} />
           <Route path="/guides/pay-rent-in-installments-uganda" element={<PayRentInstallmentsGuide />} />

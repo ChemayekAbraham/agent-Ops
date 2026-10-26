@@ -74,8 +74,9 @@ BEGIN
     'plans', COALESCE(jsonb_agg(jsonb_build_object(
       'id', p.id,
       'tenant_id', p.tenant_id,
-      'tenant_name', COALESCE(NULLIF(btrim(t.full_name), ''), 'Tenant'),
-      'tenant_phone', t.phone,
+      'tenant_name', CASE WHEN t.full_name ILIKE '[DELETED]%' THEN 'Former tenant'
+                          ELSE COALESCE(NULLIF(btrim(t.full_name), ''), 'Tenant') END,
+      'tenant_phone', CASE WHEN t.full_name ILIKE '[DELETED]%' THEN NULL ELSE t.phone END,
       'status', p.status,
       'tenancy_status', p.tenancy_status,
       'rent_amount', p.rent_amount,
