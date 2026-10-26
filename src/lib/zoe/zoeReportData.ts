@@ -838,7 +838,7 @@ export function extractZoeExportableReport(
         : new Date();
   const generatedAt = Number.isNaN(generatedDate.getTime())
     ? String(options?.generatedAt || '')
-    : `${dayTime(generatedDate)} EAT`;
+    : `${dayTime(generatedDate.toISOString())} EAT`;
 
   const generatedBy =
     (typeof options?.generatedBy === 'string' && options.generatedBy.trim()) ||
@@ -890,7 +890,7 @@ export function extractZoeExportableReport(
   }));
   const summaryRows: (string | number | null)[][] = summaryMetrics.map((m) => [
     m.label,
-    m.rawValue,
+    typeof m.rawValue === 'boolean' ? String(m.rawValue) : m.rawValue,
   ]);
   const summarySheet: ZoeReportSheet = {
     name: 'Period Summary',
