@@ -233,10 +233,17 @@ const MyRequisitions = () => {
   const fetchLoans = useCallback(async () => {
     const { data: elig } = await supabase.rpc('my_staff_loan_eligibility');
     setLoanInfo((elig ?? null) as unknown as LoanEligibility | null);
-    const { data: loanRows } = await supabase
-      .from('staff_loans')
-      .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
-      .order('created_at', { ascending: false });
+    // Only the person's own loans: the COO, CFO, CEO, Financial Ops and HR roles are allowed to read every staff loan, so the
+    // list must be narrowed here or they see everyone's under "Your loans".
+    const { data: userRes } = await supabase.auth.getUser();
+    const loanUid = userRes.user?.id;
+    const { data: loanRows } = loanUid
+      ? await supabase
+        .from('staff_loans')
+        .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
+        .eq('user_id', loanUid)
+        .order('created_at', { ascending: false })
+      : { data: [] };
     const list = (loanRows || []) as unknown as StaffLoan[];
     setLoans(list);
     if (list.length) {
