@@ -8,6 +8,7 @@ import {
   emptyHouseTitle,
   firstPhoto,
   itemAmount,
+  itemCoordinates,
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
