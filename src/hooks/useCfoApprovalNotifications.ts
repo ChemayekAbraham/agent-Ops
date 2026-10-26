@@ -132,7 +132,12 @@ const DEFINITIONS: CategoryDef[] = [
     title: 'Merchant Float Requests Awaiting Approval',
     tabId: 'merchant-float',
     table: 'float_requests',
-    fetchCount: () => supabase.from('float_requests').select('id', HEAD).eq('status', 'pending'),
+    fetchCount: () =>
+      supabase
+        .from('float_requests')
+        .select('id', HEAD)
+        .eq('status', 'pending')
+        .or('reason.is.null,reason.not.ilike.%welile%homes%'),
   },
   {
     key: 'agentRequisitions',

@@ -269,6 +269,17 @@ Deno.serve(async (req) => {
       } catch (smsErr) {
         console.warn("[approve-pending-portfolio] agent float SMS dispatch failed:", smsErr);
       }
+      // The landlord is told too: their rent is approved and the agent will pay
+      // them. Same queue pattern, same rules (never names the partner).
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/notify-partner-float-landlords`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ commitment_id: pendingRow.commitment_id }),
+        });
+      } catch (smsErr) {
+        console.warn("[approve-pending-portfolio] landlord float SMS dispatch failed:", smsErr);
+      }
     }
 
     if (partner?.email && isSelfManaged) {

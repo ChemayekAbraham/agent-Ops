@@ -7529,6 +7529,197 @@ export type Database = {
           },
         ]
       }
+      asset_events: {
+        Row: {
+          actor_id: string
+          asset_id: string
+          batch_id: string | null
+          changed_fields: string[]
+          created_at: string
+          event_type: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          reason: string | null
+        }
+        Insert: {
+          actor_id: string
+          asset_id: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Update: {
+          actor_id?: string
+          asset_id?: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_events_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_events_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_import_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          errors: Json
+          file_name: string
+          file_sha256: string
+          id: string
+          inserted_count: number
+          rejected_count: number
+          row_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          errors?: Json
+          file_name: string
+          file_sha256: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count: number
+          status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          errors?: Json
+          file_name?: string
+          file_sha256?: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      assets: {
+        Row: {
+          asset_code: string
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          serial_number: string | null
+          serial_number_norm: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          asset_code: string
+          brand?: string | null
+          category: string
+          condition?: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          asset_code?: string
+          brand?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assistant_access_allowlist: {
         Row: {
           created_at: string
@@ -18843,6 +19034,32 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      finance_authority_positions: {
+        Row: {
+          created_at: string
+          note: string | null
+          position_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          position_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_authority_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: true
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financial_agents: {
         Row: {
@@ -37129,6 +37346,75 @@ export type Database = {
           },
         ]
       }
+      partner_float_landlord_notices: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          amount: number
+          attempts: number
+          commitment_id: string
+          created_at: string
+          id: string
+          landlord_id: string | null
+          landlord_name: string
+          landlord_phone: string | null
+          last_error: string | null
+          partner_id: string
+          provider: string | null
+          rent_request_ids: string[]
+          sent_at: string | null
+          status: string
+          tenant_count: number
+          tenant_first_names: string[]
+          topup_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_name?: string | null
+          amount: number
+          attempts?: number
+          commitment_id: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          amount?: number
+          attempts?: number
+          commitment_id?: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id?: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       partner_funding_backfill_log: {
         Row: {
           amount: number | null
@@ -37575,10 +37861,12 @@ export type Database = {
           committed_at: string
           completed_at: string | null
           created_at: string
+          end_reason: string | null
           id: string
           live_at: string | null
           monthly_rate: number
           partner_id: string
+          plan_closed_at: string | null
           principal: number
           rent_request_id: string
           status: string
@@ -37592,10 +37880,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id: string
+          plan_closed_at?: string | null
           principal: number
           rent_request_id: string
           status?: string
@@ -37609,10 +37899,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id?: string
+          plan_closed_at?: string | null
           principal?: number
           rent_request_id?: string
           status?: string
@@ -67536,6 +67828,62 @@ export type Database = {
           id: string
         }[]
       }
+      _asset_register_insert: {
+        Args: {
+          p_actor: string
+          p_batch: string
+          p_event: string
+          p_value: Json
+        }
+        Returns: {
+          asset_code: string
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          serial_number: string | null
+          serial_number_norm: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "assets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _asset_register_require: { Args: { p_write: boolean }; Returns: string }
+      _asset_register_row_json: {
+        Args: { a: Database["public"]["Tables"]["assets"]["Row"] }
+        Returns: Json
+      }
+      _asset_register_serial_owner: {
+        Args: { p_category: string; p_exclude: string; p_serial: string }
+        Returns: string
+      }
+      _asset_register_validate: {
+        Args: { p: Json; p_partial: boolean }
+        Returns: Json
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -69773,6 +70121,42 @@ export type Database = {
         }
         Returns: undefined
       }
+      asset_register_add_evidence: {
+        Args: { p_id: string; p_kind: string; p_path: string }
+        Returns: Json
+      }
+      asset_register_check_duplicates: { Args: { p_rows: Json }; Returns: Json }
+      asset_register_create: { Args: { p_asset: Json }; Returns: Json }
+      asset_register_get: { Args: { p_id: string }; Returns: Json }
+      asset_register_import_commit: {
+        Args: { p_file_name: string; p_file_sha256: string; p_rows: Json }
+        Returns: Json
+      }
+      asset_register_list: {
+        Args: {
+          p_category?: string
+          p_condition?: string
+          p_department?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      asset_register_read_ok: { Args: never; Returns: boolean }
+      asset_register_reference_data: { Args: never; Returns: Json }
+      asset_register_summary: { Args: never; Returns: Json }
+      asset_register_update: {
+        Args: {
+          p_changes: Json
+          p_expected_updated_at: string
+          p_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      asset_register_write_ok: { Args: never; Returns: boolean }
       assign_bike_lease_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
@@ -76936,6 +77320,7 @@ export type Database = {
       }
       get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
       get_my_landlord_properties: { Args: never; Returns: Json }
+      get_my_landlord_tenants: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_overdue_bike_asset_details: {
         Args: never
@@ -83363,6 +83748,7 @@ export type Database = {
         }
         Returns: Json
       }
+      psm_contract_term_months: { Args: never; Returns: number }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
@@ -83373,6 +83759,7 @@ export type Database = {
       }
       psm_is_partner: { Args: { p_user: string }; Returns: boolean }
       psm_is_topup_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      psm_mature_self_support_portfolios: { Args: never; Returns: Json }
       psm_plan_booked_for_other: {
         Args: { p_partner: string; p_rent_request_id: string }
         Returns: boolean
@@ -84616,16 +85003,13 @@ export type Database = {
         Returns: {
           agent_id: string
           book: string
-          days_left: number
           expired_collected: number
           expired_due_so_far: number
           expired_plans: number
-          expired_projected_due: number
           expired_required_pct: number
           in_window_collected: number
           in_window_due_so_far: number
           in_window_plans: number
-          in_window_projected_due: number
           in_window_required_pct: number
           last_book: string
           last_expired_pct: number
@@ -84633,6 +85017,7 @@ export type Database = {
           last_passes: boolean
           last_week_end: string
           last_week_start: string
+          through_day: string
           week_end: string
           week_start: string
         }[]

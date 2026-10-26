@@ -59,7 +59,7 @@ describe('Partner Products and Services — Paid & Outstanding panel', () => {
       expect(screen.getByText(label)).toBeTruthy();
     }
     // total paid = cash Returns + commissions (server figures); reinvested is not added
-    const paidRow = screen.getByText('Total paid (cash Returns + commissions)').closest('tr')!;
+    const paidRow = screen.getAllByText('Total Paid').find((el) => el.closest('tr'))!.closest('tr')!;
     expect(paidRow.textContent).toContain((970432577 + 6578310).toLocaleString());
     expect(screen.getByRole('status').textContent).toContain('Reconciled');
     expect(screen.getByRole('status').textContent).toContain('possible double Return credit');

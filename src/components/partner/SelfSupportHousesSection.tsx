@@ -456,7 +456,6 @@ export function HouseSupportBar({
       }
       const { data, error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: selectedIds,
-        p_term_months: 1,
         p_commitment_id: useExisting ? activeHouseCommitment!.id : null,
       });
       if (error) throw error;

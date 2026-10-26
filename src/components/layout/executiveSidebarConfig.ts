@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -202,6 +202,13 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Department Budgets', icon: ClipboardList, id: 'department-budgets', access: CFO_ACCESS },
         { label: 'Service Centre Spend', icon: Building2, id: 'service-centre-spend', access: CFO_ACCESS },
+      ],
+    },
+
+    {
+      title: 'Assets',
+      items: [
+        { label: 'Asset Register', icon: Boxes, id: 'asset-register', access: CFO_ACCESS },
       ],
     },
 

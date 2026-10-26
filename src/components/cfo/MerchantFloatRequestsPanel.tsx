@@ -100,6 +100,9 @@ export function MerchantFloatRequestsPanel() {
         .from('float_requests')
         .select('id, agent_id, requested_amount, reason, status, created_at, agent:profiles!float_requests_agent_id_fkey(id, full_name, phone)')
         .eq('status', 'pending')
+        // Welile Homes requests follow their own staged flow and are disbursed on the
+        // Welile Homes desk; funding them here would skip Agent Ops, Tenant Ops and COO.
+        .or('reason.is.null,reason.not.ilike.%welile%homes%')
         .order('created_at', { ascending: true });
       if (error) throw error;
       return (data ?? []) as any as FloatRequestRow[];
