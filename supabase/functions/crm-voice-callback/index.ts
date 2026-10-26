@@ -129,15 +129,31 @@ Deno.serve(async (req) => {
     }
   }
 
-  // ---- human calling paused (the line belongs to automated calls) ----
-  // Refusing at the token / place-call step is not enough: a browser may still
-  // hold a voice token for up to an hour. Any live human leg is ended here.
-  const { data: sys } = await admin
-    .from('voice_autocall_system_status')
-    .select('human_calling_paused')
-    .eq('id', 1)
-    .maybeSingle();
-  const humanPaused = sys?.human_calling_paused === true;
+  // ---- the line is shared with the automated call centre ----
+  // Asked again here, just before a staff leg is bridged, because a browser can
+  // hold a voice token for up to an hour without asking. voice_line_try_staff
+  // takes the same lock as the robot's dialer, so the two never both win.
+  // bridging = this staff call was already allowed (it has a session row);
+  // only a live robot call refuses it then, not a window that just opened.
+  const staffLineRefusal = async (bridging: boolean): Promise<string | null> => {
+    const { data, error } = await admin.rpc('voice_line_try_staff', { p_bridging: bridging });
+    if (error) {
+      console.error('[crm-voice-callback] line check failed', { message: error.message });
+      return null; // fail open: a broken check must not drop every staff call
+    }
+    const r = data as { ok?: boolean; reason?: string } | null;
+    return r?.ok ? null : (r?.reason ?? 'line_busy');
+  };
+
+  /** Tell the staff caller why, then let the call end (no <Hangup/>: AT would drop the words). */
+  const lineBusyReply = (reason: string) =>
+    xml(
+      `<Response><Say voice="woman" playBeep="false">${
+        reason === 'paused'
+          ? 'Calling from the app is paused by an administrator.'
+          : 'This line is in use by automated calls right now. Please try again later.'
+      }</Say></Response>`,
+    );
 
   const COLS =
     'id, target_phone, status, at_session_id, cancel_requested_at, transport, answered_at, ended_at, at_client_name';
@@ -185,27 +201,17 @@ Deno.serve(async (req) => {
     session = data ?? null;
   }
 
-  if (humanPaused && (p.isActive ?? '').trim() === '1') {
-    console.warn('[crm-voice-callback] human calling paused — ending leg', { atSessionId, clientRequestId });
-    if (session && !session.ended_at) {
-      await admin
-        .from('crm_call_sessions')
-        .update({ cancel_requested_at: new Date().toISOString(), failure_reason: 'human_calling_paused' })
-        .eq('id', session.id);
-    }
-    return hangup();
-  }
-
   if (!session) {
     console.warn('[crm-voice-callback] no matching session', {
       atSessionId,
       clientRequestId,
       clientDialedNumber,
     });
-    return clientDialedNumber
-      // Never leave a live browser leg hanging with no instruction.
-      ? xml(`<Response><Dial phoneNumbers="${clientDialedNumber}"/></Response>`)
-      : done();
+    if (!clientDialedNumber) return done();
+    const refused = await staffLineRefusal(false);
+    if (refused) return lineBusyReply(refused);
+    // Never leave a live browser leg hanging with no instruction.
+    return xml(`<Response><Dial phoneNumbers="${clientDialedNumber}"/></Response>`);
   }
 
   /** Stable non-null handle, so closures below keep the narrowing. */
@@ -501,6 +507,15 @@ Deno.serve(async (req) => {
       return hangup();
     }
 
+    const refused = await staffLineRefusal(true);
+    if (refused) {
+      await patch(
+        { status: 'failed', failure_reason: `line_${refused}`, is_active: false, ended_at: new Date().toISOString(), ended_by: 'network' },
+        'webrtc_line_busy',
+      );
+      return lineBusyReply(refused);
+    }
+
     await patch({ status: 'ringing', is_active: true }, 'webrtc_ringing');
 
     const recordWebrtc = (Deno.env.get('CRM_CALL_RECORDING') ?? '').toLowerCase() === 'true';
@@ -523,6 +538,15 @@ Deno.serve(async (req) => {
     console.error('[crm-voice-callback] invalid target phone, cannot bridge', { callId: session.id });
     await patch({ status: 'failed', failure_reason: 'invalid_target_phone' }, 'invalid_target');
     return hangup();
+  }
+
+  const refused = await staffLineRefusal(true);
+  if (refused) {
+    await patch(
+      { status: 'failed', failure_reason: `line_${refused}`, is_active: false, ended_at: new Date().toISOString(), ended_by: 'network' },
+      'staff_line_busy',
+    );
+    return lineBusyReply(refused);
   }
 
   await patch({ status: 'bridged' }, 'bridged');
