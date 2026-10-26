@@ -1128,7 +1128,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       ? [...matching].reverse()
       : matching;
   // Default sort: highest agent collection % first; agents on the same % keep the server (best payers) order.
-  const filtered = sortMode === 'agent_week' ? orderByAgentWeek(serverOrdered, agentWeek.byAgent, (r: { agent_id?: string | null }) => r.agent_id) : serverOrdered;
+  const filtered = sortMode === 'agent_week' ? orderByAgentWeek(serverOrdered, agentWeek.byAgent, (r) => (r as { agent_id?: string | null }).agent_id) : serverOrdered;
 
   // Desk time and the agent chain for the cards on screen: one call each for the whole desk (never one per card). A desk with more than 200 cards
   // asks for the first 200 in the order shown; the rest read "Not available" and a note says so.
