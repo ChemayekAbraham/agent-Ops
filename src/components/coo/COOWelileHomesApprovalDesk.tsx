@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,6 @@ interface FloatRequest {
 }
 
 export function COOWelileHomesApprovalDesk() {
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [filterTab, setFilterTab] = useState<'pending_coo' | 'forwarded_to_cfo' | 'all'>('pending_coo');
   const [search, setSearch] = useState('');
@@ -52,35 +51,19 @@ export function COOWelileHomesApprovalDesk() {
       const { data, error } = await supabase
         .from('float_requests')
         .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at, approved_by, rejection_reason')
+        .ilike('reason', WH_REASON_ILIKE)
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
       const allRows = data ?? [];
 
-      // Include by pipeline status, keyword, or active Welile Homes agents
-      const { data: subs } = await supabase
-        .from('welile_homes_subscriptions')
-        .select('agent_id');
-      const homesAgentIds = new Set((subs ?? []).map((s) => s.agent_id).filter(Boolean));
-
       const welileRows = allRows.filter((r) => {
         // Only include requests that have actually reached COO (cleared/approved by Tenant Ops).
         // Never show requests still waiting or pending at previous stages (Agent Ops or Tenant Ops)!
-        const hasReachedCoo =
-          ['tenant_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
-          (r.status === 'rejected' && (r.rejection_reason || '').toLowerCase().includes('coo'));
-
-        if (!hasReachedCoo) return false;
-
-        const reason = (r.reason || '').toLowerCase();
         return (
-          ['tenant_ops_approved', 'coo_approved'].includes(r.status) ||
-          reason.includes('welile') ||
-          reason.includes('homes') ||
-          reason.includes('landlord') ||
-          reason.includes('tenant') ||
-          homesAgentIds.has(r.agent_id)
+          ['tenant_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
+          (r.status === 'rejected' && (r.rejection_reason || '').toLowerCase().includes('coo'))
         );
       });
 
@@ -103,19 +86,16 @@ export function COOWelileHomesApprovalDesk() {
     refetchInterval: 30_000,
   });
 
+  const move = async (requestId: string, action: 'approve' | 'return' | 'reject', note?: string) => {
+    const req = floatRequests.find((r) => r.id === requestId);
+    if (!req) throw new Error('Request not found. Refresh and try again.');
+    await advanceWelileHomesFloat({ requestId, expectedStatus: req.status, action, note });
+  };
+
   // Action: Approve & Forward directly to CFO (Skips Partner Ops!)
   const approveMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'coo_approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      await move(requestId, 'approve');
     },
     onSuccess: () => {
       toast.success('Approved by COO and forwarded directly to CFO for disbursement');
@@ -129,15 +109,7 @@ export function COOWelileHomesApprovalDesk() {
   // Action: Return to Tenant Ops
   const returnMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'agent_ops_approved',
-          rejection_reason: 'Returned by COO to Tenant Ops for further verification',
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      await move(requestId, 'return', 'Returned by COO to Tenant Ops for further verification');
     },
     onSuccess: () => {
       toast.success('Returned request back to Tenant Ops');
@@ -151,17 +123,7 @@ export function COOWelileHomesApprovalDesk() {
   // Action: Reject
   const rejectMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'rejected',
-          rejection_reason: 'Rejected at COO executive review',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      await move(requestId, 'reject', 'Rejected at COO executive review');
     },
     onSuccess: () => {
       toast.success('Request rejected');

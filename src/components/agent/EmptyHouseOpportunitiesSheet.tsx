@@ -442,7 +442,6 @@ export function EmptyHouseOpportunitiesSheet({
 
       const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
         p_house_ids: houseIds,
-        p_term_months: 1,
         p_idempotency_key: `fund-${note.id}`,
       });
       if (fundErr) throw fundErr;

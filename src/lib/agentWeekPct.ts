@@ -2,9 +2,12 @@
  * The registering agent's collection percentage for the current Thursday-Wednesday week, as the rent request desks show it.
  *
  * Nothing here measures anything new. Every number comes from `rent_request_agent_week_pct`, which reads the same pieces the agent's own
- * "Weekly performance" screen reads (`get_my_weekly_performance`), and the percentage is worked out exactly the way that screen does it:
- * collected ÷ the Rent Plans' projected full-week due, shown to one decimal. Current Rent Plans are the main figure; expired Rent Plans
- * are shown as a second figure when the agent has both. The registering agent is the one who registered the tenant, sub-agent or not.
+ * "Weekly performance" screen reads (`_agent_weekly_plan_lines`). The percentage is what has been COLLECTED from Thursday THROUGH YESTERDAY divided by
+ * what was EXPECTED (billed) from Thursday through yesterday, shown to one decimal. Today is left out on purpose: agents are still collecting today, so
+ * counting today's expected amount would mark them down for money they have not finished collecting. Both amounts start again from nothing every
+ * Thursday (the week is Thursday to Wednesday, Kampala time), so on a Thursday there is no figure yet. Collections are capped per Rent Plan at what that
+ * plan was due. Current Rent Plans are the main figure; expired Rent Plans are a second figure when the agent has both. The registering
+ * agent is the one who registered the tenant, sub-agent or not.
  */
 
 export const AGENT_WEEK_BATCH_LIMIT = 2000;
@@ -13,17 +16,16 @@ export interface AgentWeekPct {
   agent_id: string;
   week_start: string;
   week_end: string;
-  days_left: number;
+  /** the last day counted: yesterday (Kampala); null on the week's first day, when nothing has been counted yet */
+  through_day: string | null;
   book: 'none' | 'in_window_only' | 'mixed' | 'all_expired';
   in_window_plans: number;
   in_window_collected: number;
   in_window_due_so_far: number;
-  in_window_projected_due: number;
   in_window_required_pct: number | null;
   expired_plans: number;
   expired_collected: number;
   expired_due_so_far: number;
-  expired_projected_due: number;
   expired_required_pct: number | null;
   last_week_start: string | null;
   last_week_end: string | null;
@@ -48,17 +50,15 @@ export function normalizeAgentWeekPct(raw: unknown): AgentWeekPct[] {
         agent_id: String(r.agent_id ?? ''),
         week_start: String(r.week_start ?? ''),
         week_end: String(r.week_end ?? ''),
-        days_left: num(r.days_left),
+        through_day: strOrNull(r.through_day),
         book,
         in_window_plans: num(r.in_window_plans),
         in_window_collected: num(r.in_window_collected),
         in_window_due_so_far: num(r.in_window_due_so_far),
-        in_window_projected_due: num(r.in_window_projected_due),
         in_window_required_pct: numOrNull(r.in_window_required_pct),
         expired_plans: num(r.expired_plans),
         expired_collected: num(r.expired_collected),
         expired_due_so_far: num(r.expired_due_so_far),
-        expired_projected_due: num(r.expired_projected_due),
         expired_required_pct: numOrNull(r.expired_required_pct),
         last_week_start: strOrNull(r.last_week_start),
         last_week_end: strOrNull(r.last_week_end),
@@ -71,7 +71,7 @@ export function normalizeAgentWeekPct(raw: unknown): AgentWeekPct[] {
     .filter((r) => r.agent_id);
 }
 
-/** collected ÷ due as a percentage, the way the agent's own screen computes it. Null when nothing is due (no figure to show). */
+/** collected ÷ expected (Thursday through yesterday) as a percentage. Null when nothing has been expected yet (no figure to show). */
 export function weekPctOf(collected: number, due: number): number | null {
   return due > 0 ? (collected / due) * 100 : null;
 }
@@ -97,10 +97,10 @@ export interface AgentWeekSummary {
 
 export function agentWeekSummary(w: AgentWeekPct | null | undefined): AgentWeekSummary {
   if (!w) return { primary: null, current: null, expired: null };
-  const cur = weekPctOf(w.in_window_collected, w.in_window_projected_due);
-  const exp = weekPctOf(w.expired_collected, w.expired_projected_due);
-  const current: WeekGroup | null = cur === null ? null : { group: 'current', pct: cur, collected: w.in_window_collected, due: w.in_window_projected_due, plans: w.in_window_plans, required: w.in_window_required_pct };
-  const expired: WeekGroup | null = exp === null ? null : { group: 'expired', pct: exp, collected: w.expired_collected, due: w.expired_projected_due, plans: w.expired_plans, required: w.expired_required_pct };
+  const cur = weekPctOf(w.in_window_collected, w.in_window_due_so_far);
+  const exp = weekPctOf(w.expired_collected, w.expired_due_so_far);
+  const current: WeekGroup | null = cur === null ? null : { group: 'current', pct: cur, collected: w.in_window_collected, due: w.in_window_due_so_far, plans: w.in_window_plans, required: w.in_window_required_pct };
+  const expired: WeekGroup | null = exp === null ? null : { group: 'expired', pct: exp, collected: w.expired_collected, due: w.expired_due_so_far, plans: w.expired_plans, required: w.expired_required_pct };
   return { primary: current ?? expired, current, expired };
 }
 
@@ -121,11 +121,13 @@ const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
 export function agentWeekDetail(w: AgentWeekPct | null | undefined): string {
   const s = agentWeekSummary(w);
   if (!w || !s.primary) {
-    return w ? `No Rent Plan was billed to this agent in ${weekRangeLabel(w.week_start, w.week_end)} yet, so there is no collection percentage.` : 'Collection percentage not available.';
+    return w ? w.through_day
+      ? `Nothing was expected from this agent from ${weekDay(w.week_start)} through ${weekDay(w.through_day)}, so there is no collection percentage.`
+      : `The week restarted on ${weekDay(w.week_start)}: nothing is counted until tomorrow, so there is no collection percentage yet.` : 'Collection percentage not available.';
   }
-  const parts: string[] = [`Collection this week (${weekRangeLabel(w.week_start, w.week_end)}), the same figure the agent sees on Weekly performance.`];
+  const parts: string[] = [`Collection this week, counted from ${weekDay(w.week_start)} through yesterday (${weekDay(w.through_day)}) - today is left out because agents are still collecting; the week restarts every Thursday. Collected divided by expected.`];
   const line = (label: string, g: WeekGroup) =>
-    `${label}: ${formatWeekPct(g.pct)} - ${ugx(g.collected)} collected of ${ugx(g.due)} expected this week on ${g.plans} Rent Plan${g.plans === 1 ? '' : 's'}${g.required !== null ? `. Needs ${Math.round(g.required * 100)}%` : ''}.`;
+    `${label}: ${formatWeekPct(g.pct)} - ${ugx(g.collected)} collected of ${ugx(g.due)} expected on ${g.plans} Rent Plan${g.plans === 1 ? '' : 's'}${g.required !== null ? `. Needs ${Math.round(g.required * 100)}%` : ''}.`;
   if (s.current) parts.push(line('Current Rent Plans', s.current));
   if (s.expired) parts.push(line('Expired Rent Plans', s.expired));
   if (w.last_week_start && (w.last_in_window_pct !== null || w.last_expired_pct !== null)) {

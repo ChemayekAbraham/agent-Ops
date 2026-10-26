@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
@@ -121,6 +121,8 @@ import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursemen
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
 import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
 import { LandlordFloatBudgetPanel } from '@/components/cfo/LandlordFloatBudgetPanel';
+// Lazy: keeps the register (and its on-demand xlsx import) out of the main CFO bundle.
+const AssetRegisterPanel = lazy(() => import('@/components/cfo/assets/AssetRegisterPanel'));
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -212,6 +214,12 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'asset-register':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading asset register…</div>}>
+            <AssetRegisterPanel />
+          </Suspense>
+        );
       case 'landlord-float-budget':
         return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':

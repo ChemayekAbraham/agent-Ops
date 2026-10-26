@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -63,7 +63,6 @@ interface Props {
 }
 
 export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
-  const { user } = useAuth();
   const qc = useQueryClient();
   const [filterTab, setFilterTab] = useState<'pending_tenant_ops' | 'sent_to_coo' | 'all'>('pending_tenant_ops');
   const [search, setSearch] = useState('');
@@ -76,35 +75,19 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
       const { data, error } = await supabase
         .from('float_requests')
         .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at, rejection_reason')
+        .ilike('reason', WH_REASON_ILIKE)
         .order('created_at', { ascending: false })
         .limit(100);
 
       if (error) throw error;
       const allRows = data ?? [];
 
-      // Include by pipeline status, keyword, or active Welile Homes agents
-      const { data: subs } = await supabase
-        .from('welile_homes_subscriptions')
-        .select('agent_id');
-      const homesAgentIds = new Set((subs ?? []).map((s) => s.agent_id).filter(Boolean));
-
       const welileRows = allRows.filter((r) => {
         // Only include requests that have actually reached Tenant Ops (cleared/approved by Agent Ops).
         // Never show requests still waiting or pending at a previous stage!
-        const hasReachedTenantOps =
-          ['agent_ops_approved', 'tenant_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
-          (r.status === 'rejected' && (r.rejection_reason || '').toLowerCase().includes('tenant ops'));
-
-        if (!hasReachedTenantOps) return false;
-
-        const reason = (r.reason || '').toLowerCase();
         return (
-          ['agent_ops_approved', 'tenant_ops_approved', 'coo_approved'].includes(r.status) ||
-          reason.includes('welile') ||
-          reason.includes('homes') ||
-          reason.includes('landlord') ||
-          reason.includes('tenant') ||
-          homesAgentIds.has(r.agent_id)
+          ['agent_ops_approved', 'tenant_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
+          (r.status === 'rejected' && (r.rejection_reason || '').toLowerCase().includes('tenant ops'))
         );
       });
 
@@ -172,16 +155,9 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
   // Action: Approve & Forward to COO (Skips Partner Ops!)
   const approveMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'tenant_ops_approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      const req = floatRequests.find((r) => r.id === requestId);
+      if (!req) throw new Error('Request not found. Refresh and try again.');
+      await advanceWelileHomesFloat({ requestId, expectedStatus: req.status, action: 'approve' });
     },
     onSuccess: () => {
       toast.success('Float request approved and forwarded directly to COO');
@@ -195,15 +171,14 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
   // Action: Return to Agent Ops
   const returnMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'pending',
-          rejection_reason: 'Returned by Tenant Ops for agent review',
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      const req = floatRequests.find((r) => r.id === requestId);
+      if (!req) throw new Error('Request not found. Refresh and try again.');
+      await advanceWelileHomesFloat({
+        requestId,
+        expectedStatus: req.status,
+        action: 'return',
+        note: 'Returned by Tenant Ops for agent review',
+      });
     },
     onSuccess: () => {
       toast.success('Returned request back to Agent Ops');

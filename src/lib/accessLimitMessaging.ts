@@ -1,5 +1,6 @@
 import { RENT_ACCESS_MAX_LIMIT_UGX, RENT_ACCESS_PAID_INCREMENT_UGX, RENT_ACCESS_MISSED_DECREMENT_UGX } from './rentAccessLimit';
 import { formatFixedUGX } from './supportPlanExample';
+import { ensureWelileEmailHeader, ensureWelileEmailTextHeader } from './emailHeader';
 export { RENT_ACCESS_MAX_LIMIT_UGX, RENT_ACCESS_PAID_INCREMENT_UGX, RENT_ACCESS_MISSED_DECREMENT_UGX };
 export const ACCESS_LIMIT_MAX_UGX = RENT_ACCESS_MAX_LIMIT_UGX;
 export const ACCESS_LIMIT_DAILY_GROWTH_UGX = RENT_ACCESS_PAID_INCREMENT_UGX;
@@ -35,7 +36,7 @@ export function buildAgentAccessLimitSms(): string {
 export interface AccessLimitEmail { subject: string; text: string; html: string }
 function email(agent: boolean): AccessLimitEmail {
   const text = agent ? buildAgentAccessLimitWhatsAppMessage() : buildTenantAccessLimitWhatsAppMessage();
-  return { subject: agent ? 'Help tenants grow their Rent Access Limit' : 'Grow your Rent Access Limit', text, html: `<p>${text.replace(/\n/g, '</p><p>')}</p>` };
+  return { subject: agent ? 'Help tenants grow their Rent Access Limit' : 'Grow your Rent Access Limit', text: ensureWelileEmailTextHeader(text), html: ensureWelileEmailHeader(`<p>${text.replace(/\n/g, '</p><p>')}</p>`) };
 }
 export const buildTenantAccessLimitEmail = () => email(false);
 export const buildAgentAccessLimitEmail = () => email(true);

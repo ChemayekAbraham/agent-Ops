@@ -23,10 +23,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
 import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
-import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus } from 'lucide-react';
+import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 
 // Shared client-side validation for the core enrollment fields. Kept strict so
 // agents cannot submit invalid or internally conflicting values (e.g. decimal
@@ -226,6 +227,104 @@ function getEnrollStatus(s: WHSubscription): EnrollStatus {
   return { label: 'Unverified', ready: false, className: 'border-amber-500/40 bg-amber-500/10 text-amber-600' };
 }
 
+type FloatPipelineStage =
+  | 'none'
+  | 'pending_agent_ops'
+  | 'pending_tenant_ops'
+  | 'pending_coo'
+  | 'pending_cfo'
+  | 'cfo_allocated'
+  | 'rejected';
+
+interface FloatPipelineInfo {
+  stage: FloatPipelineStage;
+  label: string;
+  badgeClass: string;
+  description: string;
+  isPending: boolean;
+  isAllocated: boolean;
+  requestId?: string;
+  status?: string;
+}
+
+function resolveFloatPipeline(status?: string | null): FloatPipelineInfo {
+  switch (status) {
+    case 'pending':
+      return {
+        stage: 'pending_agent_ops',
+        label: 'Pending Agent Ops',
+        badgeClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+        description: 'Float requested · Waiting for Agent Ops review',
+        isPending: true,
+        isAllocated: false,
+        status,
+      };
+    case 'agent_ops_approved':
+      return {
+        stage: 'pending_tenant_ops',
+        label: 'Pending Tenant Ops',
+        badgeClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+        description: 'Agent Ops approved · Waiting for Tenant Ops review',
+        isPending: true,
+        isAllocated: false,
+        status,
+      };
+    case 'tenant_ops_approved':
+      return {
+        stage: 'pending_coo',
+        label: 'Pending COO Review',
+        badgeClass: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+        description: 'Tenant Ops approved · Waiting for COO approval',
+        isPending: true,
+        isAllocated: false,
+        status,
+      };
+    case 'coo_approved':
+      return {
+        stage: 'pending_cfo',
+        label: 'Pending CFO Allocation',
+        badgeClass: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300',
+        description: 'COO approved · Waiting for CFO treasury float allocation',
+        isPending: true,
+        isAllocated: false,
+        status,
+      };
+    case 'approved':
+    case 'funded':
+    case 'disbursed':
+      return {
+        stage: 'cfo_allocated',
+        label: 'Float Allocated by CFO',
+        badgeClass: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        description: 'Float authorized and allocated by CFO',
+        isPending: false,
+        isAllocated: true,
+        status,
+      };
+    case 'rejected':
+      return {
+        stage: 'rejected',
+        label: 'Float Rejected',
+        badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive',
+        description: 'Float request rejected by operations',
+        isPending: false,
+        isAllocated: false,
+        status,
+      };
+    default:
+      return {
+        stage: 'none',
+        label: 'Float Not Requested',
+        badgeClass: 'border-amber-500/30 text-amber-600 bg-amber-500/5',
+        description: 'No float request submitted yet',
+        isPending: false,
+        isAllocated: false,
+        status: status || undefined,
+      };
+  }
+}
+
+
 interface AgentWelileHomesSheetProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -259,6 +358,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [selectedTenantIds, setSelectedTenantIds] = useState<Set<string>>(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [requestFloatOpen, setRequestFloatOpen] = useState(false);
+  const [floatRequests, setFloatRequests] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -318,6 +418,15 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         created_at: d.updated_at,
         tenant_name: nameById.get(d.tenant_id) ?? 'Tenant',
       })));
+
+      // Load agent's float requests to track pipeline stage for each landlord/tenant
+      const { data: floatReqs } = await supabase
+        .from('float_requests')
+        .select('id, agent_id, requested_amount, reason, status, created_at, approved_at, rejection_reason')
+        .eq('agent_id', user.id)
+        .ilike('reason', WH_REASON_ILIKE)
+        .order('created_at', { ascending: false });
+      setFloatRequests(floatReqs ?? []);
     } catch (err: any) {
       toast({ title: 'Failed to load Welile Homes', description: err.message, variant: 'destructive' });
     } finally {
@@ -381,6 +490,66 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
     return Array.from(map.values());
   }, [visibleSubs]);
+
+  // Match each subscription to its float pipeline stage
+  const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
+    const lName = (sub.landlord_name || '').trim().toLowerCase();
+    const lPhone = (sub.landlord_phone || '').trim();
+    const tName = (sub.tenant_name || '').trim().toLowerCase();
+
+    const matched = floatRequests.find((r) => {
+      const reason = (r.reason || '').toLowerCase();
+      if (lName && lName !== 'unassigned landlord' && reason.includes(lName)) return true;
+      if (lPhone && reason.includes(lPhone)) return true;
+      if (tName && reason.includes(tName)) return true;
+      return false;
+    });
+
+    if (matched) {
+      return {
+        ...resolveFloatPipeline(matched.status),
+        requestId: matched.id,
+      };
+    }
+
+    if (floatRequests.length > 0 && landlordGroups.length === 1) {
+      return {
+        ...resolveFloatPipeline(floatRequests[0].status),
+        requestId: floatRequests[0].id,
+      };
+    }
+
+    return resolveFloatPipeline(null);
+  }, [floatRequests, landlordGroups.length]);
+
+  // Match each landlord group to its float pipeline stage
+  const getLandlordPipeline = useCallback((group: { name: string; phone?: string; tenants: WHSubscription[] }): FloatPipelineInfo => {
+    for (const t of group.tenants) {
+      const p = getSubscriptionPipeline(t);
+      if (p.stage !== 'none') return p;
+    }
+    const normName = group.name.trim().toLowerCase();
+    const normPhone = (group.phone || '').trim();
+    const matched = floatRequests.find((r) => {
+      const reason = (r.reason || '').toLowerCase();
+      if (normName && normName !== 'unassigned landlord' && reason.includes(normName)) return true;
+      if (normPhone && reason.includes(normPhone)) return true;
+      return false;
+    });
+    if (matched) {
+      return {
+        ...resolveFloatPipeline(matched.status),
+        requestId: matched.id,
+      };
+    }
+    if (floatRequests.length > 0 && landlordGroups.length === 1) {
+      return {
+        ...resolveFloatPipeline(floatRequests[0].status),
+        requestId: floatRequests[0].id,
+      };
+    }
+    return resolveFloatPipeline(null);
+  }, [getSubscriptionPipeline, floatRequests, landlordGroups.length]);
 
   const toggleTenant = (tenantId: string) => {
     setSelectedTenantIds((prev) => {
@@ -586,6 +755,21 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </div>
       ) : (
         <div className="space-y-3 pb-20">
+          {/* Latest float request rejected: show the reviewer's note */}
+          {floatRequests[0]?.status === 'rejected' && floatRequests[0]?.rejection_reason && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
+              <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0 text-xs">
+                <p className="font-semibold text-foreground">
+                  Your float request of {formatUGX(Number(floatRequests[0].requested_amount) || 0)} was rejected
+                </p>
+                <p className="text-muted-foreground mt-0.5">“{floatRequests[0].rejection_reason}”</p>
+                <p className="text-muted-foreground mt-1">
+                  Your tenants are still enrolled. Select them below and tap Request Float to send a new request.
+                </p>
+              </div>
+            </div>
+          )}
           {/* Select All Toolbar */}
           <div className="flex items-center justify-between text-xs px-1 text-muted-foreground">
             <span>
@@ -634,6 +818,23 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                         {group.phone && (
                           <span className="text-[11px] text-muted-foreground">({group.phone})</span>
                         )}
+                        {/* Landlord Float Pipeline Status */}
+                        {(() => {
+                          const lp = getLandlordPipeline(group);
+                          if (lp.stage === 'none') {
+                            return (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/30 text-amber-600 bg-amber-500/10">
+                                Float Not Requested
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-normal gap-1", lp.badgeClass)}>
+                              {lp.isPending ? <Clock className="h-2.5 w-2.5 animate-pulse" /> : <CheckCircle2 className="h-2.5 w-2.5" />}
+                              {lp.label}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                       <p className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
                         <span>{group.tenants.length} {group.tenants.length === 1 ? 'tenant' : 'tenants'}</span>
@@ -705,13 +906,62 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
                           {historyOpenId === s.id && <TenantPaymentHistory subscriptionId={s.id} />}
 
+                          {/* Status and Float Pipeline Badges */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {(() => {
+                              const st = getEnrollStatus(s);
+                              return (
+                                <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
+                                  {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                                  {st.label}
+                                </Badge>
+                              );
+                            })()}
+
+                            {(() => {
+                              const fp = getSubscriptionPipeline(s);
+                              return (
+                                <Badge variant="outline" className={cn("gap-1 font-normal", fp.badgeClass)} title={fp.description}>
+                                  {fp.isPending ? (
+                                    <Clock className="h-3 w-3 animate-pulse text-amber-500" />
+                                  ) : fp.isAllocated ? (
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                  ) : (
+                                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                                  )}
+                                  {fp.label}
+                                </Badge>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Float Approval Stepper (Shown while float request traverses pipeline) */}
                           {(() => {
-                            const st = getEnrollStatus(s);
+                            const fp = getSubscriptionPipeline(s);
+                            if (!fp.isPending) return null;
                             return (
-                              <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
-                                {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                                {st.label}
-                              </Badge>
+                              <div className="rounded-lg border border-border/60 bg-muted/30 p-2 space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="font-semibold text-foreground flex items-center gap-1">
+                                    <Clock className="h-3 w-3 text-amber-500 animate-spin" /> Float Approval Flow
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">{fp.label}</span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-1 text-[10px] pt-0.5">
+                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_agent_ops' ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
+                                    1. Agent Ops
+                                  </div>
+                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_tenant_ops' ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
+                                    2. Tenant Ops
+                                  </div>
+                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_coo' ? "bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
+                                    3. COO
+                                  </div>
+                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_cfo' ? "bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
+                                    4. CFO Allocates
+                                  </div>
+                                </div>
+                              </div>
                             );
                           })()}
 
@@ -728,11 +978,34 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                 <ShieldCheck className="h-3.5 w-3.5" /> Verify
                               </Button>
                             )}
-                            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
-                              disabled={s.outstanding_balance <= 0}
-                              onClick={() => setAllocFor(s)}>
-                              <Banknote className="h-3.5 w-3.5" /> Allocate
-                            </Button>
+                            {(() => {
+                              const fp = getSubscriptionPipeline(s);
+                              if (fp.isAllocated) {
+                                return (
+                                  <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
+                                    disabled={s.outstanding_balance <= 0}
+                                    onClick={() => setAllocFor(s)}>
+                                    <Receipt className="h-3.5 w-3.5 text-primary" /> Collect Rent
+                                  </Button>
+                                );
+                              }
+                              if (fp.isPending) {
+                                return (
+                                  <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs bg-muted/40 text-muted-foreground border-border/60 cursor-not-allowed">
+                                    <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Awaiting Float
+                                  </Button>
+                                );
+                              }
+                              return (
+                                <Button size="sm" className="gap-1.5 h-8 text-xs bg-primary text-primary-foreground font-semibold shadow-xs"
+                                  onClick={() => {
+                                    setSelectedTenantIds(new Set([s.id]));
+                                    setRequestFloatOpen(true);
+                                  }}>
+                                  <Banknote className="h-3.5 w-3.5" /> Request Float
+                                </Button>
+                              );
+                            })()}
                             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
                               onClick={() => setDeleteFor(s)}>
                               <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -960,7 +1233,7 @@ function RequestFloatDialog({
         if (data?.phone) setPhone(data.phone);
       })();
       const landlordNames = landlordBreakdown.map((l) => l.name).join(', ');
-      setNotes(`Welile Homes landlord float for: ${landlordNames} (${selectedTenants.length} tenants)`);
+      setNotes(`For: ${landlordNames}`);
     }
   }, [open, agentId, landlordBreakdown, selectedTenants.length]);
 
@@ -972,19 +1245,16 @@ function RequestFloatDialog({
     }
     setSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('float_requests')
-        .insert({
-          agent_id: agentId,
-          requested_amount: totalAmount,
-          reason: notes.trim() || `Welile Homes landlord float (${selectedTenants.length} tenants)`,
-          expected_recipient_phone: phone.trim() || null,
-          status: 'pending',
-        })
-        .select('id')
-        .single();
-
-      if (error) throw error;
+      // Sends the exact tenants (subscription IDs) this request covers; the server computes the amount.
+      const result = await requestWelileHomesFloat({
+        agentId,
+        subscriptionIds: selectedTenants.map((s) => s.id),
+        legacyAmount: totalAmount,
+        tenantCount: selectedTenants.length,
+        recipientPhone: phone,
+        notes,
+      });
+      const data = { id: result.requestId };
 
       try {
         await supabase.functions.invoke('notify-cfo-float-request', {
@@ -2467,7 +2737,7 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
   );
 }
 
-// ---------------- Allocate dialog ----------------
+// ---------------- Record Collection dialog ----------------
 function AllocateDialog({ sub, onClose, onDone }: {
   sub: WHSubscription | null; onClose: () => void; onDone: () => void;
 }) {
@@ -2508,18 +2778,18 @@ function AllocateDialog({ sub, onClose, onDone }: {
         p_subscription_id: sub.id,
         p_amount: amt,
         p_source: 'agent_allocation',
-        p_notes: `Agent allocation — rent for ${periodLabel}`,
+        p_notes: `Agent collection — rent for ${periodLabel}`,
       });
       if (error) throw error;
       const res = data as any;
-      if (!res?.success) throw new Error(res?.error || 'Allocation failed');
-      toast({ title: 'Rent allocated', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
+      if (!res?.success) throw new Error(res?.error || 'Collection recording failed');
+      toast({ title: 'Rent payment recorded', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
       // Fire-and-forget: send the tenant an SMS receipt for this collection.
       supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => { });
       onClose();
       onDone();
     } catch (err: any) {
-      toast({ title: 'Allocation failed', description: err.message, variant: 'destructive' });
+      toast({ title: 'Collection failed', description: err.message, variant: 'destructive' });
     } finally { setSubmitting(false); }
   };
 
@@ -2527,9 +2797,9 @@ function AllocateDialog({ sub, onClose, onDone }: {
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Allocate rent — {sub?.tenant_name}</DialogTitle>
+          <DialogTitle>Record rent collection — {sub?.tenant_name}</DialogTitle>
           <DialogDescription>
-            Records cash collected from the tenant. Outstanding: {sub ? formatUGX(sub.outstanding_balance) : ''}. Drawn from your float.
+            Records cash collected from the tenant into the system. Outstanding: {sub ? formatUGX(sub.outstanding_balance) : ''}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -2551,7 +2821,7 @@ function AllocateDialog({ sub, onClose, onDone }: {
         </div>
         <DialogFooter>
           <Button onClick={submit} disabled={submitting} className="w-full">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Allocate
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Receipt className="h-4 w-4 mr-2" />} Record Collection
           </Button>
         </DialogFooter>
       </DialogContent>
