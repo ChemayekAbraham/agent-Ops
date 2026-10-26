@@ -84294,6 +84294,32 @@ export type Database = {
           request_id: string
         }[]
       }
+      rent_request_agent_week_pct: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          days_left: number
+          expired_collected: number
+          expired_due_so_far: number
+          expired_plans: number
+          expired_projected_due: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due_so_far: number
+          in_window_plans: number
+          in_window_projected_due: number
+          in_window_required_pct: number
+          last_book: string
+          last_expired_pct: number
+          last_in_window_pct: number
+          last_passes: boolean
+          last_week_end: string
+          last_week_start: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       rent_request_agent_financials_ok: {
         Args: {
           _amount_repaid: number
