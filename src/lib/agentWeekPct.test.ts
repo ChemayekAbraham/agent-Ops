@@ -9,12 +9,12 @@ const row = (o: Record<string, unknown> = {}) => ({
 });
 
 describe('weekPctOf / formatWeekPct', () => {
-  it('is collected over the projected full-week due, to one decimal, as the agent screen shows it', () => {
+  it('is collected over expected so far, to one decimal', () => {
     expect(weekPctOf(125000, 200000)).toBe(62.5);
     expect(formatWeekPct(weekPctOf(1, 3) as number)).toBe('33.3%');
     expect(formatWeekPct(weekPctOf(200000, 200000) as number)).toBe('100.0%');
   });
-  it('has no figure when nothing is due', () => {
+  it('has no figure when nothing has been expected yet', () => {
     expect(weekPctOf(0, 0)).toBeNull();
   });
 });
@@ -24,17 +24,19 @@ describe('agentWeekSummary', () => {
   it('makes current Rent Plans the main figure and keeps expired as a second figure', () => {
     const s = agentWeekSummary(w);
     expect(s.primary?.group).toBe('current');
-    expect(s.primary?.pct).toBe(62.5);
-    expect(s.expired?.pct).toBe(40);
+    // 125,000 collected of 160,000 expected since Thursday (not of the 200,000 projected for the whole week)
+    expect(s.primary?.pct).toBeCloseTo(78.125, 6);
+    expect(s.primary?.due).toBe(160000);
+    expect(s.expired?.pct).toBe(50);
     expect(s.current?.required).toBe(0.5);
   });
   it('falls back to expired Rent Plans when the agent has no current ones', () => {
-    const [x] = normalizeAgentWeekPct([row({ book: 'all_expired', in_window_plans: 0, in_window_collected: 0, in_window_projected_due: 0, in_window_required_pct: null, expired_required_pct: '0.70' })]);
+    const [x] = normalizeAgentWeekPct([row({ book: 'all_expired', in_window_plans: 0, in_window_collected: 0, in_window_due_so_far: 0, in_window_projected_due: 0, in_window_required_pct: null, expired_required_pct: '0.70' })]);
     expect(agentWeekSummary(x).primary?.group).toBe('expired');
-    expect(agentWeekSummary(x).primary?.pct).toBe(40);
+    expect(agentWeekSummary(x).primary?.pct).toBe(50);
   });
-  it('has no main figure for an agent with nothing billed', () => {
-    const [x] = normalizeAgentWeekPct([row({ book: 'none', in_window_plans: 0, in_window_collected: 0, in_window_projected_due: 0, expired_plans: 0, expired_collected: 0, expired_projected_due: 0 })]);
+  it('has no main figure for an agent with nothing expected yet', () => {
+    const [x] = normalizeAgentWeekPct([row({ book: 'none', in_window_plans: 0, in_window_collected: 0, in_window_due_so_far: 0, in_window_projected_due: 0, expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_projected_due: 0 })]);
     expect(agentWeekSummary(x).primary).toBeNull();
     expect(agentWeekSummary(null).primary).toBeNull();
   });
@@ -44,16 +46,17 @@ describe('agentWeekDetail', () => {
   it('names the week, the amounts, the target and last week', () => {
     const [w] = normalizeAgentWeekPct([row()]);
     const t = agentWeekDetail(w);
-    expect(t).toContain('Thu 22 Oct - Wed 28 Oct');
-    expect(t).toContain('62.5%');
-    expect(t).toContain('UGX 125,000 collected of UGX 200,000');
+    expect(t).toContain('from Thu 22 Oct up to now');
+    expect(t).toContain('78.1%');
+    expect(t).toContain('UGX 125,000 collected of UGX 160,000 expected so far');
     expect(t).toContain('Needs 50%');
     expect(t).toContain('Last week (Thu 15 Oct - Wed 21 Oct)');
     expect(t).toContain('current 71.3%');
   });
   it('says plainly when there is no figure', () => {
-    const [w] = normalizeAgentWeekPct([row({ book: 'none', in_window_projected_due: 0, in_window_collected: 0, expired_projected_due: 0, expired_collected: 0 })]);
+    const [w] = normalizeAgentWeekPct([row({ book: 'none', in_window_projected_due: 0, in_window_due_so_far: 0, in_window_collected: 0, expired_projected_due: 0, expired_due_so_far: 0, expired_collected: 0 })]);
     expect(agentWeekDetail(w)).toContain('no collection percentage');
+    expect(agentWeekDetail(w)).toContain('since Thursday');
   });
 });
 
@@ -61,9 +64,16 @@ describe('orderByAgentWeek', () => {
   const rows = [
     { id: 'r1', agent: 'low' }, { id: 'r2', agent: 'none' }, { id: 'r3', agent: 'high' }, { id: 'r4', agent: 'high' }, { id: 'r5', agent: 'mid' }, { id: 'r6', agent: null }, { id: 'r7', agent: 'low' },
   ];
-  const pct = (collected: number, id: string) => row({ agent_id: id, in_window_collected: collected, in_window_projected_due: 100, book: 'in_window_only', expired_plans: 0, expired_collected: 0, expired_projected_due: 0 });
-  const none = row({ agent_id: 'none', book: 'none', in_window_collected: 0, in_window_projected_due: 0, expired_collected: 0, expired_projected_due: 0 });
+  const pct = (collected: number, id: string) => row({ agent_id: id, in_window_collected: collected, in_window_due_so_far: 100, in_window_projected_due: 300, book: 'in_window_only', expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_projected_due: 0 });
+  const none = row({ agent_id: 'none', book: 'none', in_window_collected: 0, in_window_due_so_far: 0, in_window_projected_due: 0, expired_collected: 0, expired_due_so_far: 0, expired_projected_due: 0 });
   const map = new Map(normalizeAgentWeekPct([pct(10, 'low'), pct(90, 'high'), pct(50, 'mid'), none]).map((w) => [w.agent_id, w]));
+
+  it('uses expected so far, not the projected week, so a projection can never change the order', () => {
+    const a = normalizeAgentWeekPct([pct(50, 'a')])[0];
+    const b = normalizeAgentWeekPct([pct(20, 'b')])[0];
+    expect(agentWeekSummary(a).primary?.pct).toBe(50);
+    expect(agentWeekSummary(b).primary?.pct).toBe(20);
+  });
 
   it('puts the highest percentage on top, agents with no figure last', () => {
     expect(orderByAgentWeek(rows, map, (r) => r.agent).map((r) => r.id)).toEqual(['r3', 'r4', 'r5', 'r1', 'r7', 'r2', 'r6']);

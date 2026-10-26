@@ -18844,6 +18844,32 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_authority_positions: {
+        Row: {
+          created_at: string
+          note: string | null
+          position_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          position_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_authority_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: true
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_agents: {
         Row: {
           agent_id: string
