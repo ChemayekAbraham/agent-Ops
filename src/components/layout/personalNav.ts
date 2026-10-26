@@ -21,6 +21,7 @@ import {
   Clapperboard,
   FileBarChart,
   ClipboardList,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -40,6 +41,8 @@ export interface PersonalNavItem {
   requiresCallingStaff?: boolean;
   /** Only shown to HR (Mark Bwayo) and management oversight roles. */
   requiresHrStaffReports?: boolean;
+  /** Only shown when staff_assistant_has_access() is true. */
+  requiresZoeAccess?: boolean;
 }
 
 export const PERSONAL_NAV: PersonalNavItem[] = [
@@ -104,5 +107,12 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     description: 'Watch operations tutorials. Creators upload and claim payment here',
     requiresStaff: true,
     requiresTutorialAccess: true,
+  },
+  {
+    to: '/me/zoe',
+    icon: MessageSquare,
+    title: 'Ask Zoe',
+    description: 'Read-only assistant for your My Space records and department reports',
+    requiresZoeAccess: true,
   },
 ];
