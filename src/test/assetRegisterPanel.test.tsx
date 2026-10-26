@@ -165,6 +165,35 @@ describe('CFO Asset Register panel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
     expect(screen.queryByRole('button', { name: /Print labels/ })).toBeNull();
   });
+
+  it('row Actions menu offers details, edit, QR and label without opening the row', async () => {
+    setup();
+    await screen.findByText('WEL-AST-000001');
+    const openMenu = async () => {
+      const trigger = screen.getByRole('button', { name: 'Actions for WEL-AST-000002' });
+      fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+      fireEvent.keyDown(trigger, { key: 'Enter' });
+      return screen.findByRole('menu');
+    };
+
+    const menu = await openMenu();
+    for (const name of [/View details/, /Edit/, /View QR code/, /Print label/]) expect(within(menu).getByRole('menuitem', { name })).toBeTruthy();
+    expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_get', expect.anything()); // opening the menu is not a row click
+
+    fireEvent.click(within(menu).getByRole('menuitem', { name: /View QR code/ }));
+    expect(await screen.findByAltText('QR code for WEL-AST-000002')).toBeTruthy();
+    expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_get', expect.anything());
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(within(await openMenu()).getByRole('menuitem', { name: /Edit/ }));
+    expect(await screen.findByRole('dialog', { name: /Edit WEL-AST-000002/ })).toBeTruthy();
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(within(await openMenu()).getByRole('menuitem', { name: /View details/ }));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('asset_register_get', { p_id: asset(2).id }));
+  });
 });
 
 // Tagged assets (WEL-<category>-<site>-<register number>), as issued by the server after 20261027150000.

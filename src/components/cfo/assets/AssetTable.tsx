@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, X, Printer, Loader2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, X, Printer, Loader2, MoreHorizontal, Eye, Pencil, QrCode } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,10 +8,15 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAssetList, useAssetReferenceData } from '@/hooks/useAssetRegister';
 import {
   ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_STATUSES, assetCodes, categoryLabel, conditionLabel, statusLabel,
-  type AssetListFilters,
+  type Asset, type AssetListFilters,
 } from '@/lib/assetRegister/types';
 import { MAX_LABELS_PER_PRINT, toAssetLabel, type AssetLabel } from '@/lib/assetRegister/qr';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { printAssetLabels } from './printAssetLabels';
+import { AssetQrDialog } from './AssetQrDialog';
+import { AssetFormDialog } from './AssetFormDialog';
 
 const PAGE_SIZE = 25;
 const ALL = '__all__';
@@ -37,6 +42,8 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
   const ref = useAssetReferenceData();
   const [selected, setSelected] = useState<Map<string, AssetLabel>>(new Map());
   const [printing, setPrinting] = useState(false);
+  const [qrAsset, setQrAsset] = useState<Asset | null>(null);
+  const [editAsset, setEditAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -135,17 +142,18 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
               <th className="hidden px-3 py-2.5 text-left font-medium xl:table-cell">Location</th>
               <th className="px-3 py-2.5 text-left font-medium">Status</th>
               <th className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">Cost</th>
+              <th className="w-14 px-3 py-2.5 text-center font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/50">
             {q.isLoading && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
             )}
             {q.isError && (
-              <tr><td colSpan={9} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
+              <tr><td colSpan={10} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
             )}
             {!q.isLoading && !q.isError && items.length === 0 && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">
                 {filtered ? 'No assets match these filters.' : 'No assets registered yet. Add one or import from Excel.'}
               </td></tr>
             )}
@@ -180,6 +188,34 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="hidden whitespace-nowrap px-3 py-2.5 text-right tabular-nums sm:table-cell">
                   {a.purchase_cost === null ? '—' : a.currency === 'UGX' ? formatUGX(a.purchase_cost) : `${a.currency} ${Number(a.purchase_cost).toLocaleString()}`}
                 </td>
+                <td className="px-3 py-1.5 text-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                  <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                      <Button id={`asset-actions-${a.id}`} variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        aria-label={`Actions for ${assetCodes(a).primary}`}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44 text-xs">
+                      <DropdownMenuLabel className="truncate font-mono text-[11px] font-normal text-muted-foreground">{assetCodes(a).primary}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-xs" onSelect={() => onOpen(a.id)}>
+                        <Eye className="mr-2 h-3.5 w-3.5" /> View details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs" onSelect={() => setEditAsset(a)}>
+                        <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-xs" onSelect={() => setQrAsset(a)}>
+                        <QrCode className="mr-2 h-3.5 w-3.5" /> View QR code
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="text-xs" disabled={printing}
+                        onSelect={async () => { setPrinting(true); await printAssetLabels([toAssetLabel(a)]); setPrinting(false); }}>
+                        <Printer className="mr-2 h-3.5 w-3.5" /> Print label
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -199,6 +235,9 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           </Button>
         </div>
       </div>
+
+      <AssetQrDialog open={!!qrAsset} onOpenChange={(o) => { if (!o) setQrAsset(null); }} asset={qrAsset} />
+      <AssetFormDialog open={!!editAsset} onOpenChange={(o) => { if (!o) setEditAsset(null); }} asset={editAsset} />
     </section>
   );
 }
