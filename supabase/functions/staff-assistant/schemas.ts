@@ -94,6 +94,12 @@ export const RequestSchema = z.discriminatedUnion("action", [
       conversation_id: z.string().uuid().optional(),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal("morning_brief"),
+      force: z.boolean().optional(),
+    })
+    .strict(),
 ]);
 
 export type RequestBody = z.infer<typeof RequestSchema>;

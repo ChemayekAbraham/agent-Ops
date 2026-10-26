@@ -12,6 +12,7 @@ import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayo
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
 import { RedemptionApprovalsPanel } from '@/components/cfo/RedemptionApprovalsPanel';
+import { CompoundRequestApprovalsPanel } from '@/components/cfo/CompoundRequestApprovalsPanel';
 import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
@@ -223,6 +224,8 @@ export default function CFODashboardPage() {
         return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':
         return <RedemptionApprovalsPanel />;
+      case 'compound-requests':
+        return <CompoundRequestApprovalsPanel />;
       case 'lunch-allowance':
         return <LunchAllowanceTracker />;
       case 'cash-position':

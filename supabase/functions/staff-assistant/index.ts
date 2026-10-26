@@ -1,5 +1,10 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
+import {
+  buildReminderDraft,
+  buildReportScheduleDraft,
+  buildStaffNotificationDraft,
+} from "./actionDrafts.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
   buildReportEmailDraft,
@@ -9,6 +14,7 @@ import {
 } from "./emailDraft.ts";
 import { checkAnswer } from "./guards.ts";
 import { MSG } from "./messages.ts";
+import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import { chatCompletion, ChatMessage, classifyText } from "./openai.ts";
 import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
@@ -31,7 +37,10 @@ import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
+  DraftReminderArgsSchema,
   DraftReportEmailArgsSchema,
+  DraftReportScheduleArgsSchema,
+  DraftStaffNotificationArgsSchema,
   findTool,
   openAiToolsForRoles,
 } from "./tools.ts";
@@ -165,6 +174,29 @@ Deno.serve(async (req) => {
     });
     if (!res.ok) return json(404, { error: MSG.invalidRequest });
     return json(200, { ok: true, reply: MSG.feedbackSaved });
+  }
+
+  if (body.action === "morning_brief") {
+    const callerRoles = await resolveCallerRoles(userClient, user.id);
+    const brief = await buildMorningBriefForCaller({
+      callerRoles,
+      force: body.force,
+      runTool: async (tool) => {
+        if (!canUseTool(tool, callerRoles)) return null;
+        if (tool.sensitive) {
+          const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+          if (!mfaGate.ok) return null;
+        }
+        const parsedArgs = tool.schema.safeParse({});
+        const rpcArgs = tool.toRpcArgs(parsedArgs.success ? parsedArgs.data : {});
+        const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
+        if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+          return null;
+        }
+        return data as Record<string, unknown>;
+      },
+    });
+    return json(200, { ok: true, morning_brief: brief });
   }
 
   // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
@@ -528,6 +560,292 @@ Deno.serve(async (req) => {
             reportPayload: {
               ...lastReportPayload,
               email_draft: draftOutcome.draft,
+            },
+          });
+        }
+
+        // Action tool: draft_reminder (NEVER writes to DB; returns draft card for user click)
+        if (call.function.name === "draft_reminder") {
+          const r = DraftReminderArgsSchema.safeParse(rawArgs);
+          if (!r.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          const reminderDraft = buildReminderDraft({
+            title: r.data.title,
+            remindAt: r.data.remind_at,
+            note: r.data.note,
+            todayKampala: today,
+          });
+
+          return await finish(reminderDraft.replyText, "answered", {
+            tools: [...toolsCalled, "draft_reminder"],
+            model: lastModel,
+            sourceLabel: "My Space Zoe Reminder Draft",
+            periodLabel: reminderDraft.draft.remind_at_kampala,
+            reportPayload: {
+              ...(lastReportPayload ?? {}),
+              action_draft: reminderDraft.draft,
+            },
+          });
+        }
+
+        // Action tool: draft_staff_notification (NEVER writes to notifications; looks up recipient ONLY via staff_assistant_email_recipients)
+        if (call.function.name === "draft_staff_notification") {
+          const n = DraftStaffNotificationArgsSchema.safeParse(rawArgs);
+          if (!n.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          if (isEmailFromToolData(n.data.recipient_search, rawToolOutputs, userText)) {
+            return await finish(MSG.dataEmailForbidden, "blocked", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          const recipientQuery = extractRecipientQuery(n.data.recipient_search);
+          const { data: recipientRows, error: recipientErr } = await userClient.rpc(
+            "staff_assistant_email_recipients",
+            { p_search: recipientQuery },
+          );
+          if (recipientErr) {
+            return await finish(MSG.error, "error", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const notifOutcome = buildStaffNotificationDraft({
+            recipientSearch: n.data.recipient_search,
+            recipients: normalizeStaffRecipients(recipientRows),
+            rawToolOutputs,
+            userText,
+            title: n.data.title,
+            message: n.data.message,
+            todayKampala: today,
+          });
+
+          if (notifOutcome.kind === "refused") {
+            return await finish(notifOutcome.message, "blocked", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          if (notifOutcome.kind === "pick_recipient") {
+            return await finish(notifOutcome.question, "clarify", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              clarification: {
+                question: notifOutcome.question,
+                options: notifOutcome.options,
+              },
+              sourceLabel: "staff_assistant_email_recipients",
+              periodLabel: today,
+              reportPayload: {
+                ...(lastReportPayload ?? {}),
+                action_draft: notifOutcome.draft,
+              },
+            });
+          }
+
+          return await finish(notifOutcome.replyText, "answered", {
+            tools: [...toolsCalled, "draft_staff_notification"],
+            model: lastModel,
+            sourceLabel: "staff_assistant_email_recipients",
+            periodLabel: today,
+            reportPayload: {
+              ...(lastReportPayload ?? {}),
+              action_draft: notifOutcome.draft,
+            },
+          });
+        }
+
+        // Action tool: draft_report_schedule (NEVER stores or sends; looks up recipient ONLY via staff_assistant_email_recipients)
+        if (call.function.name === "draft_report_schedule") {
+          const s = DraftReportScheduleArgsSchema.safeParse(rawArgs);
+          if (!s.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          if (isEmailFromToolData(s.data.recipient_search, rawToolOutputs, userText)) {
+            return await finish(MSG.dataEmailForbidden, "blocked", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          if (!lastReportPayload && s.data.report_tool) {
+            const repTool = findTool(s.data.report_tool);
+            if (!repTool) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "missing_tool",
+              });
+            }
+            if (!canUseTool(repTool, callerRoles)) {
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+            if (repTool.sensitive) {
+              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              if (!mfaGate.ok) {
+                return await finish(MSG.mfaRequired, "blocked", {
+                  tools: toolsCalled,
+                  model: lastModel,
+                  mfaRequired: true,
+                });
+              }
+            }
+            const repArgs = repTool.schema.safeParse({});
+            const repRpcArgs = repTool.toRpcArgs(repArgs.success ? repArgs.data : {});
+            const { data: repData, error: repError } = await userClient.rpc(
+              repTool.rpc,
+              repRpcArgs,
+            );
+            if (repError) {
+              if (repError.code === "42501") {
+                return await finish(MSG.roleRestricted, "not_staff", {
+                  tools: toolsCalled,
+                  model: lastModel,
+                  unansweredReason: "role_restricted",
+                });
+              }
+              return await finish(MSG.error, "error", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "error",
+              });
+            }
+            toolsCalled.push(repTool.name);
+            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            if (repData && typeof repData === "object" && !Array.isArray(repData)) {
+              const payload = repData as Record<string, unknown>;
+              lastReportPayload = {
+                ...payload,
+                tool: repTool.name,
+                rpc: repTool.rpc,
+                args: repArgs.success ? repArgs.data : {},
+                source: payload.source ?? repTool.rpc,
+                period: payload.period ?? null,
+                row_count: payload.row_count ?? null,
+                rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
+                data: payload.data ?? null,
+              };
+            }
+          }
+
+          if (!lastReportPayload) {
+            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+          }
+
+          if (!lastReportPayload) {
+            return await finish(
+              "Which report would you like me to schedule? Ask for the report first or specify the report, frequency (daily or weekly), and Welile staff recipient.",
+              "clarify",
+              {
+                tools: [...toolsCalled, "draft_report_schedule"],
+                model: lastModel,
+                clarification: {
+                  question: "Which report would you like to schedule?",
+                  options: ["My tasks and tickets", "My payslips"],
+                },
+              },
+            );
+          }
+
+          const combinedOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
+          if (isEmailFromToolData(s.data.recipient_search, combinedOutputs, userText)) {
+            return await finish(MSG.dataEmailForbidden, "blocked", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          const recipientQuery = extractRecipientQuery(s.data.recipient_search);
+          const { data: recipientRows, error: recipientErr } = await userClient.rpc(
+            "staff_assistant_email_recipients",
+            { p_search: recipientQuery },
+          );
+          if (recipientErr) {
+            return await finish(MSG.error, "error", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const resolvedPeriodLabel =
+            periodsUsed[0] ?? formatPeriodLabel(lastReportPayload.period) ?? today;
+          const scheduleOutcome = buildReportScheduleDraft({
+            recipientSearch: s.data.recipient_search,
+            recipients: normalizeStaffRecipients(recipientRows),
+            rawToolOutputs: combinedOutputs,
+            userText,
+            frequency: s.data.frequency,
+            dayOfWeek: s.data.day_of_week,
+            sendTimeKampala: s.data.send_time_kampala,
+            customMessage: s.data.custom_message,
+            reportPayload: lastReportPayload,
+            periodLabel: resolvedPeriodLabel,
+            todayKampala: today,
+          });
+
+          if (scheduleOutcome.kind === "refused") {
+            return await finish(scheduleOutcome.message, "blocked", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "role_restricted",
+            });
+          }
+
+          if (scheduleOutcome.kind === "pick_recipient") {
+            return await finish(scheduleOutcome.question, "clarify", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              clarification: {
+                question: scheduleOutcome.question,
+                options: scheduleOutcome.options,
+              },
+              sourceLabel: scheduleOutcome.draft.report_reference.source,
+              periodLabel: scheduleOutcome.draft.report_reference.period,
+              reportPayload: {
+                ...lastReportPayload,
+                action_draft: scheduleOutcome.draft,
+              },
+            });
+          }
+
+          return await finish(scheduleOutcome.replyText, "answered", {
+            tools: [...toolsCalled, "draft_report_schedule"],
+            model: lastModel,
+            sourceLabel: scheduleOutcome.draft.report_reference.source,
+            periodLabel: scheduleOutcome.draft.report_reference.period,
+            reportPayload: {
+              ...lastReportPayload,
+              action_draft: scheduleOutcome.draft,
             },
           });
         }

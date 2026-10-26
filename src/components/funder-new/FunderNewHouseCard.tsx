@@ -8,6 +8,7 @@ import {
   emptyHouseTitle,
   firstPhoto,
   itemAmount,
+  itemCoordinates,
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
@@ -41,6 +42,7 @@ export function FunderNewHouseCard({
   const amount = itemAmount(category, item);
   const monthlyReturn = itemMonthlyReturn(category, item);
   const photo = firstPhoto(category, item);
+  const coords = itemCoordinates(item, category);
 
   return (
     <article
@@ -160,6 +162,20 @@ export function FunderNewHouseCard({
         </div>
 
         <div className="flex items-center gap-2">
+          {coords ? (
+            <Button
+              variant="outline"
+              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg p-0"
+              onClick={() => {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
+              }}
+              aria-label={`Open Google Maps location for ${title}`}
+              title="Open in Google Maps"
+            >
+              <Navigation className="h-4 w-4" aria-hidden />
+              <span className="sr-only">Open in Google Maps</span>
+            </Button>
+          ) : null}
           <Button
             variant="default"
             className={cn(

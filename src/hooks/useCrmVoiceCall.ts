@@ -667,21 +667,34 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
 }
 
 export interface HumanCallingPause {
+  /** True while staff cannot call: the robot has the line, or an admin paused it. */
   paused: boolean;
+  /** Ready-to-show sentence, e.g. "This line is in use by automated calls right now. Try again after 13:00." */
   reason: string | null;
   paused_at: string | null;
+  /** idle = staff may call; robot = automated calls have the line; paused = admin override. */
+  state?: 'idle' | 'robot' | 'paused';
+  /** HH:MM (Kampala) when the robot's current calling window ends, if known. */
+  until?: string | null;
 }
 
 /**
- * Is calling from the app paused? While it is, the phone line is used by the
- * automated call centre and the server refuses every human call (token,
- * place-call and the live callback). Screens use this to hide their call
- * buttons; hiding is a courtesy, the server is the gate.
+ * Can staff call from the app right now? The phone line is shared with the
+ * automated call centre: while the robot has it (a robot call is live, or a
+ * campaign window is open with people waiting) — or an admin paused calling —
+ * `paused` is true and the server refuses staff calls (token, place-call and
+ * the live callback, all under the same lock as the robot's dialer). Screens
+ * use this to hide their call buttons and show `reason`; hiding is a
+ * courtesy, the server is the gate.
  */
 export function useHumanCallingPaused() {
   return useQuery({
     queryKey: ['crm-human-calling-paused'],
-    staleTime: 60_000,
+    // The line flips between robot and staff during the day, so keep it fresh:
+    // buttons reappear within ~30 s of the robot finishing.
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<HumanCallingPause> => {
       const { data, error } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: HumanCallingPause | null; error: { message: string } | null }>)(
         'crm_human_calling_paused',

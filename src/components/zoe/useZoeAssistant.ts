@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { safeUUID } from '@/lib/safeUUID';
+import type { ZoeMorningBriefPayload } from '@/lib/zoe';
 
 export type ZoeTurnOutcome =
   | 'answered'
@@ -113,6 +114,7 @@ export function useZoeAccess() {
 
 export interface UseZoeAssistantReturn {
   messages: ZoeMessage[];
+  morningBrief: ZoeMorningBriefPayload | null;
   isLoading: boolean;
   isHistoryLoading: boolean;
   errorMessage: string | null;
@@ -127,6 +129,7 @@ export interface UseZoeAssistantReturn {
 export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ZoeMessage[]>([]);
+  const [morningBrief, setMorningBrief] = useState<ZoeMorningBriefPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -155,6 +158,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
 
     let cancelled = false;
     setIsHistoryLoading(true);
+    setMorningBrief(null);
     supabase.functions
       .invoke('staff-assistant', { body: { action: 'history', limit: 30 } })
       .then(async ({ data, error }) => {
@@ -185,6 +189,21 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         if (!cancelled && generation === generationRef.current) {
           setIsHistoryLoading(false);
         }
+      });
+
+    // Also load the optional 07:30 Kampala Morning Brief (off by default, turned on per person)
+    supabase.functions
+      .invoke<{ morning_brief?: ZoeMorningBriefPayload }>('staff-assistant', {
+        body: { action: 'morning_brief', force: false },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (data?.morning_brief) {
+          setMorningBrief(data.morning_brief);
+        }
+      })
+      .catch(() => {
+        /* ignore brief load error */
       });
 
     return () => {
@@ -329,6 +348,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
 
   return {
     messages,
+    morningBrief,
     isLoading,
     isHistoryLoading,
     errorMessage,
