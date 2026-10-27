@@ -482,10 +482,11 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
-  // Staff prompt RPCs are granted to authenticated only. Mounting them for every
-  // visitor fired hr_pay_pending_prompt, staff_survey_pending, the requisition
-  // prompt/notice RPCs, pso_facilitation_pending_prompt and staff_loan_pending_prompt
-  // with the anon key (HTTP 401) on each page load, navigation and poll.
+  // Staff prompt RPCs return no rows without a user JWT, and anon may execute
+  // them so a public page does not log Postgres 42501. Still mount them only
+  // for a real session: hr_pay_pending_prompt, staff_survey_pending, the
+  // requisition prompt/notice RPCs, pso_facilitation_pending_prompt and
+  // staff_loan_pending_prompt should not run on every anonymous page view.
   const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
