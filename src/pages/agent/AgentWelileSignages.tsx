@@ -223,7 +223,7 @@ export default function AgentWelileSignages() {
 
         district_name: adminLocation.district,
         county_name: adminLocation.county,
-        sub_county_name: adminLocation.subCounty,
+        sub_county_name: adminLocation.subcounty,
         parish_name: adminLocation.parish,
         village_name: adminLocation.village,
         plot_or_landmark: plotOrLandmark.trim() || undefined,
