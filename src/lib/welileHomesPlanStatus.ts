@@ -4,18 +4,20 @@
  *
  * Inputs are only facts the database records against the subscription itself:
  *   - subscription_status ('cancelled' = application declined by operations)
- *   - funding_status (set only by the Welile Homes float functions; absent until
- *     docs/pending-migrations/welile_homes_float_link.sql is applied)
  *   - the status of the float request linked through welile_homes_float_request_items
- *     (same migration; absent before it)
+ *     (absent before docs/pending-migrations/welile_homes_float_link.sql is applied)
  *   - whether any monthly due has a collection or landlord payout recorded
+ *
+ * welile_homes_subscriptions has no funding_status column. Screens must not select or
+ * filter it: that PostgREST read is a Postgres 42703 on every load. The stage function
+ * still accepts fundingStatus when a caller already has the value. The live screens do
+ * not, so they never claim "Funded" from a missing column.
  *
  * Nothing is inferred from float request reason text: legacy requests carry no tenant or
  * landlord identity, so guessing attached the wrong stage to the wrong tenants.
  *
- * "Funded" is shown only when funding_status = 'funded' (written by wh_cfo_disburse_float in
- * the same transaction as the ledger posting). A request marked 'approved' without that proof
- * is shown as "Approved – disbursement unconfirmed".
+ * "Funded" is shown only when fundingStatus is 'funded'. A request marked 'approved'
+ * without that proof is shown as "Approved – disbursement unconfirmed".
  *
  * The delete lock here is presentation only. delete_welile_home_subscription refuses the same
  * plans on the server (docs/pending-migrations/welile_homes_delete_guard.sql).
@@ -210,17 +212,3 @@ export async function fetchWhFloatLinks(): Promise<Map<string, string>> {
   return out;
 }
 
-/**
- * Runs a subscriptions select with `, funding_status` appended, retrying without it when the
- * column does not exist yet (before the float-link migration).
- */
-export async function selectWithOptionalFundingStatus<T>(
-  run: (extraColumns: string) => PromiseLike<{ data: T[] | null; error: unknown }>,
-): Promise<T[]> {
-  const first = await run(', funding_status');
-  if (!first.error) return first.data ?? [];
-  if (!isMissingRelationOrColumn(first.error)) throw first.error;
-  const second = await run('');
-  if (second.error) throw second.error;
-  return second.data ?? [];
-}
