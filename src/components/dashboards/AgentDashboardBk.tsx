@@ -1,3 +1,4 @@
+import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
 // This is the agent dashboard exactly as it stood at commit 16c8eb552c (12 Oct 2026, 13:30 UTC),
@@ -1167,6 +1168,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         )}
 
         <AgentAgreementBanner />
+        <AgentVettingBanner />
         <MissionBanner dashboardRole="agent" />
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}

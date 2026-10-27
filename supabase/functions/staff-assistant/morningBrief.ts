@@ -40,6 +40,13 @@ export function isPastKampalaBriefTime(
   return currentHm >= briefTime;
 }
 
+function formatUgx(val: unknown): string | null {
+  if (typeof val === "number" && Number.isFinite(val)) {
+    return `UGX ${Math.round(val).toLocaleString("en-US")}`;
+  }
+  return null;
+}
+
 function summarizeToolPayload(
   toolName: string,
   payload: Record<string, unknown>,
@@ -49,6 +56,14 @@ function summarizeToolPayload(
       ? payload.row_count
       : Array.isArray(payload.rows)
       ? payload.rows.length
+      : Array.isArray(payload.tasks)
+      ? payload.tasks.length
+      : Array.isArray(payload.concerns)
+      ? payload.concerns.length
+      : Array.isArray(payload.requisitions)
+      ? payload.requisitions.length
+      : Array.isArray(payload.tickets)
+      ? payload.tickets.length
       : 0;
 
   const dataObj =
@@ -63,36 +78,179 @@ function summarizeToolPayload(
       typeof dataObj.pending_tasks_count === "number"
         ? dataObj.pending_tasks_count
         : rowCount;
-    const openTickets =
-      typeof dataObj.open_tickets_count === "number"
-        ? dataObj.open_tickets_count
+    const overdueCount =
+      typeof payload.overdue_count === "number"
+        ? payload.overdue_count
+        : typeof dataObj.overdue_count === "number"
+        ? dataObj.overdue_count
         : 0;
     return {
       rowCount,
       summary: sanitizeWelileTermsServer(
-        `${pendingTasks} pending task(s) and ${openTickets} open ticket(s) assigned to you.`,
+        `${pendingTasks} pending task(s) in My Work (${overdueCount} overdue).`,
       ),
     };
   }
 
-  if (toolName === "get_my_concerns") {
+  if (toolName === "get_my_pending_concerns") {
     return {
       rowCount,
       summary: sanitizeWelileTermsServer(
-        `${rowCount} pending Calling Center concern(s) awaiting follow-up.`,
+        `${rowCount} pending Calling Center concern(s) awaiting your review.`,
       ),
+    };
+  }
+
+  if (toolName === "get_my_requisitions") {
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `${rowCount} staff requisition(s) tracked in My Space.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_my_tickets") {
+    const openCount =
+      typeof payload.open_count === "number"
+        ? payload.open_count
+        : typeof dataObj.open_count === "number"
+        ? dataObj.open_count
+        : rowCount;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `${openCount} open HR ticket(s) out of ${rowCount} total.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_my_canteen") {
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `Today's canteen menu and ${rowCount} recent food order(s).`,
+      ),
+    };
+  }
+
+  if (toolName === "get_tops_first_seven_summary") {
+    const funded =
+      typeof dataObj.funded_plans === "number" ? dataObj.funded_plans : rowCount;
+    const onTrack =
+      typeof dataObj.paying_on_track === "number" ? dataObj.paying_on_track : 0;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `First 7 Days onboarding: ${funded} funded Rent Plan(s), ${onTrack} paying on track.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_tops_weekly_performance") {
+    const collected =
+      formatUgx(dataObj.weekly_collected_ugx) ??
+      formatUgx(dataObj.collected_ugx) ??
+      `${rowCount} record(s)`;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `Tenant Ops weekly collections snapshot: ${collected}.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_lops_home_range") {
+    const verified =
+      typeof dataObj.landlords_verified === "number"
+        ? dataObj.landlords_verified
+        : rowCount;
+    const payouts =
+      typeof dataObj.payouts_completed === "number"
+        ? dataObj.payouts_completed
+        : 0;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `Landlord Ops pipeline: ${verified} landlord(s) verified, ${payouts} payout(s) completed.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_lops_calling_summary") {
+    const calls =
+      typeof dataObj.total_calls === "number" ? dataObj.total_calls : rowCount;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `Landlord Calling Center summary: ${calls} call(s) logged this week.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_aops_metrics_totals" || toolName === "get_aops_network_overview") {
+    const houses =
+      typeof dataObj.houses_listed === "number"
+        ? `${dataObj.houses_listed} house(s) listed`
+        : typeof dataObj.qualifying_agents === "number"
+        ? `${dataObj.qualifying_agents} qualifying agent(s)`
+        : `${rowCount} record(s)`;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(`Agent Ops snapshot: ${houses}.`),
+    };
+  }
+
+  if (toolName === "get_pops_pending_summary" || toolName === "get_pso_cohort_performance") {
+    const pendingCount =
+      typeof dataObj.pending_count === "number"
+        ? `${dataObj.pending_count} pending Supporter portfolio(s)`
+        : typeof dataObj.funded_notes_count === "number"
+        ? `${dataObj.funded_notes_count} funded note(s)`
+        : `${rowCount} record(s)`;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(`Partner Ops queue: ${pendingCount}.`),
     };
   }
 
   if (toolName === "get_cfo_treasury_cash_position") {
     const totalCash =
-      typeof dataObj.total_cash_ugx === "number"
-        ? `UGX ${Math.round(dataObj.total_cash_ugx).toLocaleString("en-US")}`
-        : `${rowCount} account line(s)`;
+      formatUgx(dataObj.total_treasury_cash_ugx) ??
+      formatUgx(dataObj.total_cash_ugx) ??
+      `${rowCount} account line(s)`;
     return {
       rowCount,
       summary: sanitizeWelileTermsServer(
         `Treasury cash position snapshot: ${totalCash}.`,
+      ),
+    };
+  }
+
+  if (toolName === "get_coo_overview" || toolName === "get_ceo_growth_and_approvals") {
+    const activePlans =
+      typeof dataObj.active_rent_plans === "number"
+        ? `${dataObj.active_rent_plans} active Rent Plan(s)`
+        : `${rowCount} executive summary line(s)`;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(`Executive operations pulse: ${activePlans}.`),
+    };
+  }
+
+  if (toolName === "get_hr_contracts_and_birthdays") {
+    const expiring =
+      typeof dataObj.expiring_within_60_days === "number"
+        ? dataObj.expiring_within_60_days
+        : rowCount;
+    const birthdays =
+      typeof dataObj.upcoming_birthdays_count === "number"
+        ? dataObj.upcoming_birthdays_count
+        : 0;
+    return {
+      rowCount,
+      summary: sanitizeWelileTermsServer(
+        `HR people pulse: ${expiring} expiring contract(s) and ${birthdays} upcoming birthday(s).`,
       ),
     };
   }
@@ -108,26 +266,41 @@ function summarizeToolPayload(
 }
 
 /**
- * Selects the primary department read tool for the caller's enabled roles so the
- * 07:30 Kampala Morning Brief is built strictly from `assistant_staff_*` tools.
+ * All candidate tool names for the 07:30 Kampala Morning Brief.
+ * Every single name here MUST exist in `STAFF_TOOLS` (`assistant_staff_*`).
+ * Ordered so department-specific non-sensitive tools and personal My Space tools
+ * give every role at least 3 useful lines (and up to 4 lines).
+ */
+export const MORNING_BRIEF_CANDIDATE_TOOLS = [
+  "get_my_tasks",
+  "get_my_pending_concerns",
+  "get_tops_first_seven_summary",
+  "get_tops_weekly_performance",
+  "get_lops_home_range",
+  "get_lops_calling_summary",
+  "get_aops_metrics_totals",
+  "get_aops_network_overview",
+  "get_pops_pending_summary",
+  "get_pso_cohort_performance",
+  "get_cfo_treasury_cash_position",
+  "get_fops_verification_and_requisitions",
+  "get_coo_overview",
+  "get_ceo_growth_and_approvals",
+  "get_hr_contracts_and_birthdays",
+  "get_my_requisitions",
+  "get_my_tickets",
+  "get_my_canteen",
+] as const;
+
+/**
+ * Selects up to 4 real `assistant_staff_*` tools for the caller's enabled roles so
+ * every role is guaranteed at least 3 useful lines in their 07:30 Kampala Morning Brief.
  */
 export function selectRoleBriefToolNames(
   callerRoles: readonly string[],
 ): string[] {
-  const candidateNames = [
-    "get_my_tasks",
-    "get_my_concerns",
-    "get_tops_pipeline_waiting_on_lops",
-    "get_lops_payout_pipeline",
-    "get_aops_network_overview",
-    "get_pops_pending_ops_queue",
-    "get_cfo_treasury_cash_position",
-    "get_hr_contracts_and_birthdays",
-    "get_exec_daily_ops_pulse",
-  ];
-
   const selected: string[] = [];
-  for (const name of candidateNames) {
+  for (const name of MORNING_BRIEF_CANDIDATE_TOOLS) {
     const tool = findTool(name);
     if (!tool) continue;
     if (canUseTool(tool, callerRoles)) {
@@ -141,6 +314,8 @@ export function selectRoleBriefToolNames(
 /**
  * Builds the optional 07:30 Kampala Morning Brief strictly by calling `assistant_staff_*`
  * tools via `runTool` (which uses the caller's own JWT `userClient`).
+ * If any sensitive department tool returns null (e.g. caller has not completed AAL2 MFA yet),
+ * automatically falls back to remaining allowed tools so every role still receives at least 3 lines.
  */
 export async function buildMorningBriefForCaller(params: {
   callerRoles: readonly string[];
@@ -207,10 +382,16 @@ export async function buildMorningBriefForCaller(params: {
     };
   }
 
-  const toolNames = selectRoleBriefToolNames(params.callerRoles);
+  const primaryNames = selectRoleBriefToolNames(params.callerRoles);
+  const allCandidateNames = [
+    ...primaryNames,
+    ...MORNING_BRIEF_CANDIDATE_TOOLS.filter((n) => !primaryNames.includes(n)),
+  ];
+
   const sections: MorningBriefSection[] = [];
 
-  for (const name of toolNames) {
+  for (const name of allCandidateNames) {
+    if (sections.length >= 4) break;
     const tool = findTool(name);
     if (!tool || !canUseTool(tool, params.callerRoles)) continue;
     const payload = await params.runTool(tool);

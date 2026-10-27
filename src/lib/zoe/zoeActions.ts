@@ -151,7 +151,7 @@ export function extractZoeActionDraft(
   if (!rawDraft || typeof rawDraft !== 'object' || Array.isArray(rawDraft)) return null;
 
   const d = rawDraft as Record<string, unknown>;
-  const actionType = d.action_type;
+  const actionType = d.action_type ?? d.kind;
 
   if (actionType === 'reminder') {
     const title = sanitizeWelileTerms(
@@ -164,7 +164,9 @@ export function extractZoeActionDraft(
     const remindAtLabel =
       typeof d.remind_at_kampala_label === 'string' && d.remind_at_kampala_label.trim()
         ? d.remind_at_kampala_label.trim()
-        : remindAt;
+        : typeof d.remind_at_kampala === 'string' && d.remind_at_kampala.trim()
+          ? d.remind_at_kampala.trim()
+          : remindAt;
     const note =
       typeof d.note === 'string' && d.note.trim() ? sanitizeWelileTerms(d.note.trim()) : null;
 
@@ -220,10 +222,14 @@ export function extractZoeActionDraft(
     const candidates = parseCandidates(d.candidates);
     const recipientEmails = Array.isArray(d.recipient_emails)
       ? d.recipient_emails.map((e) => String(e).trim()).filter(Boolean)
-      : [];
+      : typeof d.recipient_email === 'string' && d.recipient_email.trim()
+        ? [d.recipient_email.trim()]
+        : [];
     const recipientNames = Array.isArray(d.recipient_names)
       ? d.recipient_names.map((n) => String(n).trim()).filter(Boolean)
-      : [];
+      : typeof d.recipient_name === 'string' && d.recipient_name.trim()
+        ? [d.recipient_name.trim()]
+        : [];
     const frequency: 'daily' | 'weekly' = d.frequency === 'weekly' ? 'weekly' : 'daily';
     const dayOfWeek =
       typeof d.day_of_week === 'number' && Number.isFinite(d.day_of_week)
@@ -236,14 +242,40 @@ export function extractZoeActionDraft(
         ? 'pick_recipient'
         : 'ready';
 
+    const rawRef =
+      d.report_reference && typeof d.report_reference === 'object' && !Array.isArray(d.report_reference)
+        ? (d.report_reference as Record<string, unknown>)
+        : {};
     const reportTool =
       typeof d.report_tool === 'string' && d.report_tool.trim()
         ? d.report_tool.trim()
-        : 'my_profile';
+        : typeof rawRef.tool === 'string' && rawRef.tool.trim()
+          ? rawRef.tool.trim()
+          : 'my_profile';
     const reportRpc =
       typeof d.report_rpc === 'string' && d.report_rpc.trim()
         ? d.report_rpc.trim()
-        : 'assistant_staff_my_profile';
+        : typeof rawRef.rpc === 'string' && rawRef.rpc.trim()
+          ? rawRef.rpc.trim()
+          : 'assistant_staff_my_profile';
+    const reportArgs =
+      d.report_args && typeof d.report_args === 'object' && !Array.isArray(d.report_args)
+        ? (d.report_args as Record<string, unknown>)
+        : rawRef.args && typeof rawRef.args === 'object' && !Array.isArray(rawRef.args)
+          ? (rawRef.args as Record<string, unknown>)
+          : {};
+    const sourceLabel =
+      typeof d.source === 'string' && d.source
+        ? d.source
+        : typeof rawRef.source === 'string' && rawRef.source
+          ? rawRef.source
+          : reportRpc;
+    const periodLabel =
+      typeof d.period === 'string' && d.period
+        ? d.period
+        : typeof rawRef.period === 'string' && rawRef.period
+          ? rawRef.period
+          : 'Scheduled Period';
 
     return {
       draft_id: typeof d.draft_id === 'string' && d.draft_id ? d.draft_id : 'sched-draft-1',
@@ -256,12 +288,9 @@ export function extractZoeActionDraft(
       ),
       report_tool: reportTool,
       report_rpc: reportRpc,
-      report_args:
-        d.report_args && typeof d.report_args === 'object' && !Array.isArray(d.report_args)
-          ? (d.report_args as Record<string, unknown>)
-          : {},
-      source: typeof d.source === 'string' && d.source ? d.source : reportRpc,
-      period: typeof d.period === 'string' && d.period ? d.period : 'Scheduled Period',
+      report_args: reportArgs,
+      source: sourceLabel,
+      period: periodLabel,
       frequency,
       day_of_week: dayOfWeek,
       day_of_week_label:
@@ -361,6 +390,8 @@ export function extractZoeRemindersAndSchedules(
 }
 
 export interface ConfirmZoeReminderInput {
+  draft_id?: string | null;
+  rebind_draft?: boolean;
   title: string;
   remind_at: string;
   note?: string | null;
@@ -380,11 +411,39 @@ export async function confirmZoeReminderDraft(
   input: ConfirmZoeReminderInput,
 ): Promise<ConfirmZoeActionResult> {
   const { supabase } = await import('@/integrations/supabase/client');
+  const sanitizedTitle = sanitizeWelileTerms(input.title.trim());
+  const sanitizedNote = input.note ? sanitizeWelileTerms(input.note.trim()) : null;
+
+  let draftId = input.draft_id ?? null;
+  if ((input.rebind_draft || !draftId) && typeof supabase.rpc === 'function') {
+    const { data: savedDraft, error: draftErr } = await supabase.rpc(
+      'staff_assistant_save_draft' as never,
+      {
+        p_kind: 'reminder',
+        p_payload: {
+          kind: 'reminder',
+          title: sanitizedTitle,
+          remind_at: input.remind_at,
+          note: sanitizedNote ?? '',
+        },
+        p_conversation_id: input.conversation_id ?? null,
+      } as never,
+    );
+    if (draftErr) {
+      return { ok: false, error: draftErr.message || 'Could not prepare reminder draft.' };
+    }
+    const row = (savedDraft ?? {}) as Record<string, unknown>;
+    if (typeof row.draft_id === 'string' && row.draft_id) {
+      draftId = row.draft_id;
+    }
+  }
+
   const { data, error } = await supabase.rpc('staff_assistant_create_reminder' as never, {
-    p_title: sanitizeWelileTerms(input.title.trim()),
+    p_title: sanitizedTitle,
     p_remind_at: input.remind_at,
-    p_note: input.note ? sanitizeWelileTerms(input.note.trim()) : null,
+    p_note: sanitizedNote,
     p_conversation_id: input.conversation_id ?? null,
+    p_draft_id: draftId,
   } as never);
 
   if (error) {
@@ -409,9 +468,12 @@ export async function cancelZoeReminder(reminderId: string): Promise<ConfirmZoeA
 }
 
 export interface ConfirmZoeNotificationInput {
+  draft_id?: string | null;
+  rebind_draft?: boolean;
   recipient_email: string;
   title: string;
   message: string;
+  link_path?: string | null;
   conversation_id?: string | null;
 }
 
@@ -422,13 +484,45 @@ export async function confirmZoeNotificationDraft(
   input: ConfirmZoeNotificationInput,
 ): Promise<ConfirmZoeActionResult> {
   const { supabase } = await import('@/integrations/supabase/client');
+  const trimmedEmail = input.recipient_email.trim();
+  const sanitizedTitle = sanitizeWelileTerms(input.title.trim());
+  const sanitizedMessage = sanitizeWelileTerms(input.message.trim());
+  const linkPath = input.link_path?.trim() || '/me';
+
+  let draftId = input.draft_id ?? null;
+  if ((input.rebind_draft || !draftId) && typeof supabase.rpc === 'function') {
+    const { data: savedDraft, error: draftErr } = await supabase.rpc(
+      'staff_assistant_save_draft' as never,
+      {
+        p_kind: 'notification',
+        p_payload: {
+          kind: 'notification',
+          recipient_email: trimmedEmail.toLowerCase(),
+          title: sanitizedTitle,
+          message: sanitizedMessage,
+          link_path: linkPath,
+        },
+        p_conversation_id: input.conversation_id ?? null,
+      } as never,
+    );
+    if (draftErr) {
+      return { ok: false, error: draftErr.message || 'Could not prepare notification draft.' };
+    }
+    const row = (savedDraft ?? {}) as Record<string, unknown>;
+    if (typeof row.draft_id === 'string' && row.draft_id) {
+      draftId = row.draft_id;
+    }
+  }
+
   const { data, error } = await supabase.rpc(
     'staff_assistant_send_colleague_notification' as never,
     {
-      p_recipient_email: input.recipient_email.trim(),
-      p_title: sanitizeWelileTerms(input.title.trim()),
-      p_message: sanitizeWelileTerms(input.message.trim()),
+      p_recipient_email: trimmedEmail,
+      p_title: sanitizedTitle,
+      p_message: sanitizedMessage,
       p_conversation_id: input.conversation_id ?? null,
+      p_draft_id: draftId,
+      p_link_path: linkPath,
     } as never,
   );
 
@@ -439,6 +533,8 @@ export async function confirmZoeNotificationDraft(
 }
 
 export interface ConfirmZoeScheduleInput {
+  draft_id?: string | null;
+  rebind_draft?: boolean;
   title: string;
   report_tool: string;
   report_rpc: string;
@@ -458,17 +554,56 @@ export async function confirmZoeScheduleDraft(
   input: ConfirmZoeScheduleInput,
 ): Promise<ConfirmZoeActionResult> {
   const { supabase } = await import('@/integrations/supabase/client');
+  const sanitizedTitle = sanitizeWelileTerms(input.title.trim());
+  const sanitizedMessage = input.custom_message
+    ? sanitizeWelileTerms(input.custom_message.trim())
+    : null;
+  const trimmedEmails = input.recipient_emails.map((e) => e.trim()).filter(Boolean);
+  const dayOfWeek = input.frequency === 'weekly' ? (input.day_of_week ?? 1) : null;
+  const sendTime = input.send_time_kampala ?? '07:30';
+
+  let draftId = input.draft_id ?? null;
+  if ((input.rebind_draft || !draftId) && typeof supabase.rpc === 'function') {
+    const { data: savedDraft, error: draftErr } = await supabase.rpc(
+      'staff_assistant_save_draft' as never,
+      {
+        p_kind: 'schedule',
+        p_payload: {
+          kind: 'schedule',
+          title: sanitizedTitle,
+          report_tool: input.report_tool,
+          report_rpc: input.report_rpc,
+          report_args: input.report_args ?? {},
+          frequency: input.frequency,
+          day_of_week: dayOfWeek,
+          send_time_kampala: sendTime,
+          recipient_emails: trimmedEmails,
+          custom_message: sanitizedMessage ?? '',
+        },
+        p_conversation_id: input.conversation_id ?? null,
+      } as never,
+    );
+    if (draftErr) {
+      return { ok: false, error: draftErr.message || 'Could not prepare schedule draft.' };
+    }
+    const row = (savedDraft ?? {}) as Record<string, unknown>;
+    if (typeof row.draft_id === 'string' && row.draft_id) {
+      draftId = row.draft_id;
+    }
+  }
+
   const { data, error } = await supabase.rpc('staff_assistant_create_schedule' as never, {
-    p_title: sanitizeWelileTerms(input.title.trim()),
+    p_title: sanitizedTitle,
     p_report_tool: input.report_tool,
     p_report_rpc: input.report_rpc,
     p_report_args: input.report_args ?? {},
     p_frequency: input.frequency,
-    p_recipient_emails: input.recipient_emails.map((e) => e.trim()),
-    p_day_of_week: input.frequency === 'weekly' ? (input.day_of_week ?? 1) : null,
-    p_send_time_kampala: input.send_time_kampala ?? '07:30',
-    p_custom_message: input.custom_message ? sanitizeWelileTerms(input.custom_message.trim()) : null,
+    p_recipient_emails: trimmedEmails,
+    p_day_of_week: dayOfWeek,
+    p_send_time_kampala: sendTime,
+    p_custom_message: sanitizedMessage,
     p_conversation_id: input.conversation_id ?? null,
+    p_draft_id: draftId,
   } as never);
 
   if (error) {

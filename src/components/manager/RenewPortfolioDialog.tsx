@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, Loader2, RefreshCw } from 'lucide-react';
@@ -109,7 +110,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
       const { error } = await supabase.from('investor_portfolios').update({
         // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
         // (migration 20261024140000; Return postings change these fields server-side).
-        return_fields_edit_token: crypto.randomUUID(),
+        return_fields_edit_token: safeUUID(),
         created_at: startDate.toISOString(),
         maturity_date: maturity.toISOString().split('T')[0],
         next_roi_date: nextRoi.toISOString().split('T')[0],

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
  * one survey at a time, until they answer. Modelled on StaffLoanApprovalGate.
  * FAIL OPEN: renders only when staff_survey_pending() succeeds and returns a row.
  * Answers are recorded only; nothing on any payslip changes because of them.
+ * The poll waits for a signed-in session — a missing or expired user JWT is not sent.
  */
 
 const POLL_MS = 5 * 60 * 1000;
@@ -52,10 +53,11 @@ export function StaffSurveyGate() {
   const [payout, setPayout] = useState<PayoutMode | null>(null);
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
-  const location = useLocation();
+  const ready = useAuthenticatedAudience();
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
+    if (!(await hasUsableUserSession())) { setSurvey(null); return; }
     try {
       const { data, error } = await supabase.rpc('staff_survey_pending' as never);
       if (error) { setSurvey(null); return; }
@@ -67,17 +69,8 @@ export function StaffSurveyGate() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => { void load(); }, POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [load]);
-
-  // Re-check on every navigation, exactly like the payroll prompt, so a survey
-  // reappears promptly once its hour is up.
-  useEffect(() => {
-    void load();
-  }, [location.pathname, load]);
+  useAuthenticatedPoll(load, POLL_MS, { onNavigate: true });
+  useEffect(() => { if (!ready) setSurvey(null); }, [ready]);
 
   useEffect(() => {
     setMode('ask');

@@ -517,6 +517,17 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     keywords: ['directory', 'roster', 'agents list', 'search agents', 'kyc', 'phone numbers', 'territory', 'agent search', 'contacts', 'profiles', 'verification'],
   },
   {
+    id: 'agent-verification',
+    title: 'Agent Verification',
+    section: 'directory',
+    to: '/agent-ops/agent-verification',
+    categoryGroup: 'Agents',
+    icon: ShieldCheck,
+    color: 'bg-blue-500',
+    desc: 'Review agent vetting: ID, passport photo, location, next of kin. Approve or send back',
+    keywords: ['verification', 'vetting', 'verify agents', 'approve agents', 'national id', 'passport photo', 'next of kin', 'gps', 'agent ops review', 'unverified'],
+  },
+  {
     id: 'agent-performance',
     title: 'Agent Performance',
     section: 'performance',

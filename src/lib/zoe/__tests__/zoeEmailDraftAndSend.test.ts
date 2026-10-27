@@ -206,5 +206,17 @@ describe('Zoe draft_report_email & staff-assistant-send-email security and gover
     // 6. Writes audit_logs and system_events
     expect(sendIndexCode).toContain('adminClient.from("audit_logs").insert(');
     expect(sendIndexCode).toContain('adminClient.from("system_events").insert(');
+
+    // 7. Consumes a server-side draft (staff_assistant_consume_draft), checks recipient role access
+    //    (staff_assistant_can_user_read_report), reads sender name from public.profiles (never user_metadata),
+    //    omits inline rows from email body, and strips attachment_base64/data from email_send_log.metadata
+    expect(sendIndexCode).toContain('userClient.rpc("staff_assistant_consume_draft"');
+    expect(sendIndexCode).toContain('userClient.rpc("staff_assistant_can_user_read_report"');
+    expect(sendIndexCode).toContain('.from("profiles")');
+    expect(sendIndexCode.replace(/\/\/.*$/gm, '')).not.toContain('user_metadata');
+    expect(sendHandlerCode).toContain('await deps.consumeDraft(');
+    expect(sendHandlerCode).toContain('await deps.checkRecipientCanReadReport(');
+    expect(txEmailCode).toContain('attachment_base64: _a');
+    expect(txEmailCode).toContain('rows: _r');
   });
 });

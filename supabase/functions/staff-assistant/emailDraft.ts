@@ -100,14 +100,21 @@ export function isEmailFromToolData(
     }
   }
 
-  if (dataEmails.size === 0) return false;
-
   // Check if recipientSearch itself or any email inside it came from tool data without being in userText
   const candidateEmails = searchLower.match(EMAIL_RE) ?? [searchLower];
   for (const candidate of candidateEmails) {
     const c = candidate.toLowerCase();
     if (dataEmails.has(c) && !userLower.includes(c)) {
       return true;
+    }
+  }
+
+  // Also block non-email recipient names or links scraped from tool outputs that were never typed by the caller
+  if (searchLower.length >= 3 && !userLower.includes(searchLower)) {
+    for (const raw of rawToolOutputs) {
+      if (String(raw ?? "").toLowerCase().includes(searchLower)) {
+        return true;
+      }
     }
   }
 
