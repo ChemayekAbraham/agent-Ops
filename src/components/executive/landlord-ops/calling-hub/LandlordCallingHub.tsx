@@ -5,24 +5,20 @@ import {
   AlertTriangle,
   ArrowUpDown,
   CalendarClock,
-  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock,
   Copy,
   Filter,
-  Loader2,
   MapPin,
   MessageCircle,
   Phone,
   PhoneCall,
   PhoneForwarded,
-  PhoneMissed,
   RefreshCw,
   Search,
   ShieldCheck,
   UserCheck,
-  Users,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,10 +31,15 @@ import { toWhatsAppUrl } from '@/components/ops/ContactActions';
 import { useAuth } from '@/hooks/useAuth';
 import { telHref } from '@/lib/awarenessCallLabels';
 import {
+  HUB_PLAN_STAGE_LABELS,
   HUB_RESULT_LABELS,
+  HUB_SCOPE_OPTIONS,
   HUB_STATUS_LABELS,
+  HUB_VERIFICATION_STATUS_LABELS,
+  formatCheckFlagLabel,
   formatHubError,
   useHubReturnFromCall,
+  useLandlordHubAgents,
   useLandlordHubList,
   useLandlordHubStartDial,
   useLandlordHubStats,
@@ -48,20 +49,14 @@ import {
   type LandlordHubScope,
   type LandlordHubSort,
   type LandlordHubStartedDial,
+  type LandlordHubStatusFilter,
   type LandlordHubTab,
   type LandlordHubTenantPlan,
-  type LandlordHubVerifiedFilter,
 } from '@/hooks/useLandlordCallingHub';
 import { LandlordCallingHubCard } from './LandlordCallingHubCard';
 import { LandlordCallingHubRecordDialog } from './LandlordCallingHubRecordDialog';
 
 const PAGE_SIZE = 50;
-
-const SCOPES: { value: LandlordHubScope; label: string }[] = [
-  { value: 'live_plans', label: 'Live Rent Plans' },
-  { value: 'with_plans', label: 'With Rent Plans' },
-  { value: 'all', label: 'All landlords' },
-];
 
 const TABS: { value: LandlordHubTab; label: string }[] = [
   { value: 'to_call', label: 'To call' },
@@ -75,6 +70,13 @@ const SORTS: { value: LandlordHubSort; label: string }[] = [
   { value: 'rent_plan_value', label: 'Rent Plan value' },
   { value: 'last_called', label: 'Last called' },
   { value: 'call_back_due', label: 'Call-back due' },
+];
+
+const STATUS_FILTER_OPTIONS: { value: LandlordHubStatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'verified', label: 'Verified' },
+  { value: 'rejected', label: 'Rejected' },
 ];
 
 function statusBadgeVariant(
@@ -93,18 +95,32 @@ function statusBadgeVariant(
   }
 }
 
+function verificationStatusBadgeVariant(
+  vStatus: string | null | undefined,
+): 'default' | 'secondary' | 'outline' | 'destructive' {
+  switch ((vStatus || 'pending').toLowerCase()) {
+    case 'verified':
+      return 'default';
+    case 'rejected':
+      return 'destructive';
+    case 'pending':
+    default:
+      return 'secondary';
+  }
+}
+
 export function LandlordCallingHub() {
   const { user } = useAuth();
 
   // Filter, Scope, Tab, Sort, and Pagination state
-  const [scope, setScope] = useState<LandlordHubScope>('live_plans');
+  const [scope, setScope] = useState<LandlordHubScope>('live');
   const [tab, setTab] = useState<LandlordHubTab>('to_call');
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [region, setRegion] = useState('');
   const [district, setDistrict] = useState('');
   const [agent, setAgent] = useState('');
-  const [verified, setVerified] = useState<LandlordHubVerifiedFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<LandlordHubStatusFilter>('all');
   const [sort, setSort] = useState<LandlordHubSort>('rent_plan_value');
   const [page, setPage] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
@@ -151,6 +167,7 @@ export function LandlordCallingHub() {
 
   // Queries
   const statsQuery = useLandlordHubStats();
+  const agentsQuery = useLandlordHubAgents();
   const listQuery = useLandlordHubList({
     scope,
     tab,
@@ -158,7 +175,7 @@ export function LandlordCallingHub() {
     region,
     district,
     agent,
-    verified,
+    status: statusFilter,
     sort: effectiveSort,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
@@ -169,7 +186,7 @@ export function LandlordCallingHub() {
     region,
     district,
     agent,
-    verified,
+    status: statusFilter,
   });
   const startedDials = useMyStartedDials();
   const startDialMutation = useLandlordHubStartDial();
@@ -194,7 +211,7 @@ export function LandlordCallingHub() {
       agent_id: null,
       agent_name: null,
       verified: false,
-      verification_status: null,
+      verification_status: 'pending',
       houses_count: 0,
       live_rent_plans: 0,
       rent_plan_value: 0,
@@ -210,6 +227,13 @@ export function LandlordCallingHub() {
       hub_status: 'never_called',
       needs_review: false,
       total_count: 0,
+      plan_stage: 'registered_only',
+      plans_total: 0,
+      tenants_count: 0,
+      check_flags: [],
+      needs_check: false,
+      registrar_is_agent_now: true,
+      service_center_status: null,
     };
   }, [selectedLandlordKey, rows]);
 
@@ -232,6 +256,11 @@ export function LandlordCallingHub() {
 
   const handleRowDial = async (row: LandlordHubRow) => {
     setDialRefusalBanner(null);
+    if (row.needs_check || scope === 'check_first') {
+      setSelectedLandlordKey(row.landlord_key);
+      return;
+    }
+
     const phoneToCall = row.phone;
     const hasPhone =
       Boolean(phoneToCall) &&
@@ -301,6 +330,7 @@ export function LandlordCallingHub() {
     listQuery.refetch();
     tabCountsQuery.refetch();
     startedDials.refetch();
+    agentsQuery.refetch();
   };
 
   const clearFilters = () => {
@@ -309,12 +339,12 @@ export function LandlordCallingHub() {
     setRegion('');
     setDistrict('');
     setAgent('');
-    setVerified('all');
+    setStatusFilter('all');
     setPage(0);
   };
 
   const hasActiveFilters = Boolean(
-    debouncedSearch || region || district || agent || verified !== 'all',
+    debouncedSearch || region || district || agent || statusFilter !== 'all',
   );
 
   // Paging calculations ("Showing 1 to 50 of N")
@@ -324,6 +354,15 @@ export function LandlordCallingHub() {
 
   const stats = statsQuery.data;
   const tabCounts = tabCountsQuery.data;
+  const agentOptions = agentsQuery.data ?? [];
+
+  const activeScopeMeta =
+    HUB_SCOPE_OPTIONS.find((s) => s.value === scope) ?? HUB_SCOPE_OPTIONS[0];
+
+  const getScopeCount = (s: LandlordHubScope): number | undefined => {
+    if (!stats) return undefined;
+    return stats.scope_counts?.[s];
+  };
 
   return (
     <div
@@ -337,7 +376,13 @@ export function LandlordCallingHub() {
             Landlord Calling Hub
           </h1>
           <p className="text-xs text-muted-foreground">
-            Call landlords with live Rent Plans, confirm awareness and payout details, and record every outcome.
+            Call landlords with Rent Plans, confirm awareness and payout details, and record every outcome.
+          </p>
+          <p
+            data-testid="hub-refresh-note"
+            className="text-xs text-muted-foreground mt-0.5"
+          >
+            The list updates every 5 minutes. Calls you record show immediately.
           </p>
         </div>
 
@@ -381,7 +426,7 @@ export function LandlordCallingHub() {
       {/* Top Strip of Clickable Stats */}
       <div
         data-testid="hub-stats-strip"
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2"
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"
       >
         <button
           type="button"
@@ -449,9 +494,9 @@ export function LandlordCallingHub() {
 
         <button
           type="button"
-          data-testid="hub-stat-never-called"
+          data-testid="hub-stat-in-progress-never-called"
           onClick={() => {
-            setScope('live_plans');
+            setScope('in_progress');
             setTab('to_call');
             setSort('rent_plan_value');
             setPage(0);
@@ -459,7 +504,31 @@ export function LandlordCallingHub() {
           className="min-h-[68px] rounded-xl border border-border bg-card hover:bg-muted/40 p-3 text-left transition-colors"
         >
           <div className="text-xs text-muted-foreground">
-            Live Rent Plan never called
+            Plans in progress never called
+          </div>
+          <div className="text-lg font-bold tabular-nums text-foreground mt-0.5">
+            {statsQuery.isLoading
+              ? '…'
+              : (stats?.in_progress_never_called ?? 0).toLocaleString()}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            of {(stats?.in_progress_total ?? 0).toLocaleString()} in progress
+          </div>
+        </button>
+
+        <button
+          type="button"
+          data-testid="hub-stat-never-called"
+          onClick={() => {
+            setScope('live');
+            setTab('to_call');
+            setSort('rent_plan_value');
+            setPage(0);
+          }}
+          className="min-h-[68px] rounded-xl border border-border bg-card hover:bg-muted/40 p-3 text-left transition-colors"
+        >
+          <div className="text-xs text-muted-foreground">
+            Live landlords never called
           </div>
           <div className="text-lg font-bold tabular-nums text-foreground mt-0.5">
             {statsQuery.isLoading
@@ -473,21 +542,26 @@ export function LandlordCallingHub() {
 
         <button
           type="button"
-          data-testid="hub-stat-reached-week"
+          data-testid="hub-stat-check-first"
           onClick={() => {
-            setTab('answered');
-            setSort('last_called');
+            setScope('check_first');
+            setTab('all');
             setPage(0);
           }}
-          className="min-h-[68px] col-span-2 sm:col-span-1 rounded-xl border border-border bg-card hover:bg-muted/40 p-3 text-left transition-colors"
+          className={cn(
+            'min-h-[68px] rounded-xl border p-3 text-left transition-colors',
+            scope === 'check_first'
+              ? 'border-amber-500/60 bg-amber-500/10'
+              : 'border-border bg-card hover:bg-muted/40',
+          )}
         >
-          <div className="text-xs text-muted-foreground">Reached this week</div>
-          <div className="text-lg font-bold tabular-nums text-foreground mt-0.5">
+          <div className="text-xs text-muted-foreground">Check first</div>
+          <div className="text-lg font-bold tabular-nums text-amber-700 dark:text-amber-300 mt-0.5">
             {statsQuery.isLoading
               ? '…'
-              : (stats?.landlords_reached_this_week ?? 0).toLocaleString()}
+              : (stats?.check_first_count ?? 0).toLocaleString()}
           </div>
-          <div className="text-xs text-muted-foreground">Distinct landlords</div>
+          <div className="text-xs text-muted-foreground">Flagged for lead check</div>
         </button>
       </div>
 
@@ -584,77 +658,105 @@ export function LandlordCallingHub() {
 
       {/* Scope Switch & Controls */}
       <div className="rounded-xl border border-border bg-card p-3 space-y-3">
-        {/* Scope Switch */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div
-            role="group"
-            aria-label="Landlord scope"
-            className="grid grid-cols-3 gap-1.5 rounded-xl bg-muted p-1"
-          >
-            {SCOPES.map((s) => (
-              <button
-                key={s.value}
-                type="button"
-                data-testid={`hub-scope-${s.value}`}
-                onClick={() => {
-                  setScope(s.value);
-                  setPage(0);
-                }}
-                className={cn(
-                  'min-h-[44px] rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
-                  scope === s.value
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort & Filter Toggle */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 text-xs">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground">Sort:</span>
-              {SORTS.map((s) => (
-                <button
-                  key={s.value}
-                  type="button"
-                  data-testid={`hub-sort-${s.value}`}
-                  onClick={() => {
-                    setSort(s.value);
-                    setPage(0);
-                  }}
-                  className={cn(
-                    'min-h-[44px] rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
-                    effectiveSort === s.value
-                      ? 'border-primary bg-primary/10 text-primary font-semibold'
-                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
+        {/* 5-Scope Switch with Server Counts */}
+        <div className="space-y-1.5">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+            <div
+              role="group"
+              aria-label="Landlord scope"
+              className="flex items-center gap-1.5 overflow-x-auto rounded-xl bg-muted p-1"
+            >
+              {HUB_SCOPE_OPTIONS.map((s) => {
+                const count = getScopeCount(s.value);
+                const isActive = scope === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    data-testid={`hub-scope-${s.value}`}
+                    onClick={() => {
+                      setScope(s.value);
+                      if (s.value === 'check_first') {
+                        setTab('all');
+                      }
+                      setPage(0);
+                    }}
+                    className={cn(
+                      'min-h-[44px] shrink-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                      isActive
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    <span>{s.label}</span>
+                    <span
+                      data-testid={`hub-scope-count-${s.value}`}
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-xs tabular-nums',
+                        isActive
+                          ? 'bg-primary/15 text-primary font-bold'
+                          : 'bg-background/70 text-muted-foreground',
+                      )}
+                    >
+                      {typeof count === 'number' ? count.toLocaleString() : '…'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            <Button
-              type="button"
-              variant={showFilters || hasActiveFilters ? 'secondary' : 'outline'}
-              size="sm"
-              data-testid="hub-filters-toggle"
-              className="min-h-[44px] text-xs gap-1.5"
-              onClick={() => setShowFilters((v) => !v)}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              Filters
-              {hasActiveFilters && (
-                <Badge variant="default" className="text-xs ml-0.5">
-                  Active
-                </Badge>
-              )}
-            </Button>
+            {/* Sort & Filter Toggle */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs flex-wrap">
+                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground">Sort:</span>
+                {SORTS.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    data-testid={`hub-sort-${s.value}`}
+                    onClick={() => {
+                      setSort(s.value);
+                      setPage(0);
+                    }}
+                    className={cn(
+                      'min-h-[44px] rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors',
+                      effectiveSort === s.value
+                        ? 'border-primary bg-primary/10 text-primary font-semibold'
+                        : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                variant={showFilters || hasActiveFilters ? 'secondary' : 'outline'}
+                size="sm"
+                data-testid="hub-filters-toggle"
+                className="min-h-[44px] text-xs gap-1.5"
+                onClick={() => setShowFilters((v) => !v)}
+              >
+                <Filter className="h-3.5 w-3.5" />
+                Filters
+                {hasActiveFilters && (
+                  <Badge variant="default" className="text-xs ml-0.5">
+                    Active
+                  </Badge>
+                )}
+              </Button>
+            </div>
           </div>
+
+          {/* Plain-words line explaining the current group */}
+          <p
+            data-testid="hub-scope-description"
+            className="text-xs text-muted-foreground px-1"
+          >
+            {activeScopeMeta.description}
+          </p>
         </div>
 
         {/* Search Input */}
@@ -679,7 +781,7 @@ export function LandlordCallingHub() {
           )}
         </div>
 
-        {/* Expandable Region / District / Agent / Verified Filters */}
+        {/* Expandable Region / District / Agent Drop-Down / Status Filters */}
         {showFilters && (
           <div
             data-testid="hub-filters-panel"
@@ -718,43 +820,54 @@ export function LandlordCallingHub() {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground block mb-1">
-                Registering Agent
+              <label
+                htmlFor="hub-filter-agent-select"
+                className="text-xs text-muted-foreground block mb-1"
+              >
+                Registered by agent
               </label>
-              <Input
+              <select
+                id="hub-filter-agent-select"
                 data-testid="hub-filter-agent"
                 value={agent}
                 onChange={(e) => {
                   setAgent(e.target.value);
                   setPage(0);
                 }}
-                placeholder="Agent name"
-                className="min-h-[44px] text-xs"
-              />
+                className="min-h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All registering agents</option>
+                {agentOptions.map((ag) => (
+                  <option key={ag.agent_id} value={ag.agent_id}>
+                    {ag.agent_name} ({ag.landlord_count}
+                    {!ag.is_agent_now ? ' · no longer an agent' : ''})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="text-xs text-muted-foreground block mb-1">
-                Verification
+                Landlord status
               </label>
-              <div className="grid grid-cols-3 gap-1">
-                {(['all', 'verified', 'unverified'] as const).map((v) => (
+              <div className="grid grid-cols-4 gap-1">
+                {STATUS_FILTER_OPTIONS.map((st) => (
                   <button
-                    key={v}
+                    key={st.value}
                     type="button"
-                    data-testid={`hub-filter-verified-${v}`}
+                    data-testid={`hub-filter-status-${st.value}`}
                     onClick={() => {
-                      setVerified(v);
+                      setStatusFilter(st.value);
                       setPage(0);
                     }}
                     className={cn(
-                      'min-h-[44px] rounded-lg border px-2 text-xs font-medium capitalize',
-                      verified === v
+                      'min-h-[44px] rounded-lg border px-1.5 text-xs font-medium',
+                      statusFilter === st.value
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-background text-foreground',
                     )}
                   >
-                    {v}
+                    {st.label}
                   </button>
                 ))}
               </div>
@@ -824,6 +937,25 @@ export function LandlordCallingHub() {
           })}
         </div>
       </div>
+
+      {/* Check First Lead Review Banner */}
+      {scope === 'check_first' && (
+        <div
+          role="alert"
+          data-testid="hub-check-first-banner"
+          className="flex items-start gap-2.5 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5 text-xs text-foreground"
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <div className="font-bold text-amber-800 dark:text-amber-200">
+              A Landlord Ops lead should review these records before calling
+            </div>
+            <p className="text-muted-foreground">
+              Each landlord in this tab has a data or look-alike flag. Open details to inspect the record first; direct calling from this list is disabled.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Paging Summary Bar ("Showing 1 to 50 of N") */}
       <div className="flex items-center justify-between gap-2 flex-wrap text-xs text-muted-foreground px-1">
@@ -903,20 +1035,22 @@ export function LandlordCallingHub() {
         >
           <PhoneCall className="h-8 w-8 text-muted-foreground mx-auto" />
           <p className="text-sm font-bold text-foreground">
-            {tab === 'to_call'
-              ? 'No landlords waiting to be called in this view'
-              : tab === 'call_back'
-                ? 'No call backs scheduled in this view'
-                : tab === 'answered'
-                  ? 'No answered calls match your current filters'
-                  : tab === 'not_answered'
-                    ? 'No unanswered calls match your current filters'
-                    : 'No landlords match your current search or filters'}
+            {scope !== 'live' && !hasActiveFilters
+              ? 'No landlords in this group. Try Live Rent Plans.'
+              : tab === 'to_call'
+                ? 'No landlords waiting to be called in this group.'
+                : tab === 'call_back'
+                  ? 'No call backs scheduled in this group.'
+                  : tab === 'answered'
+                    ? 'No answered calls match your current filters.'
+                    : tab === 'not_answered'
+                      ? 'No unanswered calls match your current filters.'
+                      : 'No landlords in this group. Try Live Rent Plans.'}
           </p>
           <p className="text-xs text-muted-foreground max-w-md mx-auto">
             {hasActiveFilters
-              ? 'Try clearing your search or location filters, or switch to another scope.'
-              : 'Switch tabs or change the scope above to see more landlords.'}
+              ? 'Try clearing your search or filters, or switch to Live Rent Plans.'
+              : 'Switch tabs or open Live Rent Plans above to see landlords ready to call.'}
           </p>
           {hasActiveFilters && (
             <Button
@@ -940,11 +1074,22 @@ export function LandlordCallingHub() {
               Boolean(user?.id) &&
               row.last_caller_id !== user?.id;
 
+            const isCheckFirstRow = scope === 'check_first' || row.needs_check;
+
             const hasCallablePhone =
               Boolean(row.phone) &&
               row.phone !== '—' &&
               !row.phone.includes('*') &&
               row.phone.replace(/\D/g, '').length >= 7;
+
+            const vStatusKey = (
+              row.verification_status || (row.verified ? 'verified' : 'pending')
+            ).toLowerCase();
+            const vStatusLabel =
+              HUB_VERIFICATION_STATUS_LABELS[vStatusKey] || 'Pending';
+
+            const stageLabel =
+              HUB_PLAN_STAGE_LABELS[row.plan_stage] || 'Registered only';
 
             return (
               <div
@@ -955,7 +1100,9 @@ export function LandlordCallingHub() {
                   'cursor-pointer rounded-xl border bg-card hover:bg-muted/30 p-3.5 transition-colors space-y-2.5',
                   row.call_back_overdue
                     ? 'border-destructive/50'
-                    : 'border-border',
+                    : isCheckFirstRow
+                      ? 'border-amber-500/40'
+                      : 'border-border',
                 )}
               >
                 {/* Row Top Line: Name, Badges, Rent Plans */}
@@ -966,7 +1113,26 @@ export function LandlordCallingHub() {
                         {row.landlord_name}
                       </span>
 
-                      {/* Status Badge */}
+                      {/* Landlord Verification Status Badge (Pending / Verified / Rejected) */}
+                      <Badge
+                        variant={verificationStatusBadgeVariant(vStatusKey)}
+                        data-testid={`hub-row-vstatus-${row.landlord_key}`}
+                        className="text-xs"
+                      >
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        {vStatusLabel}
+                      </Badge>
+
+                      {/* Plan Stage Badge */}
+                      <Badge
+                        variant="outline"
+                        data-testid={`hub-row-stage-${row.landlord_key}`}
+                        className="text-xs"
+                      >
+                        {stageLabel}
+                      </Badge>
+
+                      {/* Calling Hub Status Badge */}
                       <Badge
                         variant={statusBadgeVariant(row.hub_status)}
                         data-testid={`hub-row-status-${row.landlord_key}`}
@@ -974,14 +1140,6 @@ export function LandlordCallingHub() {
                       >
                         {HUB_STATUS_LABELS[row.hub_status] || row.hub_status}
                       </Badge>
-
-                      {/* Verified / Unverified */}
-                      {row.verified && (
-                        <Badge variant="outline" className="text-xs">
-                          <ShieldCheck className="h-3 w-3 mr-1 text-emerald-600" />
-                          Verified
-                        </Badge>
-                      )}
 
                       {/* Flagged needs_review badge */}
                       {row.needs_review && (
@@ -1021,7 +1179,26 @@ export function LandlordCallingHub() {
                       )}
                     </div>
 
-                    {/* District, Region, Phone, Agent */}
+                    {/* Plain-words Check Flags on Row */}
+                    {row.check_flags && row.check_flags.length > 0 && (
+                      <div
+                        data-testid={`hub-row-check-flags-${row.landlord_key}`}
+                        className="flex flex-wrap items-center gap-1.5 pt-0.5"
+                      >
+                        {row.check_flags.map((flag) => (
+                          <Badge
+                            key={flag}
+                            variant="outline"
+                            className="text-xs border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+                          >
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {formatCheckFlagLabel(flag, row.plans_total)}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* District, Region, Phone, Registered by Agent */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="font-mono text-foreground font-medium">
                         {row.phone}
@@ -1035,7 +1212,12 @@ export function LandlordCallingHub() {
                       {row.agent_name && (
                         <span className="inline-flex items-center gap-1">
                           <UserCheck className="h-3 w-3" />
-                          Agent: {row.agent_name}
+                          Registered by: {row.agent_name}
+                          {!row.registrar_is_agent_now && (
+                            <span className="text-amber-700 dark:text-amber-300 font-medium">
+                              (No longer an agent)
+                            </span>
+                          )}
                         </span>
                       )}
                     </div>
@@ -1077,94 +1259,109 @@ export function LandlordCallingHub() {
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Call Back Tab "Take over" button for another officer's call back */}
-                    {(isCallbackTab || row.hub_status === 'call_back') &&
-                      isAnotherOfficersCallback && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          data-testid={`hub-row-takeover-${row.landlord_key}`}
-                          disabled={!hasCallablePhone || startDialMutation.isPending}
-                          onClick={() => handleRowDial(row)}
-                          className="min-h-[44px] text-xs font-semibold gap-1.5"
-                        >
-                          <PhoneForwarded className="h-3.5 w-3.5 text-primary" />
-                          Take over
-                        </Button>
-                      )}
-
-                    {/* Call Button (`tel:` that first calls landlord_hub_start_dial) */}
-                    <Button
-                      type="button"
-                      size="sm"
-                      data-testid={`hub-row-call-${row.landlord_key}`}
-                      disabled={!hasCallablePhone || startDialMutation.isPending}
-                      onClick={() => handleRowDial(row)}
-                      className="min-h-[44px] text-xs font-semibold gap-1.5"
-                    >
-                      <Phone className="h-3.5 w-3.5" />
-                      Call
-                    </Button>
-
-                    {/* Copy Number Fallback */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-testid={`hub-row-copy-${row.landlord_key}`}
-                      disabled={!row.phone || row.phone === '—'}
-                      onClick={() => handleCopyNumber(row.phone)}
-                      className="min-h-[44px] text-xs gap-1"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                      Copy number
-                    </Button>
-
-                    {/* WhatsApp Fallback */}
-                    {hasCallablePhone && (
+                    {isCheckFirstRow ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        asChild
-                        data-testid={`hub-row-whatsapp-${row.landlord_key}`}
-                        className="min-h-[44px] text-xs gap-1"
+                        data-testid={`hub-row-open-details-${row.landlord_key}`}
+                        onClick={() => setSelectedLandlordKey(row.landlord_key)}
+                        className="min-h-[44px] text-xs font-semibold"
                       >
-                        <a
-                          href={toWhatsAppUrl(
-                            row.phone,
-                            `Hello ${row.landlord_name}, this is Welile Landlord Operations.`,
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
-                          WhatsApp
-                        </a>
+                        Open details
                       </Button>
-                    )}
+                    ) : (
+                      <>
+                        {/* Call Back Tab "Take over" button for another officer's call back */}
+                        {(isCallbackTab || row.hub_status === 'call_back') &&
+                          isAnotherOfficersCallback && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              data-testid={`hub-row-takeover-${row.landlord_key}`}
+                              disabled={!hasCallablePhone || startDialMutation.isPending}
+                              onClick={() => handleRowDial(row)}
+                              className="min-h-[44px] text-xs font-semibold gap-1.5"
+                            >
+                              <PhoneForwarded className="h-3.5 w-3.5 text-primary" />
+                              Take over
+                            </Button>
+                          )}
 
-                    {/* Record Call Made Another Way */}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      data-testid={`hub-row-record-manual-${row.landlord_key}`}
-                      onClick={() =>
-                        setRecordDialogState({
-                          open: true,
-                          landlordKey: row.landlord_key,
-                          landlordId: row.landlord_id,
-                          landlordName: row.landlord_name,
-                          phone: row.phone,
-                          manualMode: true,
-                        })
-                      }
-                      className="min-h-[44px] text-xs"
-                    >
-                      Record outcome
-                    </Button>
+                        {/* Call Button (`tel:` that first calls landlord_hub_start_dial) */}
+                        <Button
+                          type="button"
+                          size="sm"
+                          data-testid={`hub-row-call-${row.landlord_key}`}
+                          disabled={!hasCallablePhone || startDialMutation.isPending}
+                          onClick={() => handleRowDial(row)}
+                          className="min-h-[44px] text-xs font-semibold gap-1.5"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                          Call
+                        </Button>
+
+                        {/* Copy Number Fallback */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          data-testid={`hub-row-copy-${row.landlord_key}`}
+                          disabled={!row.phone || row.phone === '—'}
+                          onClick={() => handleCopyNumber(row.phone)}
+                          className="min-h-[44px] text-xs gap-1"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy number
+                        </Button>
+
+                        {/* WhatsApp Fallback */}
+                        {hasCallablePhone && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            data-testid={`hub-row-whatsapp-${row.landlord_key}`}
+                            className="min-h-[44px] text-xs gap-1"
+                          >
+                            <a
+                              href={toWhatsAppUrl(
+                                row.phone,
+                                `Hello ${row.landlord_name}, this is Welile Landlord Operations.`,
+                              )}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+                              WhatsApp
+                            </a>
+                          </Button>
+                        )}
+
+                        {/* Record Call Made Another Way */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          data-testid={`hub-row-record-manual-${row.landlord_key}`}
+                          onClick={() =>
+                            setRecordDialogState({
+                              open: true,
+                              landlordKey: row.landlord_key,
+                              landlordId: row.landlord_id,
+                              landlordName: row.landlord_name,
+                              phone: row.phone,
+                              manualMode: true,
+                            })
+                          }
+                          className="min-h-[44px] text-xs"
+                        >
+                          Record outcome
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
