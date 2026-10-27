@@ -68196,6 +68196,28 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_expected_effective: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_expected_effective__impl: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -77980,6 +78002,15 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_expected_days: {
+        Args: { p_agent_id?: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          expected_ugx: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_landlord_tenants: { Args: never; Returns: Json }
@@ -84094,6 +84125,10 @@ export type Database = {
         Returns: {
           inserted_count: number
         }[]
+      }
+      portfolio_compound_email_facts: {
+        Args: { p_portfolio_id: string; p_reference?: string }
+        Returns: Json
       }
       post_instalment_waterfall: {
         Args: {
