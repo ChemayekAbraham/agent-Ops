@@ -1,5 +1,4 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
 import { ClipboardList, AlertTriangle, ArrowRight } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,15 @@ import { useBudgetSubmissionGate } from '@/hooks/useBudgetSubmissionGate';
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+
+const BUDGET_DEADLINE_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Local `d MMM yyyy, HH:mm`. Inlined so the shell does not import date-fns. */
+function formatBudgetDeadline(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `${d.getDate()} ${BUDGET_DEADLINE_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${hh}:${mm}`;
+}
 
 /**
  * Full-screen required-action gate for an open budget cycle the signed-in user
@@ -141,7 +149,7 @@ export function BudgetSubmissionGate({ children }: { children: React.ReactNode }
                 overdue ? 'text-destructive' : 'text-foreground'
               }`}
             >
-              {deadline ? format(deadline, 'd MMM yyyy, HH:mm') : 'No deadline set'}
+              {deadline ? formatBudgetDeadline(deadline) : 'No deadline set'}
             </dd>
           </div>
         </dl>

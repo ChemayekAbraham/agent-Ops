@@ -499,7 +499,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
                 <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
               </WidgetErrorBoundary>
 
-              <RentAccessGrowthBanner />
+              <RentAccessGrowthBanner userId={uid} onPayToday={() => setDepositOpen(true)} />
             </>
           )}
 

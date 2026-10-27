@@ -15,6 +15,7 @@ import {
   isPortfolioRoiDue,
 } from "./roiDateGate.ts";
 import { evaluateRenewalPayoutGate } from "../_shared/renewalPayoutGate.ts";
+import { classifyRentRewardPost } from "../_shared/rentRewardOutcome.ts";
 import { isRealPartnerEmail, sendRenewalAppliedEmail, sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
 
 const corsHeaders = {
@@ -58,6 +59,7 @@ Deno.serve(async (req) => {
       topupsSkippedNotDue: 0,
       renewalsApplied: 0,
       renewalsDeferred: 0,
+      rewardsDeferred: 0,
       errors: [] as string[],
     };
 
@@ -138,73 +140,41 @@ Deno.serve(async (req) => {
         const reinvestInfo = autoReinvestMap.get(rr.supporter_id);
         const shouldReinvest = !!reinvestInfo;
 
-        // Insert ROI payment record
-        const { error: roiInsertError } = await supabase
-          .from('supporter_roi_payments')
-          .insert({
-            rent_request_id: rr.id,
-            supporter_id: rr.supporter_id,
-            rent_amount: rr.rent_amount,
-            roi_amount: roiAmount,
-            payment_number: paymentNumber,
-            due_date: now.toISOString(),
-            paid_at: now.toISOString(),
-            status: shouldReinvest ? 'reinvested' : 'paid',
-          });
+        // Managed proxy (wallet path only): resolved first, the wallet credit description names the agent.
+        const managedProxy = shouldReinvest ? null : await resolveManagedProxy(supabase, rr.supporter_id);
+        const walletRecipientId = rr.supporter_id;
+        const walletDescription = managedProxy
+          ? `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()} (managed by ${managedProxy.agentName || 'proxy agent'})`
+          : `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`;
 
-        if (roiInsertError) {
-          if (roiInsertError.code === '23505') {
-            console.log(`[process-supporter-roi] Already processed: ${rr.id} payment #${paymentNumber}`);
-            continue;
-          }
-          throw roiInsertError;
+        // ONE database transaction: payment row + (portfolio principal | wallet credit) + ledger + schedule.
+        // If it does not post, nothing is recorded and the next run retries this payment number.
+        const { data: posted, error: postErr } = await supabase.rpc('post_rent_facilitation_reward', {
+          p_rent_request_id: rr.id,
+          p_payment_number: paymentNumber,
+          p_reinvest_portfolio_id: shouldReinvest ? reinvestInfo.portfolio_id : null,
+          p_wallet_description: shouldReinvest ? null : walletDescription,
+        });
+        const outcome = classifyRentRewardPost(posted, postErr);
+        if (outcome.action === 'defer') {
+          results.rewardsDeferred++;
+          console.warn(`[process-supporter-roi] Reward ${rr.id} #${paymentNumber} deferred (${outcome.reason}); will retry next run`);
+          logSystemEvent(supabase, 'rent_reward_deferred', rr.supporter_id, 'rent_requests', rr.id, { payment_number: paymentNumber, reason: outcome.reason, portfolio_id: reinvestInfo?.portfolio_id ?? null });
+          continue;
         }
+        if (outcome.action === 'skip') {
+          console.log(`[process-supporter-roi] ${rr.id} payment #${paymentNumber}: ${outcome.reason}`);
+          if (outcome.reason !== 'already_posted') results.skipped++;
+          continue;
+        }
+        if (outcome.action === 'error') throw new Error(outcome.reason);
 
-        const txGroupId = crypto.randomUUID();
+        const postedAmount = Number((posted as { amount?: number }).amount ?? roiAmount);
 
         if (shouldReinvest) {
-          // ═══ AUTO-REINVEST: Add ROI to portfolio instead of wallet ═══
-          const prevAmount = reinvestInfo.current_amount;
-          const newAmount = prevAmount + roiAmount;
-
-          // Update portfolio balance
-          await supabase.from('investor_portfolios')
-            .update({ investment_amount: newAmount })
-            .eq('id', reinvestInfo.portfolio_id);
-
-          // Balanced ledger via RPC: roi_expense → roi_reinvestment
-          const { error: reinvestLedgerErr } = await supabase.rpc('create_ledger_transaction', {
-            entries: [
-              {
-              user_id: rr.supporter_id,
-              direction: 'cash_out',
-              amount: roiAmount,
-              category: 'roi_expense',
-                ledger_scope: 'platform',
-                source_table: 'supporter_roi_payments',
-                source_id: rr.id,
-                description: `ROI payout #${paymentNumber} auto-reinvested into portfolio`,
-                currency: 'UGX',
-                linked_party: 'platform',
-                transaction_date: now.toISOString(),
-              },
-              {
-                user_id: rr.supporter_id,
-                direction: 'cash_in',
-                amount: roiAmount,
-                category: 'roi_reinvestment',
-                ledger_scope: 'platform',
-                source_table: 'investor_portfolios',
-                source_id: reinvestInfo.portfolio_id,
-                description: `Auto-reinvested ROI #${paymentNumber} (${roiAmount.toLocaleString()}) into portfolio`,
-                currency: 'UGX',
-                linked_party: 'platform',
-                transaction_date: now.toISOString(),
-              },
-            ],
-          });
-
-          if (reinvestLedgerErr) throw reinvestLedgerErr;
+          // ═══ AUTO-REINVEST (posted atomically above) ═══
+          const newAmount = Number((posted as { new_principal?: number }).new_principal);
+          const prevAmount = Number((posted as { previous_principal?: number }).previous_principal);
 
           // Notify supporter
           await supabase.from('notifications').insert({
@@ -250,51 +220,9 @@ Deno.serve(async (req) => {
             console.warn('[process-supporter-roi] Compound email lookup failed (non-blocking):', emailErr);
           }
         } else {
-          // ═══ STANDARD WALLET CREDIT via RPC ═══
-          //
-          // We always credit the partner's wallet directly, even if they have
-          // an active proxy assignment. The proxy agent will initiate a withdrawal
-          // from the partner's wallet later.
-          const managedProxy = await resolveManagedProxy(supabase, rr.supporter_id);
-          const walletRecipientId = rr.supporter_id;
-          const walletDescription = managedProxy
-            ? `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()} (managed by ${managedProxy.agentName || 'proxy agent'})`
-            : `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`;
-
-          const { error: walletLedgerErr } = await supabase.rpc('create_ledger_transaction', {
-            entries: [
-              {
-              user_id: rr.supporter_id,
-              direction: 'cash_out',
-              amount: roiAmount,
-              category: 'roi_expense',
-                ledger_scope: 'platform',
-                source_table: 'supporter_roi_payments',
-                source_id: rr.id,
-                description: `Platform ROI payout #${paymentNumber} to supporter for rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`,
-                currency: 'UGX',
-                linked_party: 'platform',
-                transaction_date: now.toISOString(),
-              },
-              {
-                user_id: walletRecipientId,
-                direction: 'cash_in',
-                amount: roiAmount,
-                category: 'roi_wallet_credit',
-                ledger_scope: 'wallet',
-                recipient_type: 'user',
-                wallet_bucket: 'withdrawable',
-                source_table: 'supporter_roi_payments',
-                source_id: rr.id,
-                description: walletDescription,
-                currency: 'UGX',
-                linked_party: 'platform',
-                transaction_date: now.toISOString(),
-              },
-            ],
-          });
-
-          if (walletLedgerErr) throw walletLedgerErr;
+          // ═══ STANDARD WALLET CREDIT (posted atomically above) ═══
+          // The partner's own wallet is credited even with an active proxy assignment; the proxy agent initiates the
+          // delivery withdrawal later.
 
           // Customer advance recovery: deduct the configured % of this ROI
           // toward any active advance set to recover from ROI.
@@ -415,15 +343,8 @@ Deno.serve(async (req) => {
           results.credited++;
         }
 
-        // Update rent request ROI tracking
-        const nextDueDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        await supabase.from('rent_requests').update({
-          next_roi_due_date: nextDueDate.toISOString(),
-          total_roi_paid: (rr.total_roi_paid || 0) + roiAmount,
-          roi_payments_count: paymentNumber,
-        }).eq('id', rr.id);
-
-        results.totalAmount += roiAmount;
+        // Rent request schedule (next due date, total, count) was advanced in the same database transaction.
+        results.totalAmount += postedAmount;
         // Log system event
         logSystemEvent(supabase, 'roi_distributed', rr.supporter_id, 'supporter_roi_payments', rr.id, { amount: roiAmount, payment_number: paymentNumber, reinvested: shouldReinvest });
 

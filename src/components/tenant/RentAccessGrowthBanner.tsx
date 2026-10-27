@@ -2,13 +2,19 @@ import { TrendingUp, CalendarCheck } from 'lucide-react';
 import { useRentAccessLimitParams } from '@/hooks/useRentAccessLimitParams';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useRentAccessPromoTracking } from '@/hooks/useRentAccessPromoTracking';
+import { Button } from '@/components/ui/button';
+import { Share2 } from 'lucide-react';
+import { buildTenantAccessLimitWhatsAppUrl } from '@/lib/accessLimitMessaging';
+import { useTenantRentAccessProgress } from '@/hooks/useTenantRentAccessProgress';
+import { Progress } from '@/components/ui/progress';
 
 /**
  * Major marketing banner on the tenant dashboard: tenants can grow their
  * rent access up to the configured maximum (UGX 30,000,000) by paying daily.
  */
-export function RentAccessGrowthBanner() {
+export function RentAccessGrowthBanner({ onPayToday, userId }: { onPayToday?: () => void; userId?: string }) {
   const { params } = useRentAccessLimitParams();
+  const progress = useTenantRentAccessProgress(userId);
   const { trackClick } = useRentAccessPromoTracking('tenant_dashboard');
   return (
     <section
@@ -32,6 +38,12 @@ export function RentAccessGrowthBanner() {
             <CalendarCheck className="h-3.5 w-3.5 text-primary" />
             +{formatUGX(params.paid_increment_ugx)} added for each day you pay
           </p>
+          <p className="text-sm text-destructive">Missed days reduce your limit by {formatUGX(params.missed_decrement_ugx)}/day.</p>
+          {progress.data ? <div className="space-y-2 pt-2"><p className="text-sm font-medium">Your limit: {formatUGX(progress.data.limit)} of {formatUGX(progress.data.maxLimit)}</p><Progress value={progress.data.percent} variant="success" aria-label="Rent Access Limit progress" /></div> : <p role="status" className="text-sm text-muted-foreground">{progress.isFetching ? 'Loading your current limit…' : 'Current limit unavailable'}</p>}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button className="min-h-11 whitespace-normal" onClick={onPayToday ?? (() => window.dispatchEvent(new Event('open-deposit')))}>Pay Today &amp; Grow Limit</Button>
+            <Button asChild variant="outline" className="min-h-11"><a href={buildTenantAccessLimitWhatsAppUrl()} target="_blank" rel="noopener noreferrer"><Share2 className="h-4 w-4" /> Share on WhatsApp</a></Button>
+          </div>
         </div>
       </div>
     </section>

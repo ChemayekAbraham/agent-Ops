@@ -21,6 +21,7 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 
 const PAGE_SIZE = 20;
@@ -206,7 +207,7 @@ export function EmptyHouseOpportunitiesSheet({
       const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
       return {
         total: Number(payload.total || 0),
-        houses: payload.houses ?? [],
+        houses: sortFunderHousesByCompleteness(payload.houses ?? []),
         districts: payload.districts ?? [],
       };
     },
@@ -441,7 +442,6 @@ export function EmptyHouseOpportunitiesSheet({
 
       const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
         p_house_ids: houseIds,
-        p_term_months: 1,
         p_idempotency_key: `fund-${note.id}`,
       });
       if (fundErr) throw fundErr;

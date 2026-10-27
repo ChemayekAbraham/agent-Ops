@@ -36,6 +36,19 @@ interface PartnerPortfolioCompoundedProps {
   new_total_partnership_value?: string | number
   payment_number?: number | string
   duration_months?: number | string
+  /** From the recorded compounding events (see _shared/compoundEmail.ts). */
+  compound_number?: number | string
+  opening_balance?: number | string
+  capital_added?: number | string
+  returns_to_date?: number | string
+  maturity_date_label?: string
+  schedule?: Array<{
+    date?: string
+    month_name?: string
+    balance_before?: string | number
+    return_amount?: string | number
+    balance_after?: string | number
+  }>
   compound_history?: Array<{
     cycle?: number | string
     month_name?: string
@@ -88,6 +101,12 @@ export function PartnerPortfolioCompounded({
   new_total_partnership_value = 0,
   payment_number,
   duration_months,
+  compound_number,
+  opening_balance,
+  capital_added,
+  returns_to_date,
+  maturity_date_label = '',
+  schedule,
   compound_history,
   currency = 'UGX',
   company_name = 'Welile',
@@ -109,13 +128,24 @@ export function PartnerPortfolioCompounded({
   // contribution as `initial_partnership_amount`, which made the sentence read
   // "your portfolio of 250,000 earned a 20% return (206,400)". Derive the true
   // opening balance from the arithmetic that always holds: new total − return.
-  const openingNum = newTotalNum > 0 && retNum > 0 && newTotalNum - retNum > 0
-    ? newTotalNum - retNum
-    : principalNum
-  const showOriginalContribution =
-    principalNum > 0 && Math.round(principalNum) !== Math.round(openingNum)
+  const recordedOpening = Number(String(opening_balance ?? '').replace(/,/g, ''))
+  const openingNum = recordedOpening > 0
+    ? recordedOpening
+    : newTotalNum > 0 && retNum > 0 && newTotalNum - retNum > 0
+      ? newTotalNum - retNum
+      : principalNum
+  // Capital added + returns compounded = portfolio value. Only shown when the
+  // sender supplies those RECORDED figures. The old "original contribution"
+  // sentence is gone: it printed the balance before the first recorded
+  // compounding (top-ups included) next to the first contribution date.
+  const capitalNum = Number(String(capital_added ?? '').replace(/,/g, ''))
+  const returnsToDateNum = Number(String(returns_to_date ?? '').replace(/,/g, ''))
+  const showBreakdown = capital_added !== undefined && returns_to_date !== undefined
+    && capitalNum >= 0 && returnsToDateNum >= 0
+  const compoundNumberNum = Number(compound_number) || 0
 
-  const formattedInitial = formatAmount(Math.round(principalNum), currency)
+  const formattedCapital = formatAmount(Math.round(capitalNum), currency)
+  const formattedReturnsToDate = formatAmount(Math.round(returnsToDateNum), currency)
   const formattedOpening = formatAmount(Math.round(openingNum), currency)
   const formattedReturn = formatAmount(Math.round(retNum), currency)
   const formattedNewTotal = formatAmount(Math.round(newTotalNum), currency)
@@ -164,7 +194,17 @@ export function PartnerPortfolioCompounded({
   const compoundDate = parseFlexibleDate(compound_date) || new Date()
   const durationMonths = Number(duration_months) > 0 ? Number(duration_months) : 12
 
-  const timeline = (() => {
+  const suppliedSchedule = Array.isArray(schedule) && schedule.length > 0
+    ? schedule.map((row, i) => ({
+        cycleLabel: String(row.date || row.month_name || ''),
+        before: Number(String(row.balance_before ?? 0).replace(/,/g, '')) || 0,
+        earned: Number(String(row.return_amount ?? 0).replace(/,/g, '')) || 0,
+        after: Number(String(row.balance_after ?? 0).replace(/,/g, '')) || 0,
+        isCurrent: i === 0,
+      }))
+    : null
+
+  const timeline = suppliedSchedule ?? (() => {
     if (!contributionDate || !(newTotalNum > 0) || !(r > 0)) return []
     // First day of the month AFTER the compound month.
     const projectionStart = new Date(compoundDate.getFullYear(), compoundDate.getMonth() + 1, 1)
@@ -234,12 +274,12 @@ export function PartnerPortfolioCompounded({
                     <Text style={introText}>
                       We are pleased to confirm the successful compounding of your portfolio (<span style={portfolioIdAccent}>{portfolio_id}</span>) with {company_name} Technologies Limited.
                     </Text>
-                    <Text style={{ ...introText, margin: showOriginalContribution ? undefined : 0 }}>
+                    <Text style={{ ...introText, margin: showBreakdown ? undefined : 0 }}>
                       On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio value of <strong>{formattedOpening}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
                     </Text>
-                    {showOriginalContribution && (
+                    {showBreakdown && (
                       <Text style={{ ...introText, margin: 0 }}>
-                        Your original contribution was <strong>{formattedInitial}</strong>. The value above includes every return compounded in previous cycles.
+                        Your portfolio value is made up of <strong>{formattedCapital}</strong> capital added and <strong>{formattedReturnsToDate}</strong> returns compounded so far{compoundNumberNum > 0 ? ` (compound ${compoundNumberNum} for this portfolio)` : ''}.
                       </Text>
                     )}
 
@@ -273,7 +313,7 @@ export function PartnerPortfolioCompounded({
                   <td className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <Text style={timelineTitle}>Projected compounding schedule</Text>
                     <Text style={timelineSubtitle}>
-                      This is projected from your new portfolio value ({formattedNewTotal}) at the rate of ({roiLabel}) for the remaining months of your portfolio.
+                      Projected from your new portfolio value ({formattedNewTotal}) at {roiLabel} a month{maturity_date_label ? `, up to your portfolio's maturity on ${maturity_date_label}` : ' for the remaining months of your portfolio'}.
                     </Text>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={timelineCard}>
                       <tbody>

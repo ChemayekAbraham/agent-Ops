@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/rentCalculations';
 import { fetchPublicSupportPlan, type PublicSupportPlan } from '@/lib/publicSupportPlan';
+import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
 import { toast } from 'sonner';
 
 const POINTS = [
@@ -184,6 +185,8 @@ export default function SupportPlanPublic() {
             ))}
           </ol>
         </div>
+
+        <SupportPlanExample fundingAmount={plan.fundingAmount} headingTag="h2" />
 
         <div className="space-y-2">
           <a

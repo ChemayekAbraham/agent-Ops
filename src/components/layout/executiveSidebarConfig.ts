@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -206,12 +206,20 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
     },
 
     {
+      title: 'Assets',
+      items: [
+        { label: 'Asset Register', icon: Boxes, id: 'asset-register', access: CFO_ACCESS },
+      ],
+    },
+
+    {
       title: 'Accounting',
       items: [
         { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
         { label: 'Bucket A Posting', icon: ShieldCheck, id: 'bucket-a-posting', route: '/cfo/bucket-a-posting', access: CFO_ACCESS },
         { label: 'Correction 5.3M Posting', icon: ShieldCheck, id: 'correction-5300000-posting', route: '/cfo/correction-5300000-posting', access: CFO_ACCESS },
         { label: 'Redemptions', icon: ShieldCheck, id: 'redemption-approvals', access: CFO_ACCESS },
+        { label: 'Compound Requests', icon: ShieldCheck, id: 'compound-requests', access: CFO_ACCESS },
       ],
     },
 
@@ -347,6 +355,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'SMS Campaigns', icon: Megaphone, id: 'sms-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Customer Leads', icon: Megaphone, id: 'customer-leads', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Agent Assistant', icon: Bot, id: 'assistant-conversations', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Zoe Conversations', icon: Bot, id: 'zoe-conversations', access: { roles: ['crm', 'cto', 'manager', 'coo', 'ceo', 'super_admin'] } },
         {
           label: 'User Behaviour',
           icon: Activity,

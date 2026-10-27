@@ -41,18 +41,28 @@ export function PromissoryApprovePay({ ids, onCompleted }: { ids: string[]; onCo
       if (approvalPreviewFingerprint(fresh) !== approvalPreviewFingerprint(rows)) {
         setRows(fresh); setError('Payout details changed. Review the updated preview and confirm again.'); return;
       }
+      const failures: string[] = [];
       for (const row of fresh.filter(item => item.eligible)) {
+        // One refused note (e.g. the partner already has an approved note) must not block the rest.
         const { data, error: rpcError } = await supabase.rpc('approve_promissory_note', { p_note_id: row.note_id, p_reason: reason.trim() });
-        if (rpcError) throw rpcError;
-        const result = data as { status?: string; message?: string; amount?: number };
-        if (result?.status !== 'approved' && result?.status !== 'already_approved') throw new Error(result?.message || 'Approval could not be confirmed');
+        const result = data as { status?: string; message?: string; amount?: number } | null;
+        if (rpcError || (result?.status !== 'approved' && result?.status !== 'already_approved')) {
+          const raw = rpcError?.message || result?.message || 'Approval could not be confirmed';
+          failures.push(`${row.partner_name || 'Note'}: ${raw.replace(/^[A-Z_]+:\s*/, '')}`);
+          continue;
+        }
         completed.push(row.note_id);
         if (result.status === 'approved') paid += Number(result.amount ?? 0);
       }
-      toast.success(`Approved ${completed.length} note(s) — ${formatUGX(paid)} credited to proxy agent wallets.`);
+      if (completed.length) toast.success(`Approved ${completed.length} note(s) — ${formatUGX(paid)} credited to proxy agent wallets.`);
+      if (failures.length) {
+        setError(`${completed.length} approved, ${failures.length} could not be approved:\n${failures.join('\n')}`);
+        try { setRows(await fetchPromissoryApprovalPreview(rows.map(row => row.note_id))); } catch { /* keep rows */ }
+        return;
+      }
       setOpen(false);
     } catch (err) {
-      setError(`${completed.length} note(s) completed before processing stopped. ${err instanceof Error ? err.message : 'Could not complete approval'}`);
+      setError(`${completed.length} note(s) completed before processing stopped. ${(err as { message?: string })?.message || 'Could not complete approval'}`);
       try { setRows(await fetchPromissoryApprovalPreview(rows.map(row => row.note_id))); }
       catch { setRows([]); }
     } finally {
@@ -74,7 +84,7 @@ export function PromissoryApprovePay({ ids, onCompleted }: { ids: string[]; onCo
           <AlertDialogDescription>Verification rewards will be credited to proxy agent wallets, not sent to their phones. No payment is made until you confirm.</AlertDialogDescription>
         </AlertDialogHeader>
         {busy && <p className="text-sm text-muted-foreground" role="status">Checking payout details…</p>}
-        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+        {error && <p className="text-sm text-destructive whitespace-pre-line" role="alert">{error}</p>}
         <div className="divide-y rounded-md border">
           {rows.map(row => <div key={row.note_id} className="p-3 space-y-1">
             <div className="flex justify-between gap-3">

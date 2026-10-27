@@ -289,3 +289,7 @@ verify_jwt = false
 # verify_jwt = true plus its own cmo/super_admin/cto role check.
 [functions.neexa-webhook]
 verify_jwt = false
+
+# Meta webhook requests authenticate through X-Hub-Signature-256, not app JWTs.
+[functions.whatsapp-webhook]
+verify_jwt = false

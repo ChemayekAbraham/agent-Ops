@@ -3,3 +3,4 @@
 - R&D project cash metrics resolve from editable cash rows by stable row ID, never preset values or editable names, so edits update metrics without stale fallbacks.
 - R&D project cards, weekly report and exports share one recorded-update state persisted on explicit edits; weekly periods use non-overlapping Kampala calendar days to avoid preset evidence and divergent report copies.
 - The R&D report period filter (all/last 7 days/today/next 7 days) goes through `rdReportUpdatesForPeriod` only, so dashboard display and the general report PDF always slice the same recorded updates; edits always write the full record, never a filtered view.
+- Staff calling report PDF exports (`staffCallingReportPdf.ts`) sanitize all text streams through `cleanAscii` (pure 7-bit ASCII) and include the "Feedback & outcomes at a glance" horizontal bar charts in both individual staff reports and the General Team report across Wednesday–Tuesday Kampala weeks and specific calendar months.

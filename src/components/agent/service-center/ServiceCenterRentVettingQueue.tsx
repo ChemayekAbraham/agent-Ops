@@ -23,6 +23,9 @@ import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
 import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
+import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
+import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
+import { orderByAgentWeek } from '@/lib/agentWeekPct';
 import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
 import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
@@ -51,6 +54,9 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
   // One batched read for the whole queue tells every card whether it has been called; the cards no longer read their own history
   // unless the batch says there is something to show.
   const callStatus = useAwarenessCallStatus((data?.pending ?? []).map((r) => r.id));
+  // The registering agent's collection % for this Thursday-Wednesday week (one read-only call). Shown next to the agent's name and, in the default sort,
+  // puts the highest % on top. If it fails no % shows and the queue keeps the server order.
+  const agentWeek = useAgentWeekPct((data?.pending ?? []).map((r) => r.id));
 
   // A comment typed for a decision that has not been sent is unsent work: nothing may interrupt it.
   useCriticalFlow('service-centre-comment', Object.values(comments).some((c) => c.trim().length > 0));
@@ -105,11 +111,12 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
   }
 
   const noCallCount = (data.pending ?? []).filter((req) => hasNoCallAtStage(callStatus.byId.get(req.id))).length;
-  const pending = (data.pending ?? [])
+  const matchingPending = (data.pending ?? [])
     .filter((req) =>
       matchesVettingQuery(searchQuery, req.agent_name, req.agent_phone, req.tenant_name, req.tenant_phone, req.landlord_name, req.request_city),
     )
     .filter((req) => !(noCallOnly && callStatus.loaded) || hasNoCallAtStage(callStatus.byId.get(req.id)));
+  const pending = deskUrl.sort === 'agent_week' ? orderByAgentWeek(matchingPending, agentWeek.byAgent, (r) => r.agent_id) : matchingPending;
   const recentReviewed = (data.recent_reviewed ?? []).filter((r) =>
     matchesVettingQuery(searchQuery, r.agent_name, r.tenant_name),
   );
@@ -164,8 +171,9 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="break-words text-sm font-semibold leading-tight text-foreground">{req.tenant_name ?? 'Tenant'}</p>
-                  <p className="break-words text-[11px] text-muted-foreground">
-                    Submitted by {req.agent_name ?? 'sub-agent'}
+                  <p className="flex flex-wrap items-center gap-1.5 break-words text-[11px] text-muted-foreground">
+                    <span>Submitted by {req.agent_name ?? 'sub-agent'}</span>
+                    <AgentWeekPct week={req.agent_id ? agentWeek.byAgent.get(req.agent_id) : undefined} loading={agentWeek.isLoading} />
                   </p>
                   {req.payment_reason && (
                     <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>

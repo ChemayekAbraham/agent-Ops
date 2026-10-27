@@ -1,0 +1,2 @@
+-- Lets a super admin change the list again: re-run the two functions from 20261024130000_cto_controlled_rent_plans.sql
+-- (their permission check was "CTO or super admin").

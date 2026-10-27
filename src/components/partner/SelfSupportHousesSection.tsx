@@ -19,6 +19,7 @@ import { Bookmark, Car, Check, Home, Loader2, MapPin, Navigation, Plus, Share2, 
 import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
 export const HOUSE_MIN_FUNDING = 50000;
@@ -120,7 +121,7 @@ export function useVerifiedEmptyHouses() {
       });
 
       return {
-        houses: items.filter((h) => h.verified === true && Number(h.monthly_rent) > 0),
+        houses: sortFunderHousesByCompleteness(items.filter((h) => h.verified === true && Number(h.monthly_rent) > 0)),
         total,
       };
     },
@@ -455,7 +456,6 @@ export function HouseSupportBar({
       }
       const { data, error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: selectedIds,
-        p_term_months: 1,
         p_commitment_id: useExisting ? activeHouseCommitment!.id : null,
       });
       if (error) throw error;

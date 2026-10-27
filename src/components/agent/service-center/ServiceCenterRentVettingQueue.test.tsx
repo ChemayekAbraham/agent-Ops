@@ -66,6 +66,10 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
       }
       if (fn === 'my_awareness_calls_log') return Promise.resolve({ data: { total: 0, limit: 5, offset: 0, rows: [] }, error: null });
       if (fn === 'get_awareness_calls_for_request') return Promise.resolve({ data: { rent_request_id: args.p_rent_request_id, total: args.p_rent_request_id === 'rr-1' ? 1 : 0, rows: [] }, error: null });
+      if (fn === 'rent_request_agent_week_pct') {
+        const w = (agent: string, got: number) => ({ agent_id: agent, week_start: '2026-10-22', week_end: '2026-10-28', through_day: '2026-10-25', book: 'in_window_only', in_window_plans: 2, in_window_collected: got, in_window_due_so_far: 100, in_window_required_pct: 0.5, expired_plans: 0, expired_collected: 0, expired_due_so_far: 0, expired_required_pct: null });
+        return Promise.resolve({ data: [w('ag-1', 40), w('ag-2', 87.5)], error: null });
+      }
       if (fn === 'record_awareness_call') return Promise.resolve({ data: { id: 'c-1', already_recorded: false }, error: null });
       return Promise.resolve({ data: null, error: null });
     });
@@ -173,8 +177,27 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
     expect(screen.getByTestId('payment-label-reason')).toHaveTextContent('1 of 1 Rent Plan completed');
     expect(screen.getAllByTestId('payment-label-chip')).toHaveLength(1); // only the request the server scored
     expect(screen.getByTestId('rent-desk-controls')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveTextContent('Best payers first');
+    expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveTextContent('Agent collection % first');
     expect(screen.getAllByRole('button', { name: /^Verify/ })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /^Decline/ })).toHaveLength(2);
+  });
+
+  it('shows the registering agent\'s collection % for the week next to the name, from one call, and lists the highest % first', async () => {
+    const saved = queue.pending[1].agent_id;
+    queue.pending[1].agent_id = 'ag-2';
+    try {
+      render(<ServiceCenterRentVettingQueue />, { wrapper });
+      await screen.findAllByTestId('awareness-call-section');
+      await waitFor(() => expect(screen.getAllByTestId('agent-week-pct-main')).toHaveLength(2));
+      expect(calls('rent_request_agent_week_pct')).toHaveLength(1);
+      const chips = screen.getAllByTestId('agent-week-pct-main').map((c) => c.textContent);
+      expect(chips.join(' ')).toContain('87.5%');
+      expect(chips.join(' ')).toContain('40.0%');
+      // Beth (agent at 87.5%) is listed before Adam (agent at 40.0%), although Adam is first in the server order
+      const text = document.body.textContent ?? '';
+      expect(text.indexOf('Beth Namutebi')).toBeLessThan(text.indexOf('Adam Mariam'));
+    } finally {
+      queue.pending[1].agent_id = saved;
+    }
   });
 });

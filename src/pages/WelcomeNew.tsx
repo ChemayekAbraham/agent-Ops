@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ArrowRight, User, Users, X } from 'lucide-react';
 import s from './WelcomeNew.module.css';
+import { Button } from '@/components/ui/button';
 import logoA from '@/assets/welcome-new/welile-logo.png.asset.json';
 import familyA from '@/assets/welcome-new/welcome-family.png.asset.json';
 import hubA from '@/assets/welcome-new/ecosystem-hub.png.asset.json';
@@ -181,6 +182,7 @@ export default function WelcomeNew() {
         else if (dx > 50 && step > 0) go(step - 1);
       }}
     >
+      <header className="fixed right-4 top-4 z-30"><Button variant="outline" className="rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button></header>
       <main className={s.frame} {...(redirect ? { inert: '' as unknown as boolean } : {})}>
         {/* Screen 1 */}
         <section className={`${s.screen} ${pos(0)} ${side(0)}`} aria-labelledby="wn-h-0" {...inertProps(0)}>

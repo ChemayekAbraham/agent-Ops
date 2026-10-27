@@ -8,6 +8,7 @@ import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
+import { isPartnerReturnCredit } from "../_shared/returnCycleGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -549,6 +550,17 @@ Deno.serve(async (req) => {
     if (op === 'credit' && recipient_type === 'user' && OPERATIONAL_CATEGORIES.has(walletCat)) {
       return new Response(JSON.stringify({
         error: `INVALID_ROUTING: '${walletCat}' is operational/company money — choose 'Operational Wallet' (Float) instead of 'User'.`,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ── Partner Return guard (migration 20261024140000_return_cycle_guard) ──
+    // A Partner Return credit must go through the Return payout flow, which
+    // reserves the portfolio's cycle so it can never be paid twice. A direct
+    // (or scheduled) credit names no portfolio or cycle, so it would bypass
+    // that guard: refuse it here. Debits/recoveries are unaffected.
+    if (isPartnerReturnCredit(op, walletCat, platformCat)) {
+      return new Response(JSON.stringify({
+        error: 'RETURN_CREDIT_NOT_ALLOWED_HERE: Partner Returns are paid through the Partner Return payout flow (one Return per portfolio cycle). Request the payout from the Partners page.',
       }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

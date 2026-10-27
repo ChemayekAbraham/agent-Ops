@@ -32,7 +32,7 @@ const TABS: {
 }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'applications', label: 'Applications', icon: ClipboardList, countKey: 'applications' },
-  { key: 'landlords', label: 'Portfolio', icon: Home, countKey: 'landlords' },
+  { key: 'landlords', label: 'Enrolled', icon: Home, countKey: 'landlords' },
   { key: 'all', label: 'Subscriptions', icon: Users, countKey: 'all' },
 ];
 

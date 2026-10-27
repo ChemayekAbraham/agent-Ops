@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
+import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
 
 const MONTHLY_RATE = 0.15;
 
@@ -583,6 +584,8 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
           ))}
         </ol>
       </div>
+
+      <SupportPlanExample fundingAmount={item.amount} />
 
       <div className="space-y-2">
         <a

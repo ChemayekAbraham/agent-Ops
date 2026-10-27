@@ -9,7 +9,9 @@ import {
   resolveUsersByKnownPhone,
   resolveUniqueUserByKnownPhone,
   learnDepositNumber,
+  learnDepositName,
   resolveUniqueUserByKnownName,
+  resolveUsersByKnownName,
   normalizeDepositorName,
 } from "../_shared/depositNumberLearning.ts";
 
@@ -765,7 +767,7 @@ Deno.serve(async (req) => {
         if (dedupHash) orParts.push(`dedup_hash.eq.${dedupHash}`);
         const { data: dup } = await supabase
           .from('gmail_transactions')
-          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name')
+          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name, linked_deposit_request_id')
           .or(orParts.join(','))
           .limit(1)
           .maybeSingle();
@@ -836,6 +838,38 @@ Deno.serve(async (req) => {
               enriched,
             },
           });
+
+          // ── Auto-credit on enrich ─────────────────────────────────────
+          // MTN MoMo sends TWO SMS for one Transaction ID: first the
+          // phone-less "Till:" shape (name only — often unmatchable, so the
+          // stored row stays unlinked), then the "(NAME) 2567XXXXXXXX" shape
+          // with the phone. When the duplicate just supplied the missing
+          // identity data (or the stored row is simply an unlinked incoming
+          // MoMo receipt), run the same instant auto-credit the original
+          // insert would have — against the STORED row, not this duplicate.
+          if (!(dup as any).linked_deposit_request_id) {
+            const isIncomingMomo = parsed.direction === 'in' &&
+              (parsed.channel === 'mtn_momo' || parsed.channel === 'airtel_money');
+            if (enriched || isIncomingMomo) {
+              try {
+                await tryAutoCreditOperationalFloat(supabase, {
+                  parsed,
+                  fromEmail,
+                  internalMs,
+                  gmailMessageId: m.id,
+                  subject,
+                  snippet,
+                  rawBody: body ?? null,
+                  gmailRowOverride: {
+                    id: (dup as any).id,
+                    linked_deposit_request_id: null,
+                  },
+                });
+              } catch (e) {
+                console.warn('[gmail-poll] enrich-duplicate auto-credit failed (non-fatal):', e);
+              }
+            }
+          }
           continue;
         }
       }
@@ -1045,6 +1079,10 @@ async function tryAutoCreditOperationalFloat(
     subject?: string | null;
     snippet?: string | null;
     rawBody?: string | null;
+    // Enrich-on-duplicate path: credit against the ALREADY-STORED gmail row
+    // instead of looking one up by gmailMessageId (the duplicate email has
+    // no row of its own).
+    gmailRowOverride?: { id: string; linked_deposit_request_id: string | null };
   },
 ): Promise<void> {
   return await _tryAutoCreditOperationalFloat(supabase, args);
@@ -1991,10 +2029,12 @@ async function _tryAutoCreditOperationalFloat(
     subject?: string | null;
     snippet?: string | null;
     rawBody?: string | null;
+    gmailRowOverride?: { id: string; linked_deposit_request_id: string | null };
   },
 ): Promise<void> {
   const { parsed, internalMs, gmailMessageId } = args;
   const { subject = null, snippet = null, rawBody = null } = args;
+  const gmailRowOverride = args.gmailRowOverride ?? null;
 
   // Eligibility gates
   if (!parsed.amount || parsed.amount <= 0) return;
@@ -2109,6 +2149,73 @@ async function _tryAutoCreditOperationalFloat(
     }
   }
 
+  // ── Learned payer route ───────────────────────────────────────────
+  // Phone and body-phone resolution failed. Before guessing from names, ask
+  // what Financial Ops taught the system: a payer (phone key, or for MTN a
+  // name key) that staff routed to a wallet once routes there on its own
+  // from then on (learned_payer_routes). The route also decides the deposit
+  // purpose (operational_float vs personal_deposit).
+  let learnedRoute: 'operational_float' | 'personal_deposit' | null = null;
+  if (!profile) {
+    const applyLearnedRoute = async (keyType: 'phone' | 'name', payerKey: string | null) => {
+      if (!payerKey || profile) return;
+      try {
+        const { data: lr, error: lrErr } = await supabase.rpc('resolve_learned_payer_route', {
+          p_key_type: keyType,
+          p_payer_key: payerKey,
+        });
+        if (lrErr) {
+          console.warn('[gmail-poll] resolve_learned_payer_route failed (non-fatal):', lrErr.message);
+          return;
+        }
+        const hit = Array.isArray(lr) ? lr[0] : lr;
+        if (!hit?.target_user_id) return;
+        const { data: tp } = await supabase
+          .from('profiles')
+          .select('id, phone, full_name, email')
+          .eq('id', hit.target_user_id)
+          .maybeSingle();
+        if (!tp?.id) return;
+        profile = tp as any;
+        matchMethod = keyType === 'phone' ? 'phone' : 'name';
+        learnedRoute = hit.route === 'personal_deposit' ? 'personal_deposit' : 'operational_float';
+        nameMatchAudit = {
+          raw_name: String((parsed as any).counterparty_name ?? cp ?? ''),
+          total_candidates: 1,
+          candidates: [{
+            id: tp.id,
+            full_name: (tp as any).full_name ?? null,
+            phone_last4: null,
+            has_phone: !!(tp as any).phone,
+            last_sign_in_at: null,
+            last_sign_in_ms: 0,
+            selected: true,
+          }],
+          tiebreaker: 'learned-payer-route',
+          tiebreaker_pool: 'single',
+          confidence: 'high',
+          confidence_score: 0.9,
+          confidence_reasons: [`payer ${keyType} previously routed to this wallet by Financial Ops`],
+        };
+        console.log(`[gmail-poll] learned payer route (${keyType}=${payerKey}) → user=${tp.id} route=${learnedRoute}`);
+      } catch (e) {
+        console.warn('[gmail-poll] learned payer route check failed (non-fatal):', e);
+      }
+    };
+    const phoneKey = matchedPhoneLast9
+      ?? (phoneMatch ? toLast9(phoneMatch[0]) : null)
+      ?? (emailLast9Set.size === 1 ? Array.from(emailLast9Set)[0] : null);
+    await applyLearnedRoute('phone', phoneKey);
+    if (!profile && parsed.channel === 'mtn_momo') {
+      // Name key: same normalization as public.payer_name_key — lowercase,
+      // letters only, tokens ≥ 2 chars minus stopwords, sorted.
+      const rawForKey = String((parsed as any).counterparty_name ?? cp ?? '');
+      const tokens = rawForKey.toLowerCase().replace(/[^a-z ]/g, ' ').split(' ')
+        .filter((w) => w.length >= 2 && !['you', 'have', 'received', 'from', 'the', 'and'].includes(w));
+      await applyLearnedRoute('name', tokens.length >= 2 ? tokens.sort().join(' ') : null);
+    }
+  }
+
   // ── MTN MoMo fallback ────────────────────────────────────────────
   // Reached only when the phone (now correctly extracted from the
   // "(NAME) 256XXXXXXXXX" shape above, or from the body-phone scan) didn't
@@ -2152,94 +2259,45 @@ async function _tryAutoCreditOperationalFloat(
         };
         console.log(`[gmail-poll] MTN name-fallback matched "${rawName}" → user=${profile.id}`);
       } else if (nameMatches && nameMatches.length > 1) {
-        // Tie-breaker 1: prefer profiles that actually have a phone on file.
-        const withPhone = nameMatches.filter((p: any) => (p.phone ?? '').replace(/\D/g, '').length >= 9);
-        let winner: any = null;
-        let tiebreaker = '';
-        let tiebreakerPool: 'with-phone' | 'all' | 'single' | null = null;
-        const lastSeen: { id: string; ts: number; iso: string | null }[] = [];
-        if (withPhone.length === 1) {
-          winner = withPhone[0];
-          tiebreaker = 'only-profile-with-phone';
-          tiebreakerPool = 'with-phone';
-        } else {
-          // Tie-breaker 2: pick the most recently active auth user (within 30d
-          // and strictly newer than every other candidate by ≥ 24h).
-          const pool = withPhone.length > 1 ? withPhone : nameMatches;
-          tiebreakerPool = withPhone.length > 1 ? 'with-phone' : 'all';
-          // Best-guess: pick the most recently active auth user among the
-          // same-named candidates. Ops can reverse via Email Transactions
-          // if it turns out to be the wrong user.
-          for (const p of pool) {
-            try {
-              const { data: u } = await (supabase as any).auth.admin.getUserById(p.id);
-              const t = u?.user?.last_sign_in_at ? new Date(u.user.last_sign_in_at).getTime() : 0;
-              lastSeen.push({ id: p.id, ts: t, iso: u?.user?.last_sign_in_at ?? null });
-            } catch {
-              lastSeen.push({ id: p.id, ts: 0, iso: null });
-            }
-          }
-          lastSeen.sort((a, b) => b.ts - a.ts);
-          const top = lastSeen[0];
-          if (top) {
-            winner = pool.find((p: any) => p.id === top.id) ?? null;
-            tiebreaker = top.ts > 0 ? 'most-recent-active' : 'first-candidate';
-          }
-        }
-        if (winner?.id) {
-          profile = winner;
+        // Several profiles share this exact name. A name is not an identity: the
+        // MTN receipt carries no phone, so nothing in it can tell the profiles
+        // apart. Guessing (most recently active, or the only one with a phone)
+        // credited the wrong same-name profile repeatedly. The only safe
+        // resolution is a name Financial Ops has confirmed by hand for exactly
+        // one of these profiles and that has never been contested
+        // (user_deposit_names). Otherwise the receipt stays unmatched and a
+        // human routes it.
+        const candidateIds = new Set(nameMatches.map((p: any) => p.id));
+        const learnedHits = (await resolveUsersByKnownName(supabase, normalizeDepositorName(rawName)))
+          .filter((h) => candidateIds.has(h.user_id));
+        if (learnedHits.length === 1) {
+          const hit = learnedHits[0];
+          profile = { id: hit.user_id, phone: hit.phone, full_name: hit.full_name, email: hit.email } as any;
           matchMethod = 'name';
-          // Confidence: 'low' for first-candidate (no signal), 'medium' for
-          // most-recent-active, 'high' for only-profile-with-phone.
-          let confidence: 'high' | 'medium' | 'low' = 'low';
-          let confidenceScore = 0.3;
-          const reasons: string[] = [];
-          if (tiebreaker === 'only-profile-with-phone') {
-            confidence = 'high';
-            confidenceScore = 0.85;
-            reasons.push('only one of the same-named profiles has a phone on file');
-          } else if (tiebreaker === 'most-recent-active') {
-            const top = lastSeen[0];
-            const second = lastSeen[1];
-            const gapDays = top && second ? (top.ts - second.ts) / 86400000 : 0;
-            if (gapDays >= 7) {
-              confidence = 'medium';
-              confidenceScore = 0.65;
-              reasons.push(`winner active ${gapDays.toFixed(1)}d more recently than runner-up`);
-            } else {
-              confidence = 'low';
-              confidenceScore = 0.4;
-              reasons.push(`winner active only ${gapDays.toFixed(1)}d more recently than runner-up`);
-            }
-          } else {
-            reasons.push('no last-sign-in signal — picked first candidate');
-          }
-          const lsMap = new Map(lastSeen.map(l => [l.id, l]));
           nameMatchAudit = {
             raw_name: rawName,
             total_candidates: nameMatches.length,
             candidates: nameMatches.map((p: any) => {
               const digits = (p.phone ?? '').replace(/\D/g, '');
-              const ls = lsMap.get(p.id);
               return {
                 id: p.id,
                 full_name: p.full_name ?? null,
                 phone_last4: digits.length >= 4 ? digits.slice(-4) : null,
                 has_phone: digits.length >= 9,
-                last_sign_in_at: ls?.iso ?? null,
-                last_sign_in_ms: ls?.ts ?? 0,
-                selected: p.id === winner.id,
+                last_sign_in_at: null,
+                last_sign_in_ms: 0,
+                selected: p.id === hit.user_id,
               };
             }),
-            tiebreaker,
-            tiebreaker_pool: tiebreakerPool,
-            confidence,
-            confidence_score: confidenceScore,
-            confidence_reasons: reasons,
+            tiebreaker: 'learned-name-match',
+            tiebreaker_pool: 'single',
+            confidence: 'high',
+            confidence_score: 0.9,
+            confidence_reasons: ['payer name previously confirmed by Financial Ops for exactly one of the same-named profiles and never contested'],
           };
-          console.log(`[gmail-poll] MTN name-fallback resolved "${rawName}" (${nameMatches.length} matches) via ${tiebreaker} → user=${winner.id}`);
+          console.log(`[gmail-poll] MTN same-name resolved by learned name "${rawName}" (${nameMatches.length} profiles) → user=${hit.user_id}`);
         } else {
-          console.log(`[gmail-poll] MTN name-fallback ambiguous for "${rawName}" (${nameMatches.length} matches, no clear winner) — skipping auto-credit`);
+          console.log(`[gmail-poll] MTN name-fallback ambiguous for "${rawName}" (${nameMatches.length} matches, no confirmed owner) — skipping auto-credit`);
           await logDepositDecision(supabase, {
             source: 'matcher',
             decision: 'skipped',
@@ -2249,6 +2307,58 @@ async function _tryAutoCreditOperationalFloat(
           });
         }
       } else {
+        // ── Reversed word-order tier ──────────────────────────────────
+        // MTN prints the SIM name as "FIRST LAST" but the profile may be
+        // stored "LAST FIRST" (e.g. "JUDITH KYOMUGISHA" vs "kyomugisha
+        // judith"). An exact ilike finds nothing, so the receipt used to
+        // strand in name_fuzzy_match_needs_confirmation. When every token
+        // (≥ 3 chars) of the payer name matches the exact token SET of
+        // exactly ONE non-deleted profile — same words, any order — that
+        // is a deterministic match, not a fuzzy guess.
+        const permTokens = rawName.toLowerCase().replace(/[^a-z ]/g, ' ').split(' ')
+          .filter((t) => t.length >= 3);
+        if (permTokens.length >= 2) {
+          let permQuery = supabase
+            .from('profiles')
+            .select('id, phone, full_name, email')
+            .not('full_name', 'ilike', '[DELETED]%');
+          for (const t of permTokens) permQuery = permQuery.ilike('full_name', `%${t}%`);
+          const { data: permCandidates } = await permQuery.limit(50);
+          const wantKey = [...permTokens].sort().join(' ');
+          const exactPerms = (permCandidates ?? []).filter((p: any) => {
+            const pKey = String(p.full_name ?? '').toLowerCase().replace(/[^a-z ]/g, ' ')
+              .split(' ').filter((t) => t.length >= 3).sort().join(' ');
+            return pKey === wantKey;
+          });
+          if (exactPerms.length === 1 && exactPerms[0]?.id) {
+            const only = exactPerms[0] as any;
+            profile = only;
+            matchMethod = 'name';
+            const onlyDigits = (only.phone ?? '').replace(/\D/g, '');
+            nameMatchAudit = {
+              raw_name: rawName,
+              total_candidates: 1,
+              candidates: [{
+                id: only.id,
+                full_name: only.full_name ?? null,
+                phone_last4: onlyDigits.length >= 4 ? onlyDigits.slice(-4) : null,
+                has_phone: onlyDigits.length >= 9,
+                last_sign_in_at: null,
+                last_sign_in_ms: 0,
+                selected: true,
+              }],
+              tiebreaker: 'gmail_name_token_permutation+tid+amount',
+              tiebreaker_pool: 'single',
+              confidence: 'high',
+              confidence_score: 0.9,
+              confidence_reasons: ['profile name is the exact same set of words as the payer name, in a different order'],
+            };
+            console.log(`[gmail-poll] MTN name token-permutation matched "${rawName}" → user=${only.id}`);
+          }
+        }
+      }
+
+      if (!profile && parsed.channel === 'mtn_momo' && !(nameMatches && nameMatches.length >= 1)) {
         // ── Learned-name tier ─────────────────────────────────────────────
         // No EXACT profile match (the payer is a third party depositing on
         // someone else's behalf — their name will never be in `profiles` at
@@ -2353,13 +2463,156 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   // Find the gmail_transactions row we just wrote so we can link it.
-  const { data: gmailRow } = await supabase
-    .from('gmail_transactions')
-    .select('id, linked_deposit_request_id')
-    .eq('gmail_message_id', gmailMessageId)
-    .maybeSingle();
+  // (Enrich-on-duplicate passes the already-stored row in directly.)
+  let gmailRow: { id: string; linked_deposit_request_id: string | null } | null = gmailRowOverride;
+  if (!gmailRow) {
+    const { data: fetchedRow } = await supabase
+      .from('gmail_transactions')
+      .select('id, linked_deposit_request_id')
+      .eq('gmail_message_id', gmailMessageId)
+      .maybeSingle();
+    gmailRow = fetchedRow as any;
+  }
   if (!gmailRow?.id) return;
-  if (gmailRow.linked_deposit_request_id) return; // already linked
+
+  if (gmailRow.linked_deposit_request_id) {
+    // ── Trigger-linked instant approve ──────────────────────────────
+    // The synchronous AFTER INSERT trigger (trg_gmail_tx_auto_create_deposit
+    // → auto_create_deposits_from_gmail_impl) already created a PENDING
+    // deposit for this receipt and linked it. Stopping here (the old
+    // behaviour) left 80%+ of matched deposits sitting in `pending` until
+    // the linked-pending sweep ran. Instead approve it right now so the
+    // Operational Float lands instantly. Only already-approved / rejected
+    // linked deposits are left alone.
+    const { data: linkedDep } = await supabase
+      .from('deposit_requests')
+      .select('id, user_id, amount, status, provider, transaction_id, deposit_purpose, notes')
+      .eq('id', gmailRow.linked_deposit_request_id)
+      .maybeSingle();
+    if (!linkedDep) return;
+    if (linkedDep.status === 'approved' || linkedDep.status === 'rejected') return;
+    if (String(linkedDep.status) !== 'pending') return;
+    if (linkedDep.provider !== 'mtn' && linkedDep.provider !== 'airtel') return;
+    // Never approve a deposit whose amount disagrees with the receipt.
+    if (Number(linkedDep.amount) !== Number(parsed.amount)) {
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'skipped',
+        reason: 'trigger_linked_amount_mismatch',
+        deposit_request_id: linkedDep.id,
+        amount: parsed.amount ?? null,
+        metadata: { gmail_message_id: gmailMessageId, dep_amount: Number(linkedDep.amount), email_amount: Number(parsed.amount) },
+      });
+      return;
+    }
+
+    // FLOAT-BY-DEFAULT: a generic 'other' purpose is upgraded to
+    // operational_float before approval so the money lands in Float.
+    if (linkedDep.deposit_purpose === 'other') {
+      await supabase
+        .from('deposit_requests')
+        .update({ deposit_purpose: 'operational_float' })
+        .eq('id', linkedDep.id)
+        .eq('status', 'pending');
+    }
+
+    const fnBaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const fnServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    try {
+      const res = await fetch(`${fnBaseUrl}/functions/v1/approve-deposit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${fnServiceKey}`,
+          'apikey': fnServiceKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          deposit_request_id: linkedDep.id,
+          action: 'approve',
+          auto_approved: true,
+          auto_match_method: 'trigger_linked_instant_approve',
+          system_auto_credit: true,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        console.warn('[gmail-poll] trigger-linked approve-deposit non-200:', res.status, txt.slice(0, 300));
+        await logDepositDecision(supabase, {
+          source: 'matcher',
+          decision: 'failed',
+          reason: 'trigger_linked_approve_non_200',
+          deposit_request_id: linkedDep.id,
+          amount: parsed.amount ?? null,
+          metadata: { gmail_message_id: gmailMessageId, status: res.status, body: txt.slice(0, 300) },
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('[gmail-poll] trigger-linked approve-deposit invoke failed:', e);
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'failed',
+        reason: 'trigger_linked_approve_invoke_error',
+        deposit_request_id: linkedDep.id,
+        amount: parsed.amount ?? null,
+        metadata: { gmail_message_id: gmailMessageId, error: String(e) },
+      });
+      return;
+    }
+
+    console.log(
+      `[gmail-poll] trigger-linked instant approve: user=${profile.id} dep=${linkedDep.id} ` +
+      `amt=${parsed.amount} tid=${parsed.transaction_id}`,
+    );
+
+    // Learn the payer's number / name from this positive identification so
+    // the next deposit from them resolves instantly.
+    if (matchMethod === 'name' && nameMatchAudit?.confidence === 'high' && emailLast9Set.size === 1) {
+      await learnDepositNumber(supabase, {
+        userId: profile.id,
+        phone: Array.from(emailLast9Set)[0],
+        source: 'name_match_auto',
+        gmailTransactionId: gmailRow.id,
+        createdBy: null,
+        notes: `name match: ${nameMatchAudit.tiebreaker}`,
+      });
+    }
+    const payerName = (parsed as any).counterparty_name ?? (matchMethod === 'phone' ? cp : null);
+    if (payerName) {
+      await learnDepositName(supabase, {
+        userId: profile.id,
+        name: payerName,
+        source: 'name_match_auto',
+        gmailTransactionId: gmailRow.id,
+        createdBy: null,
+        notes: 'trigger-linked instant approve',
+      });
+    }
+
+    await logDepositDecision(supabase, {
+      source: 'matcher',
+      decision: 'auto_credited',
+      reason: 'trigger_linked_instant_approve',
+      deposit_request_id: linkedDep.id,
+      amount: parsed.amount ?? null,
+      actor_id: profile.id,
+      metadata: {
+        gmail_message_id: gmailMessageId,
+        tid: parsed.transaction_id ?? null,
+        match_source: 'trigger_linked_instant_approve',
+        match_method: matchMethod,
+      },
+    });
+
+    await notifyFloatCredited(supabase, {
+      profile,
+      provider: linkedDep.provider,
+      parsed,
+      internalMs,
+      gmailMessageId,
+    });
+    return;
+  }
 
   // ── Learn the depositor's number from a HIGH-confidence name match ────
   // MTN "received" emails usually carry only a name. When such an email DID
@@ -2407,6 +2660,21 @@ async function _tryAutoCreditOperationalFloat(
       .limit(1)
       .maybeSingle();
     if (existingDep?.id) {
+      // The TID is already APPROVED (typical: a delayed IFTTT forward of a
+      // receipt whose deposit was credited minutes ago). Link the gmail row
+      // to that deposit so it doesn't sit as a false "Unmatched" row in
+      // Financial Ops, then stop — nothing left to credit.
+      if (String(existingDep.status) === 'approved') {
+        await supabase
+          .from('gmail_transactions')
+          .update({
+            linked_deposit_request_id: existingDep.id,
+            auto_match_method: 'already_approved_tid',
+          })
+          .eq('id', gmailRow.id)
+          .is('linked_deposit_request_id', null);
+        return;
+      }
       if (String(existingDep.status) !== 'pending') return;
       if (Number(existingDep.amount) !== Number(parsed.amount)) {
         console.warn(
@@ -2661,10 +2929,12 @@ async function _tryAutoCreditOperationalFloat(
       provider,
       transaction_id: parsed.transaction_id,
       transaction_date: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
-      deposit_purpose: 'operational_float',
+      deposit_purpose: learnedRoute ?? 'operational_float',
       auto_approved: true,
       auto_match_audit: auditMeta,
-      notes: nameMatchAudit?.tiebreaker === 'learned-name-match'
+      notes: nameMatchAudit?.tiebreaker === 'learned-payer-route'
+        ? `[auto] Created from incoming Gmail MoMo receipt — this payer was routed to this wallet by Financial Ops before; credited as ${learnedRoute === 'personal_deposit' ? 'a Personal Deposit' : 'Operational Float'}.`
+        : nameMatchAudit?.tiebreaker === 'learned-name-match'
         ? `[auto] Created from incoming Gmail MoMo receipt — payer name "${cp}" previously confirmed by Financial Ops (uncontested); credited to Operational Float.`
         : '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
     })
@@ -2779,9 +3049,30 @@ async function _tryAutoCreditOperationalFloat(
     return;
   }
 
-  // ── Notify the user via SMS ────────────────────────────────────
-  // Tell them their Operational Float wallet was just topped up and what
-  // the new balance is, so they don't have to open the app to confirm.
+  await notifyFloatCredited(supabase, {
+    profile,
+    provider,
+    parsed,
+    internalMs,
+    gmailMessageId,
+  });
+}
+
+// ── Notify the user their Operational Float was just topped up ───────
+// SMS with the new balance, plus an emailed receipt when we hold an owned
+// email address. Shared by the fresh-deposit path and the trigger-linked
+// instant-approve path.
+async function notifyFloatCredited(
+  supabase: ReturnType<typeof createClient>,
+  args: {
+    profile: { id: string; phone: string | null; full_name: string | null };
+    provider: string;
+    parsed: ReturnType<typeof parseTransaction>;
+    internalMs: number;
+    gmailMessageId: string;
+  },
+): Promise<void> {
+  const { profile, provider, parsed, internalMs, gmailMessageId } = args;
   try {
     if (!profile.phone) return;
     const { data: walletRow } = await supabase

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -14,7 +15,10 @@ import { cn } from '@/lib/utils';
  * until they press OK (`staff_requisition_notice_ack`).
  *
  * FAIL OPEN: renders only when the rpc succeeds AND returns rows. Any error,
- * timeout or offline state leaves the app fully usable.
+ * timeout or offline state leaves the app fully usable. The poll waits for a
+ * signed-in session — a missing or expired user JWT is not sent. `enabled`
+ * only hides the dialog while an approver prompt is open; it does not decide
+ * whether a signed-in requester is polled.
  */
 
 const POLL_MS = 5 * 60 * 1000;
@@ -60,8 +64,10 @@ function fmtKampala(iso: string) {
 export function StaffRequisitionNoticeGate({ enabled = true }: { enabled?: boolean }) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [working, setWorking] = useState(false);
+  const ready = useAuthenticatedAudience();
 
   const load = useCallback(async () => {
+    if (!(await hasUsableUserSession())) { setNotices([]); return; }
     try {
       const { data, error } = await supabase.rpc('staff_requisition_my_notices' as never);
       if (error) { setNotices([]); return; }
@@ -72,16 +78,8 @@ export function StaffRequisitionNoticeGate({ enabled = true }: { enabled?: boole
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => { void load(); }, POLL_MS);
-    const onFocus = () => { void load(); };
-    window.addEventListener('focus', onFocus);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-    };
-  }, [load]);
+  useAuthenticatedPoll(load, POLL_MS, { onFocus: true });
+  useEffect(() => { if (!ready) setNotices([]); }, [ready]);
 
   const notice = notices[0];
   if (!enabled || !notice) return null;

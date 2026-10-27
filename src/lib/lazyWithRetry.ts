@@ -48,6 +48,8 @@ const untilReload = <T,>() => new Promise<T>(() => {});
 
 function reloadOnceForStaleChunk(): boolean {
   if (typeof window === "undefined") return false;
+  // In development, Vite manages modules via HMR; never auto-reload.
+  if (import.meta.env.DEV) return false;
   try {
     const KEY = "welile:lazy-reload-at";
     const last = Number(sessionStorage.getItem(KEY) || 0);

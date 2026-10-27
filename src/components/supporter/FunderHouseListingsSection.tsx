@@ -34,6 +34,7 @@ import type {
 } from '@/components/funder-new/types';
 import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
+import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
 /** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
@@ -168,10 +169,10 @@ export function FunderHouseListingsSection() {
 
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(
-    () => [
+    () => sortFunderFeedEntries([
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
-    ],
+    ]),
     [readyItems, emptyItems],
   );
 
@@ -556,7 +557,6 @@ export function FunderHouseListingsSection() {
               if (!note) throw new Error('Booking was not created');
               const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
                 p_house_ids: ids,
-                p_term_months: 1,
                 p_idempotency_key: `fund-${note.id}`,
               });
               if (fundErr) throw fundErr;
@@ -570,7 +570,6 @@ export function FunderHouseListingsSection() {
               const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
                 p_rent_request_ids: ids,
                 p_promised_deposit_date: null,
-                p_term_months: 1,
               });
               if (error) throw error;
               const payload = (data ?? {}) as { commitment_id?: string; portfolio_id?: string };

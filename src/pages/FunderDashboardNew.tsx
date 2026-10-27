@@ -46,6 +46,8 @@ import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDr
 
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
+import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
 /** Default search radius applied when an origin exists. */
@@ -201,10 +203,10 @@ export default function FunderDashboardNew() {
 
   /** Houses first, Rent Plans last. Each entry carries its own category. */
   const loadedItems = useMemo<FeedEntry[]>(
-    () => [
+    () => sortFunderFeedEntries([
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
-    ],
+    ]),
     [emptyItems, readyItems],
   );
 

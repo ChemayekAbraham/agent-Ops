@@ -123,7 +123,6 @@ export default function SupportHouse() {
       // creates anything, so two people opening the same link cannot both fund.
       const { data, error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: [offer.house_id],
-        p_term_months: 1,
         p_commitment_id: null,
       });
       if (error) throw error;

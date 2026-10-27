@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -13,15 +14,18 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import {
   Building2, Loader2, Search, Users, Banknote, TrendingUp, Clock,
-  PlayCircle, RefreshCw, Download, Wallet, Coins, Activity, Home,
+  RefreshCw, Download, Wallet, Coins, Activity, Home,
   Smartphone, UserCheck, X, CheckCircle2, ArrowRight, ArrowUpRight,
   Filter, Info, ShieldCheck, Sparkles, AlertCircle, ChevronRight, ChevronDown, ChevronUp, Phone,
   LayoutDashboard, ArrowLeft, Calendar, ClipboardList, Inbox, Trash2, History, UserPlus, FileText, MoreHorizontal,
-  BarChart3
+  BarChart3, XCircle
 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { WelileHomesMobileBottomNav } from './WelileHomesMobileBottomNav';
+import { AgentProfile360Sheet } from '@/components/executive/AgentProfile360Sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -107,6 +111,11 @@ interface Row {
   tenant_verified?: boolean;
   agent_name?: string;
   agent_phone?: string;
+  source_type?: 'welile_homes' | 'general';
+  subscription_status?: string;
+  // Set only by the CFO server disbursement (wh_cfo_disburse_float). Not selected until
+  // the Welile Homes float migration is applied, so it is undefined (never 'funded') before then.
+  funding_status?: string;
 }
 
 export interface FloatRequestItem {
@@ -193,7 +202,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
   const [q, setQ] = useState('');
   const [activeTab, setActiveTab] = useState<WelileTab>('overview');
   const [subFilter, setSubFilter] = useState<SubscriptionFilter>('all');
@@ -209,13 +217,28 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const [railChartMetric, setRailChartMetric] = useState<'volume' | 'landlords'>('volume');
 
   // Applications tab states
-  const [applicationsSubTab, setApplicationsSubTab] = useState<'tenants' | 'float_requests'>('tenants');
+  const [appSearch, setAppSearch] = useState('');
   const [forwardingId, setForwardingId] = useState<string | null>(null);
+  const [forwardingGroupId, setForwardingGroupId] = useState<string | null>(null);
+  const [forwardingSelected, setForwardingSelected] = useState(false);
+  const [profileAgentId, setProfileAgentId] = useState<string | null>(null);
   const [floatRequests, setFloatRequests] = useState<FloatRequestItem[]>([]);
   const [selectedAppTenantIds, setSelectedAppTenantIds] = useState<Set<string>>(new Set());
-  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'unverified' | 'verified' | 'wallet' | 'float'>('all');
-  const [appSearch, setAppSearch] = useState('');
-  const [collapsedAppLandlords, setCollapsedAppLandlords] = useState<Record<string, boolean>>({});
+  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined'>('all');
+  const [expandedAppLandlords, setExpandedAppLandlords] = useState<Record<string, boolean>>({});
+  const [expandedEnrolledLandlords, setExpandedEnrolledLandlords] = useState<Record<string, boolean>>({});
+
+  // Applications decline dialog states
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState('Declined by Agent Operations');
+  const [declineTarget, setDeclineTarget] = useState<{
+    title: string;
+    description: string;
+    tenantIds: string[];
+    agentIds: string[];
+    landlordName?: string;
+  } | null>(null);
+  const [declining, setDeclining] = useState(false);
 
   // Applications action dialog states
   const [historySub, setHistorySub] = useState<Row | null>(null);
@@ -233,7 +256,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
 
   const expandAllLandlords = () => {
     const next: Record<string, boolean> = {};
-    landlordsBreakdown.forEach((l) => { next[l.name] = true; });
+    enrolledLandlordsBreakdown.forEach((l) => { next[l.name] = true; });
     setExpandedLandlords(next);
   };
 
@@ -246,7 +269,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     try {
       const { data, error } = await supabase
         .from('welile_homes_subscriptions')
-        .select('id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at')
+        .select('id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at, subscription_status')
         .eq('mode', 'agent_collection')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -257,6 +280,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         const profileList = (profs ?? []) as unknown as { id: string; full_name: string | null; phone: string | null; verified?: boolean | null }[];
         const map = new Map(profileList.map((p) => [p.id, p]));
         list.forEach((r) => {
+          r.source_type = 'welile_homes';
           const tProf = map.get(r.tenant_id);
           r.tenant_name = tProf?.full_name ?? 'Tenant';
           r.tenant_phone = tProf?.phone ?? '';
@@ -273,6 +297,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         const { data: fReqs } = await supabase
           .from('float_requests')
           .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at')
+          // Welile Homes requests only; Merchant float requests belong to the Merchant panel.
+          .ilike('reason', WH_REASON_ILIKE)
           .order('created_at', { ascending: false })
           .limit(100);
 
@@ -322,22 +348,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   }, []);
 
   useEffect(() => { load(); }, [load]);
-
-  const runPayouts = async () => {
-    setRunning(true);
-    try {
-      const { data, error } = await supabase.rpc('welile_home_run_landlord_payouts', { p_as_of: new Date().toISOString().slice(0, 10) });
-      if (error) throw error;
-      const res = data as unknown as { payouts?: number; total_paid?: number };
-      toast.success(`Paid ${res?.payouts ?? 0} landlord(s) · ${formatUGX(res?.total_paid ?? 0)}`);
-      // Fire-and-forget: send landlords their payout SMS receipts.
-      supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => {});
-      load();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error('Payout run failed: ' + msg);
-    } finally { setRunning(false); }
-  };
 
   // Calculations for Agent Ops Overview metrics
   const totalReceivable = useMemo(() => rows.reduce((a, r) => a + (Number(r.receivable_total) || 0), 0), [rows]);
@@ -460,9 +470,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     return Array.from(map.values()).sort((a, b) => b.rentTotal - a.rentTotal);
   }, [rows]);
 
-  const landlordsBreakdown = useMemo<LandlordBreakdownItem[]>(() => {
+  // Active non-cancelled subscription rows & breakdown
+  const activeRows = useMemo(() => rows.filter((r) => r.subscription_status !== 'cancelled'), [rows]);
+  const declinedTenantsCount = useMemo(() => rows.filter((r) => r.subscription_status === 'cancelled').length, [rows]);
+
+  const buildLandlordBreakdown = (source: Row[]): LandlordBreakdownItem[] => {
     const map = new Map<string, LandlordBreakdownItem>();
-    rows.forEach((r) => {
+    source.forEach((r) => {
       const key = (r.landlord_name || 'Direct / Unassigned Landlord').trim();
       const existing = map.get(key) || {
         name: key,
@@ -526,14 +540,24 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       map.set(key, existing);
     });
     return Array.from(map.values()).sort((a, b) => b.totalReceivable - a.totalReceivable);
-  }, [rows]);
+  };
 
-  const totalLandlordRevenue = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.monthlyRevenue, 0), [landlordsBreakdown]);
-  const totalLandlordReceivables = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.totalReceivable, 0), [landlordsBreakdown]);
-  const totalLandlordAgentCommission = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.agentCommission, 0), [landlordsBreakdown]);
-  const monthlyLandlordAgentCommission = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.monthlyCommission, 0), [landlordsBreakdown]);
-  const totalLandlordProfit = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.ourProfit, 0), [landlordsBreakdown]);
-  const monthlyLandlordProfit = useMemo(() => landlordsBreakdown.reduce((s, l) => s + l.monthlyProfit, 0), [landlordsBreakdown]);
+  // Every landlord on file (overview drill-downs).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const landlordsBreakdown = useMemo(() => buildLandlordBreakdown(activeRows), [activeRows]);
+
+  // Enrolled = active (non-cancelled) subscriptions. This is NOT proof of CFO funding: that link
+  // (funding_status set by wh_cfo_disburse_float) is pending migration, so no funding is claimed here.
+  const enrolledRows = activeRows;
+  const enrolledLandlordsBreakdown = landlordsBreakdown;
+  const enrolledOutstanding = useMemo(() => enrolledRows.reduce((a, r) => a + (Number(r.outstanding_balance) || 0), 0), [enrolledRows]);
+
+  const totalLandlordRevenue = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.monthlyRevenue, 0), [enrolledLandlordsBreakdown]);
+  const totalLandlordReceivables = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.totalReceivable, 0), [enrolledLandlordsBreakdown]);
+  const totalLandlordAgentCommission = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.agentCommission, 0), [enrolledLandlordsBreakdown]);
+  const monthlyLandlordAgentCommission = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.monthlyCommission, 0), [enrolledLandlordsBreakdown]);
+  const totalLandlordProfit = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.ourProfit, 0), [enrolledLandlordsBreakdown]);
+  const monthlyLandlordProfit = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.monthlyProfit, 0), [enrolledLandlordsBreakdown]);
 
   // Chart Data for Capital Recovery & Aging Exposure Distribution
   const receivablesDistributionChartData = useMemo(() => [
@@ -576,23 +600,16 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   ], [totalRepaid, totalReceivable, healthBands, rows]);
 
   // Applications calculations & grouping
-  const totalFloatRequired = useMemo(() => rows.reduce((s, r) => s + (Number(r.monthly_rent) || 0), 0), [rows]);
-  const unverifiedTenantsCount = useMemo(() => rows.filter((r) => !r.tenant_verified).length, [rows]);
+  const totalFloatRequired = useMemo(() => activeRows.reduce((s, r) => s + (Number(r.monthly_rent) || 0), 0), [activeRows]);
+  const unverifiedTenantsCount = useMemo(() => activeRows.filter((r) => !r.tenant_verified).length, [activeRows]);
   const pendingFloatRequestsCount = useMemo(() => floatRequests.filter((f) => f.status === 'pending').length, [floatRequests]);
-
-  const welileFloatRequests = useMemo(() => {
-    const agentIds = new Set(rows.map((r) => r.agent_id).filter(Boolean));
-    return floatRequests.filter((f) => {
-      const reason = (f.reason || '').toLowerCase();
-      return reason.includes('welile') || reason.includes('landlord') || reason.includes('tenant') || agentIds.has(f.agent_id);
-    });
-  }, [floatRequests, rows]);
 
   const applicationsByLandlord = useMemo(() => {
     const map = new Map<string, {
       key: string;
       landlordName: string;
       landlordPhone: string;
+      agentId: string | null;
       agentName: string;
       agentPhone: string;
       totalFloat: number;
@@ -613,11 +630,12 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         if (!matches) return;
       }
 
-      // Filter by status if selected
-      if (appStatusFilter === 'unverified' && r.tenant_verified) return;
-      if (appStatusFilter === 'verified' && !r.tenant_verified) return;
-      if (appStatusFilter === 'wallet' && !r.landlord_uses_wallet) return;
-      if (appStatusFilter === 'float' && r.landlord_uses_wallet) return;
+      // Filter active vs declined
+      if (appStatusFilter === 'declined') {
+        if (r.subscription_status !== 'cancelled') return;
+      } else {
+        if (r.subscription_status === 'cancelled') return;
+      }
 
       const name = (r.landlord_name || 'Unassigned Landlord').trim();
       const phone = r.landlord_phone || '';
@@ -628,6 +646,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
           key,
           landlordName: name,
           landlordPhone: phone,
+          agentId: r.agent_id || null,
           agentName: r.agent_name || 'Agent',
           agentPhone: r.agent_phone || '',
           totalFloat: 0,
@@ -705,19 +724,43 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     toast.success(`Exported ${list.length} application(s)`);
   };
 
+  // Reject a float request with a note. Tenants stay enrolled, so the agent can request again
+  // through the new flow (which records exactly which tenants the request covers).
+  const [rejectReq, setRejectReq] = useState<FloatRequestItem | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+  const [rejectingReq, setRejectingReq] = useState(false);
+
+  const openRejectRequest = (req: FloatRequestItem) => {
+    setRejectReq(req);
+    setRejectNote('Please request again from your Welile Homes screen so the tenants are linked to the request.');
+  };
+
+  const confirmRejectRequest = async () => {
+    if (!rejectReq) return;
+    setRejectingReq(true);
+    try {
+      await advanceWelileHomesFloat({
+        requestId: rejectReq.id,
+        expectedStatus: rejectReq.status,
+        action: 'reject',
+        note: rejectNote,
+      });
+      toast.success(`Float request from ${rejectReq.agent_name || 'agent'} rejected. Tenants stay enrolled.`);
+      setRejectReq(null);
+      await load();
+    } catch (err: unknown) {
+      toast.error('Could not reject request: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setRejectingReq(false);
+    }
+  };
+
   const forwardToTenantOps = async (requestId: string) => {
+    const req = floatRequests.find((f) => f.id === requestId);
+    if (!req) return;
     setForwardingId(requestId);
     try {
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'agent_ops_approved',
-          approved_by: user?.id ?? null,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', requestId);
-
-      if (error) throw error;
+      await advanceWelileHomesFloat({ requestId, expectedStatus: req.status, action: 'approve' });
       toast.success('Approved by Agent Ops & forwarded to Tenant Ops desk for tenant verification');
       await load();
     } catch (err: unknown) {
@@ -728,17 +771,193 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     }
   };
 
-  const filteredWelileFloatRequests = useMemo(() => {
-    if (!appSearch) return welileFloatRequests;
-    const s = appSearch.toLowerCase();
-    return welileFloatRequests.filter((f) =>
-      f.agent_name?.toLowerCase().includes(s) ||
-      f.agent_phone?.toLowerCase().includes(s) ||
-      f.reason?.toLowerCase().includes(s) ||
-      f.id.toLowerCase().includes(s)
-    );
-  }, [welileFloatRequests, appSearch]);
+  // Approve the agent's own pending Welile Homes request(s). Agent Ops never creates a request
+  // on the agent's behalf: the request must come from the agent, carrying its tenant links.
+  const approvePendingForAgents = async (agentIds: string[]): Promise<{ approved: number; missing: string[] }> => {
+    let approved = 0;
+    const missing: string[] = [];
+    for (const aid of agentIds) {
+      const pending = floatRequests.filter((f) => f.agent_id === aid && f.status === 'pending');
+      if (pending.length === 0) {
+        missing.push(aid);
+        continue;
+      }
+      for (const req of pending) {
+        await advanceWelileHomesFloat({ requestId: req.id, expectedStatus: 'pending', action: 'approve' });
+        approved += 1;
+      }
+    }
+    return { approved, missing };
+  };
 
+  const forwardGroupToTenantOps = async (group: {
+    key: string;
+    landlordName: string;
+    agentId: string | null;
+    agentName?: string;
+    tenants: Row[];
+    totalFloat: number;
+  }) => {
+    setForwardingGroupId(group.key);
+    try {
+      if (!group.agentId) {
+        toast.error('Cannot forward: No agent ID linked to this application');
+        return;
+      }
+      const { approved } = await approvePendingForAgents([group.agentId]);
+      if (approved === 0) {
+        toast.error(
+          `${group.agentName || 'The agent'} has not requested float for these tenants yet. ` +
+            'The agent must send the request from their Welile Homes screen.'
+        );
+        return;
+      }
+      toast.success(`Float request for ${group.landlordName} approved & forwarded to Tenant Ops`);
+      await load();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to forward to Tenant Ops: ' + msg);
+    } finally {
+      setForwardingGroupId(null);
+    }
+  };
+
+  const forwardSelectedToTenantOps = async () => {
+    if (selectedAppTenants.length === 0) return;
+    setForwardingSelected(true);
+    try {
+      const agentIds = Array.from(
+        new Set(selectedAppTenants.map((t) => t.agent_id).filter(Boolean) as string[])
+      );
+      const { approved, missing } = await approvePendingForAgents(agentIds);
+      if (approved > 0) {
+        toast.success(`Approved ${approved} float request(s) & forwarded to Tenant Ops`);
+      }
+      if (missing.length > 0) {
+        toast.error(
+          `${missing.length} agent(s) have not requested float yet. They must send the request from their Welile Homes screen.`
+        );
+      }
+      setSelectedAppTenantIds(new Set());
+      await load();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to forward: ' + msg);
+    } finally {
+      setForwardingSelected(false);
+    }
+  };
+
+  const handleDeclineGroup = (group: {
+    key: string;
+    landlordName: string;
+    agentId: string | null;
+    tenants: Row[];
+    totalFloat: number;
+  }) => {
+    setDeclineReason('Declined by Agent Operations');
+    setDeclineTarget({
+      title: `Decline application for ${group.landlordName}?`,
+      description: `This will decline ${group.tenants.length} tenant application(s) under ${group.landlordName} totaling ${formatUGX(group.totalFloat)}.`,
+      tenantIds: group.tenants.map((t) => t.id),
+      agentIds: group.agentId ? [group.agentId] : [],
+      landlordName: group.landlordName,
+    });
+    setDeclineDialogOpen(true);
+  };
+
+  const handleDeclineTenant = (tenant: Row) => {
+    setDeclineReason('Declined by Agent Operations');
+    setDeclineTarget({
+      title: `Decline application for ${tenant.tenant_name}?`,
+      description: `This will decline ${tenant.tenant_name}'s application (rent: ${formatUGX(tenant.monthly_rent)}) under ${tenant.landlord_name || 'Landlord'}.`,
+      tenantIds: [tenant.id],
+      agentIds: tenant.agent_id ? [tenant.agent_id] : [],
+      landlordName: tenant.landlord_name || undefined,
+    });
+    setDeclineDialogOpen(true);
+  };
+
+  const handleDeclineSelected = () => {
+    if (selectedAppTenants.length === 0) return;
+    const agentIds = Array.from(
+      new Set(selectedAppTenants.map((t) => t.agent_id).filter(Boolean) as string[])
+    );
+    const totalAmount = selectedAppTenants.reduce(
+      (sum, r) => sum + (Number(r.monthly_rent) || 0),
+      0
+    );
+    const landlordsCount = new Set(
+      selectedAppTenants.map((t) => t.landlord_name || 'Landlord')
+    ).size;
+
+    setDeclineReason('Declined by Agent Operations');
+    setDeclineTarget({
+      title: `Decline ${selectedAppTenants.length} selected application(s)?`,
+      description: `This will decline ${selectedAppTenants.length} tenant application(s) across ${landlordsCount} landlord(s) totaling ${formatUGX(totalAmount)}.`,
+      tenantIds: selectedAppTenants.map((t) => t.id),
+      agentIds,
+    });
+    setDeclineDialogOpen(true);
+  };
+
+  const confirmDecline = async () => {
+    if (!declineTarget || declineTarget.tenantIds.length === 0) return;
+    setDeclining(true);
+    try {
+      const reason = declineReason.trim() || 'Declined by Agent Operations';
+
+      // 1. Mark subscription(s) as cancelled/declined
+      const { error: subErr } = await supabase
+        .from('welile_homes_subscriptions')
+        .update({
+          subscription_status: 'cancelled',
+          notes: `Declined by Agent Ops: ${reason}`,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', declineTarget.tenantIds);
+
+      if (subErr) throw subErr;
+
+      // 2. Reject these agents' pending Welile Homes float requests (never Merchant ones).
+      const toReject = floatRequests.filter(
+        (f) => f.status === 'pending' && declineTarget.agentIds.includes(f.agent_id)
+      );
+      for (const req of toReject) {
+        try {
+          await advanceWelileHomesFloat({
+            requestId: req.id,
+            expectedStatus: 'pending',
+            action: 'reject',
+            note: reason.length >= 5 ? reason : `Declined by Agent Ops: ${reason}`,
+          });
+        } catch (floatErr) {
+          console.warn('Float request reject warning:', floatErr);
+        }
+      }
+
+      toast.success(
+        `Declined ${declineTarget.tenantIds.length} application(s)${
+          declineTarget.landlordName ? ` for ${declineTarget.landlordName}` : ''
+        }`
+      );
+
+      // Clean up selection and dialog
+      setSelectedAppTenantIds((prev) => {
+        const next = new Set(prev);
+        declineTarget.tenantIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      setDeclineDialogOpen(false);
+      setDeclineTarget(null);
+      await load();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to decline application: ' + msg);
+    } finally {
+      setDeclining(false);
+    }
+  };
 
   useEffect(() => {
     if (!historySub) {
@@ -806,19 +1025,18 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     { id: 'overview' as const, label: 'Overview', badge: 'Live Book', icon: LayoutDashboard },
     {
       id: 'applications' as const,
-      label: 'Applications',
-      count: rows.length,
-      badge: pendingFloatRequestsCount > 0 ? `${pendingFloatRequestsCount} Float Req` : undefined,
+      label: 'Rent Float Applications',
+      count: activeRows.length,
       icon: ClipboardList,
     },
-    { id: 'landlords' as const, label: 'Landlord Portfolio', count: landlordsBreakdown.length, icon: Home },
+    { id: 'landlords' as const, label: 'Enrolled Portfolios', count: enrolledLandlordsBreakdown.length, icon: Home },
     {
       id: 'all' as const,
       label: 'Subscriptions',
       count: rows.length,
       icon: Users,
     },
-  ], [rows.length, landlordsBreakdown.length, pendingFloatRequestsCount]);
+  ], [rows.length, enrolledLandlordsBreakdown.length, pendingFloatRequestsCount]);
 
   // Filtering
   const filtered = useMemo(() => {
@@ -872,9 +1090,9 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
 
   // Filtered Landlords list
   const filteredLandlords = useMemo(() => {
-    if (!q) return landlordsBreakdown;
+    if (!q) return enrolledLandlordsBreakdown;
     const s = q.toLowerCase();
-    return landlordsBreakdown.filter((l) => {
+    return enrolledLandlordsBreakdown.filter((l) => {
       if (l.name.toLowerCase().includes(s)) return true;
       return l.tenants.some((t) =>
         t.name.toLowerCase().includes(s) ||
@@ -882,16 +1100,16 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         t.agentName.toLowerCase().includes(s)
       );
     });
-  }, [landlordsBreakdown, q]);
+  }, [enrolledLandlordsBreakdown, q]);
 
   // Landlord Portfolio CSV Export
   const exportLandlordsCSV = () => {
-    if (!landlordsBreakdown.length) {
+    if (!enrolledLandlordsBreakdown.length) {
       toast.error('No landlords data to export');
       return;
     }
     const headers = ['Landlord Name', 'Attached Tenants Count', 'Tenant Names', 'Monthly Revenue', '12-Month Receivables', 'Outstanding Balance', 'Agent Commission (2%)', 'Our Profit (8%)', 'Payout Days', 'Settlement Channel'];
-    const csvRows = landlordsBreakdown.map((l) => [
+    const csvRows = enrolledLandlordsBreakdown.map((l) => [
       `"${l.name}"`,
       l.tenantsCount,
       `"${l.tenants.map((t) => t.name).join('; ')}"`,
@@ -950,61 +1168,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             );
           })}
         </div>
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground shrink-0 cursor-pointer gap-1.5 border border-border/50 rounded-full"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Exit to Ops</span>
+          </Button>
+        )}
       </div>
 
       {/* OVERVIEW TAB CONTENT */}
       {activeTab === 'overview' ? (
         <>
-          {/* Prominent Hero Action Card */}
-          <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 p-3.5 sm:p-5 rounded-2xl border border-primary/40 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-xs">
-            <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-              <div className="p-2.5 sm:p-3 rounded-2xl bg-primary text-primary-foreground shrink-0 shadow-md">
-                <Building2 className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2.2} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                  <h2 className="text-sm sm:text-lg font-bold text-foreground truncate">Welile Homes Operations Overview</h2>
-                  <Badge className="bg-primary text-primary-foreground text-[10px] px-2 py-0.5">
-                    {rows.length} Active Subscriptions
-                  </Badge>
-                  {stats.pendingPayouts > 0 ? (
-                    <Badge variant="destructive" className="text-[10px] px-2 py-0.5 animate-pulse font-medium">
-                      {formatUGX(stats.pendingPayouts)} Payouts Due
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
-                      <CheckCircle2 className="h-3 w-3 mr-1 inline" /> All Payouts Settled
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                  12-month advance rent book, agent allocations, and automated monthly landlord payouts.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-              {onBack && (
-                <Button
-                  variant="outline"
-                  onClick={onBack}
-                  className="h-10 px-3 gap-1.5 text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground hidden sm:flex"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Exit to Ops
-                </Button>
-              )}
-              <Button
-                onClick={runPayouts}
-                disabled={running}
-                className="w-full sm:w-auto h-10 px-4 gap-2 bg-primary text-primary-foreground font-semibold shadow-sm hover:shadow transition-all justify-center"
-              >
-                {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-                Run Landlord Payouts Now
-              </Button>
-            </div>
-          </div>
-
           {/* Row A: Network & Scale KPIs */}
           <div>
             <div className="flex items-center justify-between mb-2 px-0.5">
@@ -1510,11 +1689,11 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                   <div className="h-7 w-7 rounded-lg bg-primary/20 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
                     <Home className="h-4 w-4" />
                   </div>
-                  <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">{landlordsBreakdown.length}</Badge>
+                  <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">{enrolledLandlordsBreakdown.length}</Badge>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">Landlord Portfolio</p>
-                  <p className="text-[10px] text-muted-foreground">Property owners & attached units →</p>
+                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">Enrolled Portfolios</p>
+                  <p className="text-[10px] text-muted-foreground">Enrolled landlords & attached units →</p>
                 </div>
               </button>
 
@@ -1677,323 +1856,154 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-background/60 border border-border/40">
-                <span className="text-[10px] sm:text-[11px] text-muted-foreground block font-medium">Pending Float Requests</span>
+                <span className="text-[10px] sm:text-[11px] text-muted-foreground block font-medium">Landlord Portfolios</span>
                 <span className="text-base sm:text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
-                  {pendingFloatRequestsCount}
+                  {applicationsByLandlord.length}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  {welileFloatRequests.length} total in pipeline
+                  Grouped rent float portfolios
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-background/60 border border-border/40">
-                <span className="text-[10px] sm:text-[11px] text-muted-foreground block font-medium">Unverified Tenants</span>
-                <span className="text-base sm:text-lg font-bold text-rose-600 dark:text-rose-400 tabular-nums">
-                  {unverifiedTenantsCount}
+                <span className="text-[10px] sm:text-[11px] text-muted-foreground block font-medium">Total Tenant Units</span>
+                <span className="text-base sm:text-lg font-bold text-foreground tabular-nums">
+                  {activeRows.length}
                 </span>
                 <span className="text-[10px] text-muted-foreground block">
-                  Awaiting OTP phone verification
+                  Enrolled under landlords
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Sub-view switcher and search filters */}
+          {/* Unified Filters and Search */}
           <div className="bg-card p-3 sm:p-4 rounded-2xl border border-border/60 shadow-2xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              {/* Applications Sub-Tab Switcher */}
-              <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl border border-border/40">
+              {/* Status filter pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
                 <button
                   type="button"
-                  onClick={() => setApplicationsSubTab('tenants')}
+                  onClick={() => setAppStatusFilter('all')}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer",
-                    applicationsSubTab === 'tenants'
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                    "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer shrink-0",
+                    appStatusFilter === 'all'
+                      ? "bg-foreground text-background font-bold shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground border border-border/40"
                   )}
                 >
-                  <Users className="h-3.5 w-3.5" />
-                  <span>Tenant Applications ({rows.length})</span>
+                  All Applications ({activeRows.length})
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setApplicationsSubTab('float_requests')}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer relative",
-                    applicationsSubTab === 'float_requests'
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                  )}
-                >
-                  <Banknote className="h-3.5 w-3.5" />
-                  <span>Float Requests ({welileFloatRequests.length})</span>
-                  {pendingFloatRequestsCount > 0 && (
-                    <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
-                      {pendingFloatRequestsCount}
-                    </span>
-                  )}
-                </button>
+                {declinedTenantsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAppStatusFilter('declined')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0",
+                      appStatusFilter === 'declined'
+                        ? "bg-destructive text-destructive-foreground font-bold shadow-xs"
+                        : "bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20"
+                    )}
+                  >
+                    <XCircle className="h-3 w-3" />
+                    Declined ({declinedTenantsCount})
+                  </button>
+                )}
               </div>
 
               {/* Search Box */}
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-72">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   value={appSearch}
                   onChange={(e) => setAppSearch(e.target.value)}
-                  placeholder={applicationsSubTab === 'tenants' ? "Search tenant, phone, landlord..." : "Search agent, phone, reason..."}
+                  placeholder="Search tenant, phone, landlord, agent..."
                   className="pl-8 h-9 text-xs rounded-xl bg-background border-border/80"
                 />
                 {appSearch && (
                   <button
                     type="button"
                     onClick={() => setAppSearch('')}
-                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
             </div>
-
-            {/* Status filter pills placed down under Tenant Applications */}
-            {applicationsSubTab === 'tenants' && (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-border/50">
-                <button
-                  type="button"
-                  onClick={() => setAppStatusFilter('all')}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer shrink-0",
-                    appStatusFilter === 'all'
-                      ? "bg-foreground text-background font-bold shadow-xs"
-                      : "bg-muted text-muted-foreground hover:text-foreground border border-border/40"
-                  )}
-                >
-                  All ({rows.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAppStatusFilter('unverified')}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0",
-                    appStatusFilter === 'unverified'
-                      ? "bg-amber-600 text-white font-bold shadow-xs"
-                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20"
-                  )}
-                >
-                  <AlertCircle className="h-3 w-3" />
-                  Needs OTP ({unverifiedTenantsCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAppStatusFilter('verified')}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0",
-                    appStatusFilter === 'verified'
-                      ? "bg-emerald-600 text-white font-bold shadow-xs"
-                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
-                  )}
-                >
-                  <ShieldCheck className="h-3 w-3" />
-                  Verified ({rows.length - unverifiedTenantsCount})
-                </button>
-              </div>
-            )}
           </div>
 
-
-          {applicationsSubTab === 'float_requests' ? (
-            /* FLOAT REQUESTS VIEW (STAGE 1: AGENT OPS REVIEW) */
-            <div className="space-y-3">
-              <div className="p-3.5 rounded-xl border border-primary/30 bg-primary/5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Activity className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-foreground">
-                      Stage 1: Agent Ops Float Desk
-                    </h4>
-                    <p className="text-[11px] text-muted-foreground">
-                      Review advance float requests submitted by agents. Approving here forwards the request to <strong>Stage 2 (Tenant Ops)</strong> for tenant-by-tenant lease inspection before proceeding to COO and CFO.
-                    </p>
-                  </div>
-                </div>
+          {/* FLOAT REQUESTS AWAITING AGENT OPS */}
+          {floatRequests.some((f) => f.status === 'pending') && (
+            <Card className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 sm:p-4 space-y-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Banknote className="h-4 w-4 text-amber-600" />
+                <h4 className="text-sm font-bold text-foreground">Float Requests Awaiting Agent Ops</h4>
+                <Badge className="bg-amber-600 text-white text-[10px]">
+                  {floatRequests.filter((f) => f.status === 'pending').length}
+                </Badge>
               </div>
-
-              {filteredWelileFloatRequests.length === 0 ? (
-                <Card className="rounded-2xl p-8 text-center border-dashed border-border/60">
-                  <p className="text-sm font-semibold text-foreground">No float requests found</p>
-                  <p className="text-xs text-muted-foreground mt-1">Agents can request float through the Agent Dashboard (Agent Float Request card).</p>
-                </Card>
-              ) : (
-                filteredWelileFloatRequests.map((req) => {
-                  const isPending = req.status === 'pending';
-                  const isForwardedToTenantOps = req.status === 'agent_ops_approved';
-                  const isForwardedToCOO = req.status === 'tenant_ops_approved';
-                  const isForwardedToCFO = req.status === 'coo_approved';
-                  const isDisbursed = req.status === 'approved' || req.status === 'funded';
-                  const isRejected = req.status === 'rejected';
-
-                  return (
-                    <Card key={req.id} className="rounded-2xl border border-border/60 bg-card p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all space-y-4">
-                      {/* Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold">
-                            <Banknote className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-sm sm:text-base font-bold text-foreground">
-                                {req.agent_name || 'Agent'}
-                              </h4>
-                              {req.agent_phone && (
-                                <Badge variant="outline" className="text-[10px] font-mono">
-                                  {req.agent_phone}
-                                </Badge>
-                              )}
-                              {isPending && (
-                                <Badge className="bg-amber-600 text-white text-[10px] font-bold">
-                                  Awaiting Agent Ops (Stage 1)
-                                </Badge>
-                              )}
-                              {isForwardedToTenantOps && (
-                                <Badge className="bg-blue-600 text-white text-[10px] font-bold">
-                                  At Tenant Ops (Stage 2)
-                                </Badge>
-                              )}
-                              {isForwardedToCOO && (
-                                <Badge className="bg-purple-600 text-white text-[10px] font-bold">
-                                  At COO Approval (Stage 3)
-                                </Badge>
-                              )}
-                              {isForwardedToCFO && (
-                                <Badge className="bg-indigo-600 text-white text-[10px] font-bold">
-                                  At CFO Disbursement (Stage 4)
-                                </Badge>
-                              )}
-                              {isDisbursed && (
-                                <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
-                                  Disbursed
-                                </Badge>
-                              )}
-                              {isRejected && (
-                                <Badge variant="destructive" className="text-[10px] font-bold">
-                                  Rejected
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Requested {req.created_at ? new Date(req.created_at).toLocaleString() : 'recently'} · ID: <span className="font-mono">{req.id.slice(0, 8)}</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-left sm:text-right">
-                          <span className="text-[10px] sm:text-xs text-muted-foreground block font-medium">Requested Float Amount</span>
-                          <span className="text-base sm:text-xl font-extrabold text-primary tabular-nums">
-                            {formatUGX(req.requested_amount)}
+              <p className="text-[11px] text-muted-foreground">
+                Rejecting a request keeps its tenants enrolled. The agent then sends a new request from their
+                Welile Homes screen, which links the exact tenants it covers.
+              </p>
+              <div className="space-y-2">
+                {floatRequests
+                  .filter((f) => f.status === 'pending')
+                  .map((req) => (
+                    <div
+                      key={req.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-card border border-border/60"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-bold text-foreground">{req.agent_name || 'Agent'}</span>
+                          {req.agent_phone && (
+                            <span className="text-[11px] text-muted-foreground">({req.agent_phone})</span>
+                          )}
+                          <span className="text-xs font-bold text-primary tabular-nums">
+                            {formatUGX(Number(req.requested_amount) || 0)}
                           </span>
                         </div>
+                        <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                          {req.reason || 'Welile Homes landlord float'}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Requested {new Date(req.created_at).toLocaleDateString()}
+                        </p>
                       </div>
-
-                      {/* Reason / note */}
-                      {req.reason && (
-                        <div className="p-3 rounded-xl bg-muted/40 border border-border/40 text-xs">
-                          <span className="font-semibold text-foreground block mb-0.5">Agent Submission Note:</span>
-                          <p className="text-muted-foreground">{req.reason}</p>
-                        </div>
-                      )}
-
-                      {/* 4-Stage Pipeline Progress Tracker */}
-                      <div className="pt-2 border-t border-border/40">
-                        <div className="grid grid-cols-4 gap-2 text-center text-[10px]">
-                          <div className={cn(
-                            "p-2 rounded-lg border",
-                            isPending
-                              ? "bg-amber-500/10 border-amber-500/30 text-amber-600 font-bold"
-                              : "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-medium"
-                          )}>
-                            <span>1. Agent Ops</span>
-                            <span className="block text-[9px] opacity-80">{isPending ? "Pending review" : "Approved"}</span>
-                          </div>
-                          <div className={cn(
-                            "p-2 rounded-lg border",
-                            isForwardedToTenantOps
-                              ? "bg-blue-500/10 border-blue-500/30 text-blue-600 font-bold"
-                              : isForwardedToCOO || isForwardedToCFO || isDisbursed
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-medium"
-                              : "bg-muted/40 border-border/30 text-muted-foreground"
-                          )}>
-                            <span>2. Tenant Ops</span>
-                            <span className="block text-[9px] opacity-80">
-                              {isForwardedToTenantOps ? "Vetting tenants" : (isForwardedToCOO || isForwardedToCFO || isDisbursed) ? "Verified" : "Waiting"}
-                            </span>
-                          </div>
-                          <div className={cn(
-                            "p-2 rounded-lg border",
-                            isForwardedToCOO
-                              ? "bg-purple-500/10 border-purple-500/30 text-purple-600 font-bold"
-                              : isForwardedToCFO || isDisbursed
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-medium"
-                              : "bg-muted/40 border-border/30 text-muted-foreground"
-                          )}>
-                            <span>3. COO Approval</span>
-                            <span className="block text-[9px] opacity-80">
-                              {isForwardedToCOO ? "Executive review" : (isForwardedToCFO || isDisbursed) ? "Approved" : "Waiting"}
-                            </span>
-                          </div>
-                          <div className={cn(
-                            "p-2 rounded-lg border",
-                            isForwardedToCFO
-                              ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-600 font-bold"
-                              : isDisbursed
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 font-bold"
-                              : "bg-muted/40 border-border/30 text-muted-foreground"
-                          )}>
-                            <span>4. CFO Payout</span>
-                            <span className="block text-[9px] opacity-80">
-                              {isDisbursed ? "Disbursed" : isForwardedToCFO ? "In treasury queue" : "Waiting"}
-                            </span>
-                          </div>
-                        </div>
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                        <Button
+                          size="sm"
+                          onClick={() => forwardToTenantOps(req.id)}
+                          disabled={forwardingId === req.id || rejectingReq}
+                          className="h-8 px-3 text-xs font-semibold gap-1.5 cursor-pointer"
+                        >
+                          {forwardingId === req.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          )}
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openRejectRequest(req)}
+                          disabled={forwardingId === req.id || rejectingReq}
+                          className="h-8 px-3 text-xs font-semibold gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                          Reject with note
+                        </Button>
                       </div>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          )}
 
-                      {/* Action buttons */}
-                      <div className="flex items-center justify-between pt-2 border-t border-border/40 gap-3">
-                        <div className="text-[11px] text-muted-foreground">
-                          {isPending && "Approve to forward to Tenant Ops for tenant-by-tenant lease vetting."}
-                          {isForwardedToTenantOps && "Forwarded to Tenant Ops desk (bypasses Partner Ops)."}
-                          {isForwardedToCOO && "Tenant Ops approved. Now pending COO executive sign-off."}
-                          {isForwardedToCFO && "COO approved. Ready for CFO treasury disbursement."}
-                          {isDisbursed && "Disbursed to agent float wallet."}
-                        </div>
-
-                        {isPending && (
-                          <Button
-                            size="sm"
-                            onClick={() => forwardToTenantOps(req.id)}
-                            disabled={forwardingId === req.id}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1.5 h-9 px-4 shrink-0 shadow-xs cursor-pointer"
-                          >
-                            {forwardingId === req.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <ArrowRight className="h-3.5 w-3.5" />
-                            )}
-                            <span>Approve & Forward to Tenant Ops</span>
-                          </Button>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          ) : (
-            /* TENANT APPLICATIONS CARDS (Matches Agent Dashboard Screenshot) */
-            <div className="space-y-3">
+          {/* RENT FLOAT APPLICATIONS CARDS */}
+          <div className="space-y-3">
 
               {applicationsByLandlord.length === 0 ? (
                 <Card className="rounded-2xl p-8 text-center border-dashed border-border/60">
@@ -2004,7 +2014,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 applicationsByLandlord.map((group) => {
                   const isAllSelected = group.tenants.length > 0 && group.tenants.every((t) => selectedAppTenantIds.has(t.id));
                   const isSomeSelected = group.tenants.some((t) => selectedAppTenantIds.has(t.id)) && !isAllSelected;
-                  const isExpanded = !collapsedAppLandlords[group.key];
+                  const isExpanded = !!expandedAppLandlords[group.key];
 
                   return (
                     <Card
@@ -2014,7 +2024,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                       {/* Landlord Card Header */}
                       <div
                         onClick={() => {
-                          setCollapsedAppLandlords((prev) => ({ ...prev, [group.key]: !prev[group.key] }));
+                          setExpandedAppLandlords((prev) => ({ ...prev, [group.key]: !prev[group.key] }));
                         }}
                         className="p-3.5 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none bg-muted/20 hover:bg-muted/30 transition-colors"
                       >
@@ -2039,8 +2049,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                   ({group.landlordPhone})
                                 </span>
                               )}
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground border-border/60">
-                                Agent: {group.agentName}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (group.agentId) setProfileAgentId(group.agentId);
+                                  else toast.info(`Agent: ${group.agentName} (no ID linked)`);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all cursor-pointer"
+                                title="Click to inspect Agent 360 Performance across products"
+                              >
+                                <Sparkles className="h-3 w-3 text-amber-500" />
+                                <span>Agent: {group.agentName}</span>
+                                <span className="text-[9px] font-bold uppercase tracking-wider bg-primary/20 px-1 rounded ml-0.5">360°</span>
+                              </button>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-purple-500/30 text-purple-600 bg-purple-500/10">
+                                Welile Homes
                               </Badge>
                             </div>
                             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -2053,6 +2077,39 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 font-bold text-xs px-2.5 py-0.5">
                             {formatUGX(group.totalFloat)}
                           </Badge>
+
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              forwardGroupToTenantOps(group);
+                            }}
+                            disabled={forwardingGroupId === group.key || declining}
+                            className="h-8 px-2.5 sm:px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            {forwardingGroupId === group.key ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            )}
+                            <span className="hidden sm:inline">Approve & Forward to Tenant Ops</span>
+                            <span className="sm:hidden">Forward</span>
+                          </Button>
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeclineGroup(group);
+                            }}
+                            disabled={forwardingGroupId === group.key || declining}
+                            className="h-8 px-2.5 sm:px-3 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            <span>Decline</span>
+                          </Button>
+
                           <div className="text-muted-foreground">
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                           </div>
@@ -2086,17 +2143,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                         <span className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide">
                                           {t.tenant_name}
                                         </span>
-                                        {t.tenant_verified ? (
-                                          <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 text-[10px] px-1.5 py-0 gap-1 font-semibold">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            Verified
-                                          </Badge>
-                                        ) : (
-                                          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 text-[10px] px-1.5 py-0 gap-1 font-semibold">
-                                            <AlertCircle className="h-3 w-3" />
-                                            Unverified
-                                          </Badge>
-                                        )}
                                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                           {t.landlord_uses_wallet ? 'Welile Wallet' : 'Agent Float'}
                                         </Badge>
@@ -2147,19 +2193,19 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                       <Clock className="h-3.5 w-3.5" />
                                       <span>History</span>
                                     </Button>
-                                    {!t.tenant_verified && (
-                                      <Button
-                                        size="sm"
-                                        onClick={() => setVerifySub(t)}
-                                        className="h-8 px-2.5 text-xs rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 gap-1 font-semibold shadow-2xs cursor-pointer"
-                                      >
-                                        <ShieldCheck className="h-3.5 w-3.5" />
-                                        <span>Verify OTP</span>
-                                      </Button>
-                                    )}
                                   </div>
 
                                   <div className="flex items-center gap-1.5 flex-wrap">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleDeclineTenant(t)}
+                                      disabled={declining}
+                                      className="h-8 px-2.5 text-xs rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer font-semibold"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                      <span>Decline</span>
+                                    </Button>
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -2181,10 +2227,9 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 })
               )}
             </div>
-          )}
 
           {/* Sticky Floating Action Bar for Selected Applications */}
-          {selectedAppTenantIds.size > 0 && applicationsSubTab === 'tenants' && (
+          {selectedAppTenantIds.size > 0 && (
             <div className="sticky bottom-0 -mx-3 -mb-4 bg-background/95 backdrop-blur-md border-t border-border/80 p-3 sm:p-4 shadow-xl z-30 rounded-t-2xl">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -2216,6 +2261,29 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     <Download className="h-3.5 w-3.5" />
                     <span>Export Selected</span>
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeclineSelected}
+                    disabled={declining}
+                    className="h-9 px-3 text-xs font-semibold gap-1.5 border-rose-300 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Decline Selected ({selectedAppTenantIds.size})</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={forwardSelectedToTenantOps}
+                    disabled={forwardingSelected}
+                    className="h-9 px-3.5 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer"
+                  >
+                    {forwardingSelected ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    )}
+                    <span>Approve Selected & Forward to Tenant Ops</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -2233,14 +2301,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm sm:text-lg font-bold text-foreground">
-                      Landlord Portfolio
+                      Enrolled Landlord Portfolios
                     </h3>
-                    <Badge className="bg-primary text-primary-foreground text-[10px]">
-                      {landlordsBreakdown.length} Property Owners
+                    <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">
+                      {enrolledLandlordsBreakdown.length} Enrolled Landlords
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Consolidated property owner accounts, attached tenants breakdown, receivables, and profit margins
+                    Landlords with active Welile Homes tenant enrolments. Funding status is not shown here yet.
                   </p>
                 </div>
               </div>
@@ -2263,7 +2331,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 <p className="text-base sm:text-xl font-bold text-foreground tabular-nums mt-0.5">
                   {formatUGX(totalLandlordRevenue)}
                 </p>
-                <span className="text-[10px] text-muted-foreground">across {rows.length} attached tenant units</span>
+                <span className="text-[10px] text-muted-foreground">across {enrolledRows.length} enrolled tenant units</span>
               </div>
 
               <div className="p-3 rounded-xl bg-background/60 border border-border/50">
@@ -2281,7 +2349,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                   Outstanding Balance
                 </span>
                 <p className="text-base sm:text-xl font-bold text-amber-600 dark:text-amber-400 tabular-nums mt-0.5">
-                  {formatUGX(totalOutstanding)}
+                  {formatUGX(enrolledOutstanding)}
                 </p>
                 <span className="text-[10px] text-muted-foreground">in active daily tenant collections</span>
               </div>
@@ -2360,9 +2428,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             {filteredLandlords.length === 0 ? (
               <div className="p-8 text-center bg-card rounded-2xl border border-border/60">
                 <Home className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-foreground">No landlords found</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {q ? `No landlord or tenant matches "${q}".` : 'No registered landlords in this portfolio.'}
+                <p className="text-sm font-semibold text-foreground">
+                  {q ? 'No landlords found' : 'No enrolled portfolios yet'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 max-w-md mx-auto">
+                  {q
+                    ? `No landlord or tenant matches "${q}".`
+                    : 'Landlords appear here once tenants are enrolled under them.'}
                 </p>
                 {q && (
                   <Button variant="ghost" size="sm" onClick={() => setQ('')} className="mt-3 text-xs text-primary">
@@ -2373,22 +2445,23 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             ) : (
               filteredLandlords.map((l, index) => {
                 const isAlternate = index % 2 === 1;
+                const isExpanded = !!expandedEnrolledLandlords[l.name]; // Default to collapsed
                 return (
                   <Card
                     key={l.name}
                     onClick={() => setPreviewLandlord(l)}
                     className={cn(
-                      "rounded-2xl overflow-hidden transition-all cursor-pointer group hover:scale-[1.005] active:scale-[0.995]",
+                      "rounded-2xl overflow-hidden transition-all border-2 shadow-xs cursor-pointer hover:border-primary/50 hover:shadow-md",
                       isAlternate
-                        ? "bg-slate-100/90 dark:bg-slate-900/60 border-2 border-slate-300/80 dark:border-slate-700/80 shadow-xs hover:border-primary/50"
-                        : "bg-white dark:bg-card border-2 border-slate-200 dark:border-border shadow-xs hover:border-primary/50"
+                        ? "bg-slate-50/70 dark:bg-slate-900/60 border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100/80 dark:hover:bg-slate-900/90"
+                        : "bg-card border-slate-200 dark:border-border hover:bg-muted/30"
                     )}
                   >
                     <div className="p-3.5 sm:p-4 select-none space-y-3">
                       {/* Landlord Identity Header */}
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3 group">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20">
+                          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0 border border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                             <Home className="h-5 w-5" />
                           </div>
                           <div className="min-w-0">
@@ -2416,15 +2489,26 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 text-xs text-primary font-bold shrink-0 group-hover:translate-x-0.5 transition-transform bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-xl border border-primary/20">
-                          <span>Details</span>
-                          <ChevronRight className="h-3.5 w-3.5 text-primary" />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedEnrolledLandlords((prev) => ({
+                                ...prev,
+                                [l.name]: !prev[l.name],
+                              }));
+                            }}
+                            className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                            title={isExpanded ? "Collapse inline list" : "Expand inline list"}
+                          >
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </button>
                         </div>
                       </div>
 
-                      {/* Financial Metrics Strip (Divided with clean 2-tone contrast) */}
+                      {/* Financial Metrics Strip */}
                       <div className="pt-2.5 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                        {/* Metric 1: Total Revenue (Neutral Contrast) */}
                         <div className="p-2 sm:p-2.5 rounded-xl bg-background/80 dark:bg-background/40 border border-border/70 flex flex-col justify-between">
                           <span className="text-[10px] text-muted-foreground uppercase font-semibold">Total Revenue</span>
                           <span className="font-bold text-foreground tabular-nums text-xs sm:text-sm mt-0.5">
@@ -2432,7 +2516,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           </span>
                         </div>
 
-                        {/* Metric 2: Receivables (Neutral Contrast) */}
                         <div className="p-2 sm:p-2.5 rounded-xl bg-background/80 dark:bg-background/40 border border-border/70 flex flex-col justify-between">
                           <span className="text-[10px] text-muted-foreground uppercase font-semibold">Receivables (×12)</span>
                           <span className="font-bold text-foreground tabular-nums text-xs sm:text-sm mt-0.5">
@@ -2440,7 +2523,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           </span>
                         </div>
 
-                        {/* Metric 3: Agent Commission 2% (Neutral Contrast) */}
                         <div className="p-2 sm:p-2.5 rounded-xl bg-background/80 dark:bg-background/40 border border-border/70 flex flex-col justify-between">
                           <span className="text-[10px] text-muted-foreground uppercase font-semibold">Agent 2%</span>
                           <span className="font-bold text-foreground tabular-nums text-xs sm:text-sm mt-0.5">
@@ -2448,7 +2530,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           </span>
                         </div>
 
-                        {/* Metric 4: Our Profit 8% (Primary Highlight Contrast) */}
                         <div className="p-2 sm:p-2.5 rounded-xl bg-primary/10 border border-primary/30 flex flex-col justify-between">
                           <span className="text-[10px] text-primary uppercase font-bold">Our Profit (8%)</span>
                           <span className="font-bold text-primary tabular-nums text-xs sm:text-sm mt-0.5">
@@ -2457,6 +2538,111 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                         </div>
                       </div>
                     </div>
+
+                    {/* Attached Tenants Direct View */}
+                    {isExpanded && (
+                      <div onClick={(e) => e.stopPropagation()} className="border-t border-border/70 p-3 sm:p-4 bg-muted/20 space-y-2.5 cursor-default">
+                        <div className="flex items-center justify-between text-xs pb-1">
+                          <span className="font-bold text-foreground flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-primary" />
+                            Attached Tenants ({l.tenants.length})
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">Active lease contracts under this landlord</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                          {l.tenants.map((t) => {
+                            const fullRow = rows.find((r) => r.id === t.id);
+                            return (
+                              <div
+                                key={t.id}
+                                className="p-3 rounded-xl border border-border/70 bg-card shadow-2xs space-y-2.5"
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-bold text-xs sm:text-sm text-foreground uppercase tracking-wide truncate">
+                                        {t.name}
+                                      </span>
+                                      <Badge variant="outline" className="text-[9px] py-0 px-1 border-border/80">
+                                        Day {t.payoutDay}
+                                      </Badge>
+                                      <Badge variant="secondary" className="text-[9px] py-0 px-1">
+                                        {t.usesWallet ? 'Wallet' : 'Agent Float'}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
+                                      {t.phone || 'No phone'}
+                                    </p>
+                                    {t.agentName && (
+                                      <div className="flex items-center gap-1.5 mt-1">
+                                        <span className="text-[10.5px] text-muted-foreground">Agent:</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => fullRow?.agent_id && setProfileAgentId(fullRow.agent_id)}
+                                          className="text-[10.5px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <span>{t.agentName}</span>
+                                          <Badge className="bg-primary/10 text-primary border-primary/20 text-[8.5px] px-1 py-0 font-bold">
+                                            360°
+                                          </Badge>
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fullRow && setHistorySub(fullRow)}
+                                    className="h-7 px-2.5 text-[10.5px] rounded-lg border-border/70 hover:border-primary/40 gap-1 text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                                  >
+                                    <Clock className="h-3 w-3" />
+                                    <span>History</span>
+                                  </Button>
+                                </div>
+
+                                {/* Financial figures */}
+                                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-border/40 text-[11px]">
+                                  <div>
+                                    <span className="text-[9.5px] text-muted-foreground block">Monthly Rent</span>
+                                    <span className="font-bold text-foreground tabular-nums">
+                                      {formatUGX(t.monthlyRent)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9.5px] text-muted-foreground block">Repaid</span>
+                                    <span className="font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                      {formatUGX(t.repaidAmount)}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[9.5px] text-muted-foreground block">Outstanding</span>
+                                    <span className="font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                                      {formatUGX(t.outstandingBalance)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Recovery Progress Bar */}
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-[9.5px] text-muted-foreground">
+                                    <span>Capital Recovery</span>
+                                    <span className="font-semibold text-foreground">{Math.round(t.repaidRatio)}%</span>
+                                  </div>
+                                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                      className="h-full bg-emerald-500 rounded-full transition-all"
+                                      style={{ width: `${Math.min(100, Math.max(0, t.repaidRatio))}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </Card>
                 );
               })
@@ -3605,15 +3791,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     )}
                   </div>
 
-                  <div className="pt-2">
-                    <Button
-                      onClick={runPayouts}
-                      disabled={running}
-                      className="w-full h-11 gap-2 bg-primary text-primary-foreground font-semibold shadow-sm hover:shadow transition-all"
-                    >
-                      {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
-                      Run Landlord Payouts Now ({formatUGX(stats.pendingPayouts)})
-                    </Button>
+                  <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1.5 font-medium text-foreground">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      Automated Daily Settlement
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed">
+                      Landlord payouts are processed automatically on each landlord's scheduled cycle day (Day 5, 10, 15, 20, 25, 28) via the platform daily settlement cron.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -3806,6 +3991,106 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               <span>Confirm Delete</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Dialog: Reject Float Request (tenants stay enrolled) */}
+      <Dialog open={!!rejectReq} onOpenChange={(open) => { if (!open && !rejectingReq) setRejectReq(null); }}>
+        <DialogContent className="max-w-md rounded-2xl p-5 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+              <XCircle className="h-5 w-5" />
+              Reject float request
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {rejectReq?.agent_name || 'Agent'} · {formatUGX(Number(rejectReq?.requested_amount) || 0)}.
+              The tenants stay enrolled; only this request is closed. The agent sees your note.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="wh-reject-note" className="text-[11px] font-semibold text-muted-foreground">
+              Note to the agent
+            </Label>
+            <Textarea
+              id="wh-reject-note"
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              rows={3}
+              className="text-xs rounded-xl"
+            />
+            {rejectNote.trim().length < 5 && (
+              <p className="text-[10px] text-destructive">Add a note of at least 5 characters.</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRejectReq(null)}
+              disabled={rejectingReq}
+              className="h-8 text-xs cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={confirmRejectRequest}
+              disabled={rejectingReq || rejectNote.trim().length < 5}
+              className="h-8 text-xs font-semibold gap-1.5 cursor-pointer"
+            >
+              {rejectingReq ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+              Reject request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Action Dialog: Decline Application(s) */}
+      <Dialog open={declineDialogOpen} onOpenChange={(open) => { if (!open) setDeclineDialogOpen(false); }}>
+        <DialogContent className="max-w-md rounded-2xl p-5 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
+              <XCircle className="h-5 w-5" />
+              {declineTarget?.title ?? 'Decline application'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {declineTarget?.description}{' '}
+              This will mark the application as cancelled and reject any associated float requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-semibold text-foreground">Reason for declining (optional)</Label>
+            <Textarea
+              placeholder="e.g. Ineligible landlord details, unverified tenant phone number, high risk..."
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              className="text-xs resize-none h-20"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeclineDialogOpen(false)}
+              disabled={declining}
+              className="h-8 text-xs cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={confirmDecline}
+              disabled={declining}
+              className="h-8 text-xs font-semibold gap-1.5 cursor-pointer shadow-xs bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {declining ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+              <span>Confirm Decline</span>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -4024,8 +4309,16 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         onChange={setActiveTab}
         counts={{
           applications: rows.length,
-          landlords: landlordsBreakdown.length,
+          landlords: enrolledLandlordsBreakdown.length,
           all: rows.length,
+        }}
+      />
+
+      {/* Agent 360 Performance & Eligibility Drawer */}
+      <AgentProfile360Sheet
+        agentId={profileAgentId}
+        onOpenChange={(open) => {
+          if (!open) setProfileAgentId(null);
         }}
       />
     </div>

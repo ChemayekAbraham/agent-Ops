@@ -2,15 +2,21 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { User } from '@supabase/supabase-js';
-import { 
-  Wallet, 
-  Building2, 
-  Menu,
+import {
+  Wallet,
+  Building2,
   Home,
   DoorOpen,
-  Banknote,
   BadgeCheck,
   ArrowRight,
+  Receipt,
+  History,
+  Users,
+  Share2,
+  HelpCircle,
+  ScrollText,
+  FileText,
+  Gift,
 } from 'lucide-react';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
@@ -21,8 +27,8 @@ import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell'
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WelileHomesLandlordBadge } from '@/components/landlord/WelileHomesLandlordBadge';
-import { LandlordMenuDrawer } from '@/components/landlord/LandlordMenuDrawer';
 import RegisterPropertyDialog from '@/components/landlord/RegisterPropertyDialog';
+import { LandlordRegisterHouseCard } from '@/components/landlord/LandlordRegisterHouseCard';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
@@ -34,9 +40,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { motion } from 'framer-motion';
 import { hapticTap } from '@/lib/haptics';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CreditAccessCard } from '@/components/CreditAccessCard';
 import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
-import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 import { useTrackSection } from '@/hooks/useTrackSection';
@@ -58,11 +63,11 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
   const { profile } = useProfile();
   const { wallet, refreshWallet } = useWallet();
   const { stats: landlordStats, loading: statsLoading, refreshStats } = useLandlordStats(user.id);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [registerPropertyOpen, setRegisterPropertyOpen] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showListedHouses, setShowListedHouses] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Dynamic telemetry tracking across landlord sheets
   useEffect(() => {
@@ -85,10 +90,28 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
   const handleOpenRegisterProperty = () => { hapticTap(); setRegisterPropertyOpen(true); };
-  const handleOpenMenu = () => { hapticTap(); setMenuOpen(true); };
 
+  const goTo = (path: string) => () => { hapticTap(); navigate(path); };
+
+  // Top-right menu, below "Your Profile". These are the former "Menu" drawer items, one
+  // row each; `separator` starts a new group where the drawer started a new section.
+  // (The drawer's "Settings" row is omitted: the menu already ends with Settings.)
   const menuItems = [
     { icon: Building2, label: 'Register Property', onClick: () => setRegisterPropertyOpen(true) },
+    // Property management
+    { icon: DoorOpen, label: 'Daily Rent Listings', badge: 'Daily Rent', separator: true, onClick: () => { hapticTap(); setShowListedHouses(true); } },
+    { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-tenants') },
+    // Finances
+    { icon: Receipt, label: 'My Receipts', separator: true, onClick: goTo('/my-receipts') },
+    { icon: History, label: 'Payment History', onClick: goTo('/transactions') },
+    { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
+    // Growth
+    { icon: Gift, label: 'Invite & Earn', badge: 'UGX 100', separator: true, onClick: () => { hapticTap(); setInviteOpen(true); } },
+    { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', onClick: goTo('/my-receipts') },
+    { icon: Share2, label: 'Share & Earn', onClick: goTo('/benefits') },
+    // More
+    { icon: ScrollText, label: 'Landlord Agreement', separator: true, onClick: goTo('/landlord-agreement') },
+    { icon: HelpCircle, label: 'Help & Support', onClick: goTo('/settings') },
   ];
 
   return (
@@ -105,49 +128,23 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto">
 
-          {/* Register your house — primary CTA, first in the body */}
-          <button
-            onClick={handleOpenRegisterProperty}
-            className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform touch-manipulation text-left"
-          >
-            <span className="h-10 w-10 rounded-xl bg-primary-foreground/15 ring-1 ring-primary-foreground/25 flex items-center justify-center shrink-0">
-              <Building2 className="h-5 w-5" />
-            </span>
-            <span className="flex-1 min-w-0 text-left">
-              <span className="block font-bold text-base leading-tight">Register your House Here</span>
-              <span className="block text-xs text-primary-foreground/80 mt-0.5">Start earning guaranteed monthly rent</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0" />
-          </button>
-
-          <MissionBanner dashboardRole="landlord" />
-
-          {/* Verification Checklist */}
-          <VerificationChecklist userId={user.id} highlightRole="landlord" compact />
-
-          {/* Credit Access */}
-          <CreditAccessCard userId={user.id} />
-
-          {/* Action Buttons — Clean & Minimal */}
-          <div className="space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-0.5">Actions</p>
-
-
-            <button
-              onClick={handleOpenMenu}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 transition-colors touch-manipulation"
+          {/* Register your house — the page's major action. Same card, same size
+              (min 300px, 360px from sm up) and same caption as the agent dashboard's
+              "Post a rent request here". */}
+          <div className="flex flex-col space-y-2">
+            <LandlordRegisterHouseCard
+              onOpen={handleOpenRegisterProperty}
+              className="w-full min-h-[300px] sm:min-h-[360px]"
+            />
+            <p
+              onClick={handleOpenRegisterProperty}
+              className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
             >
-              <Menu className="h-5 w-5 text-foreground/70 shrink-0" />
-              <div className="flex-1 text-left">
-                <p className="font-medium text-sm">Menu</p>
-                <p className="text-xs text-muted-foreground">Tenants, receipts, loans & more</p>
-              </div>
-              <span className="text-xs text-muted-foreground">→</span>
-            </button>
+              and <span className="font-semibold text-green-600 dark:text-green-400">start earning guaranteed monthly rent</span>
+            </p>
           </div>
 
-          {/* Invite & Earn */}
-          <InviteAndEarnCard variant="landlord" />
+          <MissionBanner dashboardRole="landlord" />
 
           <WalletDisclaimer />
         </main>
@@ -159,12 +156,17 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       {/* Properties sheet */}
       <MyPropertiesSheet open={showProperties} onOpenChange={setShowProperties} userId={user.id} />
 
-      {/* Menu Drawer */}
-      <LandlordMenuDrawer
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onViewListedHouses={() => { setMenuOpen(false); setShowListedHouses(true); }}
-      />
+      {/* Invite & Earn: opened from the top-right menu. The card loads its stats and
+          short link only while open. */}
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="max-w-sm p-4 pt-14 gap-0">
+          <DialogTitle className="sr-only">Invite &amp; Earn</DialogTitle>
+          <DialogDescription className="sr-only">
+            Share your invite link with friends and earn for everyone who joins.
+          </DialogDescription>
+          <InviteAndEarnCard variant="landlord" />
+        </DialogContent>
+      </Dialog>
 
       {/* Dialogs */}
       <RegisterPropertyDialog

@@ -50,6 +50,9 @@ async function freshToken(userId: string, refresh = false): Promise<string | nul
 export function useNewDeviceSignIns(userId: string | undefined) {
   const [pending, setPending] = useState<PendingDeviceSignIn[]>([]);
   const inFlight = useRef(false);
+  // Set when the server rejects even a refreshed token: stop polling for this
+  // account instead of repeating 401s every two minutes.
+  const rejectedFor = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!userId) {
@@ -57,7 +60,7 @@ export function useNewDeviceSignIns(userId: string | undefined) {
       return;
     }
     // Mount, tab visibility and the timer can fire together — one check at a time.
-    if (inFlight.current) return;
+    if (inFlight.current || rejectedFor.current === userId) return;
     inFlight.current = true;
     try {
       const fp = await myFp();
@@ -80,17 +83,26 @@ export function useNewDeviceSignIns(userId: string | undefined) {
 
       let response = await invokeList(token);
       if (response.error?.context?.status === 401) {
+        const previous = token;
         token = await freshToken(userId, true);
-        if (!token) {
+        if (!token || token === previous) {
+          rejectedFor.current = userId;
           setPending([]);
           return;
         }
         response = await invokeList(token);
+        if (response.error?.context?.status === 401) {
+          rejectedFor.current = userId;
+          setPending([]);
+          return;
+        }
       }
       if (response.error || response.data?.error) return;
 
       const devices = (response.data as { devices?: PendingDeviceSignIn[] } | null)?.devices;
       setPending(Array.isArray(devices) ? devices : []);
+    } catch {
+      // Background check: never surface as a page error.
     } finally {
       inFlight.current = false;
     }
@@ -114,14 +126,17 @@ export function useNewDeviceSignIns(userId: string | undefined) {
   const respond = useCallback(
     async (targetFp: string, trust: boolean) => {
       const fp = await myFp();
+      const token = userId ? await freshToken(userId) : null;
+      if (!token) return { data: null, error: new Error('Not signed in') };
       const res = await invokeEdgeFunction<{ status: string; sessions_ended: number }>('device-sign-in-alert', {
+        headers: { Authorization: `Bearer ${token}` },
         body: { action: 'respond', device_fp: fp, target_device_fp: targetFp, trust },
         errorTitle: 'Could not save your answer',
       });
       if (!res.error) setPending((list) => list.filter((d) => d.device_fp !== targetFp));
       return res;
     },
-    [],
+    [userId],
   );
 
   return { pending, refresh, respond };
