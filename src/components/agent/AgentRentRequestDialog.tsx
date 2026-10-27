@@ -1,4 +1,5 @@
-import { handleAgentNotVetted } from '@/components/agent/vetting/AgentNotVettedDialog';
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
@@ -3136,10 +3137,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
             ? `${msg}\n\nServer response:\n${JSON.stringify(error.response.data, null, 2)}`
             : msg
       );
-      if (handleAgentNotVetted(error)) {
-        setSubmissionError(msg.replace(/^.*AGENT_NOT_VETTED:\s*/s, ''));
-        return;
-      }
       const capacityMsg = humanizeCapacityError(msg);
       // Server-side guard (DB trigger) rejected the request because the
       // landlord isn't registered. Surface a clear, actionable inline error
@@ -3157,7 +3154,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const existingId = isDuplicateAfterRejection
         ? (uuidRe.exec(error?.hint || '')?.[0] ?? uuidRe.exec(msg)?.[0] ?? null)
         : null;
-      if (isDuplicateAfterRejection) {
+      if (promptIfNotVetted(error, msg)) {
+        setSubmissionError(agentNotVettedReason(error) ?? agentNotVettedReason(msg));
+      } else if (isDuplicateAfterRejection) {
         const friendly = 'This tenant already has a rejected rent request. Fix the flagged detail on that request and resubmit it — creating a new one would duplicate the tenant.';
         setSubmissionError(friendly);
         toast.error('Duplicate blocked — resubmit instead', { description: friendly });
