@@ -69,6 +69,8 @@ Pay in full from your Welile Wallet, or choose **daily installments over 1–12 
 
 ${isAuthenticated ? 'You are already signed in; open the store with your existing account.' : buildSignupPersuasionPitch('agent')}`;
 }
+
+export function isWalletHowToQuery(text: string): boolean {
   return /\bwallet\b/i.test(text) && /\b(?:how|use|open|deposit|withdraw|transfer|fund|teach|guide)\b/i.test(text)
     || /\bhow\b.*\b(?:deposit|withdraw|transfer)\b/i.test(text);
 }
