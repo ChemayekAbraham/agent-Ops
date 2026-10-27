@@ -1,6 +1,6 @@
 /**
  * Special Advances — types, request builders and messages for the CFO-only server functions
- * (supabase/migrations/20261027232000_special_advances_functions.sql and 20261027233000_special_advances_payout_repayment.sql).
+ * (supabase/migrations/20261028152000_special_advances_functions.sql and 20261028153000_special_advances_payout_repayment.sql).
  *
  * The server is the only authority: it validates, calculates every figure, checks eligibility and the issuance flag,
  * and posts to the ledger. Requests built here carry the agreed TERMS only — never fees, totals or schedules — except

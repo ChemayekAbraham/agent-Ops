@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Special Advances Phase 3: CFO-only server functions (supabase/migrations/20261027232000_special_advances_functions.sql)
+ * Special Advances Phase 3: CFO-only server functions (supabase/migrations/20261028152000_special_advances_functions.sql)
  * on PGlite, with the Phase 1 engine, Phase 2 storage and verbatim production role / MFA helpers. Every call runs as a
  * signed-in user (JWT claims + the authenticated role) through the public functions only.
  *
@@ -14,10 +14,10 @@ import { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
-const ENGINE = read('supabase/migrations/20261027230000_special_advances_calc_engine.sql');
-const STORAGE = read('supabase/migrations/20261027231000_special_advances_storage.sql');
-const FUNCTIONS = read('supabase/migrations/20261027232000_special_advances_functions.sql');
-const FUNCTIONS_RB = read('supabase/rollbacks/20261027232000_special_advances_functions.rollback.sql');
+const ENGINE = read('supabase/migrations/20261028150000_special_advances_calc_engine.sql');
+const STORAGE = read('supabase/migrations/20261028151000_special_advances_storage.sql');
+const FUNCTIONS = read('supabase/migrations/20261028152000_special_advances_functions.sql');
+const FUNCTIONS_RB = read('supabase/rollbacks/20261028152000_special_advances_functions.rollback.sql');
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
 
 const STANDINS = `

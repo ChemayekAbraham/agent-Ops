@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * Special Advances calculation engine (Phase 1): the SQL functions in
- * supabase/migrations/20261027230000_special_advances_calc_engine.sql, run in an embedded Postgres (PGlite).
+ * supabase/migrations/20261028150000_special_advances_calc_engine.sql, run in an embedded Postgres (PGlite).
  *
  * The server engine is the authority; the browser preview (src/lib/specialAdvancePreview.ts) must agree with it
  * exactly. Both are checked against the same hand-calculated cases (fixtures/specialAdvanceGolden.json), and against
@@ -16,7 +16,7 @@ import {
   SPECIAL_ADVANCE_FREQUENCIES, previewSpecialAdvance, validateSpecialAdvanceInput, type SpecialAdvanceInput,
 } from '@/lib/specialAdvancePreview';
 
-const MIGRATION = readFileSync(resolve(__dirname, '../../supabase/migrations/20261027230000_special_advances_calc_engine.sql'), 'utf8')
+const MIGRATION = readFileSync(resolve(__dirname, '../../supabase/migrations/20261028150000_special_advances_calc_engine.sql'), 'utf8')
   .replace(/\r/g, '');
 
 type In = { principal: number | null; ratePercent: number | null; rateBasis: string | null; termDays: number | null; frequency: string | null; start: string | null };

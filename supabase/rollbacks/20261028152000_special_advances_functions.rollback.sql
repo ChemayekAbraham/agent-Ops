@@ -1,4 +1,4 @@
--- Rollback of 20261027232000_special_advances_functions. Needs explicit CFO approval. Removes the CFO-only
+-- Rollback of 20261028152000_special_advances_functions. Needs explicit CFO approval. Removes the CFO-only
 -- functions, the one-open-advance index and the external identity constraint. Keeps every agreement, schedule and
 -- event (those belong to the Phase 2 storage). Touches no ledger, wallet, payment or existing advance object.
 -- Refuses while later phases still call these functions (roll those back first).
@@ -7,7 +7,7 @@ SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regprocedure('public.special_advance_create(jsonb)') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: 20261027232000_special_advances_functions is not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: 20261028152000_special_advances_functions is not applied; nothing was changed';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_proc p
               WHERE p.pronamespace = 'public'::regnamespace

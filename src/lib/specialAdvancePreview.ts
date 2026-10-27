@@ -1,6 +1,6 @@
 /**
  * Special Advance — repayment PREVIEW. Mirrors the authoritative server engine
- * `_special_advance_schedule` (supabase/migrations/20261027230000_special_advances_calc_engine.sql) exactly; the
+ * `_special_advance_schedule` (supabase/migrations/20261028150000_special_advances_calc_engine.sql) exactly; the
  * server recalculates everything and never trusts these figures. Parity is tested on thousands of random agreements
  * (src/test/specialAdvanceServerEngine.test.ts).
  *

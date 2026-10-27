@@ -32,7 +32,7 @@
 -- extended in place, and every previous category is verified to remain).
 -- Repayment cash is posted to A1 (bank / mobile money). Physical cash (A5) is not accepted: methods are mobile_money and
 -- bank_transfer only, pending a decision.
--- Rollback: supabase/rollbacks/20261027233000_special_advances_payout_repayment.rollback.sql (refuses once anything
+-- Rollback: supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql (refuses once anything
 -- has been posted).
 -- Tests: src/test/specialAdvancePayout.test.ts (PGlite, with the repo's create_ledger_transaction verbatim).
 
@@ -42,7 +42,7 @@ DECLARE
   v_src text;
 BEGIN
   IF to_regprocedure('public.special_advance_create(jsonb)') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: Special Advances functions (20261027232000) are not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: Special Advances functions (20261028152000) are not applied; nothing was changed';
   END IF;
   IF to_regclass('public.special_advance_repayments') IS NOT NULL OR to_regprocedure('public.special_advance_disburse(uuid,timestamptz,jsonb)') IS NOT NULL THEN
     RAISE EXCEPTION 'precondition failed: Special Advances payout objects already exist; nothing was changed';

@@ -27,14 +27,14 @@
 -- Concurrency: transaction-scoped advisory locks per idempotency key and per borrower identity, row locks on decisions,
 -- optimistic version check (updated_at), and a unique partial index so a Welile account can never hold two open
 -- Special Advances even under a race.
--- Rollback: supabase/rollbacks/20261027232000_special_advances_functions.rollback.sql
+-- Rollback: supabase/rollbacks/20261028152000_special_advances_functions.rollback.sql
 -- Tests: src/test/specialAdvanceFunctions.test.ts (PGlite).
 
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regclass('public.special_advances') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: Special Advances storage (20261027231000) is not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: Special Advances storage (20261028151000) is not applied; nothing was changed';
   END IF;
   IF to_regprocedure('public.special_advance_create(jsonb)') IS NOT NULL
      OR to_regclass('public.special_advances_one_open_per_user') IS NOT NULL THEN

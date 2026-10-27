@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Special Advances Phase 2: agreement storage (supabase/migrations/20261027231000_special_advances_storage.sql), on an
+ * Special Advances Phase 2: agreement storage (supabase/migrations/20261028151000_special_advances_storage.sql), on an
  * embedded Postgres (PGlite) with the Phase 1 engine and verbatim production copies of the role / MFA helpers
  * (scripts/fixtures/asset-register-helpers.sql). Agreements are written here as the table owner, the way the Phase 3
  * CFO-only functions will write them; signed-in users have no write path at all.
@@ -12,9 +12,9 @@ import { PGlite, type Transaction } from '@electric-sql/pglite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
-const ENGINE = read('supabase/migrations/20261027230000_special_advances_calc_engine.sql');
-const STORAGE = read('supabase/migrations/20261027231000_special_advances_storage.sql');
-const STORAGE_RB = read('supabase/rollbacks/20261027231000_special_advances_storage.rollback.sql');
+const ENGINE = read('supabase/migrations/20261028150000_special_advances_calc_engine.sql');
+const STORAGE = read('supabase/migrations/20261028151000_special_advances_storage.sql');
+const STORAGE_RB = read('supabase/rollbacks/20261028151000_special_advances_storage.rollback.sql');
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
 
 const STANDINS = `
@@ -117,7 +117,7 @@ describe('Phase 2 migration', () => {
   it('refuses to run before the engine, changing nothing', async () => {
     const e = await errOf(() => db.exec(`BEGIN;\n${STORAGE}\nCOMMIT;`));
     await db.exec('ROLLBACK').catch(() => {});
-    expect(e?.message).toMatch(/engine \(20261027230000\) is not applied/);
+    expect(e?.message).toMatch(/engine \(20261028150000\) is not applied/);
     expect((await q<{ t: string | null }>(`select to_regclass('public.special_advances')::text t`))[0].t).toBeNull();
   });
 

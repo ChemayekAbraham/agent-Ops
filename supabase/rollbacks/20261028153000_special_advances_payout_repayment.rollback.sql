@@ -1,4 +1,4 @@
--- Rollback of 20261027233000_special_advances_payout_repayment. Needs explicit CFO approval.
+-- Rollback of 20261028153000_special_advances_payout_repayment. Needs explicit CFO approval.
 -- Only possible BEFORE anything was posted: it refuses (nothing changed) while any Special Advance has been paid out,
 -- any repayment is recorded, or any general_ledger leg uses a special_advance_* category. Posted money is never
 -- unwound by a schema rollback; that needs reversing entries, approved separately.
@@ -9,7 +9,7 @@ SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regprocedure('public.special_advance_disburse(uuid,timestamptz,jsonb)') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: 20261027233000 is not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: 20261028153000 is not applied; nothing was changed';
   END IF;
   IF EXISTS (SELECT 1 FROM public.special_advances WHERE status IN ('disbursed', 'settled') OR payout_ledger_group_id IS NOT NULL)
      OR EXISTS (SELECT 1 FROM public.special_advance_repayments)

@@ -1,4 +1,4 @@
--- Rollback of 20261027231000_special_advances_storage. Needs explicit CFO approval. Touches no ledger, wallet or
+-- Rollback of 20261028151000_special_advances_storage. Needs explicit CFO approval. Touches no ledger, wallet or
 -- payment object and no existing advance product.
 -- Refuses, changing nothing, while any Special Advance agreement or external borrower exists, unless the operator
 -- deliberately discards them (export first): SET LOCAL special_advances.rollback_discard_data = 'yes';
@@ -8,7 +8,7 @@ SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regclass('public.special_advances') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: 20261027231000_special_advances_storage is not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: 20261028151000_special_advances_storage is not applied; nothing was changed';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_proc p
               WHERE p.pronamespace = 'public'::regnamespace

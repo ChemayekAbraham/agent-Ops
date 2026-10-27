@@ -22,7 +22,7 @@
 -- Errors: SPECIAL_ADVANCE_INVALID_TERMS (22023) with DETAIL = JSON array of the failing fields
 --         (principal, rate, rate_basis, term, frequency, start_date).
 -- Privileges: owner-only internals (later CFO-only RPCs call them). Rollback:
---   supabase/rollbacks/20261027230000_special_advances_calc_engine.rollback.sql
+--   supabase/rollbacks/20261028150000_special_advances_calc_engine.rollback.sql
 -- Tests: src/test/specialAdvanceServerEngine.test.ts (PGlite; golden cases shared with the preview + 3,000 random
 --        agreements compared row for row with the preview).
 

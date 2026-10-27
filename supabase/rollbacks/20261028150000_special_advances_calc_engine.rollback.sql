@@ -1,4 +1,4 @@
--- Rollback of 20261027230000_special_advances_calc_engine. Needs explicit CFO approval. Drops the three pure
+-- Rollback of 20261028150000_special_advances_calc_engine. Needs explicit CFO approval. Drops the three pure
 -- calculation functions; they hold no data. Refuses while any other function still depends on them by name (the later
 -- Special Advances phases call them), so roll those back first.
 -- TRANSACTION: run as ONE transaction (by hand: BEGIN; ... COMMIT;).

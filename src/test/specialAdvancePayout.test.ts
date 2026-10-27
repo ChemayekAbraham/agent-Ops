@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * Special Advances Phase 4: payout, repayment and reconciliation
- * (supabase/migrations/20261027233000_special_advances_payout_repayment.sql) on PGlite.
+ * (supabase/migrations/20261028153000_special_advances_payout_repayment.sql) on PGlite.
  *
  * Real code, extracted verbatim from the repo's migrations at test time: create_ledger_transaction (balance checks and
  * insert), wallet_route_for_category (both forms), assert_routing_compatible, validate_ledger_category (boolean +
@@ -18,11 +18,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = (f: string) => read(`supabase/migrations/${f}`);
-const ENGINE = MIG('20261027230000_special_advances_calc_engine.sql');
-const STORAGE = MIG('20261027231000_special_advances_storage.sql');
-const FUNCTIONS = MIG('20261027232000_special_advances_functions.sql');
-const PAYOUT = MIG('20261027233000_special_advances_payout_repayment.sql');
-const PAYOUT_RB = read('supabase/rollbacks/20261027233000_special_advances_payout_repayment.rollback.sql');
+const ENGINE = MIG('20261028150000_special_advances_calc_engine.sql');
+const STORAGE = MIG('20261028151000_special_advances_storage.sql');
+const FUNCTIONS = MIG('20261028152000_special_advances_functions.sql');
+const PAYOUT = MIG('20261028153000_special_advances_payout_repayment.sql');
+const PAYOUT_RB = read('supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql');
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
 
 /** The CREATE OR REPLACE FUNCTION block for `signature` (e.g. "public.create_ledger_transaction(entries"), verbatim. */

@@ -3,7 +3,7 @@
 -- the 33% principal-integrity cap, the agent-only FKs) never touch a Special Advance and existing products are
 -- unaffected. Nothing here reads or writes general_ledger, wallets or payments; no money moves.
 --
--- Model (CFO decisions 2026-10-27, Phase 1 engine 20261027230000):
+-- Model (CFO decisions 2026-10-27, Phase 1 engine 20261028150000):
 --   * borrower: a registered Welile account of any role (borrower_user_id) or an external individual/entity
 --     (special_advance_external_borrowers, append-only); exactly one.
 --   * agreed terms (principal, rate, basis, term, frequency) and every amount are fixed when the agreement is
@@ -25,14 +25,14 @@
 -- Open decisions (not encoded): maker-checker (whether the CFO may approve an advance the CFO recorded), external
 -- borrower identity requirements (NIN / registration number mandatory?), borrower self-view.
 -- TRANSACTION: run as ONE transaction (by hand: BEGIN; ... COMMIT;). The preflight changes nothing when it refuses.
--- Rollback: supabase/rollbacks/20261027231000_special_advances_storage.rollback.sql
+-- Rollback: supabase/rollbacks/20261028151000_special_advances_storage.rollback.sql
 -- Tests: src/test/specialAdvanceStorage.test.ts (PGlite).
 
 SET lock_timeout = '5s';
 DO $pre$
 BEGIN
   IF to_regprocedure('public._special_advance_schedule(numeric,numeric,text,numeric,text,date)') IS NULL THEN
-    RAISE EXCEPTION 'precondition failed: the Special Advances engine (20261027230000) is not applied; nothing was changed';
+    RAISE EXCEPTION 'precondition failed: the Special Advances engine (20261028150000) is not applied; nothing was changed';
   END IF;
   IF to_regclass('public.special_advances') IS NOT NULL OR to_regclass('public.special_advance_instalments') IS NOT NULL
      OR to_regclass('public.special_advance_events') IS NOT NULL OR to_regclass('public.special_advance_settings') IS NOT NULL
