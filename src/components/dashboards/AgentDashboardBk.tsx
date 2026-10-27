@@ -1,3 +1,4 @@
+import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
 // This is the agent dashboard exactly as it stood at commit 16c8eb552c (12 Oct 2026, 13:30 UTC),
@@ -120,7 +121,6 @@ import { useListingDaytimeGuard } from '@/hooks/useListingDaytimeGuard';
 import AgentFrozenGate from '@/components/agent/AgentFrozenGate';
 import { OperatingLocationGate } from '@/components/location/OperatingLocationGate';
 import { AgentAgreementBanner } from '@/components/agent/agreement';
-import { AgentVettingBanner } from '@/components/agent/vetting/AgentVettingBanner';
 import { AgentPaymentEditAlert } from '@/components/agent/AgentPaymentEditAlert';
 import { AgentRejectedLandlordsPanel } from '@/components/agent/AgentRejectedLandlordsPanel';
 import { AgentDeadTenantsBanner } from '@/components/agent/AgentDeadTenantsBanner';
@@ -1167,8 +1167,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           </div>
         )}
 
-        <AgentVettingBanner />
         <AgentAgreementBanner />
+        <AgentVettingBanner />
         <MissionBanner dashboardRole="agent" />
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}

@@ -606,7 +606,7 @@ export function ZoeConversationsPanel() {
         </TabsContent>
 
         {/* TAB 2: WEEKLY SUMMARY OF MOST-ASKED UNANSWERED QUESTIONS */}
-        <TabsContent value="weekly-unanswered" className="space-y-3">
+        <TabsContent value="weekly-unanswered" forceMount className="space-y-3 data-[state=inactive]:hidden">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">

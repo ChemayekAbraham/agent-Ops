@@ -1,4 +1,4 @@
-import { handleAgentNotVetted } from '@/components/agent/vetting/AgentNotVettedDialog';
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
 import { useState } from 'react';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import {
@@ -416,6 +416,11 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         parsedBody = res.data as Record<string, unknown>;
       }
 
+      if (promptIfNotVetted(parsedBody)) {
+        setConsentModalOpen(false);
+        return;
+      }
+
       if (parsedBody?.code === 'id_owner_consent_required') {
         const stageVal = parsedBody.stage;
         const nextStage =
@@ -433,11 +438,6 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         }
         setConsentErrorMessage(typeof parsedBody.error === 'string' ? parsedBody.error : null);
         setConsentModalOpen(true);
-        return;
-      }
-
-      if (parsedBody && handleAgentNotVetted(parsedBody)) {
-        setConsentModalOpen(false);
         return;
       }
 
