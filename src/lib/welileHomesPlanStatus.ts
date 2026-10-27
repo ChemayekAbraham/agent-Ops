@@ -180,3 +180,47 @@ export function dueHasCollection(d: {
   return false;
 }
 
+function isMissingRelationOrColumn(err: unknown): boolean {
+  const e = err as { code?: string; message?: string } | null;
+  const code = String(e?.code ?? '');
+  const msg = String(e?.message ?? '');
+  return code === '42P01' || code === '42703' || code === 'PGRST205' || code === 'PGRST200'
+    || /does not exist|could not find/i.test(msg);
+}
+
+/**
+ * Latest linked float request status per subscription, read from
+ * welile_homes_float_request_items (RLS: the agent's own requests or the review roles).
+ * Returns an empty map before the float-link migration is applied.
+ */
+export async function fetchWhFloatLinks(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const { data, error } = await (supabase.from as any)('welile_homes_float_request_items')
+    .select('subscription_id, created_at, float_requests(status)')
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) {
+    if (isMissingRelationOrColumn(error)) return out;
+    throw new Error(error.message);
+  }
+  for (const row of (data ?? []) as { subscription_id: string; float_requests?: { status?: string } | null }[]) {
+    const status = row.float_requests?.status;
+    if (row.subscription_id && status && !out.has(row.subscription_id)) out.set(row.subscription_id, status);
+  }
+  return out;
+}
+
+/**
+ * Runs a subscriptions select with `, funding_status` appended, retrying without it when the
+ * column does not exist yet (before the float-link migration).
+ */
+export async function selectWithOptionalFundingStatus<T>(
+  run: (extraColumns: string) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const first = await run(', funding_status');
+  if (!first.error) return first.data ?? [];
+  if (!isMissingRelationOrColumn(first.error)) throw first.error;
+  const second = await run('');
+  if (second.error) throw second.error;
+  return second.data ?? [];
+}
