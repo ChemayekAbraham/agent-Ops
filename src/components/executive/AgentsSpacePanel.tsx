@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cancelDebounceKeyed, debounceKeyed, PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -312,21 +313,25 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   }, [events]);
 
   // Search agents for granting permission (Ops mode only)
-  const handleSearchAgents = async (val: string) => {
+  const handleSearchAgents = (val: string) => {
     setAgentSearchTerm(val);
-    if (!val || val.trim().length < 2) {
+    if (!val || val.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+      cancelDebounceKeyed('agents-space-grant');
       setAgentSearchResults([]);
+      setSearchingAgents(false);
       return;
     }
-    setSearchingAgents(true);
-    const s = `%${val.trim()}%`;
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone, email, avatar_url, territory')
-      .or(`full_name.ilike.${s},phone.ilike.${s},email.ilike.${s}`)
-      .limit(10);
-    setAgentSearchResults((data || []) as ProfileSummary[]);
-    setSearchingAgents(false);
+    debounceKeyed('agents-space-grant', () => {
+      void (async () => {
+        setSearchingAgents(true);
+        const { rows } = await searchProfilesTypeahead(val, {
+          limit: 10,
+          columns: 'id, full_name, phone, email, avatar_url, territory',
+        });
+        setAgentSearchResults(rows as ProfileSummary[]);
+        setSearchingAgents(false);
+      })();
+    });
   };
 
   // Toggle or Grant permission for an agent (Ops mode only)
@@ -1129,13 +1134,13 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                       );
                     })}
                   </div>
-                ) : agentSearchTerm.length >= 2 ? (
+                ) : agentSearchTerm.length >= PROFILE_TYPEAHEAD_MIN_CHARS ? (
                   <p className="text-center p-4 text-xs text-muted-foreground">
                     No matching agents found. Check the spelling or phone number.
                   </p>
                 ) : (
                   <p className="text-center p-4 text-xs text-muted-foreground">
-                    Type at least 2 characters to search across all agents.
+                    Type at least 3 characters to search across all agents.
                   </p>
                 )}
               </div>

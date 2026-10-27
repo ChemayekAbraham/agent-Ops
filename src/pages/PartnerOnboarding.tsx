@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { Helmet } from 'react-helmet-async';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -176,7 +178,8 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
     }
   }, [user, loading, roles, role, navigate]);
 
-  const trimmedSearch = search.trim();
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const trimmedSearch = debouncedSearch.trim();
 
   // Partners with an agreement still awaiting the company countersign.
   // These must always be visible in this queue even when the profile was
@@ -219,11 +222,9 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
       if (sourceFilter === 'referred') query = query.not('referrer_id', 'is', null);
       if (sourceFilter === 'direct') query = query.is('referrer_id', null);
 
-      if (trimmedSearch) {
-        const q = trimmedSearch.replace(/[%,]/g, '');
-        query = query.or(
-          `full_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`
-        );
+      if (trimmedSearch.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const clause = profileTypeaheadFilter(trimmedSearch);
+        if (clause) query = query.ilike(clause.column, clause.pattern);
       }
 
       const from = page * PAGE_SIZE;

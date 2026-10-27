@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { normalizeMomoTid } from '@/lib/momoTid';
+import { searchProfilesByNames } from '@/lib/profileTypeahead';
 import type { PrefilledUser } from '@/components/financial-ops/RouteEmailDepositDialog';
 import type { UserResult } from '@/components/cfo/UserSearchPicker';
 import {
@@ -1911,17 +1912,14 @@ export function useEmailTransactionsPanel() {
             .in('transaction_id', refList)
             .limit(500)
         : Promise.resolve({ data: [], error: null });
-      // Name-based lookup: match every extracted "to NAME" / "from NAME"
-      // against profiles.full_name with case-insensitive substring. Cap the
-      // OR-list to avoid PostgREST URL bloat on huge inboxes.
-      const cappedNames = nameList.slice(0, 40);
-      const nameQ = cappedNames.length
-        ? (supabase.from('profiles') as any)
-            .select('id, full_name, phone, mobile_money_number, verified')
-            .or(cappedNames.map((n) => `full_name.ilike.%${n.replace(/[,()]/g, ' ')}%`).join(','))
-            .limit(500)
-        : Promise.resolve({ data: [], error: null });
-      const [{ data, error }, { data: deps }, { data: nameData }] = await Promise.all([
+      // Name lookup is one capped search per extracted name. A single
+      // PostgREST OR of dozens of full_name ILIKEs times out at 8s.
+      const nameQ = searchProfilesByNames(nameList, {
+        maxNames: 12,
+        perNameLimit: 5,
+        columns: 'id, full_name, phone, mobile_money_number, verified',
+      });
+      const [{ data, error }, { data: deps }, nameData] = await Promise.all([
         profileQ,
         depQ,
         nameQ,

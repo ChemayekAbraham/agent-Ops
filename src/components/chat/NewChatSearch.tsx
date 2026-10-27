@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { useChat } from '@/hooks/useChat';
 import { usePresenceContext } from '@/hooks/usePresence';
@@ -40,6 +42,7 @@ export default function NewChatSearch({ onStartConversation, onClose }: NewChatS
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(searchQuery, 300);
   const [selectedRole, setSelectedRole] = useState<RoleFilter>(null);
   const [startingChat, setStartingChat] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -68,9 +71,17 @@ export default function NewChatSearch({ onStartConversation, onClose }: NewChatS
         .order('full_name', { ascending: true })
         .range(from, to);
 
-      // Apply search filter
-      if (searchQuery.trim()) {
-        query = query.ilike('full_name', `%${searchQuery.trim()}%`);
+      const needle = debouncedQuery.trim();
+      if (needle.length > 0 && needle.length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+        setUsers([]);
+        setHasMore(false);
+        setLoading(false);
+        setLoadingMore(false);
+        return;
+      }
+      if (needle.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const clause = profileTypeaheadFilter(needle);
+        if (clause) query = query.ilike(clause.column, clause.pattern);
       }
 
       const { data: profiles, error } = await query;
@@ -124,14 +135,14 @@ export default function NewChatSearch({ onStartConversation, onClose }: NewChatS
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [user, searchQuery, selectedRole]);
+  }, [user, debouncedQuery, selectedRole]);
 
   // Reset and fetch when filters change
   useEffect(() => {
     setPage(0);
     setHasMore(true);
     fetchUsers(0, true);
-  }, [searchQuery, selectedRole, user]);
+  }, [debouncedQuery, selectedRole, user]);
 
   // Infinite scroll observer
   useEffect(() => {
