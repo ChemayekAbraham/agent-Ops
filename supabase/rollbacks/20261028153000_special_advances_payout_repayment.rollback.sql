@@ -2,8 +2,9 @@
 -- Only possible BEFORE anything was posted: it refuses (nothing changed) while any Special Advance has been paid out,
 -- any repayment is recorded, or any general_ledger leg uses a special_advance_* category. Posted money is never
 -- unwound by a schema rollback; that needs reversing entries, approved separately.
--- Removes: the payout / repayment functions, repayment tables, payout columns, the six mapping rows, account A20 and
--- the six allowlist categories (the allowlist body is restored to exactly what it was before this migration).
+-- Removes: the payout / repayment functions, repayment tables, payout columns, the six mapping rows, account A24 and
+-- the six allowlist categories (the allowlist body is restored to exactly what it was before this migration, with its
+-- search_path setting kept), and the staff-MFA guard. Accounts A20-A23 are never touched.
 -- TRANSACTION: run as ONE transaction (by hand: BEGIN; ... COMMIT;).
 SET lock_timeout = '5s';
 DO $pre$
@@ -16,6 +17,11 @@ BEGIN
      OR EXISTS (SELECT 1 FROM public.general_ledger WHERE category LIKE 'special\_advance\_%') THEN
     RAISE EXCEPTION 'precondition failed: Special Advances have been posted to the ledger; a schema rollback cannot unwind posted money; nothing was changed';
   END IF;
+  -- Only ever remove the account this migration created.
+  IF NOT EXISTS (SELECT 1 FROM public.ledger_account_catalog WHERE code = 'A24' AND label = 'Special Advances Receivable')
+     OR EXISTS (SELECT 1 FROM public.ledger_account_map WHERE account_code = 'A24' AND category NOT LIKE 'special\_advance\_%') THEN
+    RAISE EXCEPTION 'precondition failed: account A24 is not the Special Advances account, or other categories map to it; nothing was changed';
+  END IF;
 END
 $pre$;
 
@@ -27,6 +33,9 @@ DROP FUNCTION public._special_advance_position(uuid);
 DROP TABLE public.special_advance_repayment_allocations;
 DROP TABLE public.special_advance_repayments;
 DROP FUNCTION public._special_advance_verify_repayments();
+DROP TRIGGER special_advances_require_mfa ON public.special_advances;
+DROP FUNCTION public._special_advance_guard_mfa();
+DROP FUNCTION public._special_advance_require_mfa();
 DROP TRIGGER special_advances_guard_payout_fields ON public.special_advances;
 DROP FUNCTION public._special_advance_guard_payout_fields();
 ALTER TABLE public.special_advances DROP CONSTRAINT special_advances_payout_record;
@@ -35,7 +44,7 @@ ALTER TABLE public.special_advances DROP COLUMN payout_ledger_group_id, DROP COL
 DELETE FROM public.ledger_account_map
  WHERE category IN ('special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
                     'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment');
-DELETE FROM public.ledger_account_catalog WHERE code = 'A20';
+DELETE FROM public.ledger_account_catalog WHERE code = 'A24' AND label = 'Special Advances Receivable';
 
 DO $allow$
 DECLARE
@@ -49,8 +58,9 @@ BEGIN
   IF v_expr IS NULL THEN
     RAISE EXCEPTION 'rollback failed: the allowlist was changed after this migration; restore it by hand';
   END IF;
+  -- CREATE OR REPLACE resets SET options: restate the production search_path setting and re-check it afterwards.
   EXECUTE format($f$CREATE OR REPLACE FUNCTION public.ledger_category_allowlist()
-    RETURNS text[] LANGUAGE sql IMMUTABLE AS $body$
+    RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path TO 'public', 'extensions', 'pg_temp' AS $body$
   SELECT %s;
 $body$$f$, v_expr);
   v_after := public.ledger_category_allowlist();
@@ -58,6 +68,10 @@ $body$$f$, v_expr);
      OR v_after && ARRAY['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
                          'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment'] THEN
     RAISE EXCEPTION 'rollback check failed: the allowlist was not restored exactly';
+  END IF;
+  IF (SELECT proconfig FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure)
+       IS DISTINCT FROM ARRAY['search_path=public, extensions, pg_temp'] THEN
+    RAISE EXCEPTION 'rollback check failed: the allowlist search_path setting was not preserved';
   END IF;
 END
 $allow$;

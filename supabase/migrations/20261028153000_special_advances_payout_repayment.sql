@@ -1,9 +1,11 @@
 -- 2026-10-27: Special Advances, Phase 4: payout, repayment and reconciliation. NOT APPLIED. Production apply needs
--- explicit CFO approval; it changes the accounting policy (new account A20, six ledger_account_map rows, six allowlisted
+-- explicit CFO approval; it changes the accounting policy (new account A24, six ledger_account_map rows, six allowlisted
 -- categories). It changes no existing mapping row, account, category, posting function or advance product.
+-- A20-A23 already exist in production (A20 = Agent Advance Registration Fees Receivable, since 2026-09-26) and are
+-- left exactly as they are; Special Advances uses A24, the first free code (audit 2026-10-27).
 --
 -- CFO decisions 2026-10-27:
---   * books: new account A20 Special Advances Receivable (keeps A10's tie to agent_advances intact);
+--   * books: new account A24 Special Advances Receivable (keeps A10's tie to agent_advances intact);
 --   * payout: a Welile borrower is credited to their WITHDRAWABLE wallet (withdrawn through the normal controlled
 --     flow); an external borrower is paid off-platform (mobile money / bank transfer) by the CFO, recorded with its
 --     reference and posted from company cash (A1);
@@ -16,22 +18,27 @@
 --
 -- Ledger groups (all via create_ledger_transaction, idempotency-keyed, raw cash_in = cash_out, mapped DR = CR):
 --   payout, Welile:   wallet  special_advance_credit (withdrawable) cash_in  P   -> CR L1
---                     platform special_advance_receivable           cash_out P   -> DR A20
+--                     platform special_advance_receivable           cash_out P   -> DR A24
 --   payout, external: platform special_advance_payout_cash          cash_in  P   -> CR A1
---                     platform special_advance_receivable           cash_out P   -> DR A20
+--                     platform special_advance_receivable           cash_out P   -> DR A24
 --   fees (same group as the payout, legs only when > 0):
---                     platform special_advance_receivable           cash_out F   -> DR A20
+--                     platform special_advance_receivable           cash_out F   -> DR A24
 --                     platform special_advance_fee_revenue          cash_in  F   -> CR R1
 --   repayment:        platform special_advance_repayment_received   cash_in  X   -> DR A1
---                     platform special_advance_repayment            cash_out X   -> CR A20
+--                     platform special_advance_repayment            cash_out X   -> CR A24
 -- None of these categories or group shapes is captured by a resolver override (overrides key on other categories or
 -- on 2-wallet-leg / A2 shapes), and none is a treasury category.
 --
--- Preflight refuses (nothing changed) unless: Phase 3 is applied; A20 and the six categories are new; both category
--- validators consult ledger_category_allowlist(); the allowlist body has the expected `SELECT <expr>;` form (it is
--- extended in place, and every previous category is verified to remain).
+-- Preflight refuses (nothing changed) unless: Phase 3 is applied; A24 and the six categories are new; both category
+-- validators consult ledger_category_allowlist(); the live allowlist is exactly the audited production definition
+-- (md5 of its body 736744d355fe913acfcc0593204613a6, search_path=public, extensions, pg_temp) and has the expected
+-- `SELECT <expr>;` form. It is extended in place, keeping its search_path setting, and every previous category is
+-- verified to remain.
 -- Repayment cash is posted to A1 (bank / mobile money). Physical cash (A5) is not accepted: methods are mobile_money and
 -- bank_transfer only, pending a decision.
+-- Staff MFA (PROPOSAL, needs CFO confirmation; docs/special-advances/phase4-cfo-decisions.md): approval, payout and
+-- repayment recording require a session verified with the authenticator app (aal2), independent of the global
+-- staff_mfa_config mode. Reject, cancel and the read-only views are unchanged.
 -- Rollback: supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql (refuses once anything
 -- has been posted).
 -- Tests: src/test/specialAdvancePayout.test.ts (PGlite, with the repo's create_ledger_transaction verbatim).
@@ -52,8 +59,16 @@ BEGIN
      OR to_regprocedure('public.ledger_category_allowlist()') IS NULL THEN
     RAISE EXCEPTION 'precondition failed: a ledger object this phase uses is missing; nothing was changed';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.ledger_account_catalog WHERE code = 'A20') THEN
-    RAISE EXCEPTION 'precondition failed: account A20 already exists; nothing was changed';
+  IF EXISTS (SELECT 1 FROM public.ledger_account_catalog WHERE code = 'A24') THEN
+    RAISE EXCEPTION 'precondition failed: account A24 already exists; nothing was changed';
+  END IF;
+  -- The allowlist must be exactly the definition audited on 2026-10-27, so it is extended knowingly and its security
+  -- setting is carried over unchanged.
+  IF (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure)
+       IS DISTINCT FROM '736744d355fe913acfcc0593204613a6'
+     OR (SELECT proconfig FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure)
+       IS DISTINCT FROM ARRAY['search_path=public, extensions, pg_temp'] THEN
+    RAISE EXCEPTION 'precondition failed: ledger_category_allowlist() differs from the audited production definition; nothing was changed';
   END IF;
   IF EXISTS (SELECT 1 FROM public.ledger_account_map WHERE category LIKE 'special\_advance\_%')
      OR public.ledger_category_allowlist() && ARRAY['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
@@ -78,18 +93,20 @@ $pre$;
 
 -- ── Chart of accounts, mapping, allowlist ──────────────────────────────────────────────────────────
 INSERT INTO public.ledger_account_catalog (code, label, section, nature, sort_order)
-VALUES ('A20', 'Special Advances Receivable', 'current_asset', 'asset',
-        COALESCE((SELECT sort_order + 1 FROM public.ledger_account_catalog WHERE code = 'A19'), 100));
+VALUES ('A24', 'Special Advances Receivable', 'current_asset', 'asset',
+        COALESCE((SELECT sort_order + 1 FROM public.ledger_account_catalog WHERE code = 'A23'), 100));
 
 INSERT INTO public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when, notes) VALUES
   ('wallet', 'special_advance_credit', 'withdrawable', 'L1', 'cash_out', 'Special Advance paid out to a Welile borrower''s withdrawable wallet (owed to them)'),
-  ('platform', 'special_advance_receivable', NULL, 'A20', 'cash_out', 'Special Advance receivable: principal at payout, plus access and registration fees recognised at payout'),
+  ('platform', 'special_advance_receivable', NULL, 'A24', 'cash_out', 'Special Advance receivable: principal at payout, plus access and registration fees recognised at payout'),
   ('platform', 'special_advance_payout_cash', NULL, 'A1', 'cash_out', 'Special Advance paid out off-platform to an external borrower (company cash leaves)'),
   ('platform', 'special_advance_fee_revenue', NULL, 'R1', 'cash_out', 'Special Advance access / registration fee recognised at payout'),
   ('platform', 'special_advance_repayment_received', NULL, 'A1', 'cash_in', 'Special Advance repayment received into company cash (recorded by the CFO)'),
-  ('platform', 'special_advance_repayment', NULL, 'A20', 'cash_in', 'Special Advance repayment reduces the receivable');
+  ('platform', 'special_advance_repayment', NULL, 'A24', 'cash_in', 'Special Advance repayment reduces the receivable');
 
 -- Extend the allowlist in place: the live body is kept verbatim and the new categories are appended to its result.
+-- CREATE OR REPLACE resets a function's SET options, so the production search_path setting is restated explicitly
+-- (it was verified in the preflight) and re-checked afterwards; grants and owner are kept by CREATE OR REPLACE.
 DO $allow$
 DECLARE
   v_before text[] := public.ledger_category_allowlist();
@@ -100,7 +117,7 @@ BEGIN
   SELECT prosrc INTO v_src FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure;
   v_expr := regexp_replace(regexp_replace(v_src, '^\s*select\s+', '', 'i'), ';\s*$', '');
   EXECUTE format($f$CREATE OR REPLACE FUNCTION public.ledger_category_allowlist()
-    RETURNS text[] LANGUAGE sql IMMUTABLE AS $body$
+    RETURNS text[] LANGUAGE sql IMMUTABLE SET search_path TO 'public', 'extensions', 'pg_temp' AS $body$
   SELECT (%s) || ARRAY['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
                        'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment']::text[];
 $body$$f$, v_expr);
@@ -110,6 +127,11 @@ $body$$f$, v_expr);
      OR NOT (v_after @> ARRAY['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
                               'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment']) THEN
     RAISE EXCEPTION 'allowlist check failed: previous categories not all preserved, or new ones missing';
+  END IF;
+  IF (SELECT proconfig FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure)
+       IS DISTINCT FROM ARRAY['search_path=public, extensions, pg_temp']
+     OR (SELECT provolatile FROM pg_proc WHERE oid = 'public.ledger_category_allowlist()'::regprocedure) <> 'i' THEN
+    RAISE EXCEPTION 'allowlist check failed: the search_path setting or volatility was not preserved';
   END IF;
 END
 $allow$;
@@ -138,6 +160,34 @@ BEGIN
 END $$;
 CREATE TRIGGER special_advances_guard_payout_fields BEFORE UPDATE ON public.special_advances
   FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_payout_fields();
+
+-- ── Staff MFA for the money-moving actions (PROPOSAL: needs CFO confirmation) ───────────────────────────────
+-- Approval, payout and repayment recording need a session verified with the authenticator app (JWT aal = aal2),
+-- whatever the global staff_mfa_config mode is (production 2026-10-27: 'shadow'). This only adds a requirement: the CFO
+-- role check, issuance switch, version checks and everything else stay. Reject, cancel and the read-only views are
+-- unchanged. As at 2026-10-27 no CFO has an authenticator enrolled, so these actions stay impossible until a CFO enrols
+-- (issuance is switched off in any case). A call with no signed-in user is not a client call (owner / service role
+-- maintenance), which bypasses every check anyway; the CFO-only functions always run with a signed-in user.
+CREATE FUNCTION public._special_advance_require_mfa()
+RETURNS void LANGUAGE plpgsql STABLE SET search_path = public AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL AND COALESCE(auth.jwt() ->> 'aal', 'aal1') IS DISTINCT FROM 'aal2' THEN
+    RAISE EXCEPTION 'MFA_REQUIRED' USING ERRCODE = '42501',
+      DETAIL = 'Approving, paying out or recording a repayment needs a session verified with your authenticator app';
+  END IF;
+END $$;
+
+-- The Phase 3 approval function is not replaced: the approval and payout transitions themselves are guarded here.
+CREATE FUNCTION public._special_advance_guard_mfa()
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.status IS DISTINCT FROM OLD.status AND NEW.status IN ('approved', 'disbursed') THEN
+    PERFORM public._special_advance_require_mfa();
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER special_advances_require_mfa BEFORE UPDATE ON public.special_advances
+  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_mfa();
 
 -- ── Repayments (append-only) ───────────────────────────────────────────────────────────────────────
 CREATE TABLE public.special_advance_repayments (
@@ -269,6 +319,7 @@ DECLARE
   v_group uuid;
   v_src jsonb;
 BEGIN
+  PERFORM public._special_advance_require_mfa();
   IF a.status = 'disbursed' AND a.payout_ledger_group_id IS NOT NULL THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_ALREADY_PAID_OUT' USING ERRCODE = '22023';
   END IF;
@@ -369,6 +420,7 @@ DECLARE
   i record;
   v_split jsonb;
 BEGIN
+  PERFORM public._special_advance_require_mfa();
   IF length(v_key) NOT BETWEEN 16 AND 100 THEN
     RAISE EXCEPTION 'IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
   END IF;
@@ -474,8 +526,8 @@ BEGIN
       FROM public.special_advance_repayments r WHERE r.advance_id = p_id), '[]'::jsonb));
 END $$;
 
--- Ties the subledger to the ledger. A20 is a new account that no resolver override touches, so its balance is
--- read from base mapping: DR - CR of every leg mapped to A20.
+-- Ties the subledger to the ledger. A24 is a new account that no resolver override touches, so its balance is
+-- read from base mapping: DR - CR of every leg mapped to A24.
 CREATE FUNCTION public.special_advance_reconciliation()
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -486,7 +538,7 @@ BEGIN
   PERFORM public._special_advance_require_cfo();
   SELECT COALESCE(sum(CASE WHEN gl.direction = m.debit_when THEN gl.amount ELSE -gl.amount END), 0) INTO v_ledger
     FROM public.general_ledger gl
-    JOIN public.ledger_account_map m ON m.ledger_scope = gl.ledger_scope AND m.category = gl.category AND m.account_code = 'A20'
+    JOIN public.ledger_account_map m ON m.ledger_scope = gl.ledger_scope AND m.category = gl.category AND m.account_code = 'A24'
                                      AND (m.wallet_bucket IS NULL OR m.wallet_bucket = gl.wallet_bucket)
    WHERE gl.category LIKE 'special\_advance\_%';
   SELECT COALESCE(sum((public._special_advance_position(a.id) ->> 'outstanding')::numeric), 0) INTO v_sub
@@ -497,12 +549,12 @@ BEGIN
              'ledger_balance', COALESCE((
                SELECT sum(CASE WHEN gl.direction = m.debit_when THEN gl.amount ELSE -gl.amount END)
                  FROM public.general_ledger gl
-                 JOIN public.ledger_account_map m ON m.ledger_scope = gl.ledger_scope AND m.category = gl.category AND m.account_code = 'A20'
+                 JOIN public.ledger_account_map m ON m.ledger_scope = gl.ledger_scope AND m.category = gl.category AND m.account_code = 'A24'
                 WHERE (gl.source_table = 'special_advances' AND gl.source_id = a.id)
                    OR (gl.source_table = 'special_advance_repayments' AND gl.source_id IN (SELECT r.id FROM public.special_advance_repayments r WHERE r.advance_id = a.id))), 0)) AS x
       FROM public.special_advances a WHERE a.status IN ('disbursed', 'settled')) t
    WHERE (x ->> 'subledger_outstanding')::numeric <> (x ->> 'ledger_balance')::numeric;
-  RETURN jsonb_build_object('a20_ledger_balance', v_ledger, 'subledger_outstanding', v_sub,
+  RETURN jsonb_build_object('a24_ledger_balance', v_ledger, 'subledger_outstanding', v_sub,
                             'difference', v_ledger - v_sub, 'balanced', v_ledger = v_sub AND jsonb_array_length(v_rows) = 0,
                             'mismatched_advances', v_rows);
 END $$;
@@ -511,6 +563,8 @@ END $$;
 REVOKE ALL ON FUNCTION public._special_advance_guard_payout_fields() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_verify_repayments() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_position(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._special_advance_require_mfa() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._special_advance_guard_mfa() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.special_advance_disburse(uuid, timestamptz, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.special_advance_record_repayment(uuid, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.special_advance_statement(uuid) FROM PUBLIC, anon;

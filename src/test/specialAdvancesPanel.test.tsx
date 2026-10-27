@@ -5,7 +5,7 @@ import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
-  server: { issuance: false, recon: { a20_ledger_balance: 940000, subledger_outstanding: 940000, difference: 0, balanced: true, mismatched_advances: [] as unknown[] },
+  server: { issuance: false, recon: { a24_ledger_balance: 940000, subledger_outstanding: 940000, difference: 0, balanced: true, mismatched_advances: [] as unknown[] },
     fail: null as null | { fn: string; error: { code: string; message: string; details?: string } } },
 }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
@@ -44,7 +44,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.server.issuance = false;
   mocks.server.fail = null;
-  mocks.server.recon = { a20_ledger_balance: 940000, subledger_outstanding: 940000, difference: 0, balanced: true, mismatched_advances: [] };
+  mocks.server.recon = { a24_ledger_balance: 940000, subledger_outstanding: 940000, difference: 0, balanced: true, mismatched_advances: [] };
   mocks.rpc.mockImplementation((fn: string, args: Record<string, unknown> = {}) => {
     if (mocks.server.fail?.fn === fn) return Promise.resolve({ data: null, error: mocks.server.fail.error });
     switch (fn) {
@@ -58,7 +58,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances panel', () => {
-  it('lists agreements, shows the issuance switch and the A20 reconciliation', async () => {
+  it('lists agreements, shows the issuance switch and the A24 reconciliation', async () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
     expect(screen.getByText('Acme Supplies Ltd')).toBeTruthy();
@@ -69,7 +69,7 @@ describe('Special Advances panel', () => {
   });
 
   it('highlights a reconciliation difference', async () => {
-    mocks.server.recon = { a20_ledger_balance: 940007, subledger_outstanding: 940000, difference: 7, balanced: false, mismatched_advances: [] };
+    mocks.server.recon = { a24_ledger_balance: 940007, subledger_outstanding: 940000, difference: 7, balanced: false, mismatched_advances: [] };
     renderPanel();
     await waitFor(() => expect(document.getElementById('special-advance-reconciliation')?.textContent).toMatch(/difference/));
   });
@@ -179,6 +179,9 @@ describe('Special Advances messages and requests', () => {
     expect(describeSpecialAdvanceError({ code: '22023', message: 'SPECIAL_ADVANCE_INVALID_REQUEST', details: '["purpose","national_id"]' }))
       .toBe('Check the purpose, National ID (NIN).');
     expect(describeSpecialAdvanceError({ code: '42501', message: 'SELF_ADVANCE' })).toMatch(/cannot give a Special Advance to themselves/);
+    // Phase 4 proposal: MFA_REQUIRED gets its own message (not the generic CFO-only one)
+    expect(describeSpecialAdvanceError({ code: '42501', message: 'MFA_REQUIRED' })).toMatch(/authenticator app/);
+    expect(describeSpecialAdvanceError({ code: '42501', message: 'NOT_AUTHORIZED' })).toMatch(/Only an enabled CFO account/);
     expect(describeSpecialAdvanceError({ code: '55000', message: 'SPECIAL_ADVANCES_DISABLED' })).toMatch(/switched off/);
     expect(describeSpecialAdvanceError({ code: '42501', message: 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' })).not.toMatch(/Only an enabled CFO/);
   });

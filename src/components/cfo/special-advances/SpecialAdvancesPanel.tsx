@@ -10,7 +10,7 @@ import { SpecialAdvanceDetailSheet } from './SpecialAdvanceDetailSheet';
 
 const ALL = '__all__';
 
-/** CFO Special Advances: issuance switch state, A20 reconciliation, the register of agreements and their detail. */
+/** CFO Special Advances: issuance switch state, A24 reconciliation, the register of agreements and their detail. */
 export function SpecialAdvancesPanel() {
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function SpecialAdvancesPanel() {
         </span>
         {recon.data && (
           <span id="special-advance-reconciliation" className={recon.data.balanced ? 'text-muted-foreground' : 'font-semibold text-destructive'}>
-            A20 ledger {formatUGX(recon.data.a20_ledger_balance)} · records {formatUGX(recon.data.subledger_outstanding)}
+            A24 ledger {formatUGX(recon.data.a24_ledger_balance)} · records {formatUGX(recon.data.subledger_outstanding)}
             {recon.data.balanced ? ' · reconciled' : ` · difference ${formatUGX(recon.data.difference)}`}
           </span>
         )}

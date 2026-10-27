@@ -138,7 +138,7 @@ export interface SpecialAdvanceList {
 }
 
 export interface SpecialAdvanceReconciliation {
-  a20_ledger_balance: number;
+  a24_ledger_balance: number;
   subledger_outstanding: number;
   difference: number;
   balanced: boolean;
@@ -206,6 +206,10 @@ export function describeSpecialAdvanceError(err: unknown): string {
   const detail = parseDetail(e.details ?? e.detail);
   const list = Array.isArray(detail) ? (detail as string[]) : [];
   if (msg.includes('SELF_ADVANCE')) return ELIGIBILITY_TEXT.SELF_ADVANCE;
+  // Phase 4 proposal: approval, payout and repayment recording need an authenticator-verified session (aal2).
+  if (msg.includes('MFA_REQUIRED')) {
+    return 'Verify with your authenticator app first: approving, paying out or recording a repayment needs it.';
+  }
   if (/NOT_AUTHORIZED|AUTH_REQUIRED|permission denied/i.test(msg)) {
     return 'Only an enabled CFO account (with its second factor, where required) can do this.';
   }

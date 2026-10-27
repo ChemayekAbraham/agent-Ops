@@ -4,11 +4,23 @@
  * (supabase/migrations/20261028153000_special_advances_payout_repayment.sql) on PGlite.
  *
  * Real code, extracted verbatim from the repo's migrations at test time: create_ledger_transaction (balance checks and
- * insert), wallet_route_for_category (both forms), assert_routing_compatible, validate_ledger_category (boolean +
- * trigger, allowlist version) and ledger_category_allowlist(). Stand-ins: ledger_category_allowlist_base() (a sample;
- * production's list is not in the repo), general_ledger / wallets columns, and the wallet bucket trigger, which here
- * records the bucket chosen by the real wallet_route_for_category instead of running apply_wallet_movement.
- * The production ledger can differ from the migrations: the migration's preflight re-checks the live functions.
+ * insert), wallet_route_for_category (both forms), assert_routing_compatible and validate_ledger_category (boolean +
+ * trigger, allowlist version); each matches production's md5 (read-only check, 2026-10-27).
+ * Production's ledger_category_allowlist() and ledger_category_allowlist_base() match no repo migration, so they are
+ * loaded verbatim from scripts/fixtures/ledger-allowlist-prod-2026-10-27.sql (read-only export; md5 736744d3… and
+ * search_path=public, extensions, pg_temp): the migration extends the real definition.
+ * The chart of accounts is seeded with production's A20-A23 and their 16 mappings, so the tests prove Special Advances
+ * uses A24 and leaves them exactly as they are.
+ * Stand-ins: general_ledger / wallets columns, and the wallet bucket trigger, which here records the bucket chosen by the
+ * real wallet_route_for_category instead of running apply_wallet_movement.
+ *
+ * NOT reproduced here (covered by the read-only audit of 2026-10-27, not by these tests):
+ *   - production's other 44 general_ledger triggers (arrears recovery, bonus restriction, SMS deduction, projections,
+ *     RPC-only / append-only guards, mapped-balance enforcement). The audit found none that act on special_advance_*
+ *     categories other than the intended wallet-balance sync and enforcement checks.
+ *   - true concurrency: PGlite has one connection, so two simultaneous payouts or repayments cannot race here; the
+ *     protections are the row lock with version check, the advisory locks, the fixed per-advance ledger key and the
+ *     unique indexes, each exercised sequentially below.
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID as uuid } from 'node:crypto';
@@ -24,6 +36,12 @@ const FUNCTIONS = MIG('20261028152000_special_advances_functions.sql');
 const PAYOUT = MIG('20261028153000_special_advances_payout_repayment.sql');
 const PAYOUT_RB = read('supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql');
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
+// production's allowlist (wrapper + base list), verbatim; the migration pins this exact definition
+const PROD_ALLOWLIST = read('scripts/fixtures/ledger-allowlist-prod-2026-10-27.sql');
+const PROD_ALLOWLIST_MD5 = '736744d355fe913acfcc0593204613a6';
+const PROD_ALLOWLIST_CONFIG = ['search_path=public, extensions, pg_temp'];
+const SA_CATEGORIES = ['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
+  'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment'];
 
 /** The CREATE OR REPLACE FUNCTION block for `signature` (e.g. "public.create_ledger_transaction(entries"), verbatim. */
 function extractFn(file: string, signature: string): string {
@@ -38,7 +56,7 @@ const REAL = [
   extractFn('20260817070831_d61c0e97-c1bd-476c-8266-748f95b9204b.sql', 'public.wallet_route_for_category(p_category'),
   extractFn('20260817070831_d61c0e97-c1bd-476c-8266-748f95b9204b.sql', 'public.assert_routing_compatible('),
   extractFn('20260515113611_a78dae5e-607a-4e4a-ad99-0760db81e681.sql', 'public.wallet_route_for_category(p_user_id'),
-  extractFn('20260929230800_landlord_pool_topups_and_compounding.sql', 'public.ledger_category_allowlist()'),
+  PROD_ALLOWLIST,
   extractFn('20260509085227_0a4f550d-0c03-48b0-b8c8-2c181e365198.sql', 'public.validate_ledger_category(p_category'),
   extractFn('20260914180000_adversarial_regression_fixes.sql', 'public.create_ledger_transaction(entries'),
 ];
@@ -86,9 +104,6 @@ BEGIN
   RETURN NEW;
 END $$;
 create trigger general_ledger_route_buckets after insert on public.general_ledger for each row execute function public.tr_route_standin();
--- production's base list is not in the repo; a sample with the shape the wrapper expects
-create function public.ledger_category_allowlist_base() returns text[] language sql immutable as $$
-  select array['wallet_deposit','wallet_withdrawal','agent_advance_credit','agent_advance_disbursement','rent_disbursement','access_fee_collected']::text[] $$;
 create table public.ledger_account_catalog (code text primary key, label text not null,
   section text not null check (section in ('current_asset','non_current_asset','current_liability','non_current_liability','equity','revenue','expense')),
   nature text not null check (nature in ('asset','liability','equity','revenue','expense')), sort_order int not null default 100,
@@ -96,15 +111,37 @@ create table public.ledger_account_catalog (code text primary key, label text no
 insert into public.ledger_account_catalog (code, label, section, nature, sort_order) values
   ('A1','Cash and Bank Balances','current_asset','asset',10), ('A10','Agent Advances Receivable','current_asset','asset',100),
   ('A19','Business Advance Receivables','current_asset','asset',190), ('L1','Wallet Custody Payable','current_liability','liability',300),
-  ('R1','Platform Revenue','revenue','revenue',500);
+  ('R1','Platform Revenue','revenue','revenue',500),
+  -- production's A20-A23 (read-only, 2026-10-27): already taken, so Special Advances must use A24 and leave these alone
+  ('A20','Agent Advance Registration Fees Receivable','current_asset','asset',49),
+  ('A21','Landlord Float Pool — Self-Support','current_asset','asset',11),
+  ('A22','Landlord Float Pool — Company-Managed','current_asset','asset',12),
+  ('A23','Receivable from Pius — Angel Pool share','current_asset','asset',123);
 create table public.ledger_account_map (id uuid primary key default gen_random_uuid(), ledger_scope text not null, category text not null,
   wallet_bucket text, account_code text not null references public.ledger_account_catalog(code),
   debit_when text not null default 'cash_in' check (debit_when in ('cash_in','cash_out')), notes text,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now());
 create unique index ledger_account_map_key on public.ledger_account_map (ledger_scope, category, coalesce(wallet_bucket,'*'));
 insert into public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when) values
-  ('platform','wallet_withdrawal',null,'A1','cash_out'), ('platform','access_fee_collected',null,'R1','cash_out');
+  ('platform','wallet_withdrawal',null,'A1','cash_out'), ('platform','access_fee_collected',null,'R1','cash_out'),
+  -- production's 16 mappings to A20-A23 (read-only, 2026-10-27)
+  ('platform','agent_advance_registration_fee_charged',null,'A20','cash_out'),
+  ('platform','agent_advance_registration_fee_collected',null,'A20','cash_out'),
+  ('platform','agent_advance_registration_fee_collected_external',null,'A20','cash_in'),
+  ('platform','agent_advance_registration_fee_written_off',null,'A20','cash_out'),
+  ('platform','landlord_pool_compound_self_support',null,'A21','cash_in'), ('platform','landlord_pool_deploy_self_support',null,'A21','cash_in'),
+  ('platform','landlord_pool_release_self_support',null,'A21','cash_in'), ('platform','landlord_pool_reserve_self_support',null,'A21','cash_in'),
+  ('platform','landlord_pool_return_self_support',null,'A21','cash_in'), ('platform','landlord_pool_topup_self_support',null,'A21','cash_in'),
+  ('platform','landlord_pool_compound_company_managed',null,'A22','cash_in'), ('platform','landlord_pool_deploy_company_managed',null,'A22','cash_in'),
+  ('platform','landlord_pool_release_company_managed',null,'A22','cash_in'), ('platform','landlord_pool_reserve_company_managed',null,'A22','cash_in'),
+  ('platform','landlord_pool_return_company_managed',null,'A22','cash_in'), ('platform','landlord_pool_topup_company_managed',null,'A22','cash_in');
 `;
+const EXISTING_ACCOUNTS_SQL = `select code, label, section, nature, sort_order from public.ledger_account_catalog where code in ('A20','A21','A22','A23') order by code`;
+const EXISTING_MAPPINGS_SQL = `select ledger_scope, category, wallet_bucket, account_code, debit_when, notes from public.ledger_account_map
+  where account_code in ('A20','A21','A22','A23') order by account_code, category`;
+const allowlistMeta = async () => (await q<{ md5: string; config: string[] | null; vol: string; lang: string; acl: string | null }>(
+  `select md5(replace(p.prosrc, chr(13), '')) md5, p.proconfig config, p.provolatile vol, l.lanname lang, p.proacl::text acl
+     from pg_proc p join pg_language l on l.oid = p.prolang where p.oid = 'public.ledger_category_allowlist()'::regprocedure`))[0];
 
 let db: PGlite;
 const q = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await db.query<T>(sql, params)).rows;
@@ -112,11 +149,11 @@ type Err = { code?: string; message: string; detail?: string };
 const cfo = uuid(), coo = uuid(), superAdmin = uuid(), tenant = uuid(), tenant2 = uuid(), agentUser = uuid();
 const users = [cfo, coo, superAdmin, tenant, tenant2, agentUser];
 
-async function call<T = Record<string, unknown>>(user: string, sql: string, params: unknown[] = []): Promise<{ out?: T; err?: Err }> {
+async function call<T = Record<string, unknown>>(user: string, sql: string, params: unknown[] = [], aal = 'aal2'): Promise<{ out?: T; err?: Err }> {
   try {
     let out: T | undefined;
     await db.transaction(async (tx) => {
-      await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: user, role: 'authenticated', aal: 'aal2' })]);
+      await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: user, role: 'authenticated', aal })]);
       await tx.exec(`set local role authenticated`);
       out = (await tx.query<{ r: T }>(sql, params)).rows[0]?.r;
     });
@@ -163,6 +200,9 @@ const legs = (group: string) => q<{ ledger_scope: string; direction: string; cat
   `select ledger_scope, direction, category, amount::text, wallet_bucket, user_id from public.general_ledger where transaction_group_id = $1 order by category, direction`, [group]);
 
 let allowlistBefore: string[] = [];
+let accountsBefore: unknown[] = [];
+let mappingsBefore: unknown[] = [];
+let allowlistMetaBefore: Awaited<ReturnType<typeof allowlistMeta>>;
 
 beforeAll(async () => {
   db = new PGlite();
@@ -183,6 +223,9 @@ beforeAll(async () => {
     { ledger_scope: 'platform', direction: 'cash_in', amount: 1000, category: 'wallet_withdrawal', source_table: 'existing' },
     { ledger_scope: 'platform', direction: 'cash_out', amount: 1000, category: 'access_fee_collected', source_table: 'existing' }])]);
   allowlistBefore = (await q<{ a: string[] }>(`select public.ledger_category_allowlist() a`))[0].a;
+  accountsBefore = await q(EXISTING_ACCOUNTS_SQL);
+  mappingsBefore = await q(EXISTING_MAPPINGS_SQL);
+  allowlistMetaBefore = await allowlistMeta();
 }, 60_000);
 afterAll(async () => { await db?.close(); });
 
@@ -191,7 +234,17 @@ describe('Phase 4 migration: accounting-policy change', () => {
     const e = await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`).catch((x: Err) => x);
     await db.exec('ROLLBACK').catch(() => {});
     expect((e as Err).message).toMatch(/trigger checks its own list/);
-    expect(await q(`select 1 from public.ledger_account_catalog where code = 'A20'`)).toEqual([]);
+    expect(await q(`select 1 from public.ledger_account_catalog where code = 'A24'`)).toEqual([]);
+  });
+
+  it('the test starts from production\'s audited allowlist (fingerprint, search_path, 178 categories) and its A20-A23', async () => {
+    expect(allowlistMetaBefore).toMatchObject({ md5: PROD_ALLOWLIST_MD5, config: PROD_ALLOWLIST_CONFIG, vol: 'i', lang: 'sql' });
+    expect(allowlistBefore).toHaveLength(178);
+    expect(allowlistBefore.filter((c) => SA_CATEGORIES.includes(c))).toEqual([]);
+    expect((accountsBefore as Array<{ code: string; label: string }>).map((a) => `${a.code} ${a.label}`)).toEqual([
+      'A20 Agent Advance Registration Fees Receivable', 'A21 Landlord Float Pool — Self-Support',
+      'A22 Landlord Float Pool — Company-Managed', 'A23 Receivable from Pius — Angel Pool share']);
+    expect(mappingsBefore).toHaveLength(16);
   });
 
   it('applies once the validators consult the allowlist (as production does per the 2026-09-24 chart of accounts)', async () => {
@@ -202,31 +255,42 @@ describe('Phase 4 migration: accounting-policy change', () => {
     expect((e as Err).message).toMatch(/already exist/);
   });
 
-  it('adds A20 after A19, six mapping rows and six categories; every existing category, row and account stays', async () => {
-    expect(await q(`select code, label, section, nature, sort_order from public.ledger_account_catalog where code = 'A20'`))
-      .toEqual([{ code: 'A20', label: 'Special Advances Receivable', section: 'current_asset', nature: 'asset', sort_order: 191 }]);
+  it('adds A24 after A23, six mapping rows and six categories; every existing category, row and account stays', async () => {
+    expect(await q(`select code, label, section, nature, sort_order from public.ledger_account_catalog where code = 'A24'`))
+      .toEqual([{ code: 'A24', label: 'Special Advances Receivable', section: 'current_asset', nature: 'asset', sort_order: 124 }]);
+    // the occupied A20 (agent registration fees) and A21-A23 are exactly as before, with all 16 of their mappings
+    expect(await q(EXISTING_ACCOUNTS_SQL)).toEqual(accountsBefore);
+    expect(await q(EXISTING_MAPPINGS_SQL)).toEqual(mappingsBefore);
+    expect(await q(`select count(*)::int n from public.ledger_account_map where account_code = 'A20' and category like 'special\\_advance\\_%'`)).toEqual([{ n: 0 }]);
     expect(await q(`select ledger_scope, category, wallet_bucket, account_code, debit_when from public.ledger_account_map
                      where category like 'special\\_advance\\_%' order by category`)).toEqual([
       { ledger_scope: 'wallet', category: 'special_advance_credit', wallet_bucket: 'withdrawable', account_code: 'L1', debit_when: 'cash_out' },
       { ledger_scope: 'platform', category: 'special_advance_fee_revenue', wallet_bucket: null, account_code: 'R1', debit_when: 'cash_out' },
       { ledger_scope: 'platform', category: 'special_advance_payout_cash', wallet_bucket: null, account_code: 'A1', debit_when: 'cash_out' },
-      { ledger_scope: 'platform', category: 'special_advance_receivable', wallet_bucket: null, account_code: 'A20', debit_when: 'cash_out' },
-      { ledger_scope: 'platform', category: 'special_advance_repayment', wallet_bucket: null, account_code: 'A20', debit_when: 'cash_in' },
+      { ledger_scope: 'platform', category: 'special_advance_receivable', wallet_bucket: null, account_code: 'A24', debit_when: 'cash_out' },
+      { ledger_scope: 'platform', category: 'special_advance_repayment', wallet_bucket: null, account_code: 'A24', debit_when: 'cash_in' },
       { ledger_scope: 'platform', category: 'special_advance_repayment_received', wallet_bucket: null, account_code: 'A1', debit_when: 'cash_in' }]);
-    expect(await q(`select count(*)::int n from public.ledger_account_map where category not like 'special\\_advance\\_%'`)).toEqual([{ n: 2 }]);
+    expect(await q(`select count(*)::int n from public.ledger_account_map where category not like 'special\\_advance\\_%'`)).toEqual([{ n: 18 }]);
     const after = (await q<{ a: string[] }>(`select public.ledger_category_allowlist() a`))[0].a;
     expect(after.slice(0, allowlistBefore.length)).toEqual(allowlistBefore); // nothing removed or reordered
-    expect(after.slice(allowlistBefore.length)).toEqual(['special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',
-      'special_advance_fee_revenue', 'special_advance_repayment_received', 'special_advance_repayment']);
+    expect(after.slice(allowlistBefore.length)).toEqual(SA_CATEGORIES);
+    expect(after).toHaveLength(178 + 6);
     // the wrapper still calls the live base list (not frozen into a literal)
     expect((await q<{ s: string }>(`select prosrc s from pg_proc where proname = 'ledger_category_allowlist'`))[0].s).toMatch(/ledger_category_allowlist_base\(\)/);
+  });
+
+  it('rebuilding the allowlist keeps its security settings: search_path, volatility, language and grants unchanged', async () => {
+    const m = await allowlistMeta();
+    expect(m.config).toEqual(PROD_ALLOWLIST_CONFIG);
+    expect(m).toMatchObject({ vol: 'i', lang: 'sql', acl: allowlistMetaBefore.acl });
+    expect(m.md5).not.toBe(PROD_ALLOWLIST_MD5); // the body was extended, so its fingerprint changed
   });
 });
 
 describe('Phase 4 payout (separate from approval)', () => {
   let w: Adv;
 
-  it('pays a Welile borrower into their withdrawable wallet: balanced group, A20 receivable, fees recognised, due dates set', async () => {
+  it('pays a Welile borrower into their withdrawable wallet: balanced group, A24 receivable, fees recognised, due dates set', async () => {
     const a = await approved({ kind: 'welile_user', user_id: tenant });
     expect(a.payout_ledger_group_id).toBeNull();
     const r = await disburse(a, { payout_date: today(), method: 'wallet' });
@@ -247,7 +311,7 @@ describe('Phase 4 payout (separate from approval)', () => {
       { ledger_scope: 'platform', direction: 'cash_out', category: 'special_advance_receivable', amount: '20000', wallet_bucket: null, user_id: null }]
       .map(key).sort());
     expect(await mapped(g)).toEqual([
-      { account: 'A20', dr: 940_000, cr: 0 }, { account: 'L1', dr: 0, cr: 500_000 }, { account: 'R1', dr: 0, cr: 440_000 }]);
+      { account: 'A24', dr: 940_000, cr: 0 }, { account: 'L1', dr: 0, cr: 500_000 }, { account: 'R1', dr: 0, cr: 440_000 }]);
     // the REAL wallet router sends the credit to the borrower's withdrawable bucket
     expect(await q(`select bucket, signed_amount::bigint s from public.wallet_movements where user_id = $1`, [tenant])).toEqual([{ bucket: 'withdrawable', s: 500_000 }]);
   });
@@ -267,7 +331,7 @@ describe('Phase 4 payout (separate from approval)', () => {
     const r = await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899' });
     expect(r.out).toMatchObject({ status: 'disbursed', payout_method: 'mobile_money' });
     expect(await mapped(r.out!.payout_ledger_group_id!)).toEqual([
-      { account: 'A1', dr: 0, cr: 500_000 }, { account: 'A20', dr: 940_000, cr: 0 }, { account: 'R1', dr: 0, cr: 440_000 }]);
+      { account: 'A1', dr: 0, cr: 500_000 }, { account: 'A24', dr: 940_000, cr: 0 }, { account: 'R1', dr: 0, cr: 440_000 }]);
     expect(await q(`select count(*)::int n from public.general_ledger where transaction_group_id = $1 and ledger_scope = 'wallet'`, [r.out!.payout_ledger_group_id])).toEqual([{ n: 0 }]);
   });
 
@@ -301,13 +365,13 @@ describe('Phase 4 repayments (recorded by the CFO)', () => {
     a = (await call<Adv>(cfo, `select public.special_advance_statement($1) r`, [id])).out!;
   });
 
-  it('a part payment pays the oldest instalment, access fee first; posts DR A1 / CR A20', async () => {
+  it('a part payment pays the oldest instalment, access fee first; posts DR A1 / CR A24', async () => {
     const r = await repay(a, { amount: 200_000, reference: 'MM-REP-0001' });
     expect(r.err).toBeUndefined();
     expect(r.out!.position).toMatchObject({ total_paid: 200_000, outstanding: 740_000 });
     expect(r.out!.position.instalments.map((i) => [i.number, i.paid, i.status])).toEqual([[1, 200_000, 'part_paid'], [2, 0, 'due'], [3, 0, 'due']]);
     const rep = (await q<{ ledger_group_id: string }>(`select ledger_group_id from public.special_advance_repayments where reference = 'MM-REP-0001'`))[0];
-    expect(await mapped(rep.ledger_group_id)).toEqual([{ account: 'A1', dr: 200_000, cr: 0 }, { account: 'A20', dr: 0, cr: 200_000 }]);
+    expect(await mapped(rep.ledger_group_id)).toEqual([{ account: 'A1', dr: 200_000, cr: 0 }, { account: 'A24', dr: 0, cr: 200_000 }]);
     expect(await q(`select instalment_number, access_fee::int a, registration_fee::int g, principal::int p from public.special_advance_repayment_allocations
                     where advance_id = $1`, [a.id])).toEqual([{ instalment_number: 1, a: 200_000, g: 0, p: 0 }]);
   });
@@ -373,17 +437,17 @@ describe('Phase 4 missed instalments, reconciliation, and existing postings', ()
     expect(await q(`select count(*)::int n from public.general_ledger where category like '%late%'`)).toEqual([{ n: 0 }]);
   });
 
-  it('the A20 ledger balance equals the subledger outstanding, per advance and in total', async () => {
-    const r = (await call<{ balanced: boolean; difference: number; a20_ledger_balance: number; subledger_outstanding: number; mismatched_advances: unknown[] }>(
+  it('the A24 ledger balance equals the subledger outstanding, per advance and in total', async () => {
+    const r = (await call<{ balanced: boolean; difference: number; a24_ledger_balance: number; subledger_outstanding: number; mismatched_advances: unknown[] }>(
       cfo, `select public.special_advance_reconciliation() r`)).out!;
     expect(r).toMatchObject({ balanced: true, difference: 0, mismatched_advances: [] });
-    expect(r.a20_ledger_balance).toBe(r.subledger_outstanding);
-    expect(r.a20_ledger_balance).toBeGreaterThan(0);
+    expect(r.a24_ledger_balance).toBe(r.subledger_outstanding);
+    expect(r.a24_ledger_balance).toBeGreaterThan(0);
   });
 
-  it('reconciliation flags a stray A20 posting', async () => {
+  it('reconciliation flags a stray A24 posting', async () => {
     await db.transaction(async (tx) => {
-      await tx.query(`select public.create_ledger_transaction($1::jsonb, 'stray-a20-test-0001', false)`, [JSON.stringify([
+      await tx.query(`select public.create_ledger_transaction($1::jsonb, 'stray-a24-test-0001', false)`, [JSON.stringify([
         { ledger_scope: 'platform', direction: 'cash_out', amount: 7, category: 'special_advance_receivable', source_table: 'manual' },
         { ledger_scope: 'platform', direction: 'cash_in', amount: 7, category: 'special_advance_payout_cash', source_table: 'manual' }])]);
       await tx.query(`select set_config('request.jwt.claims', $1, true)`, [JSON.stringify({ sub: cfo, role: 'authenticated', aal: 'aal2' })]);
@@ -421,10 +485,10 @@ describe('Phase 4 rollback', () => {
     const e = await db.exec(`BEGIN;\n${PAYOUT_RB}\nCOMMIT;`).catch((x: Err) => x);
     await db.exec('ROLLBACK').catch(() => {});
     expect((e as Err).message).toMatch(/cannot unwind posted money/);
-    expect(await q(`select 1 from public.ledger_account_catalog where code = 'A20'`)).toHaveLength(1);
+    expect(await q(`select 1 from public.ledger_account_catalog where code = 'A24'`)).toHaveLength(1);
   });
 
-  it('before any posting, it restores the allowlist exactly and removes A20 and the mappings', async () => {
+  it('before any posting, it restores the allowlist exactly and removes A24 and the mappings', async () => {
     const fresh = new PGlite();
     const prev = db;
     db = fresh;
@@ -435,17 +499,187 @@ describe('Phase 4 rollback', () => {
       await db.exec(`BEGIN;\n${STORAGE}\nCOMMIT;`);
       await db.exec(`BEGIN;\n${FUNCTIONS}\nCOMMIT;`);
       const before = (await q<{ a: string[]; s: string }>(`select public.ledger_category_allowlist() a, (select prosrc from pg_proc where proname = 'ledger_category_allowlist') s`))[0];
+      const accounts0 = await q(EXISTING_ACCOUNTS_SQL), mappings0 = await q(EXISTING_MAPPINGS_SQL), meta0 = await allowlistMeta();
       await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`);
+      expect((await allowlistMeta()).config).toEqual(PROD_ALLOWLIST_CONFIG);
       await db.exec(`BEGIN;\n${PAYOUT_RB}\nCOMMIT;`);
       const after = (await q<{ a: string[]; s: string }>(`select public.ledger_category_allowlist() a, (select prosrc from pg_proc where proname = 'ledger_category_allowlist') s`))[0];
       expect(after.a).toEqual(before.a);
-      expect(after.s.replace(/\s+/g, ' ').trim()).toBe(before.s.replace(/\s+/g, ' ').trim());
+      expect(after.s).toBe(before.s); // byte for byte
+      // the restored allowlist is production's audited definition again: same fingerprint, search_path and grants
+      expect(await allowlistMeta()).toEqual(meta0);
+      expect(meta0).toMatchObject({ md5: PROD_ALLOWLIST_MD5, config: PROD_ALLOWLIST_CONFIG });
       expect(await q(`select count(*)::int n from public.ledger_account_map where category like 'special\\_advance\\_%'`)).toEqual([{ n: 0 }]);
-      expect(await q(`select count(*)::int n from public.ledger_account_catalog where code = 'A20'`)).toEqual([{ n: 0 }]);
+      expect(await q(`select count(*)::int n from public.ledger_account_catalog where code = 'A24'`)).toEqual([{ n: 0 }]);
+      // A20-A23 and their mappings were never touched
+      expect(await q(EXISTING_ACCOUNTS_SQL)).toEqual(accounts0);
+      expect(await q(EXISTING_MAPPINGS_SQL)).toEqual(mappings0);
       await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`); // re-applies cleanly
     } finally {
       await fresh.close();
       db = prev;
     }
   }, 60_000);
+
+  it('refuses to delete an A24 that is not the Special Advances account', async () => {
+    const fresh = new PGlite();
+    const prev = db;
+    db = fresh;
+    try {
+      await freshThroughPhase3();
+      await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`);
+      // someone else maps a category to A24: the rollback must refuse and change nothing
+      await db.exec(`insert into public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when)
+                     values ('platform', 'some_other_category', null, 'A24', 'cash_out')`);
+      const e = await db.exec(`BEGIN;\n${PAYOUT_RB}\nCOMMIT;`).catch((x: Err) => x);
+      await db.exec('ROLLBACK').catch(() => {});
+      expect((e as Err).message).toMatch(/A24 is not the Special Advances account/);
+      expect(await q(`select count(*)::int n from public.ledger_account_catalog where code = 'A24'`)).toEqual([{ n: 1 }]);
+      expect(await q(`select count(*)::int n from public.ledger_account_map where category like 'special\\_advance\\_%'`)).toEqual([{ n: 6 }]);
+    } finally {
+      await fresh.close();
+      db = prev;
+    }
+  }, 60_000);
+});
+
+/** A fresh database through Phase 3 with production's validators and allowlist (no Phase 4). */
+async function freshThroughPhase3() {
+  await db.exec(STANDINS);
+  await db.exec('set check_function_bodies = off;\n' + HELPERS + '\n' + REAL.join('\n') + '\n' + TRIGGER_VALIDATOR_ALLOWLIST + '\nset check_function_bodies = on;');
+  await db.exec(`create trigger trg_validate_ledger_category before insert on public.general_ledger for each row execute function public.validate_ledger_category();`);
+  for (const u of users) {
+    await db.query(`insert into auth.users values ($1)`, [u]);
+    await db.query(`insert into public.profiles (id, full_name) values ($1, 'Person')`, [u]);
+  }
+  await db.query(`insert into public.user_roles (user_id, role) values ($1,'cfo'), ($2,'coo'), ($3,'super_admin'), ($4,'tenant'), ($5,'tenant'), ($6,'agent')`, users);
+  await db.exec(ENGINE);
+  await db.exec(`BEGIN;\n${STORAGE}\nCOMMIT;`);
+  await db.exec(`BEGIN;\n${FUNCTIONS}\nCOMMIT;`);
+}
+
+describe('Phase 4 preflight safeguards (fresh databases; nothing changes on refusal)', () => {
+  async function withFresh(fn: () => Promise<void>) {
+    const fresh = new PGlite();
+    const prev = db;
+    db = fresh;
+    try { await freshThroughPhase3(); await fn(); } finally { await fresh.close(); db = prev; }
+  }
+  const refuses = async (pattern: RegExp) => {
+    const e = await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`).catch((x: Err) => x);
+    await db.exec('ROLLBACK').catch(() => {});
+    expect((e as Err)?.message).toMatch(pattern);
+    expect(await q(`select count(*)::int n from public.ledger_account_map where category like 'special\\_advance\\_%'`)).toEqual([{ n: 0 }]);
+    expect(await q(`select to_regprocedure('public.special_advance_disburse(uuid,timestamptz,jsonb)') is null gone`)).toEqual([{ gone: true }]);
+  };
+
+  it('refuses when the live allowlist body differs from the audited production definition', () => withFresh(async () => {
+    await db.exec(`CREATE OR REPLACE FUNCTION public.ledger_category_allowlist() RETURNS text[] LANGUAGE sql IMMUTABLE
+      SET search_path TO 'public', 'extensions', 'pg_temp' AS $f$ SELECT public.ledger_category_allowlist_base() || ARRAY['x']::text[]; $f$`);
+    await refuses(/differs from the audited production definition/);
+  }), 60_000);
+
+  it('refuses when the live allowlist has lost its search_path setting', () => withFresh(async () => {
+    const body = (await q<{ s: string }>(`select prosrc s from pg_proc where oid = 'public.ledger_category_allowlist()'::regprocedure`))[0].s;
+    await db.exec(`CREATE OR REPLACE FUNCTION public.ledger_category_allowlist() RETURNS text[] LANGUAGE sql IMMUTABLE AS $f$${body}$f$`);
+    expect((await allowlistMeta()).md5).toBe(PROD_ALLOWLIST_MD5);
+    await refuses(/differs from the audited production definition/);
+  }), 60_000);
+
+  it('refuses when A24 already exists (and never touches A20-A23)', () => withFresh(async () => {
+    await db.exec(`insert into public.ledger_account_catalog (code, label, section, nature, sort_order) values ('A24', 'Something else', 'current_asset', 'asset', 130)`);
+    const accounts0 = await q(EXISTING_ACCOUNTS_SQL);
+    await refuses(/account A24 already exists/);
+    expect(await q(EXISTING_ACCOUNTS_SQL)).toEqual(accounts0);
+    expect(await q(`select label from public.ledger_account_catalog where code = 'A24'`)).toEqual([{ label: 'Something else' }]);
+  }), 60_000);
+});
+
+describe('Issuance switched off: nothing can be issued or paid out', () => {
+  it('create, approve and payout are all refused while issuance_enabled = false, and nothing is written', async () => {
+    const pending = await call<Adv>(cfo, `select public.special_advance_create($1::jsonb) r`, [JSON.stringify({
+      borrower: { kind: 'welile_user', user_id: tenant }, terms: TERMS, purpose: 'Working capital for verified supplier stock',
+      expected_total_repayable: 940_000, idempotency_key: uuid() })]);
+    expect(pending.err).toBeUndefined(); // recorded while issuance is on (set up), then the switch goes off
+    const ledger0 = await q<{ n: number }>(`select count(*)::int n from public.general_ledger`);
+    const advances0 = await q<{ n: number }>(`select count(*)::int n from public.special_advances`);
+    const walletMoves0 = await q(`select count(*)::int n from public.wallet_movements where user_id = $1`, [tenant]);
+    await db.exec(`update public.special_advance_settings set issuance_enabled = false`);
+    try {
+      const created = await call<Adv>(cfo, `select public.special_advance_create($1::jsonb) r`, [JSON.stringify({
+        borrower: { kind: 'welile_user', user_id: tenant }, terms: TERMS, purpose: 'Working capital for verified supplier stock',
+        expected_total_repayable: 940_000, idempotency_key: uuid() })]);
+      expect(created.err?.message).toBe('SPECIAL_ADVANCES_DISABLED');
+      const approve = await call<Adv>(cfo, `select public.special_advance_approve($1, $2::timestamptz, null) r`, [pending.out!.id, pending.out!.updated_at]);
+      expect(approve.err?.message).toBe('SPECIAL_ADVANCES_DISABLED');
+      expect(await q(`select count(*)::int n from public.general_ledger`)).toEqual(ledger0);
+      expect(await q(`select count(*)::int n from public.special_advances`)).toEqual(advances0);
+      expect(await q(`select count(*)::int n from public.wallet_movements where user_id = $1`, [tenant])).toEqual(walletMoves0);
+    } finally {
+      await db.exec(`update public.special_advance_settings set issuance_enabled = true`);
+    }
+  });
+});
+
+describe('Staff MFA for money-moving actions (Phase 4 proposal, CFO confirmation pending)', () => {
+  const create = (borrower: string, aal = 'aal2') => call<Adv>(cfo, `select public.special_advance_create($1::jsonb) r`, [JSON.stringify({
+    borrower: { kind: 'welile_user', user_id: borrower }, terms: TERMS, purpose: 'Working capital for verified supplier stock',
+    expected_total_repayable: 940_000, idempotency_key: uuid() })], aal);
+  const count = async (sql: string, params: unknown[] = []) => (await q<{ n: number }>(sql, params))[0].n;
+
+  it('approval needs an authenticator-verified session (aal2): refused at aal1, nothing changes; allowed at aal2', async () => {
+    const p = (await create(coo)).out!;
+    const r1 = await call<Adv>(cfo, `select public.special_advance_approve($1, $2::timestamptz, null) r`, [p.id, p.updated_at], 'aal1');
+    expect(r1.err?.message).toBe('MFA_REQUIRED');
+    expect(await q(`select status from public.special_advances where id = $1`, [p.id])).toEqual([{ status: 'pending_approval' }]);
+    const r2 = await call<Adv>(cfo, `select public.special_advance_approve($1, $2::timestamptz, null) r`, [p.id, p.updated_at], 'aal2');
+    expect(r2.out?.status).toBe('approved');
+  });
+
+  it('payout needs aal2: refused at aal1 with nothing posted or credited', async () => {
+    const a = (await q<{ id: string; updated_at: string }>(`select id, updated_at::text from public.special_advances where borrower_user_id = $1 and status = 'approved'`, [coo]))[0];
+    const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
+    const r = await call<Adv>(cfo, `select public.special_advance_disburse($1, $2::timestamptz, $3::jsonb) r`,
+      [a.id, a.updated_at, JSON.stringify({ payout_date: today(), method: 'wallet' })], 'aal1');
+    expect(r.err?.message).toBe('MFA_REQUIRED');
+    expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
+    expect(await count(`select count(*)::int n from public.wallet_movements where user_id = $1`, [coo])).toBe(0);
+    expect(await q(`select status from public.special_advances where id = $1`, [a.id])).toEqual([{ status: 'approved' }]);
+  });
+
+  it('recording a repayment needs aal2: refused at aal1 with nothing recorded or posted', async () => {
+    const id = (await q<{ id: string }>(`select id from public.special_advances where borrower_user_id = $1 and status = 'disbursed'`, [agentUser]))[0].id;
+    const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
+    const reps0 = await count(`select count(*)::int n from public.special_advance_repayments`);
+    const r = await call<Adv>(cfo, `select public.special_advance_record_repayment($1, $2::jsonb) r`,
+      [id, JSON.stringify({ idempotency_key: uuid(), method: 'mobile_money', received_date: today(), amount: 1_000, reference: 'MFA-REP-0001' })], 'aal1');
+    expect(r.err?.message).toBe('MFA_REQUIRED');
+    expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
+    expect(await count(`select count(*)::int n from public.special_advance_repayments`)).toBe(reps0);
+  });
+
+  it('reject, cancel and the read-only views are unchanged at aal1 (only money-moving steps need aal2)', async () => {
+    const p = (await create(superAdmin, 'aal1')).out!;
+    expect(p.status).toBe('pending_approval'); // recording a pending agreement moves no money
+    const rej = await call<Adv>(cfo, `select public.special_advance_reject($1, $2::timestamptz, $3) r`, [p.id, p.updated_at, 'Not eligible this month'], 'aal1');
+    expect(rej.out?.status).toBe('rejected');
+    const id = (await q<{ id: string; updated_at: string }>(`select id, updated_at::text from public.special_advances where borrower_user_id = $1 and status = 'approved'`, [coo]))[0];
+    const can = await call<Adv>(cfo, `select public.special_advance_cancel($1, $2::timestamptz, $3) r`, [id.id, id.updated_at, 'Cancelled before payout'], 'aal1');
+    expect(can.out?.status).toBe('cancelled');
+    for (const sql of [`select public.special_advance_quote('{"terms":{"principal":500000,"rate_percent":28,"rate_basis":"monthly","term_days":7,"frequency":"weekly"}}'::jsonb) r`,
+      `select public.special_advance_list() r`, `select public.special_advance_reconciliation() r`]) {
+      expect((await call(cfo, sql, [], 'aal1')).err, sql).toBeUndefined();
+    }
+    expect((await call(cfo, `select public.special_advance_statement($1) r`, [p.id], 'aal1')).err).toBeUndefined();
+  });
+
+  it('the CFO-only rule still applies at aal2, and the global staff MFA mode is not changed by Phase 4', async () => {
+    const id = (await q<{ id: string }>(`select id from public.special_advances where borrower_user_id = $1 and status = 'disbursed'`, [agentUser]))[0].id;
+    const r = await call(coo, `select public.special_advance_record_repayment($1, $2::jsonb) r`,
+      [id, JSON.stringify({ idempotency_key: uuid(), method: 'mobile_money', received_date: today(), amount: 1_000, reference: 'MFA-REP-0002' })], 'aal2');
+    expect(r.err?.message).toBe('NOT_AUTHORIZED');
+    expect(await q(`select mode from public.staff_mfa_config where id`)).toEqual([{ mode: 'shadow' }]);
+    expect(await q(`select has_function_privilege('authenticated', 'public._special_advance_require_mfa()', 'EXECUTE') a,
+                           has_function_privilege('anon', 'public._special_advance_guard_mfa()', 'EXECUTE') b`)).toEqual([{ a: false, b: false }]);
+  });
 });
