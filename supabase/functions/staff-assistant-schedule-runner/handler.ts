@@ -362,7 +362,7 @@ export async function runStaffAssistantSchedules(
             generated_at: nowIso,
             how_counted: "Sign-in required in My Space (two-step verification required for sensitive report figures).",
             sign_in_only: true,
-            sign_in_url: "https://welilereceipts.com/me/zoe",
+            sign_in_url: "https://welileapp.com/me/zoe",
             template_display_name: ZOE_REPORT_EMAIL_DISPLAY_NAME,
           },
         });

@@ -59,7 +59,8 @@ export interface ZoeCrmConversationRow {
   has_thumbs_down: boolean;
   has_unanswered: boolean;
   last_user_question: string | null;
-  last_assistant_reply: string | null;
+  last_outcome?: string | null;
+  last_tools_called?: string[];
 }
 
 export type ZoeUnansweredStatus = 'open' | 'reviewed' | 'planned' | 'dismissed';
@@ -109,13 +110,18 @@ export interface ZoeCrmDashboardData {
 export interface ZoeCrmThreadMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
-  content: string;
-  tool_calls: Array<{ name?: string; args?: Record<string, unknown> }>;
+  /** User question text for `role === 'user'`; always `null` (redacted) for `role === 'assistant'`. */
+  content: string | null;
+  content_redacted?: boolean;
+  outcome?: string | null;
+  tools_called?: string[];
+  source_label?: string | null;
+  period_label?: string | null;
+  tool_calls: Array<{ name?: string }>;
   tool_results_summary: Array<{
     name?: string;
     source?: string;
     period?: string;
-    row_count?: number;
   }>;
   sources: Array<{
     tool?: string;
@@ -169,7 +175,8 @@ export function filterZoeConversations(
         conv.staff_phone,
         conv.title ?? '',
         conv.last_user_question ?? '',
-        conv.last_assistant_reply ?? '',
+        conv.last_outcome ?? '',
+        ...(conv.last_tools_called ?? []),
         ...conv.staff_roles,
       ]
         .join(' ')

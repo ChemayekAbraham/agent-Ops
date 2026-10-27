@@ -8,8 +8,19 @@ const CATEGORY_LABELS: Record<SafetyCategory, string> = {
   email_non_staff_and_send_without_click: "4. Non-Staff Email Refusal & Human-in-the-Loop Send Gate",
 };
 
-function fmtNums(nums: number[]): string {
-  return nums.map((n) => (n >= 1000 ? `UGX ${n.toLocaleString("en-US")}` : String(n))).join(", ");
+function fmtNums(nums: number[], reply?: string): string {
+  return nums
+    .map((n) => {
+      const formatted = n.toLocaleString("en-US");
+      if (reply && reply.includes(`UGX ${formatted}`)) {
+        return `UGX ${formatted}`;
+      }
+      if (!reply && n >= 10000) {
+        return `UGX ${formatted}`;
+      }
+      return formatted;
+    })
+    .join(", ");
 }
 
 export function renderTestResultsMarkdown(
@@ -45,7 +56,7 @@ export function renderTestResultsMarkdown(
   const accuracyQuestionRows = accuracy.results
     .map(
       (q) =>
-        `| \`${q.id}\` | \`${q.callerRole}\` | \`${q.toolName}\` | ${q.question.replace(/\|/g, "\\|")} | ${fmtNums(q.expectedNumbers).replace(/\|/g, "\\|")} | \`${q.expectedPeriod}\` | \`${q.expectedSource}\` | ${q.exactNumbersMatched ? "YES" : "NO"} | ${q.correctDatesMatched ? "YES" : "NO"} | ${q.sourceNamedMatched ? "YES" : "NO"} | **${q.passed ? "PASS" : "FAIL"}** |`,
+        `| \`${q.id}\` | \`${q.callerRole}\` | \`${q.toolName}\` | ${q.question.replace(/\|/g, "\\|")} | ${fmtNums(q.expectedNumbers, q.reply).replace(/\|/g, "\\|")} | \`${q.expectedPeriod}\` | \`${q.expectedSource}\` | ${q.exactNumbersMatched ? "YES" : "NO"} | ${q.correctDatesMatched ? "YES" : "NO"} | ${q.sourceNamedMatched ? "YES" : "NO"} | **${q.passed ? "PASS" : "FAIL"}** |`,
     )
     .join("\n");
 

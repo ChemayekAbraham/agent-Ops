@@ -560,11 +560,31 @@ export function ZoeConversationsPanel() {
                         </p>
                       )}
 
-                      {conv.last_assistant_reply && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          <span className="font-medium">Zoe: </span>
-                          {conv.last_assistant_reply}
-                        </p>
+                      {(conv.last_outcome ||
+                        (Array.isArray(conv.last_tools_called) &&
+                          conv.last_tools_called.length > 0)) && (
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          {conv.last_outcome && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs py-0"
+                              data-testid={`zoe-card-outcome-${conv.id}`}
+                            >
+                              Outcome: {conv.last_outcome}
+                            </Badge>
+                          )}
+                          {Array.isArray(conv.last_tools_called) &&
+                            conv.last_tools_called.map((toolName) => (
+                              <Badge
+                                key={`${conv.id}-tool-${toolName}`}
+                                variant="secondary"
+                                className="text-xs py-0 gap-1"
+                              >
+                                <Wrench className="h-3 w-3" />
+                                {toolName}
+                              </Badge>
+                            ))}
+                        </div>
                       )}
                     </div>
 
@@ -894,94 +914,147 @@ export function ZoeConversationsPanel() {
                 No messages in this conversation.
               </p>
             ) : (
-              (threadQuery.data ?? []).map((msg) => (
-                <div
-                  key={msg.id}
-                  data-testid={`zoe-thread-message-${msg.id}`}
-                  className={`rounded-lg p-3 text-xs space-y-1.5 ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-primary-foreground ml-6'
-                      : 'bg-muted mr-4'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 opacity-75">
-                    <span className="font-semibold uppercase">
-                      {msg.role === 'user' ? 'Staff' : 'Zoe'}
-                    </span>
-                    <span>{new Date(msg.created_at).toLocaleString()}</span>
-                  </div>
+              (threadQuery.data ?? []).map((msg) => {
+                const toolNames =
+                  Array.isArray(msg.tools_called) && msg.tools_called.length > 0
+                    ? msg.tools_called
+                    : Array.isArray(msg.tool_calls)
+                      ? msg.tool_calls
+                          .map((tc) => tc.name)
+                          .filter((n): n is string => Boolean(n))
+                      : [];
+                const outcomeLabel =
+                  msg.outcome ??
+                  (msg.unanswered_reason
+                    ? 'unanswered'
+                    : msg.error_code
+                      ? 'error'
+                      : 'answered');
 
-                  <p className="whitespace-pre-wrap leading-relaxed">
-                    {msg.content}
-                  </p>
-
-                  {Array.isArray(msg.tool_calls) &&
-                    msg.tool_calls.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {msg.tool_calls.map((tc, i) => (
-                          <Badge
-                            key={`${msg.id}-tc-${i}`}
-                            variant="outline"
-                            className="text-xs gap-1"
-                          >
-                            <Wrench className="h-3 w-3" />
-                            {tc.name ?? 'tool'}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                  {Array.isArray(msg.sources) && msg.sources.length > 0 && (
-                    <div className="text-xs opacity-80 pt-1">
-                      {msg.sources.map((src, idx) => (
-                        <div key={`${msg.id}-src-${idx}`}>
-                          Source: {src.source ?? src.tool ?? 'Official Report'}
-                          {src.period ? ` · ${src.period}` : ''}
-                        </div>
-                      ))}
+                return (
+                  <div
+                    key={msg.id}
+                    data-testid={`zoe-thread-message-${msg.id}`}
+                    className={`rounded-lg p-3 text-xs space-y-1.5 ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-primary-foreground ml-6'
+                        : 'bg-muted mr-4'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 opacity-75">
+                      <span className="font-semibold uppercase">
+                        {msg.role === 'user' ? 'Staff' : 'Zoe (Metadata Only)'}
+                      </span>
+                      <span>{new Date(msg.created_at).toLocaleString()}</span>
                     </div>
-                  )}
 
-                  {/* Feedback & Unanswered Badges on Assistant Reply */}
-                  {msg.role === 'assistant' &&
-                    (msg.feedback_rating !== null ||
-                      msg.unanswered_reason !== null) && (
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/50">
-                        {msg.feedback_rating === 1 && (
-                          <Badge
-                            variant="secondary"
-                            className="text-xs gap-1 text-emerald-700"
-                          >
-                            <ThumbsUp className="h-3 w-3" />
-                            Helpful
-                          </Badge>
-                        )}
-                        {msg.feedback_rating === -1 && (
-                          <Badge
-                            variant="destructive"
-                            className="text-xs gap-1"
-                          >
-                            <ThumbsDown className="h-3 w-3" />
-                            Thumbs-down
-                            {msg.feedback_comment
-                              ? `: ${msg.feedback_comment}`
-                              : ''}
-                          </Badge>
-                        )}
-                        {msg.unanswered_reason && (
+                    {msg.role === 'user' ? (
+                      <p className="whitespace-pre-wrap leading-relaxed">
+                        {msg.content}
+                      </p>
+                    ) : (
+                      <div
+                        data-testid={`zoe-thread-redacted-${msg.id}`}
+                        className="rounded border border-border/60 bg-background/70 px-2.5 py-2 space-y-1.5 text-foreground"
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <Badge
                             variant="outline"
-                            className="text-xs gap-1 border-amber-500/40 text-amber-700"
+                            className="text-xs"
+                            data-testid={`zoe-thread-outcome-${msg.id}`}
                           >
-                            <CheckCircle2 className="h-3 w-3" />
-                            Zoe could not answer (
-                            {msg.unanswered_reason.replace(/_/g, ' ')})
+                            Outcome: {outcomeLabel}
                           </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            Answer text &amp; report figures redacted for role privacy
+                          </span>
+                        </div>
+
+                        {toolNames.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {toolNames.map((name, i) => (
+                              <Badge
+                                key={`${msg.id}-tc-${i}`}
+                                variant="outline"
+                                className="text-xs gap-1"
+                              >
+                                <Wrench className="h-3 w-3" />
+                                {name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+
+                        {(msg.source_label ||
+                          msg.period_label ||
+                          (Array.isArray(msg.sources) &&
+                            msg.sources.length > 0)) && (
+                          <div className="text-xs text-muted-foreground pt-0.5">
+                            {msg.source_label ? (
+                              <div>
+                                Source: {msg.source_label}
+                                {msg.period_label
+                                  ? ` · ${msg.period_label}`
+                                  : ''}
+                              </div>
+                            ) : (
+                              msg.sources.map((src, idx) => (
+                                <div key={`${msg.id}-src-${idx}`}>
+                                  Source:{' '}
+                                  {src.source ?? src.tool ?? 'Official Report'}
+                                  {src.period ? ` · ${src.period}` : ''}
+                                </div>
+                              ))
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
-                </div>
-              ))
+
+                    {/* Feedback & Unanswered Badges on Assistant Reply */}
+                    {msg.role === 'assistant' &&
+                      (msg.feedback_rating !== null ||
+                        msg.unanswered_reason !== null) && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/50">
+                          {msg.feedback_rating === 1 && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs gap-1 text-emerald-700"
+                            >
+                              <ThumbsUp className="h-3 w-3" />
+                              Helpful
+                              {msg.feedback_comment
+                                ? `: ${msg.feedback_comment}`
+                                : ''}
+                            </Badge>
+                          )}
+                          {msg.feedback_rating === -1 && (
+                            <Badge
+                              variant="destructive"
+                              className="text-xs gap-1"
+                            >
+                              <ThumbsDown className="h-3 w-3" />
+                              Thumbs-down
+                              {msg.feedback_comment
+                                ? `: ${msg.feedback_comment}`
+                                : ''}
+                            </Badge>
+                          )}
+                          {msg.unanswered_reason && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs gap-1 border-amber-500/40 text-amber-700"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              Zoe could not answer (
+                              {msg.unanswered_reason.replace(/_/g, ' ')})
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                  </div>
+                );
+              })
             )}
           </div>
         </SheetContent>

@@ -382,7 +382,7 @@ export async function handleStaffAssistantSendEmail(
         error:
           "Refused: that colleague's role does not have permission to view this report. You may share a sign-in link to My Space instead of attaching the report data.",
         code: "RECIPIENT_ROLE_RESTRICTED",
-        sign_in_url: "https://welilereceipts.com/me/zoe",
+        sign_in_url: "https://welileapp.com/me/zoe",
       },
     };
   }

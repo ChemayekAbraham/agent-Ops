@@ -52,7 +52,7 @@ export function ZoeReportSharedEmail({
   how_counted = 'Counted directly from official read-only server records.',
   attachment_filename = 'Welile-Zoe-Report.pdf',
   sign_in_only = false,
-  sign_in_url = 'https://welilereceipts.com/me/zoe',
+  sign_in_url = 'https://welileapp.com/me/zoe',
   logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
 }: ZoeReportSharedProps) {
   return (
