@@ -47,6 +47,19 @@ describe('parseAgentVetting', () => {
     expect(v.gps_rules).toEqual({ max_accuracy_m: 100, max_drift_m: 200, max_age_minutes: 10 });
   });
 
+  it("keeps the agent's chosen ID source while that ID is not finished", () => {
+    const waiting = parseAgentVetting(raw({
+      national_id: { ok: false, reason: 'Ask to be linked to your parent agent\'s National ID.', chosen_source: 'parent', can_use_parent: true },
+    }));
+    expect(waiting.national_id.source).toBe('parent');
+    expect(waiting.national_id.ok).toBe(false);
+    // Once the check passes, the checked source wins.
+    const passed = parseAgentVetting(raw({ national_id: { ok: true, source: 'own', chosen_source: 'parent' } }));
+    expect(passed.national_id.source).toBe('own');
+    // Nothing chosen yet.
+    expect(parseAgentVetting(raw({ national_id: { ok: false, chosen_source: null } })).national_id.source).toBeNull();
+  });
+
   it('treats unknown statuses as unverified', () => {
     expect(parseAgentVetting(raw({ status: 'approved' })).status).toBe('unverified');
   });
