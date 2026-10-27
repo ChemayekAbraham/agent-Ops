@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -294,12 +295,8 @@ async function resolveSearchUserIds(term: string): Promise<string[]> {
   const t = sanitizeOrTerm(term);
   // Only search once at least 3 characters are typed (keeps the scan indexed and small).
   if (!t || t.length < 3) return [];
-  const { data } = await supabase
-    .from('profiles')
-    .select('id')
-    .or(`full_name.ilike.*${t}*,phone.ilike.*${t}*`)
-    .limit(100);
-  return (data || []).map((p: any) => p.id);
+  const { rows } = await searchProfilesTypeahead(t, { limit: 50, columns: 'id' });
+  return rows.map((p) => p.id);
 }
 
 /** Fetch ids of all currently-frozen accounts so their payouts are hidden. */

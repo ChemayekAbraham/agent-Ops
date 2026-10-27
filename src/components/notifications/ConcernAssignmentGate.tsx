@@ -7,8 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Loader2, MessageSquareWarning, PhoneCall, Users } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { useMyPendingConcerns, useAcknowledgeConcerns } from '@/hooks/useMyPendingConcerns';
 import { CONCERN_PRIORITY_LABEL, CONCERN_STATUS_LABEL } from '@/hooks/useCallingConcerns';
 
@@ -46,18 +45,18 @@ const priorityTone = (priority: string) =>
     : 'border-border bg-muted text-muted-foreground';
 
 export function ConcernAssignmentGate() {
-  const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   const navigate = useNavigate();
-  const { data: pending = [], refetch } = useMyPendingConcerns(!!user?.id);
+  const { data: pending = [], refetch } = useMyPendingConcerns(signedIn);
   const acknowledge = useAcknowledgeConcerns();
   const [open, setOpen] = useState(false);
   const openedOnceRef = useRef(false);
 
   // Keep the list current: a new hand-off, or being added to an existing
   // concern, writes a cc_concern_reviewers row for this person. Polled every
-  // 60s (+ on focus); the old Realtime listener was on cc_concern_reviewers,
-  // which is not in the publication, so it never fired (doc 147).
-  usePolling(() => refetch(), 60_000, { enabled: !!user?.id });
+  // 60s (+ on focus) and stopped on sign-out. The old Realtime listener was
+  // on cc_concern_reviewers, which is not in the publication (doc 147).
+  usePolling(() => refetch(), 60_000, { enabled: signedIn });
 
   // Open on first discovery (login, and again after every refresh while
   // anything is still open), then keep re-opening on a timer for as long as
@@ -84,7 +83,7 @@ export function ConcernAssignmentGate() {
     navigate('/me/concerns');
   };
 
-  if (!user?.id || pending.length === 0) return null;
+  if (!signedIn || pending.length === 0) return null;
 
   const many = pending.length > 1;
 

@@ -141,6 +141,8 @@ async function endSession(reason: string): Promise<void> {
   endingSession = true;
   console.warn('[Auth] session ended —', reason);
   lt.mark('auth.session_ended', { reason }, 'warn');
+  // The JWT is about to disappear. A cached id on the next anon insert is an RLS reject.
+  lt.setUserId(null);
   try { clearSessionCache(); clearAllAuthStorage(); } catch { /* ignore */ }
   try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
   if (isPublicPath(window.location.pathname)) {
@@ -170,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(initialRoles.includes('supporter') ? 'supporter' : initialRoles[0]);
   const [roles, setRoles] = useState<AppRole[]>(initialRoles);
   const rolesRef = useRef<AppRole[]>(initialRoles);
+  // Real enabled rows only. Starts empty: the cached role list includes a
+  // synthetic agent, and the inbox must not use that before the database answers.
+  const [enabledRoles, setEnabledRoles] = useState<AppRole[]>([]);
+  const enabledRolesRef = useRef<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
   // Whether the role list reflects a definitive database answer. A transient
   // failure right after sign-in leaves this false, and routing must NOT treat
@@ -181,6 +187,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rolesRef.current = newRoles;
     // same roles = same array, so nothing that depends on the list starts over
     setRoles(keepRoles(newRoles));
+  };
+  const setEnabledRolesWithRef = (next: AppRole[]) => {
+    enabledRolesRef.current = next;
+    setEnabledRoles(keepRoles(next));
   };
 
   useEffect(() => {
@@ -208,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(keepSession(fresh));
         setUser(keepUser(fresh.user));
         setCachedSession(fresh.user.id, fresh.user.email || '', fresh.expires_at || 0);
-        fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole, setRolesResolved).catch(() => { /* ignore */ });
+        fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).catch(() => { /* ignore */ });
       }).catch(() => { /* ignore */ });
     };
     window.addEventListener(STALE_SESSION_EVENTS.rehydrated, onRehydrated as EventListener);
@@ -275,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // parsed copy; keep the object already held unless the user or the sign-in really changed, so nothing
         // that depends on it starts over and no dashboard is thrown away and rebuilt.
         if (session) {
+          lt.setUserId(session.user.id);
           setSession(keepSession(session));
           setUser(keepUser(session.user));
         } else if (event === 'SIGNED_OUT' && !isSignOutSuppressed()) {
@@ -298,7 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // the user stays logged in but no data ever loads.
             const uid = session.user.id;
             setTimeout(() => {
-              fetchUserRoles(uid, role, setRolesWithRef, setRole, setRolesResolved);
+              fetchUserRoles(uid, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
             }, 0);
           }
 
@@ -362,9 +373,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.warn('[Auth] SIGNED_OUT ignored — auth-critical action in progress');
             return;
           }
+          lt.setUserId(null);
           rolesFetched = false;
           setRole(null);
           setRolesWithRef([]);
+          setEnabledRolesWithRef([]);
           setRolesResolved(true);
           clearSessionCache();
           // If the sign-out was triggered by an expired/invalid token (not by
@@ -405,9 +418,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let earlyRoleFetch: Promise<void> | null = null;
       if (cachedSession?.userId && !rolesFetched) {
         rolesFetched = true;
-        lt.setUserId(cachedSession.userId);
+        // Do not stamp login_phase_events with the cached id yet. The cache
+        // outlives the JWT; the upload path reads the live session instead.
         lt.mark('auth.roles.early_fetch.start', { userId: cachedSession.userId });
-        earlyRoleFetch = fetchUserRoles(cachedSession.userId, role, setRolesWithRef, setRole, setRolesResolved).then(() => {});
+        earlyRoleFetch = fetchUserRoles(cachedSession.userId, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef).then(() => {});
         earlyRoleFetch.finally(() => lt.mark('auth.roles.early_fetch.end'));
       }
 
@@ -427,10 +441,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (isAuthError) {
             console.warn('[Auth] Auth token invalid, clearing:', error.message);
             clearAllAuthStorage();
+            lt.setUserId(null);
             setSession(null);
             setUser(null);
             setRole(null);
             setRolesWithRef([]);
+            setEnabledRolesWithRef([]);
           } else if (isNetworkError) {
             console.warn('[Auth] Network error during session restore — proceeding offline:', error.message);
           } else {
@@ -472,7 +488,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else if (!rolesFetched) {
               rolesFetched = true;
               const stopRoles = lt.start('auth.roles.fetch', { userId: session.user.id });
-              const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved);
+              const rolePromise = fetchUserRoles(session.user.id, role, setRolesWithRef, setRole, setRolesResolved, setEnabledRolesWithRef);
               const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, 5000));
               await Promise.race([rolePromise, timeoutPromise]);
               stopRoles();
@@ -480,6 +496,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           } else if (cachedSession) {
             // No error and no session means supabase-js holds no session at all (a failed refresh has already
             // removed it). Keeping the cached identity left people on a dashboard where nothing loaded.
+            lt.setUserId(null);
             lt.mark('auth.init.null_session_cached');
             setSession(null);
             setUser(null);
@@ -488,6 +505,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(null);
             setUser(null);
             clearSessionCache();
+            lt.setUserId(null);
             lt.mark('auth.init.no_session');
           }
         }
@@ -562,17 +580,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const rememberGrantedRole = (newRole: AppRole) => {
+    if (enabledRolesRef.current.includes(newRole)) return;
+    setEnabledRolesWithRef([...enabledRolesRef.current, newRole].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+  };
+
   const addRole = async (newRole: AppRole) => {
     if (!user) return { error: new Error('No user logged in') };
-    return addRoleForUser(user.id, newRole, rolesRef.current, role, setRolesWithRef, setRole);
+    const result = await addRoleForUser(user.id, newRole, rolesRef.current, role, setRolesWithRef, setRole);
+    if (!result.error && result.granted) rememberGrantedRole(newRole);
+    return result;
   };
 
   /** Atomically grant a role (if missing) and switch to it */
   const grantAndSwitchRole = async (newRole: AppRole) => {
     if (!user) return { error: new Error('No user logged in') };
     if (!rolesRef.current.includes(newRole)) {
-      const { error } = await addRoleForUser(user.id, newRole, rolesRef.current, role, setRolesWithRef, setRole);
-      if (error) return { error };
+      const result = await addRoleForUser(user.id, newRole, rolesRef.current, role, setRolesWithRef, setRole);
+      if (result.error) return { error: result.error };
+      if (result.granted) rememberGrantedRole(newRole);
     }
     // At this point rolesRef is already updated by setRolesWithRef
     setRole(newRole);
@@ -590,6 +616,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setRole(null);
     setRolesWithRef([]);
+    setEnabledRolesWithRef([]);
     clearSessionCache();
   };
 
@@ -603,7 +630,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user, session, role, roles, loading, rolesResolved,
+        user, session, role, roles, enabledRoles, loading, rolesResolved,
         signUp: ops.signUp,
         signUpWithoutRole: ops.signUpWithoutRole,
         signIn: ops.signIn,

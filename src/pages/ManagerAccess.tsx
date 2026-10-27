@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -213,12 +214,13 @@ export default function ManagerAccess() {
       const results: SearchResult[] = [];
 
       try {
-        // Search users
-        const { data: users } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone, email, created_at')
-          .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
-          .limit(5);
+        // Search users once the term can use a trigram / phone last-9 lookup.
+        const users = query.length >= PROFILE_TYPEAHEAD_MIN_CHARS
+          ? (await searchProfilesTypeahead(query, {
+              limit: 5,
+              columns: 'id, full_name, phone, email, created_at',
+            })).rows
+          : [];
 
         users?.forEach(u => {
           results.push({

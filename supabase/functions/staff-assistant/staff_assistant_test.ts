@@ -1,12 +1,29 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
 } from "./actionDrafts.ts";
+import {
+  areComputeInputsFromConversationTools,
+  runSafeCompute,
+} from "./calculator.ts";
 import { currentWednesdayWeekStart, kampalaToday, resolvePeriod } from "./dates.ts";
 import { checkAnswer, checkDraftCardText } from "./guards.ts";
 import { handleStaffAssistantRequest } from "./index.ts";
+import {
+  isConversationalPromptAllowedWithoutTool,
+  searchStaffManualHelp,
+} from "./manualHelp.ts";
+import {
+  appendMemoryEntries,
+  buildFollowUpSuggestions,
+  buildMemoryEntryFromToolResult,
+  extractChartFromReportPayload,
+  formatConversationMemoryForPrompt,
+  statusLineForTool,
+} from "./memory.ts";
 import { MSG } from "./messages.ts";
 import {
   buildMorningBriefForCaller,
@@ -22,7 +39,8 @@ import {
   DEFAULT_ZOE_MODEL,
 } from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
-import { cleanMessage, RequestSchema } from "./schemas.ts";
+import { cleanMessage, MAX_MESSAGE_CHARS, RequestSchema } from "./schemas.ts";
+import { RECENT_HISTORY_MESSAGES } from "./store.ts";
 import {
   canUseTool,
   findTool,
@@ -233,8 +251,8 @@ Deno.test("request: bad ids, empty and oversized messages are rejected", () => {
 
 // ---- tool registry & role filtering ---------------------------------------------------------
 
-Deno.test("tools: all 43 assistant_staff_* tools are registered", () => {
-  assertEquals(STAFF_TOOLS.length, 43);
+Deno.test("tools: all 59 assistant_staff_* tools are registered", () => {
+  assertEquals(STAFF_TOOLS.length, 59);
   for (const t of STAFF_TOOLS) {
     assert(/^assistant_staff_[a-z_]+$/.test(t.rpc), `${t.name} -> ${t.rpc}`);
   }
@@ -256,73 +274,85 @@ Deno.test("tools: no tool exposes an identity parameter", () => {
 });
 
 Deno.test("tools: role filtering offers only tools permitted for the caller's roles", () => {
-  // Employee with no department ops role gets only the 10 personal My Space tools
+  // Employee with no department ops role gets only the 11 personal My Space tools
   const employeeTools = toolsForRoles(["employee"]).map((t) => t.name);
-  assertEquals(employeeTools.length, 10);
+  assertEquals(employeeTools.length, 11);
   assert(employeeTools.every((name) => name.startsWith("get_my_")));
   assert(employeeTools.includes("get_my_reminders_and_schedules"));
+  assert(employeeTools.includes("get_my_calls"));
 
-  // Tenant Ops staff gets 10 My Space + 8 Tenant Ops + silent collectors + calling detailed report (20 total)
+  // Tenant Ops staff gets 11 My Space + 12 Tenant Ops + silent collectors + calling detailed report + 3 advisor tools (28 total)
   const topsTools = toolsForRoles(["tenant_ops"]).map((t) => t.name);
-  assertEquals(topsTools.length, 20);
+  assertEquals(topsTools.length, 28);
   assert(topsTools.includes("get_tops_arrears_ageing"));
   assert(topsTools.includes("get_aops_silent_collectors"));
   assert(topsTools.includes("get_hr_calling_detailed_report"));
+  assert(topsTools.includes("get_insight_desk_wait_times"));
+  assert(topsTools.includes("get_insight_collection_coverage_trends"));
+  assert(topsTools.includes("get_insight_calling_reach_and_themes"));
+  assert(!topsTools.includes("get_insight_payout_delays"));
   assert(!topsTools.includes("get_lops_paid_lists"));
   assert(!topsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Landlord Ops staff gets 10 My Space + 5 Landlord Ops + calling detailed report (16 total)
+  // Landlord Ops staff gets 11 My Space + 6 Landlord Ops + calling detailed report + 2 advisor tools (20 total)
   const lopsTools = toolsForRoles(["landlord_ops"]).map((t) => t.name);
-  assertEquals(lopsTools.length, 16);
+  assertEquals(lopsTools.length, 20);
   assert(lopsTools.includes("get_lops_home_range"));
   assert(lopsTools.includes("get_lops_paid_lists"));
   assert(lopsTools.includes("get_lops_principal_comparison"));
+  assert(lopsTools.includes("get_insight_calling_reach_and_themes"));
+  assert(lopsTools.includes("get_insight_payout_delays"));
   assert(!lopsTools.includes("get_tops_arrears_ageing"));
   assert(!lopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Agent Ops staff gets 10 My Space + 4 Agent Ops tools (14 total)
+  // Agent Ops staff gets 11 My Space + 5 Agent Ops + 2 advisor tools (18 total)
   const aopsTools = toolsForRoles(["agent_ops"]).map((t) => t.name);
-  assertEquals(aopsTools.length, 14);
+  assertEquals(aopsTools.length, 18);
   assert(aopsTools.includes("get_aops_metrics_totals"));
   assert(aopsTools.includes("get_aops_metrics_agents"));
   assert(aopsTools.includes("get_aops_listing_quality_and_risk"));
   assert(aopsTools.includes("get_aops_silent_collectors"));
+  assert(aopsTools.includes("get_insight_desk_wait_times"));
+  assert(aopsTools.includes("get_insight_collection_coverage_trends"));
   assert(!aopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Partner Ops staff gets 10 My Space + 4 Partner Ops / PSO tools (14 total)
+  // Partner Ops staff gets 11 My Space + 6 Partner Ops / PSO tools (17 total)
   const popsTools = toolsForRoles(["partner_ops"]).map((t) => t.name);
-  assertEquals(popsTools.length, 14);
+  assertEquals(popsTools.length, 17);
   assert(popsTools.includes("get_pops_pending_summary"));
   assert(popsTools.includes("get_pops_report_overview"));
   assert(popsTools.includes("get_pops_search_supporters"));
   assert(popsTools.includes("get_pso_cohort_performance"));
   assert(!popsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Financial Ops staff gets 10 My Space + principal comparison + partner report + 4 finance tools (16 total)
+  // Financial Ops staff gets 11 My Space + principal comparison + partner report + 6 finance tools + payout delays insight (20 total)
   const fopsTools = toolsForRoles(["financial_ops"]).map((t) => t.name);
-  assertEquals(fopsTools.length, 16);
+  assertEquals(fopsTools.length, 20);
   assert(fopsTools.includes("get_cfo_treasury_cash_position"));
   assert(fopsTools.includes("get_cfo_receivables_and_payables"));
   assert(fopsTools.includes("get_cfo_seven_day_expenses"));
   assert(fopsTools.includes("get_fops_verification_and_requisitions"));
+  assert(fopsTools.includes("get_insight_payout_delays"));
   assert(!fopsTools.includes("get_cfo_money_flow_summary"));
 
-  // HR staff gets 10 My Space + 2 Landlord CC + PSO + 3 HR tools (16 total)
+  // HR staff gets 11 My Space + 2 Landlord CC + PSO + 3 HR tools + calling insight (18 total)
   const hrTools = toolsForRoles(["hr"]).map((t) => t.name);
-  assertEquals(hrTools.length, 16);
+  assertEquals(hrTools.length, 18);
   assert(hrTools.includes("get_lops_calling_summary"));
   assert(hrTools.includes("get_hr_calling_detailed_report"));
   assert(hrTools.includes("get_hr_contracts_and_birthdays"));
   assert(hrTools.includes("get_hr_payroll_cost_by_department"));
+  assert(hrTools.includes("get_insight_calling_reach_and_themes"));
   assert(!hrTools.includes("get_lops_paid_lists"));
 
-  // OpenAI tool list includes ask_clarification + 4 draft tools + role-filtered tools
+  // OpenAI tool list includes ask_clarification + manual_help + compute + 5 draft tools + role-filtered tools
   const employeeOpenAiTools = openAiToolsForRoles(["employee"]);
-  assertEquals(employeeOpenAiTools.length, 15);
+  assertEquals(employeeOpenAiTools.length, 19);
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_report_email"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_reminder"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_staff_notification"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_report_schedule"));
+  assert(employeeOpenAiTools.some((t) => t.function.name === "draft_welile_idea"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "ask_clarification"));
 });
 
@@ -334,6 +364,7 @@ Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2
       "get_aops_listing_quality_and_risk",
       "get_aops_metrics_agents",
       "get_aops_silent_collectors",
+      "get_aops_subagent_teams",
       "get_ceo_growth_and_approvals",
       "get_cfo_budget_revised_position",
       "get_cfo_money_flow_summary",
@@ -341,17 +372,23 @@ Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2
       "get_cfo_seven_day_expenses",
       "get_cfo_treasury_cash_position",
       "get_coo_overview",
+      "get_fops_disbursements",
+      "get_fops_merchant_cashouts",
       "get_fops_verification_and_requisitions",
       "get_hr_calling_detailed_report",
       "get_hr_payroll_cost_by_department",
+      "get_insight_payout_delays",
       "get_lops_paid_lists",
       "get_lops_principal_comparison",
       "get_my_advances",
       "get_my_payslips",
       "get_my_wallet",
       "get_pops_report_overview",
+      "get_pops_returns_due",
       "get_pops_search_supporters",
+      "get_pops_topups_and_withdrawals_waiting",
       "get_tops_arrears_ageing",
+      "get_tops_find_tenant",
       "get_tops_landlord_not_paid",
       "get_tops_no_payment_report",
     ],
@@ -359,6 +396,7 @@ Deno.test("tools: sensitive tools are marked sensitive=true for requireStaffAal2
   assertEquals(findTool("get_my_tasks")?.sensitive, false);
   assertEquals(findTool("get_my_payslips")?.sensitive, true);
   assertEquals(findTool("get_cfo_treasury_cash_position")?.sensitive, true);
+  assertEquals(findTool("get_insight_payout_delays")?.sensitive, true);
 });
 
 Deno.test("tools: argument validation rejects unknown keys and maps RPC parameters cleanly", () => {
@@ -571,8 +609,9 @@ Deno.test("security: AI tool list contains zero tools that write or send directl
   ];
   const openAiTools = openAiToolsForRoles(allRoles);
 
-  // 43 read-only report tools + 1 clarification tool + 4 draft-only tools = 48
-  assertEquals(openAiTools.length, 48);
+  // 54 read-only report tools + compute + get_staff_manual_help + ask_clarification + 4 draft-only tools = 61
+  assertEquals(STAFF_TOOLS.length, 54);
+  assertEquals(openAiTools.length, 61);
 
   const forbiddenWritePrefixes = /^(create|insert|update|delete|drop|alter|approve|reject|send|transfer|post|debit|credit|cancel|write|mutate)_/i;
 
@@ -1172,4 +1211,286 @@ Deno.test("real handler: answering, refusing wrong role, two-step login, rate li
   const msgs = histRes.json.messages as Array<Record<string, unknown>>;
   assertEquals(msgs[0].content, MSG.historyRoleRestricted);
   assertEquals(msgs[0].report_payload, null);
+});
+
+// ---- Prompt 3: Conversation, Memory, Safe Calculator, Streaming, Rich Answers & Coverage ----
+
+Deno.test("prompt 3: conversation mode allows greetings/thanks/capabilities/explanations without tools and still checks figures", () => {
+  assertEquals(isConversationalPromptAllowedWithoutTool("Hello Zoe!"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("Thanks a lot"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("What can you do for me?"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("Can you explain that?"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("How do I submit a staff requisition?"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("What is our treasury cash position today?"), false);
+
+  // Staff manual help searches docs/ and staff manuals
+  const reqHelp = searchStaffManualHelp("how do I submit a requisition");
+  assert(reqHelp.source.includes("Welile Staff Manual"));
+  assert(reqHelp.matches.length >= 1);
+  assert(reqHelp.matches[0].guide.length > 20);
+});
+
+Deno.test("prompt 3: safe calculator compute tool only accepts numbers from conversation tool outputs", () => {
+  const toolOutputs = [
+    JSON.stringify({
+      source: "assistant_staff_tenant_ops_repayments",
+      period: { from: "2026-10-14", to: "2026-10-20" },
+      collected_ugx: 12_000_000,
+    }),
+    JSON.stringify({
+      source: "assistant_staff_tenant_ops_repayments",
+      period: { from: "2026-10-21", to: "2026-10-27" },
+      collected_ugx: 15_000_000,
+    }),
+  ];
+
+  // Valid inputs from tool outputs pass verification
+  const checkOk = areComputeInputsFromConversationTools([12_000_000, 15_000_000], toolOutputs);
+  assertEquals(checkOk.ok, true);
+
+  // Invented number not in tool outputs is rejected
+  const checkBad = areComputeInputsFromConversationTools([12_000_000, 99_999_999], toolOutputs);
+  assertEquals(checkBad.ok, false);
+
+  // Deterministic operations: sum, difference, pct_change, share, average, rank
+  const diffRes = runSafeCompute(
+    { operation: "difference", a: 15_000_000, b: 12_000_000, is_ugx: true },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(diffRes.ok, true);
+  if (diffRes.ok) {
+    assertEquals(diffRes.data.difference, 3_000_000);
+    assertEquals(diffRes.data.formatted_difference, "UGX 3,000,000");
+  }
+
+  const pctRes = runSafeCompute(
+    { operation: "pct_change", previous: 12_000_000, current: 15_000_000 },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(pctRes.ok, true);
+  if (pctRes.ok) {
+    assertEquals(pctRes.data.pct_change, 25);
+    assertEquals(pctRes.data.formatted_pct_change, "25%");
+  }
+
+  const sumRes = runSafeCompute(
+    { operation: "sum", values: [12_000_000, 15_000_000] },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(sumRes.ok, true);
+  if (sumRes.ok) {
+    assertEquals(sumRes.data.sum, 27_000_000);
+  }
+
+  const shareRes = runSafeCompute(
+    { operation: "share", part: 12_000_000, total: 15_000_000 },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(shareRes.ok, true);
+  if (shareRes.ok) {
+    assertEquals(shareRes.data.share_pct, 80);
+  }
+
+  const avgRes = runSafeCompute(
+    { operation: "average", values: [12_000_000, 15_000_000] },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(avgRes.ok, true);
+  if (avgRes.ok) {
+    assertEquals(avgRes.data.average, 13_500_000);
+  }
+
+  const rankRes = runSafeCompute(
+    {
+      operation: "rank",
+      items: [
+        { label: "Last week", value: 12_000_000 },
+        { label: "This week", value: 15_000_000 },
+      ],
+    },
+    toolOutputs,
+    "2026-10-14 to 2026-10-27",
+  );
+  assertEquals(rankRes.ok, true);
+  if (rankRes.ok) {
+    const rows = rankRes.data.rows as Array<Record<string, unknown>>;
+    assertEquals(rows[0].label, "This week");
+    assertEquals(rows[0].rank, 1);
+  }
+
+  // And checkAnswer accepts the computed output once serialized into rawToolOutputs
+  const allOutputs = [
+    ...toolOutputs,
+    JSON.stringify(diffRes.ok ? diffRes.data : {}),
+    JSON.stringify(pctRes.ok ? pctRes.data : {}),
+  ];
+  assertEquals(
+    checkAnswer(
+      "Collections rose from UGX 12,000,000 to UGX 15,000,000, an increase of UGX 3,000,000 (25%).",
+      allOutputs,
+      "What is the difference?",
+    ).ok,
+    true,
+  );
+});
+
+Deno.test("prompt 3: 20-turn memory, conversation summary, chart extraction, follow-ups, and 2,000-char limit", () => {
+  assertEquals(RECENT_HISTORY_MESSAGES, 40);
+  assertEquals(MAX_MESSAGE_CHARS, 2000);
+
+  // 1,900 chars passes; 2,001 chars fails RequestSchema
+  assertEquals(
+    RequestSchema.safeParse({ action: "message", message: "a".repeat(1900) }).success,
+    true,
+  );
+  assertEquals(
+    RequestSchema.safeParse({ action: "message", message: "a".repeat(2001) }).success,
+    false,
+  );
+
+  // Memory entry & prompt formatting
+  const entry = buildMemoryEntryFromToolResult({
+    tool: "get_tenant_ops_repayments",
+    rpc: "assistant_staff_tenant_ops_repayments",
+    toolArgs: { period: "last_7_days" },
+    todayKampala: "2026-10-26",
+    payload: {
+      source: "get_tenant_ops_repayments",
+      period: { from: "2026-10-20", to: "2026-10-26" },
+      row_count: 3,
+      data: { total_collected_ugx: 15_000_000, collection_rate_pct: 92.5 },
+      rows: [
+        { day: "2026-10-24", collected_ugx: 4_000_000 },
+        { day: "2026-10-25", collected_ugx: 5_000_000 },
+        { day: "2026-10-26", collected_ugx: 6_000_000 },
+      ],
+    },
+  });
+  const summary = appendMemoryEntries({ entries: [] }, [entry]);
+  assertEquals(summary.entries.length, 1);
+  const promptMem = formatConversationMemoryForPrompt(summary);
+  assert(promptMem.includes("get_tenant_ops_repayments"));
+  assert(promptMem.includes("15000000"));
+
+  // Chart extraction for time series & rankings
+  const lineChart = extractChartFromReportPayload({
+    source: "get_tenant_ops_repayments",
+    rows: [
+      { date: "2026-10-24", collected_ugx: 4_000_000 },
+      { date: "2026-10-25", collected_ugx: 5_000_000 },
+      { date: "2026-10-26", collected_ugx: 6_000_000 },
+    ],
+  });
+  assert(lineChart !== null);
+  assertEquals(lineChart?.type, "line");
+  assert(lineChart!.summary.length > 10);
+
+  const followUps = buildFollowUpSuggestions({
+    toolsCalled: ["get_tops_rent_requests_by_stage"],
+    callerRoles: ["tenant_ops"],
+  });
+  assert(followUps.length >= 2 && followUps.length <= 3);
+  assert(statusLineForTool("get_tops_rent_requests_by_stage").includes("Rent Plan"));
+});
+
+Deno.test("prompt 3: all 11 new read-only coverage tools exist and map to assistant_staff_* RPCs", () => {
+  const newCoverageTools = [
+    "get_my_calls",
+    "get_tops_rent_requests_by_stage",
+    "get_tops_time_on_desk",
+    "get_tops_find_tenant",
+    "get_tops_awareness_calls",
+    "get_lops_verification_queue",
+    "get_aops_subagent_teams",
+    "get_pops_returns_due",
+    "get_pops_topups_and_withdrawals_waiting",
+    "get_fops_disbursements",
+    "get_fops_merchant_cashouts",
+  ];
+  for (const name of newCoverageTools) {
+    const tool = findTool(name);
+    assert(tool, `Coverage tool ${name} must be registered in STAFF_TOOLS`);
+    assert(tool.rpc.startsWith("assistant_staff_"), `Tool ${name} must call an assistant_staff_* RPC`);
+  }
+
+  // Role gating checks
+  assertEquals(canUseTool(findTool("get_my_calls")!, ["employee"]), true);
+  assertEquals(canUseTool(findTool("get_tops_find_tenant")!, ["tenant_ops"]), true);
+  assertEquals(canUseTool(findTool("get_tops_find_tenant")!, ["hr"]), false);
+  assertEquals(canUseTool(findTool("get_lops_verification_queue")!, ["landlord_ops"]), true);
+  assertEquals(canUseTool(findTool("get_aops_subagent_teams")!, ["agent_ops"]), true);
+  assertEquals(canUseTool(findTool("get_pops_returns_due")!, ["partner_ops"]), true);
+  assertEquals(canUseTool(findTool("get_fops_disbursements")!, ["financial_ops"]), true);
+});
+
+Deno.test("prompt 4: all 5 advisor insight tools exist, map to STABLE assistant_staff_insight_* RPCs, enforce role gates, and buildIdeaDraft never acts", () => {
+  const advisorTools = [
+    {
+      name: "get_insight_desk_wait_times",
+      rpc: "assistant_staff_insight_desk_wait_times",
+      allowedRole: "tenant_ops",
+      deniedRole: "hr",
+    },
+    {
+      name: "get_insight_collection_coverage_trends",
+      rpc: "assistant_staff_insight_collection_coverage_trends",
+      allowedRole: "agent_ops",
+      deniedRole: "hr",
+    },
+    {
+      name: "get_insight_calling_reach_and_themes",
+      rpc: "assistant_staff_insight_calling_reach_and_themes",
+      allowedRole: "hr",
+      deniedRole: "financial_ops",
+    },
+    {
+      name: "get_insight_payout_delays",
+      rpc: "assistant_staff_insight_payout_delays",
+      allowedRole: "cfo",
+      deniedRole: "tenant_ops",
+    },
+    {
+      name: "get_insight_zoe_feedback_themes",
+      rpc: "assistant_staff_insight_zoe_feedback_themes",
+      allowedRole: "crm",
+      deniedRole: "tenant_ops",
+    },
+  ];
+
+  for (const item of advisorTools) {
+    const tool = findTool(item.name);
+    assert(tool, `Advisor tool ${item.name} must exist in STAFF_TOOLS`);
+    assertEquals(tool.rpc, item.rpc);
+    assertEquals(canUseTool(tool, [item.allowedRole]), true);
+    assertEquals(canUseTool(tool, [item.deniedRole]), false);
+    assert(statusLineForTool(item.name).length > 10);
+  }
+
+  assert(PSEUDO_AND_DRAFT_TOOL_NAMES.includes("draft_welile_idea"));
+  const ideaDraft = buildIdeaDraft({
+    title: "Rebalance CFO payout desk verification window",
+    suggestion: "Add a morning verification cut-off at 10:00 EAT so approved Rent Plans move faster.",
+    evidenceSummary: "Average CFO stage wait is 18.4 hours across 42 requests over the last 4 weeks.",
+    figures: { avg_wait_hours: 18.4, requests_count: 42 },
+    sourceLabel: "rent_request_timing",
+    periodLabel: "Last 4 weeks",
+    category: "desk_wait",
+    screenPath: "/coo-dashboard",
+  });
+  assertEquals(ideaDraft.kind, "idea");
+  assertEquals(ideaDraft.action_type, "idea");
+  assertEquals(ideaDraft.category, "desk_wait");
+  assertEquals(ideaDraft.source_label, "rent_request_timing");
+  assertEquals(ideaDraft.screen_path, "/coo-dashboard");
+
+  const followUps = buildFollowUpSuggestions({
+    toolsCalled: ["get_insight_desk_wait_times"],
+    callerRoles: ["coo"],
+  });
+  assert(followUps.some((q) => q.includes("Ideas for Welile")));
 });

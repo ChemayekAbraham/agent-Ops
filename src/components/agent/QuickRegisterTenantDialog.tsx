@@ -1,3 +1,4 @@
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
 import { useEffect, useState } from 'react';
 import {
   Dialog,
@@ -129,6 +130,11 @@ export function QuickRegisterTenantDialog({
         }
       }
       if (!parsedBody && res.data) parsedBody = res.data as Record<string, unknown>;
+
+      if (promptIfNotVetted(parsedBody)) {
+        setConsentModalOpen(false);
+        return;
+      }
 
       if (parsedBody?.code === 'id_owner_consent_required') {
         const nextStage =

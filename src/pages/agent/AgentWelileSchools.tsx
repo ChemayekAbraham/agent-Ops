@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -304,7 +305,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     if (group === 'asset' && !f.facility_type) { toast.error('Choose the facility type'); return; }
     if (group !== 'asset' && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
     setSaving(true);
-    const id = crypto.randomUUID();
+    const id = safeUUID();
     const row: SchoolProfileRow = {
       ...f, id, client_ref: id, school_id: school.id, registered_by: agentId, role,
       age: num(f.age), years_at_school: num(f.years_at_school), facility_capacity: num(f.facility_capacity),
@@ -313,7 +314,7 @@ function GateRegistration({ school, agentId, onQueued }: { school: SchoolRow; ag
     };
     const res = await saveProfile(row);
     if (group !== 'asset' && logEntry) {
-      const gid = crypto.randomUUID();
+      const gid = safeUUID();
       const gateRes = await saveGateLog({
         id: gid, client_ref: gid, school_id: school.id, profile_id: row.id,
         direction: 'in', person_name: row.full_name!, role_type: row.role,
@@ -527,7 +528,7 @@ export function DailyGateLogView({ school, agentId, onQueued, onSwitchToRegister
   const summary = useMemo(() => computeGateMovementSummary(logs), [logs]);
 
   const record = async (entry: Partial<SchoolGateLogRow> & { person_name: string; role_type: string; direction: 'in' | 'out'; profile_id?: string | null }) => {
-    const id = crypto.randomUUID();
+    const id = safeUUID();
     const row: SchoolGateLogRow = {
       id, client_ref: id, school_id: school.id, agent_id: agentId,
       gate_name: school.gate_name || 'Main Gate', recorded_at: new Date().toISOString(),

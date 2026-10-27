@@ -151,6 +151,22 @@ const SAMPLE_DASHBOARD: ZoeCrmDashboardData = {
       last_seen_at: '2026-10-25T15:00:00Z',
     },
   ],
+  weekly_thumbs_down_summary: [
+    {
+      normalized_question: 'which rent plans are waiting on landlord ops',
+      question_text: 'Which Rent Plans are waiting on Landlord Ops?',
+      thumbs_down_count: 3,
+      unique_staff_count: 2,
+      latest_comment: 'Expected filtered by Wakiso only',
+      latest_outcome: 'answered',
+      latest_source_label: 'Rent Plan pipeline',
+      tools_called: ['assistant_staff_tops_pipeline_waiting_on_lops'],
+      latest_conversation_id: 'conv-3',
+      last_feedback_at: '2026-10-26T07:30:00Z',
+      roles_reporting: ['tenant_ops'],
+      answer_redacted: false,
+    },
+  ],
   daily_usage_per_person: [
     {
       user_id: 'user-jane',
@@ -404,6 +420,9 @@ describe('ZoeConversationsPanel & useZoeCrm', () => {
       expect(screen.getByTestId('zoe-tab-daily-usage')).toHaveTextContent(
         'Daily Usage vs Budget (2)',
       );
+      expect(
+        screen.getByTestId('zoe-weekly-thumbs-down-card'),
+      ).toBeInTheDocument();
     });
 
     it('opens the conversation thread sheet when a conversation card is clicked', () => {

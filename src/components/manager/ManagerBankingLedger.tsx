@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { fetchOpsWalletBuckets } from '@/hooks/ops/useOpsDataLayer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -97,13 +98,29 @@ export function ManagerBankingLedger() {
   const fetchUsers = useCallback(async (q: string) => {
     setLoadingUsers(true);
     try {
-      let query = supabase.from('profiles').select('id, full_name, phone, email').order('full_name');
-      if (q.trim()) {
-        query = query.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
+      const term = q.trim();
+      if (term.length > 0 && term.length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+        setUsers([]);
+        return;
       }
-      const { data: profiles, error } = await query.limit(60);
-      if (error) throw error;
-      if (!profiles?.length) { setUsers([]); return; }
+      let profiles: { id: string; full_name: string | null; phone: string | null; email: string | null }[] = [];
+      if (term.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const found = await searchProfilesTypeahead(term, {
+          limit: 50,
+          columns: 'id, full_name, phone, email',
+        });
+        if (found.error) throw new Error(found.error);
+        profiles = found.rows.map((r) => ({ id: r.id, full_name: r.full_name ?? null, phone: r.phone ?? null, email: r.email ?? null }));
+      } else {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, email')
+          .order('full_name')
+          .limit(60);
+        if (error) throw error;
+        profiles = data || [];
+      }
+      if (!profiles.length) { setUsers([]); return; }
 
       const ids = profiles.map(p => p.id);
       const [walletBuckets, ledgerRes] = await Promise.all([

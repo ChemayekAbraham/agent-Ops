@@ -2,11 +2,19 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  Check,
+  Copy,
+  Database,
+  Edit3,
   ExternalLink,
+  History,
   Loader2,
   MessageSquare,
+  Plus,
+  RefreshCw,
   RotateCcw,
   Send,
+  Square,
   ThumbsDown,
   ThumbsUp,
   Trash2,
@@ -18,6 +26,7 @@ import {
   extractZoeExportableReport,
   extractZoeRemindersAndSchedules,
   type ConfirmZoeActionResult,
+  type ConfirmZoeIdeaInput,
   type ConfirmZoeNotificationInput,
   type ConfirmZoeReminderInput,
   type ConfirmZoeScheduleInput,
@@ -32,21 +41,38 @@ import {
 } from './zoeConfig';
 import { ZoeActionDraftCard } from './ZoeActionDraftCard';
 import { ZoeEmailDraftCard } from './ZoeEmailDraftCard';
+import { ZoeMarkdown } from './ZoeMarkdown';
+import { extractZoeChartFromMessage, ZoeMiniChart } from './ZoeMiniChart';
 import { ZoeMorningBriefCard } from './ZoeMorningBriefCard';
 import { ZoeReportCard } from './ZoeReportCard';
 import { ZoeSchedulesAndRemindersCard } from './ZoeSchedulesAndRemindersCard';
-import type { ZoeFeedbackRating, ZoeMessage } from './useZoeAssistant';
+import type {
+  ZoeConversationListItem,
+  ZoeFeedbackRating,
+  ZoeMessage,
+} from './useZoeAssistant';
+
+const MAX_MESSAGE_LENGTH = 2000;
 
 export interface ZoeChatSurfaceProps {
   messages: ZoeMessage[];
+  conversations?: ZoeConversationListItem[];
+  activeConversationId?: string | null;
   roles?: readonly string[];
   generatedBy?: string | null;
   morningBrief?: ZoeMorningBriefPayload | null;
   isLoading: boolean;
   isHistoryLoading?: boolean;
+  streamingText?: string | null;
+  statusLine?: string | null;
   errorMessage?: string | null;
   remainingQuestionsToday?: number | null;
   onSendMessage: (prompt: string) => void | Promise<void>;
+  onStopGenerating?: () => void;
+  onRegenerate?: () => void | Promise<void>;
+  onSelectConversation?: (conversationId: string) => void | Promise<void>;
+  onStartNewChat?: () => void | Promise<void>;
+  onRenameConversation?: (conversationId: string, title: string) => void | Promise<void>;
   onRetry?: () => void | Promise<void>;
   onFeedback: (messageId: string, rating: ZoeFeedbackRating) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
@@ -54,6 +80,7 @@ export interface ZoeChatSurfaceProps {
   onConfirmReminder?: (input: ConfirmZoeReminderInput) => Promise<ConfirmZoeActionResult>;
   onConfirmNotification?: (input: ConfirmZoeNotificationInput) => Promise<ConfirmZoeActionResult>;
   onConfirmSchedule?: (input: ConfirmZoeScheduleInput) => Promise<ConfirmZoeActionResult>;
+  onConfirmIdea?: (input: ConfirmZoeIdeaInput) => Promise<ConfirmZoeActionResult>;
   onCancelReminder?: (reminderId: string) => Promise<ConfirmZoeActionResult>;
   onCancelSchedule?: (scheduleId: string) => Promise<ConfirmZoeActionResult>;
   onUpdateMorningBriefPrefs?: (input: {
@@ -62,9 +89,7 @@ export interface ZoeChatSurfaceProps {
     dismiss_today?: boolean;
   }) => Promise<ConfirmZoeActionResult>;
   onRefreshMorningBrief?: (force?: boolean) => Promise<ZoeMorningBriefPayload | null>;
-  /** Optional extra action slot in the header (e.g., "Open full page" link inside floating drawer, or "Email report" button in step 9). */
   headerSlot?: React.ReactNode;
-  /** Optional extra action slot rendered per answered assistant message (e.g., "Email this report" in step 9). */
   renderMessageAction?: (message: ZoeMessage) => React.ReactNode;
   compact?: boolean;
 }
@@ -92,16 +117,43 @@ function parseMessageBodyAndMeta(msg: ZoeMessage): {
   return { bodyText, sourceLabel, periodLabel };
 }
 
+function extractRawDataRows(reportPayload?: Record<string, unknown> | null): Array<Record<string, unknown>> {
+  if (!reportPayload || typeof reportPayload !== 'object') return [];
+  const candidates = [
+    reportPayload.rows,
+    reportPayload.by_stage,
+    reportPayload.buckets,
+    reportPayload.requisition_disbursements,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length > 0) {
+      return c.filter((r) => r && typeof r === 'object' && !Array.isArray(r)) as Array<
+        Record<string, unknown>
+      >;
+    }
+  }
+  return [];
+}
+
 export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   messages,
+  conversations = [],
+  activeConversationId = null,
   roles = [],
   generatedBy = null,
   morningBrief = null,
   isLoading,
   isHistoryLoading = false,
+  streamingText = null,
+  statusLine = null,
   errorMessage = null,
   remainingQuestionsToday = null,
   onSendMessage,
+  onStopGenerating,
+  onRegenerate,
+  onSelectConversation,
+  onStartNewChat,
+  onRenameConversation,
   onRetry,
   onFeedback,
   onClearHistory,
@@ -109,6 +161,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onConfirmReminder,
   onConfirmNotification,
   onConfirmSchedule,
+  onConfirmIdea,
   onCancelReminder,
   onCancelSchedule,
   onUpdateMorningBriefPrefs,
@@ -118,6 +171,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   compact = false,
 }) => {
   const [draft, setDraft] = useState('');
+  const [showConversationList, setShowConversationList] = useState(false);
+  const [editingConvId, setEditingConvId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [expandedDataIds, setExpandedDataIds] = useState<Record<string, boolean>>({});
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const suggestions: ZoeSuggestion[] = getSuggestionsForRoles(roles);
 
@@ -125,11 +183,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     if (typeof endOfMessagesRef.current?.scrollIntoView === 'function') {
       endOfMessagesRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [messages.length, isLoading, errorMessage]);
+  }, [messages.length, isLoading, streamingText, errorMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = draft.trim();
+    const trimmed = draft.trim().slice(0, MAX_MESSAGE_LENGTH);
     if (!trimmed || isLoading) return;
     setDraft('');
     await onSendMessage(trimmed);
@@ -139,6 +197,26 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     if (isLoading) return;
     await onSendMessage(prompt);
   };
+
+  const handleCopyMessage = async (msgId: string, text: string) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      }
+      setCopiedMessageId(msgId);
+      setTimeout(() => {
+        setCopiedMessageId((prev) => (prev === msgId ? null : prev));
+      }, 2000);
+    } catch {
+      /* ignore clipboard error */
+    }
+  };
+
+  const toggleShowData = (msgId: string) => {
+    setExpandedDataIds((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
+  };
+
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id ?? null;
 
   return (
     <div
@@ -167,8 +245,32 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {headerSlot}
+          <button
+            type="button"
+            onClick={() => setShowConversationList((prev) => !prev)}
+            data-testid="zoe-conversations-toggle"
+            aria-expanded={showConversationList}
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <History className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            <span>Chats ({conversations.length})</span>
+          </button>
+
+          {onStartNewChat && (
+            <button
+              type="button"
+              onClick={() => void onStartNewChat()}
+              disabled={isLoading}
+              data-testid="zoe-new-chat-button"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <span>New chat</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => void onClearHistory()}
@@ -181,6 +283,115 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Collapsible Conversation List Drawer / Bar (titles, rename, new chat) */}
+      {showConversationList && (
+        <div
+          data-testid="zoe-conversation-drawer"
+          className="border-b border-border bg-muted/30 px-3 py-2.5 sm:px-4 space-y-2"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Recent Conversations
+            </span>
+            {onStartNewChat && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowConversationList(false);
+                  void onStartNewChat();
+                }}
+                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-primary hover:bg-primary/10"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Start new chat</span>
+              </button>
+            )}
+          </div>
+
+          {conversations.length === 0 ? (
+            <p className="py-2 text-xs text-muted-foreground">
+              No saved conversations yet. Ask a question below to start.
+            </p>
+          ) : (
+            <div className="max-h-48 space-y-1.5 overflow-y-auto">
+              {conversations.map((conv) => {
+                const isEditing = editingConvId === conv.id;
+                const isActive = activeConversationId === conv.id;
+                return (
+                  <div
+                    key={conv.id}
+                    data-testid={`zoe-conv-item-${conv.id}`}
+                    className={cn(
+                      'flex flex-wrap items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-xs',
+                      isActive
+                        ? 'border-primary/50 bg-primary/10 text-foreground'
+                        : 'border-border bg-background text-foreground',
+                    )}
+                  >
+                    {isEditing ? (
+                      <div className="flex flex-1 items-center gap-1.5 min-w-0">
+                        <input
+                          type="text"
+                          value={renameDraft}
+                          onChange={(e) => setRenameDraft(e.target.value)}
+                          maxLength={120}
+                          aria-label="Conversation title"
+                          data-testid={`zoe-conv-rename-input-${conv.id}`}
+                          className="min-h-[44px] min-w-0 flex-1 rounded border border-input bg-background px-2.5 py-1 text-xs text-foreground"
+                        />
+                        <button
+                          type="button"
+                          data-testid={`zoe-conv-rename-save-${conv.id}`}
+                          onClick={() => {
+                            if (renameDraft.trim() && onRenameConversation) {
+                              void onRenameConversation(conv.id, renameDraft.trim());
+                            }
+                            setEditingConvId(null);
+                            setRenameDraft('');
+                          }}
+                          className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowConversationList(false);
+                            if (onSelectConversation) {
+                              void onSelectConversation(conv.id);
+                            }
+                          }}
+                          className="min-h-[44px] flex-1 truncate text-left text-xs font-medium text-foreground hover:underline"
+                        >
+                          {conv.title || 'New chat'}
+                        </button>
+                        {onRenameConversation && (
+                          <button
+                            type="button"
+                            aria-label={`Rename ${conv.title || 'chat'}`}
+                            data-testid={`zoe-conv-rename-btn-${conv.id}`}
+                            onClick={() => {
+                              setEditingConvId(conv.id);
+                              setRenameDraft(conv.title || '');
+                            }}
+                            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Message list & empty state */}
       <div
@@ -267,9 +478,18 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
             generatedBy,
             generatedAt: msg.createdAt,
           });
+          const chartData = extractZoeChartFromMessage(msg.reportPayload);
+          const rawRows = extractRawDataRows(msg.reportPayload);
+          const isDataExpanded = Boolean(expandedDataIds[msg.id]);
           const emailDraft = extractZoeEmailDraft(msg);
           const actionDraft = extractZoeActionDraft(msg);
           const remindersAndSchedules = extractZoeRemindersAndSchedules(msg);
+          const followUps =
+            msg.followUpSuggestions && msg.followUpSuggestions.length > 0
+              ? msg.followUpSuggestions
+              : Array.isArray(msg.reportPayload?.follow_up_suggestions)
+              ? (msg.reportPayload?.follow_up_suggestions as string[])
+              : [];
 
           return (
             <div
@@ -278,9 +498,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
               className="flex justify-start"
             >
               <div className="w-full max-w-[96%] space-y-2.5 rounded-xl border border-border bg-muted/30 p-3.5 text-foreground sm:max-w-[85%] sm:p-4">
-                <p className="whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-sm">
-                  {bodyText}
-                </p>
+                <ZoeMarkdown content={bodyText} />
+
+                {/* Mini bar/line chart when the answer is a time series or ranking */}
+                {chartData && <ZoeMiniChart chart={chartData} />}
 
                 {exportableReport && !remindersAndSchedules && (
                   <ZoeReportCard report={exportableReport} />
@@ -296,9 +517,12 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 {actionDraft && (
                   <ZoeActionDraftCard
                     draft={actionDraft}
+                    conversationId={activeConversationId}
+                    messageId={msg.id}
                     onConfirmReminder={onConfirmReminder}
                     onConfirmNotification={onConfirmNotification}
                     onConfirmSchedule={onConfirmSchedule}
+                    onConfirmIdea={onConfirmIdea}
                   />
                 )}
                 {remindersAndSchedules && (
@@ -307,6 +531,43 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     onCancelReminder={onCancelReminder}
                     onCancelSchedule={onCancelSchedule}
                   />
+                )}
+
+                {/* Collapsible "Show the data" raw table view */}
+                {isDataExpanded && rawRows.length > 0 && (
+                  <div
+                    data-testid={`zoe-raw-data-table-${msg.id}`}
+                    className="my-2 max-h-64 overflow-auto rounded-lg border border-border bg-background"
+                  >
+                    <table className="w-full min-w-[280px] border-collapse text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/60">
+                          {Object.keys(rawRows[0]).map((col) => (
+                            <th
+                              key={col}
+                              className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap"
+                            >
+                              {col.replace(/_/g, ' ')}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/70">
+                        {rawRows.slice(0, 50).map((r, rIdx) => (
+                          <tr key={rIdx} className="hover:bg-muted/30">
+                            {Object.keys(rawRows[0]).map((col) => (
+                              <td
+                                key={col}
+                                className="px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap"
+                              >
+                                {r[col] === null || r[col] === undefined ? '—' : String(r[col])}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
 
                 {/* Clarifying options when Zoe calls ask_clarification */}
@@ -321,6 +582,26 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                         className="inline-flex min-h-[44px] items-center rounded-lg border border-primary/30 bg-background px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
                       >
                         {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 2 or 3 Suggested follow-up questions under each answer */}
+                {followUps.length > 0 && (
+                  <div
+                    data-testid={`zoe-follow-ups-${msg.id}`}
+                    className="flex flex-wrap gap-1.5 pt-1"
+                  >
+                    {followUps.slice(0, 3).map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        disabled={isLoading}
+                        onClick={() => void handleSuggestionClick(q)}
+                        className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-2.5 py-1.5 text-left text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      >
+                        {q}
                       </button>
                     ))}
                   </div>
@@ -349,10 +630,55 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   </div>
                 )}
 
-                {/* Thumbs up / down feedback (saved to staff_assistant_feedback) + optional extra action */}
+                {/* Action bar: Copy, Regenerate, Show the data, Thumbs up / down feedback */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Was this helpful?</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      data-testid={`zoe-copy-${msg.id}`}
+                      onClick={() => void handleCopyMessage(msg.id, msg.content)}
+                      className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {copiedMessageId === msg.id ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                          <span>Copy</span>
+                        </>
+                      )}
+                    </button>
+
+                    {msg.id === lastAssistantId && onRegenerate && (
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        data-testid={`zoe-regenerate-${msg.id}`}
+                        onClick={() => void onRegenerate()}
+                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Regenerate</span>
+                      </button>
+                    )}
+
+                    {rawRows.length > 0 && (
+                      <button
+                        type="button"
+                        data-testid={`zoe-show-data-${msg.id}`}
+                        aria-expanded={isDataExpanded}
+                        onClick={() => toggleShowData(msg.id)}
+                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <Database className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>{isDataExpanded ? 'Hide the data' : 'Show the data'}</span>
+                      </button>
+                    )}
+
+                    <span className="ml-1 text-xs text-muted-foreground">Helpful?</span>
                     <button
                       type="button"
                       aria-label="Helpful answer"
@@ -392,16 +718,36 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           );
         })}
 
-        {/* Typing indicator */}
+        {/* Live status line + streaming preview + Stop button */}
         {isLoading && (
           <div
             role="status"
             aria-live="polite"
             data-testid="zoe-typing-indicator"
-            className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/30 px-3.5 py-3 text-xs text-muted-foreground sm:w-fit"
+            className="flex flex-wrap items-center justify-between gap-2.5 rounded-xl border border-border bg-muted/30 px-3.5 py-3 text-xs text-muted-foreground"
           >
-            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
-            <span>Zoe is reading official records...</span>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" aria-hidden="true" />
+              <span data-testid="zoe-live-status-line" className="truncate">
+                {statusLine || 'Zoe is reading official records...'}
+              </span>
+            </div>
+            {onStopGenerating && (
+              <button
+                type="button"
+                onClick={onStopGenerating}
+                data-testid="zoe-stop-button"
+                className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Stop</span>
+              </button>
+            )}
+            {streamingText && (
+              <div className="w-full pt-1 text-foreground">
+                <ZoeMarkdown content={streamingText} />
+              </div>
+            )}
           </div>
         )}
 
@@ -451,7 +797,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
         </div>
       )}
 
-      {/* Typing-only composer (no voice input) */}
+      {/* Typing-only composer (2,000-character limit, 44px tap targets) */}
       <form
         onSubmit={(e) => void handleSubmit(e)}
         className="flex items-end gap-2 border-t border-border bg-background/80 p-3 sm:px-4"
@@ -464,7 +810,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          maxLength={500}
+          maxLength={MAX_MESSAGE_LENGTH}
           disabled={isLoading}
           placeholder="Type a question about your My Space or department reports..."
           data-testid="zoe-input"

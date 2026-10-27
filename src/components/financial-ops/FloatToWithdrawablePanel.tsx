@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ArrowRightLeft, Search, Loader2, Wallet, Building2, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -91,19 +92,18 @@ export function FloatToWithdrawablePanel() {
 
   const search = async () => {
     const q = term.trim();
-    if (q.length < 2) {
-      toast.error('Enter at least 2 characters to search.');
+    if (q.length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+      toast.error('Enter at least 3 characters to search.');
       return;
     }
     setSearching(true);
     setSelected(null);
     try {
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`)
-        .limit(15);
-      if (error) throw error;
+      const { rows: profiles, error } = await searchProfilesTypeahead(q, {
+        limit: 15,
+        columns: 'id, full_name, phone',
+      });
+      if (error) throw new Error(error);
       const ids = (profiles || []).map((p) => p.id);
       const balances: Record<string, { f: number; w: number }> = {};
       if (ids.length) {

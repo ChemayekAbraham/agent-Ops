@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -33,18 +35,17 @@ interface PersonRow {
 
 /** Search profiles that carry a specific role (agent / supporter). */
 function useRoleUserSearch(role: 'agent' | 'supporter', term: string) {
-  const q = term.trim();
+  const q = useDebouncedValue(term.trim(), 300);
   return useQuery({
-    enabled: q.length >= 2,
+    enabled: q.length >= 3,
     queryKey: ['welile-ops-role-search', role, q],
     staleTime: 30_000,
     queryFn: async (): Promise<PersonRow[]> => {
-      const cleaned = q.replace(/\D/g, '');
-      const isPhone = cleaned.length >= 3;
-      let pq = supabase.from('profiles').select('id, full_name, phone, city, avatar_url').limit(60);
-      pq = isPhone ? pq.ilike('phone', `%${cleaned.slice(-9)}%`) : pq.ilike('full_name', `%${q}%`);
-      const { data: profiles, error } = await pq;
-      if (error) throw error;
+      const { rows: profiles, error } = await searchProfilesTypeahead(q, {
+        limit: 20,
+        columns: 'id, full_name, phone, city, avatar_url',
+      });
+      if (error) throw new Error(error);
       const ids = (profiles ?? []).map((p) => p.id);
       if (ids.length === 0) return [];
       const { data: roleRows } = await supabase
@@ -95,7 +96,7 @@ function PeopleList({
   rows, loading, ready, onOpen,
 }: { rows: PersonRow[]; loading: boolean; ready: boolean; onOpen: (r: PersonRow) => void }) {
   if (!ready) {
-    return <p className="text-sm text-muted-foreground px-1 py-6 text-center">Type at least 2 characters to search.</p>;
+    return <p className="text-sm text-muted-foreground px-1 py-6 text-center">Type at least 3 characters to search.</p>;
   }
   if (loading) {
     return (
@@ -137,7 +138,7 @@ function SearchCategory({
   category, onOpen,
 }: { category: Exclude<Category, 'tenant'>; onOpen: (r: PersonRow, c: Category) => void }) {
   const [term, setTerm] = useState('');
-  const ready = term.trim().length >= 2;
+  const ready = term.trim().length >= 3;
 
   const landlord = useLandlordSearch(category === 'landlord' ? term : '');
   const agent = useRoleUserSearch('agent', category === 'agent' ? term : '');

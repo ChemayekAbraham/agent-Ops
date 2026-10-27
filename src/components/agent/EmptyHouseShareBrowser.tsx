@@ -9,6 +9,7 @@ import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,6 +94,7 @@ export function EmptyHouseShareBrowser({
   const [sort, setSort] = useState<'recommended' | 'nearest' | 'newest' | 'rent_high' | 'rent_low'>('recommended');
   const [locating, setLocating] = useState(false);
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
+  const signedIn = useAuthenticatedAudience();
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(0); }, 350);
@@ -101,7 +103,9 @@ export function EmptyHouseShareBrowser({
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['empty-house-share-browser', debounced, page, district, verifiedOnly, minRent, maxRent, nearMe, sort],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: PAGE_SIZE,

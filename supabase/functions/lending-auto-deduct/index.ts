@@ -260,14 +260,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Ensure the lender wallet exists.
-      await admin
-        .from("wallets")
-        .upsert(
-          { user_id: loan.lender_agent_id, balance: 0 },
-          { onConflict: "user_id", ignoreDuplicates: true },
-        );
-
       const ref = `LAD-${loan.id.slice(0, 8)}-${today.replace(/-/g, "")}`;
       const lenderLabel = "lending advance";
       const borrowerLabel = loan.borrower_display_name || loan.borrower_ai_id || "Borrower";

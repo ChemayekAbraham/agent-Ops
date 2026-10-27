@@ -396,11 +396,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Ensure recipient wallet exists
-    await adminClient
-      .from('wallets')
-      .upsert({ user_id: resolvedRecipientId, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
     // === SINGLE-WRITER: Route through create_ledger_transaction RPC ===
     const { data: txGroupId, error: ledgerError } = await adminClient.rpc('create_ledger_transaction', {
       entries: [

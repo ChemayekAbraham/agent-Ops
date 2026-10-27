@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, GraduationCap, Stethoscope, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote, Activity } from 'lucide-react';
+import { Menu, Settings, Download, Home, GraduationCap, Stethoscope, Megaphone, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, UserRound, Star, Store, Sparkles, TrendingUp, Gauge, FileText, Award, CalendarDays, Trophy, Package, Clock, Banknote, Activity } from 'lucide-react';
 import { useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 
 import { hapticTap } from '@/lib/haptics';
@@ -529,6 +529,26 @@ const DashboardHeader = memo(function DashboardHeader({
                         </div>
                         <span className="truncate">Welile Medicine</span>
                       </div>
+                    </DropdownMenuItem>
+                  )}
+
+                  {currentRole === 'agent' && (
+                    <DropdownMenuItem
+                      onClick={() => {
+                        hapticTap();
+                        navigate('/agent/welile-signages');
+                      }}
+                      className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
+                          <Megaphone className="h-4 w-4" style={{ color: '#7214c9' }} />
+                        </div>
+                        <span className="truncate">Welile Signages</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white" style={{ backgroundColor: '#7214c9' }}>
+                        New
+                      </span>
                     </DropdownMenuItem>
                   )}
 

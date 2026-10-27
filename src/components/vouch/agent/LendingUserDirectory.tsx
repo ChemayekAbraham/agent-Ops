@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, MapPin, Phone, ShieldCheck, Sli
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_DEBOUNCE_MS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,7 +41,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
   const [sort, setSort] = useState<SortKey>('name');
   const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<DirectoryPerson | null>(null);
-  const term = useDebouncedValue(search.trim());
+  const term = useDebouncedValue(search.trim(), PROFILE_TYPEAHEAD_DEBOUNCE_MS);
   const locationTerm = useDebouncedValue(sanitizeLocationTerm(location));
   const activeCount = (location.trim() ? 1 : 0) + (minVouch !== null ? 1 : 0) + (sort !== 'name' ? 1 : 0);
   const filtersActive = !!term || !!locationTerm || minVouch !== null || sort !== 'name';
@@ -51,10 +52,16 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
     staleTime: 60_000,
     queryFn: async () => {
       if (!user) return { rows: [], count: 0 };
+      // 1–2 characters cannot use the trigram index. Do not ILIKE the directory.
+      if (term.length > 0 && term.length < 3) return { rows: [], count: 0 };
       let peopleQuery = supabase.from('profiles')
         .select('id, full_name, phone, avatar_url, village, parish, sub_county, district, city, welile_trust_score_cache!welile_trust_score_cache_user_id_fkey(ai_id, borrowing_limit_ugx)', { count: 'exact' })
         .neq('id', user.id);
-      if (term) peopleQuery = peopleQuery.ilike('full_name', `%${term}%`);
+      if (term.length >= 3) {
+        const clause = profileTypeaheadFilter(term);
+        if (!clause) return { rows: [], count: 0 };
+        peopleQuery = peopleQuery.ilike(clause.column, clause.pattern);
+      }
       if (locationTerm) {
         peopleQuery = peopleQuery.or(
           `village.ilike.%${locationTerm}%,parish.ilike.%${locationTerm}%,sub_county.ilike.%${locationTerm}%,district.ilike.%${locationTerm}%,city.ilike.%${locationTerm}%`

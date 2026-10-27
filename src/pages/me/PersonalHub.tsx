@@ -14,6 +14,7 @@ import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 import { useAuth } from '@/hooks/useAuth';
 import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
 import { useZoeAccess } from '@/components/zoe/useZoeAssistant';
+import { ZoeWeeklyLookAtCard } from '@/components/zoe/ZoeWeeklyLookAtCard';
 
 interface HubBadge {
   label: string;
@@ -131,6 +132,7 @@ const PersonalHub = () => {
   return (
     <PersonalLayout title="My space">
       <div className="space-y-5">
+        {zoeAccess === true && <ZoeWeeklyLookAtCard roles={roles} />}
         <GrowthCommissionCard />
         {staffRecord && <MyAdvanceCard staffId={staffRecord.id} />}
         <section aria-labelledby="workspace-heading">

@@ -1,10 +1,12 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
 import {
+  buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
 } from "./actionDrafts.ts";
+import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
   buildReportEmailDraft,
@@ -18,22 +20,43 @@ import {
   isDirectPromptInjection,
   isWriteMutationIntent,
 } from "./guards.ts";
+import {
+  isConversationalPromptAllowedWithoutTool,
+  ManualHelpArgsSchema,
+  searchStaffManualHelp,
+} from "./manualHelp.ts";
+import {
+  appendMemoryEntries,
+  buildFollowUpSuggestions,
+  buildMemoryEntryFromToolResult,
+  ConversationMemorySummary,
+  extractChartFromReportPayload,
+  formatConversationMemoryForPrompt,
+  MemoryToolEntry,
+  parseConversationMemory,
+  statusLineForTool,
+  ZoeChartPayload,
+} from "./memory.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import { AiGatewayError, chatCompletion, ChatMessage, classifyText, OpenAiTool } from "./openai.ts";
-import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
+import { buildSystemPrompt } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
 import {
   BudgetCheckResult,
   checkQuestionBudget,
   clearUserHistory,
+  ConversationListItem,
+  createNewConversation,
   getAdminClientForMfa,
   getOrCreateConversation,
+  listUserConversations,
   loadConversationHistory,
   loadLatestReportPayload,
   loadRecentTurns,
   recordTurn,
   recordUnanswered,
+  renameUserConversation,
   saveFeedback,
   SessionMeta,
   TurnOutcome,
@@ -43,6 +66,7 @@ import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
+  DraftIdeaArgsSchema,
   DraftReminderArgsSchema,
   DraftReportEmailArgsSchema,
   DraftReportScheduleArgsSchema,
@@ -71,13 +95,51 @@ function json(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-function parseCategory(raw: string): "in_scope" | "out_of_scope" {
-  const m = raw.match(/"category"\s*:\s*"(in_scope|out_of_scope)"/);
-  return (m?.[1] as "in_scope" | "out_of_scope" | undefined) ?? "in_scope";
+function splitTokensForStream(text: string): string[] {
+  const parts = text.match(/\S+\s*|\n+/g);
+  return parts && parts.length > 0 ? parts : [text];
+}
+
+function buildSseStreamResponse(
+  statusSteps: readonly string[],
+  finalBody: Record<string, unknown>,
+): Response {
+  const encoder = new TextEncoder();
+  const replyText = typeof finalBody.reply === "string" ? finalBody.reply : "";
+  const tokens = splitTokensForStream(replyText);
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const sendEvent = (event: string, data: unknown) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+        );
+      };
+
+      for (const step of statusSteps) {
+        sendEvent("status", { text: step });
+      }
+      for (const chunk of tokens) {
+        sendEvent("token", { token: chunk });
+      }
+      sendEvent("done", finalBody);
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
 
 export interface StaffAssistantAiClient {
-  classifyText: (systemPrompt: string, userMessage: string) => Promise<string>;
+  classifyText?: (systemPrompt: string, userMessage: string) => Promise<string>;
   chatCompletion: (opts: {
     messages: ChatMessage[];
     tools?: OpenAiTool[];
@@ -92,7 +154,7 @@ export interface StaffAssistantStoreDeps {
     userId: string,
     conversationId: string | undefined,
     meta: SessionMeta,
-  ) => Promise<{ id: string; status: string }>;
+  ) => Promise<{ id: string; status: string; memory?: ConversationMemorySummary }>;
   loadRecentTurns: (userId: string, conversationId: string) => Promise<ChatMessage[]>;
   loadLatestReportPayload: (
     userId: string,
@@ -103,6 +165,17 @@ export interface StaffAssistantStoreDeps {
   saveFeedback: typeof saveFeedback;
   loadConversationHistory: typeof loadConversationHistory;
   clearUserHistory: typeof clearUserHistory;
+  listUserConversations?: (userId: string, limit?: number) => Promise<ConversationListItem[]>;
+  createNewConversation?: (
+    userId: string,
+    meta: SessionMeta,
+    title?: string,
+  ) => Promise<ConversationListItem>;
+  renameUserConversation?: (
+    userId: string,
+    conversationId: string,
+    title: string,
+  ) => Promise<{ ok: boolean; title: string }>;
 }
 
 export interface StaffAssistantHandlerDeps {
@@ -127,6 +200,9 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   saveFeedback,
   loadConversationHistory,
   clearUserHistory,
+  listUserConversations,
+  createNewConversation,
+  renameUserConversation,
 };
 
 /**
@@ -268,11 +344,11 @@ export async function handleStaffAssistantRequest(
     return json(403, { error: MSG.notStaff, outcome: "not_staff" });
   }
 
-  // ---- 4. Non-chat utility actions (history, clear_history, feedback, morning_brief) ---------
+  // ---- 4. Non-chat utility actions (history, conversations, new_conversation, rename, clear_history, feedback, morning_brief)
   if (body.action === "history") {
     const [callerRoles, history] = await Promise.all([
       resolveCallerRoles(userClient, user.id),
-      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30),
+      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40),
     ]);
     // Re-check the caller's current role before showing any historical answer or report_payload
     const roleFilteredMessages = history.messages.map((msg) => {
@@ -289,6 +365,45 @@ export async function handleStaffAssistantRequest(
       conversation_id: history.conversation_id,
       messages: roleFilteredMessages,
     });
+  }
+
+  if (body.action === "conversations") {
+    const list = store.listUserConversations
+      ? await store.listUserConversations(user.id, body.limit ?? 25)
+      : [];
+    return json(200, { ok: true, conversations: list });
+  }
+
+  if (body.action === "new_conversation") {
+    const forwardedFor = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip");
+    const meta: SessionMeta = {
+      ipAddress: forwardedFor ? forwardedFor.split(",")[0].trim() : null,
+      userAgent: req.headers.get("user-agent"),
+    };
+    if (store.createNewConversation) {
+      const created = await store.createNewConversation(user.id, meta, body.title);
+      return json(200, { ok: true, conversation: created });
+    }
+    const conv = await store.getOrCreateConversation(user.id, undefined, meta);
+    return json(200, {
+      ok: true,
+      conversation: {
+        id: conv.id,
+        title: body.title ?? "New chat",
+        message_count: 0,
+        last_active_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  if (body.action === "rename_conversation") {
+    if (store.renameUserConversation) {
+      const res = await store.renameUserConversation(user.id, body.conversation_id, body.title);
+      if (!res.ok) return json(404, { error: MSG.invalidRequest });
+      return json(200, { ok: true, conversation_id: body.conversation_id, title: res.title });
+    }
+    return json(200, { ok: true, conversation_id: body.conversation_id, title: body.title });
   }
 
   if (body.action === "clear_history") {
@@ -357,7 +472,11 @@ export async function handleStaffAssistantRequest(
   const toolDescriptions = describeToolsForRoles(callerRoles);
 
   const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+  const existingMemory = parseConversationMemory(conv.memory);
+  const newMemoryEntries: MemoryToolEntry[] = [];
+  const statusSteps: string[] = [];
   const userText = body.message;
+  const wantsStream = body.stream === true;
 
   const finish = async (
     reply: string,
@@ -369,10 +488,40 @@ export async function handleStaffAssistantRequest(
       sourceLabel?: string | null;
       periodLabel?: string | null;
       reportPayload?: Record<string, unknown> | null;
+      chart?: ZoeChartPayload | null;
+      followUpSuggestions?: string[];
       unansweredReason?: UnansweredReason;
       mfaRequired?: boolean;
     },
   ) => {
+    const updatedMemory = appendMemoryEntries(existingMemory, newMemoryEntries);
+    const chart =
+      opts?.chart !== undefined
+        ? opts.chart
+        : outcome === "answered"
+        ? extractChartFromReportPayload(opts?.reportPayload ?? null)
+        : null;
+    const followUpSuggestions =
+      opts?.followUpSuggestions ??
+      (outcome === "answered"
+        ? buildFollowUpSuggestions({
+            toolsCalled: opts?.tools ?? [],
+            callerRoles,
+          })
+        : []);
+
+    const enrichedReportPayload = opts?.reportPayload
+      ? {
+          ...opts.reportPayload,
+          ...(chart ? { chart } : {}),
+          ...(followUpSuggestions.length > 0
+            ? { follow_up_suggestions: followUpSuggestions }
+            : {}),
+        }
+      : chart
+      ? { chart, follow_up_suggestions: followUpSuggestions }
+      : null;
+
     const { assistantMessageId } = await store.recordTurn({
       conversationId: conv.id,
       userId: user.id,
@@ -382,7 +531,8 @@ export async function handleStaffAssistantRequest(
       toolsCalled: opts?.tools,
       sourceLabel: opts?.sourceLabel ?? null,
       periodLabel: opts?.periodLabel ?? null,
-      reportPayload: opts?.reportPayload ?? null,
+      reportPayload: enrichedReportPayload,
+      conversationSummary: updatedMemory,
       model: opts?.model,
       latencyMs: Date.now() - startedAt,
     });
@@ -398,7 +548,7 @@ export async function handleStaffAssistantRequest(
       });
     }
 
-    return json(200, {
+    const responsePayload: Record<string, unknown> = {
       conversation_id: conv.id,
       message_id: assistantMessageId,
       reply,
@@ -406,60 +556,55 @@ export async function handleStaffAssistantRequest(
       clarification: opts?.clarification ?? null,
       source: opts?.sourceLabel ?? null,
       period: opts?.periodLabel ?? null,
-      report_payload: opts?.reportPayload ?? null,
+      report_payload: enrichedReportPayload,
+      chart: chart ?? null,
+      follow_up_suggestions: followUpSuggestions,
+      status_steps: statusSteps,
       mfa_required: opts?.mfaRequired ?? false,
       remaining_questions_today: budget.remainingToday,
-    });
+    };
+
+    if (wantsStream) {
+      return buildSseStreamResponse(statusSteps, responsePayload);
+    }
+    return json(200, responsePayload);
   };
 
   try {
-    // ---- 7. Deterministic prompt-injection / write-mutation pre-check + scope classifier ------
+    // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
+    // Prompt 3 item (4): Drop the separate classifier call; let the main model decide in the same call.
     if (isDirectPromptInjection(userText) || isWriteMutationIntent(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
       });
     }
 
-    // Fail-closed: if the scope classifier fails with any non-quota error, treat the question as
-    // in_scope (needing a verified read-only tool call) rather than letting it through unchecked.
-    let scope: "in_scope" | "out_of_scope" = "in_scope";
-    try {
-      const scopeRaw = await ai.classifyText(SCOPE_CHECK_PROMPT, userText);
-      scope = parseCategory(scopeRaw);
-    } catch (scopeErr) {
-      if (
-        scopeErr instanceof AiGatewayError &&
-        (scopeErr.status === 429 || scopeErr.status === 402)
-      ) {
-        throw scopeErr;
-      }
-      console.warn(
-        "[staff-assistant] scope classifier failed; treating question as needing a tool:",
-        scopeErr instanceof Error ? scopeErr.message : scopeErr,
-      );
-      scope = "in_scope";
-    }
-
-    if (scope === "out_of_scope") {
-      return await finish(MSG.outOfScope, "out_of_scope", {
-        unansweredReason: "out_of_scope",
-      });
-    }
-
-    // ---- 8. Tool-calling loop (Requirement c, d, f, g) ---------------------------------------
+    // ---- 8. Tool-calling loop (20-turn memory, conversation summary, safe calculator) --------
     const history = await store.loadRecentTurns(user.id, conv.id);
     const today = kampalaToday();
+    const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
     const messages: ChatMessage[] = [
       {
         role: "system",
-        content: buildSystemPrompt(today, callerRoles, toolDescriptions),
+        content: buildSystemPrompt(today, callerRoles, toolDescriptions, memoryBlock),
       },
       ...history,
       { role: "user", content: userText },
     ];
 
     const toolsCalled: string[] = [];
+    // Seed rawToolOutputs with earlier conversation memory figures & assistant turns so
+    // `compute` and "explain that" can reference earlier verified figures in this conversation.
     const rawToolOutputs: string[] = [];
+    if (existingMemory.entries.length > 0) {
+      rawToolOutputs.push(JSON.stringify(existingMemory.entries));
+    }
+    for (const h of history) {
+      if (h.role === "assistant" && typeof h.content === "string" && h.content.trim()) {
+        rawToolOutputs.push(h.content);
+      }
+    }
+
     const sourcesUsed: string[] = [];
     const periodsUsed: string[] = [];
     let lastReportPayload: Record<string, unknown> | null = null;
@@ -491,6 +636,11 @@ export async function handleStaffAssistantRequest(
             model: lastModel,
             unansweredReason: "unmatched",
           });
+        }
+
+        const stepText = statusLineForTool(call.function.name);
+        if (!statusSteps.includes(stepText)) {
+          statusSteps.push(stepText);
         }
 
         const rawArgs = (() => {
@@ -537,6 +687,86 @@ export async function handleStaffAssistantRequest(
           });
         }
 
+        // Prompt 3 item (3): Safe deterministic calculator (`compute`)
+        if (call.function.name === "compute") {
+          const parsedCompute = ComputeArgsSchema.safeParse(rawArgs);
+          if (!parsedCompute.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+          const computePeriod =
+            periodsUsed.length > 0 ? periodsUsed.join(" vs ") : `as of ${today}`;
+          const computeRes = runSafeCompute(parsedCompute.data, rawToolOutputs, computePeriod);
+          if (!computeRes.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "compute"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+          toolsCalled.push("compute");
+          const computeJson = JSON.stringify(computeRes.data);
+          rawToolOutputs.push(computeJson);
+          if (!sourcesUsed.includes("compute (Verified Conversation Calculator)")) {
+            sourcesUsed.push("compute (Verified Conversation Calculator)");
+          }
+          const preparedCompute = prepareToolOutputForModel(computeRes.data, "compute", {
+            maxChars: MAX_TOOL_RESULT_CHARS,
+          });
+          if (Array.isArray(computeRes.data.rows)) {
+            lastReportPayload = {
+              ...computeRes.data,
+              tool: "compute",
+              rpc: "compute",
+              args: parsedCompute.data,
+              source: "compute (Verified Conversation Calculator)",
+              period: { as_of: today },
+              row_count: (computeRes.data.rows as unknown[]).length,
+              rows: computeRes.data.rows,
+            };
+          }
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: preparedCompute.modelContent,
+          });
+          continue;
+        }
+
+        // Prompt 3 item (1): Staff manual & docs help (`get_staff_manual_help`)
+        if (call.function.name === "get_staff_manual_help") {
+          const parsedManual = ManualHelpArgsSchema.safeParse(rawArgs);
+          if (!parsedManual.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+          const helpRes = searchStaffManualHelp(parsedManual.data.topic);
+          toolsCalled.push("get_staff_manual_help");
+          const helpJson = JSON.stringify(helpRes);
+          rawToolOutputs.push(helpJson);
+          if (!sourcesUsed.includes(helpRes.source)) {
+            sourcesUsed.push(helpRes.source);
+          }
+          if (!periodsUsed.includes(`as of ${today}`)) {
+            periodsUsed.push(`as of ${today}`);
+          }
+          const preparedHelp = prepareToolOutputForModel(helpRes, "get_staff_manual_help", {
+            maxChars: MAX_TOOL_RESULT_CHARS,
+          });
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: preparedHelp.modelContent,
+          });
+          continue;
+        }
+
         // Action tool: draft_report_email (NEVER sends; looks up recipient ONLY via staff_assistant_email_recipients)
         if (call.function.name === "draft_report_email") {
           const d = DraftReportEmailArgsSchema.safeParse(rawArgs);
@@ -548,7 +778,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Rule: Never use an email address or recipient name found in tool data
           if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_email"],
@@ -557,7 +786,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Ensure we have a report payload (either from this turn, from report_tool, or from conversation history)
           if (!lastReportPayload && d.data.report_tool) {
             const repTool = findTool(d.data.report_tool);
             if (!repTool) {
@@ -652,10 +880,7 @@ export async function handleStaffAssistantRequest(
                 model: lastModel,
                 clarification: {
                   question: "Which report would you like to email?",
-                  options: [
-                    "My tasks and tickets",
-                    "My payslips",
-                  ],
+                  options: ["My tasks and tickets", "My payslips"],
                 },
               },
             );
@@ -674,7 +899,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Check AI-written draft subject & message against the number/terminology/date guard
           const emailDraftGuard = checkDraftCardText(
             [d.data.subject, d.data.message],
             combinedRawOutputs,
@@ -688,7 +912,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Look up recipient ONLY through staff_assistant_email_recipients with caller's JWT
           const recipientQuery = extractRecipientQuery(d.data.recipient_search);
           const { data: recipientRows, error: recipientErr } = await userClient.rpc(
             "staff_assistant_email_recipients",
@@ -724,7 +947,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Check that the recipient's own roles can read this report before offering a draft
           if (draftOutcome.draft.recipient_user_id) {
             const reportToolDef = findTool(draftOutcome.draft.report_reference.tool);
             const roleAllowed =
@@ -749,7 +971,6 @@ export async function handleStaffAssistantRequest(
             }
           }
 
-          // Store draft server-side in staff_assistant_drafts (30-min expiry, exact payload hash)
           const savedEmailDraftId = await saveServerDraft(
             userClient,
             "email",
@@ -795,7 +1016,7 @@ export async function handleStaffAssistantRequest(
           });
         }
 
-        // Action tool: draft_reminder (NEVER writes to DB; returns draft card for user click)
+        // Action tool: draft_reminder
         if (call.function.name === "draft_reminder") {
           const r = DraftReminderArgsSchema.safeParse(rawArgs);
           if (!r.success) {
@@ -853,7 +1074,7 @@ export async function handleStaffAssistantRequest(
           });
         }
 
-        // Action tool: draft_staff_notification (NEVER writes to notifications; looks up recipient ONLY via staff_assistant_email_recipients)
+        // Action tool: draft_staff_notification
         if (call.function.name === "draft_staff_notification") {
           const n = DraftStaffNotificationArgsSchema.safeParse(rawArgs);
           if (!n.success) {
@@ -961,7 +1182,7 @@ export async function handleStaffAssistantRequest(
           });
         }
 
-        // Action tool: draft_report_schedule (NEVER stores or sends; looks up recipient ONLY via staff_assistant_email_recipients)
+        // Action tool: draft_report_schedule
         if (call.function.name === "draft_report_schedule") {
           const s = DraftReportScheduleArgsSchema.safeParse(rawArgs);
           if (!s.success) {
@@ -1138,7 +1359,6 @@ export async function handleStaffAssistantRequest(
             });
           }
 
-          // Check that the recipient's own roles can read this report before offering a schedule draft
           if (scheduleOutcome.draft.recipient_user_id) {
             const reportToolDef = findTool(scheduleOutcome.draft.report_reference.tool);
             const roleAllowed =
@@ -1215,6 +1435,103 @@ export async function handleStaffAssistantRequest(
           });
         }
 
+        // Action tool: draft_welile_idea (Prompt 4 item 3: "Ideas for Welile" draft card)
+        if (call.function.name === "draft_welile_idea") {
+          const ideaParsed = DraftIdeaArgsSchema.safeParse(rawArgs);
+          if (!ideaParsed.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          if (!lastReportPayload) {
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
+          }
+
+          const combinedIdeaOutputs = [
+            ...rawToolOutputs,
+            ...(lastReportPayload ? [JSON.stringify(lastReportPayload)] : []),
+            JSON.stringify({ period: today }),
+          ];
+
+          const ideaGuard = checkDraftCardText(
+            [
+              ideaParsed.data.title,
+              ideaParsed.data.suggestion,
+              ideaParsed.data.evidence_summary,
+            ],
+            combinedIdeaOutputs,
+            userText,
+          );
+          if (!ideaGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_welile_idea"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const resolvedIdeaPeriod =
+            ideaParsed.data.period_label ??
+            periodsUsed[0] ??
+            (lastReportPayload ? formatPeriodLabel(lastReportPayload.period) : null) ??
+            `as of ${today}`;
+
+          const builtIdea = buildIdeaDraft({
+            title: ideaParsed.data.title,
+            suggestion: ideaParsed.data.suggestion,
+            evidenceSummary: ideaParsed.data.evidence_summary,
+            category: ideaParsed.data.category,
+            screenPath: ideaParsed.data.screen_path,
+            sourceLabel: ideaParsed.data.source_label,
+            figures: ideaParsed.data.figures,
+            reportPayload: lastReportPayload,
+            periodLabel: resolvedIdeaPeriod,
+            todayKampala: today,
+          });
+
+          const savedIdeaDraftId = await saveServerDraft(
+            userClient,
+            "idea",
+            {
+              kind: "idea",
+              title: builtIdea.draft.title,
+              suggestion: builtIdea.draft.suggestion,
+              evidence_summary: builtIdea.draft.evidence_summary,
+              source_label: builtIdea.draft.source_label,
+              period_label: builtIdea.draft.period_label,
+              category: builtIdea.draft.category,
+              screen_path: builtIdea.draft.screen_path,
+            },
+            conv.id,
+          );
+          if (savedIdeaDraftId) {
+            builtIdea.draft.draft_id = savedIdeaDraftId;
+          }
+
+          return await finish(builtIdea.replyText, "answered", {
+            tools: [...toolsCalled, "draft_welile_idea"],
+            model: lastModel,
+            sourceLabel: builtIdea.draft.source_label,
+            periodLabel: builtIdea.draft.period_label,
+            reportPayload: {
+              ...(lastReportPayload ?? {}),
+              action_draft: builtIdea.draft,
+            },
+          });
+        }
+
         // Look up tool & enforce role check (Requirement b)
         const tool = findTool(call.function.name);
         if (!tool) {
@@ -1276,7 +1593,6 @@ export async function handleStaffAssistantRequest(
 
         // Deduplicate `rows`/`data`, sanitize free-text fields, trim by whole rows ("showing 50 of 312 rows"),
         // and wrap in `<UNTRUSTED_TOOL_DATA>` for prompt-injection defence.
-        // Keep raw JSON in `rawToolOutputs` so `isEmailFromToolData` still catches any address that was inside raw data.
         const rawJsonString = JSON.stringify(data ?? {});
         const prepared = prepareToolOutputForModel(data ?? {}, tool.name, {
           maxChars: MAX_TOOL_RESULT_CHARS,
@@ -1311,6 +1627,16 @@ export async function handleStaffAssistantRequest(
             data: payload.data ?? null,
             ...(prepared.truncationNote ? { rows_note: prepared.truncationNote } : {}),
           };
+
+          newMemoryEntries.push(
+            buildMemoryEntryFromToolResult({
+              tool: tool.name,
+              rpc: tool.rpc,
+              toolArgs: args.data,
+              payload,
+              todayKampala: today,
+            }),
+          );
         }
 
         messages.push({ role: "tool", tool_call_id: call.id, content: prepared.modelContent });
@@ -1348,11 +1674,37 @@ export async function handleStaffAssistantRequest(
       });
     }
 
-    // Any real answer must come from at least one read-only tool call
+    // Prompt 3 item (1): Zoe may reply without a tool when no business figures are involved
+    // (greetings, thanks, "what can you do", "explain that", "how do I…" from staff manuals & docs/).
+    // The number check still applies to any figure.
     if (toolsCalled.length === 0) {
-      return await finish(MSG.unmatched, "unmatched", {
+      if (!isConversationalPromptAllowedWithoutTool(userText)) {
+        return await finish(MSG.unmatched, "unmatched", {
+          model: lastModel,
+          unansweredReason: "missing_tool",
+        });
+      }
+
+      const convGuard = checkAnswer(finalText, rawToolOutputs, userText);
+      if (!convGuard.ok) {
+        if (convGuard.reason === "prompt_leak") {
+          return await finish(MSG.outOfScope, "blocked", {
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+        return await finish(MSG.unmatched, "blocked", {
+          model: lastModel,
+          unansweredReason: "error",
+        });
+      }
+
+      return await finish(finalText, "answered", {
+        tools: [],
         model: lastModel,
-        unansweredReason: "missing_tool",
+        sourceLabel: null,
+        periodLabel: null,
+        reportPayload: null,
       });
     }
 

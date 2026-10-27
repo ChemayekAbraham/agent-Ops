@@ -12,6 +12,7 @@ const auth = {
   loading: false,
   rolesResolved: true,
   roles: ['agent'] as string[],
+  enabledRoles: ['agent'] as string[],
 };
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -46,6 +47,8 @@ describe('stopMerchantFloatPositionsPoll', () => {
   it('stops on the live RAISE and on a dead session, and keeps going after a timeout', () => {
     expect(stopMerchantFloatPositionsPoll({ code: 'P0001', message: 'Not authorized' })).toBe(true);
     expect(stopMerchantFloatPositionsPoll({ code: '42501', message: 'Not authorized' })).toBe(true);
+    expect(stopMerchantFloatPositionsPoll({ status: 400, message: 'Not authorized' })).toBe(true);
+    expect(stopMerchantFloatPositionsPoll({ status: 403, message: 'Not authorized' })).toBe(true);
     expect(stopMerchantFloatPositionsPoll(new Error('Not authorised'))).toBe(true);
     expect(stopMerchantFloatPositionsPoll({ status: 401, message: 'JWT expired' })).toBe(true);
     expect(stopMerchantFloatPositionsPoll({
@@ -66,6 +69,7 @@ describe('useMerchantFloatPositions', () => {
     auth.loading = false;
     auth.rolesResolved = true;
     auth.roles = ['agent'];
+    auth.enabledRoles = ['agent'];
     getSession.mockResolvedValue({
       data: { session: { access_token: 'jwt', expires_at: 9_999_999_999 } },
       error: null,
@@ -77,21 +81,31 @@ describe('useMerchantFloatPositions', () => {
     vi.useRealTimers();
   });
 
-  it.each(['agent', 'tenant', 'employee', 'operations', 'landlord'] as const)(
+  it.each(['agent', 'tenant', 'employee', 'operations', 'landlord', 'cto'] as const)(
     'does not call get_merchant_float_positions for a signed-in %s',
     async (role) => {
-      auth.roles = [role];
+      auth.roles = [role, 'agent'];
+      auth.enabledRoles = [role];
       const { result } = renderHook(() => useMerchantFloatPositions(), { wrapper });
       await act(async () => { await vi.advanceTimersByTimeAsync(150_000); });
       expect(positionCalls()).toHaveLength(0);
       expect(getSession).not.toHaveBeenCalled();
-      expect(result.current.isError).toBe(true);
-      expect((result.current.error as Error).message).toBe('Not authorized');
+      expect(result.current.fetchStatus).toBe('idle');
+      expect(result.current.isFetched).toBe(false);
     },
   );
 
+  it('does not treat a finance role on the synthetic client list as permission', async () => {
+    auth.roles = ['agent', 'cfo'];
+    auth.enabledRoles = ['tenant'];
+    renderHook(() => useMerchantFloatPositions(), { wrapper });
+    await act(async () => { await vi.advanceTimersByTimeAsync(150_000); });
+    expect(positionCalls()).toHaveLength(0);
+  });
+
   it.each(FINANCE_ROLES)('calls the RPC for a signed-in %s', async (role) => {
-    auth.roles = [role];
+    auth.roles = ['agent', role];
+    auth.enabledRoles = [role];
     const { result } = renderHook(() => useMerchantFloatPositions(), { wrapper });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(positionCalls()).toHaveLength(1);
@@ -102,21 +116,24 @@ describe('useMerchantFloatPositions', () => {
   it('does not call while the role list is still loading', async () => {
     auth.loading = true;
     auth.rolesResolved = false;
-    auth.roles = ['cfo'];
+    auth.roles = ['agent', 'cfo'];
+    auth.enabledRoles = ['cfo'];
     renderHook(() => useMerchantFloatPositions(), { wrapper });
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(positionCalls()).toHaveLength(0);
   });
 
   it('does not call when the hook is turned off, even for a finance role', async () => {
-    auth.roles = ['cfo'];
+    auth.roles = ['agent', 'cfo'];
+    auth.enabledRoles = ['cfo'];
     renderHook(() => useMerchantFloatPositions(false), { wrapper });
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     expect(positionCalls()).toHaveLength(0);
   });
 
   it('stops the poll when the server raises Not authorized', async () => {
-    auth.roles = ['cfo'];
+    auth.roles = ['agent', 'cfo'];
+    auth.enabledRoles = ['cfo'];
     rpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'Not authorized' } });
     const { result } = renderHook(() => useMerchantFloatPositions(), { wrapper });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -128,7 +145,8 @@ describe('useMerchantFloatPositions', () => {
   });
 
   it('keeps polling after a timeout', async () => {
-    auth.roles = ['manager'];
+    auth.roles = ['agent', 'manager'];
+    auth.enabledRoles = ['manager'];
     rpc.mockResolvedValue({
       data: null,
       error: { code: '57014', message: 'canceling statement due to statement timeout' },
@@ -142,7 +160,8 @@ describe('useMerchantFloatPositions', () => {
   });
 
   it('does not call when the access token is already dead', async () => {
-    auth.roles = ['coo'];
+    auth.roles = ['agent', 'coo'];
+    auth.enabledRoles = ['coo'];
     getSession.mockResolvedValue({ data: { session: null }, error: null });
     const { result } = renderHook(() => useMerchantFloatPositions(), { wrapper });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });

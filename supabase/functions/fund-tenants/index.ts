@@ -147,13 +147,6 @@ Deno.serve(async (req) => {
         landlordUserId = landlordProfile?.id || null;
       }
 
-      // Ensure landlord wallet exists if they have a profile
-      if (landlordUserId) {
-        await adminClient
-          .from("wallets")
-          .upsert({ user_id: landlordUserId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-      }
-
       // Update rent request status to funded
       const fundedAt = new Date().toISOString();
       await adminClient

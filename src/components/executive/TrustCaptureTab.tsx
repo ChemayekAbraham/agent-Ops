@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +50,7 @@ export function TrustCaptureTab() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [selectedUser, setSelectedUser] = useState<CaptureUser | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -128,16 +131,14 @@ export function TrustCaptureTab() {
 
   // Search users (referrals + assigned tenants)
   const { data: searchResults = [] } = useQuery({
-    queryKey: ['trust-capture-search', user?.id, search],
-    enabled: !!user?.id && search.length >= 2,
+    queryKey: ['trust-capture-search', user?.id, debouncedSearch],
+    enabled: !!user?.id && debouncedSearch.trim().length >= 3,
     queryFn: async () => {
-      const term = `%${search.trim()}%`;
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.${term},phone.ilike.${term}`)
-        .limit(15);
-      return (data || []) as CaptureUser[];
+      const { rows } = await searchProfilesTypeahead(debouncedSearch, {
+        limit: 15,
+        columns: 'id, full_name, phone',
+      });
+      return rows as CaptureUser[];
     },
     staleTime: 30_000,
   });
@@ -299,7 +300,7 @@ export function TrustCaptureTab() {
           placeholder="Search by name or phone…"
           className="h-9 text-sm"
         />
-        {search.length >= 2 && searchResults.length > 0 && (
+        {search.length >= 3 && searchResults.length > 0 && (
           <div className="mt-2 space-y-1 max-h-56 overflow-y-auto">
             {searchResults.map((u) => (
               <button

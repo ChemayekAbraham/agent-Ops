@@ -31,6 +31,10 @@ export type VettingResidence = {
 
 export type VettingNationalId = {
   ok: boolean;
+  /**
+   * The ID the agent is using: the checked source once the ID passes, otherwise
+   * the one they chose (e.g. 'parent' while waiting for the parent to approve).
+   */
   source: 'own' | 'parent' | null;
   reason: string | null;
   nin_masked: string | null;
@@ -83,6 +87,7 @@ const num = (v: unknown): number | null => {
 const obj = (v: unknown): Record<string, any> => (v && typeof v === 'object' ? (v as Record<string, any>) : {});
 
 const STATUSES: VettingStatus[] = ['unverified', 'submitted', 'verified', 'rejected'];
+const idSource = (v: unknown): 'own' | 'parent' | null => (v === 'own' || v === 'parent' ? v : null);
 
 export function parseAgentVetting(raw: unknown): AgentVetting {
   const r = obj(raw);
@@ -124,7 +129,7 @@ export function parseAgentVetting(raw: unknown): AgentVetting {
     },
     national_id: {
       ok: id.ok === true,
-      source: id.source === 'own' || id.source === 'parent' ? id.source : null,
+      source: idSource(id.source) ?? idSource(id.chosen_source),
       reason: str(id.reason),
       nin_masked: str(id.nin_masked),
       has_front: id.has_front === true,

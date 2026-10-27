@@ -233,8 +233,8 @@ export function FinOpsWalletMovePanel() {
 
   const search = async () => {
     const q = term.trim();
-    if (q.length < 2) {
-      toast.error('Enter at least 2 characters to search.');
+    if (q.length < 3) {
+      toast.error('Enter at least 3 characters to search.');
       return;
     }
     setSearching(true);

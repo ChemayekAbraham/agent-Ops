@@ -7,6 +7,16 @@ import type { ReactNode } from 'react';
 const rpcMock = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => rpcMock(...a) } }));
 
+const auth = {
+  user: { id: 'user-1' },
+  session: { access_token: 'jwt' },
+  loading: false,
+  rolesResolved: true,
+  roles: ['agent', 'tenant_ops'] as string[],
+  enabledRoles: ['tenant_ops'] as string[],
+};
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
+
 import { MyAwarenessCallsCard } from './MyAwarenessCallsCard';
 
 const wrapper = ({ children }: { children: ReactNode }) => {
@@ -27,6 +37,10 @@ let logRows: Record<string, unknown>[] = [];
 describe('MyAwarenessCallsCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    auth.loading = false;
+    auth.rolesResolved = true;
+    auth.roles = ['agent', 'tenant_ops'];
+    auth.enabledRoles = ['tenant_ops'];
     sumError = null;
     logRows = [logRow({}), logRow({ id: 'c-2', subject_type: 'landlord', subject_name: 'Mr Okello', call_result: 'no_answer' })];
     rpcMock.mockImplementation((fn: string) => {
@@ -64,10 +78,16 @@ describe('MyAwarenessCallsCard', () => {
     expect(await screen.findByTestId('my-awareness-empty')).toHaveTextContent('You have not recorded an awareness call this week.');
   });
 
-  it('hides for someone who may not use the log, and offers Retry for any other failure', async () => {
+  it('shows an empty state when the report says not authorized, and offers Retry for any other failure', async () => {
     sumError = 'not authorized';
-    const { container, unmount } = render(<MyAwarenessCallsCard />, { wrapper });
-    await waitFor(() => expect(container.querySelector('[data-testid="my-awareness-calls"]')).toBeNull());
+    const { unmount } = render(<MyAwarenessCallsCard />, { wrapper });
+    expect(await screen.findByTestId('my-awareness-empty')).toHaveTextContent('No awareness calls to show.');
+    expect(screen.queryByTestId('my-awareness-error')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    await waitFor(() => {
+      expect(calls('my_awareness_calls_summary')).toHaveLength(1);
+      expect(calls('my_awareness_calls_log')).toHaveLength(1);
+    });
     unmount();
 
     sumError = 'connection reset';

@@ -7372,6 +7372,51 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_vetting_settings_audit: {
+        Row: {
+          application_name: string | null
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[] | null
+          client_addr: unknown
+          db_role: string
+          id: string
+          jwt_role: string | null
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          session_role: string
+        }
+        Insert: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          session_role?: string
+        }
+        Update: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          session_role?: string
+        }
+        Relationships: []
+      }
       agent_visits: {
         Row: {
           accuracy: number | null
@@ -28477,6 +28522,96 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_call_amendments: {
+        Row: {
+          call_id: string
+          edited_at: string
+          edited_by: string
+          id: string
+          new_values: Json
+          old_values: Json
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          edited_at?: string
+          edited_by: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          edited_at?: string
+          edited_by?: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landlord_call_dials: {
+        Row: {
+          call_id: string | null
+          caller_id: string
+          expires_at: string
+          id: string
+          landlord_key: string
+          phone: string
+          started_at: string
+        }
+        Insert: {
+          call_id?: string | null
+          caller_id: string
+          expires_at?: string
+          id?: string
+          landlord_key: string
+          phone: string
+          started_at?: string
+        }
+        Update: {
+          call_id?: string | null
+          caller_id?: string
+          expires_at?: string
+          id?: string
+          landlord_key?: string
+          phone?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_call_reports: {
         Row: {
           called_at: string
@@ -28548,6 +28683,78 @@ export type Database = {
             referencedColumns: ["landlord_id"]
           },
         ]
+      }
+      landlord_calls: {
+        Row: {
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string
+          caller_team: string | null
+          dial_started_at: string
+          explained: string | null
+          feedback_category: string | null
+          id: string
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string
+          landlord_name: string | null
+          note: string | null
+          phone_dialed: string
+          recorded_at: string
+          result: string
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id: string
+          caller_team?: string | null
+          dial_started_at: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed: string
+          recorded_at?: string
+          result: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id?: string
+          caller_team?: string | null
+          dial_started_at?: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key?: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed?: string
+          recorded_at?: string
+          result?: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: []
       }
       landlord_cc_row_assignments: {
         Row: {
@@ -30580,6 +30787,57 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      landlord_rejected_number_locks: {
+        Row: {
+          created_at: string
+          landlord_id: string
+        }
+        Insert: {
+          created_at?: string
+          landlord_id: string
+        }
+        Update: {
+          created_at?: string
+          landlord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
       }
       landlord_verification_events: {
         Row: {
@@ -64289,14 +64547,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -64714,6 +64972,32 @@ export type Database = {
           first_user_id: string | null
           kind: string | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      mv_landlord_hub_registry: {
+        Row: {
+          active_rent_plans: number | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_key_text: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          region: string | null
+          registered_at: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
         }
         Relationships: []
       }
@@ -65760,6 +66044,37 @@ export type Database = {
           verified: boolean | null
           verified_houses: number | null
           village: string | null
+        }
+        Relationships: []
+      }
+      v_landlord_calls_effective: {
+        Row: {
+          amended_at: string | null
+          amended_by: string | null
+          amendment_reason: string | null
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string | null
+          caller_team: string | null
+          dial_started_at: string | null
+          explained: string | null
+          feedback_category: string | null
+          id: string | null
+          is_amended: boolean | null
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_name: string | null
+          latest_amendment_id: string | null
+          note: string | null
+          phone_dialed: string | null
+          recorded_at: string | null
+          result: string | null
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
         }
         Relationships: []
       }
@@ -68196,6 +68511,38 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_collections_app_error_included: {
+        Args: {
+          p_component_stack: string
+          p_context: string
+          p_message: string
+          p_role: string
+          p_route: string
+        }
+        Returns: boolean
+      }
+      _agent_expected_effective: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_expected_effective__impl: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -68341,6 +68688,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_weekly_shortfall: { Args: { p_agent_id: string }; Returns: number }
       _am_plan_arrears_core: {
         Args: { p_as_at: string; p_rent_request_ids: string[] }
         Returns: {
@@ -68598,6 +68946,13 @@ export type Database = {
         }
         Returns: string
       }
+      _credit_limit_subagent_counts: {
+        Args: { p_user_id: string }
+        Returns: {
+          active_subagents: number
+          registered_subagents: number
+        }[]
+      }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
       _dormant_bike_leases: {
@@ -68709,6 +69064,8 @@ export type Database = {
       }
       _landlord_float_position: { Args: { p_day: string }; Returns: Json }
       _landlord_float_ugx: { Args: { p_amount: number }; Returns: string }
+      _landlord_hub_can_read: { Args: never; Returns: boolean }
+      _landlord_hub_can_record: { Args: never; Returns: boolean }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -73027,6 +73384,7 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
@@ -76871,6 +77229,14 @@ export type Database = {
           without_landlord: number
         }[]
       }
+      get_cmo_referral_lists: {
+        Args: { p_end: string; p_start: string; p_status?: string }
+        Returns: Json
+      }
+      get_cmo_referral_totals: {
+        Args: { p_end: string; p_months?: Json; p_start: string }
+        Returns: Json
+      }
       get_cohort_retention: {
         Args: {
           p_bucket?: string
@@ -77311,6 +77677,11 @@ export type Database = {
         }[]
       }
       get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_growth_snapshot_live: { Args: never; Returns: Json }
+      get_growth_sources_live: {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
@@ -77963,6 +78334,15 @@ export type Database = {
           rank_position: number
           tier_name: string
           updated_at: string
+        }[]
+      }
+      get_my_expected_days: {
+        Args: { p_agent_id?: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          expected_ugx: number
+          rent_request_id: string
+          tenant_id: string
         }[]
       }
       get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
@@ -78621,6 +79001,10 @@ export type Database = {
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_performance_rows: {
         Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_referral_performance_summary: {
+        Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
@@ -81069,6 +81453,80 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_hub_amend_call: {
+        Args: { p_call_id: string; p_changes: Json; p_reason: string }
+        Returns: Json
+      }
+      landlord_hub_detail: { Args: { p_landlord_key: string }; Returns: Json }
+      landlord_hub_list: {
+        Args: {
+          p_agent?: string
+          p_district?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_tab?: string
+          p_verified?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          being_called_by: string
+          being_called_by_id: string
+          being_called_since: string
+          call_back_due_at: string
+          call_back_overdue: boolean
+          district: string
+          houses_count: number
+          hub_status: string
+          landlord_id: string
+          landlord_key: string
+          landlord_name: string
+          last_call_at: string
+          last_caller_id: string
+          last_caller_name: string
+          last_result: string
+          live_rent_plans: number
+          needs_review: boolean
+          phone: string
+          phone_masked: boolean
+          region: string
+          rent_plan_value: number
+          total_count: number
+          user_id: string
+          verification_status: string
+          verified: boolean
+        }[]
+      }
+      landlord_hub_record_call: {
+        Args: {
+          p_aware_30m?: string
+          p_aware_payout_otp?: string
+          p_call_back_at?: string
+          p_dial_id?: string
+          p_dial_started_at: string
+          p_explained?: string
+          p_feedback_category?: string
+          p_landlord_consent?: string
+          p_landlord_id?: string
+          p_landlord_key: string
+          p_landlord_name?: string
+          p_note?: string
+          p_phone_dialed: string
+          p_result: string
+          p_severity?: string
+          p_tenants_discussed?: string[]
+        }
+        Returns: Json
+      }
+      landlord_hub_start_dial: {
+        Args: { p_landlord_key: string; p_phone: string }
+        Returns: Json
+      }
+      landlord_hub_stats: { Args: never; Returns: Json }
       landlord_number_norm: { Args: { p: string }; Returns: string }
       landlord_ops_approved_districts: { Args: never; Returns: Json }
       landlord_ops_bind_tenant_to_house: {
@@ -84080,6 +84538,10 @@ export type Database = {
           inserted_count: number
         }[]
       }
+      portfolio_compound_email_facts: {
+        Args: { p_portfolio_id: string; p_reference?: string }
+        Returns: Json
+      }
       post_instalment_waterfall: {
         Args: {
           p_idempotency_key?: string
@@ -85327,6 +85789,7 @@ export type Database = {
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
       refresh_mv_identity_double_users: { Args: never; Returns: undefined }
+      refresh_mv_landlord_hub_registry: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
@@ -89466,6 +89929,19 @@ export type Database = {
           float_balance: number
           pending_holds: number
           total_visible: number
+          withdrawable: number
+        }[]
+      }
+      user_wallet_strict_for: {
+        Args: { p_user_id: string }
+        Returns: {
+          advance_balance: number
+          float_balance: number
+          float_balance_signed: number
+          pending_holds: number
+          restricted_held: number
+          total_visible: number
+          user_id: string
           withdrawable: number
         }[]
       }

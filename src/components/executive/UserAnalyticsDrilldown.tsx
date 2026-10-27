@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -97,7 +99,7 @@ export function UserAnalyticsDrilldown({
   });
 
   const ids = idQuery.data ?? null;
-  const term = search.trim();
+  const term = useDebouncedValue(search.trim(), 300);
 
   const usersQuery = useQuery({
     queryKey: ['drill-users', scope, ids?.length, term, page],
@@ -124,9 +126,11 @@ export function UserAnalyticsDrilldown({
       } else if (ids && ids.length === 0 && scope.kind !== 'signups' && scope.kind !== 'total_users') {
         return { rows: [], total: 0 };
       }
-      if (term) {
-        const like = `%${term}%`;
-        q = q.or(`full_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`);
+      if (term.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const clause = profileTypeaheadFilter(term);
+        if (clause) q = q.ilike(clause.column, clause.pattern);
+      } else if (term.length > 0) {
+        return { rows: [], total: 0 };
       }
       const { data, count } = await q;
       return { rows: data || [], total: count || 0 };
