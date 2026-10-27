@@ -53,6 +53,7 @@ export type ActiveView =
   | 'welile-homes'
   | 'welile-schools'
   | 'welile-medicine'
+  | 'welile-signages'
   | 'agents-hope'
   | 'agents-space'
   | 'agent-ops-report'
@@ -266,6 +267,16 @@ export const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'field',
     desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
     keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
+  },
+  {
+    num: '17',
+    title: 'Welile Signages',
+    icon: Megaphone,
+    section: 'welile-signages',
+    highlight: true,
+    category: 'field',
+    desc: 'Commercial signages & billboards: GPS, review queue, installation verification, UGX 10k owner payouts & UGX 3k agent rewards',
+    keywords: ['signage', 'billboard', 'advert', 'branding', 'advertising', 'signages', 'signboard'],
   },
 ];
 
@@ -491,6 +502,18 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
     isCoreBusinessArea: true,
     businessAreaNum: '16',
+  },
+  {
+    id: 'core-17-welile-signages',
+    title: 'Welile Signages',
+    section: 'welile-signages',
+    categoryGroup: 'Core Business Areas',
+    icon: Megaphone,
+    color: 'bg-primary',
+    desc: 'Commercial signages & billboards: GPS, review queue, installation verification, UGX 10k owner payouts & UGX 3k agent rewards',
+    keywords: ['signage', 'billboard', 'advert', 'branding', 'advertising', 'signages', 'signboard'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '17',
   },
 
   // Agents' Space
