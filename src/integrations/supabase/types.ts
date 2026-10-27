@@ -64975,6 +64975,32 @@ export type Database = {
         }
         Relationships: []
       }
+      mv_landlord_hub_registry: {
+        Row: {
+          active_rent_plans: number | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_key_text: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          region: string | null
+          registered_at: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
+        }
+        Relationships: []
+      }
       mv_ops_daily_summary: {
         Row: {
           active_24h: number | null
@@ -68485,6 +68511,16 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_collections_app_error_included: {
+        Args: {
+          p_component_stack: string
+          p_context: string
+          p_message: string
+          p_role: string
+          p_route: string
+        }
+        Returns: boolean
+      }
       _agent_expected_effective: {
         Args: { p_agent_ids: string[]; p_from: string; p_to: string }
         Returns: {
@@ -85753,6 +85789,7 @@ export type Database = {
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
       refresh_mv_identity_double_users: { Args: never; Returns: undefined }
+      refresh_mv_landlord_hub_registry: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
