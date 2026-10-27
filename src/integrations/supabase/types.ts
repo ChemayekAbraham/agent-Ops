@@ -7372,6 +7372,51 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_vetting_settings_audit: {
+        Row: {
+          application_name: string | null
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[] | null
+          client_addr: unknown
+          db_role: string
+          id: string
+          jwt_role: string | null
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          session_role: string
+        }
+        Insert: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          session_role?: string
+        }
+        Update: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          session_role?: string
+        }
+        Relationships: []
+      }
       agent_visits: {
         Row: {
           accuracy: number | null
