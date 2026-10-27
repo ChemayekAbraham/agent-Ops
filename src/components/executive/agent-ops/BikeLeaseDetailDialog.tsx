@@ -414,6 +414,8 @@ export function BikeLeaseDetailDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
         className={cn(
           'app-dialog-bottom-sheet',
           '!left-0 !right-0 !top-auto !bottom-0',
