@@ -225,6 +225,7 @@ function NationalIdStep({ v, vetting, editable, guard }: StepProps) {
   const hasOwn = !!id.nin_masked && id.source !== 'parent';
   const ended = link?.status && ['rejected_by_owner', 'rejected_by_staff', 'expired', 'cancelled_by_requester'].includes(link.status);
 
+  const runSafeLocal = (fn: () => Promise<unknown>) => { fn().catch((e) => toast.error(errMsg(e))); };
   const pickOwn = () => guard(async () => { setMode('own'); await v.chooseIdSource('own'); });
 
   return (
@@ -257,11 +258,20 @@ function NationalIdStep({ v, vetting, editable, guard }: StepProps) {
               )}
             </div>
           )}
-          {editable && (
+          {editable && hasOwn && (
             <Button variant="outline" className="min-h-11 w-full sm:w-auto"
               onClick={() => guard(async () => { if (id.source !== 'own') await v.chooseIdSource('own'); setCaptureOpen(true); })}>
-              {hasOwn ? 'Re-upload ID photos' : 'Add my National ID photos'}
+              Re-upload ID photos
             </Button>
+          )}
+          {editable && !hasOwn && !id.linked_to && (
+            <div className="space-y-2">
+              <IdentityPhotoCapture />
+              <Button variant="outline" className="min-h-11 w-full sm:w-auto"
+                onClick={() => runSafeLocal(async () => { if (id.source !== 'own') await v.chooseIdSource('own'); await v.refresh(); })}>
+                I've added my ID, check again
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -296,7 +306,7 @@ function NationalIdStep({ v, vetting, editable, guard }: StepProps) {
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <BusyButton busy={v.busy === 'parent_link'} onClick={() => guard(async () => {
                     setCapError(null);
-                    try { await v.requestParentIdLink(); } catch (e) { setCapError(errMsg(e)); throw e; }
+                    try { await v.requestParentIdLink(); } catch (e) { setCapError(errMsg(e)); }
                   })}>Ask again</BusyButton>
                   <Button variant="outline" className="min-h-11" onClick={pickOwn}>Use my own ID</Button>
                 </div>
@@ -306,7 +316,7 @@ function NationalIdStep({ v, vetting, editable, guard }: StepProps) {
             editable && (
               <BusyButton className="w-full sm:w-auto" busy={v.busy === 'parent_link'} onClick={() => guard(async () => {
                 setCapError(null);
-                try { await v.requestParentIdLink(); } catch (e) { setCapError(errMsg(e)); throw e; }
+                try { await v.requestParentIdLink(); } catch (e) { setCapError(errMsg(e)); }
               })}>
                 Ask {parentName}
               </BusyButton>
