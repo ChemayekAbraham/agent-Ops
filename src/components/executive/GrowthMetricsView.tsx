@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { DonutChart } from '@/components/ui/donut-chart';
+import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from './KPICard';
@@ -27,9 +30,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
 import {
   format,
@@ -73,18 +73,23 @@ const humanize = (v: string) => {
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
 };
 
+// Organic keeps the green used for Organic on the other CMO charts; every other source gets its own
+// colour (the old list repeated purple, so two sources could look identical).
+const ORGANIC_COLOR = 'hsl(142 71% 45%)';
 const SOURCE_COLORS = [
   'hsl(var(--primary))',
   'hsl(24 95% 53%)',
-  'hsl(142 71% 45%)',
-  'hsl(262 83% 58%)',
-  'hsl(46 96% 53%)',
   'hsl(199 89% 48%)',
+  'hsl(46 96% 53%)',
   'hsl(340 82% 52%)',
+  'hsl(173 80% 36%)',
+  'hsl(231 70% 60%)',
+  'hsl(215 16% 47%)',
 ];
 
 export function GrowthMetricsView() {
   const [range, setRange] = useState<Range>('90d');
+  const [hoveredSource, setHoveredSource] = useState<string | null>(null);
   const { start, end, granularity } = useMemo(() => rangeBounds(range), [range]);
 
   // The days actually shown. Query keys use this so a range refreshes after midnight instead of
@@ -172,7 +177,16 @@ export function GrowthMetricsView() {
     },
     staleTime: 300000,
   });
-  const sourceBreakdown = (sourcesData ?? []).map((x) => ({ ...x, name: humanize(x.name) }));
+  const sourceBreakdown = useMemo(() => {
+    let next = 0;
+    return (sourcesData ?? []).map((x) => ({
+      label: humanize(x.name),
+      value: Number(x.value) || 0,
+      color: x.name.toLowerCase() === 'organic' ? ORGANIC_COLOR : SOURCE_COLORS[next++ % SOURCE_COLORS.length],
+    }));
+  }, [sourcesData]);
+  const sourceTotal = sourceBreakdown.reduce((sum, x) => sum + x.value, 0);
+  const activeSource = sourceBreakdown.find((x) => x.label === hoveredSource);
 
   const roleData = useMemo(() => {
     const raw = live?.users_by_role;
@@ -384,35 +398,70 @@ export function GrowthMetricsView() {
             <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
               Loading…
             </div>
-          ) : (sourceBreakdown || []).length === 0 ? (
+          ) : sourceBreakdown.length === 0 ? (
             <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
               No signups in this range.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={sourceBreakdown || []}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={45}
-                  outerRadius={80}
-                  paddingAngle={2}
-                >
-                  {(sourceBreakdown || []).map((_, i) => (
-                    <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend
-                  layout="horizontal"
-                  align="center"
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 11 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col items-center gap-4">
+              <DonutChart
+                data={sourceBreakdown}
+                size={190}
+                strokeWidth={26}
+                animationDuration={1}
+                activeLabel={hoveredSource}
+                onSegmentHover={(seg) => setHoveredSource(seg?.label ?? null)}
+                centerContent={
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeSource?.label ?? 'total'}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.18, ease: 'circOut' }}
+                      className="flex flex-col items-center text-center"
+                    >
+                      <p className="max-w-[110px] truncate text-xs font-medium text-muted-foreground">
+                        {activeSource?.label ?? 'Signups'}
+                      </p>
+                      <p className="text-3xl font-bold tabular-nums leading-tight">
+                        {(activeSource?.value ?? sourceTotal).toLocaleString()}
+                      </p>
+                      {activeSource && sourceTotal > 0 && (
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {Math.round((activeSource.value / sourceTotal) * 100)}%
+                        </p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                }
+              />
+              <div className="w-full space-y-0.5 border-t border-border pt-3">
+                {sourceBreakdown.map((seg, i) => (
+                  <motion.div
+                    key={seg.label}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + i * 0.07, duration: 0.3 }}
+                    className={cn(
+                      'flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+                      hoveredSource === seg.label && 'bg-muted',
+                    )}
+                    onMouseEnter={() => setHoveredSource(seg.label)}
+                    onMouseLeave={() => setHoveredSource(null)}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+                      <span className="truncate font-medium">{seg.label}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground">{seg.value.toLocaleString()}</span>
+                      {sourceTotal > 0 && ` · ${Math.round((seg.value / sourceTotal) * 100)}%`}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
