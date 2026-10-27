@@ -60,8 +60,11 @@ import {
   HUB_CATEGORY_LABELS,
   HUB_FEEDBACK_CATEGORIES,
   HUB_NOTE_MIN_LENGTH,
+  HUB_PLAN_STAGE_LABELS,
   HUB_RESULT_LABELS,
   HUB_SEVERITY_OPTIONS,
+  HUB_VERIFICATION_STATUS_LABELS,
+  formatCheckFlagLabel,
   formatHubError,
   useLandlordHubAmendCall,
   useLandlordHubDetail,
@@ -99,6 +102,20 @@ function formatSourceLabel(src: LandlordHubCallHistoryItem['source']): string {
       return 'Rent Plan Awareness';
     case 'verification':
       return 'Phone Verification';
+  }
+}
+
+function verificationStatusBadgeVariant(
+  vStatus: string | null | undefined,
+): 'default' | 'secondary' | 'outline' | 'destructive' {
+  switch ((vStatus || 'pending').toLowerCase()) {
+    case 'verified':
+      return 'default';
+    case 'rejected':
+      return 'destructive';
+    case 'pending':
+    default:
+      return 'secondary';
   }
 }
 
@@ -144,12 +161,29 @@ export function LandlordCallingHubCard({
     !primaryPhone.includes('*') &&
     primaryPhone.replace(/\D/g, '').length >= 7;
 
+  const checkFlags = detail?.check_flags ?? row?.check_flags ?? [];
+  const isCheckFirst = Boolean(
+    detail?.needs_check || row?.needs_check || checkFlags.length > 0,
+  );
+  const plansTotalCount =
+    detail?.plans_total ?? row?.plans_total ?? detail?.tenants_and_plans?.length ?? 0;
+
+  const vStatusKey = (
+    detail?.verification_status ||
+    row?.verification_status ||
+    ((detail?.verified ?? row?.verified) ? 'verified' : 'pending')
+  ).toLowerCase();
+  const vStatusLabel = HUB_VERIFICATION_STATUS_LABELS[vStatusKey] || 'Pending';
+
+  const planStage = detail?.plan_stage ?? row?.plan_stage ?? 'registered_only';
+  const planStageLabel = HUB_PLAN_STAGE_LABELS[planStage] || 'Registered only';
+
   const activeDial = detail?.active_dial;
   const activeColleagueDial =
     activeDial && activeDial.caller_id !== user?.id ? activeDial : null;
 
   const handleStartCall = async (phoneToCall: string) => {
-    if (!landlordKey) return;
+    if (!landlordKey || isCheckFirst) return;
     setDialRefusalError(null);
     try {
       const resp = await startDialMutation.mutateAsync({
@@ -201,8 +235,9 @@ export function LandlordCallingHubCard({
 
   const openPayoutReviewDialog = () => {
     const curr =
-      detail?.payout_details.mobile_money_number ||
+      detail?.payout_details.primary_payout_number ||
       detail?.payout_details.verified_mobile_money_number ||
+      detail?.payout_details.mobile_money_number ||
       primaryPhone ||
       '';
     setProposedPayoutNumber(curr);
@@ -277,6 +312,27 @@ export function LandlordCallingHubCard({
     return ageMs <= 24 * 60 * 60 * 1000;
   };
 
+  const payoutConfirmed = Boolean(
+    detail?.payout_details.payout_number_confirmed ||
+      detail?.payout_details.verified_mobile_money_number,
+  );
+  const displayedPayoutNumber =
+    detail?.payout_details.primary_payout_number ||
+    detail?.payout_details.verified_mobile_money_number ||
+    detail?.payout_details.mobile_money_number ||
+    null;
+
+  const registrarNotActive =
+    detail?.registering_agent?.is_agent_now === false ||
+    detail?.registrar_is_agent_now === false ||
+    row?.registrar_is_agent_now === false;
+
+  const shownPlansCount = detail?.tenants_and_plans.length ?? 0;
+  const totalPlansCount = Math.max(
+    shownPlansCount,
+    detail?.plans_total ?? row?.plans_total ?? shownPlansCount,
+  );
+
   return (
     <>
       <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
@@ -291,11 +347,15 @@ export function LandlordCallingHubCard({
                 {displayName}
               </SheetTitle>
               <Badge
-                variant={(detail?.verified ?? row?.verified) ? 'default' : 'secondary'}
+                variant={verificationStatusBadgeVariant(vStatusKey)}
+                data-testid="hub-card-vstatus-badge"
                 className="text-xs"
               >
                 <ShieldCheck className="h-3 w-3 mr-1" />
-                {(detail?.verified ?? row?.verified) ? 'Verified' : 'Unverified'}
+                {vStatusLabel}
+              </Badge>
+              <Badge variant="outline" data-testid="hub-card-stage-badge" className="text-xs">
+                {planStageLabel}
               </Badge>
               {(detail?.needs_review ?? row?.needs_review) && (
                 <Badge variant="destructive" className="text-xs">
@@ -320,13 +380,46 @@ export function LandlordCallingHubCard({
               {(detail?.registering_agent?.full_name || row?.agent_name) && (
                 <span className="inline-flex items-center gap-1">
                   <UserCheck className="h-3 w-3" />
-                  Agent: {detail?.registering_agent?.full_name || row?.agent_name}
+                  Registered by: {detail?.registering_agent?.full_name || row?.agent_name}
                 </span>
               )}
             </SheetDescription>
           </SheetHeader>
 
           <div className="space-y-4 pt-4">
+            {/* "Check first" Flag Banner (disables direct calling) */}
+            {isCheckFirst && (
+              <div
+                role="alert"
+                data-testid="hub-card-check-first-banner"
+                className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5 text-xs text-foreground space-y-2"
+              >
+                <div className="font-bold flex items-center gap-1.5 text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Check first before calling
+                </div>
+                {checkFlags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {checkFlags.map((flag) => (
+                      <Badge
+                        key={flag}
+                        variant="outline"
+                        className="text-xs border-amber-500/60 bg-background/80 text-amber-900 dark:text-amber-100"
+                      >
+                        {formatCheckFlagLabel(flag, plansTotalCount)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <p
+                  data-testid="hub-card-call-disabled-note"
+                  className="text-xs text-muted-foreground"
+                >
+                  Calling is disabled until a Landlord Ops lead reviews the flagged issue above.
+                </p>
+              </div>
+            )}
+
             {/* Active Colleague Dial Warning or Refusal */}
             {(activeColleagueDial || row?.being_called_by || dialRefusalError) && (
               <div
@@ -378,7 +471,9 @@ export function LandlordCallingHubCard({
                 <Button
                   type="button"
                   data-testid="hub-card-call-btn"
-                  disabled={!hasCallablePhone || startDialMutation.isPending}
+                  disabled={
+                    isCheckFirst || !hasCallablePhone || startDialMutation.isPending
+                  }
                   onClick={() => handleStartCall(primaryPhone)}
                   className="min-h-[44px] text-xs font-semibold gap-1.5"
                 >
@@ -387,7 +482,9 @@ export function LandlordCallingHubCard({
                   ) : (
                     <Phone className="h-4 w-4" />
                   )}
-                  Call {primaryPhone || 'landlord'}
+                  {isCheckFirst
+                    ? 'Calling disabled (Check first)'
+                    : `Call ${primaryPhone || 'landlord'}`}
                 </Button>
 
                 <Button
@@ -405,12 +502,12 @@ export function LandlordCallingHubCard({
                 <Button
                   type="button"
                   variant="outline"
-                  asChild={hasCallablePhone}
-                  disabled={!hasCallablePhone}
+                  asChild={hasCallablePhone && !isCheckFirst}
+                  disabled={!hasCallablePhone || isCheckFirst}
                   data-testid="hub-card-whatsapp-btn"
                   className="min-h-[44px] text-xs gap-1.5"
                 >
-                  {hasCallablePhone ? (
+                  {hasCallablePhone && !isCheckFirst ? (
                     <a
                       href={toWhatsAppUrl(
                         primaryPhone,
@@ -431,31 +528,33 @@ export function LandlordCallingHubCard({
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60 flex-wrap">
-                <span className="text-xs text-muted-foreground">
-                  Called from another handset or returned from a call?
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  data-testid="hub-card-manual-record-btn"
-                  className="min-h-[44px] text-xs font-medium"
-                  onClick={() => {
-                    if (!landlordKey) return;
-                    onOpenRecordDialog({
-                      landlordKey,
-                      landlordId: detail?.landlord_id ?? row?.landlord_id ?? null,
-                      landlordName: displayName,
-                      phone: primaryPhone,
-                      manualMode: true,
-                      tenantPlans: detail?.tenants_and_plans ?? [],
-                    });
-                  }}
-                >
-                  Record a call I made another way
-                </Button>
-              </div>
+              {!isCheckFirst && (
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/60 flex-wrap">
+                  <span className="text-xs text-muted-foreground">
+                    Called from another handset or returned from a call?
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    data-testid="hub-card-manual-record-btn"
+                    className="min-h-[44px] text-xs font-medium"
+                    onClick={() => {
+                      if (!landlordKey) return;
+                      onOpenRecordDialog({
+                        landlordKey,
+                        landlordId: detail?.landlord_id ?? row?.landlord_id ?? null,
+                        landlordName: displayName,
+                        phone: primaryPhone,
+                        manualMode: true,
+                        tenantPlans: detail?.tenants_and_plans ?? [],
+                      });
+                    }}
+                  >
+                    Record a call I made another way
+                  </Button>
+                </div>
+              )}
             </div>
 
             {detailQuery.isLoading ? (
@@ -558,10 +657,24 @@ export function LandlordCallingHubCard({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg bg-muted/40 p-2.5 space-y-0.5">
-                      <div className="text-xs text-muted-foreground">Mobile Money Number</div>
+                    <div className="rounded-lg bg-muted/40 p-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                        <span className="text-xs text-muted-foreground">
+                          Payout Mobile Money Number
+                        </span>
+                        {payoutConfirmed && (
+                          <Badge
+                            variant="default"
+                            data-testid="hub-payout-confirmed-badge"
+                            className="text-xs bg-emerald-600 text-white"
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Confirmed
+                          </Badge>
+                        )}
+                      </div>
                       <div className="font-mono font-semibold text-foreground">
-                        {detail.payout_details.mobile_money_number || 'Not recorded'}
+                        {displayedPayoutNumber || 'Not recorded'}
                       </div>
                       {detail.payout_details.mobile_money_name && (
                         <div className="text-xs text-muted-foreground">
@@ -570,7 +683,8 @@ export function LandlordCallingHubCard({
                       )}
                       {detail.payout_details.verified_mobile_money_number && (
                         <div className="text-xs text-emerald-700 dark:text-emerald-400 font-mono">
-                          Approved: {detail.payout_details.verified_mobile_money_number}
+                          Confirmed payout number:{' '}
+                          {detail.payout_details.verified_mobile_money_number}
                         </div>
                       )}
                     </div>
@@ -595,7 +709,7 @@ export function LandlordCallingHubCard({
                   </div>
                 </div>
 
-                {/* Caretaker & Registering Agent */}
+                {/* Caretaker & Registered by */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <div className="rounded-xl border border-border bg-card p-3 space-y-1">
                     <div className="flex items-center gap-1.5 font-bold text-foreground">
@@ -619,34 +733,62 @@ export function LandlordCallingHubCard({
                   </div>
 
                   <div className="rounded-xl border border-border bg-card p-3 space-y-1">
-                    <div className="flex items-center gap-1.5 font-bold text-foreground">
-                      <UserCheck className="h-3.5 w-3.5 text-primary" />
-                      Registering Agent
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 font-bold text-foreground">
+                        <UserCheck className="h-3.5 w-3.5 text-primary" />
+                        Registered by
+                      </div>
+                      {registrarNotActive && detail.registering_agent && (
+                        <Badge
+                          variant="outline"
+                          data-testid="hub-agent-not-active-note"
+                          className="text-xs border-amber-500/60 text-amber-800 dark:text-amber-200"
+                        >
+                          No longer an agent
+                        </Badge>
+                      )}
                     </div>
                     {detail.registering_agent?.full_name ? (
                       <div className="text-xs text-foreground space-y-0.5">
-                        <div>{detail.registering_agent.full_name}</div>
+                        <div className="font-medium">{detail.registering_agent.full_name}</div>
                         {detail.registering_agent.phone && (
                           <div className="font-mono text-muted-foreground">
                             {detail.registering_agent.phone}
+                          </div>
+                        )}
+                        {detail.registered_at && (
+                          <div className="text-xs text-muted-foreground">
+                            Registered {format(new Date(detail.registered_at), 'dd MMM yyyy')}
                           </div>
                         )}
                       </div>
                     ) : (
                       <div className="text-xs text-muted-foreground">
                         No registering agent recorded.
+                        {detail.registered_at && (
+                          <span className="block mt-0.5">
+                            Registered {format(new Date(detail.registered_at), 'dd MMM yyyy')}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Tenants & Rent Plans (tap to open) */}
+                {/* Tenants & Rent Plans (capped at 50, showing "Showing N of TOTAL") */}
                 <div className="rounded-xl border border-border bg-card p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 text-xs font-bold text-foreground">
                       <Users className="h-4 w-4 text-primary" />
-                      Tenants & Rent Plans ({detail.tenants_and_plans.length})
+                      Tenants & Rent Plans
                     </div>
+                    <span
+                      data-testid="hub-tenants-showing-count"
+                      className="text-xs text-muted-foreground"
+                    >
+                      Showing {shownPlansCount.toLocaleString()} of{' '}
+                      {totalPlansCount.toLocaleString()}
+                    </span>
                   </div>
 
                   {detail.tenants_and_plans.length === 0 ? (
@@ -664,9 +806,16 @@ export function LandlordCallingHubCard({
                           className="w-full min-h-[48px] rounded-xl border border-border/80 bg-muted/20 hover:bg-muted/50 p-3 text-left transition-colors space-y-1.5"
                         >
                           <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <span className="text-xs font-bold text-foreground">
-                              {tp.tenant_name}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-foreground">
+                                {tp.tenant_name}
+                              </span>
+                              {tp.tenant_phone && (
+                                <span className="text-xs font-mono text-muted-foreground">
+                                  {tp.tenant_phone}
+                                </span>
+                              )}
+                            </div>
                             <Badge variant="outline" className="text-xs">
                               {tp.status}
                             </Badge>
@@ -691,6 +840,11 @@ export function LandlordCallingHubCard({
                               </span>
                             </div>
                           </div>
+                          {tp.agent_name && (
+                            <div className="text-xs text-muted-foreground">
+                              Tenant&apos;s agent: <span className="text-foreground font-medium">{tp.agent_name}</span>
+                            </div>
+                          )}
                         </button>
                       ))}
                     </div>
