@@ -49,6 +49,19 @@ interface TrendsRPC {
   }[];
 }
 
+/** Parses 'YYYY-MM-DD' as a LOCAL date; null when empty or invalid (a cleared date input). */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 'funder-onboarding' -> 'Funder onboarding'. */
+const humanize = (v: string) => {
+  const t = v.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
+};
+
 function rangeBounds(preset: RangePreset, cs: string, ce: string) {
   const now = new Date();
   switch (preset) {
@@ -61,7 +74,10 @@ function rangeBounds(preset: RangePreset, cs: string, ce: string) {
     case 'last_180':
       return { start: startOfDay(subDays(now, 179)), end: endOfDay(now) };
     case 'custom':
-      return { start: startOfDay(new Date(cs)), end: endOfDay(new Date(ce)) };
+      return {
+        start: startOfDay(parseLocalDate(cs) ?? subDays(now, 29)),
+        end: endOfDay(parseLocalDate(ce) ?? now),
+      };
   }
 }
 
@@ -75,6 +91,9 @@ export function SignupTrendsView() {
   const [customEnd, setCustomEnd] = useState(format(now, 'yyyy-MM-dd'));
 
   const { start, end } = rangeBounds(preset, customStart, customEnd);
+  // Changing one end past the other moves the other end too. A cleared input is ignored (it crashed the page).
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStart(v); if (v > customEnd) setCustomEnd(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEnd(v); if (v < customStart) setCustomStart(v); };
   const spanDays = differenceInCalendarDays(end, start) + 1;
   const granularity: Granularity = spanDays <= 45 ? 'day' : spanDays <= 120 ? 'week' : 'month';
 
@@ -82,7 +101,7 @@ export function SignupTrendsView() {
   const prevEnd = new Date(start.getTime() - 1);
 
   // Single server-side aggregation RPC — no client-side row pagination.
-  const { data: trends, isLoading } = useQuery({
+  const { data: trends, isLoading, isError } = useQuery({
     queryKey: ['signup-trends-rpc', start.toISOString(), end.toISOString(), granularity],
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<TrendsRPC> => {
@@ -96,7 +115,7 @@ export function SignupTrendsView() {
     },
   });
 
-  const { data: prevCount } = useQuery({
+  const { data: prevCount, isError: prevError } = useQuery({
     queryKey: ['signup-trends-prev-total', prevStart.toISOString(), prevEnd.toISOString()],
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<number> => {
@@ -113,7 +132,8 @@ export function SignupTrendsView() {
   const referred = trends?.totals?.referred ?? 0;
   const organic = Math.max(0, totalSignups - referred);
   const referralShare = totalSignups > 0 ? Math.round((referred / totalSignups) * 100) : 0;
-  const growthPct = (prevCount || 0) > 0 ? Math.round(((totalSignups - (prevCount || 0)) / (prevCount || 0)) * 100) : 0;
+  // No trend when the previous period had no signups (nothing to compare with) or failed to load.
+  const growthPct = (prevCount || 0) > 0 ? Math.round(((totalSignups - (prevCount || 0)) / (prevCount || 0)) * 100) : null;
   const avgPerDay = spanDays > 0 ? Math.round(totalSignups / spanDays) : 0;
 
   const labelFor = (iso: string) => {
@@ -136,12 +156,12 @@ export function SignupTrendsView() {
     return counts.map((v, i) => ({ day: DOW_LABELS[i], signups: v }));
   })();
 
-  const sourceMix = (trends?.source_mix ?? []).map((s) => ({ name: s.name, value: s.value }));
+  const sourceMix = (trends?.source_mix ?? []).map((s) => ({ name: humanize(s.name), value: s.value }));
 
   const topDays = (trends?.top_days ?? []).map((t) => ({
     date: t.day,
     signups: t.c,
-    label: format(new Date(t.day), 'EEE, MMM d'),
+    label: format(new Date(`${String(t.day).slice(0, 10)}T00:00:00`), 'EEE, MMM d'),
   }));
 
   const recent = (trends?.recent ?? []).map((r) => ({
@@ -149,7 +169,7 @@ export function SignupTrendsView() {
     when: format(new Date(r.created_at), 'MMM d, HH:mm'),
     name: r.full_name || '—',
     phone: r.phone || '—',
-    source: r.referrer_id ? 'Referral' : r.signup_source ? r.signup_source : 'Direct',
+    source: r.referrer_id ? 'Referral' : r.signup_source ? humanize(r.signup_source) : 'Direct',
   }));
 
   const recentColumns: Column<(typeof recent)[number]>[] = [
@@ -214,6 +234,7 @@ export function SignupTrendsView() {
               key={opt.v}
               size="sm"
               variant={preset === opt.v ? 'default' : 'outline'}
+              aria-pressed={preset === opt.v}
               onClick={() => setPreset(opt.v)}
             >
               {opt.l}
@@ -224,15 +245,21 @@ export function SignupTrendsView() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">Start</Label>
-              <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+              <Input type="date" value={customStart} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomStart(e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">End</Label>
-              <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+              <Input type="date" value={customEnd} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomEnd(e.target.value)} />
             </div>
           </div>
         )}
       </div>
+
+      {(isError || prevError) && (
+        <p className="text-xs text-red-500">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
+      )}
 
       {(trends?.totals?.excluded ?? 0) > 0 && (
         <p className="text-xs text-muted-foreground">
@@ -247,7 +274,7 @@ export function SignupTrendsView() {
           value={totalSignups.toLocaleString()}
           icon={UserPlus}
           loading={isLoading}
-          trend={prevCount !== undefined ? { value: growthPct, label: 'vs prev period' } : undefined}
+          trend={growthPct !== null ? { value: growthPct, label: 'vs prev period' } : undefined}
         />
         <KPICard
           title="Avg / day"
@@ -270,7 +297,7 @@ export function SignupTrendsView() {
           icon={UserCheck}
           color="bg-orange-500/10 text-orange-600"
           loading={isLoading}
-          subtitle={`${100 - referralShare}% share`}
+          subtitle={`${totalSignups > 0 ? 100 - referralShare : 0}% share`}
         />
       </div>
 
