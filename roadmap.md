@@ -126,3 +126,9 @@
 - [x] Show only a large "Total receivable" UGX figure (from the existing `get_receivables_total` RPC, same number as the CFO dashboard) plus open item count and an "as at" time in EAT, with a Refresh button, on Agent Ops, Tenant Ops and Landlord Ops (`/executive-hub?tab=agent-ops|tenant-ops|landlord-ops` and the `/landlord-ops` home page). Rest of each dashboard behind a "Show all dashboard" button, collapsed by default; on load failure (roles that cannot call the RPC) show "Unavailable", never 0, and open the full dashboard automatically; links carrying query parameters beyond `tab` open the full dashboard. Display only — no database, migration or permission changes.
 - [ ] Verify the header on a live signed-in Agent Ops / Tenant Ops / Landlord Ops account — blocked: externally managed Supabase authentication cannot be restored by browser tools, so the sandbox only reaches the sign-in page. 4 gate tests, typecheck and all guards pass; preview build OK.
 - [x] Put the Money Received section back on Cash Position as the full-width ninth figure tile below the eight tiles; isolated desktop/phone fixture check shows nine tiles, no console errors and no horizontal overflow; all guards and typecheck pass. No financial, database or deployment changes.
+
+## Finance budget head change (27 Oct 2026)
+- [ ] Replace Finance department budget head (MERCY BAYO account) with Nankambo Sharimah so new cycle notifications route to her — update submitted, awaiting approval.
+
+## Welile Homes read-only audit + Excel export (27 Oct 2026, chemayek abraham)
+- [ ] Read-only audit of welile_homes_subscriptions, welile_homes_monthly_dues, float_requests, general_ledger; export multi-tab xlsx (Executive Summary, Subscriptions, Rent Collections, Landlord Payouts, Float Requests, All Monthly Dues, General Ledger, Involved People) to /mnt/documents. Strictly no writes.
