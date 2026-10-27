@@ -378,7 +378,7 @@ export function UserAnalyticsView() {
               <Tooltip />
               <Legend />
               <Bar dataKey="referred" stackId="a" fill="hsl(var(--primary))" name="Referred" />
-              <Bar dataKey="organic" stackId="a" fill="hsl(var(--muted-foreground))" name="Organic" />
+              <Bar dataKey="organic" stackId="a" fill="hsl(142 71% 45%)" name="Organic" />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -370,7 +370,7 @@ export function GrowthMetricsView() {
                 dataKey="organic"
                 stackId="a"
                 name="Organic"
-                fill="hsl(var(--primary))"
+                fill="hsl(142 71% 45%)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
