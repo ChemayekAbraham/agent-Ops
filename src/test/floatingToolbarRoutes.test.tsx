@@ -4,6 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 
 const mock = vi.hoisted(() => ({ getMyStaff: vi.fn() }));
 vi.mock('@/hr/api', () => ({ getMyStaff: mock.getMyStaff }));
+// The chat surface needs the full auth provider; the launcher visibility rule
+// under test lives in FloatingToolbar + AgentAssistant, so stub the surface out.
+vi.mock('@/components/ai-chat/AssistantChatSurface', () => ({ AssistantChatSurface: () => null }));
 
 import FloatingToolbar from '@/components/FloatingToolbar';
 
