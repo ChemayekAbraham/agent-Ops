@@ -392,7 +392,7 @@ describe('ZoeChatSurface', () => {
           created_at: '2026-10-26T07:50:00Z',
         },
       ],
-      conversationId: 'conv-1',
+      activeConversationId: 'conv-1',
       onSendMessage,
       onRegenerate,
       onStopGenerating,
