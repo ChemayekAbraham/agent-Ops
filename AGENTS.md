@@ -33,7 +33,7 @@
 - Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
-- CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side.
+- CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side. Wallet totals read `wallet_balances_projection` (one row), and `user_wallet_strict_for` only when that row is missing — never `v_user_wallet_strict`, which recomputes every wallet.
 - CFO TIN/NSSF list derives per paid payroll run (`cfo_statutory_consent_list`).
 - CFO correction/evidence tooling (Correction Center, `cfo_s12_save_evidence`, Stage 14 `fin_s14_*`, `cfo_s14b1r/b1w_execute`) is append-only, role-gated and scoped, so review never moves money or touches other users.
 - Fingerprinted CFO packages (`cfo_bucket_a_post`, `cfo_corr_5300000_post`) post only via their own function: approver allowlist, own fresh preflight (<30 min), frozen lines, atomic.
