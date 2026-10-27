@@ -30626,6 +30626,57 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_rejected_number_locks: {
+        Row: {
+          created_at: string
+          landlord_id: string
+        }
+        Insert: {
+          created_at?: string
+          landlord_id: string
+        }
+        Update: {
+          created_at?: string
+          landlord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
       landlord_verification_events: {
         Row: {
           actor_id: string | null

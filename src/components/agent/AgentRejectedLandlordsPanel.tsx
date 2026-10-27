@@ -11,6 +11,7 @@ import {
   XCircle, Phone, Loader2, Pencil, Send, X, AlertTriangle, RotateCcw,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { withoutRejectedLandlordNumber } from '@/lib/rejectedLandlordNumber';
 
 interface RejectedRequest {
   id: string;
@@ -164,7 +165,7 @@ export function AgentRejectedLandlordsPanel() {
     try {
       const { error: llErr } = await supabase
         .from('landlords')
-        .update({
+        .update(withoutRejectedLandlordNumber({
           name: form.name.trim(),
           phone: form.phone.trim(),
           property_address: form.property_address.trim() || null,
@@ -177,7 +178,7 @@ export function AgentRejectedLandlordsPanel() {
           bank_account_name: form.bank_account_name.trim() || null,
           caretaker_name: form.caretaker_name.trim() || null,
           caretaker_phone: form.caretaker_phone.trim() || null,
-        } as any)
+        }) as any)
 
         .eq('id', req.landlord_id);
       if (llErr) throw llErr;
@@ -190,7 +191,6 @@ export function AgentRejectedLandlordsPanel() {
           resolved_by: null,
           resolved_at: null,
           landlord_name: form.name.trim(),
-          landlord_phone: form.phone.trim(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', req.id)
@@ -305,9 +305,11 @@ export function AgentRejectedLandlordsPanel() {
                             <Input
                               type={f.type === 'number' ? 'number' : f.type === 'tel' ? 'tel' : 'text'}
                               value={form[f.key]}
+                              readOnly={f.key === 'phone'}
                               onChange={(e) => setForm(s => (s ? { ...s, [f.key]: e.target.value } : s))}
                               className="h-8 text-sm"
                             />
+                            {f.key === 'phone' && <p className="text-[10px] text-muted-foreground">Only Landlord Ops can change this number after rejection.</p>}
                           </div>
                         ))}
                       </div>
