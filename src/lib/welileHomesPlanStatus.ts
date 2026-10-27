@@ -124,3 +124,59 @@ export const WH_PENDING_STEPS: { stage: WhPlanStage; short: string }[] = [
   { stage: 'pending_coo', short: '3. COO' },
   { stage: 'pending_cfo', short: '4. CFO' },
 ];
+
+function stageFromRequestStatus(status: string, fundingStatus?: string | null): WhPlanStage | null {
+  switch (status) {
+    case 'pending': return 'pending_agent_ops';
+    case 'agent_ops_approved': return 'pending_tenant_ops';
+    case 'tenant_ops_approved': return 'pending_coo';
+    case 'coo_approved': return 'pending_cfo';
+    case 'approved':
+    case 'funded':
+    case 'disbursed':
+      return fundingStatus === 'funded' ? 'funded' : 'approved_unconfirmed';
+    case 'rejected': return 'request_rejected';
+    default: return null;
+  }
+}
+
+export function resolveWhPlanStage(f: WhPlanFacts): WhPlanStage {
+  if (f.subscriptionStatus === 'cancelled') return 'declined';
+  if (f.hasCollections) return 'repaying';
+  if (f.fundingStatus === 'funded') return 'funded';
+  if (f.linkedRequestStatus) {
+    const s = stageFromRequestStatus(f.linkedRequestStatus, f.fundingStatus);
+    if (s) {
+      // A rejected request releases the plan (funding_status back to 'unfunded').
+      if (s === 'request_rejected' && f.fundingStatus === 'requested') return 'requested';
+      return s;
+    }
+  }
+  if (f.fundingStatus === 'requested') return 'requested';
+  return 'not_requested';
+}
+
+/**
+ * Whether the Delete control must be withheld. Fails closed: unknown collections lock.
+ * Locked = money or a live request is attached to the plan.
+ */
+export function isWhPlanLocked(f: WhPlanFacts): boolean {
+  if (f.collectionsUnknown) return true;
+  if (f.hasCollections) return true;
+  if (f.fundingStatus === 'requested' || f.fundingStatus === 'funded') return true;
+  if (f.linkedRequestStatus && f.linkedRequestStatus !== 'rejected') return true;
+  return false;
+}
+
+/** A due counts as a collection when money was collected or the landlord was paid. */
+export function dueHasCollection(d: {
+  amount_collected?: number | string | null;
+  collection_status?: string | null;
+  payout_status?: string | null;
+}): boolean {
+  if (Number(d.amount_collected) > 0) return true;
+  if (d.collection_status === 'collected') return true;
+  if (d.payout_status && d.payout_status !== 'unpaid') return true;
+  return false;
+}
+
