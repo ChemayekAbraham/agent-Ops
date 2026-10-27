@@ -79,6 +79,21 @@ export interface ZoeWeeklyUnansweredRow {
   last_seen_at: string;
 }
 
+export interface ZoeWeeklyThumbsDownRow {
+  normalized_question: string;
+  question_text: string;
+  thumbs_down_count: number;
+  unique_staff_count: number;
+  latest_comment: string | null;
+  latest_outcome: string | null;
+  latest_source_label: string | null;
+  tools_called: string[];
+  latest_conversation_id: string;
+  last_feedback_at: string;
+  roles_reporting: string[];
+  answer_redacted: boolean;
+}
+
 export interface ZoeDailyUsageRow {
   user_id: string;
   staff_name: string;
@@ -104,6 +119,7 @@ export interface ZoeCrmDashboardData {
   available_roles: string[];
   conversations: ZoeCrmConversationRow[];
   weekly_unanswered_summary: ZoeWeeklyUnansweredRow[];
+  weekly_thumbs_down_summary?: ZoeWeeklyThumbsDownRow[];
   daily_usage_per_person: ZoeDailyUsageRow[];
 }
 
@@ -270,6 +286,11 @@ export function useZoeCrmDashboard(filters: ZoeCrmFilters = {}, enabled = true) 
           payload.weekly_unanswered_summary,
         )
           ? payload.weekly_unanswered_summary
+          : [],
+        weekly_thumbs_down_summary: Array.isArray(
+          payload.weekly_thumbs_down_summary,
+        )
+          ? payload.weekly_thumbs_down_summary
           : [],
         daily_usage_per_person: Array.isArray(payload.daily_usage_per_person)
           ? payload.daily_usage_per_person

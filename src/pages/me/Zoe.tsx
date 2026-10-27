@@ -48,14 +48,23 @@ const ZoePage: React.FC = () => {
       ) : (
         <ZoeChatSurface
           messages={assistant.messages}
+          conversations={assistant.conversations}
+          activeConversationId={assistant.activeConversationId}
           roles={roles}
           generatedBy={generatedBy}
           morningBrief={assistant.morningBrief}
           isLoading={assistant.isLoading}
           isHistoryLoading={assistant.isHistoryLoading}
+          streamingText={assistant.streamingText}
+          statusLine={assistant.statusLine}
           errorMessage={assistant.errorMessage}
           remainingQuestionsToday={assistant.remainingQuestionsToday}
           onSendMessage={assistant.sendMessage}
+          onStopGenerating={assistant.stopGenerating}
+          onRegenerate={assistant.regenerateLastAnswer}
+          onSelectConversation={assistant.selectConversation}
+          onStartNewChat={assistant.startNewChat}
+          onRenameConversation={assistant.renameConversation}
           onRetry={assistant.retryLastMessage}
           onFeedback={assistant.submitFeedback}
           onClearHistory={assistant.clearHistory}

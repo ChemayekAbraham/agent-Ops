@@ -194,6 +194,7 @@ export function ZoeConversationsPanel() {
   };
 
   const weeklyUnanswered = data?.weekly_unanswered_summary ?? [];
+  const weeklyThumbsDown = data?.weekly_thumbs_down_summary ?? [];
   const dailyUsageRows = data?.daily_usage_per_person ?? [];
 
   const handleSaveUnansweredReview = (
@@ -750,6 +751,77 @@ export function ZoeConversationsPanel() {
                     </Card>
                   );
                 })
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Weekly Thumbs-Down Learning Loop (Redacted: never shows assistant answer or figures) */}
+          <Card data-testid="zoe-weekly-thumbs-down-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ThumbsDown className="h-4 w-4 text-destructive" />
+                Weekly Learning Loop: Thumbs-Down Questions (Last 7 Days · Redacted)
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Staff questions that received thumbs-down feedback over the last 7 days, with caller roles, tool names, outcome, and staff comment. Assistant answer text and figures are redacted.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-2.5">
+              {weeklyThumbsDown.length === 0 ? (
+                <div
+                  className="p-4 text-center text-xs text-muted-foreground"
+                  data-testid="zoe-weekly-thumbs-down-empty"
+                >
+                  No thumbs-down feedback recorded in the last 7 days.
+                </div>
+              ) : (
+                weeklyThumbsDown.map((downItem, idx) => (
+                  <Card
+                    key={`${downItem.latest_conversation_id}-${idx}`}
+                    data-testid={`zoe-weekly-thumbs-down-item-${idx}`}
+                    className="border-destructive/30"
+                  >
+                    <CardContent className="p-3.5 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="destructive" className="text-xs">
+                          Thumbs-down {downItem.thumbs_down_count}x
+                        </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {downItem.unique_staff_count} staff
+                        </Badge>
+                        {downItem.latest_outcome && (
+                          <Badge variant="secondary" className="text-xs">
+                            Outcome: {downItem.latest_outcome}
+                          </Badge>
+                        )}
+                        {downItem.roles_reporting?.map((role) => (
+                          <Badge key={role} variant="outline" className="text-xs">
+                            {formatRoleLabel(role)}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">
+                        {downItem.question_text}
+                      </p>
+                      {downItem.latest_comment && (
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Staff comment: </span>
+                          {downItem.latest_comment}
+                        </p>
+                      )}
+                      {Array.isArray(downItem.tools_called) && downItem.tools_called.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          {downItem.tools_called.map((toolName) => (
+                            <Badge key={toolName} variant="secondary" className="text-xs gap-1">
+                              <Wrench className="h-3 w-3" />
+                              {toolName}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))
               )}
             </CardContent>
           </Card>
