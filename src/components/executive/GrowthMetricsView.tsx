@@ -130,23 +130,43 @@ export function GrowthMetricsView() {
     staleTime: 300000,
   });
 
-  // ── 2+3+4. Live KPIs, source mix and roles from one role-gated server function ──
+  // ── 2+3. Platform snapshot and source mix: two role-gated server functions ──
   // (daily_platform_stats stopped updating in April 2026 and is not readable by CMO.)
-  const { data: live, isLoading: loadingLive } = useQuery({
-    queryKey: ['growth-live', rangeKey],
+  // The snapshot does not depend on the range, so it is fetched once and kept for 5 minutes:
+  // clicking a range button only refetches the signups and the (cheap) source mix. Previously one
+  // function recomputed everything, ~1 s, on every click.
+  type GrowthSnapshot = {
+    total_users: number; total_users_prev: number; new_users_today: number;
+    referral_pct: number | null; referral_pct_prev: number | null;
+    active_users_30d: number; retention_pct: number | null;
+    users_by_role: Record<string, number>; computed_at: string;
+  };
+  // The functions are newer than the generated database types, so call them through a narrow cast.
+  const rpc = supabase as unknown as {
+    rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+  };
+  const { data: live, isLoading: loadingSnap } = useQuery({
+    queryKey: ['growth-snapshot'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_growth_metrics_live', {
+      const { data, error } = await rpc.rpc('get_growth_snapshot_live');
+      if (error) throw error;
+      return data as GrowthSnapshot;
+    },
+    staleTime: 300000,
+  });
+  const { data: sourcesData, isLoading: loadingSources } = useQuery({
+    queryKey: ['growth-sources', rangeKey],
+    queryFn: async () => {
+      const { data, error } = await rpc.rpc('get_growth_sources_live', {
         p_start: start.toISOString(),
         p_end: end.toISOString(),
       });
       if (error) throw error;
-      return data as any;
+      return (data ?? []) as { name: string; value: number }[];
     },
     staleTime: 300000,
   });
-  const loadingSnap = loadingLive;
-  const loadingSources = loadingLive;
-  const sourceBreakdown = (live?.sources ?? []) as { name: string; value: number }[];
+  const sourceBreakdown = sourcesData ?? [];
 
   const roleData = useMemo(() => {
     const raw = live?.users_by_role;
@@ -172,7 +192,7 @@ export function GrowthMetricsView() {
     prev <= 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
 
   const usersGrowth = pct(totalUsers, totalUsersPrev);
-  const referralPctDelta = Math.round(referralPct - referralPctPrev);
+  const referralPctDelta = Math.round((referralPct - referralPctPrev) * 10) / 10;
 
   const rangeSignups = (signupTrend || []).reduce((s, r) => s + r.signups, 0);
   const rangeReferred = (signupTrend || []).reduce((s, r) => s + r.referred, 0);
