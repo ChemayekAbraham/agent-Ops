@@ -24,8 +24,8 @@ export interface ZoeReportSharedProps {
   row_count?: number
   how_counted?: string
   attachment_filename?: string
-  headers?: string[]
-  rows?: Array<Array<string | number | null>>
+  sign_in_only?: boolean
+  sign_in_url?: string
   logo_url?: string
 }
 
@@ -51,13 +51,10 @@ export function ZoeReportSharedEmail({
   row_count = 0,
   how_counted = 'Counted directly from official read-only server records.',
   attachment_filename = 'Welile-Zoe-Report.pdf',
-  headers = [],
-  rows = [],
+  sign_in_only = false,
+  sign_in_url = 'https://welilereceipts.com/me/zoe',
   logo_url = 'https://byrzshwlentqvktcksem.supabase.co/storage/v1/object/public/email-assets/welile-logo.png',
 }: ZoeReportSharedProps) {
-  const previewRows = Array.isArray(rows) ? rows.slice(0, 8) : []
-  const previewHeaders = Array.isArray(headers) ? headers : []
-
   return (
     <Html>
       <Head />
@@ -134,8 +131,16 @@ export function ZoeReportSharedEmail({
                         <Text style={{ color: INK, fontSize: '14px', lineHeight: '21px', margin: '0 0 14px 0' }}>
                           <strong>{sender_name}</strong>
                           {sender_email ? ` (${sender_email})` : ''} shared an official Welile report with you from{' '}
-                          <strong>Zoe (My Space Staff Assistant)</strong>. The full PDF report (
-                          <code>{attachment_filename}</code>) is attached to this email.
+                          <strong>Zoe (My Space Staff Assistant)</strong>.{' '}
+                          {sign_in_only ? (
+                            <>
+                              Because this report requires two-step verification (MFA), no figures are included in this email. Please sign in to My Space to view or re-confirm this report.
+                            </>
+                          ) : (
+                            <>
+                              The full PDF report (<code>{attachment_filename}</code>) is attached to this email. For security, report figures and rows are never rendered inline in the email body.
+                            </>
+                          )}
                         </Text>
 
                         {message ? (
@@ -151,6 +156,26 @@ export function ZoeReportSharedEmail({
                             <Text style={{ color: INK, fontSize: '13px', lineHeight: '19px', margin: 0 }}>
                               {message}
                             </Text>
+                          </div>
+                        ) : null}
+
+                        {sign_in_only ? (
+                          <div style={{ margin: '16px 0 8px 0' }}>
+                            <a
+                              href={sign_in_url}
+                              style={{
+                                display: 'inline-block',
+                                backgroundColor: BRAND_PURPLE,
+                                color: '#FFFFFF',
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                padding: '10px 18px',
+                                borderRadius: '8px',
+                                textDecoration: 'none',
+                              }}
+                            >
+                              Open Zoe in My Space
+                            </a>
                           </div>
                         ) : null}
                       </td>
@@ -197,14 +222,16 @@ export function ZoeReportSharedEmail({
                                 {source}
                               </td>
                             </tr>
-                            <tr>
-                              <td style={{ padding: '4px 0', fontSize: '12px', color: MUTED }}>
-                                Row Count
-                              </td>
-                              <td style={{ padding: '4px 0', fontSize: '12px', color: INK, fontWeight: 600 }}>
-                                {row_count} {row_count === 1 ? 'row' : 'rows'}
-                              </td>
-                            </tr>
+                            {!sign_in_only ? (
+                              <tr>
+                                <td style={{ padding: '4px 0', fontSize: '12px', color: MUTED }}>
+                                  Row Count
+                                </td>
+                                <td style={{ padding: '4px 0', fontSize: '12px', color: INK, fontWeight: 600 }}>
+                                  {row_count} {row_count === 1 ? 'row' : 'rows'}
+                                </td>
+                              </tr>
+                            ) : null}
                             {generated_at ? (
                               <tr>
                                 <td style={{ padding: '4px 0', fontSize: '12px', color: MUTED }}>
@@ -227,63 +254,6 @@ export function ZoeReportSharedEmail({
                         </table>
                       </td>
                     </tr>
-
-                    {/* Compact Preview Table (first 8 rows) */}
-                    {previewHeaders.length > 0 && previewRows.length > 0 ? (
-                      <tr>
-                        <td style={{ padding: '0 28px 20px 28px' }}>
-                          <Text style={{ color: MUTED, fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', margin: '0 0 8px 0' }}>
-                            Preview ({previewRows.length} of {row_count} rows — full report in attached PDF)
-                          </Text>
-                          <table
-                            width="100%"
-                            border={0}
-                            cellPadding={0}
-                            cellSpacing={0}
-                            role="presentation"
-                            style={{ border: `1px solid ${HAIRLINE}`, borderRadius: '6px', borderCollapse: 'collapse' }}
-                          >
-                            <thead>
-                              <tr>
-                                {previewHeaders.slice(0, 5).map((h, i) => (
-                                  <th
-                                    key={String(h) + i}
-                                    align="left"
-                                    style={{
-                                      backgroundColor: BRAND_PURPLE,
-                                      color: '#FFFFFF',
-                                      fontSize: '11px',
-                                      padding: '6px 8px',
-                                    }}
-                                  >
-                                    {h}
-                                  </th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {previewRows.map((r, rIdx) => (
-                                <tr key={rIdx}>
-                                  {previewHeaders.slice(0, 5).map((_, cIdx) => (
-                                    <td
-                                      key={cIdx}
-                                      style={{
-                                        borderBottom: `1px solid ${HAIRLINE}`,
-                                        fontSize: '11px',
-                                        color: INK,
-                                        padding: '6px 8px',
-                                      }}
-                                    >
-                                      {r[cIdx] === null || r[cIdx] === undefined ? '—' : String(r[cIdx])}
-                                    </td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </td>
-                      </tr>
-                    ) : null}
 
                     {/* Footer */}
                     <tr>

@@ -15,7 +15,7 @@ import {
 import { checkAnswer } from "./guards.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
-import { chatCompletion, ChatMessage, classifyText } from "./openai.ts";
+import { AiGatewayError, chatCompletion, ChatMessage, classifyText } from "./openai.ts";
 import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
 import {
@@ -42,6 +42,7 @@ import {
   DraftReportScheduleArgsSchema,
   DraftStaffNotificationArgsSchema,
   findTool,
+  isHistoryMessageAllowedForRoles,
   openAiToolsForRoles,
 } from "./tools.ts";
 
@@ -66,6 +67,47 @@ function json(status: number, body: Record<string, unknown>): Response {
 function parseCategory(raw: string): "in_scope" | "out_of_scope" {
   const m = raw.match(/"category"\s*:\s*"(in_scope|out_of_scope)"/);
   return (m?.[1] as "in_scope" | "out_of_scope" | undefined) ?? "in_scope";
+}
+
+/**
+ * Saves a draft server-side in `public.staff_assistant_drafts` (owner, kind, exact payload_hash,
+ * 30-minute expiry, single-use `used_at`) using the caller's own JWT (`userClient`).
+ */
+async function saveServerDraft(
+  userClient: SupabaseClient,
+  kind: "email" | "reminder" | "notification" | "schedule",
+  payload: Record<string, unknown>,
+  conversationId: string,
+): Promise<string | null> {
+  const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
+    p_kind: kind,
+    p_payload: payload,
+    p_conversation_id: conversationId,
+  });
+  if (error || !data || typeof data !== "object") {
+    return null;
+  }
+  const rec = data as Record<string, unknown>;
+  return typeof rec.draft_id === "string" && rec.draft_id.trim() ? rec.draft_id.trim() : null;
+}
+
+/**
+ * Checks whether a recipient's own roles can read the given report RPC via
+ * `public.staff_assistant_can_user_read_report`.
+ */
+async function checkRecipientCanReadReport(
+  userClient: SupabaseClient,
+  recipientUserId: string,
+  reportRpc: string,
+  ownerId: string,
+): Promise<boolean> {
+  const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
+    p_user_id: recipientUserId,
+    p_report_rpc: reportRpc,
+    p_owner_id: ownerId,
+  });
+  if (error) return false;
+  return data === true;
 }
 
 /**
@@ -155,8 +197,25 @@ Deno.serve(async (req) => {
 
   // ---- 4. Non-chat utility actions (history, clear_history, feedback) ------------------------
   if (body.action === "history") {
-    const history = await loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30);
-    return json(200, history);
+    const [callerRoles, history] = await Promise.all([
+      resolveCallerRoles(userClient, user.id),
+      loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30),
+    ]);
+    // Re-check the caller's current role before showing any historical answer or report_payload
+    const roleFilteredMessages = history.messages.map((msg) => {
+      if (!isHistoryMessageAllowedForRoles(msg, callerRoles)) {
+        return {
+          ...msg,
+          content: MSG.historyRoleRestricted,
+          report_payload: null,
+        };
+      }
+      return msg;
+    });
+    return json(200, {
+      conversation_id: history.conversation_id,
+      messages: roleFilteredMessages,
+    });
   }
 
   if (body.action === "clear_history") {
@@ -282,8 +341,26 @@ Deno.serve(async (req) => {
 
   try {
     // ---- 7. Cheap scope pre-check (no data, no tools) ----------------------------------------
-    const scopeRaw = await classifyText(SCOPE_CHECK_PROMPT, userText);
-    const scope = parseCategory(scopeRaw);
+    // Fail-closed: if the scope classifier fails with any non-quota error, treat the question as
+    // in_scope (needing a verified read-only tool call) rather than letting it through unchecked.
+    let scope: "in_scope" | "out_of_scope" = "in_scope";
+    try {
+      const scopeRaw = await classifyText(SCOPE_CHECK_PROMPT, userText);
+      scope = parseCategory(scopeRaw);
+    } catch (scopeErr) {
+      if (
+        scopeErr instanceof AiGatewayError &&
+        (scopeErr.status === 429 || scopeErr.status === 402)
+      ) {
+        throw scopeErr;
+      }
+      console.warn(
+        "[staff-assistant] scope classifier failed; treating question as needing a tool:",
+        scopeErr instanceof Error ? scopeErr.message : scopeErr,
+      );
+      scope = "in_scope";
+    }
+
     if (scope === "out_of_scope") {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
@@ -310,7 +387,10 @@ Deno.serve(async (req) => {
     let lastModel = "";
     let finalText: string | null = null;
 
-    for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
+    const maxModelRounds = budget.maxModelRounds ?? MAX_MODEL_ROUNDS;
+    const maxToolCalls = budget.maxToolCalls ?? MAX_TOOL_CALLS;
+
+    for (let round = 0; round < maxModelRounds; round++) {
       const { message, model } = await chatCompletion({
         messages,
         tools: allowedOpenAiTools,
@@ -326,7 +406,7 @@ Deno.serve(async (req) => {
       messages.push({ role: "assistant", content: message.content ?? null, tool_calls: calls });
 
       for (const call of calls) {
-        if (toolsCalled.length >= MAX_TOOL_CALLS) {
+        if (toolsCalled.length >= maxToolCalls) {
           return await finish(MSG.unmatched, "unmatched", {
             tools: toolsCalled,
             model: lastModel,
@@ -469,7 +549,16 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
           }
 
           if (!lastReportPayload) {
@@ -535,6 +624,48 @@ Deno.serve(async (req) => {
             });
           }
 
+          // Check that the recipient's own roles can read this report before offering a draft
+          if (draftOutcome.draft.recipient_user_id) {
+            const reportToolDef = findTool(draftOutcome.draft.report_reference.tool);
+            const roleAllowed =
+              reportToolDef &&
+              canUseTool(reportToolDef, draftOutcome.draft.recipient_roles) &&
+              !(
+                draftOutcome.draft.report_reference.rpc.startsWith("assistant_staff_my_") &&
+                draftOutcome.draft.recipient_user_id !== user.id
+              );
+            const dbRoleAllowed = await checkRecipientCanReadReport(
+              userClient,
+              draftOutcome.draft.recipient_user_id,
+              draftOutcome.draft.report_reference.rpc,
+              user.id,
+            );
+            if (!roleAllowed || !dbRoleAllowed) {
+              return await finish(MSG.recipientRoleRestricted, "blocked", {
+                tools: [...toolsCalled, "draft_report_email"],
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          // Store draft server-side in staff_assistant_drafts (30-min expiry, exact payload hash)
+          const savedEmailDraftId = await saveServerDraft(
+            userClient,
+            "email",
+            {
+              kind: "email",
+              recipient_email: draftOutcome.draft.recipient_email ?? "",
+              subject: draftOutcome.draft.subject,
+              message: draftOutcome.draft.message,
+              report_reference: draftOutcome.draft.report_reference,
+            },
+            conv.id,
+          );
+          if (savedEmailDraftId) {
+            draftOutcome.draft.draft_id = savedEmailDraftId;
+          }
+
           if (draftOutcome.kind === "pick_recipient") {
             return await finish(draftOutcome.question, "clarify", {
               tools: [...toolsCalled, "draft_report_email"],
@@ -581,6 +712,21 @@ Deno.serve(async (req) => {
             note: r.data.note,
             todayKampala: today,
           });
+
+          const savedReminderDraftId = await saveServerDraft(
+            userClient,
+            "reminder",
+            {
+              kind: "reminder",
+              title: reminderDraft.draft.title,
+              remind_at: reminderDraft.draft.remind_at,
+              note: reminderDraft.draft.note ?? "",
+            },
+            conv.id,
+          );
+          if (savedReminderDraftId) {
+            reminderDraft.draft.draft_id = savedReminderDraftId;
+          }
 
           return await finish(reminderDraft.replyText, "answered", {
             tools: [...toolsCalled, "draft_reminder"],
@@ -642,6 +788,22 @@ Deno.serve(async (req) => {
               model: lastModel,
               unansweredReason: "role_restricted",
             });
+          }
+
+          const savedNotifDraftId = await saveServerDraft(
+            userClient,
+            "notification",
+            {
+              kind: "notification",
+              recipient_email: notifOutcome.draft.recipient_email ?? "",
+              title: notifOutcome.draft.title,
+              message: notifOutcome.draft.message,
+              link_path: "/me",
+            },
+            conv.id,
+          );
+          if (savedNotifDraftId) {
+            notifOutcome.draft.draft_id = savedNotifDraftId;
           }
 
           if (notifOutcome.kind === "pick_recipient") {
@@ -757,7 +919,16 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
           }
 
           if (!lastReportPayload) {
@@ -819,6 +990,54 @@ Deno.serve(async (req) => {
               model: lastModel,
               unansweredReason: "role_restricted",
             });
+          }
+
+          // Check that the recipient's own roles can read this report before offering a schedule draft
+          if (scheduleOutcome.draft.recipient_user_id) {
+            const reportToolDef = findTool(scheduleOutcome.draft.report_reference.tool);
+            const roleAllowed =
+              reportToolDef &&
+              canUseTool(reportToolDef, scheduleOutcome.draft.recipient_roles) &&
+              !(
+                scheduleOutcome.draft.report_reference.rpc.startsWith("assistant_staff_my_") &&
+                scheduleOutcome.draft.recipient_user_id !== user.id
+              );
+            const dbRoleAllowed = await checkRecipientCanReadReport(
+              userClient,
+              scheduleOutcome.draft.recipient_user_id,
+              scheduleOutcome.draft.report_reference.rpc,
+              user.id,
+            );
+            if (!roleAllowed || !dbRoleAllowed) {
+              return await finish(MSG.recipientRoleRestricted, "blocked", {
+                tools: [...toolsCalled, "draft_report_schedule"],
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          const savedScheduleDraftId = await saveServerDraft(
+            userClient,
+            "schedule",
+            {
+              kind: "schedule",
+              title: scheduleOutcome.draft.title,
+              report_tool: scheduleOutcome.draft.report_reference.tool,
+              report_rpc: scheduleOutcome.draft.report_reference.rpc,
+              report_args: scheduleOutcome.draft.report_reference.args ?? {},
+              frequency: scheduleOutcome.draft.frequency,
+              day_of_week: scheduleOutcome.draft.day_of_week,
+              send_time_kampala: scheduleOutcome.draft.send_time_kampala,
+              recipient_emails: scheduleOutcome.draft.recipient_email
+                ? [scheduleOutcome.draft.recipient_email]
+                : [],
+              custom_message: scheduleOutcome.draft.custom_message ?? "",
+            },
+            conv.id,
+          );
+          if (savedScheduleDraftId) {
+            scheduleOutcome.draft.draft_id = savedScheduleDraftId;
           }
 
           if (scheduleOutcome.kind === "pick_recipient") {
@@ -1010,6 +1229,16 @@ Deno.serve(async (req) => {
       reportPayload: lastReportPayload,
     });
   } catch (err) {
+    if (err instanceof AiGatewayError && (err.status === 429 || err.status === 402)) {
+      console.error(
+        `[staff-assistant] AI gateway HTTP ${err.status}:`,
+        err.detail || err.message,
+      );
+      const reply = err.status === 429 ? MSG.gatewayBusy : MSG.gatewayOutOfCredit;
+      return await finish(reply, "error", {
+        unansweredReason: "error",
+      });
+    }
     console.error("[staff-assistant] unhandled error:", err instanceof Error ? err.message : err);
     return await finish(MSG.error, "error", {
       unansweredReason: "error",

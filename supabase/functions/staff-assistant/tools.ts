@@ -1599,3 +1599,54 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
 export function describeToolsForRoles(callerRoles: readonly string[]): string[] {
   return toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`);
 }
+
+export const PSEUDO_AND_DRAFT_TOOL_NAMES = new Set<string>([
+  "ask_clarification",
+  "draft_report_email",
+  "draft_reminder",
+  "draft_staff_notification",
+  "draft_report_schedule",
+]);
+
+/**
+ * Re-checks whether an earlier assistant message from conversation history may still be shown
+ * to a caller with `callerRoles` (Finding L: "When an old answer is opened from history,
+ * re-check the person's current role before showing its data").
+ */
+export function isHistoryMessageAllowedForRoles(
+  msg: {
+    role: string;
+    tools_called?: string[];
+    report_payload?: Record<string, unknown> | null;
+  },
+  callerRoles: readonly string[],
+): boolean {
+  if (msg.role !== "assistant") return true;
+
+  const toolNames = new Set<string>();
+  for (const name of msg.tools_called ?? []) {
+    if (typeof name === "string" && name.trim() && !PSEUDO_AND_DRAFT_TOOL_NAMES.has(name.trim())) {
+      toolNames.add(name.trim());
+    }
+  }
+
+  const payloadTool =
+    msg.report_payload && typeof msg.report_payload.tool === "string"
+      ? msg.report_payload.tool.trim()
+      : "";
+  if (payloadTool && !PSEUDO_AND_DRAFT_TOOL_NAMES.has(payloadTool)) {
+    toolNames.add(payloadTool);
+  }
+
+  for (const tName of toolNames) {
+    const tool =
+      findTool(tName) ??
+      findTool(tName.replace(/^assistant_staff_/, "get_")) ??
+      findTool(tName.replace(/^assistant_staff_/, ""));
+    if (!tool || !canUseTool(tool, callerRoles)) {
+      return false;
+    }
+  }
+
+  return true;
+}

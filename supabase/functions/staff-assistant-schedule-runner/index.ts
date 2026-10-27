@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
       let query = adminClient
         .from("staff_assistant_schedules")
         .select(
-          "id, user_id, title, report_tool, report_rpc, report_args, frequency, day_of_week, send_time_kampala, recipient_emails, recipient_names, custom_message, run_count",
+          "id, user_id, title, report_tool, report_rpc, report_args, frequency, day_of_week, send_time_kampala, recipient_emails, recipient_names, custom_message, run_count, mfa_confirmed_at",
         )
         .eq("status", "active")
         .lte("next_run_at", new Date().toISOString())
@@ -123,6 +123,8 @@ Deno.serve(async (req) => {
         custom_message:
           typeof row.custom_message === "string" ? row.custom_message : null,
         run_count: typeof row.run_count === "number" ? row.run_count : 0,
+        mfa_confirmed_at:
+          typeof row.mfa_confirmed_at === "string" ? row.mfa_confirmed_at : null,
       }));
     },
     checkOwnerHasAccess: async (ownerId) => {
@@ -165,7 +167,39 @@ Deno.serve(async (req) => {
       });
       return !error && data === true;
     },
+    checkRecipientCanReadReport: async (recipientEmail, reportRpc, ownerId) => {
+      const { data: recProfile } = await adminClient
+        .from("profiles")
+        .select("id")
+        .ilike("email", recipientEmail.trim().toLowerCase())
+        .maybeSingle();
+      if (!recProfile?.id) return false;
+      const { data, error } = await adminClient.rpc("staff_assistant_can_user_read_report", {
+        p_user_id: recProfile.id,
+        p_report_rpc: reportRpc,
+        p_owner_id: ownerId,
+      });
+      return !error && data === true;
+    },
     getDailyEmailUsage: async (ownerId) => {
+      const { data: budgetRow, error: budgetErr } = await adminClient.rpc(
+        "staff_assistant_check_email_budget",
+        {
+          p_user_id: ownerId,
+          p_recipient_count: 1,
+        },
+      );
+      if (!budgetErr && budgetRow && typeof budgetRow === "object") {
+        const rec = budgetRow as Record<string, unknown>;
+        return {
+          sentToday: typeof rec.sent_today === "number" ? rec.sent_today : 0,
+          maxEmailsPerDay:
+            typeof rec.max_emails_per_day === "number"
+              ? rec.max_emails_per_day
+              : DEFAULT_MAX_EMAILS_PER_DAY,
+        };
+      }
+
       const { data: cfg } = await adminClient
         .from("staff_assistant_config")
         .select("max_emails_per_day")
