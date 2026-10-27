@@ -299,6 +299,8 @@ export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
     'staff_assistant_schedules',
     'staff_assistant_preferences',
     'staff_assistant_drafts',
+    'staff_assistant_insights',
+    'staff_assistant_ideas',
   ];
 
   for (const tbl of lockedTablesSelectOnly) {
@@ -883,6 +885,19 @@ if (existsSync(MIGRATIONS_DIR)) {
 
   for (const err of auditCumulativeSqlSecurity(staffMigrationChunks.join('\n'))) {
     fail(err);
+  }
+
+  const REQUIRED_ADVISOR_INSIGHT_RPCS = [
+    'assistant_staff_insight_desk_wait_times',
+    'assistant_staff_insight_collection_coverage_trends',
+    'assistant_staff_insight_calling_reach_and_themes',
+    'assistant_staff_insight_payout_delays',
+    'assistant_staff_insight_zoe_feedback_themes',
+  ];
+  for (const reqFn of REQUIRED_ADVISOR_INSIGHT_RPCS) {
+    if (!allFound.has(reqFn)) {
+      fail(`Missing required advisor insight function public.${reqFn}() in supabase/migrations.`);
+    }
   }
 
   seen.sqlFunctions = allFound.size;

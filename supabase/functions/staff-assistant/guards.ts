@@ -78,9 +78,25 @@ const WORD_NUMBERS: Record<string, number> = {
   ninety: 90,
 };
 
-interface AllowedNumbersPool {
+export interface AllowedNumbersPool {
   exactNumbers: Set<number>;
   rawFloats: number[];
+}
+
+/**
+ * Extracts a string Set of all numeric tokens present in `rawText` (including JSON numbers,
+ * integers with/without commas, decimals, and rounded forms) for deterministic calculator verification.
+ */
+export function extractNumbers(rawText: string): Set<string> {
+  const pool = buildAllowedNumbersPool([rawText], "");
+  const out = new Set<string>();
+  for (const n of pool.exactNumbers) {
+    out.add(String(n));
+    out.add(String(Math.round(n)));
+    out.add(String(Math.round(n * 10) / 10));
+    out.add(String(Math.round(n * 100) / 100));
+  }
+  return out;
 }
 
 /**

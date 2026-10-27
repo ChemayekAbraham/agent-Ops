@@ -129,17 +129,11 @@ export function RejectionAlertGate() {
       if (listingIds.length) {
         const { data: houses } = await supabase
           .from("house_listings")
-          .select("id, title, region, price")
+          .select("id, title, region")
           .in("id", listingIds);
         for (const h of houses ?? []) {
-          const parts = [
-            (h as any).title,
-            (h as any).region,
-          ].filter(Boolean);
-          listingLabelById.set(
-            (h as any).id,
-            parts.join(" — ") || "House listing",
-          );
+          const parts = [h.title, h.region].filter(Boolean);
+          listingLabelById.set(h.id, parts.join(" — ") || "House listing");
         }
       }
       for (const r of listingRows) {

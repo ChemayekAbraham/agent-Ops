@@ -387,7 +387,166 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     }
 
     // Also confirm STAFF_TOOLS and openAiToolsForRoles contain zero write tools
-    expect(STAFF_TOOLS.length).toBe(43);
-    expect(openAiToolsForRoles(["super_admin"]).length).toBe(48);
+    expect(STAFF_TOOLS.length).toBe(54);
+    expect(openAiToolsForRoles(["super_admin"]).length).toBe(61);
+  });
+
+  it("supports conversational replies without tools while blocking invented figures, plus safe compute and SSE streaming", async () => {
+    // 1. Conversational greeting without a tool call succeeds
+    const greetingTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Hello Zoe, what can you do?",
+      modelToolCalls: [],
+      modelFinalText:
+        "Hello! I can look up official Welile reports for your role, compare periods, and prepare email or reminder drafts.",
+    });
+    expect(greetingTurn.outcome).toBe("answered");
+    expect(greetingTurn.toolsCalled).toHaveLength(0);
+    expect(greetingTurn.reply).toContain("Hello! I can look up official Welile reports");
+
+    // 2. Conversational reply that invents a business figure is blocked by checkAnswer
+    const inventedFigureTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Hello Zoe!",
+      modelToolCalls: [],
+      modelFinalText: "Hello! Today we collected UGX 45,000,000 across 120 Rent Plans.",
+    });
+    expect(inventedFigureTurn.outcome).toBe("blocked");
+    expect(inventedFigureTurn.reply).toBe(MSG.unmatched);
+
+    // 3. Safe calculator `compute` works on figures returned by tools in the conversation
+    const computeTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Compare collections this week vs last week and give the percentage change.",
+      modelToolCalls: [
+        { name: "get_tops_weekly_performance", args: {} },
+        {
+          name: "compute",
+          args: {
+            operation: "pct_change",
+            previous: 12000000,
+            current: 15000000,
+            label: "Week-on-week collection change",
+          },
+        },
+      ],
+      rpcDataByTool: {
+        get_tops_weekly_performance: {
+          source: "tops_weekly_performance_amclock",
+          period: { from: "2026-10-20", to: "2026-10-26" },
+          row_count: 2,
+          data: {
+            last_week_ugx: 12000000,
+            this_week_ugx: 15000000,
+          },
+        },
+      },
+      modelFinalText:
+        "Collections rose from UGX 12,000,000 to UGX 15,000,000, an increase of 25%.",
+    });
+    expect(computeTurn.outcome).toBe("answered");
+    expect(computeTurn.toolsCalled).toEqual(["get_tops_weekly_performance", "compute"]);
+    expect(computeTurn.reply).toContain("25%");
+
+    // 4. Streaming (`stream: true`) returns text/event-stream with status, token, and done events
+    let streamRound = 0;
+    const streamReq = new Request("https://welileapp.com/functions/v1/staff-assistant", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-jwt",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action: "message",
+        message: "Show my assigned tasks",
+        stream: true,
+      }),
+    });
+    const streamRes = await handleStaffAssistantRequest(streamReq, {
+      userClient: {
+        auth: {
+          getUser: async () => ({
+            data: { user: { id: "u1", email: "staff@welile.com" } },
+            error: null,
+          }),
+        },
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({ data: [{ role: "tenant_ops" }], error: null }),
+            }),
+          }),
+        }),
+        rpc: async (fnName: string) => {
+          if (fnName === "staff_assistant_has_access") {
+            return { data: true, error: null };
+          }
+          return {
+            data: {
+              source: "assistant_staff_my_tasks",
+              period: { as_of: FIXED_EVAL_DATE },
+              row_count: 2,
+              data: { pending_tasks_count: 2 },
+            },
+            error: null,
+          };
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+      aiClient: {
+        classifyText: async () => JSON.stringify({ category: "in_scope" }),
+        chatCompletion: async () => {
+          if (streamRound++ === 0) {
+            return {
+              model: "google/gemini-3-flash-preview",
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    id: "tc_stream_1",
+                    type: "function" as const,
+                    function: { name: "get_my_tasks", arguments: "{}" },
+                  },
+                ],
+              },
+            };
+          }
+          return {
+            model: "google/gemini-3-flash-preview",
+            message: {
+              role: "assistant",
+              content: "You have 2 pending tasks assigned to you.",
+            },
+          };
+        },
+      },
+      store: {
+        checkQuestionBudget: async () => ({
+          allowed: true,
+          remainingToday: 49,
+          maxQuestionsPerDay: 50,
+          maxModelRounds: 4,
+          maxToolCalls: 6,
+        }),
+        getOrCreateConversation: async () => ({
+          id: "11111111-2222-4333-8444-555555555555",
+          status: "open",
+        }),
+        loadRecentTurns: async () => [],
+        loadLatestReportPayload: async () => null,
+        recordTurn: async () => ({
+          userMessageId: "u-msg-1",
+          assistantMessageId: "a-msg-1",
+        }),
+        recordUnanswered: async () => {},
+      },
+    });
+    expect(streamRes.status).toBe(200);
+    expect(streamRes.headers.get("Content-Type")).toContain("text/event-stream");
+    const sseText = await streamRes.text();
+    expect(sseText).toContain("event: status");
+    expect(sseText).toContain("event: token");
+    expect(sseText).toContain("event: done");
   });
 });

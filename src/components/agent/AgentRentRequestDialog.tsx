@@ -1,3 +1,5 @@
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
@@ -3152,7 +3154,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const existingId = isDuplicateAfterRejection
         ? (uuidRe.exec(error?.hint || '')?.[0] ?? uuidRe.exec(msg)?.[0] ?? null)
         : null;
-      if (isDuplicateAfterRejection) {
+      if (promptIfNotVetted(error, msg)) {
+        setSubmissionError(agentNotVettedReason(error) ?? agentNotVettedReason(msg));
+      } else if (isDuplicateAfterRejection) {
         const friendly = 'This tenant already has a rejected rent request. Fix the flagged detail on that request and resubmit it — creating a new one would duplicate the tenant.';
         setSubmissionError(friendly);
         toast.error('Duplicate blocked — resubmit instead', { description: friendly });
