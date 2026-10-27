@@ -74,13 +74,23 @@ function toCSV(rows: Array<Record<string, any>>): string {
 
 type RangePreset = 'last_7' | 'last_30' | 'last_90' | 'custom';
 
+/** Parses 'YYYY-MM-DD' as a LOCAL date; null when empty or invalid (a cleared date input). */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function rangeBounds(preset: RangePreset, cs: string, ce: string) {
   const now = new Date();
   switch (preset) {
     case 'last_7': return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
     case 'last_30': return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
     case 'last_90': return { start: startOfDay(subDays(now, 89)), end: endOfDay(now) };
-    case 'custom': return { start: startOfDay(new Date(cs)), end: endOfDay(new Date(ce)) };
+    case 'custom': return {
+      start: startOfDay(parseLocalDate(cs) ?? subDays(now, 6)),
+      end: endOfDay(parseLocalDate(ce) ?? now),
+    };
   }
 }
 
@@ -93,13 +103,19 @@ export function UserAnalyticsView() {
 
   const { start, end } = rangeBounds(preset, customStart, customEnd);
   const days = eachDayOfInterval({ start, end });
+  // The actual days shown. Query keys use this (not the preset name) so "Last 7d" refreshes after
+  // midnight instead of serving yesterday's cached window, and custom dates refresh every section.
+  const rangeKey = `${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}`;
+  // Changing one end past the other moves the other end too. A cleared input is ignored (it crashed the page).
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStart(v); if (v > customEnd) setCustomEnd(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEnd(v); if (v < customStart) setCustomStart(v); };
   const startISO = start.toISOString();
   const endISO = end.toISOString();
   const openDrill = (s: DrilldownScope) => setDrillScope(s);
 
   // Daily signups
   const { data: signupSeries, isLoading: loadingSignups } = useQuery({
-    queryKey: ['user-analytics-signups-v2', preset, customStart, customEnd],
+    queryKey: ['user-analytics-signups-v2', rangeKey],
     queryFn: async () => {
       // Server-side aggregation — client fetch was capped at 1,000 rows and
       // silently truncated multi-thousand-signup ranges.
@@ -127,7 +143,7 @@ export function UserAnalyticsView() {
 
   // Daily active users (distinct successful logins)
   const { data: activeSeries, isLoading: loadingActive } = useQuery({
-    queryKey: ['user-analytics-active-v3', preset, customStart, customEnd],
+    queryKey: ['user-analytics-active-v3', rangeKey],
     queryFn: async () => {
       // Server-side DISTINCT — pulling 200k rows client-side was slow and
       // still risked truncation on high-traffic days.
@@ -148,8 +164,8 @@ export function UserAnalyticsView() {
   });
 
   // Totals
-  const { data: totals } = useQuery({
-    queryKey: ['user-analytics-totals', preset, customStart, customEnd],
+  const { data: totals, isLoading: loadingTotals, isError: totalsError } = useQuery({
+    queryKey: ['user-analytics-totals', rangeKey],
     queryFn: async () => {
       const [signups, allUsers, loginAttempts, loginSuccess] = await Promise.all([
         // Exclude accounts flagged invalid and soft-deleted (bot/fraud purges).
@@ -163,6 +179,9 @@ export function UserAnalyticsView() {
           .eq('outcome', 'success')
           .gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
       ]);
+      // A failed count used to read as 0; surface it instead.
+      const failed = [signups, allUsers, loginAttempts, loginSuccess].find((r) => r.error);
+      if (failed?.error) throw failed.error;
       return {
         signups: signups.count || 0,
         allUsers: allUsers.count || 0,
@@ -202,6 +221,9 @@ export function UserAnalyticsView() {
     { label: 'Last 90d', value: 'last_90' },
     { label: 'Custom', value: 'custom' },
   ];
+
+  // Exporting before the data arrives would write zeros into the report.
+  const exportBusy = loadingTotals || loadingSignups || loadingActive;
 
   const rangeLabel = `${format(start, 'yyyy-MM-dd')}_to_${format(end, 'yyyy-MM-dd')}`;
 
@@ -285,10 +307,10 @@ export function UserAnalyticsView() {
             <CalendarRange className="w-4 h-4 text-primary" /> User Analytics
           </h3>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={handleExportCSV} className="text-xs">
+            <Button size="sm" variant="outline" onClick={handleExportCSV} disabled={exportBusy} className="text-xs">
               <Download className="w-3.5 h-3.5 mr-1" /> CSV
             </Button>
-            <Button size="sm" variant="outline" onClick={handleExportPDF} className="text-xs">
+            <Button size="sm" variant="outline" onClick={handleExportPDF} disabled={exportBusy} className="text-xs">
               <FileText className="w-3.5 h-3.5 mr-1" /> PDF
             </Button>
           </div>
@@ -298,7 +320,8 @@ export function UserAnalyticsView() {
             <Button
               key={p.value}
               size="sm"
-              variant={preset === p.value ? 'secondary' : 'outline'}
+              variant={preset === p.value ? 'default' : 'outline'}
+              aria-pressed={preset === p.value}
               onClick={() => setPreset(p.value)}
               className="text-xs"
             >
@@ -310,29 +333,29 @@ export function UserAnalyticsView() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">From</Label>
-              <Input type="date" value={customStart} max={customEnd}
-                onChange={(e) => setCustomStart(e.target.value)} className="w-44" />
+              <Input type="date" value={customStart} max={format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => changeCustomStart(e.target.value)} className="w-44" />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">To</Label>
-              <Input type="date" value={customEnd} min={customStart}
+              <Input type="date" value={customEnd}
                 max={format(new Date(), 'yyyy-MM-dd')}
-                onChange={(e) => setCustomEnd(e.target.value)} className="w-44" />
+                onChange={(e) => changeCustomEnd(e.target.value)} className="w-44" />
             </div>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard title="Total Users" value={(totals?.allUsers ?? 0).toLocaleString()} icon={Users}
+        <KPICard title="Total Users" value={(totals?.allUsers ?? 0).toLocaleString()} icon={Users} loading={loadingTotals}
           onClick={() => openDrill({ kind: 'total_users' })} />
-        <KPICard title="New Signups" value={(totals?.signups ?? 0).toLocaleString()} icon={UserPlus}
+        <KPICard title="New Signups" value={(totals?.signups ?? 0).toLocaleString()} icon={UserPlus} loading={loadingTotals}
           color="bg-green-500/10 text-green-600" subtitle="in range · click to view"
           onClick={() => openDrill({ kind: 'signups', start: startISO, end: endISO })} />
-        <KPICard title="Active User-Days" value={totalActive.toLocaleString()} icon={Activity}
+        <KPICard title="Active User-Days" value={totalActive.toLocaleString()} icon={Activity} loading={loadingActive}
           color="bg-blue-500/10 text-blue-600" subtitle="click for distinct users"
           onClick={() => openDrill({ kind: 'dau', start: startISO, end: endISO })} />
-        <KPICard title="Login Success" value={`${loginRate}%`} icon={LogIn}
+        <KPICard title="Login Success" value={`${loginRate}%`} icon={LogIn} loading={loadingTotals}
           color="bg-amber-500/10 text-amber-600"
           subtitle={`${totals?.loginSuccess ?? 0}/${totals?.loginAttempts ?? 0} · click for users`}
           onClick={() => openDrill({ kind: 'login_success', start: startISO, end: endISO })} />
@@ -405,6 +428,10 @@ export function UserAnalyticsView() {
           )}
         </div>
       </div>
+
+      {totalsError && (
+        <p className="text-xs text-red-500 text-center">Some totals could not be loaded. Please refresh and try again.</p>
+      )}
 
       {(loadingSignups || loadingActive) && (
         <p className="text-xs text-muted-foreground text-center">Loading analytics…</p>
