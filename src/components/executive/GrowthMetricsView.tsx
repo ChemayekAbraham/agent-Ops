@@ -81,48 +81,51 @@ export function GrowthMetricsView() {
   const [range, setRange] = useState<Range>('90d');
   const { start, end, granularity } = useMemo(() => rangeBounds(range), [range]);
 
+  // The days actually shown. Query keys use this so a range refreshes after midnight instead of
+  // serving yesterday's cached window.
+  const rangeKey = `${range}_${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}`;
+
   // ── 1. Signup trend (daily or monthly buckets) ──
+  // One server call (live accounts only, Kampala days) instead of two requests per day/month; the
+  // 90-day view used to fire ~180 sequential requests and counted deleted bot accounts.
   const { data: signupTrend, isLoading: loadingTrend } = useQuery({
-    queryKey: ['growth-signup-trend', range],
+    queryKey: ['growth-signup-trend-v2', rangeKey],
     queryFn: async () => {
+      const [{ data, error }, { count: before, error: beforeError }] = await Promise.all([
+        supabase.rpc('get_daily_signups', { p_start: start.toISOString(), p_end: end.toISOString() }),
+        // Users who already existed when the range began: the starting point of the cumulative curve.
+        supabase.from('profiles').select('id', { count: 'exact', head: true })
+          .is('deleted_at', null).lt('created_at', start.toISOString()),
+      ]);
+      if (error) throw error;
+      if (beforeError) throw beforeError;
+
+      const keyOf = (d: Date) => format(d, granularity === 'day' ? 'yyyy-MM-dd' : 'yyyy-MM');
       const buckets = granularity === 'day'
         ? eachDayOfInterval({ start, end })
         : eachMonthOfInterval({ start, end });
-
-      const rows = [] as { label: string; signups: number; referred: number; organic: number }[];
-      let cumulative = 0;
-      const withCumulative: { label: string; signups: number; referred: number; organic: number; cumulative: number }[] = [];
-
-      for (const b of buckets) {
-        const s = granularity === 'day' ? startOfDay(b) : startOfMonth(b);
-        const e = granularity === 'day' ? endOfDay(b) : endOfMonth(b);
-
-        const [{ count: total }, { count: referred }] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', s.toISOString())
-            .lte('created_at', e.toISOString()),
-          supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', s.toISOString())
-            .lte('created_at', e.toISOString())
-            .not('referrer_id', 'is', null),
-        ]);
-
-        const signups = total || 0;
-        const ref = referred || 0;
-        cumulative += signups;
-        withCumulative.push({
-          label: format(s, granularity === 'day' ? 'dd MMM' : 'MMM yy'),
-          signups,
-          referred: ref,
-          organic: Math.max(0, signups - ref),
-          cumulative,
-        });
+      const sums = new Map<string, { signups: number; referred: number }>();
+      buckets.forEach((b) => sums.set(keyOf(b), { signups: 0, referred: 0 }));
+      for (const r of data || []) {
+        const day = String(r.day).slice(0, 10);
+        const cur = sums.get(granularity === 'day' ? day : day.slice(0, 7));
+        if (!cur) continue;
+        cur.signups += Number(r.signups) || 0;
+        cur.referred += Number(r.referred) || 0;
       }
-      return withCumulative;
+
+      let cumulative = before || 0;
+      return buckets.map((b) => {
+        const v = sums.get(keyOf(b))!;
+        cumulative += v.signups;
+        return {
+          label: format(b, granularity === 'day' ? 'dd MMM' : 'MMM yy'),
+          signups: v.signups,
+          referred: v.referred,
+          organic: Math.max(0, v.signups - v.referred),
+          cumulative,
+        };
+      });
     },
     staleTime: 300000,
   });
@@ -130,7 +133,7 @@ export function GrowthMetricsView() {
   // ── 2+3+4. Live KPIs, source mix and roles from one role-gated server function ──
   // (daily_platform_stats stopped updating in April 2026 and is not readable by CMO.)
   const { data: live, isLoading: loadingLive } = useQuery({
-    queryKey: ['growth-live', range],
+    queryKey: ['growth-live', rangeKey],
     queryFn: async () => {
       const { data, error } = await (supabase.rpc as any)('get_growth_metrics_live', {
         p_start: start.toISOString(),
@@ -158,10 +161,9 @@ export function GrowthMetricsView() {
   const totalUsers = Number(live?.total_users ?? 0);
   const totalUsersPrev = Number(live?.total_users_prev ?? 0);
   const active30 = Number(live?.active_users_30d ?? 0);
-  // Sign-in history keeps only the latest sign-in, so a 30-days-ago active figure cannot be rebuilt.
-  const active30Prev = active30;
+  // Sign-in history keeps only the latest sign-in, so a 30-days-ago active/retention figure cannot
+  // be rebuilt. Those two cards therefore show no trend rather than a made-up "0%".
   const retention = Number(live?.retention_pct ?? 0);
-  const retentionPrev = retention;
   const referralPct = Number(live?.referral_pct ?? 0);
   const referralPctPrev = Number(live?.referral_pct_prev ?? 0);
   const newToday = Number(live?.new_users_today ?? 0);
@@ -170,8 +172,6 @@ export function GrowthMetricsView() {
     prev <= 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
 
   const usersGrowth = pct(totalUsers, totalUsersPrev);
-  const activeGrowth = pct(active30, active30Prev);
-  const retentionDelta = Math.round(retention - retentionPrev);
   const referralPctDelta = Math.round(referralPct - referralPctPrev);
 
   const rangeSignups = (signupTrend || []).reduce((s, r) => s + r.signups, 0);
@@ -203,6 +203,7 @@ export function GrowthMetricsView() {
               key={opt.value}
               size="sm"
               variant={range === opt.value ? 'default' : 'outline'}
+              aria-pressed={range === opt.value}
               onClick={() => setRange(opt.value)}
               className="text-xs"
             >
@@ -227,7 +228,7 @@ export function GrowthMetricsView() {
           icon={Activity}
           loading={loadingSnap}
           color="bg-green-500/10 text-green-600"
-          trend={{ value: activeGrowth, label: 'vs 30d ago' }}
+          subtitle="signed in within 30 days"
         />
         <KPICard
           title="Retention"
@@ -235,7 +236,7 @@ export function GrowthMetricsView() {
           icon={Repeat}
           loading={loadingSnap}
           color="bg-blue-500/10 text-blue-600"
-          trend={{ value: retentionDelta, label: 'pts vs 30d ago' }}
+          subtitle="joined 30+ days ago, still signing in"
         />
         <KPICard
           title="Referral Share"
@@ -402,23 +403,11 @@ export function GrowthMetricsView() {
       </div>
 
       {/* Insight strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs">
         <InsightCard
           label="Total user growth"
           delta={usersGrowth}
           suffix="%"
-          hint="vs 30 days ago"
-        />
-        <InsightCard
-          label="Active-user growth"
-          delta={activeGrowth}
-          suffix="%"
-          hint="30-day cohort"
-        />
-        <InsightCard
-          label="Retention shift"
-          delta={retentionDelta}
-          suffix=" pts"
           hint="vs 30 days ago"
         />
         <InsightCard
