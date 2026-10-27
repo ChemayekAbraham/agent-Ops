@@ -20,12 +20,15 @@ import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Map Deno URL import for Zod in `supabase/functions/staff-assistant/*` to local `zod/v3`
+// Map Deno URL imports in `supabase/functions/staff-assistant/*` to local Node packages
 if (typeof registerHooks === "function") {
   registerHooks({
     resolve(specifier, context, nextResolve) {
       if (specifier === "https://deno.land/x/zod@v3.23.8/mod.ts") {
         return nextResolve("zod/v3", context);
+      }
+      if (specifier === "https://esm.sh/@supabase/supabase-js@2.49.1") {
+        return nextResolve("@supabase/supabase-js", context);
       }
       return nextResolve(specifier, context);
     },

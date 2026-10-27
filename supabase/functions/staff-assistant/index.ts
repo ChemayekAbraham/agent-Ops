@@ -12,13 +12,19 @@ import {
   isEmailFromToolData,
   normalizeStaffRecipients,
 } from "./emailDraft.ts";
-import { checkAnswer } from "./guards.ts";
+import {
+  checkAnswer,
+  checkDraftCardText,
+  isDirectPromptInjection,
+  isWriteMutationIntent,
+} from "./guards.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
-import { AiGatewayError, chatCompletion, ChatMessage, classifyText } from "./openai.ts";
+import { AiGatewayError, chatCompletion, ChatMessage, classifyText, OpenAiTool } from "./openai.ts";
 import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
 import {
+  BudgetCheckResult,
   checkQuestionBudget,
   clearUserHistory,
   getAdminClientForMfa,
@@ -45,8 +51,9 @@ import {
   isHistoryMessageAllowedForRoles,
   openAiToolsForRoles,
 } from "./tools.ts";
+import { prepareToolOutputForModel } from "./toolOutput.ts";
 
-const corsHeaders = {
+export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -68,6 +75,59 @@ function parseCategory(raw: string): "in_scope" | "out_of_scope" {
   const m = raw.match(/"category"\s*:\s*"(in_scope|out_of_scope)"/);
   return (m?.[1] as "in_scope" | "out_of_scope" | undefined) ?? "in_scope";
 }
+
+export interface StaffAssistantAiClient {
+  classifyText: (systemPrompt: string, userMessage: string) => Promise<string>;
+  chatCompletion: (opts: {
+    messages: ChatMessage[];
+    tools?: OpenAiTool[];
+    maxTokens?: number;
+    timeoutMs?: number;
+  }) => Promise<{ message: ChatMessage; model: string }>;
+}
+
+export interface StaffAssistantStoreDeps {
+  checkQuestionBudget: (userId: string) => Promise<BudgetCheckResult>;
+  getOrCreateConversation: (
+    userId: string,
+    conversationId: string | undefined,
+    meta: SessionMeta,
+  ) => Promise<{ id: string; status: string }>;
+  loadRecentTurns: (userId: string, conversationId: string) => Promise<ChatMessage[]>;
+  loadLatestReportPayload: (
+    userId: string,
+    conversationId: string,
+  ) => Promise<Record<string, unknown> | null>;
+  recordTurn: typeof recordTurn;
+  recordUnanswered: typeof recordUnanswered;
+  saveFeedback: typeof saveFeedback;
+  loadConversationHistory: typeof loadConversationHistory;
+  clearUserHistory: typeof clearUserHistory;
+}
+
+export interface StaffAssistantHandlerDeps {
+  userClient?: SupabaseClient;
+  aiClient?: StaffAssistantAiClient;
+  store?: Partial<StaffAssistantStoreDeps>;
+  checkMfaAal2?: (token: string, userId: string) => Promise<{ ok: boolean }>;
+}
+
+const DEFAULT_AI_CLIENT: StaffAssistantAiClient = {
+  classifyText,
+  chatCompletion,
+};
+
+const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
+  checkQuestionBudget,
+  getOrCreateConversation,
+  loadRecentTurns,
+  loadLatestReportPayload,
+  recordTurn,
+  recordUnanswered,
+  saveFeedback,
+  loadConversationHistory,
+  clearUserHistory,
+};
 
 /**
  * Saves a draft server-side in `public.staff_assistant_drafts` (owner, kind, exact payload_hash,
@@ -146,11 +206,21 @@ async function resolveCallerRoles(userClient: SupabaseClient, userId: string): P
   return [...roles].sort();
 }
 
-Deno.serve(async (req) => {
+/**
+ * Real request handler for Zoe (`supabase/functions/staff-assistant`).
+ * Accepts optional injected `aiClient`, `userClient`, `store`, and `checkMfaAal2` dependencies
+ * so unit, integration, and live evaluation tests run against the exact production handler.
+ */
+export async function handleStaffAssistantRequest(
+  req: Request,
+  deps: StaffAssistantHandlerDeps = {},
+): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: MSG.invalidRequest });
 
   const startedAt = Date.now();
+  const ai = deps.aiClient ?? DEFAULT_AI_CLIENT;
+  const store: StaffAssistantStoreDeps = { ...DEFAULT_STORE_DEPS, ...(deps.store ?? {}) };
 
   // ---- 1. Authenticate caller from Authorization Bearer JWT only -----------------------------
   const authHeader = req.headers.get("Authorization");
@@ -159,15 +229,18 @@ Deno.serve(async (req) => {
   }
   const token = authHeader.slice("Bearer ".length).trim();
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
   // This client carries the caller's own JWT. Every `assistant_staff_*` RPC is called on THIS
   // client so `auth.uid()` inside PostgreSQL is always the signed-in staff member.
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const userClient =
+    deps.userClient ??
+    createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+  const checkMfa =
+    deps.checkMfaAal2 ??
+    ((jwt: string, uid: string) => requireStaffAal2(getAdminClientForMfa(), jwt, uid));
 
   const {
     data: { user },
@@ -195,11 +268,11 @@ Deno.serve(async (req) => {
     return json(403, { error: MSG.notStaff, outcome: "not_staff" });
   }
 
-  // ---- 4. Non-chat utility actions (history, clear_history, feedback) ------------------------
+  // ---- 4. Non-chat utility actions (history, clear_history, feedback, morning_brief) ---------
   if (body.action === "history") {
     const [callerRoles, history] = await Promise.all([
       resolveCallerRoles(userClient, user.id),
-      loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30),
+      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30),
     ]);
     // Re-check the caller's current role before showing any historical answer or report_payload
     const roleFilteredMessages = history.messages.map((msg) => {
@@ -219,12 +292,12 @@ Deno.serve(async (req) => {
   }
 
   if (body.action === "clear_history") {
-    await clearUserHistory(user.id, body.conversation_id);
+    await store.clearUserHistory(user.id, body.conversation_id);
     return json(200, { ok: true, reply: MSG.historyCleared });
   }
 
   if (body.action === "feedback") {
-    const res = await saveFeedback({
+    const res = await store.saveFeedback({
       conversationId: body.conversation_id,
       messageId: body.message_id,
       userId: user.id,
@@ -243,7 +316,7 @@ Deno.serve(async (req) => {
       runTool: async (tool) => {
         if (!canUseTool(tool, callerRoles)) return null;
         if (tool.sensitive) {
-          const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+          const mfaGate = await checkMfa(token, user.id);
           if (!mfaGate.ok) return null;
         }
         const parsedArgs = tool.schema.safeParse({});
@@ -259,7 +332,7 @@ Deno.serve(async (req) => {
   }
 
   // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
-  const budget = await checkQuestionBudget(user.id);
+  const budget = await store.checkQuestionBudget(user.id);
   if (!budget.allowed) {
     const reply = budget.reason === "daily_budget" ? MSG.dailyLimitReached : MSG.rateLimited;
     return json(429, {
@@ -283,7 +356,7 @@ Deno.serve(async (req) => {
   const allowedOpenAiTools = openAiToolsForRoles(callerRoles);
   const toolDescriptions = describeToolsForRoles(callerRoles);
 
-  const conv = await getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+  const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
   const userText = body.message;
 
   const finish = async (
@@ -300,7 +373,7 @@ Deno.serve(async (req) => {
       mfaRequired?: boolean;
     },
   ) => {
-    const { assistantMessageId } = await recordTurn({
+    const { assistantMessageId } = await store.recordTurn({
       conversationId: conv.id,
       userId: user.id,
       userMessage: userText,
@@ -315,7 +388,7 @@ Deno.serve(async (req) => {
     });
 
     if (opts?.unansweredReason) {
-      await recordUnanswered({
+      await store.recordUnanswered({
         conversationId: conv.id,
         messageId: assistantMessageId,
         userId: user.id,
@@ -340,12 +413,18 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // ---- 7. Cheap scope pre-check (no data, no tools) ----------------------------------------
+    // ---- 7. Deterministic prompt-injection / write-mutation pre-check + scope classifier ------
+    if (isDirectPromptInjection(userText) || isWriteMutationIntent(userText)) {
+      return await finish(MSG.outOfScope, "out_of_scope", {
+        unansweredReason: "out_of_scope",
+      });
+    }
+
     // Fail-closed: if the scope classifier fails with any non-quota error, treat the question as
     // in_scope (needing a verified read-only tool call) rather than letting it through unchecked.
     let scope: "in_scope" | "out_of_scope" = "in_scope";
     try {
-      const scopeRaw = await classifyText(SCOPE_CHECK_PROMPT, userText);
+      const scopeRaw = await ai.classifyText(SCOPE_CHECK_PROMPT, userText);
       scope = parseCategory(scopeRaw);
     } catch (scopeErr) {
       if (
@@ -368,7 +447,7 @@ Deno.serve(async (req) => {
     }
 
     // ---- 8. Tool-calling loop (Requirement c, d, f, g) ---------------------------------------
-    const history = await loadRecentTurns(user.id, conv.id);
+    const history = await store.loadRecentTurns(user.id, conv.id);
     const today = kampalaToday();
     const messages: ChatMessage[] = [
       {
@@ -391,7 +470,7 @@ Deno.serve(async (req) => {
     const maxToolCalls = budget.maxToolCalls ?? MAX_TOOL_CALLS;
 
     for (let round = 0; round < maxModelRounds; round++) {
-      const { message, model } = await chatCompletion({
+      const { message, model } = await ai.chatCompletion({
         messages,
         tools: allowedOpenAiTools,
       });
@@ -469,7 +548,7 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Rule: Never use an email address found in data
+          // Rule: Never use an email address or recipient name found in tool data
           if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_email"],
@@ -496,7 +575,7 @@ Deno.serve(async (req) => {
               });
             }
             if (repTool.sensitive) {
-              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              const mfaGate = await checkMfa(token, user.id);
               if (!mfaGate.ok) {
                 return await finish(MSG.mfaRequired, "blocked", {
                   tools: toolsCalled,
@@ -526,7 +605,10 @@ Deno.serve(async (req) => {
               });
             }
             toolsCalled.push(repTool.name);
-            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            rawToolOutputs.push(preparedRep.cleanJson);
             if (repData && typeof repData === "object" && !Array.isArray(repData)) {
               const payload = repData as Record<string, unknown>;
               if (typeof payload.source === "string" && payload.source.trim()) {
@@ -549,7 +631,7 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            const candidatePayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
             if (
               candidatePayload &&
               isHistoryMessageAllowedForRoles(
@@ -579,12 +661,30 @@ Deno.serve(async (req) => {
             );
           }
 
-          const combinedRawOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
-          if (isEmailFromToolData(d.data.recipient_search, combinedRawOutputs, userText)) {
+          const combinedRawOutputs = [
+            ...rawToolOutputs,
+            JSON.stringify(lastReportPayload),
+            JSON.stringify({ period: today }),
+          ];
+          if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_email"],
               model: lastModel,
               unansweredReason: "role_restricted",
+            });
+          }
+
+          // Check AI-written draft subject & message against the number/terminology/date guard
+          const emailDraftGuard = checkDraftCardText(
+            [d.data.subject, d.data.message],
+            combinedRawOutputs,
+            userText,
+          );
+          if (!emailDraftGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "error",
             });
           }
 
@@ -713,6 +813,19 @@ Deno.serve(async (req) => {
             todayKampala: today,
           });
 
+          const reminderGuard = checkDraftCardText(
+            [r.data.title, r.data.note],
+            [...rawToolOutputs, JSON.stringify({ today, remind_at: reminderDraft.draft.remind_at_kampala })],
+            userText,
+          );
+          if (!reminderGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_reminder"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
           const savedReminderDraftId = await saveServerDraft(
             userClient,
             "reminder",
@@ -756,6 +869,19 @@ Deno.serve(async (req) => {
               tools: [...toolsCalled, "draft_staff_notification"],
               model: lastModel,
               unansweredReason: "role_restricted",
+            });
+          }
+
+          const notifGuard = checkDraftCardText(
+            [n.data.title, n.data.message],
+            [...rawToolOutputs, JSON.stringify({ today })],
+            userText,
+          );
+          if (!notifGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              unansweredReason: "error",
             });
           }
 
@@ -871,7 +997,7 @@ Deno.serve(async (req) => {
               });
             }
             if (repTool.sensitive) {
-              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              const mfaGate = await checkMfa(token, user.id);
               if (!mfaGate.ok) {
                 return await finish(MSG.mfaRequired, "blocked", {
                   tools: toolsCalled,
@@ -901,7 +1027,10 @@ Deno.serve(async (req) => {
               });
             }
             toolsCalled.push(repTool.name);
-            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            rawToolOutputs.push(preparedRep.cleanJson);
             if (repData && typeof repData === "object" && !Array.isArray(repData)) {
               const payload = repData as Record<string, unknown>;
               lastReportPayload = {
@@ -919,7 +1048,7 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            const candidatePayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
             if (
               candidatePayload &&
               isHistoryMessageAllowedForRoles(
@@ -946,12 +1075,29 @@ Deno.serve(async (req) => {
             );
           }
 
-          const combinedOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
-          if (isEmailFromToolData(s.data.recipient_search, combinedOutputs, userText)) {
+          const combinedOutputs = [
+            ...rawToolOutputs,
+            JSON.stringify(lastReportPayload),
+            JSON.stringify({ period: today }),
+          ];
+          if (isEmailFromToolData(s.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_schedule"],
               model: lastModel,
               unansweredReason: "role_restricted",
+            });
+          }
+
+          const scheduleDraftGuard = checkDraftCardText(
+            [s.data.custom_message],
+            combinedOutputs,
+            userText,
+          );
+          if (!scheduleDraftGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "error",
             });
           }
 
@@ -1099,7 +1245,7 @@ Deno.serve(async (req) => {
 
         // Requirement (g): Sensitive tools require AAL2 MFA via requireStaffAal2
         if (tool.sensitive) {
-          const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+          const mfaGate = await checkMfa(token, user.id);
           if (!mfaGate.ok) {
             return await finish(MSG.mfaRequired, "blocked", {
               tools: toolsCalled,
@@ -1128,15 +1274,26 @@ Deno.serve(async (req) => {
           });
         }
 
-        const serialized = JSON.stringify(data ?? {}).slice(0, MAX_TOOL_RESULT_CHARS);
+        // Deduplicate `rows`/`data`, sanitize free-text fields, trim by whole rows ("showing 50 of 312 rows"),
+        // and wrap in `<UNTRUSTED_TOOL_DATA>` for prompt-injection defence.
+        // Keep raw JSON in `rawToolOutputs` so `isEmailFromToolData` still catches any address that was inside raw data.
+        const rawJsonString = JSON.stringify(data ?? {});
+        const prepared = prepareToolOutputForModel(data ?? {}, tool.name, {
+          maxChars: MAX_TOOL_RESULT_CHARS,
+        });
         toolsCalled.push(tool.name);
-        rawToolOutputs.push(serialized);
+        rawToolOutputs.push(rawJsonString);
+        if (prepared.cleanJson !== rawJsonString) {
+          rawToolOutputs.push(prepared.cleanJson);
+        }
 
         if (data && typeof data === "object" && !Array.isArray(data)) {
           const payload = data as Record<string, unknown>;
-          if (typeof payload.source === "string" && payload.source.trim()) {
-            if (!sourcesUsed.includes(payload.source)) sourcesUsed.push(payload.source);
-          }
+          const sourceStr =
+            typeof payload.source === "string" && payload.source.trim()
+              ? payload.source.trim()
+              : tool.rpc;
+          if (!sourcesUsed.includes(sourceStr)) sourcesUsed.push(sourceStr);
           const pLabel = formatPeriodLabel(payload.period);
           if (pLabel && !periodsUsed.includes(pLabel)) {
             periodsUsed.push(pLabel);
@@ -1146,15 +1303,17 @@ Deno.serve(async (req) => {
             tool: tool.name,
             rpc: tool.rpc,
             args: args.data,
-            source: payload.source ?? tool.rpc,
+            resolved_rpc_args: rpcArgs,
+            source: sourceStr,
             period: payload.period ?? null,
-            row_count: payload.row_count ?? null,
+            row_count: payload.row_count ?? prepared.totalRows,
             rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
+            ...(prepared.truncationNote ? { rows_note: prepared.truncationNote } : {}),
           };
         }
 
-        messages.push({ role: "tool", tool_call_id: call.id, content: serialized });
+        messages.push({ role: "tool", tool_call_id: call.id, content: prepared.modelContent });
       }
     }
 
@@ -1197,10 +1356,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const sourceLabel = sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : null;
-    const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : today;
+    const sourceLabel =
+      sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : toolsCalled.join(" + ");
+    const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
 
-    // Ensure Source and Period are always explicitly named on every answer (Requirement f)
+    // Always add a "Source · dates" line whenever any tool was used
     let answerWithCitation = finalText;
     if (sourceLabel && !answerWithCitation.toLowerCase().includes("source:")) {
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
@@ -1214,6 +1374,13 @@ Deno.serve(async (req) => {
     );
     if (!guard.ok) {
       console.warn(`[staff-assistant] output guard blocked answer: ${guard.reason}`);
+      if (guard.reason === "prompt_leak") {
+        return await finish(MSG.outOfScope, "blocked", {
+          tools: toolsCalled,
+          model: lastModel,
+          unansweredReason: "out_of_scope",
+        });
+      }
       return await finish(MSG.unmatched, "blocked", {
         tools: toolsCalled,
         model: lastModel,
@@ -1244,4 +1411,8 @@ Deno.serve(async (req) => {
       unansweredReason: "error",
     });
   }
-});
+}
+
+if (typeof Deno !== "undefined" && typeof Deno.serve === "function") {
+  Deno.serve((req) => handleStaffAssistantRequest(req));
+}
