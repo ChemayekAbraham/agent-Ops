@@ -8,7 +8,7 @@
 -- HOW: the account is matched on BOTH its user id and the email in its signed-in token, so a copy of the email on another account does not count.
 -- The two wrappers skip the code check only for that account; the checked work (_unchecked functions, role checks, AAL2, the goal limit, audit
 -- rows) is untouched. "Allow with exception" (under-target agents) still needs its own code for everyone.
--- Roll back with 20261027200000_landlord_payout_changes_owner_no_code.rollback.sql.
+-- Roll back with 20261027200500_landlord_payout_changes_owner_no_code.rollback.sql.
 
 CREATE OR REPLACE FUNCTION public._is_landlord_payout_owner()
 RETURNS boolean
