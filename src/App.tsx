@@ -345,6 +345,9 @@ const RentCoverageDetail = lazy(() => import('./pages/coo/RentCoverageDetail'));
 const COOPartnerOpsReport = lazy(() => import('./pages/coo/reports/PartnerOpsReport'));
 const COOAgentOpsReport = lazy(() => import('./pages/coo/reports/AgentOpsReport'));
 const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsReport'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReview = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
+const NotVettedDialog = lazy(() => import('./components/agent-vetting/NotVettedDialog'));
 const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
@@ -467,6 +470,7 @@ function GlobalFloatingWidgets() {
   return (
     <>
       <FloatingToolbar />
+      <Suspense fallback={null}><NotVettedDialog /></Suspense>
       <MerchantDispatchListener />
       <GlobalInstallPrompt />
     </>
@@ -589,6 +593,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/verification" element={<AgentVerificationPage />} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -883,6 +888,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['agent_ops' as any, 'ceo', 'cto', 'coo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentVerificationReview /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />

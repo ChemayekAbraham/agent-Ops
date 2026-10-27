@@ -380,7 +380,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
             <>
               <p className="text-sm font-mono">{id.nin_masked}</p>
               <p className="text-sm text-muted-foreground">
-                Front {id.has_front ? '✓' : '—'} · Back {id.has_back ? '✓' : '—'}
+                Front photo {id.has_front ? 'saved' : 'missing'} · Back photo {id.has_back ? 'saved' : 'missing'}
               </p>
             </>
           ) : null}
