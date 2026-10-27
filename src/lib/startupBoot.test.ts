@@ -10,8 +10,8 @@ describe('startup boot host gate', () => {
   it('reports the public hosts', () => {
     expect(isProductionStartupHost('welileapp.com')).toBe(true);
     expect(isProductionStartupHost('www.welileapp.com')).toBe(true);
-    expect(isProductionStartupHost('welilereceipts.com')).toBe(true);
-    expect(isProductionStartupHost('WWW.WelileReceipts.com.')).toBe(true);
+    expect(isProductionStartupHost('welilereceipts.com')).toBe(true); // legacy-domain-guard-allow
+    expect(isProductionStartupHost('WWW.WelileReceipts.com.')).toBe(true); // legacy-domain-guard-allow
   });
 
   it('does not report preview or local dev', () => {
