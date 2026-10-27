@@ -36,6 +36,9 @@ export default function FloatingToolbar() {
 
   const shouldHide = modalOpen || isSettingsOrWithdraw;
 
+  // The Welile Assistant launcher is only for dashboard workspaces.
+  const isDashboardRoute = location.pathname.startsWith('/dashboard');
+
   return (
     <>
       {!shouldHide && (
@@ -93,7 +96,7 @@ export default function FloatingToolbar() {
         </>
       )}
 
-      <AgentAssistant hideLauncher={modalOpen && !document.querySelector('.assistant-chat[data-state="open"]')} />
+      <AgentAssistant hideLauncher={!isDashboardRoute || (modalOpen && !document.querySelector('.assistant-chat[data-state="open"]'))} />
     </>
   );
 }
