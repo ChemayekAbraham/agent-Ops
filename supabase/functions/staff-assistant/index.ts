@@ -1483,6 +1483,7 @@ export async function handleStaffAssistantRequest(
           }
 
           const resolvedIdeaPeriod =
+            ideaParsed.data.period_label ??
             periodsUsed[0] ??
             (lastReportPayload ? formatPeriodLabel(lastReportPayload.period) : null) ??
             `as of ${today}`;
@@ -1493,6 +1494,8 @@ export async function handleStaffAssistantRequest(
             evidenceSummary: ideaParsed.data.evidence_summary,
             category: ideaParsed.data.category,
             screenPath: ideaParsed.data.screen_path,
+            sourceLabel: ideaParsed.data.source_label,
+            figures: ideaParsed.data.figures,
             reportPayload: lastReportPayload,
             periodLabel: resolvedIdeaPeriod,
             todayKampala: today,

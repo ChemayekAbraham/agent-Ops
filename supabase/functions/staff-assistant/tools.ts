@@ -1722,7 +1722,6 @@ export const STAFF_TOOLS: StaffTool[] = [
       "cfo",
       "ceo",
       "coo",
-      "tenant_ops",
       "landlord_ops",
       "operations",
       "manager",
@@ -2040,6 +2039,18 @@ export const DRAFT_IDEA_TOOL: OpenAiTool = {
           description:
             "Optional internal Welile route for the screen related to this idea (e.g. /tenant-ops/workspace, /landlord-ops, /executive-hub?tab=agent-ops, /me/staff-reports, /me/ideas).",
         },
+        source_label: {
+          type: "string",
+          description: "Optional official source function or view name.",
+        },
+        period_label: {
+          type: "string",
+          description: "Optional date range or period label.",
+        },
+        figures: {
+          type: "object",
+          description: "Optional key-value map of exact numeric figures from the tool output.",
+        },
       },
       required: ["title", "suggestion", "evidence_summary"],
       additionalProperties: false,
@@ -2063,6 +2074,9 @@ export const DraftIdeaArgsSchema = z
       ])
       .optional(),
     screen_path: z.string().trim().max(120).optional(),
+    source_label: z.string().trim().max(200).optional(),
+    period_label: z.string().trim().max(120).optional(),
+    figures: z.record(z.unknown()).optional(),
   })
   .strict();
 

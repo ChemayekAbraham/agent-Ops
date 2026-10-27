@@ -102,8 +102,7 @@ const IdeasPage: React.FC<IdeasPageProps> = ({
   );
 
   useEffect(() => {
-    if (initialData && statusFilter === 'all') {
-      setData(initialData);
+    if (initialData) {
       setIsLoading(false);
       return;
     }

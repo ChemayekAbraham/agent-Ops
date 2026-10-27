@@ -97,7 +97,7 @@
 | `S54` | `tenant_ops` | staff-assistant-send-email enforces 30 emails per person per day cap | HTTP 429 EMAIL_DAILY_LIMIT_REACHED, emailsSent=0 | HTTP 429 (EMAIL_DAILY_LIMIT_REACHED), emailsSent=0 | **PASS** |
 | `S55` | `non_staff` | staff-assistant-send-email re-checks staff_assistant_has_access() and refuses non-staff callers | HTTP 403, emailsSent=0 | HTTP 403, emailsSent=0 | **PASS** |
 | `S56` | `tenant_ops` | Approved Send click verifies staff recipient, re-runs report as sender, sanitizes Welile terms, sends "Report shared from Zoe", and audits | HTTP 200, template="zoe-report-shared" ("Report shared from Zoe"), reportReruns=1, auditsWritten=1 | HTTP 200, template=Report shared from Zoe, reruns=1, audits=1 | **PASS** |
-| `S57` | `all_roles` | All 54 assistant_staff_* tools expose zero identity parameters (identity is always auth.uid()) | 54 tools verified, 0 user_id/staff_id/agent_id parameters | tools=54, allSafe=true | **PASS** |
+| `S57` | `all_roles` | All 59 assistant_staff_* tools expose zero identity parameters (identity is always auth.uid()) | 59 tools verified, 0 user_id/staff_id/agent_id parameters | tools=59, allSafe=true | **PASS** |
 
 ---
 

@@ -59,6 +59,7 @@ export type ZoeIdeaCategory =
 export interface ZoeIdeaDraft {
   draft_id: string;
   kind: "idea";
+  action_type: "idea";
   status: "ready";
   title: string;
   suggestion: string;
@@ -457,9 +458,11 @@ export function buildIdeaDraft(params: {
   evidenceSummary: string;
   category?: ZoeIdeaCategory;
   screenPath?: string;
-  reportPayload: Record<string, unknown> | null;
+  sourceLabel?: string;
+  figures?: Record<string, unknown>;
+  reportPayload?: Record<string, unknown> | null;
   periodLabel: string;
-  todayKampala: string;
+  todayKampala?: string;
 }): { replyText: string; draft: ZoeIdeaDraft } {
   const cleanTitle = sanitizeWelileTermsServer(params.title.trim());
   const cleanSuggestion = sanitizeWelileTermsServer(params.suggestion.trim());
@@ -497,13 +500,15 @@ export function buildIdeaDraft(params: {
     : defaultScreenByCategory[category];
 
   const sourceLabel =
-    typeof params.reportPayload?.source === "string" &&
+    (params.sourceLabel && params.sourceLabel.trim()) ||
+    (typeof params.reportPayload?.source === "string" &&
       params.reportPayload.source.trim()
       ? params.reportPayload.source.trim()
-      : "staff_assistant_insights";
-  const periodLabel = params.periodLabel.trim() || `as of ${params.todayKampala}`;
+      : "staff_assistant_insights");
+  const periodLabel =
+    params.periodLabel.trim() || `as of ${params.todayKampala ?? "today"}`;
 
-  const figures: Record<string, unknown> = {};
+  const figures: Record<string, unknown> = { ...(params.figures ?? {}) };
   if (params.reportPayload && typeof params.reportPayload === "object") {
     for (const [k, v] of Object.entries(params.reportPayload)) {
       if (typeof v === "number" && Number.isFinite(v)) {
@@ -517,6 +522,7 @@ export function buildIdeaDraft(params: {
   const draft: ZoeIdeaDraft = {
     draft_id: crypto.randomUUID(),
     kind: "idea",
+    action_type: "idea",
     status: "ready",
     title: cleanTitle,
     suggestion: cleanSuggestion,
