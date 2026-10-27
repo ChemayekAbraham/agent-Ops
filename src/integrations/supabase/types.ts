@@ -68341,6 +68341,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_weekly_shortfall: { Args: { p_agent_id: string }; Returns: number }
       _am_plan_arrears_core: {
         Args: { p_as_at: string; p_rent_request_ids: string[] }
         Returns: {
@@ -73027,6 +73028,7 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
@@ -76871,6 +76873,14 @@ export type Database = {
           without_landlord: number
         }[]
       }
+      get_cmo_referral_lists: {
+        Args: { p_end: string; p_start: string; p_status?: string }
+        Returns: Json
+      }
+      get_cmo_referral_totals: {
+        Args: { p_end: string; p_months?: Json; p_start: string }
+        Returns: Json
+      }
       get_cohort_retention: {
         Args: {
           p_bucket?: string
@@ -77311,6 +77321,11 @@ export type Database = {
         }[]
       }
       get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_growth_snapshot_live: { Args: never; Returns: Json }
+      get_growth_sources_live: {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
