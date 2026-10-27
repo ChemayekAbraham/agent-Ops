@@ -132,3 +132,6 @@
 
 ## Welile Homes read-only audit + Excel export (27 Oct 2026, chemayek abraham)
 - [x] Read-only Welile Homes audit exported to /mnt/documents/welile_homes_audit_2026-10-27.xlsx — 8 tabs, 23 subscriptions, 240 dues, 4 float requests, 129 ledger legs, 29 people; sums verified against DB aggregates. No writes.
+
+## AgentTenantsSheet stale-chunk guard (27 Oct 2026)
+- [x] Checked: both lazy imports (AgentDashboard, AgentDashboardBk) already use lazyNamed, which reloads once for a missing export and then shows "This section needs a refresh"; renders sit inside LazyModal/Suspense. No code change needed.
