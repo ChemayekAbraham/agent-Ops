@@ -40,13 +40,15 @@ const RESULTS_PATH = resolve(ROOT, "docs", "zoe", "test-results.md");
 
 const { runSafetyPack } = await import("./zoe-eval/safetyPack.ts");
 const { runAccuracyPack } = await import("./zoe-eval/accuracyPack.ts");
+const { runLiveEvalPack } = await import("./zoe-eval/liveEvalPack.ts");
 const { renderTestResultsMarkdown } = await import("./zoe-eval/reportMarkdown.ts");
 
 const safety = await runSafetyPack();
 const accuracy = await runAccuracyPack();
+const live = await runLiveEvalPack();
 
 mkdirSync(dirname(RESULTS_PATH), { recursive: true });
-const markdown = renderTestResultsMarkdown(safety, accuracy);
+const markdown = renderTestResultsMarkdown(safety, accuracy, live);
 writeFileSync(RESULTS_PATH, markdown, "utf8");
 
 console.log(

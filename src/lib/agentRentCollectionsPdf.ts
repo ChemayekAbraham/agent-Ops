@@ -31,13 +31,26 @@ interface CollectionRow {
 
 interface TenantLite { id: string; full_name: string | null; phone: string | null }
 
-function rangeFor(range: RangeKey): { from: Date; to: Date; label: string } {
+/** ISO weekday (1 = Monday ... 7 = Sunday) the agent rule week starts on; Thursday unless the posting-rule setting says otherwise. */
+async function ruleWeekStartIsoDow(): Promise<number> {
+  try {
+    const { data } = await supabase.from('agent_posting_rule_settings').select('week_start_isodow').maybeSingle();
+    const n = Number((data as { week_start_isodow?: number } | null)?.week_start_isodow);
+    return n >= 1 && n <= 7 ? n : 4;
+  } catch {
+    return 4;
+  }
+}
+
+function rangeFor(range: RangeKey, weekStartIsoDow: number): { from: Date; to: Date; label: string } {
   const to = new Date();
   const from = new Date();
   if (range === 'weekly') {
-    from.setDate(to.getDate() - 6);
+    // The rule week so far: from the day the week started (Thursday) to today, the same window the payout check uses.
+    const isoDow = to.getDay() === 0 ? 7 : to.getDay();
+    from.setDate(to.getDate() - ((isoDow - weekStartIsoDow + 7) % 7));
     from.setHours(0, 0, 0, 0);
-    return { from, to, label: 'Weekly (last 7 days)' };
+    return { from, to, label: `This week so far (${from.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to today)` };
   }
   if (range === 'monthly') {
     from.setDate(1);
@@ -70,7 +83,7 @@ export async function generateAgentRentCollectionsPdf(params: {
   range: RangeKey;
 }): Promise<Blob> {
   const { agentId, agentName, range } = params;
-  const { from, to, label } = rangeFor(range);
+  const { from, to, label } = rangeFor(range, range === 'weekly' ? await ruleWeekStartIsoDow() : 4);
 
   const { data, error } = await supabase
     .from('agent_collections')

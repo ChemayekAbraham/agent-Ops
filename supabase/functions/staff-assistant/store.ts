@@ -2,11 +2,13 @@
 // Every `assistant_staff_*` data tool RPC is called from `index.ts` with the caller's own JWT (`userClient`).
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { kampalaToday } from "./dates.ts";
+import { ConversationMemorySummary, parseConversationMemory } from "./memory.ts";
 import type { ChatMessage } from "./openai.ts";
 import type { ClientContext } from "./schemas.ts";
 
 const MAX_MESSAGES_PER_MINUTE = 10;
-const RECENT_HISTORY_MESSAGES = 6;
+/** Prompt 3 item (2): Send the last 20 turns (40 messages). */
+export const RECENT_HISTORY_MESSAGES = 40;
 const DEFAULT_MAX_QUESTIONS_PER_DAY = 50;
 
 export type TurnOutcome =
@@ -39,6 +41,14 @@ export interface StaffAssistantConfig {
   maxModelRounds: number;
   maxToolCalls: number;
   historyDays: number;
+}
+
+export interface ConversationListItem {
+  id: string;
+  title: string;
+  message_count: number;
+  last_active_at: string;
+  created_at: string;
 }
 
 function parseUserAgent(ua: string | null, ctx?: ClientContext): {
@@ -211,7 +221,7 @@ export async function getOrCreateConversation(
   userId: string,
   conversationId: string | undefined,
   meta: SessionMeta,
-): Promise<{ id: string; status: string }> {
+): Promise<{ id: string; status: string; memory?: ConversationMemorySummary }> {
   const db = admin();
   const ua = parseUserAgent(meta.userAgent, meta.clientContext);
   const sessionPatch = {
@@ -225,23 +235,31 @@ export async function getOrCreateConversation(
   if (conversationId) {
     const { data } = await db
       .from("staff_assistant_conversations")
-      .select("id, status")
+      .select("id, status, conversation_summary")
       .eq("id", conversationId)
       .eq("user_id", userId)
       .maybeSingle();
     if (data) {
       await db.from("staff_assistant_conversations").update(sessionPatch).eq("id", data.id);
-      return data;
+      return {
+        id: data.id,
+        status: data.status,
+        memory: parseConversationMemory(data.conversation_summary),
+      };
     }
   }
 
   const { data, error } = await db
     .from("staff_assistant_conversations")
     .insert({ user_id: userId, persona: "staff", ...sessionPatch })
-    .select("id, status")
+    .select("id, status, conversation_summary")
     .single();
   if (error || !data) throw new Error(`could not create conversation: ${error?.message}`);
-  return data;
+  return {
+    id: data.id,
+    status: data.status,
+    memory: parseConversationMemory(data.conversation_summary),
+  };
 }
 
 export async function loadRecentTurns(userId: string, conversationId: string): Promise<ChatMessage[]> {
@@ -298,6 +316,7 @@ export async function recordTurn(args: {
   sourceLabel?: string | null;
   periodLabel?: string | null;
   reportPayload?: Record<string, unknown> | null;
+  conversationSummary?: ConversationMemorySummary | null;
   model?: string;
   latencyMs?: number;
 }): Promise<{ userMessageId: string | null; assistantMessageId: string | null }> {
@@ -334,12 +353,15 @@ export async function recordTurn(args: {
     .maybeSingle();
 
   const nextTitle = conv?.title ?? args.userMessage.slice(0, 120);
+  const nowIso = new Date().toISOString();
   await db
     .from("staff_assistant_conversations")
     .update({
-      last_active_at: new Date().toISOString(),
+      last_active_at: nowIso,
+      last_message_at: nowIso,
       message_count: (conv?.message_count ?? 0) + 2,
       title: nextTitle,
+      ...(args.conversationSummary ? { conversation_summary: args.conversationSummary } : {}),
     })
     .eq("id", args.conversationId);
 
@@ -405,7 +427,7 @@ export async function saveFeedback(args: {
 export async function loadConversationHistory(
   userId: string,
   conversationId?: string,
-  limit = 30,
+  limit = 40,
 ): Promise<{
   conversation_id: string | null;
   messages: Array<{
@@ -453,6 +475,84 @@ export async function loadConversationHistory(
     conversation_id: targetId,
     messages: (rows ?? []).reverse(),
   };
+}
+
+export async function listUserConversations(
+  userId: string,
+  limit = 25,
+): Promise<ConversationListItem[]> {
+  const db = admin();
+  const { data } = await db
+    .from("staff_assistant_conversations")
+    .select("id, title, message_count, last_active_at, created_at")
+    .eq("user_id", userId)
+    .eq("hidden_by_user", false)
+    .order("last_active_at", { ascending: false })
+    .limit(Math.min(Math.max(limit, 1), 40));
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    title: (typeof row.title === "string" && row.title.trim() ? row.title.trim() : "New chat"),
+    message_count: typeof row.message_count === "number" ? row.message_count : 0,
+    last_active_at: (row.last_active_at as string) ?? (row.created_at as string),
+    created_at: row.created_at as string,
+  }));
+}
+
+export async function createNewConversation(
+  userId: string,
+  meta: SessionMeta,
+  title?: string,
+): Promise<ConversationListItem> {
+  const db = admin();
+  const ua = parseUserAgent(meta.userAgent, meta.clientContext);
+  const nowIso = new Date().toISOString();
+  const cleanTitle = title?.trim() ? title.trim().slice(0, 120) : "New chat";
+  const { data, error } = await db
+    .from("staff_assistant_conversations")
+    .insert({
+      user_id: userId,
+      persona: "staff",
+      title: cleanTitle,
+      last_active_at: nowIso,
+      last_message_at: nowIso,
+      ip_address: meta.ipAddress?.slice(0, 64) ?? null,
+      user_agent: meta.userAgent?.slice(0, 512) ?? null,
+      device_class: ua.deviceClass,
+      device_browser: ua.browser,
+      device_os: ua.os,
+    })
+    .select("id, title, message_count, last_active_at, created_at")
+    .single();
+  if (error || !data) throw new Error(`could not create conversation: ${error?.message}`);
+  return {
+    id: data.id as string,
+    title: (data.title as string) ?? cleanTitle,
+    message_count: (data.message_count as number) ?? 0,
+    last_active_at: (data.last_active_at as string) ?? nowIso,
+    created_at: (data.created_at as string) ?? nowIso,
+  };
+}
+
+export async function renameUserConversation(
+  userId: string,
+  conversationId: string,
+  title: string,
+): Promise<{ ok: boolean; title: string }> {
+  const db = admin();
+  const cleanTitle = title.trim().slice(0, 120);
+  const { data, error } = await db
+    .from("staff_assistant_conversations")
+    .update({ title: cleanTitle })
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .select("id, title")
+    .maybeSingle();
+
+  if (error || !data) {
+    return { ok: false, title: cleanTitle };
+  }
+  return { ok: true, title: (data.title as string) ?? cleanTitle };
 }
 
 /**
