@@ -58,10 +58,35 @@ export interface ZoeReportScheduleDraft {
   candidates: ZoeStaffRecipientCandidate[];
 }
 
+export type ZoeIdeaCategory =
+  | 'desk_wait'
+  | 'collections'
+  | 'calling'
+  | 'payouts'
+  | 'zoe_quality'
+  | 'general';
+
+export type ZoeIdeaStatus = 'new' | 'being_looked_at' | 'done' | 'not_now';
+
+export interface ZoeIdeaDraft {
+  draft_id: string;
+  action_type: 'idea';
+  status: 'ready';
+  title: string;
+  suggestion: string;
+  evidence_summary: string;
+  figures: Record<string, unknown>;
+  source_label: string;
+  period_label: string;
+  category: ZoeIdeaCategory;
+  screen_path: string;
+}
+
 export type ZoeActionDraft =
   | ZoeReminderDraft
   | ZoeStaffNotificationDraft
-  | ZoeReportScheduleDraft;
+  | ZoeReportScheduleDraft
+  | ZoeIdeaDraft;
 
 export interface ZoeReminderItem {
   id: string;
@@ -307,6 +332,67 @@ export function extractZoeActionDraft(
           : 'Automated report shared from Zoe.',
       ),
       candidates,
+    };
+  }
+
+  if (actionType === 'idea') {
+    const allowedCategories = new Set<ZoeIdeaCategory>([
+      'desk_wait',
+      'collections',
+      'calling',
+      'payouts',
+      'zoe_quality',
+      'general',
+    ]);
+    const rawCat = typeof d.category === 'string' ? (d.category.trim() as ZoeIdeaCategory) : 'general';
+    const category: ZoeIdeaCategory = allowedCategories.has(rawCat) ? rawCat : 'general';
+
+    const title = sanitizeWelileTerms(
+      typeof d.title === 'string' && d.title.trim() ? d.title.trim() : 'Welile Improvement Idea',
+    );
+    const suggestion = sanitizeWelileTerms(
+      typeof d.suggestion === 'string' && d.suggestion.trim() ? d.suggestion.trim() : '',
+    );
+    const evidenceSummary = sanitizeWelileTerms(
+      typeof d.evidence_summary === 'string' && d.evidence_summary.trim()
+        ? d.evidence_summary.trim()
+        : typeof d.evidence === 'string' && d.evidence.trim()
+          ? d.evidence.trim()
+          : '',
+    );
+    const figures =
+      d.figures && typeof d.figures === 'object' && !Array.isArray(d.figures)
+        ? (d.figures as Record<string, unknown>)
+        : {};
+    const sourceLabel =
+      typeof d.source_label === 'string' && d.source_label.trim()
+        ? d.source_label.trim()
+        : typeof d.source === 'string' && d.source.trim()
+          ? d.source.trim()
+          : 'Official report';
+    const periodLabel =
+      typeof d.period_label === 'string' && d.period_label.trim()
+        ? d.period_label.trim()
+        : typeof d.period === 'string' && d.period.trim()
+          ? d.period.trim()
+          : 'Last 4 weeks';
+    const screenPath =
+      typeof d.screen_path === 'string' && d.screen_path.trim().startsWith('/')
+        ? d.screen_path.trim()
+        : '/me';
+
+    return {
+      draft_id: typeof d.draft_id === 'string' && d.draft_id ? d.draft_id : 'idea-draft-1',
+      action_type: 'idea',
+      status: 'ready',
+      title,
+      suggestion,
+      evidence_summary: evidenceSummary,
+      figures,
+      source_label: sourceLabel,
+      period_label: periodLabel,
+      category,
+      screen_path: screenPath,
     };
   }
 
@@ -665,4 +751,303 @@ export async function updateZoeMorningBriefPrefs(input: {
     return { ok: false, error: error.message || 'Could not update Morning Brief preference.' };
   }
   return { ok: true, data: (data ?? {}) as Record<string, unknown> };
+}
+
+export interface ConfirmZoeIdeaInput {
+  draft_id?: string | null;
+  rebind_draft?: boolean;
+  title: string;
+  suggestion: string;
+  evidence_summary: string;
+  figures?: Record<string, unknown>;
+  source_label: string;
+  period_label?: string | null;
+  category?: ZoeIdeaCategory;
+  screen_path?: string | null;
+  conversation_id?: string | null;
+  message_id?: string | null;
+}
+
+/**
+ * Click-confirmed action: saves an evidence-based improvement idea to `staff_assistant_ideas`.
+ * Zoe never turns an idea into an action, changes any setting or business record, or contacts anyone.
+ */
+export async function confirmZoeIdeaDraft(
+  input: ConfirmZoeIdeaInput,
+): Promise<ConfirmZoeActionResult> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const sanitizedTitle = sanitizeWelileTerms(input.title.trim());
+  const sanitizedSuggestion = sanitizeWelileTerms(input.suggestion.trim());
+  const sanitizedEvidence = sanitizeWelileTerms(input.evidence_summary.trim());
+  const sourceLabel = input.source_label.trim() || 'Official report';
+  const periodLabel = (input.period_label ?? '').trim();
+  const category: ZoeIdeaCategory = input.category ?? 'general';
+  const screenPath =
+    input.screen_path && input.screen_path.trim().startsWith('/')
+      ? input.screen_path.trim()
+      : '/me';
+
+  let draftId = input.draft_id ?? null;
+  if ((input.rebind_draft || !draftId) && typeof supabase.rpc === 'function') {
+    const { data: savedDraft, error: draftErr } = await supabase.rpc(
+      'staff_assistant_save_draft' as never,
+      {
+        p_kind: 'idea',
+        p_payload: {
+          kind: 'idea',
+          title: sanitizedTitle,
+          suggestion: sanitizedSuggestion,
+          evidence_summary: sanitizedEvidence,
+          source_label: sourceLabel,
+          period_label: periodLabel,
+          category,
+          screen_path: screenPath,
+        },
+        p_conversation_id: input.conversation_id ?? null,
+      } as never,
+    );
+    if (draftErr) {
+      return { ok: false, error: draftErr.message || 'Could not prepare idea draft.' };
+    }
+    const row = (savedDraft ?? {}) as Record<string, unknown>;
+    if (typeof row.draft_id === 'string' && row.draft_id) {
+      draftId = row.draft_id;
+    }
+  }
+
+  const { data, error } = await supabase.rpc('staff_assistant_save_idea' as never, {
+    p_title: sanitizedTitle,
+    p_suggestion: sanitizedSuggestion,
+    p_evidence_summary: sanitizedEvidence,
+    p_figures: input.figures ?? {},
+    p_source_label: sourceLabel,
+    p_period_label: periodLabel || null,
+    p_category: category,
+    p_screen_path: screenPath,
+    p_conversation_id: input.conversation_id ?? null,
+    p_message_id: input.message_id ?? null,
+    p_draft_id: draftId,
+  } as never);
+
+  if (error) {
+    return { ok: false, error: error.message || 'Could not save idea right now.' };
+  }
+  return { ok: true, data: (data ?? {}) as Record<string, unknown> };
+}
+
+export interface ZoeIdeaRecord {
+  id: string;
+  created_by: string;
+  created_by_name: string;
+  created_by_roles: string[];
+  title: string;
+  suggestion: string;
+  evidence_summary: string;
+  figures: Record<string, unknown>;
+  source_label: string;
+  period_label: string | null;
+  category: ZoeIdeaCategory;
+  screen_path: string | null;
+  status: ZoeIdeaStatus;
+  status_updated_by: string | null;
+  status_updated_by_name: string | null;
+  status_updated_at: string | null;
+  status_note: string | null;
+  created_at: string;
+}
+
+export interface ZoeIdeasCounts {
+  total: number;
+  new: number;
+  being_looked_at: number;
+  done: number;
+  not_now: number;
+}
+
+export interface ZoeIdeasListResponse {
+  can_manage_ideas: boolean;
+  counts: ZoeIdeasCounts;
+  ideas: ZoeIdeaRecord[];
+}
+
+const IDEA_MANAGER_ROLES = new Set([
+  'manager',
+  'coo',
+  'ceo',
+  'cfo',
+  'cto',
+  'super_admin',
+  'operations',
+]);
+
+export function canManageZoeIdeas(roles: readonly string[] = []): boolean {
+  return roles.some((r) => IDEA_MANAGER_ROLES.has(String(r).toLowerCase().trim()));
+}
+
+/**
+ * Fetches saved "Ideas for Welile" (`staff_assistant_list_ideas`).
+ */
+export async function fetchZoeIdeas(
+  status: ZoeIdeaStatus | 'all' | null = null,
+  limit = 100,
+): Promise<ZoeIdeasListResponse> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const filterStatus = status && status !== 'all' ? status : null;
+  const { data, error } = await supabase.rpc('staff_assistant_list_ideas' as never, {
+    p_status: filterStatus,
+    p_limit: limit,
+  } as never);
+
+  if (error || !data || typeof data !== 'object') {
+    return {
+      can_manage_ideas: false,
+      counts: { total: 0, new: 0, being_looked_at: 0, done: 0, not_now: 0 },
+      ideas: [],
+    };
+  }
+
+  const raw = data as Record<string, unknown>;
+  const rawCounts =
+    raw.counts && typeof raw.counts === 'object' && !Array.isArray(raw.counts)
+      ? (raw.counts as Record<string, unknown>)
+      : {};
+  const rawIdeas = Array.isArray(raw.ideas) ? raw.ideas : [];
+
+  const ideas: ZoeIdeaRecord[] = rawIdeas
+    .filter(
+      (item): item is Record<string, unknown> =>
+        Boolean(item) && typeof item === 'object' && !Array.isArray(item),
+    )
+    .map((item) => ({
+      id: String(item.id ?? ''),
+      created_by: String(item.created_by ?? ''),
+      created_by_name: String(item.created_by_name ?? 'Welile Staff'),
+      created_by_roles: Array.isArray(item.created_by_roles)
+        ? item.created_by_roles.map((r) => String(r))
+        : [],
+      title: sanitizeWelileTerms(String(item.title ?? '')),
+      suggestion: sanitizeWelileTerms(String(item.suggestion ?? '')),
+      evidence_summary: sanitizeWelileTerms(String(item.evidence_summary ?? '')),
+      figures:
+        item.figures && typeof item.figures === 'object' && !Array.isArray(item.figures)
+          ? (item.figures as Record<string, unknown>)
+          : {},
+      source_label: String(item.source_label ?? 'Official report'),
+      period_label: typeof item.period_label === 'string' ? item.period_label : null,
+      category: (typeof item.category === 'string' ? item.category : 'general') as ZoeIdeaCategory,
+      screen_path: typeof item.screen_path === 'string' ? item.screen_path : '/me',
+      status: (typeof item.status === 'string' ? item.status : 'new') as ZoeIdeaStatus,
+      status_updated_by:
+        typeof item.status_updated_by === 'string' ? item.status_updated_by : null,
+      status_updated_by_name:
+        typeof item.status_updated_by_name === 'string' ? item.status_updated_by_name : null,
+      status_updated_at:
+        typeof item.status_updated_at === 'string' ? item.status_updated_at : null,
+      status_note: typeof item.status_note === 'string' ? item.status_note : null,
+      created_at: String(item.created_at ?? ''),
+    }))
+    .filter((item) => Boolean(item.id));
+
+  return {
+    can_manage_ideas: raw.can_manage_ideas === true,
+    counts: {
+      total: Number(rawCounts.total ?? ideas.length),
+      new: Number(rawCounts.new ?? 0),
+      being_looked_at: Number(rawCounts.being_looked_at ?? 0),
+      done: Number(rawCounts.done ?? 0),
+      not_now: Number(rawCounts.not_now ?? 0),
+    },
+    ideas,
+  };
+}
+
+/**
+ * Updates an idea's status (`new`, `being_looked_at`, `done`, `not_now`).
+ * Ordinary screen action for managers/COO/CEO only — never called by Zoe.
+ */
+export async function updateZoeIdeaStatus(input: {
+  idea_id: string;
+  status: ZoeIdeaStatus;
+  status_note?: string | null;
+}): Promise<ConfirmZoeActionResult> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const { data, error } = await supabase.rpc('staff_assistant_update_idea_status' as never, {
+    p_idea_id: input.idea_id,
+    p_status: input.status,
+    p_status_note: input.status_note ?? null,
+  } as never);
+
+  if (error) {
+    return { ok: false, error: error.message || 'Could not update idea status.' };
+  }
+  return { ok: true, data: (data ?? {}) as Record<string, unknown> };
+}
+
+export interface ZoeWeeklyLookAtIssue {
+  rank: number;
+  category: string;
+  title: string;
+  evidence: string;
+  metric_label: string;
+  source: string;
+  screen_path: string;
+  screen_label: string;
+}
+
+export interface ZoeWeeklyLookAtSummary {
+  source: string;
+  week_start: string;
+  as_of: string;
+  is_monday: boolean;
+  in_app_only: boolean;
+  new_ideas_count: number;
+  issues: ZoeWeeklyLookAtIssue[];
+}
+
+/**
+ * Fetches the Monday "What to look at this week" summary for managers, the COO, and the CEO.
+ * In-app only (`in_app_only: true`); never sent outside the app.
+ */
+export async function fetchZoeWeeklyLookAtSummary(
+  asOf: string | null = null,
+): Promise<ZoeWeeklyLookAtSummary | null> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  const { data, error } = await supabase.rpc('staff_assistant_weekly_look_at_summary' as never, {
+    p_as_of: asOf,
+  } as never);
+
+  if (error || !data || typeof data !== 'object') {
+    return null;
+  }
+
+  const raw = data as Record<string, unknown>;
+  const rawIssues = Array.isArray(raw.issues) ? raw.issues : [];
+  const issues: ZoeWeeklyLookAtIssue[] = rawIssues
+    .filter(
+      (it): it is Record<string, unknown> =>
+        Boolean(it) && typeof it === 'object' && !Array.isArray(it),
+    )
+    .map((it, idx) => ({
+      rank: Number(it.rank ?? idx + 1),
+      category: String(it.category ?? 'general'),
+      title: sanitizeWelileTerms(String(it.title ?? 'Operational priority')),
+      evidence: sanitizeWelileTerms(String(it.evidence ?? '')),
+      metric_label: sanitizeWelileTerms(String(it.metric_label ?? '')),
+      source: String(it.source ?? 'Official report'),
+      screen_path:
+        typeof it.screen_path === 'string' && it.screen_path.startsWith('/')
+          ? it.screen_path
+          : '/me',
+      screen_label: String(it.screen_label ?? 'Open screen'),
+    }));
+
+  return {
+    source: String(raw.source ?? 'staff_assistant_weekly_look_at_summary'),
+    week_start: String(raw.week_start ?? ''),
+    as_of: String(raw.as_of ?? ''),
+    is_monday: raw.is_monday === true,
+    in_app_only: true,
+    new_ideas_count: Number(raw.new_ideas_count ?? 0),
+    issues: issues.slice(0, 5),
+  };
 }

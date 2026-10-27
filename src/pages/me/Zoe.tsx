@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, ShieldAlert } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { ZoeChatSurface } from '@/components/zoe/ZoeChatSurface';
+import { ZoeWeeklyLookAtCard } from '@/components/zoe/ZoeWeeklyLookAtCard';
 import { useZoeAccess, useZoeAssistant } from '@/components/zoe/useZoeAssistant';
 
 const ZoePage: React.FC = () => {
@@ -46,29 +47,32 @@ const ZoePage: React.FC = () => {
           </Link>
         </div>
       ) : (
-        <ZoeChatSurface
-          messages={assistant.messages}
-          conversations={assistant.conversations}
-          activeConversationId={assistant.activeConversationId}
-          roles={roles}
-          generatedBy={generatedBy}
-          morningBrief={assistant.morningBrief}
-          isLoading={assistant.isLoading}
-          isHistoryLoading={assistant.isHistoryLoading}
-          streamingText={assistant.streamingText}
-          statusLine={assistant.statusLine}
-          errorMessage={assistant.errorMessage}
-          remainingQuestionsToday={assistant.remainingQuestionsToday}
-          onSendMessage={assistant.sendMessage}
-          onStopGenerating={assistant.stopGenerating}
-          onRegenerate={assistant.regenerateLastAnswer}
-          onSelectConversation={assistant.selectConversation}
-          onStartNewChat={assistant.startNewChat}
-          onRenameConversation={assistant.renameConversation}
-          onRetry={assistant.retryLastMessage}
-          onFeedback={assistant.submitFeedback}
-          onClearHistory={assistant.clearHistory}
-        />
+        <div className="space-y-4">
+          <ZoeWeeklyLookAtCard roles={roles} defaultExpanded={false} />
+          <ZoeChatSurface
+            messages={assistant.messages}
+            conversations={assistant.conversations}
+            activeConversationId={assistant.activeConversationId}
+            roles={roles}
+            generatedBy={generatedBy}
+            morningBrief={assistant.morningBrief}
+            isLoading={assistant.isLoading}
+            isHistoryLoading={assistant.isHistoryLoading}
+            streamingText={assistant.streamingText}
+            statusLine={assistant.statusLine}
+            errorMessage={assistant.errorMessage}
+            remainingQuestionsToday={assistant.remainingQuestionsToday}
+            onSendMessage={assistant.sendMessage}
+            onStopGenerating={assistant.stopGenerating}
+            onRegenerate={assistant.regenerateLastAnswer}
+            onSelectConversation={assistant.selectConversation}
+            onStartNewChat={assistant.startNewChat}
+            onRenameConversation={assistant.renameConversation}
+            onRetry={assistant.retryLastMessage}
+            onFeedback={assistant.submitFeedback}
+            onClearHistory={assistant.clearHistory}
+          />
+        </div>
       )}
     </PersonalLayout>
   );

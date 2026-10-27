@@ -26,6 +26,7 @@ import {
   extractZoeExportableReport,
   extractZoeRemindersAndSchedules,
   type ConfirmZoeActionResult,
+  type ConfirmZoeIdeaInput,
   type ConfirmZoeNotificationInput,
   type ConfirmZoeReminderInput,
   type ConfirmZoeScheduleInput,
@@ -79,6 +80,7 @@ export interface ZoeChatSurfaceProps {
   onConfirmReminder?: (input: ConfirmZoeReminderInput) => Promise<ConfirmZoeActionResult>;
   onConfirmNotification?: (input: ConfirmZoeNotificationInput) => Promise<ConfirmZoeActionResult>;
   onConfirmSchedule?: (input: ConfirmZoeScheduleInput) => Promise<ConfirmZoeActionResult>;
+  onConfirmIdea?: (input: ConfirmZoeIdeaInput) => Promise<ConfirmZoeActionResult>;
   onCancelReminder?: (reminderId: string) => Promise<ConfirmZoeActionResult>;
   onCancelSchedule?: (scheduleId: string) => Promise<ConfirmZoeActionResult>;
   onUpdateMorningBriefPrefs?: (input: {
@@ -159,6 +161,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onConfirmReminder,
   onConfirmNotification,
   onConfirmSchedule,
+  onConfirmIdea,
   onCancelReminder,
   onCancelSchedule,
   onUpdateMorningBriefPrefs,
@@ -514,9 +517,12 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 {actionDraft && (
                   <ZoeActionDraftCard
                     draft={actionDraft}
+                    conversationId={activeConversationId}
+                    messageId={msg.id}
                     onConfirmReminder={onConfirmReminder}
                     onConfirmNotification={onConfirmNotification}
                     onConfirmSchedule={onConfirmSchedule}
+                    onConfirmIdea={onConfirmIdea}
                   />
                 )}
                 {remindersAndSchedules && (

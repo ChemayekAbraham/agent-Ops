@@ -5,6 +5,7 @@ import type { AppRole } from '@/hooks/useAuth';
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AgentNotVettedDialogHost } from "@/components/agent/vetting/AgentNotVettedDialog";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
@@ -101,7 +102,6 @@ const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsCont
 // Lazy load optional UI components
 const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
-const PendingCollectionsSync = optionalLazyWithRetry(() => import("@/components/agent/PendingCollectionsSync"), "PendingCollectionsSync");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/hr/HRBirthdayNoticeDialog"), "HRBirthdayNoticeDialog");
@@ -294,6 +294,7 @@ const MeConcernsPage = lazy(() => import('./pages/me/MyConcerns'));
 const MyReportsPage = lazy(() => import('./pages/me/MyReports'));
 const StaffReportsPage = lazy(() => import('./pages/me/StaffReports'));
 const ZoePage = lazy(() => import('./pages/me/Zoe'));
+const IdeasPage = lazy(() => import('./pages/me/IdeasPage'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
@@ -331,6 +332,8 @@ const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
 const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReviewPage = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
 const AgentWelileMedicinePage = lazy(() => import('./pages/agent/AgentWelileMedicine'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
@@ -346,9 +349,6 @@ const RentCoverageDetail = lazy(() => import('./pages/coo/RentCoverageDetail'));
 const COOPartnerOpsReport = lazy(() => import('./pages/coo/reports/PartnerOpsReport'));
 const COOAgentOpsReport = lazy(() => import('./pages/coo/reports/AgentOpsReport'));
 const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsReport'));
-const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
-const AgentVerificationReview = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
-const NotVettedDialog = lazy(() => import('./components/agent-vetting/NotVettedDialog'));
 const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
@@ -471,7 +471,6 @@ function GlobalFloatingWidgets() {
   return (
     <>
       <FloatingToolbar />
-      <Suspense fallback={null}><NotVettedDialog /></Suspense>
       <MerchantDispatchListener />
       <GlobalInstallPrompt />
     </>
@@ -594,7 +593,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
-          <Route path="/dashboard/agent/verification" element={<AgentVerificationPage />} />
+          <Route path="/dashboard/agent/verification" element={<RoleGuard allowedRoles={['agent']}><AgentVerificationPage /></RoleGuard>} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -842,6 +841,7 @@ function AppRoutes() {
           <Route path="/me/reports" element={<HRSignedInRoute><MyReportsPage /></HRSignedInRoute>} />
           <Route path="/me/staff-reports" element={<HRSignedInRoute><StaffReportsPage /></HRSignedInRoute>} />
           <Route path="/me/zoe" element={<HRSignedInRoute><ZoePage /></HRSignedInRoute>} />
+          <Route path="/me/ideas" element={<HRSignedInRoute><IdeasPage /></HRSignedInRoute>} />
           <Route path="/approvals" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><ApprovalsPage /></RoleGuard>} />
           <Route path="/hr/dashboard/tasks" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRTasksPage /></RoleGuard>} />
           <Route path="/hr/people" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRPeoplePage /></RoleGuard>} />
@@ -889,7 +889,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
-          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['agent_ops' as any, 'ceo', 'cto', 'coo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentVerificationReview /></RoleGuard>} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'agent_ops' as AppRole]} requiredPermission="agent-ops"><AgentVerificationReviewPage /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -951,6 +951,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
+      <AgentNotVettedDialogHost />
       </div>
     </div>
   );
@@ -1123,7 +1124,6 @@ const App = () => {
                           <GlobalFloatingWidgets />
                           <Toaster />
                           <SonnerToaster />
-                          <PendingCollectionsSync />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <DeviceStepUpGate />
