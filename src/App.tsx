@@ -5,7 +5,6 @@ import type { AppRole } from '@/hooks/useAuth';
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AgentNotVettedDialogHost } from "@/components/agent/vetting/AgentNotVettedDialog";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
@@ -951,7 +950,6 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
-      <AgentNotVettedDialogHost />
       </div>
     </div>
   );
