@@ -13,10 +13,28 @@ export type ExplainedAnswer = ExplainedChoice;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type LandlordHubScope = 'live_plans' | 'with_plans' | 'all';
+export type LandlordHubScope =
+  | 'live'
+  | 'in_progress'
+  | 'finished'
+  | 'registered_only'
+  | 'check_first';
+
+export type LandlordHubPlanStage =
+  | 'live'
+  | 'in_progress'
+  | 'finished'
+  | 'registered_only';
+
 export type LandlordHubTab = 'to_call' | 'call_back' | 'answered' | 'not_answered' | 'all';
-export type LandlordHubSort = 'rent_plan_value' | 'last_called' | 'call_back_due' | 'name' | 'newest_registration';
+export type LandlordHubSort =
+  | 'rent_plan_value'
+  | 'last_called'
+  | 'call_back_due'
+  | 'name'
+  | 'newest_registration';
 export type LandlordHubVerifiedFilter = 'all' | 'verified' | 'unverified';
+export type LandlordHubStatusFilter = 'all' | 'pending' | 'verified' | 'rejected';
 
 export type LandlordHubResult =
   | 'answered'
@@ -44,6 +62,8 @@ export interface LandlordHubListParams {
   district?: string;
   agent?: string;
   verified?: LandlordHubVerifiedFilter;
+  status?: LandlordHubStatusFilter;
+  stage?: LandlordHubPlanStage | 'all';
   sort?: LandlordHubSort;
   limit?: number;
   offset?: number;
@@ -77,6 +97,22 @@ export interface LandlordHubRow {
   hub_status: 'never_called' | 'answered' | 'not_answered' | 'call_back';
   needs_review: boolean;
   total_count: number;
+  plan_stage: LandlordHubPlanStage;
+  plans_total: number;
+  tenants_count: number;
+  check_flags: string[];
+  needs_check: boolean;
+  registrar_is_agent_now: boolean;
+  service_center_status: string | null;
+}
+
+export interface LandlordHubScopeCounts {
+  live: number;
+  in_progress: number;
+  finished: number;
+  registered_only: number;
+  check_first: number;
+  all: number;
 }
 
 export interface LandlordHubStats {
@@ -87,9 +123,24 @@ export interface LandlordHubStats {
   call_backs_overdue: number;
   live_plan_landlords_total: number;
   live_plan_landlords_never_called: number;
+  in_progress_never_called: number;
+  check_first_count: number;
+  in_progress_total: number;
+  finished_total: number;
+  registered_only_total: number;
+  all_landlords_total: number;
+  scope_counts: LandlordHubScopeCounts;
   landlords_reached_this_week: number;
   week_start: string;
   kampala_today: string;
+}
+
+export interface LandlordHubAgentOption {
+  agent_id: string;
+  agent_name: string;
+  landlord_count: number;
+  live_landlord_count: number;
+  is_agent_now: boolean;
 }
 
 export interface LandlordHubHouse {
@@ -174,7 +225,17 @@ export interface LandlordHubDetail {
   property_address: string | null;
   verified: boolean;
   verification_status: string | null;
+  service_center_status: string | null;
   needs_review: boolean;
+  needs_check: boolean;
+  check_flags: string[];
+  plan_stage: LandlordHubPlanStage;
+  plans_total: number;
+  plans_live: number;
+  plans_shown: number;
+  tenants_total: number;
+  tenants_count: number;
+  registrar_is_agent_now: boolean;
   registered_at: string | null;
   houses_count: number;
   live_rent_plans: number;
@@ -183,13 +244,17 @@ export interface LandlordHubDetail {
     agent_id: string;
     full_name: string | null;
     phone: string | null;
+    is_agent_now?: boolean;
   } | null;
   caretaker: {
     name: string | null;
     phone: string | null;
   } | null;
   payout_details: {
+    primary_payout_number: string | null;
+    payout_number_confirmed: boolean;
     mobile_money_number: string | null;
+    unconfirmed_mobile_money_number: string | null;
     mobile_money_name: string | null;
     verified_mobile_money_number: string | null;
     bank_name: string | null;
@@ -260,6 +325,74 @@ export interface AmendLandlordHubCallInput {
 }
 
 // ─── Labels & Constants ───────────────────────────────────────────────────────
+
+export const HUB_SCOPE_OPTIONS: {
+  value: LandlordHubScope;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'live',
+    label: 'Live Rent Plans',
+    description: 'Landlords whose tenants have a funded or repaying Rent Plan',
+  },
+  {
+    value: 'in_progress',
+    label: 'Plans in progress',
+    description: 'Landlords with a Rent Plan currently moving through approval',
+  },
+  {
+    value: 'finished',
+    label: 'Finished plans',
+    description: 'Landlords whose earlier Rent Plans are completed or ended, with none running now',
+  },
+  {
+    value: 'registered_only',
+    label: 'Registered only',
+    description: 'Landlords registered on the platform who do not have a Rent Plan yet',
+  },
+  {
+    value: 'check_first',
+    label: 'Check first',
+    description: 'Landlords flagged for a data or look-alike check before calling',
+  },
+];
+
+export const HUB_PLAN_STAGE_LABELS: Record<LandlordHubPlanStage, string> = {
+  live: 'Live Rent Plan',
+  in_progress: 'Plan in progress',
+  finished: 'Finished plan',
+  registered_only: 'Registered only',
+};
+
+export const HUB_VERIFICATION_STATUS_LABELS: Record<string, string> = {
+  verified: 'Verified',
+  pending: 'Pending',
+  rejected: 'Rejected',
+};
+
+export function formatCheckFlagLabel(flag: string, plansTotal?: number): string {
+  switch (flag) {
+    case 'is_own_tenant':
+      return 'Also a tenant';
+    case 'duplicate_phone':
+      return 'Phone used by another landlord';
+    case 'test_account':
+      return 'Possible test account';
+    case 'no_phone':
+      return 'No usable phone number';
+    case 'plan_overload':
+      return typeof plansTotal === 'number' && plansTotal > 0
+        ? `Unusually many Rent Plans (${plansTotal.toLocaleString()})`
+        : 'Unusually many Rent Plans';
+    case 'rejected_with_live_plan':
+      return 'Rejected but has a live Rent Plan';
+    case 'registrar_not_agent':
+      return 'Registered by someone who is no longer an agent';
+    default:
+      return flag.replace(/_/g, ' ');
+  }
+}
 
 export const HUB_RESULT_OPTIONS: {
   value: LandlordHubResult;
@@ -456,15 +589,40 @@ export function useLandlordHubStats() {
     queryFn: async (): Promise<LandlordHubStats> => {
       const { data, error } = await (supabase.rpc as any)('landlord_hub_stats');
       if (error) throw new Error(formatHubError(error));
-      const d = (data ?? {}) as Partial<LandlordHubStats>;
+      const d = (data ?? {}) as Partial<LandlordHubStats> & {
+        scope_counts?: Partial<LandlordHubScopeCounts>;
+      };
+      const liveTotal = Number(d.live_plan_landlords_total ?? d.scope_counts?.live ?? 0);
+      const inProgressTotal = Number(d.in_progress_total ?? d.scope_counts?.in_progress ?? 0);
+      const finishedTotal = Number(d.finished_total ?? d.scope_counts?.finished ?? 0);
+      const registeredOnlyTotal = Number(
+        d.registered_only_total ?? d.scope_counts?.registered_only ?? 0,
+      );
+      const checkFirstTotal = Number(d.check_first_count ?? d.scope_counts?.check_first ?? 0);
+      const allTotal = Number(d.all_landlords_total ?? d.scope_counts?.all ?? 0);
+
       return {
         calls_today: Number(d.calls_today ?? 0),
         answered_today: Number(d.answered_today ?? 0),
         answered_rate_pct: Number(d.answered_rate_pct ?? 0),
         call_backs_due: Number(d.call_backs_due ?? 0),
         call_backs_overdue: Number(d.call_backs_overdue ?? 0),
-        live_plan_landlords_total: Number(d.live_plan_landlords_total ?? 0),
+        live_plan_landlords_total: liveTotal,
         live_plan_landlords_never_called: Number(d.live_plan_landlords_never_called ?? 0),
+        in_progress_never_called: Number(d.in_progress_never_called ?? 0),
+        check_first_count: checkFirstTotal,
+        in_progress_total: inProgressTotal,
+        finished_total: finishedTotal,
+        registered_only_total: registeredOnlyTotal,
+        all_landlords_total: allTotal,
+        scope_counts: {
+          live: Number(d.scope_counts?.live ?? liveTotal),
+          in_progress: Number(d.scope_counts?.in_progress ?? inProgressTotal),
+          finished: Number(d.scope_counts?.finished ?? finishedTotal),
+          registered_only: Number(d.scope_counts?.registered_only ?? registeredOnlyTotal),
+          check_first: Number(d.scope_counts?.check_first ?? checkFirstTotal),
+          all: Number(d.scope_counts?.all ?? allTotal),
+        },
         landlords_reached_this_week: Number(d.landlords_reached_this_week ?? 0),
         week_start: String(d.week_start ?? ''),
         kampala_today: String(d.kampala_today ?? ''),
@@ -473,15 +631,38 @@ export function useLandlordHubStats() {
   });
 }
 
+export function useLandlordHubAgents() {
+  return useQuery({
+    queryKey: ['landlord-hub-agents'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<LandlordHubAgentOption[]> => {
+      const { data, error } = await (supabase.rpc as any)('landlord_hub_agents');
+      if (error) throw new Error(formatHubError(error));
+      const list = Array.isArray(data) ? data : [];
+      return list.map((item: any) => ({
+        agent_id: String(item.agent_id ?? ''),
+        agent_name: String(item.agent_name ?? 'Agent'),
+        landlord_count: Number(item.landlord_count ?? 0),
+        live_landlord_count: Number(item.live_landlord_count ?? 0),
+        is_agent_now: item.is_agent_now !== false,
+      }));
+    },
+  });
+}
+
 export function useLandlordHubList(params: LandlordHubListParams) {
-  const scope = params.scope ?? 'live_plans';
-  const tab = params.tab ?? 'to_call';
+  const scope = params.scope ?? 'live';
+  const tab = params.tab ?? (scope === 'check_first' ? 'all' : 'to_call');
   const search = params.search?.trim() || null;
   const region = params.region?.trim() || null;
   const district = params.district?.trim() || null;
   const agent = params.agent?.trim() || null;
   const verified =
     params.verified && params.verified !== 'all' ? params.verified : null;
+  const status =
+    params.status && params.status !== 'all' ? params.status : null;
+  const stage =
+    params.stage && params.stage !== 'all' ? params.stage : null;
   const sort = params.sort ?? (tab === 'call_back' ? 'call_back_due' : 'rent_plan_value');
   const limit = Math.min(Math.max(params.limit ?? 50, 1), 50);
   const offset = Math.max(params.offset ?? 0, 0);
@@ -496,6 +677,8 @@ export function useLandlordHubList(params: LandlordHubListParams) {
       district,
       agent,
       verified,
+      status,
+      stage,
       sort,
       limit,
       offset,
@@ -510,41 +693,53 @@ export function useLandlordHubList(params: LandlordHubListParams) {
         p_district: district,
         p_agent: agent,
         p_verified: verified,
+        p_status: status,
+        p_stage: stage,
         p_sort: sort,
         p_limit: limit,
         p_offset: offset,
       });
       if (error) throw new Error(formatHubError(error));
       const list = Array.isArray(data) ? data : [];
-      const rows: LandlordHubRow[] = list.map((r: any) => ({
-        landlord_key: String(r.landlord_key ?? ''),
-        landlord_id: r.landlord_id ?? null,
-        user_id: r.user_id ?? null,
-        landlord_name: String(r.landlord_name ?? 'Unnamed Landlord'),
-        phone: String(r.phone ?? '—'),
-        phone_masked: Boolean(r.phone_masked),
-        region: r.region ?? null,
-        district: r.district ?? null,
-        agent_id: r.agent_id ?? null,
-        agent_name: r.agent_name ?? null,
-        verified: Boolean(r.verified),
-        verification_status: r.verification_status ?? null,
-        houses_count: Number(r.houses_count ?? 0),
-        live_rent_plans: Number(r.live_rent_plans ?? 0),
-        rent_plan_value: Number(r.rent_plan_value ?? 0),
-        last_call_at: r.last_call_at ?? null,
-        last_result: r.last_result ?? null,
-        last_caller_id: r.last_caller_id ?? null,
-        last_caller_name: r.last_caller_name ?? null,
-        call_back_due_at: r.call_back_due_at ?? null,
-        call_back_overdue: Boolean(r.call_back_overdue),
-        being_called_by_id: r.being_called_by_id ?? null,
-        being_called_by: r.being_called_by ?? null,
-        being_called_since: r.being_called_since ?? null,
-        hub_status: (r.hub_status ?? 'never_called') as LandlordHubRow['hub_status'],
-        needs_review: Boolean(r.needs_review),
-        total_count: Number(r.total_count ?? 0),
-      }));
+      const rows: LandlordHubRow[] = list.map((r: any) => {
+        const flags = Array.isArray(r.check_flags) ? r.check_flags.map(String) : [];
+        return {
+          landlord_key: String(r.landlord_key ?? ''),
+          landlord_id: r.landlord_id ?? null,
+          user_id: r.user_id ?? null,
+          landlord_name: String(r.landlord_name ?? 'Unnamed Landlord'),
+          phone: String(r.phone ?? '—'),
+          phone_masked: Boolean(r.phone_masked),
+          region: r.region ?? null,
+          district: r.district ?? null,
+          agent_id: r.agent_id ?? null,
+          agent_name: r.agent_name ?? null,
+          verified: Boolean(r.verified),
+          verification_status: r.verification_status ?? null,
+          houses_count: Number(r.houses_count ?? 0),
+          live_rent_plans: Number(r.live_rent_plans ?? 0),
+          rent_plan_value: Number(r.rent_plan_value ?? 0),
+          last_call_at: r.last_call_at ?? null,
+          last_result: r.last_result ?? null,
+          last_caller_id: r.last_caller_id ?? null,
+          last_caller_name: r.last_caller_name ?? null,
+          call_back_due_at: r.call_back_due_at ?? null,
+          call_back_overdue: Boolean(r.call_back_overdue),
+          being_called_by_id: r.being_called_by_id ?? null,
+          being_called_by: r.being_called_by ?? null,
+          being_called_since: r.being_called_since ?? null,
+          hub_status: (r.hub_status ?? 'never_called') as LandlordHubRow['hub_status'],
+          needs_review: Boolean(r.needs_review),
+          total_count: Number(r.total_count ?? 0),
+          plan_stage: (r.plan_stage ?? 'registered_only') as LandlordHubPlanStage,
+          plans_total: Number(r.plans_total ?? r.live_rent_plans ?? 0),
+          tenants_count: Number(r.tenants_count ?? 0),
+          check_flags: flags,
+          needs_check: Boolean(r.needs_check ?? flags.length > 0),
+          registrar_is_agent_now: r.registrar_is_agent_now !== false,
+          service_center_status: r.service_center_status ?? null,
+        };
+      });
       const totalCount = rows.length > 0 ? rows[0].total_count : 0;
       return { rows, totalCount };
     },
@@ -558,13 +753,17 @@ export function useLandlordHubList(params: LandlordHubListParams) {
 export function useLandlordHubTabCounts(
   params: Omit<LandlordHubListParams, 'tab' | 'limit' | 'offset' | 'sort'>,
 ) {
-  const scope = params.scope ?? 'live_plans';
+  const scope = params.scope ?? 'live';
   const search = params.search?.trim() || null;
   const region = params.region?.trim() || null;
   const district = params.district?.trim() || null;
   const agent = params.agent?.trim() || null;
   const verified =
     params.verified && params.verified !== 'all' ? params.verified : null;
+  const status =
+    params.status && params.status !== 'all' ? params.status : null;
+  const stage =
+    params.stage && params.stage !== 'all' ? params.stage : null;
 
   return useQuery({
     queryKey: [
@@ -575,6 +774,8 @@ export function useLandlordHubTabCounts(
       district,
       agent,
       verified,
+      status,
+      stage,
     ],
     staleTime: 20_000,
     queryFn: async (): Promise<Record<LandlordHubTab, number>> => {
@@ -595,6 +796,8 @@ export function useLandlordHubTabCounts(
             p_district: district,
             p_agent: agent,
             p_verified: verified,
+            p_status: status,
+            p_stage: stage,
             p_sort: 'rent_plan_value',
             p_limit: 1,
             p_offset: 0,
@@ -621,6 +824,15 @@ export function useLandlordHubDetail(landlordKey: string | null | undefined, ena
       });
       if (error) throw new Error(formatHubError(error));
       const d = (data ?? {}) as any;
+      const flags = Array.isArray(d.check_flags) ? d.check_flags.map(String) : [];
+      const tenantsAndPlans: LandlordHubTenantPlan[] = Array.isArray(d.tenants_and_plans)
+        ? d.tenants_and_plans
+        : [];
+      const verifiedMomo = d.payout_details?.verified_mobile_money_number ?? null;
+      const rawMomo = d.payout_details?.mobile_money_number ?? null;
+      const primaryPayout =
+        d.payout_details?.primary_payout_number ?? verifiedMomo ?? rawMomo ?? null;
+
       return {
         landlord_key: String(d.landlord_key ?? landlordKey ?? ''),
         landlord_id: d.landlord_id ?? null,
@@ -634,17 +846,43 @@ export function useLandlordHubDetail(landlordKey: string | null | undefined, ena
         property_address: d.property_address ?? null,
         verified: Boolean(d.verified),
         verification_status: d.verification_status ?? null,
+        service_center_status: d.service_center_status ?? null,
         needs_review: Boolean(d.needs_review),
+        needs_check: Boolean(d.needs_check ?? flags.length > 0),
+        check_flags: flags,
+        plan_stage: (d.plan_stage ?? 'registered_only') as LandlordHubPlanStage,
+        plans_total: Number(d.plans_total ?? tenantsAndPlans.length),
+        plans_live: Number(d.plans_live ?? d.live_rent_plans ?? 0),
+        plans_shown: Number(d.plans_shown ?? tenantsAndPlans.length),
+        tenants_total: Number(d.tenants_total ?? d.tenants_count ?? tenantsAndPlans.length),
+        tenants_count: Number(d.tenants_count ?? d.tenants_total ?? tenantsAndPlans.length),
+        registrar_is_agent_now: d.registrar_is_agent_now !== false,
         registered_at: d.registered_at ?? null,
         houses_count: Number(d.houses_count ?? 0),
         live_rent_plans: Number(d.live_rent_plans ?? 0),
         rent_plan_value: Number(d.rent_plan_value ?? 0),
-        registering_agent: d.registering_agent ?? null,
+        registering_agent: d.registering_agent
+          ? {
+              agent_id: String(d.registering_agent.agent_id ?? ''),
+              full_name: d.registering_agent.full_name ?? null,
+              phone: d.registering_agent.phone ?? null,
+              is_agent_now:
+                d.registering_agent.is_agent_now !== undefined
+                  ? Boolean(d.registering_agent.is_agent_now)
+                  : d.registrar_is_agent_now !== false,
+            }
+          : null,
         caretaker: d.caretaker ?? null,
         payout_details: {
-          mobile_money_number: d.payout_details?.mobile_money_number ?? null,
+          primary_payout_number: primaryPayout,
+          payout_number_confirmed: Boolean(
+            d.payout_details?.payout_number_confirmed ?? verifiedMomo,
+          ),
+          mobile_money_number: rawMomo,
+          unconfirmed_mobile_money_number:
+            d.payout_details?.unconfirmed_mobile_money_number ?? rawMomo ?? null,
           mobile_money_name: d.payout_details?.mobile_money_name ?? null,
-          verified_mobile_money_number: d.payout_details?.verified_mobile_money_number ?? null,
+          verified_mobile_money_number: verifiedMomo,
           bank_name: d.payout_details?.bank_name ?? null,
           bank_branch: d.payout_details?.bank_branch ?? null,
           account_number: d.payout_details?.account_number ?? null,
@@ -653,7 +891,7 @@ export function useLandlordHubDetail(landlordKey: string | null | undefined, ena
           last_payout_at: d.payout_details?.last_payout_at ?? null,
         },
         houses: Array.isArray(d.houses) ? d.houses : [],
-        tenants_and_plans: Array.isArray(d.tenants_and_plans) ? d.tenants_and_plans : [],
+        tenants_and_plans: tenantsAndPlans,
         payouts: Array.isArray(d.payouts) ? d.payouts : [],
         call_history: Array.isArray(d.call_history) ? d.call_history : [],
         active_dial: d.active_dial ?? null,

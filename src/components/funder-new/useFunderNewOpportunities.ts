@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import type {
   FunderNewEmptyHouse,
   FunderNewFilters,
@@ -30,10 +31,17 @@ export function stableOriginKey(origin: FunderNewOrigin | null): string | null {
   return `${origin.source}:${origin.lat.toFixed(3)}:${origin.lng.toFixed(3)}:${origin.radiusKm ?? 'none'}`;
 }
 
+function useSignedInEnabled(enabled = true): boolean {
+  return useAuthenticatedAudience() && enabled;
+}
+
 export function useFunderNewMarketSummary() {
+  const signedIn = useSignedInEnabled();
   return useQuery<FunderNewMarketSummary>({
     queryKey: ['funder-new', 'empty-house-market-summary'],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('empty_house_opportunity_summary');
       if (error) throw error;
       const raw = asRecord(data);
@@ -76,6 +84,7 @@ export function useFunderNewEmptyHouses(
   const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
   const nearby = effectiveSort === 'nearest' && origin ? origin : null;
 
+  const signedIn = useSignedInEnabled(enabled);
   return useInfiniteQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
@@ -90,9 +99,10 @@ export function useFunderNewEmptyHouses(
       },
       stableOriginKey(nearby),
     ],
-    enabled,
+    enabled: signedIn,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      await requireUserSession();
       const offset = typeof pageParam === 'number' ? pageParam : 0;
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
@@ -140,6 +150,7 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
     min: filters.rentMin ?? bucket.min,
     max: filters.rentMax ?? bucket.max,
   };
+  const signedIn = useSignedInEnabled(enabled);
 
   return useInfiniteQuery<FunderNewListResult<FunderNewReadyPlan>>({
     queryKey: [
@@ -154,9 +165,10 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
       },
     ],
 
-    enabled,
+    enabled: signedIn,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      await requireUserSession();
       const offset = typeof pageParam === 'number' ? pageParam : 0;
       const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
         p_city: normalizeTextFilter(filters.location),
@@ -205,6 +217,7 @@ export function useFunderNewMapHouses(
   enabled: boolean,
 ) {
   const range = amountRange(filters.amount);
+  const signedIn = useSignedInEnabled(enabled);
 
   return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
@@ -218,8 +231,9 @@ export function useFunderNewMapHouses(
       centre ? `${centre.lat.toFixed(2)}:${centre.lng.toFixed(2)}` : null,
       radiusKm,
     ],
-    enabled,
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
         p_limit: FUNDER_NEW_MAP_LIMIT,
@@ -259,6 +273,7 @@ export function useFunderNewRecommendations(
   enabled: boolean,
 ) {
   const wanted = Math.max(1, Math.min(count, 50));
+  const signedIn = useSignedInEnabled(enabled && perHouseAmount > 0);
   return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
@@ -268,8 +283,9 @@ export function useFunderNewRecommendations(
       { location: filters.location.trim(), search: filters.search.trim() },
       stableOriginKey(origin),
     ],
-    enabled: enabled && perHouseAmount > 0,
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
         p_limit: wanted,

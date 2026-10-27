@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useQueries, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { isUnauthenticatedRpcError, requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { mapPerf } from '@/lib/mapPerf';
 import { mapRegionFor } from '@/lib/mapRegions';
 import type { SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
@@ -205,6 +206,8 @@ export function useEmptyHouseMapCells(
   filters: MapCellFilters = {},
   enabled = true,
 ): EmptyHouseMapCellsQuery {
+  const signedIn = useAuthenticatedAudience();
+  const canQuery = enabled && signedIn;
   const step = viewport ? 360 / Math.pow(2, Math.min(Math.max(viewport.zoom, 1), 20) + 6) : 0;
   const key = viewport
     ? {
@@ -229,9 +232,9 @@ export function useEmptyHouseMapCells(
   // Classify each viewport read: a key we already requested is served from cache.
   const viewportKey = key ? JSON.stringify([key, filters]) : null;
   useEffect(() => {
-    if (!viewportKey || !enabled) return;
+    if (!viewportKey || !canQuery) return;
     mapPerf.noteViewportKey(viewportKey);
-  }, [viewportKey, enabled]);
+  }, [viewportKey, canQuery]);
 
   const tiles = useMemo(() => (key && step > 0 ? buildTiles(key, step) : []), [key, step]);
   const tilesSignature = tiles.map((tile) => JSON.stringify(tile.key)).join('|');
@@ -242,7 +245,7 @@ export function useEmptyHouseMapCells(
   const tileQueries = useQueries({
     queries: stableTiles.map((tile) => ({
       queryKey: ['empty-house-map-cells', tile.key, filters] as const,
-      enabled: enabled && !!viewport,
+      enabled: canQuery && !!viewport,
       // A tile that was on screen a moment ago stays visible while its
       // replacement loads, so panning never blanks the map.
       placeholderData: (previous: EmptyHouseMapCells | undefined) => previous,
@@ -250,11 +253,14 @@ export function useEmptyHouseMapCells(
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       // A flaky mobile network is the norm in the field: retry with backoff, and
-      // only surface a failure once the retries are exhausted.
-      retry: 2,
+      // only surface a failure once the retries are exhausted. A missing user
+      // JWT is not retried — that call would be anonymous and log 42501.
+      retry: (failureCount: number, error: unknown) => failureCount < 2 && !isUnauthenticatedRpcError(error),
       retryDelay: (attempt: number) => Math.min(4000, 600 * 2 ** attempt),
-      queryFn: ({ signal }: { signal?: AbortSignal }) =>
-        fetchTile(tile, tile.key.zoom, filters, signal),
+      queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+        await requireUserSession();
+        return fetchTile(tile, tile.key.zoom, filters, signal);
+      },
     })),
   });
 

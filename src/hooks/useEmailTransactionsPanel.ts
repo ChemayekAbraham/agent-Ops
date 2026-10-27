@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -1475,6 +1476,7 @@ export function useEmailTransactionsPanel() {
     if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
+      if (!(await hasUsableUserSession())) return;
       const results = await Promise.all(
         missing.map(async (id) => {
           try {

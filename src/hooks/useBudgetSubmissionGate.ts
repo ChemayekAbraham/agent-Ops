@@ -2,6 +2,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 
 /**
  * One open budget cycle the signed-in user still owes a submission for, as an
@@ -92,24 +98,28 @@ function writeSkip(key: string) {
  */
 export function useBudgetSubmissionGate() {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   // Bumped by skip() purely to re-read the skip set and re-render.
   const [skipVersion, setSkipVersion] = useState(0);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: [BUDGET_GATE_QUERY_KEY, user?.id],
-    enabled: !!user?.id,
+    enabled: signedIn,
     queryFn: async (): Promise<BudgetObligation[]> => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('budget_my_outstanding_obligations' as any);
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return (data ?? []) as BudgetObligation[];
     },
     // The prompt must clear promptly once the budget is submitted, and pick up
     // a newly opened cycle without a full reload.
     staleTime: 30_000,
-    refetchOnWindowFocus: true,
-    // Never retry into a blocked state; fail open fast instead.
-    retry: 1,
+    refetchOnWindowFocus: signedIn,
+    // Never retry into a blocked state; fail open fast instead. A missing
+    // user JWT is not retried — that call would be anonymous.
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
   });
 
   const obligations = data ?? [];

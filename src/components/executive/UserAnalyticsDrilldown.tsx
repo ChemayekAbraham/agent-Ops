@@ -15,7 +15,7 @@ export type DrilldownScope =
   | { kind: 'login_attempts'; start: string; end: string }
   | { kind: 'login_success'; start: string; end: string }
   | { kind: 'login_failed'; start: string; end: string }
-  | { kind: 'total_users' }
+  | { kind: 'total_users'; end?: string }
   | { kind: 'role'; role: string };
 
 const PAGE_SIZE = 25;
@@ -27,7 +27,7 @@ function scopeTitle(scope: DrilldownScope) {
     case 'login_attempts': return 'Users with Login Attempts';
     case 'login_success': return 'Users with Successful Logins';
     case 'login_failed': return 'Users with Failed Logins';
-    case 'total_users': return 'All Users';
+    case 'total_users': return scope.end ? 'All Users (registered by end of range)' : 'All Users';
     case 'role': return `Users with role: ${scope.role}`;
   }
 }
@@ -116,6 +116,9 @@ export function UserAnalyticsDrilldown({
 
       if (scope.kind === 'signups') {
         q = q.gte('created_at', scope.start).lte('created_at', scope.end);
+      }
+      if (scope.kind === 'total_users' && scope.end) {
+        q = q.lte('created_at', scope.end);
       }
       if (ids && ids.length > 0) {
         // Supabase .in() supports up to ~1000 items reliably.

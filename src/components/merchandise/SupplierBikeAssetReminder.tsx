@@ -4,6 +4,12 @@ import { toast } from 'sonner';
 import { Bike, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 import { updateBikeLeaseAsset } from '@/hooks/useBikeLeases';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -23,13 +29,17 @@ type Overdue = {
  */
 export function SupplierBikeAssetReminder() {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   const qc = useQueryClient();
   const { data = [] } = useQuery({
     queryKey: ['my-overdue-bike-asset-details', user?.id],
-    enabled: !!user?.id,
-    refetchInterval: 10 * 60 * 1000,
+    enabled: signedIn,
+    refetchInterval: signedIn ? 10 * 60 * 1000 : false,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await (supabase as any).rpc('get_my_overdue_bike_asset_details');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return (data || []) as Overdue[];
     },

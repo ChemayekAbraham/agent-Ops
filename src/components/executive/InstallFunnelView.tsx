@@ -64,16 +64,18 @@ const FUNNEL_STEPS: Array<{
   },
 ];
 
-const TRACKED_EVENTS = Array.from(new Set(FUNNEL_STEPS.flatMap((s) => s.events)));
-
-type Row = {
-  event_type: string;
-  in_app_browser_name: string | null;
-  in_app_browser: boolean | null;
-  platform: string | null;
-  user_id: string | null;
-  created_at: string;
+/** What get_install_funnel_summary returns: per-browser unique counts for the four steps. */
+type FunnelSummary = {
+  totals: number[];
+  rows: { browser: string; counts: number[] }[];
 };
+
+/** Parses 'YYYY-MM-DD' as a LOCAL date; null when empty or invalid (a cleared date input). */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 function presetBounds(preset: Preset, s: string, e: string) {
   const now = new Date();
@@ -87,17 +89,11 @@ function presetBounds(preset: Preset, s: string, e: string) {
     case 'last_90':
       return { start: startOfDay(subDays(now, 89)), end: endOfDay(now) };
     case 'custom':
-      return { start: startOfDay(new Date(s)), end: endOfDay(new Date(e)) };
+      return {
+        start: startOfDay(parseLocalDate(s) ?? subDays(now, 29)),
+        end: endOfDay(parseLocalDate(e) ?? now),
+      };
   }
-}
-
-function browserLabel(row: Row): string {
-  if (row.in_app_browser_name && row.in_app_browser_name.trim()) return row.in_app_browser_name.trim();
-  if (row.in_app_browser) return 'In-app browser (unknown)';
-  if (row.platform === 'ios') return 'Safari (iOS)';
-  if (row.platform === 'android') return 'Chrome (Android)';
-  if (row.platform) return row.platform;
-  return 'Unknown';
 }
 
 export function InstallFunnelView() {
@@ -108,83 +104,52 @@ export function InstallFunnelView() {
   const [platformFilter, setPlatformFilter] = useState<'all' | 'ios' | 'android' | 'other'>('all');
 
   const { start, end } = presetBounds(preset, customStart, customEnd);
+  // Changing one end past the other moves the other end too. A cleared input is ignored (it crashed the page).
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStart(v); if (v > customEnd) setCustomEnd(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEnd(v); if (v < customStart) setCustomStart(v); };
+  const rangeKey = `${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}`;
 
+  // Counted in the database: the old page downloaded every event (Supabase stops at 1,000 rows, so
+  // ranges beyond ~30 days were silently cut short) and counted each Android install twice, because
+  // an install writes both app_installed and native_prompt_accepted.
   const { data, isLoading, error } = useQuery({
-    queryKey: ['install-funnel', start.toISOString(), end.toISOString(), platformFilter],
+    queryKey: ['install-funnel-summary', rangeKey, platformFilter],
     queryFn: async () => {
-      let q = supabase
-        .from('install_attempt_events')
-        .select('event_type,in_app_browser_name,in_app_browser,platform,user_id,created_at')
-        .in('event_type', TRACKED_EVENTS)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: true })
-        .limit(50000);
-      if (platformFilter !== 'all' && platformFilter !== 'other') {
-        q = q.eq('platform', platformFilter);
-      }
-      const { data, error } = await q;
+      // The function is newer than the generated database types, so call it through a narrow cast.
+      const rpc = supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+      };
+      const { data, error } = await rpc.rpc('get_install_funnel_summary', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_platform: platformFilter,
+      });
       if (error) throw error;
-      const rows = (data || []) as Row[];
-      if (platformFilter === 'other') {
-        return rows.filter((r) => r.platform !== 'ios' && r.platform !== 'android');
-      }
-      return rows;
+      return data as FunnelSummary;
     },
     staleTime: 60_000,
   });
 
-  // Build funnel per browser: a user reaches step N if they emitted any event
-  // in that step's event list within the window. Dedup by user_id (or a
-  // per-session pseudo-id fallback for anonymous rows).
   const perBrowser = useMemo(() => {
-    const rows = data || [];
-    // browser -> step key -> Set<identity>
-    const buckets = new Map<string, Record<string, Set<string>>>();
-    for (const row of rows) {
-      const b = browserLabel(row);
-      const step = FUNNEL_STEPS.find((s) => s.events.includes(row.event_type));
-      if (!step) continue;
-      const identity = row.user_id ?? `anon:${row.created_at}`;
-      if (!buckets.has(b)) {
-        const init: Record<string, Set<string>> = {};
-        FUNNEL_STEPS.forEach((s) => (init[s.key] = new Set()));
-        buckets.set(b, init);
-      }
-      buckets.get(b)![step.key].add(identity);
-    }
-
-    const totals: Record<string, Set<string>> = {};
-    FUNNEL_STEPS.forEach((s) => (totals[s.key] = new Set()));
-    for (const stepCounts of buckets.values()) {
-      for (const s of FUNNEL_STEPS) {
-        stepCounts[s.key].forEach((id) => totals[s.key].add(id));
-      }
-    }
-
-    const perBrowserRows = Array.from(buckets.entries())
-      .map(([browser, counts]) => {
-        const stepCounts = FUNNEL_STEPS.map((s) => counts[s.key].size);
-        const top = stepCounts[0] || 0;
-        return {
-          browser,
-          stepCounts,
-          top,
-          dropoffs: stepCounts.map((c, i) => {
-            if (i === 0) return null as number | null;
-            const prev = stepCounts[i - 1];
-            if (!prev) return null;
-            return 1 - c / prev;
-          }),
-          overall: top ? stepCounts[stepCounts.length - 1] / top : 0,
-        };
-      })
-      .sort((a, b) => b.top - a.top);
-
-    return {
-      rows: perBrowserRows,
-      totals: FUNNEL_STEPS.map((s) => totals[s.key].size),
-    };
+    const rows = (data?.rows ?? []).map((r) => {
+      const stepCounts = r.counts;
+      const top = stepCounts[0] || 0;
+      return {
+        browser: r.browser,
+        stepCounts,
+        top,
+        // Step-over-step drop-off, only where it means something: the previous step had users and
+        // this step did not exceed it (a later step can be larger when it is a different population).
+        dropoffs: stepCounts.map((c, i) => {
+          if (i === 0) return null as number | null;
+          const prev = stepCounts[i - 1];
+          if (!prev || c > prev) return null;
+          return 1 - c / prev;
+        }),
+        overall: top && stepCounts[3] <= top ? stepCounts[3] / top : null,
+      };
+    });
+    return { rows, totals: data?.totals ?? [0, 0, 0, 0] };
   }, [data]);
 
   const totalTop = perBrowser.totals[0] || 0;
@@ -204,7 +169,7 @@ export function InstallFunnelView() {
               <div>
                 <Label className="text-xs">Range</Label>
                 <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-                  <SelectTrigger className="h-9 w-[140px]">
+                  <SelectTrigger className="h-9 w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -238,7 +203,8 @@ export function InstallFunnelView() {
                       type="date"
                       className="h-9"
                       value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
+                      max={format(now, 'yyyy-MM-dd')}
+                      onChange={(e) => changeCustomStart(e.target.value)}
                     />
                   </div>
                   <div>
@@ -247,7 +213,8 @@ export function InstallFunnelView() {
                       type="date"
                       className="h-9"
                       value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
+                      max={format(now, 'yyyy-MM-dd')}
+                      onChange={(e) => changeCustomEnd(e.target.value)}
                     />
                   </div>
                 </>
@@ -268,9 +235,12 @@ export function InstallFunnelView() {
               {/* Overall funnel */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {FUNNEL_STEPS.map((s, i) => {
-                  const count = perBrowser.totals[i];
+                  const count = perBrowser.totals[i] ?? 0;
+                  const isInstall = s.key === 'installed';
+                  // Installs come from every platform (mostly the Android install prompt), not from
+                  // the iOS guide, so they are not a continuation of steps 1-3.
                   const dropoff =
-                    i > 0 && perBrowser.totals[i - 1] > 0
+                    i > 0 && !isInstall && perBrowser.totals[i - 1] > 0
                       ? 1 - count / perBrowser.totals[i - 1]
                       : null;
                   const share = totalTop ? count / totalTop : 0;
@@ -289,7 +259,7 @@ export function InstallFunnelView() {
                       </div>
                       <p className="text-2xl font-semibold mt-1">{count.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(share * 100).toFixed(1)}% of guide opens
+                        {isInstall ? 'all platforms · not only guide users' : `${(share * 100).toFixed(1)}% of guide opens`}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-1 font-mono truncate" title={s.description}>
                         {s.description}
@@ -309,8 +279,9 @@ export function InstallFunnelView() {
             <Smartphone className="h-4 w-4" /> By detected browser
           </CardTitle>
           <CardDescription>
-            Unique users per step, with step-over-step drop-off. Anonymous events
-            are counted individually.
+            Signed-in users are counted once per step; anonymous events (no session id exists) are counted
+            individually. Installs are Android/desktop install-prompt events, so iOS rows show 0 installed:
+            no iOS install event is recorded.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -356,7 +327,7 @@ export function InstallFunnelView() {
                         );
                       })}
                       <TableCell className="text-right tabular-nums font-medium">
-                        {(r.overall * 100).toFixed(1)}%
+                        {r.overall == null ? '—' : `${(r.overall * 100).toFixed(1)}%`}
                       </TableCell>
                     </TableRow>
                   ))}
