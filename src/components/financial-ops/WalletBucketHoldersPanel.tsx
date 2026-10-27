@@ -15,6 +15,12 @@ import { ArrowDownUp, ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, Ch
 
 import { formatUGX } from '@/lib/rentCalculations';
 import { batchedQuery } from '@/lib/supabaseBatchUtils';
+import { hasUsableUserSession, AuthRequiredError, isUnauthenticatedRpcError } from '@/hooks/useAuthenticatedPoll';
+import {
+  merchantFloatPositionsDeniedError,
+  stopMerchantFloatPositionsPoll,
+  useMerchantFloatPositionsGate,
+} from '@/hooks/merchantFloatPositionsAccess';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
 import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursementHistoryDialog';
@@ -272,6 +278,9 @@ async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<H
   }
 
   const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
+  if (isUnauthenticatedRpcError(error)) {
+    throw new AuthRequiredError((error as { message?: string }).message || 'Sign in again to continue.');
+  }
   if (error) throw error;
   const positions = ((data ?? []) as any[]).map((r) => ({
     key: String(r.desk_id),
@@ -316,10 +325,29 @@ export function WalletBucketHoldersPanel({
   const meta = TITLES[bucket];
 
   const trimmedSearch = search.trim();
+  const merchantFloatGate = useMerchantFloatPositionsGate();
+  const readingMerchantFloat = bucket === 'merchant_float';
   const { data, isLoading, error } = useQuery({
-    queryKey: ['wallet-bucket-holders', bucket, trimmedSearch],
-    queryFn: () => loadHolders(bucket, trimmedSearch),
+    queryKey: [
+      'wallet-bucket-holders',
+      bucket,
+      trimmedSearch,
+      readingMerchantFloat ? merchantFloatGate.allowed : 'na',
+    ],
+    queryFn: async () => {
+      if (readingMerchantFloat) {
+        if (!merchantFloatGate.allowed) throw merchantFloatPositionsDeniedError();
+        if (!(await hasUsableUserSession())) throw new AuthRequiredError();
+      }
+      return loadHolders(bucket, trimmedSearch);
+    },
+    enabled: !readingMerchantFloat || merchantFloatGate.ready,
     staleTime: 30_000,
+    // App QueryClient retries twice. A Not authorized / dead-session failure
+    // must not use those retries — the same call will fail again.
+    retry: (failureCount, err) => (
+      stopMerchantFloatPositionsPoll(err) ? false : failureCount < 2
+    ),
   });
 
 
