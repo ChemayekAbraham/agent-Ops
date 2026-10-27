@@ -387,8 +387,8 @@ describe('ZoeChatSurface', () => {
         {
           id: 'conv-1',
           title: 'Rent Plans by stage',
-          status: 'open',
-          last_message_at: '2026-10-26T08:00:00Z',
+          message_count: 4,
+          last_active_at: '2026-10-26T08:00:00Z',
           created_at: '2026-10-26T07:50:00Z',
         },
       ],
