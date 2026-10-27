@@ -128,7 +128,7 @@
 - [x] Put the Money Received section back on Cash Position as the full-width ninth figure tile below the eight tiles; isolated desktop/phone fixture check shows nine tiles, no console errors and no horizontal overflow; all guards and typecheck pass. No financial, database or deployment changes.
 
 ## Finance budget head change (27 Oct 2026)
-- [ ] Replace Finance department budget head (MERCY BAYO account) with Nankambo Sharimah so new cycle notifications route to her — update submitted, awaiting approval.
+- [x] Replaced Finance department budget head (MERCY BAYO account) with Nankambo Sharimah; verified live row now points to her (updated 2026-10-27 08:43 UTC).
 
 ## Welile Homes read-only audit + Excel export (27 Oct 2026, chemayek abraham)
-- [ ] Read-only audit of welile_homes_subscriptions, welile_homes_monthly_dues, float_requests, general_ledger; export multi-tab xlsx (Executive Summary, Subscriptions, Rent Collections, Landlord Payouts, Float Requests, All Monthly Dues, General Ledger, Involved People) to /mnt/documents. Strictly no writes.
+- [x] Read-only Welile Homes audit exported to /mnt/documents/welile_homes_audit_2026-10-27.xlsx — 8 tabs, 23 subscriptions, 240 dues, 4 float requests, 129 ledger legs, 29 people; sums verified against DB aggregates. No writes.
