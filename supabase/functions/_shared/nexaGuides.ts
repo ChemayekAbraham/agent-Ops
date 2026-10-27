@@ -83,9 +83,34 @@ export function isPromissoryNoteQuery(text: string): boolean {
 export function buildPromissoryNoteReminderReply(): string {
   return `If you created a **Promissory Note** (pledged support commitment), **fulfill your promissory note** by depositing into your Welile Wallet (MTN Merchant **090777** / Airtel **4380664**), then completing the support commitment on your dashboard. Alternatively, **renew/update your promissory note date** before the pledge date passes. This helps keep your matched tenant's landlord payout on schedule and your **15% monthly Returns** starting without delay, subject to funding, approval and contract terms. [Sign In / Fulfill or Renew Promissory Note](${toAuthGatedUrl('/dashboard/funder-new')}).`;
 }
+export const AGENT_COLLECTIONS_PLAYBOOK_LINKS = ['https://welileapp.com/dashboard/agent', 'https://welileapp.com/tenants-onboarding'] as const;
+export const AGENT_COLLECTIONS_PLAYBOOK_RULES = 'Welile Entebbe collections playbook: (1) never use police, lockouts, intimidation or harsh threats; treat tenants respectfully and coach them positively; (2) promise and show tenants more money: up to UGX 30,000,000 (UGX 30M) Rent Access Limit if they pay well and on time (+UGX 10,000/day for every on-time daily payment, up to UGX 30,000,000; missed days reduce it by UGX 7,000/day); (3) promise a Top-Up as soon as their tenants hit 70% repayment on their current Rent Plan; (4) always share https://welileapp.com/dashboard/agent and https://welileapp.com/tenants-onboarding.';
+
+export function isAgentCollectionsCoachingQuery(text: string): boolean {
+  const t = text.toLowerCase();
+  if (/(top[- ]?up).*70\s*%|70\s*%.*(top[- ]?up|repay)/.test(t)) return true;
+  const coach = /(how (?:can|do|should) (?:i|we)|how to|what (?:should|can) i do|tips?|advice|ways? to|help me|improve|increase|boost|get)/.test(t);
+  const topic = /(collections?|collect(?:ing)?|repayments?|repay(?:ing)?|tenants? (?:to )?pay|pay on time|late (?:tenants?|payers?|payments?)|delayed? (?:tenants?|payments?)|defaulting|defaulters?|not paying|arrears)/.test(t);
+  return coach && topic;
+}
+
+export function buildAgentCollectionsCoachingGuideReply(isAuthenticated = false): string {
+  return `**Welile Entebbe Collections Playbook**
+
+1. **Never use police or harsh threats.** Treat every tenant with respect. No police, lockouts or intimidation — coach them positively and agree a small daily amount they can keep.
+2. **Show them more money: up to UGX 30,000,000 (UGX 30M).** Every on-time daily payment grows their Rent Access Limit by **+UGX 10,000/day, up to UGX 30,000,000**. Missed days reduce it by **UGX 7,000/day**. Paying well and on time is how they unlock more.
+3. **Promise a Top-Up at 70% repayment.** As soon as your tenants hit **70% repayment** on their current Rent Plan, they qualify for a top-up — more rent support, early.
+4. **Share both links:**
+   - Agent dashboard: https://welileapp.com/dashboard/agent
+   - Tenant onboarding: https://welileapp.com/tenants-onboarding
+
+Limits and top-ups follow approved Rent Plan terms and verification.${isAuthenticated ? '' : ' Sign in to see your own tenants and collections.'}`;
+}
+
 export function buildNexaPublicGuideReply(text: string, isAuthenticated = false): string | null {
   if (isRestrictedInternalStaffQuery(text)) return buildInternalStaffRefusalReply();
   // Wallet teaching and pledge guidance take priority over generic account words.
+  if (isAgentCollectionsCoachingQuery(text)) return buildAgentCollectionsCoachingGuideReply(isAuthenticated);
   if (extractPhoneNumberFromText(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
