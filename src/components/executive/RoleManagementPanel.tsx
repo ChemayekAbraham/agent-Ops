@@ -145,7 +145,7 @@ export function RoleManagementPanel() {
       });
       if (error) throw new Error(error);
       setResults(rows as FoundUser[]);
-      if (notifyEmpty && (data || []).length === 0) toast.info('No users match that search');
+      if (notifyEmpty && (rows || []).length === 0) toast.info('No users match that search');
     } catch (err: any) {
       console.error('User search error:', err);
       toast.error('Failed to search users');

@@ -110,7 +110,7 @@ export function ManagerBankingLedger() {
           columns: 'id, full_name, phone, email',
         });
         if (found.error) throw new Error(found.error);
-        profiles = found.rows;
+        profiles = found.rows.map((r) => ({ id: r.id, full_name: r.full_name ?? null, phone: r.phone ?? null, email: r.email ?? null }));
       } else {
         const { data, error } = await supabase
           .from('profiles')
