@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -159,7 +160,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
       // (migration 20261024140000). The token is not part of the audited change list above.
       const { error } = await supabase.from('investor_portfolios')
-        .update({ ...updates, return_fields_edit_token: crypto.randomUUID() } as any).eq('id', account.id);
+        .update({ ...updates, return_fields_edit_token: safeUUID() } as any).eq('id', account.id);
 
       if (error) throw error;
 

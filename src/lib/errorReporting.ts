@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 /**
  * Centralized client-side error reporting pipeline.
  *
@@ -10,6 +11,8 @@
  */
 import { supabase } from '@/integrations/supabase/client';
 import { CANONICAL_ORIGIN } from '@/lib/getPublicOrigin';
+import { isIgnorableClientError } from '@/lib/errorNoiseFilter';
+import { installChunkPreloadRecovery, isChunkLoadError, wasRecentChunkReload } from '@/lib/lazyWithRetry';
 
 /**
  * Only report from the canonical production origin. `client_error_reports`
@@ -58,6 +61,36 @@ export function setReportingTags(tags: Partial<TagContext>) {
 const recentSignatures = new Map<string, number>();
 const DEDUPE_WINDOW_MS = 5_000;
 
+const ABORT_RE = /signal is aborted without reason|the user aborted a request|the operation was aborted|aborterror/i;
+const AUDIO_START_RE = /failed to start the audio device|could not start (audio|video) source|requested device not found|permission denied by system/i;
+const AUDIO_ERROR_NAMES = new Set(['NotAllowedError', 'NotFoundError', 'NotReadableError']);
+
+/** Cancelled requests (component unmounted, navigation) are not crashes. */
+export function isAbortLike(errOrMessage: unknown): boolean {
+  if (!errOrMessage) return false;
+  const e = errOrMessage as { name?: unknown; message?: unknown };
+  if (typeof e === 'object' && e.name === 'AbortError') return true;
+  const msg = typeof errOrMessage === 'string' ? errOrMessage : String(e.message ?? '');
+  return ABORT_RE.test(msg);
+}
+
+/** Microphone/audio could not start (permissions, busy or missing device). */
+export function isAudioStartError(errOrMessage: unknown): boolean {
+  if (!errOrMessage) return false;
+  const e = errOrMessage as { name?: unknown; message?: unknown };
+  const msg = typeof errOrMessage === 'string' ? errOrMessage : String(e.message ?? '');
+  if (AUDIO_START_RE.test(msg)) return true;
+  return typeof e === 'object' && typeof e.name === 'string' && AUDIO_ERROR_NAMES.has(e.name) && /audio|microphone|device|media/i.test(msg);
+}
+
+let lastAudioToast = 0;
+function notifyAudioStartFailed() {
+  const now = Date.now();
+  if (now - lastAudioToast < 10_000) return;
+  lastAudioToast = now;
+  toast.error('Could not start the microphone/audio. Check permissions and try again.');
+}
+
 function shouldDedupe(signature: string) {
   const now = Date.now();
   for (const [k, t] of recentSignatures) {
@@ -76,6 +109,14 @@ export async function reportClientError(input: ErrorReportInput): Promise<boolea
   // Dev/preview errors stay visible in that environment's own console —
   // they just never reach the table the CTO report reads as "production".
   if (!isProductionOrigin()) return true;
+  // Cancelled requests and audio-start refusals are not crashes.
+  if (isAbortLike(input.message) || isAudioStartError(input.message)) return true;
+
+  // Browser-extension / injected-script noise is not an app error.
+  const filename = typeof input.extra?.filename === 'string' ? input.extra.filename : null;
+  if (isIgnorableClientError(input.message ?? '', input.stack ?? input.componentStack ?? null, filename)) return true;
+  // A stale chunk that the guarded one-time reload is already recovering from.
+  if (isChunkLoadError({ message: input.message ?? '' }) && wasRecentChunkReload()) return true;
 
   const route = typeof window !== 'undefined' ? window.location.pathname : null;
   const signature = `${input.source}|${input.message ?? ''}|${route ?? ''}`;
@@ -122,6 +163,8 @@ export function installGlobalErrorReporting() {
   installed = true;
 
   window.addEventListener('error', (event) => {
+    if (isAbortLike(event.error ?? event.message)) return;
+    if (isAudioStartError(event.error ?? event.message)) { notifyAudioStartFailed(); return; }
     void reportClientError({
       source: 'window-onerror',
       message: event.message || String(event.error?.message ?? 'window error'),
@@ -136,6 +179,8 @@ export function installGlobalErrorReporting() {
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason;
+    if (isAbortLike(reason)) { event.preventDefault(); return; }
+    if (isAudioStartError(reason)) { event.preventDefault(); notifyAudioStartFailed(); return; }
     const message =
       reason instanceof Error
         ? reason.message
