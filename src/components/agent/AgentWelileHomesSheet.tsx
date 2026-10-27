@@ -23,11 +23,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
 import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
-import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle } from 'lucide-react';
+import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle, Lock } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import {
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, selectWithOptionalFundingStatus,
+  WH_STAGE_META, type WhPlanStage, type WhStageMeta,
+} from '@/lib/welileHomesPlanStatus';
 
 // Shared client-side validation for the core enrollment fields. Kept strict so
 // agents cannot submit invalid or internally conflicting values (e.g. decimal
@@ -85,6 +89,10 @@ interface WHSubscription {
   tenant_verified?: boolean;
   tenant_last_active?: string | null;
   newly_created?: boolean;
+  subscription_status?: string | null;
+  notes?: string | null;
+  /** Present only after the Welile Homes float-link migration is applied. */
+  funding_status?: string | null;
 }
 
 type EnrollStatus = {
@@ -221,107 +229,40 @@ function formatAuditValue(field: string, value: any): string {
 
 // Derive an enrollment verification / readiness status for the agent's list.
 function getEnrollStatus(s: WHSubscription): EnrollStatus {
+  if (s.subscription_status === 'cancelled') {
+    return { label: 'Declined', ready: false, className: 'border-destructive/40 bg-destructive/10 text-destructive font-semibold' };
+  }
   if (s.tenant_verified) {
     return { label: 'Verified', ready: true, className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' };
   }
   return { label: 'Unverified', ready: false, className: 'border-amber-500/40 bg-amber-500/10 text-amber-600' };
 }
 
-type FloatPipelineStage =
-  | 'none'
-  | 'pending_agent_ops'
-  | 'pending_tenant_ops'
-  | 'pending_coo'
-  | 'pending_cfo'
-  | 'cfo_allocated'
-  | 'rejected';
+const STAGE_TONE_CLASS: Record<WhStageMeta['tone'], string> = {
+  destructive: 'border-destructive/40 bg-destructive/10 text-destructive font-medium',
+  success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold',
+  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium',
+  info: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium',
+  violet: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium',
+  neutral: 'border-amber-500/30 text-amber-600 bg-amber-500/5',
+};
 
-interface FloatPipelineInfo {
-  stage: FloatPipelineStage;
-  label: string;
+interface FloatPipelineInfo extends WhStageMeta {
+  stage: WhPlanStage;
   badgeClass: string;
-  description: string;
-  isPending: boolean;
-  isAllocated: boolean;
-  requestId?: string;
-  status?: string;
+  /** Delete is withheld (money or a live request is attached). Server enforces the same. */
+  isLocked: boolean;
 }
 
-function resolveFloatPipeline(status?: string | null): FloatPipelineInfo {
-  switch (status) {
-    case 'pending':
-      return {
-        stage: 'pending_agent_ops',
-        label: 'Pending Agent Ops',
-        badgeClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-        description: 'Float requested · Waiting for Agent Ops review',
-        isPending: true,
-        isAllocated: false,
-        status,
-      };
-    case 'agent_ops_approved':
-      return {
-        stage: 'pending_tenant_ops',
-        label: 'Pending Tenant Ops',
-        badgeClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-        description: 'Agent Ops approved · Waiting for Tenant Ops review',
-        isPending: true,
-        isAllocated: false,
-        status,
-      };
-    case 'tenant_ops_approved':
-      return {
-        stage: 'pending_coo',
-        label: 'Pending COO Review',
-        badgeClass: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-        description: 'Tenant Ops approved · Waiting for COO approval',
-        isPending: true,
-        isAllocated: false,
-        status,
-      };
-    case 'coo_approved':
-      return {
-        stage: 'pending_cfo',
-        label: 'Pending CFO Allocation',
-        badgeClass: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300',
-        description: 'COO approved · Waiting for CFO treasury float allocation',
-        isPending: true,
-        isAllocated: false,
-        status,
-      };
-    case 'approved':
-    case 'funded':
-    case 'disbursed':
-      return {
-        stage: 'cfo_allocated',
-        label: 'Float Allocated by CFO',
-        badgeClass: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-        description: 'Float authorized and allocated by CFO',
-        isPending: false,
-        isAllocated: true,
-        status,
-      };
-    case 'rejected':
-      return {
-        stage: 'rejected',
-        label: 'Float Rejected',
-        badgeClass: 'border-destructive/40 bg-destructive/10 text-destructive',
-        description: 'Float request rejected by operations',
-        isPending: false,
-        isAllocated: false,
-        status,
-      };
-    default:
-      return {
-        stage: 'none',
-        label: 'Float Not Requested',
-        badgeClass: 'border-amber-500/30 text-amber-600 bg-amber-500/5',
-        description: 'No float request submitted yet',
-        isPending: false,
-        isAllocated: false,
-        status: status || undefined,
-      };
-  }
+function pipelineInfo(stage: WhPlanStage, isLocked: boolean, description?: string): FloatPipelineInfo {
+  const meta = WH_STAGE_META[stage];
+  return {
+    ...meta,
+    description: description || meta.description,
+    stage,
+    badgeClass: STAGE_TONE_CLASS[meta.tone],
+    isLocked,
+  };
 }
 
 
@@ -359,18 +300,22 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [requestFloatOpen, setRequestFloatOpen] = useState(false);
   const [floatRequests, setFloatRequests] = useState<any[]>([]);
+  // Recorded facts behind each plan's stage and delete lock (see src/lib/welileHomesPlanStatus.ts).
+  const [floatLinks, setFloatLinks] = useState<Map<string, string>>(new Map());
+  const [collectedSubIds, setCollectedSubIds] = useState<Set<string>>(new Set());
+  const [collectionsUnknown, setCollectionsUnknown] = useState(true);
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data: rows, error } = await supabase
-        .from('welile_homes_subscriptions')
-        .select('id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, landlord_phone, created_at')
-        .or(`agent_id.eq.${user.id},enrolled_by.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const list = (rows ?? []) as WHSubscription[];
+      const list = await selectWithOptionalFundingStatus<WHSubscription>((extra) =>
+        supabase
+          .from('welile_homes_subscriptions')
+          .select(`id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, landlord_phone, created_at, subscription_status, notes${extra}`)
+          .or(`agent_id.eq.${user.id},enrolled_by.eq.${user.id}`)
+          .order('created_at', { ascending: false }) as any,
+      );
       const tenantIds = list.map((s) => s.tenant_id);
       if (tenantIds.length) {
         const { data: profs } = await supabase
@@ -388,6 +333,36 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         });
       }
       setSubs(list);
+
+      // Which plans have collections or landlord payouts recorded (locks Delete).
+      // A failed read locks every plan rather than offering Delete on unknown history.
+      const subIds = list.map((s) => s.id);
+      if (subIds.length) {
+        const { data: dueRows, error: duesErr } = await supabase
+          .from('welile_homes_monthly_dues')
+          .select('subscription_id, amount_collected, collection_status, payout_status')
+          .in('subscription_id', subIds)
+          .or('amount_collected.gt.0,collection_status.eq.collected,payout_status.neq.unpaid')
+          .limit(1000);
+        // An error or a possibly truncated page locks every plan rather than guessing.
+        if (duesErr || (dueRows?.length ?? 0) >= 1000) {
+          setCollectionsUnknown(true);
+        } else {
+          setCollectedSubIds(new Set((dueRows ?? []).filter(dueHasCollection).map((d: any) => d.subscription_id)));
+          setCollectionsUnknown(false);
+        }
+      } else {
+        setCollectedSubIds(new Set());
+        setCollectionsUnknown(false);
+      }
+
+      // Float request linked to each subscription (empty until the float-link migration).
+      try {
+        setFloatLinks(await fetchWhFloatLinks());
+      } catch (linkErr) {
+        console.warn('Welile Homes float links unavailable:', linkErr);
+        setFloatLinks(new Map());
+      }
 
       // Agent 2% earnings + pending landlord payouts
       const { data: dues } = await supabase
@@ -439,6 +414,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [receivablePeriod, setReceivablePeriod] = useState<'monthly' | 'yearly'>('yearly');
   const [searchOpen, setSearchOpen] = useState(false);
   const [listQuery, setListQuery] = useState('');
+
+  const activeSubs = useMemo(() => subs.filter((s) => s.subscription_status !== 'cancelled'), [subs]);
+  const declinedSubs = useMemo(() => subs.filter((s) => s.subscription_status === 'cancelled'), [subs]);
+
   const visibleSubs = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
     if (!q) return subs;
@@ -484,74 +463,44 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         map.set(key, group);
       }
       group.tenants.push(s);
-      group.totalRent += Number(s.monthly_rent) || 0;
-      group.totalOutstanding += Number(s.outstanding_balance) || 0;
+      if (s.subscription_status !== 'cancelled') {
+        group.totalRent += Number(s.monthly_rent) || 0;
+        group.totalOutstanding += Number(s.outstanding_balance) || 0;
+      }
     });
 
     return Array.from(map.values());
   }, [visibleSubs]);
 
-  // Match each subscription to its float pipeline stage
+  // Stage and delete lock per subscription, from recorded facts only.
   const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
-    const lName = (sub.landlord_name || '').trim().toLowerCase();
-    const lPhone = (sub.landlord_phone || '').trim();
-    const tName = (sub.tenant_name || '').trim().toLowerCase();
+    const facts = {
+      subscriptionStatus: sub.subscription_status,
+      fundingStatus: sub.funding_status,
+      linkedRequestStatus: floatLinks.get(sub.id) ?? null,
+      hasCollections: collectedSubIds.has(sub.id),
+      collectionsUnknown,
+    };
+    const stage = resolveWhPlanStage(facts);
+    return pipelineInfo(stage, isWhPlanLocked(facts), stage === 'declined' ? sub.notes || undefined : undefined);
+  }, [floatLinks, collectedSubIds, collectionsUnknown]);
 
-    const matched = floatRequests.find((r) => {
-      const reason = (r.reason || '').toLowerCase();
-      if (lName && lName !== 'unassigned landlord' && reason.includes(lName)) return true;
-      if (lPhone && reason.includes(lPhone)) return true;
-      if (tName && reason.includes(tName)) return true;
-      return false;
-    });
-
-    if (matched) {
-      return {
-        ...resolveFloatPipeline(matched.status),
-        requestId: matched.id,
-      };
-    }
-
-    if (floatRequests.length > 0 && landlordGroups.length === 1) {
-      return {
-        ...resolveFloatPipeline(floatRequests[0].status),
-        requestId: floatRequests[0].id,
-      };
-    }
-
-    return resolveFloatPipeline(null);
-  }, [floatRequests, landlordGroups.length]);
-
-  // Match each landlord group to its float pipeline stage
+  // Landlord badge: all declined, else the first tenant with a recorded stage.
   const getLandlordPipeline = useCallback((group: { name: string; phone?: string; tenants: WHSubscription[] }): FloatPipelineInfo => {
-    for (const t of group.tenants) {
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    if (active.length === 0 && group.tenants.length > 0) {
+      return pipelineInfo('declined', false, 'All applications under this landlord were declined');
+    }
+    for (const t of active) {
       const p = getSubscriptionPipeline(t);
-      if (p.stage !== 'none') return p;
+      if (p.stage !== 'not_requested') return p;
     }
-    const normName = group.name.trim().toLowerCase();
-    const normPhone = (group.phone || '').trim();
-    const matched = floatRequests.find((r) => {
-      const reason = (r.reason || '').toLowerCase();
-      if (normName && normName !== 'unassigned landlord' && reason.includes(normName)) return true;
-      if (normPhone && reason.includes(normPhone)) return true;
-      return false;
-    });
-    if (matched) {
-      return {
-        ...resolveFloatPipeline(matched.status),
-        requestId: matched.id,
-      };
-    }
-    if (floatRequests.length > 0 && landlordGroups.length === 1) {
-      return {
-        ...resolveFloatPipeline(floatRequests[0].status),
-        requestId: floatRequests[0].id,
-      };
-    }
-    return resolveFloatPipeline(null);
-  }, [getSubscriptionPipeline, floatRequests, landlordGroups.length]);
+    return pipelineInfo('not_requested', false);
+  }, [getSubscriptionPipeline]);
 
   const toggleTenant = (tenantId: string) => {
+    const target = subs.find((s) => s.id === tenantId);
+    if (target?.subscription_status === 'cancelled') return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
       if (next.has(tenantId)) next.delete(tenantId);
@@ -561,21 +510,24 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
 
   const isLandlordAllSelected = (group: { tenants: WHSubscription[] }) => {
-    return group.tenants.length > 0 && group.tenants.every((t) => selectedTenantIds.has(t.id));
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    return active.length > 0 && active.every((t) => selectedTenantIds.has(t.id));
   };
 
   const isLandlordPartiallySelected = (group: { tenants: WHSubscription[] }) => {
-    return group.tenants.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    return active.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
   };
 
   const toggleLandlord = (group: { tenants: WHSubscription[] }) => {
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
-      const allSelected = group.tenants.every((t) => next.has(t.id));
+      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+      const allSelected = active.length > 0 && active.every((t) => next.has(t.id));
       if (allSelected) {
-        group.tenants.forEach((t) => next.delete(t.id));
+        active.forEach((t) => next.delete(t.id));
       } else {
-        group.tenants.forEach((t) => next.add(t.id));
+        active.forEach((t) => next.add(t.id));
       }
       return next;
     });
@@ -591,7 +543,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
 
   const selectedTenants = useMemo(
-    () => subs.filter((s) => selectedTenantIds.has(s.id)),
+    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled'),
     [subs, selectedTenantIds]
   );
 
@@ -606,16 +558,17 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   );
 
   const handleToggleSelectAll = () => {
-    if (selectedTenantIds.size === visibleSubs.length && visibleSubs.length > 0) {
+    const active = visibleSubs.filter((s) => s.subscription_status !== 'cancelled');
+    if (selectedTenantIds.size === active.length && active.length > 0) {
       setSelectedTenantIds(new Set());
     } else {
-      setSelectedTenantIds(new Set(visibleSubs.map((s) => s.id)));
+      setSelectedTenantIds(new Set(active.map((s) => s.id)));
     }
   };
 
-  const totalReceivable = subs.reduce((a, s) => a + (Number(s.receivable_total) || 0), 0);
-  const monthlyReceivable = subs.reduce((a, s) => a + (Number(s.monthly_rent) || 0), 0);
-  const pendingConfirmation = subs.filter((s) => !getEnrollStatus(s).ready).length;
+  const totalReceivable = activeSubs.reduce((a, s) => a + (Number(s.receivable_total) || 0), 0);
+  const monthlyReceivable = activeSubs.reduce((a, s) => a + (Number(s.monthly_rent) || 0), 0);
+  const pendingConfirmation = activeSubs.filter((s) => !getEnrollStatus(s).ready).length;
 
   const bodyContent = (
     <div className={cn("space-y-4", !isPage && "p-4")}>
@@ -623,7 +576,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       <div className="grid grid-cols-2 gap-2.5">
         <Card><CardContent className="p-3">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Enrolled</div>
-          <p className="text-xl font-bold">{subs.length}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-xl font-bold">{loading ? '...' : activeSubs.length}</p>
+            {declinedSubs.length > 0 && (
+              <span className="text-[10px] text-destructive font-medium">
+                ({declinedSubs.length} declined)
+              </span>
+            )}
+          </div>
         </CardContent></Card>
         <Card><CardContent className="p-3">
           <div className="flex items-center justify-between gap-1">
@@ -774,16 +734,23 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           <div className="flex items-center justify-between text-xs px-1 text-muted-foreground">
             <span>
               {landlordGroups.length} {landlordGroups.length === 1 ? 'landlord' : 'landlords'} · {visibleSubs.length} {visibleSubs.length === 1 ? 'tenant' : 'tenants'}
+              {declinedSubs.length > 0 && (
+                <span className="text-destructive font-medium ml-1">
+                  ({declinedSubs.length} declined)
+                </span>
+              )}
             </span>
-            <button
-              type="button"
-              onClick={handleToggleSelectAll}
-              className="text-primary hover:underline font-medium"
-            >
-              {selectedTenantIds.size === visibleSubs.length && visibleSubs.length > 0
-                ? 'Deselect all'
-                : 'Select all'}
-            </button>
+            {visibleSubs.some((s) => s.subscription_status !== 'cancelled') && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="text-primary hover:underline font-medium"
+              >
+                {selectedTenantIds.size === visibleSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
+                  ? 'Deselect all'
+                  : 'Select all'}
+              </button>
+            )}
           </div>
 
           {/* Grouped Landlords with Checking Options */}
@@ -803,6 +770,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                     <Checkbox
                       id={`group-${group.key}`}
                       checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
+                      disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
                       onCheckedChange={() => toggleLandlord(group)}
                       aria-label={`Select all tenants for landlord ${group.name}`}
                     />
@@ -821,7 +789,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                         {/* Landlord Float Pipeline Status */}
                         {(() => {
                           const lp = getLandlordPipeline(group);
-                          if (lp.stage === 'none') {
+                          if (lp.stage === 'not_requested') {
                             return (
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/30 text-amber-600 bg-amber-500/10">
                                 Float Not Requested
@@ -830,7 +798,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                           }
                           return (
                             <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-normal gap-1", lp.badgeClass)}>
-                              {lp.isPending ? <Clock className="h-2.5 w-2.5 animate-pulse" /> : <CheckCircle2 className="h-2.5 w-2.5" />}
+                              {lp.isPending ? <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                : lp.tone === 'destructive' ? <XCircle className="h-2.5 w-2.5" />
+                                : lp.tone === 'success' ? <CheckCircle2 className="h-2.5 w-2.5" />
+                                : <AlertCircle className="h-2.5 w-2.5" />}
                               {lp.label}
                             </Badge>
                           );
@@ -880,6 +851,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                 <Checkbox
                                   id={`tenant-${s.id}`}
                                   checked={isSelected}
+                                  disabled={s.subscription_status === 'cancelled'}
                                   onCheckedChange={() => toggleTenant(s.id)}
                                   aria-label={`Select ${s.tenant_name}`}
                                 />
@@ -906,33 +878,57 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
                           {historyOpenId === s.id && <TenantPaymentHistory subscriptionId={s.id} />}
 
+                          {/* Declined Reason Notice */}
+                          {s.subscription_status === 'cancelled' && (
+                            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/25 text-xs text-destructive">
+                              <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="font-semibold">Application Declined by Operations</p>
+                                <p className="text-[11px] text-destructive/90 mt-0.5">
+                                  {s.notes || 'This tenant application was reviewed and declined by operations.'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Status and Float Pipeline Badges */}
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            {(() => {
-                              const st = getEnrollStatus(s);
-                              return (
-                                <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
-                                  {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                                  {st.label}
-                                </Badge>
-                              );
-                            })()}
+                            {s.subscription_status === 'cancelled' ? (
+                              <Badge variant="outline" className="gap-1 font-semibold border-destructive/40 bg-destructive/10 text-destructive">
+                                <XCircle className="h-3 w-3 text-destructive" />
+                                Application Declined
+                              </Badge>
+                            ) : (
+                              <>
+                                {(() => {
+                                  const st = getEnrollStatus(s);
+                                  return (
+                                    <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
+                                      {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                                      {st.label}
+                                    </Badge>
+                                  );
+                                })()}
 
-                            {(() => {
-                              const fp = getSubscriptionPipeline(s);
-                              return (
-                                <Badge variant="outline" className={cn("gap-1 font-normal", fp.badgeClass)} title={fp.description}>
-                                  {fp.isPending ? (
-                                    <Clock className="h-3 w-3 animate-pulse text-amber-500" />
-                                  ) : fp.isAllocated ? (
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                  ) : (
-                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                  )}
-                                  {fp.label}
-                                </Badge>
-                              );
-                            })()}
+                                {(() => {
+                                  const fp = getSubscriptionPipeline(s);
+                                  return (
+                                    <Badge variant="outline" className={cn("gap-1 font-normal", fp.badgeClass)} title={fp.description}>
+                                      {fp.isPending ? (
+                                        <Clock className="h-3 w-3 animate-pulse text-amber-500" />
+                                      ) : fp.tone === 'success' ? (
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                      ) : fp.tone === 'destructive' ? (
+                                        <XCircle className="h-3 w-3 text-destructive" />
+                                      ) : (
+                                        <AlertCircle className="h-3 w-3 text-amber-500" />
+                                      )}
+                                      {fp.label}
+                                    </Badge>
+                                  );
+                                })()}
+                              </>
+                            )}
                           </div>
 
                           {/* Float Approval Stepper (Shown while float request traverses pipeline) */}
@@ -972,15 +968,22 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
-                            {!s.tenant_verified && (
+                            {!s.tenant_verified && s.subscription_status !== 'cancelled' && (
                               <Button size="sm" className="gap-1.5 col-span-2 h-8 text-xs"
                                 onClick={() => setVerifyFor(s)}>
                                 <ShieldCheck className="h-3.5 w-3.5" /> Verify
                               </Button>
                             )}
                             {(() => {
+                              if (s.subscription_status === 'cancelled') {
+                                return (
+                                  <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
+                                    <XCircle className="h-3.5 w-3.5" /> Declined
+                                  </Button>
+                                );
+                              }
                               const fp = getSubscriptionPipeline(s);
-                              if (fp.isAllocated) {
+                              if (fp.canCollect) {
                                 return (
                                   <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
                                     disabled={s.outstanding_balance <= 0}
@@ -989,7 +992,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                   </Button>
                                 );
                               }
-                              if (fp.isPending) {
+                              if (!fp.canRequestFloat) {
                                 return (
                                   <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs bg-muted/40 text-muted-foreground border-border/60 cursor-not-allowed">
                                     <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Awaiting Float
@@ -1002,14 +1005,35 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                     setSelectedTenantIds(new Set([s.id]));
                                     setRequestFloatOpen(true);
                                   }}>
-                                  <Banknote className="h-3.5 w-3.5" /> Request Float
+                                  <Banknote className="h-3.5 w-3.5" /> {fp.stage === 'request_rejected' ? 'Request Float Again' : 'Request Float'}
                                 </Button>
                               );
                             })()}
-                            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
-                              onClick={() => setDeleteFor(s)}>
-                              <Trash2 className="h-3.5 w-3.5" /> Delete
-                            </Button>
+                            {(() => {
+                              if (getSubscriptionPipeline(s).isLocked) {
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className="gap-1 h-8 px-2 justify-center text-[11px] text-muted-foreground border-border/60 bg-muted/20 font-normal select-none"
+                                    title={collectionsUnknown
+                                      ? 'Payment history could not be loaded, so Delete is unavailable'
+                                      : 'Plans with collections, a float request or funding cannot be deleted'}
+                                  >
+                                    <Lock className="h-3 w-3 text-muted-foreground" /> Non-deletable Plan
+                                  </Badge>
+                                );
+                              }
+                              return (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                                  onClick={() => setDeleteFor(s)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                                </Button>
+                              );
+                            })()}
                           </div>
                         </div>
                       );
@@ -1160,6 +1184,15 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
               disabled={deleting}
               onClick={async () => {
                 if (!deleteFor) return;
+                if (getSubscriptionPipeline(deleteFor).isLocked) {
+                  toast({
+                    title: 'This plan cannot be deleted',
+                    description: 'It has collections, a float request or funding recorded.',
+                    variant: 'destructive',
+                  });
+                  setDeleteFor(null);
+                  return;
+                }
                 setDeleting(true);
                 try {
                   const { error } = await (supabase.rpc as any)('delete_welile_home_subscription', {
