@@ -300,8 +300,8 @@ function EmailStep({ v, vetting, editable, guard, act }: BodyProps) {
 function ResidenceStep({ v, vetting, editable, guard, act }: BodyProps) {
   const r = vetting.residence;
   const [loc, setLoc] = useState<UgLocationSelection | null>(null);
-  const [town, setTown] = useState(r.town ?? '');
-  const [city, setCity] = useState(r.city ?? '');
+  const town = r.town ?? '';
+  const city = r.city ?? '';
   const saved = [r.village, r.parish, r.sub_county, r.district, r.region].filter(Boolean).join(', ');
   return (
     <div className="space-y-2">
@@ -310,10 +310,6 @@ function ResidenceStep({ v, vetting, editable, guard, act }: BodyProps) {
         <>
           <UgLocationPicker value={loc} onChange={setLoc} label="District to village" required />
           {loc && <p className="text-sm text-muted-foreground">{ugLocationLabel(loc)}</p>}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input placeholder="Town (optional)" value={town} onChange={(e) => setTown(e.target.value)} className="min-h-11" />
-            <Input placeholder="City (optional)" value={city} onChange={(e) => setCity(e.target.value)} className="min-h-11" />
-          </div>
           <Button className="min-h-11" disabled={!loc || v.busy === 'residence'}
             onClick={() => loc && guard(() => act(() => v.saveResidence({
               region: loc.region, district: loc.district, sub_county: loc.subcounty,
