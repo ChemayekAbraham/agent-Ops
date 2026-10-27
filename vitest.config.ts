@@ -11,6 +11,10 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+      "https://deno.land/x/zod@v3.23.8/mod.ts": "zod/v3",
+      "https://esm.sh/@supabase/supabase-js@2.49.1": "@supabase/supabase-js",
+    },
   },
 });

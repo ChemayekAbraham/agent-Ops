@@ -17,8 +17,8 @@ const SHORTHAND_RE = /\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*([kmbKMB])\b/g;
 const PERCENT_RE = /\b(\d+(?:\.\d+)?)\s*%/g;
 // Decimal numbers like "84.5", "1,234.56"
 const DECIMAL_RE = /\b\d{1,3}(?:,\d{3})*\.\d+|\b\d+\.\d+\b/g;
-// Integer numbers with or without commas
-const INTEGER_RE = /\b\d{1,3}(?:,\d{3})+|\b\d+\b/g;
+// Integer numbers with or without commas (supports digits adjacent to underscores inside JSON keys like expiring_within_30_days)
+const INTEGER_RE = /\d{1,3}(?:,\d{3})+|\d+/g;
 
 export const SYSTEM_PROMPT_LEAK_RE =
   /You are Zoe, Welile's read-only staff assistant|You are Zoe, the Welile My Space Staff Assistant|NON-NEGOTIABLE RULES \(enforced by server|SCOPE_CHECK_PROMPT|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|SECURITY DEFINER|<UNTRUSTED_TOOL_DATA/i;
@@ -130,8 +130,12 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
     }
     if (val && typeof val === "object") {
       const obj = val as Record<string, unknown>;
-      addNum(Object.keys(obj).length);
-      for (const v of Object.values(obj)) walkJson(v);
+      for (const [k, v] of Object.entries(obj)) {
+        for (const m of k.matchAll(INTEGER_RE)) {
+          addNum(Number(m[0].replace(/,/g, "")));
+        }
+        walkJson(v);
+      }
     }
   };
 
