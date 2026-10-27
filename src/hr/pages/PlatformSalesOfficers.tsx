@@ -248,6 +248,8 @@ function getWindowDates(
 }
 
 async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
+  // All officers. p_staff_id stays omitted: null means everyone, and a boolean
+  // true is not a uuid (PostgREST 22P02).
   const { data, error } = (await supabase.rpc('pso_daily_series' as any, {
     p_from: from,
     p_to: to,
@@ -400,6 +402,7 @@ export default function PlatformSalesOfficersPage({
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
     queryFn: async () => {
+      // All officers. Do not pass p_staff_id: true.
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
         p_to: to,

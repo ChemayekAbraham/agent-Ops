@@ -99,8 +99,12 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
     },
   });
 
+  // Distinct key from My Performance. That screen reads ['hr-my-staff-id'] as
+  // the staff uuid and sends it to pso_daily_series / pso_funded_summary.
+  // Sharing this boolean ("has a staff row") on the same key made those RPCs
+  // receive p_staff_id: true.
   const { data: isStaff } = useQuery<boolean>({
-    queryKey: ['hr-my-staff-id'],
+    queryKey: ['hr-is-staff'],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('hr_my_staff_id' as any);

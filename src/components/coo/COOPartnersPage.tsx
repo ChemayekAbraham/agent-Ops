@@ -13,7 +13,6 @@ import {
   extractDateOnly,
   formatDateOnlyForDisplay,
   formatLocalDateOnly,
-  buildCompoundProjection,
 } from '@/lib/portfolioDates';
 import {
   Loader2, Search, X, Download, ChevronLeft, ChevronRight, ChevronUp, ChevronDown,
@@ -659,105 +658,13 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         metadata: { portfolio_id: portfolio.id, roi_amount: roiAmount, reference: refId },
       });
 
-      // Send partner-portfolio-compounded transactional email (fire-and-forget, non-blocking).
-      // This is an EXISTING partner compounding an active portfolio.
-      try {
-        // Resolve partner email (not stored on detailPartner.profile)
-        const { data: profileRow } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('id', detailPartner.profile.id)
-          .maybeSingle();
-        const recipientEmail = profileRow?.email;
-        const isRealEmail =
-          recipientEmail &&
-          !recipientEmail.endsWith('@welile.user') &&
-          !recipientEmail.endsWith('@noapp.welile.user');
-
-        if (isRealEmail) {
-          // Build the ACTUAL compounding history anchored at the partner's
-          // contribution date (portfolio.created_at). We replay every prior
-          // `roi_compounded` audit event for this portfolio in order, then
-          // append the cycle we just posted. The final balance equals the
-          // new principal exactly — no synthetic forward projection.
-          const { data: priorLogs } = await supabase
-            .from('audit_logs')
-            .select('created_at, metadata')
-            .eq('action_type', 'roi_compounded')
-            .eq('record_id', portfolio.id)
-            .order('created_at', { ascending: true });
-
-          // The audit row for THIS compound was inserted just above, so it's
-          // included in `priorLogs`. paymentNumber = total cycles to date.
-          const allLogs = priorLogs ?? [];
-          const paymentNumber = allLogs.length;
-
-          // Derive the original principal (contribution amount) from the
-          // first compound event: balance_before of cycle 1 = new_principal − roi_amount.
-          // If no logs (shouldn't happen — we just inserted one), fall back.
-          let originalPrincipal = Number(portfolio.investment_amount) - roiAmount; // pre-current-compound principal
-          if (allLogs.length >= 1) {
-            const first: any = allLogs[0].metadata || {};
-            const firstNew = Number(first.new_principal || 0);
-            const firstRoi = Number(first.roi_amount || 0);
-            if (firstNew > 0 && firstRoi >= 0) originalPrincipal = firstNew - firstRoi;
-          }
-
-          // FORWARD PROJECTION breakdown.
-          // The current month (the cycle we just compounded) is excluded —
-          // its result IS the "New Total Partnership Value" headline.
-          // The breakdown starts from the NEXT month and projects monthly
-          // compounding through the remainder of the portfolio's duration.
-          // Anchored to the contribution date (not cycle count) so skipped
-          // or backfilled cycles never cause month drift.
-          const compound_history = buildCompoundProjection({
-            contributionDate: portfolio.created_at,
-            durationMonths: Number(portfolio.duration_months || 12),
-            newPrincipal: Number(newAmount),
-            roiPct: Number(portfolio.roi_percentage || 0),
-            compoundDate: new Date(),
-          });
-
-          const contributionDateStr = new Date(portfolio.created_at).toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'long', year: 'numeric',
-          });
-          const compoundDate = new Date().toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'long', year: 'numeric',
-          });
-
-          await supabase.functions.invoke('send-transactional-email', {
-            body: {
-              templateName: 'partner-portfolio-compounded',
-              recipientEmail,
-              idempotencyKey: `partner-portfolio-compounded-${detailPartner.profile.id}-${portfolio.id}-${paymentNumber}`,
-              templateData: {
-                partner_name: detailPartner.profile.full_name || 'Partner',
-                portfolio_id: portfolio.portfolio_code || portfolio.id,
-                compound_date: compoundDate,
-                contribution_date: contributionDateStr,
-                initial_partnership_amount: originalPrincipal,
-                roi_return: `${portfolio.roi_percentage}%`,
-                return_amount: roiAmount,
-                // For existing partners we show the value AFTER this cycle
-                // (principal + return earned), matching the in-app dialog.
-                new_total_partnership_value: Number(newAmount),
-                roi_percentage: portfolio.roi_percentage,
-                payment_number: paymentNumber,
-                // Actual cycles since contribution date — never a 12-month
-                // forward projection. Length = paymentNumber.
-                compound_history,
-                currency: 'UGX',
-                company_name: 'Welile',
-                logo_url: 'https://welileapp.com/welile-logo.png',
-                unsubscribe_url: 'https://welile.com/unsubscribe',
-                dashboard_url: 'https://welileapp.com/auth',
-              },
-            },
-          });
-        }
-      } catch (emailErr) {
-        console.warn('[partner-portfolio-compounded] email dispatch failed (non-blocking):', emailErr);
-      }
+      // The partner email is built on the SERVER from the compounding event just
+      // recorded above, never from numbers on this page, so it always matches the
+      // ledger and always names the portfolio by its code. Fire-and-forget: a
+      // failure here never blocks the compound.
+      void supabase.functions
+        .invoke('send-portfolio-compound-email', { body: { portfolio_id: portfolio.id, reference: refId } })
+        .catch((emailErr) => console.warn('[partner-portfolio-compounded] email dispatch failed (non-blocking):', emailErr));
 
       toast.success(`Compounded ${formatUGX(roiAmount)}`, { description: `New principal: ${formatUGX(newAmount)}. Ref: ${refId}` });
       // Refresh detail view
@@ -1706,7 +1613,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       const updatePayload: Record<string, any> = {
         // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
         // (migration 20261024140000; Return postings change these fields server-side).
-        return_fields_edit_token: crypto.randomUUID(),
+        return_fields_edit_token: safeUUID(),
         investment_amount: amount,
         roi_percentage: roi,
         roi_mode: editPortfolioRoiMode,
@@ -5235,38 +5142,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
 
       if (isRealEmail) {
         try {
-          const { data: priorLogs } = await supabase
-            .from('audit_logs')
-            .select('created_at, metadata')
-            .eq('action_type', 'roi_compounded')
-            .eq('record_id', p.portfolioId)
-            .order('created_at', { ascending: true });
-          const allLogs = priorLogs ?? [];
-          const paymentNumber = allLogs.length;
-
-          let originalPrincipal = Number(p.investmentAmount) - roiAmount;
-          if (allLogs.length >= 1) {
-            const first: any = allLogs[0].metadata || {};
-            const firstNew = Number(first.new_principal || 0);
-            const firstRoi = Number(first.roi_amount || 0);
-            if (firstNew > 0 && firstRoi >= 0) originalPrincipal = firstNew - firstRoi;
-          }
-
-          // FORWARD PROJECTION breakdown — excludes the current cycle (its
-          // result IS the New Total Partnership Value headline) and starts
-          // from next month, compounding monthly through portfolio maturity.
-          // Anchored to contribution date (not cycle count) — robust to
-          // skipped/backfilled past cycles.
-          const compound_history = buildCompoundProjection({
-            contributionDate: p.createdAt,
-            durationMonths: Number(p.durationMonths || 12),
-            newPrincipal: Number(newAmount),
-            roiPct: Number(p.roiPercentage || 0),
-            compoundDate: new Date(),
-          });
-
-          // Detect "previously sent" — was a partner-portfolio-compounded email for this recipient
-          // already successfully sent before this action?
+          // Detect "previously sent": was a compound email already delivered to this recipient?
           const { count: priorSentCount } = await supabase
             .from('email_send_log')
             .select('id', { count: 'exact', head: true })
@@ -5274,53 +5150,25 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
             .eq('recipient_email', recipientEmail)
             .eq('status', 'sent');
 
-          const compoundDate = new Date().toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'long', year: 'numeric',
-          });
-          const contributionDateStr = new Date(p.createdAt).toLocaleDateString('en-GB', {
-            day: '2-digit', month: 'long', year: 'numeric',
-          });
-
-          const { data: emailResp, error: emailInvokeErr } = await supabase.functions.invoke('send-transactional-email', {
-            body: {
-              templateName: 'partner-portfolio-compounded',
-              recipientEmail,
-              idempotencyKey: `partner-portfolio-compounded-${p.investorId}-${p.portfolioId}-${paymentNumber}`,
-              templateData: {
-                partner_name: p.name || 'Partner',
-                portfolio_id: p.portfolioName || p.portfolioId,
-                compound_date: compoundDate,
-                contribution_date: contributionDateStr,
-                initial_partnership_amount: originalPrincipal,
-                roi_return: `${p.roiPercentage}%`,
-                return_amount: roiAmount,
-                new_total_partnership_value: newAmount,
-                roi_percentage: p.roiPercentage,
-                payment_number: paymentNumber,
-                compound_history,
-                currency: 'UGX',
-                company_name: 'Welile',
-                logo_url: 'https://welileapp.com/welile-logo.png',
-                unsubscribe_url: 'https://welile.com/unsubscribe',
-                dashboard_url: 'https://welileapp.com/auth',
-              },
-            },
+          // The email is built on the SERVER from the compounding event just recorded.
+          const { data: emailResp, error: emailInvokeErr } = await supabase.functions.invoke('send-portfolio-compound-email', {
+            body: { portfolio_id: p.portfolioId, reference: refId },
           });
 
           if (emailInvokeErr) {
             emailStatus = 'failed';
             emailDetail = emailInvokeErr.message || 'Edge function returned an error';
-          } else if (emailResp?.success === false && emailResp?.reason === 'email_suppressed') {
+          } else if (emailResp?.suppressed) {
             emailStatus = 'suppressed';
             emailDetail = 'Recipient is on the suppression list (unsubscribed or bounced).';
-          } else if (emailResp?.success && emailResp?.queued) {
+          } else if (emailResp?.sent) {
             emailStatus = (priorSentCount ?? 0) > 0 ? 'previously_sent' : 'queued';
             emailDetail = (priorSentCount ?? 0) > 0
               ? `New email queued. ${priorSentCount} previous compound email(s) were already delivered to this recipient.`
               : 'Email handed off to the dispatcher and will be delivered shortly.';
           } else {
             emailStatus = 'failed';
-            emailDetail = 'Unexpected response from the email service.';
+            emailDetail = emailResp?.reason ? `Email not sent: ${emailResp.reason}` : 'Unexpected response from the email service.';
           }
         } catch (emailErr: any) {
           emailStatus = 'failed';

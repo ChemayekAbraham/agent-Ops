@@ -320,4 +320,132 @@ describe('ZoeChatSurface', () => {
       'Report shared from Zoe',
     );
   });
+
+  it('renders Markdown tables, mini charts with written summary, follow-up chips, Copy/Regenerate/Show the data buttons, conversation list drawer with Rename and New chat, Stop button, and 2,000-char input limit', () => {
+    const onSendMessage = vi.fn();
+    const onRegenerate = vi.fn();
+    const onStopGenerating = vi.fn();
+    const onStartNewChat = vi.fn().mockResolvedValue('conv-new');
+    const onSelectConversation = vi.fn().mockResolvedValue(undefined);
+    const onRenameConversation = vi.fn().mockResolvedValue(true);
+
+    const messages: ZoeMessage[] = [
+      { id: 'u-1', role: 'user', content: 'Give me the full breakdown of Rent Plans by stage' },
+      {
+        id: 'a-1',
+        role: 'assistant',
+        content: [
+          '### Rent Plans by Stage',
+          '',
+          '| Stage | Plans | Principal |',
+          '| --- | --- | --- |',
+          '| Pending Landlord Ops | 14 | UGX 18,400,000 |',
+          '| Repaying | 82 | UGX 112,000,000 |',
+          '',
+          'Source: assistant_staff_tops_rent_requests_by_stage · Period: as of 2026-10-26',
+        ].join('\n'),
+        outcome: 'answered',
+        source: 'assistant_staff_tops_rent_requests_by_stage',
+        period: 'as of 2026-10-26',
+        followUpSuggestions: [
+          'How long have pending Rent Plans been sitting on each desk?',
+          'Compare this week with last week',
+        ],
+        reportPayload: {
+          tool: 'get_tops_rent_requests_by_stage',
+          rpc: 'assistant_staff_tops_rent_requests_by_stage',
+          source: 'assistant_staff_tops_rent_requests_by_stage',
+          period: { as_of: '2026-10-26' },
+          row_count: 2,
+          rows: [
+            { stage: 'Repaying', count: 82, total_ugx: 112000000 },
+            { stage: 'Pending Landlord Ops', count: 14, total_ugx: 18400000 },
+          ],
+          chart: {
+            type: 'bar',
+            title: 'Rent Plans by Stage',
+            summary:
+              'Repaying leads with 82 across 2 ranked items (total 96) for as of 2026-10-26.',
+            xKey: 'stage',
+            yKey: 'count',
+            isUgx: false,
+            data: [
+              { label: 'Repaying', value: 82 },
+              { label: 'Pending Landlord Ops', value: 14 },
+            ],
+          },
+        },
+      },
+    ];
+
+    renderSurface({
+      messages,
+      roles: ['tenant_ops'],
+      statusLine: 'Comparing weeks…',
+      isLoading: false,
+      conversations: [
+        {
+          id: 'conv-1',
+          title: 'Rent Plans by stage',
+          message_count: 4,
+          last_active_at: '2026-10-26T08:00:00Z',
+          created_at: '2026-10-26T07:50:00Z',
+        },
+      ],
+      activeConversationId: 'conv-1',
+      onSendMessage,
+      onRegenerate,
+      onStopGenerating,
+      onStartNewChat,
+      onSelectConversation,
+      onRenameConversation,
+    });
+
+    // 1. 2,000-character limit on input textarea
+    expect(screen.getByTestId('zoe-input')).toHaveAttribute('maxLength', '2000');
+
+    // 2. Markdown heading and table rendered
+    expect(screen.getByTestId('zoe-markdown')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-markdown-table')).toBeInTheDocument();
+    expect(screen.getAllByText('Pending Landlord Ops').length).toBeGreaterThanOrEqual(1);
+
+    // 3. Mini chart with one-line summary rendered
+    expect(screen.getByTestId('zoe-mini-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-mini-chart-summary')).toHaveTextContent(
+      'Repaying leads with 82 across 2 ranked items',
+    );
+
+    // 4. Copy, Regenerate, and "Show the data" buttons
+    expect(screen.getByTestId('zoe-copy-a-1')).toBeInTheDocument();
+    const regenBtn = screen.getByTestId('zoe-regenerate-a-1');
+    fireEvent.click(regenBtn);
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
+
+    const showDataBtn = screen.getByTestId('zoe-show-data-a-1');
+    expect(showDataBtn).toHaveTextContent('Show the data');
+    fireEvent.click(showDataBtn);
+    expect(screen.getByTestId('zoe-raw-data-table-a-1')).toBeInTheDocument();
+
+    // 5. Follow-up suggestion chips under answer
+    expect(screen.getByTestId('zoe-follow-ups-a-1')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByText('How long have pending Rent Plans been sitting on each desk?'),
+    );
+    expect(onSendMessage).toHaveBeenCalledWith(
+      'How long have pending Rent Plans been sitting on each desk?',
+    );
+
+    // 6. Conversation list drawer with Rename and New chat
+    fireEvent.click(screen.getByTestId('zoe-new-chat-button'));
+    expect(onStartNewChat).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('zoe-conversations-toggle'));
+    expect(screen.getByTestId('zoe-conversation-drawer')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('zoe-conv-rename-btn-conv-1'));
+    fireEvent.change(screen.getByTestId('zoe-conv-rename-input-conv-1'), {
+      target: { value: 'October Stage Breakdown' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-conv-rename-save-conv-1'));
+    expect(onRenameConversation).toHaveBeenCalledWith('conv-1', 'October Stage Breakdown');
+  });
 });

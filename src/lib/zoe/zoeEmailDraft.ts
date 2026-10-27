@@ -42,6 +42,8 @@ export interface ZoeEmailDraftPayload {
 }
 
 export interface SendZoeReportEmailInput {
+  draft_id?: string | null;
+  rebind_draft?: boolean;
   recipient_email: string;
   recipient_name?: string | null;
   subject: string;
@@ -56,6 +58,7 @@ export interface SendZoeReportEmailResponse {
   sent?: boolean;
   error?: string;
   code?: string;
+  sign_in_url?: string;
   recipient_email?: string;
   recipient_name?: string;
   subject?: string;
@@ -172,14 +175,51 @@ export async function sendZoeReportEmail(
   input: SendZoeReportEmailInput,
 ): Promise<SendZoeReportEmailResponse> {
   const { supabase } = await import('@/integrations/supabase/client');
+  const sanitizedSubject = sanitizeWelileTerms(input.subject.trim());
+  const sanitizedMessage = sanitizeWelileTerms(input.message.trim());
+  const trimmedEmail = input.recipient_email.trim();
+
+  let draftId = input.draft_id ?? null;
+  if ((input.rebind_draft || !draftId) && typeof supabase.rpc === 'function') {
+    const { data: savedDraft, error: draftErr } = await supabase.rpc(
+      'staff_assistant_save_draft' as never,
+      {
+        p_kind: 'email',
+        p_payload: {
+          kind: 'email',
+          recipient_email: trimmedEmail.toLowerCase(),
+          subject: sanitizedSubject,
+          message: sanitizedMessage,
+          report_reference: {
+            tool: input.report_reference.tool,
+            rpc: input.report_reference.rpc,
+            args: input.report_reference.args ?? {},
+          },
+        },
+        p_conversation_id: input.conversation_id ?? null,
+      } as never,
+    );
+    if (draftErr) {
+      return {
+        ok: false,
+        error: draftErr.message || 'Could not prepare email draft for sending.',
+      };
+    }
+    const row = (savedDraft ?? {}) as Record<string, unknown>;
+    if (typeof row.draft_id === 'string' && row.draft_id) {
+      draftId = row.draft_id;
+    }
+  }
+
   const { data, error } = await supabase.functions.invoke<SendZoeReportEmailResponse>(
     'staff-assistant-send-email',
     {
       body: {
-        recipient_email: input.recipient_email.trim(),
+        ...(draftId ? { draft_id: draftId } : {}),
+        recipient_email: trimmedEmail,
         ...(input.recipient_name ? { recipient_name: input.recipient_name.trim() } : {}),
-        subject: sanitizeWelileTerms(input.subject.trim()),
-        message: sanitizeWelileTerms(input.message.trim()),
+        subject: sanitizedSubject,
+        message: sanitizedMessage,
         report_reference: input.report_reference,
         ...(input.conversation_id ? { conversation_id: input.conversation_id } : {}),
         ...(input.message_id ? { message_id: input.message_id } : {}),
@@ -199,6 +239,7 @@ export async function sendZoeReportEmail(
       ok: false,
       error: data?.error || 'Could not send the report email right now.',
       code: data?.code,
+      sign_in_url: data?.sign_in_url,
     };
   }
 

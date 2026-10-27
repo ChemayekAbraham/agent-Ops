@@ -59,7 +59,8 @@ export interface ZoeCrmConversationRow {
   has_thumbs_down: boolean;
   has_unanswered: boolean;
   last_user_question: string | null;
-  last_assistant_reply: string | null;
+  last_outcome?: string | null;
+  last_tools_called?: string[];
 }
 
 export type ZoeUnansweredStatus = 'open' | 'reviewed' | 'planned' | 'dismissed';
@@ -76,6 +77,21 @@ export interface ZoeWeeklyUnansweredRow {
   latest_review_note: string | null;
   first_seen_at: string;
   last_seen_at: string;
+}
+
+export interface ZoeWeeklyThumbsDownRow {
+  normalized_question: string;
+  question_text: string;
+  thumbs_down_count: number;
+  unique_staff_count: number;
+  latest_comment: string | null;
+  latest_outcome: string | null;
+  latest_source_label: string | null;
+  tools_called: string[];
+  latest_conversation_id: string;
+  last_feedback_at: string;
+  roles_reporting: string[];
+  answer_redacted: boolean;
 }
 
 export interface ZoeDailyUsageRow {
@@ -103,19 +119,25 @@ export interface ZoeCrmDashboardData {
   available_roles: string[];
   conversations: ZoeCrmConversationRow[];
   weekly_unanswered_summary: ZoeWeeklyUnansweredRow[];
+  weekly_thumbs_down_summary?: ZoeWeeklyThumbsDownRow[];
   daily_usage_per_person: ZoeDailyUsageRow[];
 }
 
 export interface ZoeCrmThreadMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
-  content: string;
-  tool_calls: Array<{ name?: string; args?: Record<string, unknown> }>;
+  /** User question text for `role === 'user'`; always `null` (redacted) for `role === 'assistant'`. */
+  content: string | null;
+  content_redacted?: boolean;
+  outcome?: string | null;
+  tools_called?: string[];
+  source_label?: string | null;
+  period_label?: string | null;
+  tool_calls: Array<{ name?: string }>;
   tool_results_summary: Array<{
     name?: string;
     source?: string;
     period?: string;
-    row_count?: number;
   }>;
   sources: Array<{
     tool?: string;
@@ -169,7 +191,8 @@ export function filterZoeConversations(
         conv.staff_phone,
         conv.title ?? '',
         conv.last_user_question ?? '',
-        conv.last_assistant_reply ?? '',
+        conv.last_outcome ?? '',
+        ...(conv.last_tools_called ?? []),
         ...conv.staff_roles,
       ]
         .join(' ')
@@ -263,6 +286,11 @@ export function useZoeCrmDashboard(filters: ZoeCrmFilters = {}, enabled = true) 
           payload.weekly_unanswered_summary,
         )
           ? payload.weekly_unanswered_summary
+          : [],
+        weekly_thumbs_down_summary: Array.isArray(
+          payload.weekly_thumbs_down_summary,
+        )
+          ? payload.weekly_thumbs_down_summary
           : [],
         daily_usage_per_person: Array.isArray(payload.daily_usage_per_person)
           ? payload.daily_usage_per_person

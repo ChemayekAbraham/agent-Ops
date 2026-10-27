@@ -19,6 +19,7 @@ export function toAuthGatedUrl(path: string, baseUrl = 'https://welileapp.com'):
 export const NEXA_ACTION_LINKS = Object.fromEntries([
   '/dashboard/funder-new', '/dashboard', '/rent-calculator', '/register-tenant',
   '/become-agent', '/register-landlord', '/find-a-house', '/marketplace',
+  '/merchandise', '/merchandise?tab=orders',
 ].map(path => [path, toAuthGatedUrl(path)]));
 export function extractPhoneNumberFromText(text: string): string | null {
   const match = text.match(/(?<![\d+])(?:\+?256[\s-]*7(?:[\s-]*\d){8}|07(?:[\s-]*\d){8})(?![\s-]*\d)/);
@@ -35,6 +36,40 @@ export function buildAccountPhoneAndDashboardGuideReply(text = ''): string {
     : 'What is your registered Welile phone number (07XX XXX XXX or +256...)? Never share your password or one-time code here. Your number alone does not verify ownership; private figures are only available on your own signed-in dashboard.';
   return `${intro}\n\n**Partners / Supporters — Portfolio & 15% Monthly Returns**\n1. Open [Sign In / Sign Up to Funder Dashboard](${toAuthGatedUrl('/dashboard/funder-new')}).\n2. Enter your registered phone number and complete sign-in.\n3. View **Active Portfolio**, **Monthly 15% Reward Schedule**, **Promissory Notes**, and **Supported Houses**. Approved plan terms apply.\n\n**Tenants — Rent Balance & UGX 30M Access Limit**\n1. Open [Sign In / Sign Up to Tenant Dashboard](${toAuthGatedUrl('/dashboard')}).\n2. Enter your registered phone number and complete sign-in.\n3. View **Remaining Rent Balance**, **Daily Repayment Schedule**, **On-Time Streak**, and **Welile Access Limit (growing up to UGX 30,000,000)**.`;
 }
+export function isMerchandiseQuery(text: string): boolean {
+  return /\bmerch(?:andise)?\b|\bjackets?\b|\bpress\s+(?:jacket|vest)\b|\bvests?\b|\bjumpers?\b|\bpolo\s+shirts?\b|\bt[\s-]?shirts?\b|\buniforms?\b|\bcompany\s+ids?\b|\bstaff\s+badges?\b|\bsignag(?:e|es)\b|\bpull[\s-]up\s+banners?\b|\btable\s+mounts?\b|\bbillboards?\b|\bbranded\s+(?:gear|items?|clothing)\b|\border(?:ing)?\b.*\b(?:from\s+)?welile\s+merchandise\s+store\b|\bwelile\s+merchandise\b|\be[\s-]bikes?\b|\bsmartphones?\b/i.test(text)
+    || /\bbuy\b|\border\b|\bget\b|\bwhere\b.*\b(?:buy|order)\b/i.test(text) && /\bjacket|vest|jumper|polo|t[\s-]?shirt|uniform|company\s+id|badge|signage|banner|billboard|merch\b/i.test(text);
+}
+
+export function buildMerchandiseGuideReply(isAuthenticated = false): string {
+  const storeLink = isAuthenticated ? '/merchandise' : toAuthGatedPath('/merchandise');
+  const ordersLink = isAuthenticated ? '/merchandise?tab=orders' : toAuthGatedPath('/merchandise?tab=orders');
+  return `**Welile Merchandise — Branded Gear, IDs, Signage, Smartphones & E-Bikes**
+
+**1. Welile Merchandise Store (All Branded Gear, Signage, Smartphones & E-Bikes)**
+Browse and order everything in one place: [Open Welile Merchandise Store](${storeLink}) — https://welileapp.com/merchandise
+
+**2. Order Welile Press Jacket (Khaki Branded Vest — UGX 55,000, Sizes L–4XL)**
+[Order Press Jacket](https://welileapp.com/m/welile-1rfmin) or direct checkout: /merchandise?item=ec9493a7-75d8-441d-96eb-3550ffec3bb0
+
+**3. Other Branded Items Available on /merchandise**
+- **Welile Polo Shirts:** [White Polo — UGX 35,000](https://welileapp.com/m/welile-v8iydr) · Black Polo — UGX 35,000
+- **Welile Jumpers:** UGX 60,000–65,000
+- **Welile Purple T-Shirts:** UGX 30,000
+- **Company IDs:** UGX 45,000
+- **Signages & Banners:** from UGX 50,000 (pull-up banners, table mounts, billboards)
+- **Welile Smartphone:** 0% cash down advance
+- **Spiro / Mocoo E-Bike leases** for field agents
+
+**4. Flexible Payment**
+Pay in full from your Welile Wallet, or choose **daily installments over 1–12 months with UGX 0 down** — deducted automatically from your wallet/earnings.
+
+**5. Track Orders & Repayments**
+[Track My Orders](${ordersLink}) — https://welileapp.com/merchandise?tab=orders
+
+${isAuthenticated ? 'You are already signed in; open the store with your existing account.' : buildSignupPersuasionPitch('agent')}`;
+}
+
 export function isWalletHowToQuery(text: string): boolean {
   return /\bwallet\b/i.test(text) && /\b(?:how|use|open|deposit|withdraw|transfer|fund|teach|guide)\b/i.test(text)
     || /\bhow\b.*\b(?:deposit|withdraw|transfer)\b/i.test(text);
@@ -48,12 +83,38 @@ export function isPromissoryNoteQuery(text: string): boolean {
 export function buildPromissoryNoteReminderReply(): string {
   return `If you created a **Promissory Note** (pledged support commitment), **fulfill your promissory note** by depositing into your Welile Wallet (MTN Merchant **090777** / Airtel **4380664**), then completing the support commitment on your dashboard. Alternatively, **renew/update your promissory note date** before the pledge date passes. This helps keep your matched tenant's landlord payout on schedule and your **15% monthly Returns** starting without delay, subject to funding, approval and contract terms. [Sign In / Fulfill or Renew Promissory Note](${toAuthGatedUrl('/dashboard/funder-new')}).`;
 }
+export const AGENT_COLLECTIONS_PLAYBOOK_LINKS = ['https://welileapp.com/dashboard/agent', 'https://welileapp.com/tenants-onboarding'] as const;
+export const AGENT_COLLECTIONS_PLAYBOOK_RULES = 'Welile Entebbe collections playbook: (1) never use police, lockouts, intimidation or harsh threats; treat tenants respectfully and coach them positively; (2) promise and show tenants more money: up to UGX 30,000,000 (UGX 30M) Rent Access Limit if they pay well and on time (+UGX 10,000/day for every on-time daily payment, up to UGX 30,000,000; missed days reduce it by UGX 7,000/day); (3) promise a Top-Up as soon as their tenants hit 70% repayment on their current Rent Plan; (4) always share https://welileapp.com/dashboard/agent and https://welileapp.com/tenants-onboarding.';
+
+export function isAgentCollectionsCoachingQuery(text: string): boolean {
+  const t = text.toLowerCase();
+  if (/\b(top[- ]?up)\b.*\b70\s*%|\b70\s*%.*\b(top[- ]?up|repay)/.test(t)) return true;
+  const coach = /\b(how (?:can|do|should) (?:i|we)|how to|what (?:should|can) i do|tips?|advice|ways? to|help me|improve|increase|boost|get)\b/.test(t);
+  const topic = /\b(collections?|collect(?:ing)?|repayments?|repay(?:ing)?|tenants? (?:to )?pay|pay on time|late (?:tenants?|payers?|payments?)|delayed? (?:tenants?|payments?)|defaulting|defaulters?|not paying|arrears)\b/.test(t);
+  return coach && topic;
+}
+
+export function buildAgentCollectionsCoachingGuideReply(isAuthenticated = false): string {
+  return `**Welile Entebbe Collections Playbook**
+
+1. **Never use police or harsh threats.** Treat every tenant with respect. No police, lockouts or intimidation — coach them positively and agree a small daily amount they can keep.
+2. **Show them more money: up to UGX 30,000,000 (UGX 30M).** Every on-time daily payment grows their Rent Access Limit by **+UGX 10,000/day, up to UGX 30,000,000**. Missed days reduce it by **UGX 7,000/day**. Paying well and on time is how they unlock more.
+3. **Promise a Top-Up at 70% repayment.** As soon as your tenants hit **70% repayment** on their current Rent Plan, they qualify for a top-up — more rent support, early.
+4. **Share both links:**
+   - Agent dashboard: https://welileapp.com/dashboard/agent
+   - Tenant onboarding: https://welileapp.com/tenants-onboarding
+
+Limits and top-ups follow approved Rent Plan terms and verification.${isAuthenticated ? '' : ' Sign in to see your own tenants and collections.'}`;
+}
+
 export function buildNexaPublicGuideReply(text: string, isAuthenticated = false): string | null {
   if (isRestrictedInternalStaffQuery(text)) return buildInternalStaffRefusalReply();
   // Wallet teaching and pledge guidance take priority over generic account words.
+  if (isAgentCollectionsCoachingQuery(text)) return buildAgentCollectionsCoachingGuideReply(isAuthenticated);
   if (extractPhoneNumberFromText(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
+  if (isMerchandiseQuery(text)) return buildMerchandiseGuideReply(isAuthenticated);
   if (isAccountOrBalanceQuery(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   const link = (label: string, path: string) => `[${label}](${isAuthenticated ? path : toAuthGatedPath(path)})`;
   if (/\brequest(?:ing)? rent\b|\bget rent (?:help|support)\b/i.test(text)) {

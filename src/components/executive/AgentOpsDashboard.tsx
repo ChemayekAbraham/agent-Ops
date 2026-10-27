@@ -77,6 +77,7 @@ import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOv
 import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
 import { WelileSchoolsOps } from './agent-ops-v2/WelileSchoolsOps';
 import { WelileMedicineOps } from './agent-ops-v2/WelileMedicineOps';
+import { WelileSignagesOps } from './agent-ops-v2/WelileSignagesOps';
 import { CallingHub } from '@/components/ops/calling';
 import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
@@ -125,6 +126,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'welile-homes', icon: Building2, label: 'Welile Homes', color: 'bg-primary' },
   { key: 'welile-schools', icon: GraduationCap, label: 'Welile Schools', color: 'bg-primary' },
   { key: 'welile-medicine', icon: Stethoscope, label: 'Welile Medicine', color: 'bg-primary' },
+  { key: 'welile-signages', icon: Megaphone, label: 'Welile Signages', color: 'bg-primary' },
   { key: 'agents-hope', icon: Sparkles, label: 'Welile Agents Hope', color: 'bg-primary' },
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
@@ -435,6 +437,7 @@ export function AgentOpsDashboard() {
       case 'welile-homes': return <WelileHomesAdminPanel onBack={() => setActiveView(null)} />;
       case 'welile-schools': return <WelileSchoolsOps onBack={() => setActiveView(null)} />;
       case 'welile-medicine': return <WelileMedicineOps onBack={() => setActiveView(null)} />;
+      case 'welile-signages': return <WelileSignagesOps onBack={() => setActiveView(null)} />;
       case 'agents-hope': return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>

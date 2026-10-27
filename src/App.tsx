@@ -22,6 +22,7 @@ const lazy = lazyWithRetry;
 
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
 import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
@@ -292,6 +293,7 @@ const MeConcernsPage = lazy(() => import('./pages/me/MyConcerns'));
 const MyReportsPage = lazy(() => import('./pages/me/MyReports'));
 const StaffReportsPage = lazy(() => import('./pages/me/StaffReports'));
 const ZoePage = lazy(() => import('./pages/me/Zoe'));
+const IdeasPage = lazy(() => import('./pages/me/IdeasPage'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
@@ -329,7 +331,10 @@ const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
 const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReviewPage = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
 const AgentWelileMedicinePage = lazy(() => import('./pages/agent/AgentWelileMedicine'));
+const AgentWelileSignagesPage = lazy(() => import('./pages/agent/AgentWelileSignages'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
 const ActiveUsersDetail = lazy(() => import('./pages/coo/ActiveUsersDetail'));
@@ -478,6 +483,12 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
+  // Staff prompt RPCs return no rows without a user JWT, and anon may execute
+  // them so a public page does not log Postgres 42501. Still mount them only
+  // for a real session: hr_pay_pending_prompt, staff_survey_pending, the
+  // requisition prompt/notice RPCs, pso_facilitation_pending_prompt and
+  // staff_loan_pending_prompt should not run on every anonymous page view.
+  const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -495,12 +506,15 @@ function GlobalOnboardingGates() {
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
-      <FacilitationApprovalGate />
-      <StaffLoanApprovalGate />
-      <StaffRequisitionApprovalGate />
-      <PayrollApprovalGate />
-      <StaffSurveyGate />
-
+      {signedIn && (
+        <>
+          <FacilitationApprovalGate />
+          <StaffLoanApprovalGate />
+          <StaffRequisitionApprovalGate />
+          <PayrollApprovalGate />
+          <StaffSurveyGate />
+        </>
+      )}
     </>
   );
 }
@@ -580,6 +594,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/verification" element={<RoleGuard allowedRoles={['agent']}><AgentVerificationPage /></RoleGuard>} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -713,7 +728,7 @@ function AppRoutes() {
           <Route path="/agent-registrations" element={<AgentRegistrations />} />
           <Route path="/sub-agents" element={<SubAgentAnalytics />} />
           <Route path="/agent/service-center" element={<AgentServiceCenter />} />
-          <Route path="/merchandise" element={<MerchandiseStore />} />
+          <Route path="/merchandise" element={<SignInReturnGate><MerchandiseStore /></SignInReturnGate>} />
           <Route path="/agent/partners" element={<AgentPartners />} />
           <Route path="/agent/proxy-agents" element={<ProxyAgentGuard><ProxyAgentCommandCenter /></ProxyAgentGuard>} />
           <Route path="/join" element={<Join />} />
@@ -827,6 +842,7 @@ function AppRoutes() {
           <Route path="/me/reports" element={<HRSignedInRoute><MyReportsPage /></HRSignedInRoute>} />
           <Route path="/me/staff-reports" element={<HRSignedInRoute><StaffReportsPage /></HRSignedInRoute>} />
           <Route path="/me/zoe" element={<HRSignedInRoute><ZoePage /></HRSignedInRoute>} />
+          <Route path="/me/ideas" element={<HRSignedInRoute><IdeasPage /></HRSignedInRoute>} />
           <Route path="/approvals" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><ApprovalsPage /></RoleGuard>} />
           <Route path="/hr/dashboard/tasks" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRTasksPage /></RoleGuard>} />
           <Route path="/hr/people" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRPeoplePage /></RoleGuard>} />
@@ -874,6 +890,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'agent_ops' as AppRole]} requiredPermission="agent-ops"><AgentVerificationReviewPage /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -888,6 +905,7 @@ function AppRoutes() {
           <Route path="/agent/welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/agent/welile-schools" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSchoolsPage /></RoleGuard>} />
           <Route path="/agent/welile-medicine" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileMedicinePage /></RoleGuard>} />
+          <Route path="/agent/welile-signages" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSignagesPage /></RoleGuard>} />
           <Route path="/agent-welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
           <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />

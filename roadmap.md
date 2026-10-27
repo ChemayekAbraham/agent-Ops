@@ -9,6 +9,8 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
+- [x] Diagnosed Mukama Michael mismatch (registered 0749889347 vs approved 0793805335; left unchanged). Applied persistent rejected-number server guards and read-only agent correction fields with stripped number payloads; eight tests and all guards pass.
+- [ ] Verify rejected-number editing end to end with authorized agent and Landlord Ops sessions — blocked: external Supabase has no restorable signed-in session; no real phone corrections or payouts attempted.
 - [x] Match Cash Position to the supplied compact board screenshot; existing figures, sources, filters and drill-downs preserved. 15 CFO tests and all guards pass, preview build OK; isolated desktop/phone layout and account-detail opening verified. Live signed-in verification unavailable with externally managed authentication. Existing additional reports remain below the compact board.
 - [x] Add consent-based Nexa inquiry signup prompts and signup bar using existing signup: 89 tests, all guards, Deno checks and preview compilation pass; desktop/phone prefill and public inquiry invitation verified. No predictable passwords, account-existence lookup, role writes or account creation from chat; unsupported bonuses excluded. Live WhatsApp delivery and completed live signup remain unverified; no accounts or SMS created during checks.
 - [x] Add Nexa auth-gated actions, deterministic private account guidance, wallet teaching, promissory reminders and canonical company facts. 75 guidance tests and all guards pass; public account guidance and sign-in return destination verified, preview build OK. No database or financial changes; live WhatsApp delivery remains blocked by existing credentials/activation.
@@ -126,3 +128,12 @@
 - [x] Show only a large "Total receivable" UGX figure (from the existing `get_receivables_total` RPC, same number as the CFO dashboard) plus open item count and an "as at" time in EAT, with a Refresh button, on Agent Ops, Tenant Ops and Landlord Ops (`/executive-hub?tab=agent-ops|tenant-ops|landlord-ops` and the `/landlord-ops` home page). Rest of each dashboard behind a "Show all dashboard" button, collapsed by default; on load failure (roles that cannot call the RPC) show "Unavailable", never 0, and open the full dashboard automatically; links carrying query parameters beyond `tab` open the full dashboard. Display only — no database, migration or permission changes.
 - [ ] Verify the header on a live signed-in Agent Ops / Tenant Ops / Landlord Ops account — blocked: externally managed Supabase authentication cannot be restored by browser tools, so the sandbox only reaches the sign-in page. 4 gate tests, typecheck and all guards pass; preview build OK.
 - [x] Put the Money Received section back on Cash Position as the full-width ninth figure tile below the eight tiles; isolated desktop/phone fixture check shows nine tiles, no console errors and no horizontal overflow; all guards and typecheck pass. No financial, database or deployment changes.
+
+## Finance budget head change (27 Oct 2026)
+- [x] Replaced Finance department budget head (MERCY BAYO account) with Nankambo Sharimah; verified live row now points to her (updated 2026-10-27 08:43 UTC).
+
+## Welile Homes read-only audit + Excel export (27 Oct 2026, chemayek abraham)
+- [x] Read-only Welile Homes audit exported to /mnt/documents/welile_homes_audit_2026-10-27.xlsx — 8 tabs, 23 subscriptions, 240 dues, 4 float requests, 129 ledger legs, 29 people; sums verified against DB aggregates. No writes.
+
+## AgentTenantsSheet stale-chunk guard (27 Oct 2026)
+- [x] Checked: both lazy imports (AgentDashboard, AgentDashboardBk) already use lazyNamed, which reloads once for a missing export and then shows "This section needs a refresh"; renders sit inside LazyModal/Suspense. No code change needed.

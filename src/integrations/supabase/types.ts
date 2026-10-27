@@ -100,6 +100,27 @@ export type Database = {
           },
         ]
       }
+      account_links: {
+        Row: {
+          created_at: string
+          linked_user_id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          linked_user_id: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          linked_user_id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       advance_deduction_sms_summary_log: {
         Row: {
           agent_id: string
@@ -6889,6 +6910,510 @@ export type Database = {
           reversal_transaction_group?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_vetting: {
+        Row: {
+          agent_id: string
+          created_at: string
+          email: string | null
+          email_verified_at: string | null
+          gps1_accuracy_m: number | null
+          gps1_captured_at: string | null
+          gps1_lat: number | null
+          gps1_lng: number | null
+          gps2_accuracy_m: number | null
+          gps2_captured_at: string | null
+          gps2_lat: number | null
+          gps2_lng: number | null
+          id_back_path: string | null
+          id_front_path: string | null
+          id_holder_id: string | null
+          id_link_request_id: string | null
+          id_nin_masked: string | null
+          id_source: string | null
+          in_scope: boolean
+          nok_agent_id: string | null
+          nok_name: string | null
+          nok_phone: string | null
+          nok_relationship: string | null
+          nok_source: string | null
+          passport_photo_check: Json | null
+          passport_photo_path: string | null
+          phone: string | null
+          phone_verified_at: string | null
+          residence: Json | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          email?: string | null
+          email_verified_at?: string | null
+          gps1_accuracy_m?: number | null
+          gps1_captured_at?: string | null
+          gps1_lat?: number | null
+          gps1_lng?: number | null
+          gps2_accuracy_m?: number | null
+          gps2_captured_at?: string | null
+          gps2_lat?: number | null
+          gps2_lng?: number | null
+          id_back_path?: string | null
+          id_front_path?: string | null
+          id_holder_id?: string | null
+          id_link_request_id?: string | null
+          id_nin_masked?: string | null
+          id_source?: string | null
+          in_scope?: boolean
+          nok_agent_id?: string | null
+          nok_name?: string | null
+          nok_phone?: string | null
+          nok_relationship?: string | null
+          nok_source?: string | null
+          passport_photo_check?: Json | null
+          passport_photo_path?: string | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          residence?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          email?: string | null
+          email_verified_at?: string | null
+          gps1_accuracy_m?: number | null
+          gps1_captured_at?: string | null
+          gps1_lat?: number | null
+          gps1_lng?: number | null
+          gps2_accuracy_m?: number | null
+          gps2_captured_at?: string | null
+          gps2_lat?: number | null
+          gps2_lng?: number | null
+          id_back_path?: string | null
+          id_front_path?: string | null
+          id_holder_id?: string | null
+          id_link_request_id?: string | null
+          id_nin_masked?: string | null
+          id_source?: string | null
+          in_scope?: boolean
+          nok_agent_id?: string | null
+          nok_name?: string | null
+          nok_phone?: string | null
+          nok_relationship?: string | null
+          nok_source?: string | null
+          passport_photo_check?: Json | null
+          passport_photo_path?: string | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          residence?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      agent_vetting_events: {
+        Row: {
+          actor_id: string | null
+          agent_id: string
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          agent_id: string
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+        }
+        Update: {
+          actor_id?: string | null
+          agent_id?: string
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      agent_vetting_settings: {
+        Row: {
+          enforce: boolean
+          enforce_from: string | null
+          gps_max_accuracy_m: number
+          gps_max_age_minutes: number
+          gps_max_drift_m: number
+          id: boolean
+          otp_max_age_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          enforce?: boolean
+          enforce_from?: string | null
+          gps_max_accuracy_m?: number
+          gps_max_age_minutes?: number
+          gps_max_drift_m?: number
+          id?: boolean
+          otp_max_age_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          enforce?: boolean
+          enforce_from?: string | null
+          gps_max_accuracy_m?: number
+          gps_max_age_minutes?: number
+          gps_max_drift_m?: number
+          id?: boolean
+          otp_max_age_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_vetting_settings_audit: {
+        Row: {
+          application_name: string | null
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[] | null
+          client_addr: unknown
+          db_role: string
+          id: string
+          jwt_role: string | null
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          session_role: string
+        }
+        Insert: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          session_role?: string
+        }
+        Update: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          session_role?: string
         }
         Relationships: []
       }
@@ -27997,6 +28522,96 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_call_amendments: {
+        Row: {
+          call_id: string
+          edited_at: string
+          edited_by: string
+          id: string
+          new_values: Json
+          old_values: Json
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          edited_at?: string
+          edited_by: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          edited_at?: string
+          edited_by?: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landlord_call_dials: {
+        Row: {
+          call_id: string | null
+          caller_id: string
+          expires_at: string
+          id: string
+          landlord_key: string
+          phone: string
+          started_at: string
+        }
+        Insert: {
+          call_id?: string | null
+          caller_id: string
+          expires_at?: string
+          id?: string
+          landlord_key: string
+          phone: string
+          started_at?: string
+        }
+        Update: {
+          call_id?: string | null
+          caller_id?: string
+          expires_at?: string
+          id?: string
+          landlord_key?: string
+          phone?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_call_reports: {
         Row: {
           called_at: string
@@ -28068,6 +28683,78 @@ export type Database = {
             referencedColumns: ["landlord_id"]
           },
         ]
+      }
+      landlord_calls: {
+        Row: {
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string
+          caller_team: string | null
+          dial_started_at: string
+          explained: string | null
+          feedback_category: string | null
+          id: string
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string
+          landlord_name: string | null
+          note: string | null
+          phone_dialed: string
+          recorded_at: string
+          result: string
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id: string
+          caller_team?: string | null
+          dial_started_at: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed: string
+          recorded_at?: string
+          result: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id?: string
+          caller_team?: string | null
+          dial_started_at?: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key?: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed?: string
+          recorded_at?: string
+          result?: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: []
       }
       landlord_cc_row_assignments: {
         Row: {
@@ -30100,6 +30787,57 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      landlord_rejected_number_locks: {
+        Row: {
+          created_at: string
+          landlord_id: string
+        }
+        Insert: {
+          created_at?: string
+          landlord_id: string
+        }
+        Update: {
+          created_at?: string
+          landlord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
       }
       landlord_verification_events: {
         Row: {
@@ -63809,14 +64547,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -64234,6 +64972,32 @@ export type Database = {
           first_user_id: string | null
           kind: string | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      mv_landlord_hub_registry: {
+        Row: {
+          active_rent_plans: number | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_key_text: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          region: string | null
+          registered_at: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
         }
         Relationships: []
       }
@@ -65280,6 +66044,37 @@ export type Database = {
           verified: boolean | null
           verified_houses: number | null
           village: string | null
+        }
+        Relationships: []
+      }
+      v_landlord_calls_effective: {
+        Row: {
+          amended_at: string | null
+          amended_by: string | null
+          amendment_reason: string | null
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string | null
+          caller_team: string | null
+          dial_started_at: string | null
+          explained: string | null
+          feedback_category: string | null
+          id: string | null
+          is_amended: boolean | null
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_name: string | null
+          latest_amendment_id: string | null
+          note: string | null
+          phone_dialed: string | null
+          recorded_at: string | null
+          result: string | null
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
         }
         Relationships: []
       }
@@ -67716,6 +68511,38 @@ export type Database = {
       }
     }
     Functions: {
+      _agent_collections_app_error_included: {
+        Args: {
+          p_component_stack: string
+          p_context: string
+          p_message: string
+          p_role: string
+          p_route: string
+        }
+        Returns: boolean
+      }
+      _agent_expected_effective: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_expected_effective__impl: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -67727,6 +68554,67 @@ export type Database = {
       _agent_products_authorized: { Args: never; Returns: boolean }
       _agent_rule_judged_week_start: { Args: never; Returns: string }
       _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
+      _agent_vetting_ensure: {
+        Args: { p_uid: string }
+        Returns: {
+          agent_id: string
+          created_at: string
+          email: string | null
+          email_verified_at: string | null
+          gps1_accuracy_m: number | null
+          gps1_captured_at: string | null
+          gps1_lat: number | null
+          gps1_lng: number | null
+          gps2_accuracy_m: number | null
+          gps2_captured_at: string | null
+          gps2_lat: number | null
+          gps2_lng: number | null
+          id_back_path: string | null
+          id_front_path: string | null
+          id_holder_id: string | null
+          id_link_request_id: string | null
+          id_nin_masked: string | null
+          id_source: string | null
+          in_scope: boolean
+          nok_agent_id: string | null
+          nok_name: string | null
+          nok_phone: string | null
+          nok_relationship: string | null
+          nok_source: string | null
+          passport_photo_check: Json | null
+          passport_photo_path: string | null
+          phone: string | null
+          phone_verified_at: string | null
+          residence: Json | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_vetting"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _agent_vetting_id_status: {
+        Args: { p_source: string; p_uid: string }
+        Returns: Json
+      }
+      _agent_vetting_log: {
+        Args: { p_agent: string; p_detail?: Json; p_event: string }
+        Returns: undefined
+      }
+      _agent_vetting_parent: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_reopen: {
+        Args: { p_uid: string; p_what: string }
+        Returns: undefined
+      }
+      _agent_vetting_require_agent: { Args: never; Returns: string }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
@@ -67800,6 +68688,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_weekly_shortfall: { Args: { p_agent_id: string }; Returns: number }
       _am_plan_arrears_core: {
         Args: { p_as_at: string; p_rent_request_ids: string[] }
         Returns: {
@@ -68057,6 +68946,13 @@ export type Database = {
         }
         Returns: string
       }
+      _credit_limit_subagent_counts: {
+        Args: { p_user_id: string }
+        Returns: {
+          active_subagents: number
+          registered_subagents: number
+        }[]
+      }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
       _dormant_bike_leases: {
@@ -68110,6 +69006,7 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _is_landlord_payout_owner: { Args: never; Returns: boolean }
       _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
       _landlord_cc_events_in_window: {
         Args: { p_from: string; p_to: string }
@@ -68167,6 +69064,8 @@ export type Database = {
       }
       _landlord_float_position: { Args: { p_day: string }; Returns: Json }
       _landlord_float_ugx: { Args: { p_amount: number }; Returns: string }
+      _landlord_hub_can_read: { Args: never; Returns: boolean }
+      _landlord_hub_can_record: { Args: never; Returns: boolean }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -69757,6 +70656,59 @@ export type Database = {
           p_sub_county?: string
           p_ug_village_id?: number
           p_village?: string
+        }
+        Returns: Json
+      }
+      agent_vetting_capture_gps: {
+        Args: { p_accuracy_m: number; p_lat: number; p_lng: number }
+        Returns: Json
+      }
+      agent_vetting_confirm_email: { Args: never; Returns: Json }
+      agent_vetting_confirm_phone: { Args: never; Returns: Json }
+      agent_vetting_detail: { Args: { p_agent_id: string }; Returns: Json }
+      agent_vetting_distance_m: {
+        Args: { p_lat1: number; p_lat2: number; p_lng1: number; p_lng2: number }
+        Returns: number
+      }
+      agent_vetting_gate_status: { Args: { p_agent_id: string }; Returns: Json }
+      agent_vetting_in_scope: { Args: { p_uid: string }; Returns: boolean }
+      agent_vetting_is_real_email: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
+      agent_vetting_parent_id_link_state: { Args: never; Returns: Json }
+      agent_vetting_queue: {
+        Args: {
+          p_in_scope_only?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      agent_vetting_request_parent_id_link: { Args: never; Returns: Json }
+      agent_vetting_save_details: {
+        Args: {
+          p_id_source?: string
+          p_nok_name?: string
+          p_nok_phone?: string
+          p_nok_relationship?: string
+          p_nok_use_parent?: boolean
+          p_passport_photo_check?: Json
+          p_passport_photo_path?: string
+        }
+        Returns: Json
+      }
+      agent_vetting_save_residence: {
+        Args: {
+          p_city?: string
+          p_district: string
+          p_parish: string
+          p_region: string
+          p_sub_county: string
+          p_town?: string
+          p_village: string
         }
         Returns: Json
       }
@@ -72432,6 +73384,7 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
@@ -73339,6 +74292,10 @@ export type Database = {
       current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
+      decide_agent_vetting: {
+        Args: { p_agent_id: string; p_approve: boolean; p_note?: string }
+        Returns: Json
+      }
       decide_compound_reversal: {
         Args: { p_approve: boolean; p_note: string; p_request_id: string }
         Returns: Json
@@ -76272,6 +77229,14 @@ export type Database = {
           without_landlord: number
         }[]
       }
+      get_cmo_referral_lists: {
+        Args: { p_end: string; p_start: string; p_status?: string }
+        Returns: Json
+      }
+      get_cmo_referral_totals: {
+        Args: { p_end: string; p_months?: Json; p_start: string }
+        Returns: Json
+      }
       get_cohort_retention: {
         Args: {
           p_bucket?: string
@@ -76712,6 +77677,11 @@ export type Database = {
         }[]
       }
       get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_growth_snapshot_live: { Args: never; Returns: Json }
+      get_growth_sources_live: {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
@@ -77321,6 +78291,7 @@ export type Database = {
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
       get_my_agent_collections_today: { Args: never; Returns: Json }
+      get_my_agent_vetting: { Args: never; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_borrowed_loans: {
         Args: never
@@ -77363,6 +78334,15 @@ export type Database = {
           rank_position: number
           tier_name: string
           updated_at: string
+        }[]
+      }
+      get_my_expected_days: {
+        Args: { p_agent_id?: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          expected_ugx: number
+          rent_request_id: string
+          tenant_id: string
         }[]
       }
       get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
@@ -78021,6 +79001,10 @@ export type Database = {
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_performance_rows: {
         Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_referral_performance_summary: {
+        Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
@@ -79455,6 +80439,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      holds_finance_office: { Args: { _user_id: string }; Returns: boolean }
       house_has_live_claim: { Args: { p_house_id: string }; Returns: boolean }
       house_listing_protected_unchanged: {
         Args: {
@@ -80053,6 +81038,8 @@ export type Database = {
         Returns: boolean
       }
       is_agent_perf_gate_disabled: { Args: never; Returns: boolean }
+      is_agent_vetted: { Args: { p_agent_id: string }; Returns: boolean }
+      is_agent_vetting_reviewer: { Args: { p_uid: string }; Returns: boolean }
       is_approved_proxy_agent: {
         Args: { p_user_id?: string }
         Returns: boolean
@@ -80140,6 +81127,7 @@ export type Database = {
         Returns: boolean
       }
       is_requisition_office_holder: { Args: { _uid: string }; Returns: boolean }
+      is_same_person: { Args: { _a: string; _b: string }; Returns: boolean }
       is_sensitive_field_editor: { Args: { _uid: string }; Returns: boolean }
       is_service_center_manager: {
         Args: { p_agent_id: string }
@@ -80465,6 +81453,80 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_hub_amend_call: {
+        Args: { p_call_id: string; p_changes: Json; p_reason: string }
+        Returns: Json
+      }
+      landlord_hub_detail: { Args: { p_landlord_key: string }; Returns: Json }
+      landlord_hub_list: {
+        Args: {
+          p_agent?: string
+          p_district?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_tab?: string
+          p_verified?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          being_called_by: string
+          being_called_by_id: string
+          being_called_since: string
+          call_back_due_at: string
+          call_back_overdue: boolean
+          district: string
+          houses_count: number
+          hub_status: string
+          landlord_id: string
+          landlord_key: string
+          landlord_name: string
+          last_call_at: string
+          last_caller_id: string
+          last_caller_name: string
+          last_result: string
+          live_rent_plans: number
+          needs_review: boolean
+          phone: string
+          phone_masked: boolean
+          region: string
+          rent_plan_value: number
+          total_count: number
+          user_id: string
+          verification_status: string
+          verified: boolean
+        }[]
+      }
+      landlord_hub_record_call: {
+        Args: {
+          p_aware_30m?: string
+          p_aware_payout_otp?: string
+          p_call_back_at?: string
+          p_dial_id?: string
+          p_dial_started_at: string
+          p_explained?: string
+          p_feedback_category?: string
+          p_landlord_consent?: string
+          p_landlord_id?: string
+          p_landlord_key: string
+          p_landlord_name?: string
+          p_note?: string
+          p_phone_dialed: string
+          p_result: string
+          p_severity?: string
+          p_tenants_discussed?: string[]
+        }
+        Returns: Json
+      }
+      landlord_hub_start_dial: {
+        Args: { p_landlord_key: string; p_phone: string }
+        Returns: Json
+      }
+      landlord_hub_stats: { Args: never; Returns: Json }
       landlord_number_norm: { Args: { p: string }; Returns: string }
       landlord_ops_approved_districts: { Args: never; Returns: Json }
       landlord_ops_bind_tenant_to_house: {
@@ -83476,6 +84538,10 @@ export type Database = {
           inserted_count: number
         }[]
       }
+      portfolio_compound_email_facts: {
+        Args: { p_portfolio_id: string; p_reference?: string }
+        Returns: Json
+      }
       post_instalment_waterfall: {
         Args: {
           p_idempotency_key?: string
@@ -84723,6 +85789,7 @@ export type Database = {
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
       refresh_mv_identity_double_users: { Args: never; Returns: undefined }
+      refresh_mv_landlord_hub_registry: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
@@ -86655,6 +87722,10 @@ export type Database = {
       subagent_listing_count: {
         Args: { p_sub_agent_id: string }
         Returns: number
+      }
+      submit_agent_vetting: {
+        Args: { p_accuracy_m: number; p_lat: number; p_lng: number }
+        Returns: Json
       }
       submit_identity_photos:
         | {
@@ -88858,6 +89929,19 @@ export type Database = {
           float_balance: number
           pending_holds: number
           total_visible: number
+          withdrawable: number
+        }[]
+      }
+      user_wallet_strict_for: {
+        Args: { p_user_id: string }
+        Returns: {
+          advance_balance: number
+          float_balance: number
+          float_balance_signed: number
+          pending_holds: number
+          restricted_held: number
+          total_visible: number
+          user_id: string
           withdrawable: number
         }[]
       }

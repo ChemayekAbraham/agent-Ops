@@ -16,12 +16,16 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import {
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, selectWithOptionalFundingStatus,
+  WH_STAGE_META, type WhPlanStage, type WhStageMeta,
+} from '@/lib/welileHomesPlanStatus';
+import {
   Building2, Loader2, Search, Users, Banknote, TrendingUp, Clock,
   RefreshCw, Download, Wallet, Coins, Activity, Home,
   Smartphone, UserCheck, X, CheckCircle2, ArrowRight, ArrowUpRight,
   Filter, Info, ShieldCheck, Sparkles, AlertCircle, ChevronRight, ChevronDown, ChevronUp, Phone,
   LayoutDashboard, ArrowLeft, Calendar, ClipboardList, Inbox, Trash2, History, UserPlus, FileText, MoreHorizontal,
-  BarChart3, XCircle
+  BarChart3, XCircle, Lock
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { WelileHomesMobileBottomNav } from './WelileHomesMobileBottomNav';
@@ -143,6 +147,42 @@ export interface MonthlyDueRow {
 
 type FilterCategory = 'all' | 'float' | 'wallet' | 'high_outstanding' | 'smartphone';
 
+const ADMIN_STAGE_TONE_CLASS: Record<WhStageMeta['tone'], string> = {
+  destructive: 'border-destructive/40 bg-destructive/10 text-destructive font-medium',
+  success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold',
+  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium',
+  info: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium',
+  violet: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium',
+  neutral: 'border-amber-500/30 text-amber-600 bg-amber-500/5',
+};
+
+interface AdminPipelineStatus extends WhStageMeta {
+  stage: WhPlanStage;
+  badgeClass: string;
+  /** Delete withheld (money or a live request attached). The server refuses the same. */
+  isLocked: boolean;
+}
+
+interface AdminPlanFacts {
+  floatLinks: Map<string, string>;
+  collectedSubIds: Set<string>;
+  collectionsUnknown: boolean;
+}
+
+/** Stage and delete lock from recorded facts only (src/lib/welileHomesPlanStatus.ts). */
+function resolveAdminPipeline(row: Row, ctx: AdminPlanFacts): AdminPipelineStatus {
+  const facts = {
+    subscriptionStatus: row.subscription_status,
+    fundingStatus: row.funding_status,
+    linkedRequestStatus: ctx.floatLinks.get(row.id) ?? null,
+    hasCollections: ctx.collectedSubIds.has(row.id),
+    collectionsUnknown: ctx.collectionsUnknown,
+  };
+  const stage = resolveWhPlanStage(facts);
+  const meta = WH_STAGE_META[stage];
+  return { ...meta, stage, badgeClass: ADMIN_STAGE_TONE_CLASS[meta.tone], isLocked: isWhPlanLocked(facts) };
+}
+
 interface KpiTileProps {
   title: string;
   value: string;
@@ -223,6 +263,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const [forwardingSelected, setForwardingSelected] = useState(false);
   const [profileAgentId, setProfileAgentId] = useState<string | null>(null);
   const [floatRequests, setFloatRequests] = useState<FloatRequestItem[]>([]);
+  // Recorded facts behind each plan's stage and delete lock.
+  const [floatLinks, setFloatLinks] = useState<Map<string, string>>(new Map());
+  const [collectedSubIds, setCollectedSubIds] = useState<Set<string>>(new Set());
+  const [collectionsUnknown, setCollectionsUnknown] = useState(true);
+  const planFacts = useMemo<AdminPlanFacts>(
+    () => ({ floatLinks, collectedSubIds, collectionsUnknown }),
+    [floatLinks, collectedSubIds, collectionsUnknown],
+  );
   const [selectedAppTenantIds, setSelectedAppTenantIds] = useState<Set<string>>(new Set());
   const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined'>('all');
   const [expandedAppLandlords, setExpandedAppLandlords] = useState<Record<string, boolean>>({});
@@ -267,13 +315,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('welile_homes_subscriptions')
-        .select('id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at, subscription_status')
-        .eq('mode', 'agent_collection')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const list = (data ?? []) as Row[];
+      const list = await selectWithOptionalFundingStatus<Row>((extra) =>
+        supabase
+          .from('welile_homes_subscriptions')
+          .select(`id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at, subscription_status${extra}`)
+          .eq('mode', 'agent_collection')
+          .order('created_at', { ascending: false }) as any,
+      );
       const ids = Array.from(new Set([...list.map((r) => r.tenant_id), ...list.map((r) => r.agent_id).filter(Boolean) as string[]]));
       if (ids.length) {
         const { data: profs } = await supabase.from('profiles').select('id, full_name, phone, verified').in('id', ids);
@@ -291,6 +339,38 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         });
       }
       setRows(list);
+
+      // Subscriptions with collections or landlord payouts recorded (locks Delete).
+      // Paged so a large book is read completely; any failure locks every plan.
+      try {
+        const collected = new Set<string>();
+        const PAGE = 1000;
+        let complete = false;
+        for (let page = 0; page < 50; page++) {
+          const { data: dueRows, error: duesErr } = await supabase
+            .from('welile_homes_monthly_dues')
+            .select('subscription_id, amount_collected, collection_status, payout_status')
+            .or('amount_collected.gt.0,collection_status.eq.collected,payout_status.neq.unpaid')
+            .order('id', { ascending: true })
+            .range(page * PAGE, page * PAGE + PAGE - 1);
+          if (duesErr) throw duesErr;
+          (dueRows ?? []).filter(dueHasCollection).forEach((d: { subscription_id: string }) => collected.add(d.subscription_id));
+          if (!dueRows || dueRows.length < PAGE) { complete = true; break; }
+        }
+        setCollectedSubIds(collected);
+        setCollectionsUnknown(!complete);
+      } catch (cErr) {
+        console.warn('Welile Homes collections read failed; Delete locked:', cErr);
+        setCollectionsUnknown(true);
+      }
+
+      // Float request linked to each subscription (empty until the float-link migration).
+      try {
+        setFloatLinks(await fetchWhFloatLinks());
+      } catch (linkErr) {
+        console.warn('Welile Homes float links unavailable:', linkErr);
+        setFloatLinks(new Map());
+      }
 
       // Load Float Requests from agents
       try {
@@ -1002,6 +1082,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
 
   const handleDeleteConfirm = async () => {
     if (!deleteSub) return;
+    const isRepaying = resolveAdminPipeline(deleteSub, planFacts).isLocked;
+    if (isRepaying) {
+      toast.error(collectionsUnknown
+        ? 'Payment history could not be loaded, so this plan cannot be deleted right now.'
+        : 'This plan cannot be deleted: collections, a float request or funding are recorded.');
+      setDeleteSub(null);
+      return;
+    }
     setDeleting(true);
     try {
       const { error } = await (supabase.rpc as unknown as (fn: string, args: { p_subscription_id: string }) => Promise<{ error: Error | null }>)(
@@ -2146,6 +2234,41 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                                           {t.landlord_uses_wallet ? 'Welile Wallet' : 'Agent Float'}
                                         </Badge>
+                                        {(() => {
+                                          const pStatus = resolveAdminPipeline(t, planFacts);
+                                          return (
+                                            <>
+                                              <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                  "text-[10px] px-1.5 py-0 font-normal gap-1",
+                                                  t.tenant_verified
+                                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+                                                    : "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                                                )}
+                                              >
+                                                {t.tenant_verified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
+                                                {t.tenant_verified ? 'Verified' : 'Unverified'}
+                                              </Badge>
+
+                                              <Badge
+                                                variant="outline"
+                                                className={cn("text-[10px] px-1.5 py-0 gap-1 font-medium", pStatus.badgeClass)}
+                                              >
+                                                {pStatus.isPending ? (
+                                                  <Clock className="h-2.5 w-2.5 animate-pulse text-amber-500" />
+                                                ) : pStatus.tone === 'success' ? (
+                                                  <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" />
+                                                ) : pStatus.tone === 'destructive' ? (
+                                                  <XCircle className="h-2.5 w-2.5 text-destructive" />
+                                                ) : (
+                                                  <AlertCircle className="h-2.5 w-2.5 text-amber-500" />
+                                                )}
+                                                <span>{pStatus.label}</span>
+                                              </Badge>
+                                            </>
+                                          );
+                                        })()}
                                       </div>
                                       <button
                                         type="button"
@@ -2195,27 +2318,52 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                     </Button>
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleDeclineTenant(t)}
-                                      disabled={declining}
-                                      className="h-8 px-2.5 text-xs rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer font-semibold"
-                                    >
-                                      <XCircle className="h-3.5 w-3.5" />
-                                      <span>Decline</span>
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setDeleteSub(t)}
-                                      className="h-8 px-2.5 text-xs rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                      <span>Delete</span>
-                                    </Button>
-                                  </div>
+                                  {(() => {
+                                    const pStatus = resolveAdminPipeline(t, planFacts);
+                                    const isRepaying = pStatus.isLocked;
+                                    // Decline stays available while a request is in review or was rejected;
+                                    // it is withheld once money is attached or the plan is already declined.
+                                    const canDecline = !['declined', 'repaying', 'funded', 'approved_unconfirmed'].includes(pStatus.stage);
+
+                                    return (
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        {canDecline && (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDeclineTenant(t)}
+                                            disabled={declining}
+                                            className="h-8 px-2.5 text-xs rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer font-semibold"
+                                          >
+                                            <XCircle className="h-3.5 w-3.5" />
+                                            <span>Decline</span>
+                                          </Button>
+                                        )}
+                                        {isRepaying ? (
+                                          <Badge
+                                            variant="outline"
+                                            className="h-8 px-2.5 text-[11px] text-muted-foreground border-border/60 bg-muted/20 gap-1 font-normal select-none"
+                                            title={collectionsUnknown
+                                              ? 'Payment history could not be loaded, so Delete is unavailable'
+                                              : 'Plans with collections, a float request or funding cannot be deleted'}
+                                          >
+                                            <Lock className="h-3 w-3 text-muted-foreground" />
+                                            <span>Non-deletable Plan</span>
+                                          </Badge>
+                                        ) : (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setDeleteSub(t)}
+                                            className="h-8 px-2.5 text-xs rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            <span>Delete</span>
+                                          </Button>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             );
