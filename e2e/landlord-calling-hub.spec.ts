@@ -90,6 +90,13 @@ async function seedLandlordHub(page: Page, captured: CapturedRpc[]) {
     hub_status: 'never_called' as 'never_called' | 'answered',
     needs_review: false,
     total_count: 1,
+    plan_stage: 'live' as const,
+    plans_total: 1,
+    tenants_count: 1,
+    check_flags: [] as string[],
+    needs_check: false,
+    registrar_is_agent_now: true,
+    service_center_status: 'verified',
   };
 
   await page.route(`**://${SUPABASE_HOST}/**`, async (route) => {
@@ -139,10 +146,36 @@ async function seedLandlordHub(page: Page, captured: CapturedRpc[]) {
         call_backs_overdue: 0,
         live_plan_landlords_total: 1,
         live_plan_landlords_never_called: recordedAnswered ? 0 : 1,
+        in_progress_never_called: 0,
+        check_first_count: 0,
+        in_progress_total: 0,
+        finished_total: 0,
+        registered_only_total: 0,
+        all_landlords_total: 1,
+        scope_counts: {
+          live: 1,
+          in_progress: 0,
+          finished: 0,
+          registered_only: 0,
+          check_first: 0,
+          all: 1,
+        },
         landlords_reached_this_week: recordedAnswered ? 1 : 0,
         week_start: '2026-10-21',
         kampala_today: '2026-10-27',
       });
+    }
+
+    if (url.includes('/rest/v1/rpc/landlord_hub_agents')) {
+      return json(route, [
+        {
+          agent_id: 'agent-1',
+          agent_name: 'Agent Sarah',
+          landlord_count: 1,
+          live_landlord_count: 1,
+          is_agent_now: true,
+        },
+      ]);
     }
 
     if (url.includes('/rest/v1/rpc/landlord_hub_list')) {

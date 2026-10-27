@@ -9,7 +9,11 @@ import {
   QUESTION_LANDLORD_CONSENT,
   QUESTION_PAYOUT_OTP,
 } from '@/lib/awarenessCallLabels';
-import { setLandlordHubNewLocalOverride } from '@/hooks/useLandlordCallingHub';
+import {
+  HUB_SCOPE_OPTIONS,
+  formatCheckFlagLabel,
+  setLandlordHubNewLocalOverride,
+} from '@/hooks/useLandlordCallingHub';
 
 // ─── Spies & Mock State ──────────────────────────────────────────────────────
 
@@ -42,8 +46,15 @@ const sampleRow1 = {
   being_called_by: 'Grace',
   being_called_since: '2026-10-27T09:15:00Z',
   hub_status: 'never_called',
-  needs_review: true,
-  total_count: 807,
+  needs_review: false,
+  total_count: 806,
+  plan_stage: 'live',
+  plans_total: 2,
+  tenants_count: 2,
+  check_flags: [],
+  needs_check: false,
+  registrar_is_agent_now: true,
+  service_center_status: 'verified',
 };
 
 const sampleRowCallback = {
@@ -55,7 +66,7 @@ const sampleRowCallback = {
   phone_masked: false,
   region: 'Central',
   district: 'Wakiso',
-  agent_id: null,
+  agent_id: 'cccc3333-3333-3333-3333-333333333333',
   agent_name: 'Agent Peter',
   verified: false,
   verification_status: 'pending',
@@ -73,8 +84,75 @@ const sampleRowCallback = {
   being_called_since: null,
   hub_status: 'call_back',
   needs_review: false,
-  total_count: 807,
+  total_count: 806,
+  plan_stage: 'live',
+  plans_total: 1,
+  tenants_count: 1,
+  check_flags: [],
+  needs_check: false,
+  registrar_is_agent_now: false,
+  service_center_status: 'pending',
 };
+
+const sampleRowCheckFirst = {
+  landlord_key: 'll-overload-999',
+  landlord_id: 'ca207807-3996-4a1b-98a8-fc21191156c7',
+  user_id: null,
+  landlord_name: 'Placeholder Account',
+  phone: '0700999888',
+  phone_masked: false,
+  region: 'Central',
+  district: 'Kampala',
+  agent_id: 'cccc3333-3333-3333-3333-333333333333',
+  agent_name: 'Former Agent',
+  verified: false,
+  verification_status: 'rejected',
+  houses_count: 0,
+  live_rent_plans: 14,
+  rent_plan_value: 9500000,
+  last_call_at: null,
+  last_result: null,
+  last_caller_id: null,
+  last_caller_name: null,
+  call_back_due_at: null,
+  call_back_overdue: false,
+  being_called_by_id: null,
+  being_called_by: null,
+  being_called_since: null,
+  hub_status: 'never_called',
+  needs_review: true,
+  total_count: 1384,
+  plan_stage: 'live',
+  plans_total: 3012,
+  tenants_count: 2906,
+  check_flags: [
+    'plan_overload',
+    'is_own_tenant',
+    'duplicate_phone',
+    'rejected_with_live_plan',
+    'registrar_not_agent',
+  ],
+  needs_check: true,
+  registrar_is_agent_now: false,
+  service_center_status: 'rejected',
+};
+
+const sampleAgents = [
+  {
+    agent_id: 'aaaa1111-1111-1111-1111-111111111111',
+    agent_name: 'Agent Sarah',
+    landlord_count: 42,
+    live_landlord_count: 18,
+    is_agent_now: true,
+  },
+  {
+    agent_id: 'cccc3333-3333-3333-3333-333333333333',
+    agent_name: 'Agent Peter',
+    landlord_count: 11,
+    live_landlord_count: 3,
+    is_agent_now: false,
+  },
+];
 
 const sampleDetail = {
   landlord_key: 'll-101',
@@ -89,7 +167,17 @@ const sampleDetail = {
   property_address: 'Plot 14 Ntinda Road',
   verified: true,
   verification_status: 'verified',
-  needs_review: true,
+  service_center_status: 'verified',
+  needs_review: false,
+  needs_check: false,
+  check_flags: [],
+  plan_stage: 'live',
+  plans_total: 2,
+  plans_live: 2,
+  plans_shown: 1,
+  tenants_total: 2,
+  tenants_count: 2,
+  registrar_is_agent_now: true,
   registered_at: '2026-01-10T08:00:00Z',
   houses_count: 2,
   live_rent_plans: 2,
@@ -98,13 +186,17 @@ const sampleDetail = {
     agent_id: 'aaaa1111-1111-1111-1111-111111111111',
     full_name: 'Agent Sarah',
     phone: '0782000111',
+    is_agent_now: true,
   },
   caretaker: {
     name: 'Caretaker John',
     phone: '0779555444',
   },
   payout_details: {
+    primary_payout_number: '0772123456',
+    payout_number_confirmed: true,
     mobile_money_number: '0772123456',
+    unconfirmed_mobile_money_number: '0772123456',
     mobile_money_name: 'MUSA MUKASA',
     verified_mobile_money_number: '0772123456',
     bank_name: 'Stanbic Bank',
@@ -137,7 +229,7 @@ const sampleDetail = {
       rent_request_id: 'rr-501',
       tenant_id: 'ten-501',
       tenant_name: 'Kato Brian',
-      tenant_phone: '0775111222',
+      tenant_phone: '077****222',
       status: 'disbursed',
       rent_amount: 850000,
       daily_repayment: 33000,
@@ -190,14 +282,66 @@ const sampleDetail = {
   active_dial: null,
 };
 
+const sampleDetailOverloaded = {
+  ...sampleDetail,
+  landlord_key: 'll-overload-999',
+  landlord_id: 'ca207807-3996-4a1b-98a8-fc21191156c7',
+  landlord_name: 'Placeholder Account',
+  verified: false,
+  verification_status: 'rejected',
+  needs_check: true,
+  check_flags: ['plan_overload', 'registrar_not_agent'],
+  plans_total: 3012,
+  plans_shown: 50,
+  tenants_total: 2906,
+  tenants_count: 2906,
+  registrar_is_agent_now: false,
+  registering_agent: {
+    agent_id: 'cccc3333-3333-3333-3333-333333333333',
+    full_name: 'Former Agent',
+    phone: '0782999000',
+    is_agent_now: false,
+  },
+  tenants_and_plans: Array.from({ length: 50 }).map((_, idx) => ({
+    rent_request_id: `rr-cap-${idx + 1}`,
+    tenant_id: `ten-cap-${idx + 1}`,
+    tenant_name: `Tenant ${idx + 1}`,
+    tenant_phone: '077****111',
+    status: 'disbursed',
+    rent_amount: 500000,
+    daily_repayment: 20000,
+    total_repayment: 600000,
+    amount_repaid: 200000,
+    outstanding: 400000,
+    agent_id: 'aaaa1111-1111-1111-1111-111111111111',
+    agent_name: 'Agent Sarah',
+    funded_at: '2026-10-01T10:00:00Z',
+    created_at: '2026-09-29T10:00:00Z',
+  })),
+};
+
 const sampleStats = {
   calls_today: 18,
   answered_today: 12,
   answered_rate_pct: 66.7,
   call_backs_due: 4,
   call_backs_overdue: 2,
-  live_plan_landlords_total: 807,
+  live_plan_landlords_total: 806,
   live_plan_landlords_never_called: 277,
+  in_progress_never_called: 31,
+  check_first_count: 1384,
+  in_progress_total: 109,
+  finished_total: 2014,
+  registered_only_total: 42793,
+  all_landlords_total: 47106,
+  scope_counts: {
+    live: 806,
+    in_progress: 109,
+    finished: 2014,
+    registered_only: 42793,
+    check_first: 1384,
+    all: 47106,
+  },
   landlords_reached_this_week: 64,
   week_start: '2026-10-21',
   kampala_today: '2026-10-27',
@@ -411,7 +555,7 @@ function renderWithClient(ui: React.ReactElement) {
   );
 }
 
-describe('LandlordCallingHub (Prompt 3 replacement)', () => {
+describe('LandlordCallingHub (Prompt 2 journey groups, real landlords only, Check first)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -424,13 +568,22 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
       if (fnName === 'landlord_hub_stats') {
         return { data: sampleStats, error: null };
       }
+      if (fnName === 'landlord_hub_agents') {
+        return { data: sampleAgents, error: null };
+      }
       if (fnName === 'landlord_hub_list') {
+        if (args?.p_scope === 'check_first') {
+          return { data: [sampleRowCheckFirst], error: null };
+        }
         if (args?.p_tab === 'call_back') {
           return { data: [sampleRowCallback], error: null };
         }
         return { data: [sampleRow1, sampleRowCallback], error: null };
       }
       if (fnName === 'landlord_hub_detail') {
+        if (args?.p_landlord_key === 'll-overload-999') {
+          return { data: sampleDetailOverloaded, error: null };
+        }
         return { data: sampleDetail, error: null };
       }
       if (fnName === 'landlord_hub_start_dial') {
@@ -478,88 +631,186 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     });
   });
 
-  it('1. renders top stats strip, scope switch, tabs with counts, paging line, and landlord rows with badges', async () => {
+  it('1. renders the 5 journey scopes with counts and plain-words descriptions, top refresh note, and 6 stats strip buttons', async () => {
     renderWithClient(<LandlordCallingHub />);
 
     expect(await screen.findByText('Hajji Musa Mukasa')).toBeInTheDocument();
-    expect(screen.getByTestId('hub-showing-line')).toHaveTextContent(
-      'Showing 1 to 50 of 807',
+
+    // Refresh note near top
+    expect(screen.getByTestId('hub-refresh-note')).toHaveTextContent(
+      'The list updates every 5 minutes. Calls you record show immediately.',
     );
 
-    // Top stats strip
+    // 5 scopes + counts + plain-words description
+    expect(HUB_SCOPE_OPTIONS.map((s) => s.value)).toEqual([
+      'live',
+      'in_progress',
+      'finished',
+      'registered_only',
+      'check_first',
+    ]);
+    expect(screen.getByTestId('hub-scope-count-live')).toHaveTextContent('806');
+    expect(screen.getByTestId('hub-scope-count-in_progress')).toHaveTextContent('109');
+    expect(screen.getByTestId('hub-scope-count-finished')).toHaveTextContent('2,014');
+    expect(screen.getByTestId('hub-scope-count-registered_only')).toHaveTextContent('42,793');
+    expect(screen.getByTestId('hub-scope-count-check_first')).toHaveTextContent('1,384');
+    expect(screen.getByTestId('hub-scope-description')).toHaveTextContent(
+      'Landlords whose tenants have a funded or repaying Rent Plan',
+    );
+
+    // Top stats strip (all 6 buttons)
     expect(screen.getByTestId('hub-stat-calls-today')).toHaveTextContent('18');
     expect(screen.getByTestId('hub-stat-answered-rate')).toHaveTextContent('66.7%');
     expect(screen.getByTestId('hub-stat-callbacks-due')).toHaveTextContent('4');
     expect(screen.getByTestId('hub-stat-callbacks-due')).toHaveTextContent('2 overdue');
+    expect(screen.getByTestId('hub-stat-in-progress-never-called')).toHaveTextContent('31');
     expect(screen.getByTestId('hub-stat-never-called')).toHaveTextContent('277');
+    expect(screen.getByTestId('hub-stat-check-first')).toHaveTextContent('1,384');
 
-    // Row badges: "Being called by Grace", "Needs review", overdue call-back badge
+    // Row badges: verification status ("Verified" / "Pending"), plan stage ("Live Rent Plan"), "Being called by Grace"
+    expect(screen.getByTestId('hub-row-vstatus-ll-101')).toHaveTextContent('Verified');
+    expect(screen.getByTestId('hub-row-vstatus-ll-202')).toHaveTextContent('Pending');
+    expect(screen.getByTestId('hub-row-stage-ll-101')).toHaveTextContent('Live Rent Plan');
     expect(screen.getByTestId('hub-row-being-called-ll-101')).toHaveTextContent(
       'Being called by Grace',
-    );
-    expect(screen.getByTestId('hub-row-needs-review-ll-101')).toHaveTextContent(
-      'Needs review',
     );
     expect(screen.getByTestId('hub-row-callback-badge-ll-202')).toHaveTextContent(
       /Overdue/i,
     );
 
-    // Clicking a stat filters the view
-    fireEvent.click(screen.getByTestId('hub-stat-callbacks-due'));
+    // Clicking "Plans in progress never called" stat switches scope to in_progress + tab to_call
+    fireEvent.click(screen.getByTestId('hub-stat-in-progress-never-called'));
     await waitFor(() => {
       expect(rpcSpy).toHaveBeenCalledWith(
         'landlord_hub_list',
         expect.objectContaining({
-          p_tab: 'call_back',
-          p_sort: 'call_back_due',
+          p_scope: 'in_progress',
+          p_tab: 'to_call',
         }),
       );
     });
+    expect(screen.getByTestId('hub-scope-description')).toHaveTextContent(
+      'Landlords with a Rent Plan currently moving through approval',
+    );
 
-    // "Take over" button appears on another officer's call back
+    // Clicking "Call backs due" stat switches to call_back tab and shows "Take over"
+    fireEvent.click(screen.getByTestId('hub-stat-callbacks-due'));
     expect(await screen.findByTestId('hub-row-takeover-ll-202')).toBeInTheDocument();
   });
 
-  it('2. applies scope, search, region, district, agent, verified filters and sort through landlord_hub_list', async () => {
+  it('2. renders the Check first view with plain-words flags, lead banner, and Open details only (no Call button on rows)', async () => {
+    // Plain-words flag helper check
+    expect(formatCheckFlagLabel('is_own_tenant')).toBe('Also a tenant');
+    expect(formatCheckFlagLabel('duplicate_phone')).toBe('Phone used by another landlord');
+    expect(formatCheckFlagLabel('test_account')).toBe('Possible test account');
+    expect(formatCheckFlagLabel('no_phone')).toBe('No usable phone number');
+    expect(formatCheckFlagLabel('plan_overload', 3012)).toBe(
+      'Unusually many Rent Plans (3,012)',
+    );
+    expect(formatCheckFlagLabel('rejected_with_live_plan')).toBe(
+      'Rejected but has a live Rent Plan',
+    );
+    expect(formatCheckFlagLabel('registrar_not_agent')).toBe(
+      'Registered by someone who is no longer an agent',
+    );
+
     renderWithClient(<LandlordCallingHub />);
     await screen.findByText('Hajji Musa Mukasa');
 
-    // Switch scope to With Rent Plans
-    fireEvent.click(screen.getByTestId('hub-scope-with_plans'));
+    // Switch to Check first via stat or scope button
+    fireEvent.click(screen.getByTestId('hub-scope-check_first'));
+
+    expect(await screen.findByTestId('hub-check-first-banner')).toHaveTextContent(
+      /A Landlord Ops lead should review these records before calling/i,
+    );
+    expect(screen.getByTestId('hub-scope-description')).toHaveTextContent(
+      'Landlords flagged for a data or look-alike check before calling',
+    );
+
+    const flagsContainer = await screen.findByTestId(
+      'hub-row-check-flags-ll-overload-999',
+    );
+    expect(flagsContainer).toHaveTextContent('Unusually many Rent Plans (3,012)');
+    expect(flagsContainer).toHaveTextContent('Also a tenant');
+    expect(flagsContainer).toHaveTextContent('Phone used by another landlord');
+    expect(flagsContainer).toHaveTextContent('Rejected but has a live Rent Plan');
+    expect(flagsContainer).toHaveTextContent(
+      'Registered by someone who is no longer an agent',
+    );
+
+    // No Call button on the Check first row — only "Open details"
+    expect(screen.queryByTestId('hub-row-call-ll-overload-999')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('hub-row-open-details-ll-overload-999'),
+    ).toHaveTextContent('Open details');
+
+    // Opening the card shows the Check first banner, disables the Call button, shows "No longer an agent", and "Showing 50 of 3,012"
+    fireEvent.click(screen.getByTestId('hub-row-open-details-ll-overload-999'));
+    expect(await screen.findByTestId('landlord-hub-card')).toBeInTheDocument();
+    expect(await screen.findByTestId('hub-card-check-first-banner')).toHaveTextContent(
+      'Unusually many Rent Plans (3,012)',
+    );
+    expect(screen.getByTestId('hub-card-call-btn')).toBeDisabled();
+    expect(screen.getByTestId('hub-agent-not-active-note')).toHaveTextContent(
+      'No longer an agent',
+    );
+    expect(screen.getByTestId('hub-tenants-showing-count')).toHaveTextContent(
+      'Showing 50 of 3,012',
+    );
+  });
+
+  it('3. applies registering-agent drop-down (from landlord_hub_agents) and status filter (Pending / Verified / Rejected) through landlord_hub_list', async () => {
+    renderWithClient(<LandlordCallingHub />);
+    await screen.findByText('Hajji Musa Mukasa');
+
+    // Switch scope to Finished plans
+    fireEvent.click(screen.getByTestId('hub-scope-finished'));
     await waitFor(() => {
       expect(rpcSpy).toHaveBeenCalledWith(
         'landlord_hub_list',
-        expect.objectContaining({ p_scope: 'with_plans' }),
+        expect.objectContaining({ p_scope: 'finished' }),
       );
     });
 
-    // Open filters panel and filter by district + verified
+    // Open filters panel: select agent from drop-down and click "Pending" status filter
     fireEvent.click(screen.getByTestId('hub-filters-toggle'));
-    fireEvent.change(screen.getByTestId('hub-filter-district'), {
-      target: { value: 'Wakiso' },
+    const agentSelect = screen.getByTestId('hub-filter-agent') as HTMLSelectElement;
+    expect(agentSelect.tagName).toBe('SELECT');
+    expect(agentSelect).toHaveTextContent('Agent Sarah (42)');
+    expect(agentSelect).toHaveTextContent('Agent Peter (11 · no longer an agent)');
+
+    fireEvent.change(agentSelect, {
+      target: { value: 'aaaa1111-1111-1111-1111-111111111111' },
     });
-    fireEvent.click(screen.getByTestId('hub-filter-verified-verified'));
+    fireEvent.click(screen.getByTestId('hub-filter-status-pending'));
 
     await waitFor(() => {
       expect(rpcSpy).toHaveBeenCalledWith(
         'landlord_hub_list',
         expect.objectContaining({
-          p_district: 'Wakiso',
-          p_verified: 'verified',
+          p_agent: 'aaaa1111-1111-1111-1111-111111111111',
+          p_status: 'pending',
         }),
       );
     });
   });
 
-  it('3. opens the Landlord Card showing payout numbers, caretaker, houses, tenants & Rent Plans, payouts, and call history', async () => {
+  it('4. opens the Landlord Card showing Confirmed payout badge, caretaker, houses, tenants & Rent Plans with agent and masked phone, payouts, and call history', async () => {
     renderWithClient(<LandlordCallingHub />);
     const row = await screen.findByTestId('hub-row-ll-101');
     fireEvent.click(row);
 
     expect(await screen.findByTestId('landlord-hub-card')).toBeInTheDocument();
     expect(await screen.findByText('Caretaker John')).toBeInTheDocument();
+    expect(screen.getByTestId('hub-payout-confirmed-badge')).toHaveTextContent(
+      'Confirmed',
+    );
+    expect(screen.getByTestId('hub-tenants-showing-count')).toHaveTextContent(
+      'Showing 1 of 2',
+    );
     expect(screen.getByText('Ntinda Double Room Block')).toBeInTheDocument();
     expect(screen.getByText('Kato Brian')).toBeInTheDocument();
+    expect(screen.getByText('077****222')).toBeInTheDocument();
     expect(screen.getByText(/MOMO-88991/i)).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -573,7 +824,7 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     expect(screen.getByText(/Open in Rent Plans Pipeline/i)).toBeInTheDocument();
   });
 
-  it('4. shows colleague name and timestamp when landlord_hub_start_dial is refused', async () => {
+  it('5. shows colleague name and timestamp when landlord_hub_start_dial is refused', async () => {
     startDialError = {
       message: 'DIAL_IN_PROGRESS: Being called by Grace since 09:15 (active until 09:35)',
     };
@@ -588,7 +839,7 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     );
   });
 
-  it('5. opens the record dialog automatically on return from call (blur + focus / visibilitychange)', async () => {
+  it('6. opens the record dialog automatically on return from call (blur + focus / visibilitychange)', async () => {
     renderWithClient(<LandlordCallingHub />);
     const callBtn = await screen.findByTestId('hub-row-call-ll-101');
     fireEvent.click(callBtn);
@@ -610,7 +861,7 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     expect(screen.getByText(/Record call · Hajji Musa Mukasa/i)).toBeInTheDocument();
   });
 
-  it('6. validates each result path of the stepped record form (answered requires 4 imported awareness questions + category + 20-char note; call_back requires future time)', async () => {
+  it('7. validates each result path of the stepped record form (answered requires 4 imported awareness questions + category + 20-char note; call_back requires future time)', async () => {
     const onOpenChange = vi.fn();
     renderWithClient(
       <LandlordCallingHubRecordDialog
@@ -706,7 +957,7 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     });
   });
 
-  it('7. switches between the new LandlordCallingHub (default on) and the legacy shared hub via landlord_hub_new', async () => {
+  it('8. switches between the new LandlordCallingHub (default on) and the legacy shared hub via landlord_hub_new', async () => {
     const { unmount } = renderWithClient(<CallingHubRoute />);
     expect(await screen.findByTestId('landlord-calling-hub')).toBeInTheDocument();
     unmount();
@@ -717,7 +968,7 @@ describe('LandlordCallingHub (Prompt 3 replacement)', () => {
     expect(useCcCallingHubSpy).toHaveBeenCalledWith('landlord', expect.any(Object));
   });
 
-  it('8. leaves TenantCallingCenter and LandlordCallingCenter completely unchanged', () => {
+  it('9. leaves TenantCallingCenter and LandlordCallingCenter completely unchanged', () => {
     const { unmount } = renderWithClient(<TenantCallingCenter />);
     expect(screen.getByText(/Tenant Calling Center/i)).toBeInTheDocument();
     expect(useCcCallingHubSpy).toHaveBeenCalledWith('tenant', expect.any(Object));
