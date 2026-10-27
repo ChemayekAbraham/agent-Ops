@@ -67,6 +67,12 @@ function rangeBounds(r: Range): { start: Date; end: Date; granularity: 'day' | '
   }
 }
 
+/** 'funder-onboarding' / 'tenant_ops' -> 'Funder onboarding' / 'Tenant ops'. */
+const humanize = (v: string) => {
+  const t = v.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
+};
+
 const SOURCE_COLORS = [
   'hsl(var(--primary))',
   'hsl(24 95% 53%)',
@@ -88,7 +94,7 @@ export function GrowthMetricsView() {
   // ── 1. Signup trend (daily or monthly buckets) ──
   // One server call (live accounts only, Kampala days) instead of two requests per day/month; the
   // 90-day view used to fire ~180 sequential requests and counted deleted bot accounts.
-  const { data: signupTrend, isLoading: loadingTrend } = useQuery({
+  const { data: signupTrend, isLoading: loadingTrend, isError: trendError } = useQuery({
     queryKey: ['growth-signup-trend-v2', rangeKey],
     queryFn: async () => {
       const [{ data, error }, { count: before, error: beforeError }] = await Promise.all([
@@ -145,7 +151,7 @@ export function GrowthMetricsView() {
   const rpc = supabase as unknown as {
     rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
   };
-  const { data: live, isLoading: loadingSnap } = useQuery({
+  const { data: live, isLoading: loadingSnap, isError: snapError } = useQuery({
     queryKey: ['growth-snapshot'],
     queryFn: async () => {
       const { data, error } = await rpc.rpc('get_growth_snapshot_live');
@@ -154,7 +160,7 @@ export function GrowthMetricsView() {
     },
     staleTime: 300000,
   });
-  const { data: sourcesData, isLoading: loadingSources } = useQuery({
+  const { data: sourcesData, isLoading: loadingSources, isError: sourcesError } = useQuery({
     queryKey: ['growth-sources', rangeKey],
     queryFn: async () => {
       const { data, error } = await rpc.rpc('get_growth_sources_live', {
@@ -166,13 +172,13 @@ export function GrowthMetricsView() {
     },
     staleTime: 300000,
   });
-  const sourceBreakdown = sourcesData ?? [];
+  const sourceBreakdown = (sourcesData ?? []).map((x) => ({ ...x, name: humanize(x.name) }));
 
   const roleData = useMemo(() => {
     const raw = live?.users_by_role;
     if (!raw || typeof raw !== 'object') return [];
     return Object.entries(raw as Record<string, number>)
-      .map(([name, value]) => ({ name, value: Number(value) || 0 }))
+      .map(([name, value]) => ({ name: humanize(name), value: Number(value) || 0 }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [live]);
@@ -232,6 +238,12 @@ export function GrowthMetricsView() {
           ))}
         </div>
       </div>
+
+      {(trendError || snapError || sourcesError) && (
+        <p className="text-xs text-red-500">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
+      )}
 
       {/* Row 1: platform-wide KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
@@ -311,6 +323,9 @@ export function GrowthMetricsView() {
             {peak.signups.toLocaleString()} signups
           </span>
         </div>
+        {loadingTrend ? (
+          <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">Loading…</div>
+        ) : (
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={signupTrend || []}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -327,13 +342,17 @@ export function GrowthMetricsView() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       {/* Referred vs organic + source pie */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-3">Referred vs organic signups</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          {loadingTrend ? (
+          <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">Loading…</div>
+        ) : (
+        <ResponsiveContainer width="100%" height={240}>
             <BarChart data={signupTrend || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
@@ -356,6 +375,7 @@ export function GrowthMetricsView() {
               />
             </BarChart>
           </ResponsiveContainer>
+        )}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-4">
@@ -407,7 +427,7 @@ export function GrowthMetricsView() {
         </div>
         {roleData.length === 0 ? (
           <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
-            No role snapshot available.
+            {loadingSnap ? 'Loading…' : 'No role snapshot available.'}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(220, roleData.length * 30)}>
