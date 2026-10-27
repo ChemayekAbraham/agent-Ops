@@ -48,10 +48,33 @@ export interface ZoeScheduleDraft {
   candidates: StaffEmailRecipient[];
 }
 
+export type ZoeIdeaCategory =
+  | "general"
+  | "desk_wait"
+  | "collections"
+  | "calling"
+  | "payouts"
+  | "zoe_quality";
+
+export interface ZoeIdeaDraft {
+  draft_id: string;
+  kind: "idea";
+  status: "ready";
+  title: string;
+  suggestion: string;
+  evidence_summary: string;
+  figures: Record<string, unknown>;
+  source_label: string;
+  period_label: string;
+  category: ZoeIdeaCategory;
+  screen_path: string;
+}
+
 export type ZoeActionDraft =
   | ZoeReminderDraft
   | ZoeNotificationDraft
-  | ZoeScheduleDraft;
+  | ZoeScheduleDraft
+  | ZoeIdeaDraft;
 
 export type ActionDraftOutcome<T extends ZoeActionDraft> =
   | {
@@ -389,4 +412,128 @@ export function buildReportScheduleDraft(params: {
     replyText,
     draft,
   };
+}
+
+const ALLOWED_IDEA_SCREEN_PATHS = new Set<string>([
+  "/me",
+  "/me/zoe",
+  "/me/ideas",
+  "/me/payslips",
+  "/me/work",
+  "/me/tickets",
+  "/me/requisitions",
+  "/me/concerns",
+  "/me/food",
+  "/me/reports",
+  "/me/staff-reports",
+  "/your-profile",
+  "/cfo/cash-position",
+  "/cfo/receivables-analysis",
+  "/cfo/payables-forecast",
+  "/cfo-dashboard",
+  "/financial-ops",
+  "/coo-dashboard",
+  "/ceo-dashboard",
+  "/executive-hub",
+  "/executive-hub?tab=agent-ops",
+  "/executive-hub?tab=partner-ops",
+  "/hr-dashboard",
+  "/tenant-ops/workspace",
+  "/landlord-ops",
+  "/landlord-ops/principal-recovered",
+  "/crm/dashboard",
+  "/operations",
+  "/admin/dashboard",
+]);
+
+/**
+ * Pure builder for `draft_welile_idea` ("Ideas for Welile").
+ * Prepares a click-confirmed idea draft card grounded in official tool figures.
+ * Never saves, never changes any setting or business record, and never contacts anyone.
+ */
+export function buildIdeaDraft(params: {
+  title: string;
+  suggestion: string;
+  evidenceSummary: string;
+  category?: ZoeIdeaCategory;
+  screenPath?: string;
+  reportPayload: Record<string, unknown> | null;
+  periodLabel: string;
+  todayKampala: string;
+}): { replyText: string; draft: ZoeIdeaDraft } {
+  const cleanTitle = sanitizeWelileTermsServer(params.title.trim());
+  const cleanSuggestion = sanitizeWelileTermsServer(params.suggestion.trim());
+  const cleanEvidence = sanitizeWelileTermsServer(params.evidenceSummary.trim());
+
+  const validCategories: readonly ZoeIdeaCategory[] = [
+    "general",
+    "desk_wait",
+    "collections",
+    "calling",
+    "payouts",
+    "zoe_quality",
+  ];
+  const category: ZoeIdeaCategory =
+    params.category && validCategories.includes(params.category)
+      ? params.category
+      : "general";
+
+  const defaultScreenByCategory: Record<ZoeIdeaCategory, string> = {
+    general: "/me/ideas",
+    desk_wait: "/tenant-ops/workspace",
+    collections: "/executive-hub?tab=agent-ops",
+    calling: "/me/staff-reports",
+    payouts: "/landlord-ops",
+    zoe_quality: "/crm/dashboard",
+  };
+
+  const rawScreen = params.screenPath?.trim() ||
+    (typeof params.reportPayload?.screen_path === "string"
+      ? params.reportPayload.screen_path.trim()
+      : "") ||
+    defaultScreenByCategory[category];
+  const screenPath = ALLOWED_IDEA_SCREEN_PATHS.has(rawScreen)
+    ? rawScreen
+    : defaultScreenByCategory[category];
+
+  const sourceLabel =
+    typeof params.reportPayload?.source === "string" &&
+      params.reportPayload.source.trim()
+      ? params.reportPayload.source.trim()
+      : "staff_assistant_insights";
+  const periodLabel = params.periodLabel.trim() || `as of ${params.todayKampala}`;
+
+  const figures: Record<string, unknown> = {};
+  if (params.reportPayload && typeof params.reportPayload === "object") {
+    for (const [k, v] of Object.entries(params.reportPayload)) {
+      if (typeof v === "number" && Number.isFinite(v)) {
+        figures[k] = v;
+      } else if (typeof v === "string" && v.length <= 60 && /\d/.test(v) && k !== "source") {
+        figures[k] = v;
+      }
+    }
+  }
+
+  const draft: ZoeIdeaDraft = {
+    draft_id: crypto.randomUUID(),
+    kind: "idea",
+    status: "ready",
+    title: cleanTitle,
+    suggestion: cleanSuggestion,
+    evidence_summary: cleanEvidence,
+    figures,
+    source_label: sourceLabel,
+    period_label: periodLabel,
+    category,
+    screen_path: screenPath,
+  };
+
+  const replyText =
+    `I have prepared an "Ideas for Welile" draft card: "${cleanTitle}". ` +
+    `Suggestion: ${cleanSuggestion} ` +
+    `Evidence: ${cleanEvidence} ` +
+    `Review the draft card below and click Save Idea to record it for managers, the COO, and the CEO (or Cancel to discard). Zoe never acts on an idea, never changes any setting or business record, and never contacts anyone.\n\n` +
+    `Source: ${sourceLabel} · Period: ${periodLabel}`;
+
+  return { replyText, draft };
 }

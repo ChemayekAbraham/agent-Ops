@@ -1625,6 +1625,168 @@ export const STAFF_TOOLS: StaffTool[] = [
     schema: PeriodArgsSchema,
     toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
   },
+
+  // ===========================================================================
+  // GROUP I — PROMPT 4: READ-ONLY ADVISOR INSIGHTS (`assistant_staff_insight_*`)
+  // ===========================================================================
+  {
+    name: "get_insight_desk_wait_times",
+    rpc: "assistant_staff_insight_desk_wait_times",
+    description:
+      "Advisor insight: where Rent Plan requests wait longest, by desk and by week (from rent_request_timing and tenant_ops_rent_request_lifetime), plus 4-week anomaly notes.",
+    allowedRoles: [
+      "tenant_ops",
+      "agent_ops",
+      "landlord_ops",
+      "partner_ops",
+      "operations",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 1,
+          maximum: 12,
+          description: "Number of weeks to analyze (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(1).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_collection_coverage_trends",
+    rpc: "assistant_staff_insight_collection_coverage_trends",
+    description:
+      "Advisor insight: collection coverage trends, areas/districts dropping week on week, and agents dropping week on week (from get_tenant_ops_weekly_performance_amclock, agent_ops_metrics_locations, agent_ops_metrics_agents, and agent_ops_silent_collectors), plus 4-week anomaly notes.",
+    allowedRoles: AGENT_OPS_SILENT_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 2,
+          maximum: 12,
+          description: "Number of weeks to compare (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(2).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_calling_reach_and_themes",
+    rpc: "assistant_staff_insight_calling_reach_and_themes",
+    description:
+      "Advisor insight: Calling Center reach rates by channel/source and the most common feedback and concern themes over a date range (from cc_weekly_all_calls_report, cc_feedback, landlord_cc_weekly_report, and landlord_cc_concerns_report), plus 4-week anomaly notes.",
+    allowedRoles: AWARENESS_CALLS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+  {
+    name: "get_insight_payout_delays",
+    rpc: "assistant_staff_insight_payout_delays",
+    description:
+      "Advisor insight: landlord payout delays, uncovered Rent Plans awaiting landlord payment, weekly disbursement turnaround, and verification queues (from tops_landlord_not_paid_summary_amclock, am_uncovered_plans, landlord_payouts, and finops_payout_verification_counts).",
+    allowedRoles: [
+      "financial_ops",
+      "cfo",
+      "ceo",
+      "coo",
+      "tenant_ops",
+      "landlord_ops",
+      "operations",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 1,
+          maximum: 12,
+          description: "Number of weeks to analyze (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(1).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_zoe_feedback_themes",
+    rpc: "assistant_staff_insight_zoe_feedback_themes",
+    description:
+      "Advisor insight: Zoe's own top unanswered questions by reason and thumbs-down feedback themes over a lookback window (strictly redacted; gated to CRM, HR, CFO, COO, CEO, CTO, and managers).",
+    allowedRoles: [
+      "crm",
+      "cto",
+      "coo",
+      "ceo",
+      "cfo",
+      "hr",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 1,
+          maximum: 90,
+          description: "Lookback window in days (default 28, max 90).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(1).max(90).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 28,
+    }),
+  },
 ];
 
 /**
@@ -1837,6 +1999,73 @@ export const DraftReportScheduleArgsSchema = z
   })
   .strict();
 
+export const DRAFT_IDEA_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_welile_idea",
+    description:
+      "Prepare an 'Ideas for Welile' improvement suggestion draft card grounded in official figures from an advisor or report tool. NEVER acts, NEVER changes any setting or business record, and NEVER contacts anyone. Only saves to staff_assistant_ideas after the person clicks Save Idea on the draft card.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description:
+            "Short title for the improvement idea using Welile terms (Rent Plan, Supporter, Returns).",
+        },
+        suggestion: {
+          type: "string",
+          description:
+            "Evidence-based improvement suggestion explaining what team workflow or focus could improve.",
+        },
+        evidence_summary: {
+          type: "string",
+          description:
+            "Exact figures and evidence from the tool output supporting this idea.",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "general",
+            "desk_wait",
+            "collections",
+            "calling",
+            "payouts",
+            "zoe_quality",
+          ],
+          description: "Improvement category (default general).",
+        },
+        screen_path: {
+          type: "string",
+          description:
+            "Optional internal Welile route for the screen related to this idea (e.g. /tenant-ops/workspace, /landlord-ops, /executive-hub?tab=agent-ops, /me/staff-reports, /me/ideas).",
+        },
+      },
+      required: ["title", "suggestion", "evidence_summary"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftIdeaArgsSchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    suggestion: z.string().trim().min(5).max(2000),
+    evidence_summary: z.string().trim().min(5).max(2000),
+    category: z
+      .enum([
+        "general",
+        "desk_wait",
+        "collections",
+        "calling",
+        "payouts",
+        "zoe_quality",
+      ])
+      .optional(),
+    screen_path: z.string().trim().max(120).optional(),
+  })
+  .strict();
+
 export function findTool(name: string): StaffTool | undefined {
   return STAFF_TOOLS.find((t) => t.name === name);
 }
@@ -1874,6 +2103,7 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
     DRAFT_REMINDER_TOOL,
     DRAFT_STAFF_NOTIFICATION_TOOL,
     DRAFT_REPORT_SCHEDULE_TOOL,
+    DRAFT_IDEA_TOOL,
   ];
 }
 
@@ -1883,6 +2113,7 @@ export function describeToolsForRoles(callerRoles: readonly string[]): string[] 
     ...toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`),
     "compute (safe calculator): Deterministic calculator (sum, difference, pct_change, share, average, rank) on figures already returned by tools in this conversation.",
     "get_staff_manual_help (staff manual): Look up 'how do I…', 'where do I find…', and workflow explanations from Welile staff manuals and docs/.",
+    "draft_welile_idea (Ideas for Welile draft card): Prepare a click-confirmed improvement idea draft card with evidence, figures, and source (never acts or changes business data).",
   ];
 }
 
@@ -1894,6 +2125,7 @@ export const PSEUDO_AND_DRAFT_TOOL_NAMES = new Set<string>([
   "draft_reminder",
   "draft_staff_notification",
   "draft_report_schedule",
+  "draft_welile_idea",
 ]);
 
 /**
