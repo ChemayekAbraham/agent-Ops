@@ -1613,7 +1613,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       const updatePayload: Record<string, any> = {
         // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
         // (migration 20261024140000; Return postings change these fields server-side).
-        return_fields_edit_token: crypto.randomUUID(),
+        return_fields_edit_token: safeUUID(),
         investment_amount: amount,
         roi_percentage: roi,
         roi_mode: editPortfolioRoiMode,

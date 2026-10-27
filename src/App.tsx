@@ -101,6 +101,7 @@ const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsCont
 // Lazy load optional UI components
 const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
+const PendingCollectionsSync = optionalLazyWithRetry(() => import("@/components/agent/PendingCollectionsSync"), "PendingCollectionsSync");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/hr/HRBirthdayNoticeDialog"), "HRBirthdayNoticeDialog");
@@ -1122,6 +1123,7 @@ const App = () => {
                           <GlobalFloatingWidgets />
                           <Toaster />
                           <SonnerToaster />
+                          <PendingCollectionsSync />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <DeviceStepUpGate />
