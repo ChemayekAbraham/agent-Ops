@@ -152,7 +152,7 @@ export function searchStaffManualHelp(query: string): {
 }
 
 const CONVERSATIONAL_INTENT_RE =
-  /^(?:hi|hello|hey|good\s+(?:morning|afternoon|evening)|greetings|thanks|thank\s+you|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do|what\s+do\s+you\s+do|help|how\s+can\s+you\s+help|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*)[?!.]*$/i;
+  /^(?:(?:hi|hello|hey|good\s+(?:morning|afternoon|evening)|greetings)(?:\s+zoe)?(?:[\s,!.?]+(?:who\s+are\s+you|what\s+can\s+you\s+do.*|how\s+can\s+you\s+help.*))?|thanks|thank\s+you.*|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do(?:\s+.*)?|what\s+do\s+you\s+do(?:\s+.*)?|help|how\s+can\s+you\s+help(?:\s+.*)?|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*)[?!.]*$/i;
 
 /**
  * Returns true when the user message is a conversational greeting, thanks,
