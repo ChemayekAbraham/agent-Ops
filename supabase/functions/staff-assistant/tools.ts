@@ -1,5 +1,7 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { COMPUTE_OPENAI_TOOL } from "./calculator.ts";
 import { currentWednesdayWeekStart, ISO_DATE, kampalaToday, PERIODS, Period, resolvePeriod } from "./dates.ts";
+import { GET_STAFF_MANUAL_HELP_OPENAI_TOOL } from "./manualHelp.ts";
 import type { OpenAiTool } from "./openai.ts";
 
 /**
@@ -227,6 +229,28 @@ const FINOPS_REQUISITION_ROLES = [
   "cfo",
   "ceo",
   "coo",
+  "super_admin",
+] as const;
+
+const FINOPS_DISBURSEMENT_ROLES = [
+  "financial_ops",
+  "cfo",
+  "ceo",
+  "coo",
+  "manager",
+  "super_admin",
+] as const;
+
+const AWARENESS_CALLS_ROLES = [
+  "tenant_ops",
+  "landlord_ops",
+  "operations",
+  "hr",
+  "coo",
+  "ceo",
+  "cfo",
+  "cto",
+  "manager",
   "super_admin",
 ] as const;
 
@@ -1345,6 +1369,262 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_include_cancelled: (p.include_cancelled as boolean | undefined) ?? false,
     }),
   },
+
+  // ===========================================================================
+  // GROUP I — PROMPT 3 COVERAGE TOOLS (11 read-only `assistant_staff_*` RPCs)
+  // ===========================================================================
+  {
+    name: "get_my_calls",
+    rpc: "assistant_staff_my_calls",
+    description:
+      "Get the signed-in staff member's own Calling Center & Rent Plan pipeline calls over a date range (total calls, answered calls, unique subjects, and deduplicated call log rows from staff_calling_detailed_report).",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_tops_rent_requests_by_stage",
+    rpc: "assistant_staff_tops_rent_requests_by_stage",
+    description:
+      "Tenant Ops Rent Plan requests created today, created over a date range, and current open Rent Plan request counts and UGX totals broken down by pipeline stage.",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "today"),
+  },
+  {
+    name: "get_tops_time_on_desk",
+    rpc: "assistant_staff_tops_time_on_desk",
+    description:
+      "Tenant Ops Rent Plan request time on desk from official rent_request_timing: average and longest hours on the current desk and total pipeline hours, plus the longest-waiting open requests.",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        stage: {
+          type: "string",
+          description:
+            "Optional pipeline stage filter (e.g. pending, tenant_ops_approved, agent_verified, landlord_ops_approved, coo_approved, cfo_approved).",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Max open Rent Plan requests to inspect (default 50, max 100).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        stage: SearchField.optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_stage: (p.stage as string | undefined) ?? null,
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_tops_find_tenant",
+    rpc: "assistant_staff_tops_find_tenant",
+    description:
+      "Find a tenant by name or phone in Tenant Ops using tops_tenant_classification_list and tenant_payment_score (returns classification, outstanding UGX, arrears UGX, days behind, and payment score).",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description: "Tenant name or phone search term.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          description: "Max matching tenants to return (default 20, max 50).",
+        },
+      },
+      required: ["search"],
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField,
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: p.search as string,
+      p_limit: (p.limit as number | undefined) ?? 20,
+    }),
+  },
+  {
+    name: "get_tops_awareness_calls",
+    rpc: "assistant_staff_tops_awareness_calls",
+    description:
+      "Tenant Ops & Landlord Ops Rent Plan pipeline awareness calls summary and call rows over a date range (from cc_weekly_all_calls_report and rent_pipeline_awareness_calls, including landlord consent and aware_payout_otp).",
+    allowedRoles: AWARENESS_CALLS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_lops_verification_queue",
+    rpc: "assistant_staff_lops_verification_queue",
+    description:
+      "Landlord Ops verification queue counts (pending houses, landlords, LC1 from ops_landlord_ops_home_range) and unverified landlord rows from v_landlord_ops_status.",
+    allowedRoles: LANDLORD_OPS_HOME_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max pending landlords to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_aops_subagent_teams",
+    rpc: "assistant_staff_aops_subagent_teams",
+    description:
+      "Agent Ops main-agent and sub-agent teams report over a date range (from agent_ops_metrics_main_agents and agent_ops_metrics_risk: sub-agent count, team houses listed/approved, team listing earnings, and team risk summary).",
+    allowedRoles: AGENT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max main agent teams to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: z.enum(PERIODS).optional(),
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict()
+      .refine((v) => !(v.period && (v.from || v.to)), {
+        message: "Provide either `period` or `from`/`to`, not both.",
+      }),
+    toRpcArgs: (p) => ({
+      ...rangeArgs(p, "last_30_days"),
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_pops_returns_due",
+    rpc: "assistant_staff_pops_returns_due",
+    description:
+      "Partner Ops & Finance Supporter Returns due this week / over a date range (from partner_ops_report_totals, partner_ops_report_breakdown, and get_payables_predictive_forecast).",
+    allowedRoles: PARTNER_OPS_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "this_week"),
+  },
+  {
+    name: "get_pops_topups_and_withdrawals_waiting",
+    rpc: "assistant_staff_pops_topups_and_withdrawals_waiting",
+    description:
+      "Partner Ops & Finance waiting Supporter portfolio top-ups and wallet withdrawal requests (counts, UGX totals, and waiting withdrawal rows).",
+    allowedRoles: PARTNER_OPS_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max waiting withdrawal rows to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_fops_disbursements",
+    rpc: "assistant_staff_fops_disbursements",
+    description:
+      "Financial Ops & CFO disbursements report over a date range: disbursed landlord payouts (count, total UGX, rows) and CFO-approved requisition disbursements.",
+    allowedRoles: FINOPS_DISBURSEMENT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_fops_merchant_cashouts",
+    rpc: "assistant_staff_fops_merchant_cashouts",
+    description:
+      "Financial Ops & CFO merchant cash-outs and wallet withdrawals over a date range: completed vs pending counts, UGX totals, and withdrawal rows.",
+    allowedRoles: FINOPS_DISBURSEMENT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
 ];
 
 /**
@@ -1587,6 +1867,8 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
         function: { name: t.name, description: t.description, parameters: t.parameters },
       }),
     ),
+    COMPUTE_OPENAI_TOOL,
+    GET_STAFF_MANUAL_HELP_OPENAI_TOOL,
     CLARIFICATION_TOOL,
     DRAFT_REPORT_EMAIL_TOOL,
     DRAFT_REMINDER_TOOL,
@@ -1597,10 +1879,16 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
 
 /** Human-readable tool summary lines injected into Zoe's system prompt for this caller. */
 export function describeToolsForRoles(callerRoles: readonly string[]): string[] {
-  return toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`);
+  return [
+    ...toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`),
+    "compute (safe calculator): Deterministic calculator (sum, difference, pct_change, share, average, rank) on figures already returned by tools in this conversation.",
+    "get_staff_manual_help (staff manual): Look up 'how do I…', 'where do I find…', and workflow explanations from Welile staff manuals and docs/.",
+  ];
 }
 
 export const PSEUDO_AND_DRAFT_TOOL_NAMES = new Set<string>([
+  "compute",
+  "get_staff_manual_help",
   "ask_clarification",
   "draft_report_email",
   "draft_reminder",
