@@ -169,7 +169,7 @@ export function InstallFunnelView() {
               <div>
                 <Label className="text-xs">Range</Label>
                 <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-                  <SelectTrigger className="h-9 w-[140px]">
+                  <SelectTrigger className="h-9 w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
