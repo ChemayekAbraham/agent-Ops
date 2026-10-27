@@ -550,11 +550,11 @@ export default function AgentVerification() {
         </div>
       )}
       {!editable && <p className="text-sm text-foreground">Agent Ops is reviewing your details. We'll let you know.</p>}
-      {result && !result.success && (
+      {result && result.success === false && (() => { const r = result as Extract<SubmitResult, { success: false }>; return (
         <div className="rounded-lg border border-border bg-muted/50 p-3">
-          <p className="text-sm font-semibold text-foreground">{result.message}</p>
+          <p className="text-sm font-semibold text-foreground">{r.message}</p>
           <ul className="mt-2 space-y-1">
-            {result.missing.map((m, i) => {
+            {r.missing.map((m, i) => {
               const key = stepForMissing(m);
               return (
                 <li key={i}>
@@ -568,7 +568,7 @@ export default function AgentVerification() {
             })}
           </ul>
         </div>
-      )}
+      ); })()}
       {editable && (
         <BusyButton className="hidden w-full md:flex" busy={v.busy === 'submit'} onClick={onSubmit}>
           {v.busy === 'submit' ? 'Checking your location…' : 'Submit for review'}
