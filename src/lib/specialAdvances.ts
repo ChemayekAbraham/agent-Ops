@@ -105,6 +105,8 @@ export interface SpecialAdvance {
   payout_date: string | null;
   payout_method: 'wallet' | 'mobile_money' | 'bank_transfer' | null;
   payout_reference: string | null;
+  /** Archived proof of an external payout (D1); null for a wallet payout. */
+  payout_proof_path?: string | null;
   decision_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -128,7 +130,9 @@ export interface SpecialAdvancePosition {
 
 export interface SpecialAdvanceStatement extends SpecialAdvance {
   position: SpecialAdvancePosition;
-  repayments: Array<{ id: string; amount: number; received_date: string; method: string; reference: string; note: string | null; recorded_at: string }>;
+  repayments: Array<{ id: string; amount: number; received_date: string; method: string; reference: string; note: string | null; recorded_at: string;
+    /** Archived proof of the repayment (D2). */
+    proof_path?: string }>;
 }
 
 export interface SpecialAdvanceList {
@@ -194,6 +198,7 @@ const FIELD_TEXT: Record<string, string> = {
   borrower_user_id: 'Welile account', borrower_type: 'borrower type', full_name: 'full name', phone: 'phone number',
   national_id: 'National ID (NIN)', registration_number: 'registration number', terms: 'terms', payout_date: 'payout date',
   method: 'payment method', reference: 'transaction reference', amount: 'amount', received_date: 'date received', note: 'note',
+  proof_path: 'proof file',
 };
 export const fieldText = (f: string) => FIELD_TEXT[f] ?? f.replace(/_/g, ' ');
 
@@ -206,7 +211,7 @@ export function describeSpecialAdvanceError(err: unknown): string {
   const detail = parseDetail(e.details ?? e.detail);
   const list = Array.isArray(detail) ? (detail as string[]) : [];
   if (msg.includes('SELF_ADVANCE')) return ELIGIBILITY_TEXT.SELF_ADVANCE;
-  // Phase 4 proposal: approval, payout and repayment recording need an authenticator-verified session (aal2).
+  // Phase 4 (CFO decision D5): approval, payout and repayment recording need an authenticator-verified session (aal2).
   if (msg.includes('MFA_REQUIRED')) {
     return 'Verify with your authenticator app first: approving, paying out or recording a repayment needs it.';
   }
@@ -227,6 +232,11 @@ export function describeSpecialAdvanceError(err: unknown): string {
     return `That is more than is outstanding${out !== undefined ? ` (UGX ${out.toLocaleString()})` : ''}. Overpayments are not accepted.`;
   }
   if (msg.includes('REPAYMENT_REFERENCE_ALREADY_RECORDED')) return 'A repayment with this transaction reference is already recorded.';
+  // Proof files (CFO decision D1/D2): an external payout and every repayment need an archived receipt or statement.
+  if (msg.includes('PROOF_REQUIRED')) return 'Attach the receipt or statement for this payment.';
+  if (msg.includes('PROOF_NOT_FOUND')) return 'The uploaded proof could not be found. Upload it again.';
+  if (msg.includes('PROOF_ALREADY_USED')) return 'This proof file is already attached to another payment.';
+  if (msg.includes('PROOF_PATH_INVALID')) return 'The proof file does not belong to this advance. Upload it again.';
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
   if (msg.includes('REASON_REQUIRED')) return 'A reason of at least 5 characters is required.';
@@ -244,4 +254,24 @@ export function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/* ── Proof files (CFO decision D1/D2) ─────────────────────────────────────────────────────────────── */
+
+/** Private bucket for Special Advances proof files (receipts / statements). */
+export const SPECIAL_ADVANCE_PROOF_BUCKET = 'special-advance-proofs';
+/** Same limits as the bucket: 10 MB, images or PDF. */
+export const SPECIAL_ADVANCE_PROOF_MAX_BYTES = 10 * 1024 * 1024;
+const PROOF_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'application/pdf': 'pdf' };
+export const SPECIAL_ADVANCE_PROOF_TYPES = Object.keys(PROOF_EXT);
+
+/**
+ * The storage path for a proof of one advance: advances/<advance id>/<uuid>.<ext>, the only shape the server and the
+ * bucket policy accept. Throws a user-facing message for a file type or size the bucket refuses.
+ */
+export function specialAdvanceProofPath(advanceId: string, file: { type: string; size: number }, fileId: string): string {
+  const ext = PROOF_EXT[file.type];
+  if (!ext) throw new Error('The proof must be a JPEG, PNG or WebP image, or a PDF.');
+  if (file.size <= 0 || file.size > SPECIAL_ADVANCE_PROOF_MAX_BYTES) throw new Error('The proof file must be between 1 byte and 10 MB.');
+  return `advances/${advanceId}/${fileId}.${ext}`;
 }

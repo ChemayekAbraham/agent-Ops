@@ -12,7 +12,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } 
 vi.mock('sonner', () => ({ toast: mocks.toast }));
 vi.mock('@/components/cfo/SpecialAdvanceModal', () => ({ SpecialAdvanceModal: ({ open }: { open: boolean }) => (open ? <div>record modal open</div> : null) }));
 import { SpecialAdvancesPanel } from '@/components/cfo/special-advances/SpecialAdvancesPanel';
-import { describeSpecialAdvanceError, buildCreateRequest } from '@/lib/specialAdvances';
+import { describeSpecialAdvanceError, buildCreateRequest, specialAdvanceProofPath, SPECIAL_ADVANCE_PROOF_BUCKET } from '@/lib/specialAdvances';
 
 const position = (outstanding: number, paid = 0) => ({ total_repayable: 940000, total_paid: paid, outstanding, outstanding_access_fee: 0,
   outstanding_registration_fee: 0, outstanding_principal: 0, overdue_amount: 0, overdue_instalments: 0,
@@ -179,7 +179,7 @@ describe('Special Advances messages and requests', () => {
     expect(describeSpecialAdvanceError({ code: '22023', message: 'SPECIAL_ADVANCE_INVALID_REQUEST', details: '["purpose","national_id"]' }))
       .toBe('Check the purpose, National ID (NIN).');
     expect(describeSpecialAdvanceError({ code: '42501', message: 'SELF_ADVANCE' })).toMatch(/cannot give a Special Advance to themselves/);
-    // Phase 4 proposal: MFA_REQUIRED gets its own message (not the generic CFO-only one)
+    // Phase 4 (CFO decision D5): MFA_REQUIRED gets its own message (not the generic CFO-only one)
     expect(describeSpecialAdvanceError({ code: '42501', message: 'MFA_REQUIRED' })).toMatch(/authenticator app/);
     expect(describeSpecialAdvanceError({ code: '42501', message: 'NOT_AUTHORIZED' })).toMatch(/Only an enabled CFO account/);
     expect(describeSpecialAdvanceError({ code: '55000', message: 'SPECIAL_ADVANCES_DISABLED' })).toMatch(/switched off/);
@@ -191,5 +191,27 @@ describe('Special Advances messages and requests', () => {
       purpose: '  Working capital for stock  ', confirmedTotal: 552667, idempotencyKey: 'k'.repeat(36) });
     expect(r).toEqual({ borrower: { kind: 'welile_user', user_id: 'u' }, terms: { principal: 500000, rate_percent: 28, rate_basis: 'monthly', term_days: 7, frequency: 'daily' },
       purpose: 'Working capital for stock', expected_total_repayable: 552667, idempotency_key: 'k'.repeat(36) });
+  });
+});
+
+describe('Special Advances proof files (CFO decision D1/D2): client side', () => {
+  const ADV = '11111111-2222-4333-8444-555555555555', FILE_ID = '66666666-7777-4888-9999-aaaaaaaaaaaa';
+  it('builds the only path shape the server and the bucket accept', () => {
+    expect(SPECIAL_ADVANCE_PROOF_BUCKET).toBe('special-advance-proofs');
+    expect(specialAdvanceProofPath(ADV, { type: 'application/pdf', size: 1024 }, FILE_ID)).toBe(`advances/${ADV}/${FILE_ID}.pdf`);
+    expect(specialAdvanceProofPath(ADV, { type: 'image/jpeg', size: 1024 }, FILE_ID)).toBe(`advances/${ADV}/${FILE_ID}.jpg`);
+    expect(specialAdvanceProofPath(ADV, { type: 'image/png', size: 10 * 1024 * 1024 }, FILE_ID)).toMatch(/.png$/);
+  });
+  it('refuses a file type or size the bucket would refuse', () => {
+    expect(() => specialAdvanceProofPath(ADV, { type: 'application/zip', size: 10 }, FILE_ID)).toThrow(/JPEG, PNG or WebP image, or a PDF/);
+    expect(() => specialAdvanceProofPath(ADV, { type: 'application/pdf', size: 10 * 1024 * 1024 + 1 }, FILE_ID)).toThrow(/10 MB/);
+    expect(() => specialAdvanceProofPath(ADV, { type: 'application/pdf', size: 0 }, FILE_ID)).toThrow(/10 MB/);
+  });
+  it('explains each proof refusal in plain words', () => {
+    expect(describeSpecialAdvanceError({ code: '22023', message: 'PROOF_REQUIRED' })).toMatch(/Attach the receipt or statement/);
+    expect(describeSpecialAdvanceError({ code: 'P0002', message: 'PROOF_NOT_FOUND' })).toMatch(/Upload it again/);
+    expect(describeSpecialAdvanceError({ code: '23505', message: 'PROOF_ALREADY_USED' })).toMatch(/already attached to another payment/);
+    expect(describeSpecialAdvanceError({ code: '22023', message: 'PROOF_PATH_INVALID' })).toMatch(/does not belong to this advance/);
+    expect(describeSpecialAdvanceError({ code: '22023', message: 'SPECIAL_ADVANCE_INVALID_REQUEST', details: '["proof_path"]' })).toMatch(/proof file/);
   });
 });

@@ -36,7 +36,11 @@
 -- verified to remain.
 -- Repayment cash is posted to A1 (bank / mobile money). Physical cash (A5) is not accepted: methods are mobile_money and
 -- bank_transfer only, pending a decision.
--- Staff MFA (PROPOSAL, needs CFO confirmation; docs/special-advances/phase4-cfo-decisions.md): approval, payout and
+-- Proof files (CFO decision D1/D2, 2026-10-27): an external payout and every repayment need an archived proof file
+-- (receipt or statement image / PDF) in the private bucket special-advance-proofs, under advances/<advance id>/<uuid>.<ext>;
+-- the file must exist and may be used once only. A payout to a Welile wallet is internal and takes no proof. The
+-- bucket's storage policies are in 20261028153100_special_advances_proof_storage_policies (owner-applied).
+-- Staff MFA (CFO decision D5, 2026-10-27; docs/special-advances/phase4-cfo-decisions.md): approval, payout and
 -- repayment recording require a session verified with the authenticator app (aal2), independent of the global
 -- staff_mfa_config mode. Reject, cancel and the read-only views are unchanged.
 -- Rollback: supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql (refuses once anything
@@ -50,6 +54,9 @@ DECLARE
 BEGIN
   IF to_regprocedure('public.special_advance_create(jsonb)') IS NULL THEN
     RAISE EXCEPTION 'precondition failed: Special Advances functions (20261028152000) are not applied; nothing was changed';
+  END IF;
+  IF EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'special-advance-proofs') THEN
+    RAISE EXCEPTION 'precondition failed: the special-advance-proofs bucket already exists; nothing was changed';
   END IF;
   IF to_regclass('public.special_advance_repayments') IS NOT NULL OR to_regprocedure('public.special_advance_disburse(uuid,timestamptz,jsonb)') IS NOT NULL THEN
     RAISE EXCEPTION 'precondition failed: Special Advances payout objects already exist; nothing was changed';
@@ -141,18 +148,22 @@ ALTER TABLE public.special_advances
   ADD COLUMN payout_method text CHECK (payout_method IS NULL OR payout_method IN ('wallet', 'mobile_money', 'bank_transfer')),
   ADD COLUMN payout_reference text CHECK (payout_reference IS NULL OR length(btrim(payout_reference)) BETWEEN 3 AND 100),
   ADD COLUMN payout_ledger_group_id uuid,
+  ADD COLUMN payout_proof_path text CHECK (payout_proof_path IS NULL OR payout_proof_path ~ '^advances/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'),
   ADD CONSTRAINT special_advances_payout_record CHECK (
     status NOT IN ('disbursed', 'settled')
     OR (payout_method IS NOT NULL AND payout_ledger_group_id IS NOT NULL
         AND (payout_method = 'wallet') = (borrower_kind = 'welile_user')
-        AND (payout_method = 'wallet' OR payout_reference IS NOT NULL)));
+        AND (payout_method = 'wallet' OR (payout_reference IS NOT NULL AND payout_proof_path IS NOT NULL))
+        AND (payout_method <> 'wallet' OR payout_proof_path IS NULL)));
+-- a proof file proves one payout only
+CREATE UNIQUE INDEX special_advances_payout_proof_uq ON public.special_advances (payout_proof_path) WHERE payout_proof_path IS NOT NULL;
 
 -- The payout fields are written once, in the payout transition, and never again.
 CREATE FUNCTION public._special_advance_guard_payout_fields()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
-  IF (NEW.payout_method, NEW.payout_reference, NEW.payout_ledger_group_id)
-     IS DISTINCT FROM (OLD.payout_method, OLD.payout_reference, OLD.payout_ledger_group_id)
+  IF (NEW.payout_method, NEW.payout_reference, NEW.payout_ledger_group_id, NEW.payout_proof_path)
+     IS DISTINCT FROM (OLD.payout_method, OLD.payout_reference, OLD.payout_ledger_group_id, OLD.payout_proof_path)
      AND NOT (OLD.status = 'approved' AND NEW.status = 'disbursed') THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'payout record';
   END IF;
@@ -161,7 +172,7 @@ END $$;
 CREATE TRIGGER special_advances_guard_payout_fields BEFORE UPDATE ON public.special_advances
   FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_payout_fields();
 
--- ── Staff MFA for the money-moving actions (PROPOSAL: needs CFO confirmation) ───────────────────────────────
+-- ── Staff MFA for the money-moving actions (CFO decision D5, 2026-10-27) ───────────────────────────────────
 -- Approval, payout and repayment recording need a session verified with the authenticator app (JWT aal = aal2),
 -- whatever the global staff_mfa_config mode is (production 2026-10-27: 'shadow'). This only adds a requirement: the CFO
 -- role check, issuance switch, version checks and everything else stay. Reject, cancel and the read-only views are
@@ -189,6 +200,30 @@ END $$;
 CREATE TRIGGER special_advances_require_mfa BEFORE UPDATE ON public.special_advances
   FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_mfa();
 
+-- ── Proof files (CFO decision D1/D2, 2026-10-27) ─────────────────────────────────────────────────────────────
+-- A proof is an uploaded receipt / statement (image or PDF) in the private bucket special-advance-proofs, at
+-- advances/<advance id>/<uuid>.<ext>. It must exist, belong to this advance, and not be attached to anything yet.
+CREATE FUNCTION public._special_advance_check_proof(p_advance uuid, p_path text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_path text := NULLIF(btrim(COALESCE(p_path, '')), '');
+BEGIN
+  IF v_path IS NULL THEN
+    RAISE EXCEPTION 'PROOF_REQUIRED' USING ERRCODE = '22023', DETAIL = 'Attach the receipt or statement for this payment';
+  END IF;
+  IF v_path !~ ('^advances/' || p_advance::text || '/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$') THEN
+    RAISE EXCEPTION 'PROOF_PATH_INVALID' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'special-advance-proofs' AND o.name = v_path) THEN
+    RAISE EXCEPTION 'PROOF_NOT_FOUND' USING ERRCODE = 'P0002';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.special_advances s WHERE s.payout_proof_path = v_path)
+     OR EXISTS (SELECT 1 FROM public.special_advance_repayments r WHERE r.proof_path = v_path) THEN
+    RAISE EXCEPTION 'PROOF_ALREADY_USED' USING ERRCODE = '23505';
+  END IF;
+  RETURN v_path;
+END $$;
+
 -- ── Repayments (append-only) ───────────────────────────────────────────────────────────────────────
 CREATE TABLE public.special_advance_repayments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -197,6 +232,7 @@ CREATE TABLE public.special_advance_repayments (
   received_date date NOT NULL,
   method text NOT NULL CHECK (method IN ('mobile_money', 'bank_transfer')),
   reference text NOT NULL CHECK (length(btrim(reference)) BETWEEN 3 AND 100),
+  proof_path text NOT NULL UNIQUE CHECK (proof_path ~ '^advances/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'),
   note text CHECK (note IS NULL OR length(note) <= 1000),
   idempotency_key text NOT NULL UNIQUE CHECK (length(idempotency_key) BETWEEN 16 AND 100),
   ledger_group_id uuid NOT NULL,
@@ -313,6 +349,7 @@ DECLARE
   v_date date;
   v_method text := p_payout ->> 'method';
   v_ref text := NULLIF(btrim(COALESCE(p_payout ->> 'reference', '')), '');
+  v_proof text := NULLIF(btrim(COALESCE(p_payout ->> 'proof_path', '')), '');
   v_elig text[];
   v_legs jsonb;
   v_desc text;
@@ -343,10 +380,14 @@ BEGIN
     IF a.borrower_user_id = v_actor THEN
       RAISE EXCEPTION 'SELF_ADVANCE' USING ERRCODE = '42501';
     END IF;
+    IF v_proof IS NOT NULL THEN  -- a wallet payout is internal: no external proof belongs to it
+      RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["proof_path"]';
+    END IF;
   ELSE
     IF v_method IS NULL OR v_method NOT IN ('mobile_money', 'bank_transfer') OR v_ref IS NULL OR length(v_ref) NOT BETWEEN 3 AND 100 THEN
       RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["method","reference"]';
     END IF;
+    v_proof := public._special_advance_check_proof(a.id, v_proof);  -- D1: the archived receipt of the off-platform payment
   END IF;
   -- the borrower may have become ineligible since approval
   SELECT * INTO eb FROM public.special_advance_external_borrowers WHERE id = a.external_borrower_id;
@@ -390,7 +431,7 @@ BEGIN
 
   UPDATE public.special_advances
      SET status = 'disbursed', payout_date = v_date, disbursed_by = v_actor, disbursed_at = clock_timestamp(),
-         payout_method = v_method, payout_reference = v_ref, payout_ledger_group_id = v_group
+         payout_method = v_method, payout_reference = v_ref, payout_ledger_group_id = v_group, payout_proof_path = v_proof
    WHERE id = a.id;
   RETURN public._special_advance_json(a.id) || jsonb_build_object('position', public._special_advance_position(a.id));
 END $$;
@@ -410,6 +451,7 @@ DECLARE
   v_method text := p_repayment ->> 'method';
   v_ref text := NULLIF(btrim(COALESCE(p_repayment ->> 'reference', '')), '');
   v_note text := NULLIF(btrim(COALESCE(p_repayment ->> 'note', '')), '');
+  v_proof text := NULLIF(btrim(COALESCE(p_repayment ->> 'proof_path', '')), '');
   a public.special_advances%ROWTYPE;
   e public.special_advance_repayments%ROWTYPE;
   v_errs text[] := '{}';
@@ -429,7 +471,7 @@ BEGIN
   IF e.id IS NOT NULL THEN
     IF e.advance_id = p_id AND e.recorded_by = v_actor AND COALESCE(p_repayment ->> 'amount', '') ~ '^[0-9]+$'
        AND e.amount = (p_repayment ->> 'amount')::bigint
-       AND e.reference = v_ref AND e.method = v_method THEN
+       AND e.reference = v_ref AND e.method = v_method AND e.proof_path IS NOT DISTINCT FROM v_proof THEN
       RETURN public._special_advance_json(p_id) || jsonb_build_object('position', public._special_advance_position(p_id), 'replayed', true);
     END IF;
     RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT' USING ERRCODE = '23505';
@@ -456,6 +498,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.special_advance_repayments r WHERE r.method = v_method AND upper(btrim(r.reference)) = upper(v_ref)) THEN
     RAISE EXCEPTION 'REPAYMENT_REFERENCE_ALREADY_RECORDED' USING ERRCODE = '23505';
   END IF;
+  v_proof := public._special_advance_check_proof(a.id, v_proof);  -- D2: the archived receipt / statement of the repayment
 
   v_pos := public._special_advance_position(a.id);
   IF v_amount > (v_pos ->> 'outstanding')::bigint THEN
@@ -475,8 +518,8 @@ BEGIN
     'special_advance:repayment:' || v_key, false);
 
   INSERT INTO public.special_advance_repayments (id, advance_id, amount, received_date, method, reference, note, idempotency_key,
-                                                 ledger_group_id, recorded_by)
-  VALUES (v_rep, a.id, v_amount::bigint, v_date, v_method, v_ref, v_note, v_key, v_group, v_actor);
+                                                 ledger_group_id, recorded_by, proof_path)
+  VALUES (v_rep, a.id, v_amount::bigint, v_date, v_method, v_ref, v_note, v_key, v_group, v_actor, v_proof);
 
   v_left := v_amount::bigint;
   FOR i IN
@@ -522,7 +565,8 @@ BEGIN
     'position', public._special_advance_position(p_id),
     'repayments', COALESCE((SELECT jsonb_agg(jsonb_build_object(
         'id', r.id, 'amount', r.amount, 'received_date', r.received_date, 'method', r.method, 'reference', r.reference,
-        'note', r.note, 'recorded_by', r.recorded_by, 'recorded_at', r.recorded_at, 'ledger_group_id', r.ledger_group_id) ORDER BY r.recorded_at)
+        'note', r.note, 'recorded_by', r.recorded_by, 'recorded_at', r.recorded_at, 'ledger_group_id', r.ledger_group_id,
+        'proof_path', r.proof_path) ORDER BY r.recorded_at)
       FROM public.special_advance_repayments r WHERE r.advance_id = p_id), '[]'::jsonb));
 END $$;
 
@@ -565,6 +609,7 @@ REVOKE ALL ON FUNCTION public._special_advance_verify_repayments() FROM PUBLIC, 
 REVOKE ALL ON FUNCTION public._special_advance_position(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_require_mfa() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_guard_mfa() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._special_advance_check_proof(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.special_advance_disburse(uuid, timestamptz, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.special_advance_record_repayment(uuid, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.special_advance_statement(uuid) FROM PUBLIC, anon;
@@ -573,5 +618,10 @@ GRANT EXECUTE ON FUNCTION public.special_advance_disburse(uuid, timestamptz, jso
 GRANT EXECUTE ON FUNCTION public.special_advance_record_repayment(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.special_advance_statement(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.special_advance_reconciliation() TO authenticated;
+
+-- ── Private proof bucket (its storage policies: 20261028153100, owner-applied) ─────────────────────────────
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('special-advance-proofs', 'special-advance-proofs', false, 10485760,
+        ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 
 RESET lock_timeout;

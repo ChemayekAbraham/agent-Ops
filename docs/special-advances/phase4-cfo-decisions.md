@@ -8,11 +8,11 @@ Phase 4 is applied.
 
 | # | Decision | Phase 4 code today | Status |
 |---|---|---|---|
-| D1 | External payout evidence | CFO records method + reference; posted from A1 at once | **Pending** |
-| D2 | Repayment evidence | CFO records method + reference; posted to A1 at once | **Pending** |
+| D1 | External payout evidence | Method + reference **and an archived proof file** required; posted from A1 | **Decided 2026-10-27: proof required** |
+| D2 | Repayment evidence | Method + reference **and an archived proof file** required; posted to A1 | **Decided 2026-10-27: proof required** |
 | D3 | Fee recognition timing | Access and registration fees are revenue (R1) at payout | **Pending confirmation** |
 | D4 | One person approves and pays out | Any enabled CFO may approve and pay out the same advance (not their own) | **Pending confirmation** |
-| D5 | Staff MFA for money-moving actions | Proposed: approval, payout and repayment need an authenticator-verified session (aal2) | **Proposal, pending** |
+| D5 | Staff MFA for money-moving actions | Approval, payout and repayment need an authenticator-verified session (aal2) | **Decided 2026-10-27: accepted** |
 | D6 | Balance-sheet heading for A24 | Reported under "Other Assets" | **Implemented, open to change** |
 
 Already decided by the CFO (2026-10-27) and implemented: payout to a Welile borrower goes to their withdrawable wallet;
@@ -36,7 +36,7 @@ archived receipt proves it).
 3. Record the payout as "paid, unverified" and treat it as verified only once a receipt is archived and matched, as
    the landlord payout rule does.
 
-**Recommendation.** Option 3, matching the landlord payout rule, or at least option 2. Not implemented: needs a decision.
+**Decision (CFO, 2026-10-27): require an archived proof (option 2).** See "Proof files: what is implemented" below.
 
 ## D2. Evidence for a repayment
 
@@ -49,7 +49,36 @@ cash until reversed (reversal needs approved reversing entries; repayment record
 
 **Options.** As for D1: keep; require an archived proof; or record as unverified until matched.
 
-**Recommendation.** Require an archived proof (option 2) at minimum. Not implemented: needs a decision.
+**Decision (CFO, 2026-10-27): require an archived proof (option 2).** See "Proof files: what is implemented" below.
+
+### Proof files: what is implemented (Phase 4 migration, not applied)
+
+- Private bucket `special-advance-proofs` (10 MB; JPEG, PNG, WebP or PDF), created by the Phase 4 migration.
+- A proof sits at `advances/<advance id>/<uuid>.<ext>`. `_special_advance_check_proof` refuses a missing proof
+  (`PROOF_REQUIRED`), a path outside that advance's folder or of another type (`PROOF_PATH_INVALID`), a file that is not
+  in the bucket (`PROOF_NOT_FOUND`) and a file already attached to a payout or repayment (`PROOF_ALREADY_USED`).
+- External payout: `special_advance_disburse` requires the proof and records it in `special_advances.payout_proof_path`
+  (written once, never changed; one proof per payout). A wallet payout is internal and refuses a proof.
+- Repayment: `special_advance_record_repayment` requires the proof and records it in
+  `special_advance_repayments.proof_path` (unique; repayments are append-only); the statement lists it.
+- Every check runs before anything is posted, so a refused payout or repayment writes nothing.
+- Storage policies (CFO-only read and upload, staff MFA; no update or delete): separate migration
+  `20261028153100_special_advances_proof_storage_policies`. Only the owner of `storage.objects` can create them, so,
+  like the asset register's, it must be applied by the project owner (Supabase dashboard); its preflight refuses the
+  CLI's postgres login.
+- App: `uploadSpecialAdvanceProof` (hook) uploads a file and returns its path; the payout and repayment calls accept
+  `proof_path`; the screens explain each refusal.
+
+### Proof files: still to do before Phase 4 is used
+
+1. UI (Gemini): a file-upload control on the payout (external borrowers) and repayment forms that calls
+   `uploadSpecialAdvanceProof` and sends the path; show the proof link on the detail sheet. Until then the server
+   refuses external payouts and repayments from the screens (`PROOF_REQUIRED`).
+2. Project owner applies `20261028153100` (storage policies) after Phase 4.
+3. Not included: automatic reading of the proof (transaction ID / amount match) as the Receipt Archive does for
+   landlord payouts. The proof is archived and attached, and the CFO's reference is recorded, but nothing checks that
+   the file shows that reference and amount. The machine check (`payout_proof_ocr_log`) is keyed to withdrawal
+   requests, so adding it means a separate log and edge-function work: a later decision (option 3).
 
 ## D3. When fees are recognised
 
@@ -84,14 +113,14 @@ CFO's "sole authority" decision; there are 4 enabled CFO accounts in production.
 **Recommendation.** Option 2 or 3 if more than one person holds the CFO role in practice; otherwise D5 (MFA) is the
 main safeguard. No change made.
 
-## D5. Staff MFA for money-moving actions (proposal, implemented locally only)
+## D5. Staff MFA for money-moving actions (DECIDED 2026-10-27: accepted)
 
 **Finding (read-only, 2026-10-27).** Production `staff_mfa_config.mode` is `shadow`, so `staff_mfa_ok()` passes for
 everyone and every Special Advances action works with a password-only session. **No user in production, including
 the 4 CFOs, has a verified authenticator factor.** The app already supports enrolment and verification
 (`src/hooks/useAuthenticatorMfa.ts`: enroll, challengeAndVerify, getAuthenticatorAssuranceLevel).
 
-**Proposal (in the local Phase 4 migration, not applied).** Approval, payout and repayment recording require the
+**Decision (CFO, 2026-10-27): accepted; in the Phase 4 migration, not yet applied.** Approval, payout and repayment recording require the
 session's JWT `aal` to be `aal2` (verified with the authenticator app), independent of the global mode:
 - `_special_advance_require_mfa()` raises `MFA_REQUIRED` (42501) for a signed-in caller without `aal2`;
 - `special_advance_disburse` and `special_advance_record_repayment` call it first, before anything is posted;
@@ -107,8 +136,9 @@ Tests: `src/test/specialAdvancePayout.test.ts`, describe "Staff MFA for money-mo
 and verify in the session. Issuance is off in any case. The step-up prompt in the Special Advances screens (calling
 the existing MFA hook) is UI work still to do.
 
-**Options.** Accept the proposal (recommended); or remove it before applying Phase 4 and rely on the global mode; or
-instead switch the global mode to `admin` (affects every admin role, not only Special Advances).
+**Before Phase 4 is applied:** each CFO who will approve, pay out or record repayments enrols an authenticator app
+(none had as at 2026-10-27), and the Special Advances screens get the step-up prompt (UI). The global
+`staff_mfa_config` mode is not changed by this decision.
 
 ## D6. Balance-sheet heading for A24
 

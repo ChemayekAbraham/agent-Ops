@@ -4,7 +4,9 @@
 -- unwound by a schema rollback; that needs reversing entries, approved separately.
 -- Removes: the payout / repayment functions, repayment tables, payout columns, the six mapping rows, account A24 and
 -- the six allowlist categories (the allowlist body is restored to exactly what it was before this migration, with its
--- search_path setting kept), and the staff-MFA guard. Accounts A20-A23 are never touched.
+-- search_path setting kept), the staff-MFA guard and the proof checker. Accounts A20-A23 are never touched.
+-- The special-advance-proofs bucket and any uploaded proof files are KEPT (they are records); remove the bucket by hand
+-- only if it is empty, after rolling back 20261028153100 (its storage policies).
 -- TRANSACTION: run as ONE transaction (by hand: BEGIN; ... COMMIT;).
 SET lock_timeout = '5s';
 DO $pre$
@@ -36,10 +38,11 @@ DROP FUNCTION public._special_advance_verify_repayments();
 DROP TRIGGER special_advances_require_mfa ON public.special_advances;
 DROP FUNCTION public._special_advance_guard_mfa();
 DROP FUNCTION public._special_advance_require_mfa();
+DROP FUNCTION public._special_advance_check_proof(uuid, text);
 DROP TRIGGER special_advances_guard_payout_fields ON public.special_advances;
 DROP FUNCTION public._special_advance_guard_payout_fields();
 ALTER TABLE public.special_advances DROP CONSTRAINT special_advances_payout_record;
-ALTER TABLE public.special_advances DROP COLUMN payout_ledger_group_id, DROP COLUMN payout_reference, DROP COLUMN payout_method;
+ALTER TABLE public.special_advances DROP COLUMN payout_proof_path, DROP COLUMN payout_ledger_group_id, DROP COLUMN payout_reference, DROP COLUMN payout_method;
 
 DELETE FROM public.ledger_account_map
  WHERE category IN ('special_advance_credit', 'special_advance_receivable', 'special_advance_payout_cash',

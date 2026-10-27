@@ -36,6 +36,8 @@ const FUNCTIONS = MIG('20261028152000_special_advances_functions.sql');
 const PAYOUT = MIG('20261028153000_special_advances_payout_repayment.sql');
 const PAYOUT_RB = read('supabase/rollbacks/20261028153000_special_advances_payout_repayment.rollback.sql');
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
+const POLICIES = MIG('20261028153100_special_advances_proof_storage_policies.sql');
+const POLICIES_RB = read('supabase/rollbacks/20261028153100_special_advances_proof_storage_policies.rollback.sql');
 // production's allowlist (wrapper + base list), verbatim; the migration pins this exact definition
 const PROD_ALLOWLIST = read('scripts/fixtures/ledger-allowlist-prod-2026-10-27.sql');
 const PROD_ALLOWLIST_MD5 = '736744d355fe913acfcc0593204613a6';
@@ -87,6 +89,12 @@ create table public.general_ledger (
   recipient_type text, wallet_bucket text, routing_source text, solvency_bypass_reason public.solvency_bypass_reason,
   ip_address text, user_agent text, created_at timestamptz not null default now());
 create table public.wallets (id uuid primary key default gen_random_uuid(), user_id uuid unique, withdrawable_balance numeric default 0);
+-- storage stand-ins: the proof bucket and its files (Supabase's storage schema, the columns the migration reads)
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false,
+  file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, created_at timestamptz default now());
+alter table storage.objects enable row level security;
 create table public.wallet_fresh_start_anchors (user_id uuid primary key, anchor_at timestamptz);
 create table public.wallet_routing_violations (id bigserial primary key, user_id uuid, category text, direction text, amount numeric,
   recipient_type text, reason text, context jsonb);
@@ -163,7 +171,7 @@ async function call<T = Record<string, unknown>>(user: string, sql: string, para
   }
 }
 type Adv = { id: string; reference: string; status: string; updated_at: string; payout_date: string | null; payout_method: string | null;
-  payout_ledger_group_id: string | null; schedule: Array<{ number: number; due_date: string | null; amount: number }>;
+  payout_ledger_group_id: string | null; payout_proof_path?: string | null; schedule: Array<{ number: number; due_date: string | null; amount: number }>;
   events: Array<{ event_type: string }>; replayed?: boolean;
   position: { outstanding: number; total_paid: number; overdue_amount: number; overdue_instalments: number;
     instalments: Array<{ number: number; paid: number; outstanding: number; status: string }> } };
@@ -182,8 +190,16 @@ async function approved(borrower: Record<string, unknown>, terms = TERMS) {
 }
 const disburse = (a: Adv, payout: Record<string, unknown>, user = cfo) =>
   call<Adv>(user, `select public.special_advance_disburse($1, $2::timestamptz, $3::jsonb) r`, [a.id, a.updated_at, JSON.stringify(payout)]);
-const repay = (a: { id: string }, rep: Record<string, unknown>, user = cfo) =>
-  call<Adv>(user, `select public.special_advance_record_repayment($1, $2::jsonb) r`, [a.id, JSON.stringify({ idempotency_key: uuid(), method: 'mobile_money', received_date: today(), ...rep })]);
+/** An uploaded proof file for one advance (stand-in for a storage upload); returns its path. */
+async function proof(advanceId: string, ext = 'pdf') {
+  const name = `advances/${advanceId}/${uuid()}.${ext}`;
+  await db.query(`insert into storage.objects (bucket_id, name) values ('special-advance-proofs', $1)`, [name]);
+  return name;
+}
+const repay = async (a: { id: string }, rep: Record<string, unknown>, user = cfo) =>
+  call<Adv>(user, `select public.special_advance_record_repayment($1, $2::jsonb) r`, [a.id, JSON.stringify({
+    idempotency_key: uuid(), method: 'mobile_money', received_date: today(),
+    ...('proof_path' in rep ? {} : { proof_path: await proof(a.id) }), ...rep })]);
 
 /** DR / CR of a ledger group, resolved through ledger_account_map (bucket-specific row first). */
 async function mapped(group: string) {
@@ -328,8 +344,19 @@ describe('Phase 4 payout (separate from approval)', () => {
     const a = await approved({ kind: 'external', borrower_type: 'individual', full_name: 'John Mukasa', phone: '0772123456', national_id: 'CM900000000000' });
     expect((await disburse(a, { payout_date: today(), method: 'wallet' })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
     expect((await disburse(a, { payout_date: today(), method: 'mobile_money' })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
-    const r = await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899' });
-    expect(r.out).toMatchObject({ status: 'disbursed', payout_method: 'mobile_money' });
+    // D1: an external payout needs an archived proof file of this advance, which must exist
+    const ledger0 = (await q<{ n: number }>(`select count(*)::int n from public.general_ledger`))[0].n;
+    expect((await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899' })).err?.message).toBe('PROOF_REQUIRED');
+    expect((await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899',
+      proof_path: `advances/${uuid()}/${uuid()}.pdf` })).err?.message).toBe('PROOF_PATH_INVALID');           // another advance's folder
+    expect((await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899',
+      proof_path: `advances/${a.id}/${uuid()}.exe` })).err?.message).toBe('PROOF_PATH_INVALID');            // not an image / PDF
+    expect((await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899',
+      proof_path: `advances/${a.id}/${uuid()}.pdf` })).err?.message).toBe('PROOF_NOT_FOUND');               // never uploaded
+    expect((await q<{ n: number }>(`select count(*)::int n from public.general_ledger`))[0].n).toBe(ledger0); // nothing posted
+    const payoutProof = await proof(a.id, 'png');
+    const r = await disburse(a, { payout_date: today(), method: 'mobile_money', reference: 'MM-TXN-778899', proof_path: payoutProof });
+    expect(r.out).toMatchObject({ status: 'disbursed', payout_method: 'mobile_money', payout_proof_path: payoutProof });
     expect(await mapped(r.out!.payout_ledger_group_id!)).toEqual([
       { account: 'A1', dr: 0, cr: 500_000 }, { account: 'A24', dr: 940_000, cr: 0 }, { account: 'R1', dr: 0, cr: 440_000 }]);
     expect(await q(`select count(*)::int n from public.general_ledger where transaction_group_id = $1 and ledger_scope = 'wallet'`, [r.out!.payout_ledger_group_id])).toEqual([{ n: 0 }]);
@@ -394,11 +421,12 @@ describe('Phase 4 repayments (recorded by the CFO)', () => {
     expect((await repay(a, { amount: 1_000, reference: 'CASH-1', method: 'cash' })).err?.detail).toBe('["method"]');
     expect((await repay(a, { amount: 10.5, reference: 'MM-REP-0005' })).err?.detail).toBe('["amount"]');
     const key = uuid();
-    const first = await repay(a, { amount: 1_000, reference: 'MM-REP-0006', idempotency_key: key });
-    const again = await repay(a, { amount: 1_000, reference: 'MM-REP-0006', idempotency_key: key });
+    const p6 = await proof(a.id);
+    const first = await repay(a, { amount: 1_000, reference: 'MM-REP-0006', idempotency_key: key, proof_path: p6 });
+    const again = await repay(a, { amount: 1_000, reference: 'MM-REP-0006', idempotency_key: key, proof_path: p6 });
     expect(again.out!.replayed).toBe(true);
     expect(again.out!.position.total_paid).toBe(first.out!.position.total_paid);
-    expect((await repay(a, { amount: 2_000, reference: 'MM-REP-0006', idempotency_key: key })).err?.message).toBe('IDEMPOTENCY_CONFLICT');
+    expect((await repay(a, { amount: 2_000, reference: 'MM-REP-0006', idempotency_key: key, proof_path: p6 })).err?.message).toBe('IDEMPOTENCY_CONFLICT');
     expect((await repay(a, { amount: 1_000, reference: 'MM-REP-0007' }, coo)).err?.message).toBe('NOT_AUTHORIZED');
   });
 
@@ -419,6 +447,80 @@ describe('Phase 4 repayments (recorded by the CFO)', () => {
       `update public.special_advance_repayment_allocations set principal = 0`, `delete from public.special_advance_repayment_allocations`]) {
       expect(((await db.exec(sql).catch((x: Err) => x)) as Err).code, sql).toBe('42501');
     }
+  });
+});
+
+describe('Proof files for external payouts and repayments (CFO decision D1/D2, 2026-10-27)', () => {
+  const ext = () => approved({ kind: 'external', borrower_type: 'individual', full_name: 'Grace Namata', phone: '0782000111', national_id: 'CF800000000001' },
+    { ...TERMS, principal: 200_000, term_days: 30, frequency: 'monthly' });
+
+  it('creates the private proof bucket (10 MB, images or PDF)', async () => {
+    expect(await q(`select id, public, file_size_limit::int s, allowed_mime_types m from storage.buckets where id = 'special-advance-proofs'`)).toEqual([
+      { id: 'special-advance-proofs', public: false, s: 10_485_760, m: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] }]);
+  });
+
+  it('a wallet payout takes no external proof', async () => {
+    const borrower = uuid(); // its own borrower, so other tests' borrowers stay free
+    await db.query(`insert into auth.users values ($1)`, [borrower]);
+    await db.query(`insert into public.profiles (id, full_name) values ($1, 'Wallet Borrower')`, [borrower]);
+    await db.query(`insert into public.user_roles (user_id, role) values ($1, 'tenant')`, [borrower]);
+    const a = await approved({ kind: 'welile_user', user_id: borrower }, { ...TERMS, principal: 100_000, term_days: 14, frequency: 'weekly' });
+    const r = await disburse(a, { payout_date: today(), method: 'wallet', proof_path: await proof(a.id) });
+    expect(r.err?.detail).toBe('["proof_path"]');
+    expect(await q(`select count(*)::int n from public.general_ledger where source_id = $1`, [a.id])).toEqual([{ n: 0 }]);
+    const ok = await disburse(a, { payout_date: today(), method: 'wallet' });
+    expect(ok.out).toMatchObject({ status: 'disbursed', payout_proof_path: null });
+  });
+
+  it('a repayment needs its own proof: missing, never uploaded or already used is refused and nothing is recorded', async () => {
+    const a = await ext();
+    const paid = await disburse(a, { payout_date: today(), method: 'bank_transfer', reference: 'BANK-PAY-5001', proof_path: await proof(a.id) });
+    expect(paid.err).toBeUndefined();
+    const reps0 = (await q<{ n: number }>(`select count(*)::int n from public.special_advance_repayments`))[0].n;
+    const ledger0 = (await q<{ n: number }>(`select count(*)::int n from public.general_ledger`))[0].n;
+    expect((await repay(a, { amount: 1_000, reference: 'MM-PROOF-0001', proof_path: null })).err?.message).toBe('PROOF_REQUIRED');
+    expect((await repay(a, { amount: 1_000, reference: 'MM-PROOF-0002', proof_path: `advances/${a.id}/${uuid()}.jpg` })).err?.message).toBe('PROOF_NOT_FOUND');
+    // the payout's own proof cannot be reused for a repayment
+    expect((await repay(a, { amount: 1_000, reference: 'MM-PROOF-0003', proof_path: paid.out!.payout_proof_path })).err?.message).toBe('PROOF_ALREADY_USED');
+    expect((await q<{ n: number }>(`select count(*)::int n from public.special_advance_repayments`))[0].n).toBe(reps0);
+    expect((await q<{ n: number }>(`select count(*)::int n from public.general_ledger`))[0].n).toBe(ledger0);
+    // with a fresh proof it is recorded, and the statement shows the proof
+    const p = await proof(a.id, 'jpg');
+    const ok = await repay(a, { amount: 1_000, reference: 'MM-PROOF-0004', proof_path: p });
+    expect(ok.err).toBeUndefined();
+    const st = (await call<{ repayments: Array<{ reference: string; proof_path: string }> }>(cfo, `select public.special_advance_statement($1) r`, [a.id])).out!;
+    expect(st.repayments.find((x) => x.reference === 'MM-PROOF-0004')?.proof_path).toBe(p);
+    // and that proof cannot back a second repayment
+    expect((await repay(a, { amount: 1_000, reference: 'MM-PROOF-0005', proof_path: p })).err?.message).toBe('PROOF_ALREADY_USED');
+  });
+
+  it('a recorded proof can never be changed', async () => {
+    const a = (await q<{ id: string }>(`select id from public.special_advances where payout_proof_path is not null limit 1`))[0];
+    const e = await db.exec(`update public.special_advances set payout_proof_path = null where id = '${a.id}'`).catch((x: Err) => x);
+    expect((e as Err).message).toMatch(/SPECIAL_ADVANCE_DECISION_IMMUTABLE|special_advances_payout_record/);
+    const e2 = await db.exec(`update public.special_advance_repayments set proof_path = proof_path`).catch((x: Err) => x);
+    expect((e2 as Err).code).toBe('42501'); // repayments are append-only
+  });
+
+  it('storage policies (owner-applied file): CFO-only read and upload, no update or delete; refuses a second run and a non-owner', async () => {
+    await db.exec(`BEGIN;\n${POLICIES}\nCOMMIT;`);
+    const pols = await q<{ policyname: string; cmd: string; roles: string[] }>(`select policyname, cmd, roles from pg_policies
+      where schemaname = 'storage' and tablename = 'objects' and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'special-advance-proofs' order by 1`);
+    expect(pols.map((p) => `${p.policyname}:${p.cmd}`)).toEqual(['special_advance_proofs_insert:INSERT', 'special_advance_proofs_read:SELECT']);
+    const again = await db.exec(`BEGIN;\n${POLICIES}\nCOMMIT;`).catch((x: Err) => x);
+    await db.exec('ROLLBACK').catch(() => {});
+    expect((again as Err).message).toMatch(/already exist/);
+    // a role that does not own storage.objects is refused before anything is created
+    await db.exec(`BEGIN;\nDROP POLICY special_advance_proofs_read ON storage.objects; DROP POLICY special_advance_proofs_insert ON storage.objects;
+      CREATE ROLE proofs_not_owner NOLOGIN; GRANT USAGE ON SCHEMA storage TO proofs_not_owner; GRANT SELECT ON storage.buckets TO proofs_not_owner;
+      SET LOCAL ROLE proofs_not_owner;\n`);
+    const notOwner = await db.exec(POLICIES).catch((x: Err) => x);
+    await db.exec('ROLLBACK').catch(() => {});
+    expect((notOwner as Err).message).toMatch(/does not own storage.objects/);
+    // the rollback removes both policies (the bucket and its files stay)
+    await db.exec(`BEGIN;\n${POLICIES_RB}\nCOMMIT;`);
+    expect(await q(`select count(*)::int n from pg_policies where schemaname = 'storage' and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'special-advance-proofs'`)).toEqual([{ n: 0 }]);
+    expect(await q(`select count(*)::int n from storage.buckets where id = 'special-advance-proofs'`)).toEqual([{ n: 1 }]);
   });
 });
 
@@ -511,9 +613,13 @@ describe('Phase 4 rollback', () => {
       expect(meta0).toMatchObject({ md5: PROD_ALLOWLIST_MD5, config: PROD_ALLOWLIST_CONFIG });
       expect(await q(`select count(*)::int n from public.ledger_account_map where category like 'special\\_advance\\_%'`)).toEqual([{ n: 0 }]);
       expect(await q(`select count(*)::int n from public.ledger_account_catalog where code = 'A24'`)).toEqual([{ n: 0 }]);
+      // the proof checker is removed; the proof bucket (and any files) stays
+      expect(await q(`select to_regprocedure('public._special_advance_check_proof(uuid,text)') is null gone`)).toEqual([{ gone: true }]);
+      expect(await q(`select count(*)::int n from storage.buckets where id = 'special-advance-proofs'`)).toEqual([{ n: 1 }]);
       // A20-A23 and their mappings were never touched
       expect(await q(EXISTING_ACCOUNTS_SQL)).toEqual(accounts0);
       expect(await q(EXISTING_MAPPINGS_SQL)).toEqual(mappings0);
+      await db.exec(`delete from storage.buckets where id = 'special-advance-proofs'`); // an empty bucket removed by hand, as documented
       await db.exec(`BEGIN;\n${PAYOUT}\nCOMMIT;`); // re-applies cleanly
     } finally {
       await fresh.close();
@@ -621,7 +727,7 @@ describe('Issuance switched off: nothing can be issued or paid out', () => {
   });
 });
 
-describe('Staff MFA for money-moving actions (Phase 4 proposal, CFO confirmation pending)', () => {
+describe('Staff MFA for money-moving actions (CFO decision D5, 2026-10-27)', () => {
   const create = (borrower: string, aal = 'aal2') => call<Adv>(cfo, `select public.special_advance_create($1::jsonb) r`, [JSON.stringify({
     borrower: { kind: 'welile_user', user_id: borrower }, terms: TERMS, purpose: 'Working capital for verified supplier stock',
     expected_total_repayable: 940_000, idempotency_key: uuid() })], aal);

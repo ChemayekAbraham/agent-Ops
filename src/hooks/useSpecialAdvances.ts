@@ -4,6 +4,7 @@ import type {
   SpecialAdvance, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceStatement,
   SpecialAdvanceStatus,
 } from '@/lib/specialAdvances';
+import { SPECIAL_ADVANCE_PROOF_BUCKET, specialAdvanceProofPath } from '@/lib/specialAdvances';
 
 /**
  * Special Advances data access. Every call goes through the CFO-only `special_advance_*` SECURITY DEFINER functions
@@ -99,7 +100,8 @@ export function useSpecialAdvanceDecision() {
 export function useDisburseSpecialAdvance() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ advance, payout }: { advance: Versioned; payout: { payout_date: string; method: string; reference?: string | null } }) =>
+    // proof_path: required by the server for an external payout (CFO decision D1); see uploadSpecialAdvanceProof
+    mutationFn: ({ advance, payout }: { advance: Versioned; payout: { payout_date: string; method: string; reference?: string | null; proof_path?: string | null } }) =>
       call<SpecialAdvanceStatement>('special_advance_disburse', { p_id: advance.id, p_expected_updated_at: advance.updated_at, p_payout: payout }),
     onSuccess: invalidate,
   });
@@ -110,8 +112,21 @@ export function useRecordSpecialAdvanceRepayment() {
   return useMutation({
     mutationFn: ({ advanceId, repayment }: {
       advanceId: string;
-      repayment: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string };
+      // proof_path: required by the server for every repayment (CFO decision D2); see uploadSpecialAdvanceProof
+      repayment: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string; proof_path?: string | null };
     }) => call<SpecialAdvanceStatement>('special_advance_record_repayment', { p_id: advanceId, p_repayment: repayment }),
     onSuccess: invalidate,
   });
+}
+
+/**
+ * Uploads a proof file (receipt or statement) for one advance to the private proofs bucket and returns its path, to be
+ * sent as `proof_path` with the payout or repayment. Upload alone moves no money; the server then checks the file
+ * exists, belongs to this advance and is not used elsewhere. Files are never overwritten (upsert off).
+ */
+export async function uploadSpecialAdvanceProof(advanceId: string, file: File): Promise<string> {
+  const path = specialAdvanceProofPath(advanceId, file, crypto.randomUUID());
+  const { error } = await supabase.storage.from(SPECIAL_ADVANCE_PROOF_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw new Error(error.message);
+  return path;
 }
