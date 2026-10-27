@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAwarenessCallsGate } from '@/hooks/awarenessCallsAccess';
 import type {
   AwarenessCallResult, AwarenessSubject,
 } from '@/lib/awarenessCallLabels';
@@ -30,11 +31,38 @@ export interface MyAwarenessLog { total: number; limit: number; offset: number; 
 
 export const myAwarenessCallsKey = ['my-awareness-calls'] as const;
 
-export function useMyAwarenessSummary(from: string, to: string) {
-  return useQuery({
-    queryKey: [...myAwarenessCallsKey, 'summary', from, to],
-    staleTime: 30_000,
+/**
+ * Staff roles use the ordinary read. Everyone else may be a service-centre
+ * manager, so the RPC is still tried, but only once: no retry, no focus
+ * refetch, no polling. A "not authorized" result is not asked for again.
+ */
+function useAwarenessRead() {
+  const gate = useAwarenessCallsGate();
+  return {
+    enabled: gate.ready,
+    // No automatic retry, so a 400/403/P0001 "not authorized" cannot be
+    // asked again by the query client. The card's Retry button is the only
+    // second attempt, and it is hidden for that refusal.
     retry: false,
+    refetchInterval: false as const,
+    refetchOnReconnect: false as const,
+    ...(gate.staff
+      ? { staleTime: 30_000 }
+      : {
+          staleTime: Number.POSITIVE_INFINITY,
+          refetchOnWindowFocus: false as const,
+          refetchOnMount: false as const,
+          retryOnMount: false as const,
+        }),
+  };
+}
+
+export function useMyAwarenessSummary(from: string, to: string) {
+  const queryKey = [...myAwarenessCallsKey, 'summary', from, to];
+  const read = useAwarenessRead();
+  return useQuery({
+    queryKey,
+    ...read,
     queryFn: async (): Promise<MyAwarenessSummary> => {
       const { data, error } = await anyDb.rpc('my_awareness_calls_summary', { p_from: from, p_to: to });
       if (error) throw error;
@@ -44,10 +72,11 @@ export function useMyAwarenessSummary(from: string, to: string) {
 }
 
 export function useMyAwarenessLog(from: string, to: string, limit = 5) {
+  const queryKey = [...myAwarenessCallsKey, 'log', from, to, limit];
+  const read = useAwarenessRead();
   return useQuery({
-    queryKey: [...myAwarenessCallsKey, 'log', from, to, limit],
-    staleTime: 30_000,
-    retry: false,
+    queryKey,
+    ...read,
     queryFn: async (): Promise<MyAwarenessLog> => {
       const { data, error } = await anyDb.rpc('my_awareness_calls_log', { p_from: from, p_to: to, p_limit: limit, p_offset: 0 });
       if (error) throw error;
