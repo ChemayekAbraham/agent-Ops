@@ -161,8 +161,10 @@ let installed = false;
 export function installGlobalErrorReporting() {
   if (installed || typeof window === 'undefined') return;
   installed = true;
+  installChunkPreloadRecovery();
 
   window.addEventListener('error', (event) => {
+    if (isIgnorableClientError(event.error ?? event.message, event.error?.stack ?? null, event.filename)) return;
     if (isAbortLike(event.error ?? event.message)) return;
     if (isAudioStartError(event.error ?? event.message)) { notifyAudioStartFailed(); return; }
     void reportClientError({
@@ -179,6 +181,7 @@ export function installGlobalErrorReporting() {
 
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason;
+    if (isIgnorableClientError(reason, reason instanceof Error ? reason.stack ?? null : null)) return;
     if (isAbortLike(reason)) { event.preventDefault(); return; }
     if (isAudioStartError(reason)) { event.preventDefault(); notifyAudioStartFailed(); return; }
     const message =
