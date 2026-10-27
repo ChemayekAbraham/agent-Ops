@@ -10,8 +10,8 @@
 const PRODUCTION_HOSTS = new Set([
   'welileapp.com',
   'www.welileapp.com',
-  'welilereceipts.com',
-  'www.welilereceipts.com',
+  'welilereceipts.com', // legacy-domain-guard-allow
+  'www.welilereceipts.com', // legacy-domain-guard-allow
 ]);
 
 export function isProductionStartupHost(hostname: string): boolean {
