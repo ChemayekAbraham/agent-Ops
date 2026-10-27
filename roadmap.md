@@ -9,6 +9,7 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
+- [ ] Diagnose landlord payout-number mismatch and restrict rejected-request landlord-number corrections to Landlord Ops; preserve financial rules.
 - [x] Match Cash Position to the supplied compact board screenshot; existing figures, sources, filters and drill-downs preserved. 15 CFO tests and all guards pass, preview build OK; isolated desktop/phone layout and account-detail opening verified. Live signed-in verification unavailable with externally managed authentication. Existing additional reports remain below the compact board.
 - [x] Add consent-based Nexa inquiry signup prompts and signup bar using existing signup: 89 tests, all guards, Deno checks and preview compilation pass; desktop/phone prefill and public inquiry invitation verified. No predictable passwords, account-existence lookup, role writes or account creation from chat; unsupported bonuses excluded. Live WhatsApp delivery and completed live signup remain unverified; no accounts or SMS created during checks.
 - [x] Add Nexa auth-gated actions, deterministic private account guidance, wallet teaching, promissory reminders and canonical company facts. 75 guidance tests and all guards pass; public account guidance and sign-in return destination verified, preview build OK. No database or financial changes; live WhatsApp delivery remains blocked by existing credentials/activation.
