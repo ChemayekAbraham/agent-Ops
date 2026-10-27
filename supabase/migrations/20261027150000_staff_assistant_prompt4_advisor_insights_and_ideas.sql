@@ -1,36 +1,214 @@
 -- =============================================================================
 -- Migration: 20261027150000_staff_assistant_prompt4_advisor_insights_and_ideas.sql
--- Purpose:   Zoe as an Advisor ("Ideas for Welile") — Prompt 4:
---              1. Extend `public.staff_assistant_drafts` (`kind` check constraint +
---                 `staff_assistant_compute_draft_hash` + `staff_assistant_save_draft`)
---                 to support `'idea'` click-confirmed drafts (`draft_welile_idea`).
---              2. Create `public.staff_assistant_insights` (daily read-only anomaly
---                 notes comparing today's key figures against the last 4 weeks,
---                 with explicit grants, RLS, and `mfa_required_for_staff` policy).
---              3. Create `public.staff_assistant_ideas` (saved suggestions after a
---                 user click, with idea, evidence & figures, source, person, date,
---                 and status `new` | `being_looked_at` | `done` | `not_now` changed
---                 only by managers/COO/CEO on the `/me/ideas` screen).
---              4. Create 5 read-only `STABLE SECURITY DEFINER` advisor tools:
---                   - `public.assistant_staff_insight_desk_wait_times(p_weeks)`
---                   - `public.assistant_staff_insight_collection_coverage_trends(p_weeks)`
---                   - `public.assistant_staff_insight_calling_reach_and_themes(p_from, p_to)`
---                   - `public.assistant_staff_insight_payout_delays(p_weeks)`
---                   - `public.assistant_staff_insight_zoe_feedback_themes(p_days)`
---              5. Extend `public.staff_assistant_can_user_read_report` for the 5
---                 new `assistant_staff_insight_*` tools.
---              6. Create `public.staff_assistant_refresh_daily_insights(p_as_of)` +
---                 daily `pg_cron` job (`staff-assistant-daily-insights`), and
---                 checked RPCs for ideas & the Monday "What to look at this week"
---                 My Space card (`staff_assistant_save_idea`,
---                 `staff_assistant_list_ideas`, `staff_assistant_update_idea_status`,
---                 `staff_assistant_weekly_look_at_summary`).
+-- Purpose:   Zoe (My Space AI Assistant) — Prompt 4: Zoe as an Advisor That
+--            Suggests Improvements (And Never Acts):
+--              1. Read-only advisor tools (`assistant_staff_insight_*`), all
+--                 STABLE, SECURITY DEFINER, search_path = public, and role-checked,
+--                 built only from existing official figures:
+--                   - assistant_staff_insight_desk_wait_times(p_weeks)
+--                   - assistant_staff_insight_collection_coverage_trends(p_weeks)
+--                   - assistant_staff_insight_calling_reach_and_themes(p_days)
+--                   - assistant_staff_insight_payout_delays(p_days)
+--                   - assistant_staff_insight_zoe_unanswered_and_feedback(p_days)
+--                   - assistant_staff_insight_anomalies(p_category, p_limit)
+--              2. Anomaly notes table (`public.staff_assistant_insights`) with
+--                 explicit SELECT-only grant for `authenticated`, `mfa_required_for_staff`
+--                 RESTRICTIVE policy, and daily read-only computation job
+--                 `public.staff_assistant_compute_daily_insights(p_as_of)` comparing
+--                 today's key figures with the last 4 weeks.
+--              3. Ideas list table (`public.staff_assistant_ideas`) with explicit
+--                 SELECT-only grant for `authenticated`, `mfa_required_for_staff`
+--                 RESTRICTIVE policy, server-stored `'idea'` draft binding in
+--                 `public.staff_assistant_drafts`, click-confirmed save RPC
+--                 `public.staff_assistant_save_idea(...)`, list RPC
+--                 `public.staff_assistant_list_ideas(...)`, and manager-only status
+--                 update RPC `public.staff_assistant_update_idea_status(...)`.
+--              4. Monday "What to look at this week" summary RPC
+--                 `public.staff_assistant_weekly_focus_summary()` for managers,
+--                 the COO, and the CEO in My Space: top 5 issues with evidence,
+--                 figures, sources, and links to the screens (never sent outside
+--                 the app).
 -- =============================================================================
 
 BEGIN;
 
 -- -----------------------------------------------------------------------------
--- 1. Extend `staff_assistant_drafts` to support `'idea'` click-confirmed drafts
+-- 0. Ensure `staff_assistant_crm_can_review()` alias exists as STABLE
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.staff_assistant_crm_can_review()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT public.staff_assistant_is_crm_reviewer();
+$function$;
+
+REVOKE ALL ON FUNCTION public.staff_assistant_crm_can_review() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_crm_can_review() TO authenticated;
+
+-- Helper: can the signed-in caller view/manage saved Ideas for Welile & Weekly Focus?
+-- Visible to managers, the COO, and the CEO (plus super_admin).
+CREATE OR REPLACE FUNCTION public.staff_assistant_can_manage_ideas()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT (SELECT auth.uid()) IS NOT NULL
+     AND public.staff_assistant_has_access()
+     AND public._has_enabled_role(
+       (SELECT auth.uid()),
+       ARRAY['manager', 'coo', 'ceo', 'super_admin']
+     );
+$function$;
+
+COMMENT ON FUNCTION public.staff_assistant_can_manage_ideas() IS
+  'Returns true when the signed-in caller is an active staff member holding manager, coo, ceo, or super_admin role — authorized to view all saved Ideas for Welile, change idea statuses, and read the Monday Weekly Focus summary.';
+
+REVOKE ALL ON FUNCTION public.staff_assistant_can_manage_ideas() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_can_manage_ideas() TO authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 1. Anomaly Notes Table: `public.staff_assistant_insights` (Prompt 4 item 2)
+--    Stores notable changes comparing today's key figures with the last 4 weeks,
+--    with numbers and official sources. `authenticated` gets SELECT only.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.staff_assistant_insights (
+  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kampala_date          date NOT NULL DEFAULT ((now() AT TIME ZONE 'Africa/Kampala')::date),
+  metric_key            text NOT NULL,
+  category              text NOT NULL
+                        CONSTRAINT staff_assistant_insights_category_chk
+                        CHECK (category IN ('collections', 'desk_waiting', 'calling_reach', 'payout_delays', 'zoe_learning', 'finance')),
+  area_or_scope         text NOT NULL,
+  headline              text NOT NULL,
+  summary               text NOT NULL,
+  current_value         numeric NOT NULL DEFAULT 0,
+  four_week_avg         numeric NOT NULL DEFAULT 0,
+  pct_change            numeric NOT NULL DEFAULT 0,
+  direction             text NOT NULL DEFAULT 'flat'
+                        CONSTRAINT staff_assistant_insights_dir_chk
+                        CHECK (direction IN ('up', 'down', 'flat')),
+  severity              text NOT NULL DEFAULT 'notable'
+                        CONSTRAINT staff_assistant_insights_sev_chk
+                        CHECK (severity IN ('info', 'notable', 'high')),
+  evidence              jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source_function       text NOT NULL,
+  screen_link           text NOT NULL DEFAULT '/me',
+  requires_finance_gate boolean NOT NULL DEFAULT false,
+  created_at            timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT staff_assistant_insights_day_metric_scope_uniq
+    UNIQUE (kampala_date, metric_key, area_or_scope)
+);
+
+COMMENT ON TABLE public.staff_assistant_insights IS
+  'Daily anomaly notes comparing today''s key figures with the prior 4-week average, with numbers and official sources. Read-only for staff (SELECT only for authenticated).';
+
+CREATE INDEX IF NOT EXISTS idx_staff_assistant_insights_date_cat
+  ON public.staff_assistant_insights (kampala_date DESC, category, severity);
+
+ALTER TABLE public.staff_assistant_insights ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS mfa_required_for_staff ON public.staff_assistant_insights;
+CREATE POLICY mfa_required_for_staff
+  ON public.staff_assistant_insights
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((SELECT public.staff_mfa_ok()))
+  WITH CHECK ((SELECT public.staff_mfa_ok()));
+
+DROP POLICY IF EXISTS "Staff read authorized staff_assistant_insights" ON public.staff_assistant_insights;
+CREATE POLICY "Staff read authorized staff_assistant_insights"
+  ON public.staff_assistant_insights
+  FOR SELECT TO authenticated
+  USING (
+    (SELECT public.staff_assistant_has_access())
+    AND (
+      CASE
+        WHEN requires_finance_gate THEN (SELECT public.can_view_finance_reports((SELECT auth.uid())))
+        ELSE (SELECT public.can_view_staff_reports((SELECT auth.uid())))
+      END
+    )
+  );
+
+REVOKE ALL ON TABLE public.staff_assistant_insights FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.staff_assistant_insights TO authenticated;
+GRANT ALL    ON TABLE public.staff_assistant_insights TO service_role;
+
+-- -----------------------------------------------------------------------------
+-- 2. Saved Ideas Table: `public.staff_assistant_ideas` (Prompt 4 item 3 & 5)
+--    Stores click-confirmed improvement suggestions with evidence, figures,
+--    source, author, date, and manager-controlled status.
+--    `authenticated` gets SELECT only; all writes go through checked RPCs.
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.staff_assistant_ideas (
+  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by             uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  author_name            text NOT NULL,
+  author_email           text NOT NULL,
+  author_roles           text[] NOT NULL DEFAULT ARRAY[]::text[],
+  conversation_id        uuid REFERENCES public.staff_assistant_conversations(id) ON DELETE SET NULL,
+  draft_id               uuid REFERENCES public.staff_assistant_drafts(id) ON DELETE SET NULL,
+  title                  text NOT NULL,
+  idea                   text NOT NULL,
+  category               text NOT NULL DEFAULT 'operations'
+                         CONSTRAINT staff_assistant_ideas_cat_chk
+                         CHECK (category IN ('operations', 'collections', 'desk_waiting', 'calling_reach', 'payout_delays', 'zoe_learning', 'finance')),
+  evidence_summary       text NOT NULL,
+  evidence_figures       jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source                 text NOT NULL,
+  period_label           text NOT NULL DEFAULT 'Current period',
+  screen_link            text NOT NULL DEFAULT '/me/ideas',
+  status                 text NOT NULL DEFAULT 'new'
+                         CONSTRAINT staff_assistant_ideas_status_chk
+                         CHECK (status IN ('new', 'being_looked_at', 'done', 'not_now')),
+  status_note            text,
+  status_updated_by      uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  status_updated_by_name text,
+  status_updated_at      timestamptz,
+  created_at             timestamptz NOT NULL DEFAULT now(),
+  updated_at             timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.staff_assistant_ideas IS
+  'Saved "Ideas for Welile" suggestions with evidence, figures, official source, author, and date. Visible to managers, the COO, the CEO, and the author. Status is changed only by managers via ordinary screen action.';
+
+CREATE INDEX IF NOT EXISTS idx_staff_assistant_ideas_status_created
+  ON public.staff_assistant_ideas (status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_staff_assistant_ideas_author_created
+  ON public.staff_assistant_ideas (created_by, created_at DESC);
+
+ALTER TABLE public.staff_assistant_ideas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS mfa_required_for_staff ON public.staff_assistant_ideas;
+CREATE POLICY mfa_required_for_staff
+  ON public.staff_assistant_ideas
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING ((SELECT public.staff_mfa_ok()))
+  WITH CHECK ((SELECT public.staff_mfa_ok()));
+
+DROP POLICY IF EXISTS "Staff and leadership read staff_assistant_ideas" ON public.staff_assistant_ideas;
+CREATE POLICY "Staff and leadership read staff_assistant_ideas"
+  ON public.staff_assistant_ideas
+  FOR SELECT TO authenticated
+  USING (
+    (SELECT public.staff_assistant_has_access())
+    AND (
+      created_by = (SELECT auth.uid())
+      OR (SELECT public.staff_assistant_can_manage_ideas())
+    )
+  );
+
+REVOKE ALL ON TABLE public.staff_assistant_ideas FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.staff_assistant_ideas TO authenticated;
+GRANT ALL    ON TABLE public.staff_assistant_ideas TO service_role;
+
+-- -----------------------------------------------------------------------------
+-- 3. Extend `staff_assistant_drafts` and `staff_assistant_is_valid_link_path`
+--    to support `'idea'` drafts and `/me/ideas`
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.staff_assistant_drafts
   DROP CONSTRAINT IF EXISTS staff_assistant_drafts_kind_chk;
@@ -113,12 +291,11 @@ BEGIN
     v_canonical := jsonb_build_object(
       'kind', 'idea',
       'title', btrim(COALESCE(p_payload ->> 'title', '')),
-      'suggestion', btrim(COALESCE(p_payload ->> 'suggestion', '')),
+      'idea', btrim(COALESCE(p_payload ->> 'idea', '')),
+      'category', lower(btrim(COALESCE(p_payload ->> 'category', 'operations'))),
       'evidence_summary', btrim(COALESCE(p_payload ->> 'evidence_summary', '')),
-      'source_label', btrim(COALESCE(p_payload ->> 'source_label', '')),
-      'period_label', btrim(COALESCE(p_payload ->> 'period_label', '')),
-      'category', lower(btrim(COALESCE(p_payload ->> 'category', 'general'))),
-      'screen_path', COALESCE(NULLIF(btrim(COALESCE(p_payload ->> 'screen_path', '')), ''), '/me')
+      'source', btrim(COALESCE(p_payload ->> 'source', '')),
+      'period_label', btrim(COALESCE(p_payload ->> 'period_label', p_payload ->> 'period', 'Current period'))
     );
   ELSE
     RAISE EXCEPTION 'Invalid draft kind: %', v_kind USING ERRCODE = '22023';
@@ -193,7 +370,6 @@ $function$;
 REVOKE ALL ON FUNCTION public.staff_assistant_save_draft(text, jsonb, uuid) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.staff_assistant_save_draft(text, jsonb, uuid) TO authenticated;
 
--- Extend internal link_path validator to allow `/me/ideas`
 CREATE OR REPLACE FUNCTION public.staff_assistant_is_valid_link_path(
   p_link_path text
 )
@@ -251,219 +427,17 @@ $function$;
 REVOKE ALL ON FUNCTION public.staff_assistant_is_valid_link_path(text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_assistant_is_valid_link_path(text) TO authenticated, service_role;
 
--- -----------------------------------------------------------------------------
--- 2. Anomaly Notes Table: `public.staff_assistant_insights` (Prompt 4 item 2)
---    Stores daily 4-week comparisons with exact numbers and sources.
---    Locked down: `authenticated` has SELECT only; all writes go through the
---    checked daily job or RPC.
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.staff_assistant_insights (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  kampala_date    date NOT NULL DEFAULT ((now() AT TIME ZONE 'Africa/Kampala')::date),
-  category        text NOT NULL
-                  CONSTRAINT staff_assistant_insights_category_chk
-                  CHECK (category IN (
-                    'desk_wait',
-                    'collection_coverage',
-                    'area_collections',
-                    'agent_collections',
-                    'calling_reach',
-                    'payout_delay',
-                    'zoe_feedback'
-                  )),
-  scope_key       text NOT NULL,
-  title           text NOT NULL,
-  summary         text NOT NULL,
-  metric_name     text NOT NULL,
-  current_value   numeric NOT NULL DEFAULT 0,
-  four_week_avg   numeric NOT NULL DEFAULT 0,
-  pct_change      numeric NOT NULL DEFAULT 0,
-  direction       text NOT NULL DEFAULT 'flat'
-                  CONSTRAINT staff_assistant_insights_direction_chk
-                  CHECK (direction IN ('up', 'down', 'flat')),
-  is_notable      boolean NOT NULL DEFAULT true,
-  source_function text NOT NULL,
-  period_label    text NOT NULL,
-  screen_path     text NOT NULL DEFAULT '/me',
-  min_role_scope  text NOT NULL DEFAULT 'ops'
-                  CONSTRAINT staff_assistant_insights_scope_chk
-                  CHECK (min_role_scope IN ('ops', 'finance', 'crm', 'exec')),
-  evidence        jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at      timestamptz NOT NULL DEFAULT now(),
-  updated_at      timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT staff_assistant_insights_unique_day_scope
-    UNIQUE (kampala_date, category, scope_key)
-);
-
-COMMENT ON TABLE public.staff_assistant_insights IS
-  'Daily read-only anomaly notes comparing today''s key figures against the last 4 weeks, with exact numbers and sources. Zoe can mention them when relevant.';
-
-CREATE INDEX IF NOT EXISTS idx_staff_assistant_insights_date_notable
-  ON public.staff_assistant_insights (kampala_date DESC, is_notable, category);
-
-ALTER TABLE public.staff_assistant_insights ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS mfa_required_for_staff ON public.staff_assistant_insights;
-CREATE POLICY mfa_required_for_staff
-  ON public.staff_assistant_insights
-  AS RESTRICTIVE FOR ALL TO authenticated
-  USING ((SELECT public.staff_mfa_ok()))
-  WITH CHECK ((SELECT public.staff_mfa_ok()));
-
-DROP POLICY IF EXISTS "Staff read authorized staff_assistant_insights" ON public.staff_assistant_insights;
-CREATE POLICY "Staff read authorized staff_assistant_insights"
-  ON public.staff_assistant_insights
-  FOR SELECT TO authenticated
-  USING (
-    (SELECT public.staff_assistant_has_access())
-    AND (
-      (
-        min_role_scope = 'ops'
-        AND (SELECT public.can_view_staff_reports(auth.uid()))
-        AND (SELECT public._has_enabled_role(
-          auth.uid(),
-          ARRAY['tenant_ops','agent_ops','landlord_ops','partner_ops','operations','hr','coo','ceo','cfo','cto','manager','super_admin']
-        ))
-      )
-      OR (
-        min_role_scope = 'finance'
-        AND (SELECT public.can_view_finance_reports(auth.uid()))
-        AND (SELECT public._has_enabled_role(
-          auth.uid(),
-          ARRAY['financial_ops','cfo','ceo','coo','manager','super_admin']
-        ))
-      )
-      OR (
-        min_role_scope = 'crm'
-        AND (SELECT public.can_view_staff_reports(auth.uid()))
-        AND (SELECT public._has_enabled_role(
-          auth.uid(),
-          ARRAY['crm','cto','coo','ceo','cfo','hr','manager','super_admin']
-        ))
-      )
-      OR (
-        min_role_scope = 'exec'
-        AND (SELECT public.can_view_staff_reports(auth.uid()))
-        AND (SELECT public._has_enabled_role(
-          auth.uid(),
-          ARRAY['manager','coo','ceo','cfo','cto','super_admin']
-        ))
-      )
-    )
-  );
-
-REVOKE ALL ON TABLE public.staff_assistant_insights FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.staff_assistant_insights TO authenticated;
-GRANT ALL    ON TABLE public.staff_assistant_insights TO service_role;
-
--- -----------------------------------------------------------------------------
--- 3. Ideas List Table: `public.staff_assistant_ideas` (Prompt 4 item 3 & 5)
---    Saved only after a staff member clicks "Save to Ideas".
---    Visible to the creator and to managers, the COO, and the CEO.
---    Status (`new`, `being_looked_at`, `done`, `not_now`) is changed ONLY by
---    managers/COO/CEO on the `/me/ideas` review screen, never by Zoe.
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.staff_assistant_ideas (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_by        uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
-  conversation_id   uuid REFERENCES public.staff_assistant_conversations(id) ON DELETE SET NULL,
-  message_id        uuid REFERENCES public.staff_assistant_messages(id) ON DELETE SET NULL,
-  draft_id          uuid REFERENCES public.staff_assistant_drafts(id) ON DELETE SET NULL,
-  title             text NOT NULL,
-  suggestion        text NOT NULL,
-  evidence_summary  text NOT NULL,
-  figures           jsonb NOT NULL DEFAULT '{}'::jsonb,
-  source_label      text NOT NULL,
-  period_label      text NOT NULL,
-  category          text NOT NULL DEFAULT 'general'
-                    CONSTRAINT staff_assistant_ideas_category_chk
-                    CHECK (category IN (
-                      'general',
-                      'desk_wait',
-                      'collections',
-                      'calling',
-                      'payouts',
-                      'zoe_quality'
-                    )),
-  screen_path       text NOT NULL DEFAULT '/me',
-  status            text NOT NULL DEFAULT 'new'
-                    CONSTRAINT staff_assistant_ideas_status_chk
-                    CHECK (status IN ('new', 'being_looked_at', 'done', 'not_now')),
-  status_note       text,
-  status_updated_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  status_updated_at timestamptz,
-  created_at        timestamptz NOT NULL DEFAULT now(),
-  updated_at        timestamptz NOT NULL DEFAULT now()
-);
-
-COMMENT ON TABLE public.staff_assistant_ideas IS
-  'Evidence-backed improvement ideas saved from Zoe after a user click. Visible to the creator and to managers, COO, and CEO. Status is updated only by managers on /me/ideas, never by Zoe.';
-
-CREATE INDEX IF NOT EXISTS idx_staff_assistant_ideas_status_created
-  ON public.staff_assistant_ideas (status, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_staff_assistant_ideas_creator
-  ON public.staff_assistant_ideas (created_by, created_at DESC);
-
-ALTER TABLE public.staff_assistant_ideas ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS mfa_required_for_staff ON public.staff_assistant_ideas;
-CREATE POLICY mfa_required_for_staff
-  ON public.staff_assistant_ideas
-  AS RESTRICTIVE FOR ALL TO authenticated
-  USING ((SELECT public.staff_mfa_ok()))
-  WITH CHECK ((SELECT public.staff_mfa_ok()));
-
-DROP POLICY IF EXISTS "Staff and managers read staff_assistant_ideas" ON public.staff_assistant_ideas;
-CREATE POLICY "Staff and managers read staff_assistant_ideas"
-  ON public.staff_assistant_ideas
-  FOR SELECT TO authenticated
-  USING (
-    (SELECT public.staff_assistant_has_access())
-    AND (
-      created_by = (SELECT auth.uid())
-      OR (SELECT public._has_enabled_role(
-        auth.uid(),
-        ARRAY['manager', 'coo', 'ceo', 'cto', 'super_admin']
-      ))
-    )
-  );
-
-REVOKE ALL ON TABLE public.staff_assistant_ideas FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.staff_assistant_ideas TO authenticated;
-GRANT ALL    ON TABLE public.staff_assistant_ideas TO service_role;
-
--- Helper: can the signed-in caller review all ideas & change idea status?
-CREATE OR REPLACE FUNCTION public.staff_assistant_can_manage_ideas(
-  p_user_id uuid DEFAULT NULL
-)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $function$
-  SELECT
-    public.staff_assistant_has_access()
-    AND public._has_enabled_role(
-      COALESCE(p_user_id, auth.uid()),
-      ARRAY['manager', 'coo', 'ceo', 'cto', 'super_admin']
-    );
-$function$;
-
-REVOKE ALL ON FUNCTION public.staff_assistant_can_manage_ideas(uuid) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.staff_assistant_can_manage_ideas(uuid) TO authenticated;
-
 -- =============================================================================
--- 4. FIVE READ-ONLY ADVISOR TOOLS (`assistant_staff_insight_*`, Prompt 4 item 1)
---    All `STABLE`, `SECURITY DEFINER`, `SET search_path = public`, zero identity
---    parameters, role-checked, built only from existing official figures.
+-- 4. SIX READ-ONLY ADVISOR TOOLS (`assistant_staff_insight_*`, Prompt 4 item 1)
+--    All STABLE, SECURITY DEFINER, SET search_path = public, zero identity
+--    parameters, role-checked, and built only from existing official figures.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- I1. Where Rent Plan Requests Wait Longest, by Desk and Week
---     (`public.assistant_staff_insight_desk_wait_times`)
---     Built from `public.rent_request_timing(p_request_ids)` (`supabase/AGENTS.md` line 27).
+-- I1. Where Rent Plan requests wait longest, by desk and week
+--     (`assistant_staff_insight_desk_wait_times`)
+--     Built from `public.rent_request_timing(p_request_ids)` and
+--     `public.tenant_ops_rent_request_lifetime()`.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.assistant_staff_insight_desk_wait_times(
   p_weeks integer DEFAULT 4
@@ -478,14 +452,14 @@ DECLARE
   v_uid uuid := auth.uid();
   v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
   v_weeks integer := LEAST(GREATEST(coalesce(p_weeks, 4), 1), 12);
-  v_from date := v_today - (v_weeks * 7 - 1);
-  v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_from date := v_today - (v_weeks * 7);
   v_ids uuid[];
   v_timing jsonb := '{}'::jsonb;
+  v_lifetime jsonb := '{}'::jsonb;
   v_by_desk jsonb := '[]'::jsonb;
   v_by_week jsonb := '[]'::jsonb;
-  v_top_bottleneck jsonb := '{}'::jsonb;
-  v_anomalies jsonb := '[]'::jsonb;
+  v_longest_desk text := 'none';
+  v_longest_avg_hours numeric := 0;
 BEGIN
   IF v_uid IS NULL
      OR NOT public.staff_assistant_has_access()
@@ -498,9 +472,20 @@ BEGIN
        )
      )
   THEN
-    RAISE EXCEPTION 'Not authorized for Rent Plan desk wait-time advisor insights.'
+    RAISE EXCEPTION 'Not authorized for Rent Plan desk wait-time insights.'
       USING ERRCODE = '42501';
   END IF;
+
+  BEGIN
+    v_lifetime := public.staff_assistant_sanitize_jsonb(
+      public.tenant_ops_rent_request_lifetime(),
+      false,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_lifetime := '{}'::jsonb;
+  END;
 
   SELECT coalesce(array_agg(q.id), ARRAY[]::uuid[])
     INTO v_ids
@@ -519,7 +504,7 @@ BEGIN
              'partner_ops_approved',
              'coo_approved'
            )
-           OR rr.created_at >= v_start
+           OR rr.created_at >= (v_from::timestamp AT TIME ZONE 'Africa/Kampala')
          )
        ORDER BY rr.created_at DESC
        LIMIT 200
@@ -533,98 +518,71 @@ BEGIN
         v_timing := '{}'::jsonb;
     END;
 
-    WITH parsed_rows AS (
+    -- Aggregate wait times by current desk
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'desk', d.desk,
+          'request_count', d.cnt,
+          'avg_wait_hours', d.avg_hours,
+          'max_wait_hours', d.max_hours,
+          'total_rent_ugx', d.rent_sum
+        )
+        ORDER BY d.avg_hours DESC, d.cnt DESC
+      ),
+      '[]'::jsonb
+    )
+    INTO v_by_desk
+    FROM (
       SELECT
-        rr.id AS request_id,
-        rr.status::text AS status,
-        coalesce(rr.rent_amount, 0)::numeric AS rent_amount_ugx,
-        date_trunc('week', (rr.created_at AT TIME ZONE 'Africa/Kampala'))::date AS week_start,
         coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), rr.status::text) AS desk,
-        round(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0, 1) AS current_desk_hours,
-        round(coalesce((tr.val -> 'total' ->> 'elapsed_seconds')::numeric, 0) / 3600.0, 1) AS total_elapsed_hours
+        count(*)::integer AS cnt,
+        round(avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1) AS avg_hours,
+        round(max(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1) AS max_hours,
+        coalesce(sum(rr.rent_amount), 0)::numeric AS rent_sum
       FROM jsonb_array_elements(coalesce(v_timing -> 'rows', '[]'::jsonb)) AS tr(val)
       JOIN public.rent_requests rr ON rr.id = (tr.val ->> 'request_id')::uuid
-    ),
-    desk_agg AS (
-      SELECT
-        pr.desk,
-        count(*)::integer AS request_count,
-        round(avg(pr.current_desk_hours), 1) AS avg_wait_hours,
-        round(max(pr.current_desk_hours), 1) AS max_wait_hours,
-        count(*) FILTER (WHERE pr.current_desk_hours >= 24)::integer AS waiting_over_24h_count,
-        count(*) FILTER (WHERE pr.current_desk_hours >= 72)::integer AS waiting_over_72h_count,
-        coalesce(sum(pr.rent_amount_ugx), 0)::numeric AS total_rent_ugx
-      FROM parsed_rows pr
-      GROUP BY pr.desk
-      ORDER BY avg(pr.current_desk_hours) DESC, count(*) DESC
-      LIMIT 25
-    )
-    SELECT coalesce(jsonb_agg(row_to_json(da)::jsonb), '[]'::jsonb)
-      INTO v_by_desk
-      FROM desk_agg da;
+      GROUP BY coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), rr.status::text)
+    ) d;
 
-    WITH parsed_rows AS (
+    -- Aggregate wait times by Kampala week and desk
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'week_start', w.week_start,
+          'desk', w.desk,
+          'request_count', w.cnt,
+          'avg_wait_hours', w.avg_hours,
+          'max_wait_hours', w.max_hours
+        )
+        ORDER BY w.week_start DESC, w.avg_hours DESC
+      ),
+      '[]'::jsonb
+    )
+    INTO v_by_week
+    FROM (
       SELECT
         date_trunc('week', (rr.created_at AT TIME ZONE 'Africa/Kampala'))::date AS week_start,
         coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), rr.status::text) AS desk,
-        round(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0, 1) AS current_desk_hours,
-        round(coalesce((tr.val -> 'total' ->> 'elapsed_seconds')::numeric, 0) / 3600.0, 1) AS total_elapsed_hours
+        count(*)::integer AS cnt,
+        round(avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1) AS avg_hours,
+        round(max(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1) AS max_hours
       FROM jsonb_array_elements(coalesce(v_timing -> 'rows', '[]'::jsonb)) AS tr(val)
       JOIN public.rent_requests rr ON rr.id = (tr.val ->> 'request_id')::uuid
-    ),
-    week_desk_agg AS (
-      SELECT
-        pr.week_start,
-        pr.desk,
-        count(*)::integer AS request_count,
-        round(avg(pr.current_desk_hours), 1) AS avg_desk_wait_hours,
-        round(max(pr.current_desk_hours), 1) AS max_desk_wait_hours,
-        round(avg(pr.total_elapsed_hours), 1) AS avg_total_elapsed_hours
-      FROM parsed_rows pr
-      GROUP BY pr.week_start, pr.desk
-      ORDER BY pr.week_start DESC, avg(pr.current_desk_hours) DESC
-      LIMIT 100
-    )
-    SELECT coalesce(jsonb_agg(row_to_json(wda)::jsonb), '[]'::jsonb)
-      INTO v_by_week
-      FROM week_desk_agg wda;
-  END IF;
+      GROUP BY
+        date_trunc('week', (rr.created_at AT TIME ZONE 'Africa/Kampala'))::date,
+        coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), rr.status::text)
+      LIMIT 60
+    ) w;
 
-  IF jsonb_array_length(v_by_desk) > 0 THEN
-    v_top_bottleneck := v_by_desk -> 0;
+    IF jsonb_array_length(v_by_desk) > 0 THEN
+      v_longest_desk := coalesce(v_by_desk -> 0 ->> 'desk', 'none');
+      v_longest_avg_hours := coalesce((v_by_desk -> 0 ->> 'avg_wait_hours')::numeric, 0);
+    END IF;
   END IF;
-
-  SELECT coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'title', i.title,
-        'summary', i.summary,
-        'metric_name', i.metric_name,
-        'current_value', i.current_value,
-        'four_week_avg', i.four_week_avg,
-        'pct_change', i.pct_change,
-        'direction', i.direction,
-        'source_function', i.source_function,
-        'period_label', i.period_label,
-        'screen_path', i.screen_path
-      )
-      ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-    ),
-    '[]'::jsonb
-  )
-  INTO v_anomalies
-  FROM (
-    SELECT *
-      FROM public.staff_assistant_insights i
-     WHERE i.category = 'desk_wait'
-       AND i.kampala_date >= v_today - 7
-       AND i.is_notable = true
-     ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-     LIMIT 10
-  ) i;
 
   RETURN jsonb_build_object(
-    'source', 'rent_request_timing (Rent Plan Desk Wait-Time Advisor Insight)',
+    'source', 'rent_request_timing + tenant_ops_rent_request_lifetime (Rent Plan Desk Wait Times by Desk & Week)',
     'period', jsonb_build_object(
       'from', v_from,
       'to', v_today,
@@ -632,12 +590,11 @@ BEGIN
       'as_of', v_today,
       'timezone', 'Africa/Kampala'
     ),
-    'sampled_request_count', cardinality(v_ids),
-    'top_bottleneck_desk', coalesce(v_top_bottleneck, '{}'::jsonb),
+    'longest_waiting_desk', v_longest_desk,
+    'longest_waiting_avg_hours', v_longest_avg_hours,
     'by_desk', v_by_desk,
-    'by_desk_and_week', v_by_week,
-    'anomaly_notes', v_anomalies,
-    'screen_path', '/tenant-ops/workspace',
+    'by_week', v_by_week,
+    'lifetime_funnel', v_lifetime,
     'row_count', jsonb_array_length(v_by_desk),
     'rows', v_by_desk
   );
@@ -648,11 +605,11 @@ REVOKE ALL ON FUNCTION public.assistant_staff_insight_desk_wait_times(integer) F
 GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_desk_wait_times(integer) TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- I2. Collection Coverage Trends & Agents / Areas Dropping Week-on-Week
---     (`public.assistant_staff_insight_collection_coverage_trends`)
---     Built from `get_tenant_ops_weekly_history_amclock`,
---     `get_tenant_ops_weekly_performance_amclock`, `agent_ops_metrics_agents`,
---     and `agent_ops_metrics_locations` (`supabase/AGENTS.md` lines 16, 22, 25).
+-- I2. Collection coverage trends and the agents and areas dropping week on week
+--     (`assistant_staff_insight_collection_coverage_trends`)
+--     Built from `get_tenant_ops_weekly_performance_amclock`,
+--     `get_agent_ops_network_overview`, `agent_ops_metrics_locations`, and
+--     `agent_ops_metrics_agents`.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.assistant_staff_insight_collection_coverage_trends(
   p_weeks integer DEFAULT 4
@@ -666,14 +623,15 @@ AS $$
 DECLARE
   v_uid uuid := auth.uid();
   v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
-  v_weeks integer := LEAST(GREATEST(coalesce(p_weeks, 4), 2), 12);
-  v_curr_from date := v_today - 6;
-  v_curr_to date := v_today;
-  v_prev_from date := v_today - 13;
-  v_prev_to date := v_today - 7;
-  v_allow_phones boolean;
-  v_weekly_trend jsonb := '[]'::jsonb;
-  v_weekly_perf jsonb := '{}'::jsonb;
+  v_weeks integer := LEAST(GREATEST(coalesce(p_weeks, 4), 2), 8);
+  v_curr_start date := v_today - 6;
+  v_prev_start date := v_today - 13;
+  v_prev_end date := v_today - 7;
+  v_four_wk_start date := v_today - (v_weeks * 7 - 1);
+  v_curr_perf jsonb := '{}'::jsonb;
+  v_prev_perf jsonb := '{}'::jsonb;
+  v_network_curr jsonb := '{}'::jsonb;
+  v_network_4w jsonb := '{}'::jsonb;
   v_areas_dropping jsonb := '[]'::jsonb;
   v_agents_dropping jsonb := '[]'::jsonb;
   v_anomalies jsonb := '[]'::jsonb;
@@ -683,164 +641,148 @@ BEGIN
      OR NOT public.can_view_staff_reports(v_uid)
      OR NOT (
        public._am_staff_ok()
-       OR public.agent_ops_report_authorized()
+       OR public.is_ops_role(v_uid)
        OR public._has_enabled_role(
          v_uid,
          ARRAY['tenant_ops', 'agent_ops', 'operations', 'coo', 'ceo', 'cfo', 'cto', 'manager', 'super_admin']
        )
      )
   THEN
-    RAISE EXCEPTION 'Not authorized for collection coverage and week-on-week trend insights.'
+    RAISE EXCEPTION 'Not authorized for collection coverage trend insights.'
       USING ERRCODE = '42501';
   END IF;
 
-  v_allow_phones := public.staff_assistant_can_view_pii('tenant_ops');
-
   BEGIN
-    SELECT coalesce(jsonb_agg(to_jsonb(w)), '[]'::jsonb)
-      INTO v_weekly_trend
-      FROM (
-        SELECT *
-          FROM public.get_tenant_ops_weekly_history_amclock(v_weeks)
-         LIMIT v_weeks
-      ) w;
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_weekly_trend := '[]'::jsonb;
-  END;
-
-  BEGIN
-    v_weekly_perf := public.staff_assistant_sanitize_jsonb(
+    v_curr_perf := public.staff_assistant_sanitize_jsonb(
       public.get_tenant_ops_weekly_performance_amclock(v_today),
-      v_allow_phones,
+      false,
       200
     );
   EXCEPTION
     WHEN OTHERS THEN
-      v_weekly_perf := '{}'::jsonb;
+      v_curr_perf := '{}'::jsonb;
   END;
 
-  -- Areas / Districts dropping week-on-week (from official `agent_ops_metrics_locations` + active Rent Plan collections)
   BEGIN
-    WITH curr_loc AS (
-      SELECT
-        coalesce(nullif(btrim(l.district), ''), 'Unspecified') AS district,
-        coalesce(nullif(btrim(l.region), ''), 'Unspecified') AS region,
-        sum(coalesce(l.houses_listed, 0))::integer AS curr_houses_listed,
-        sum(coalesce(l.houses_verified, 0))::integer AS curr_houses_verified,
-        max(coalesce(l.agents, 0))::integer AS active_agents
-      FROM public.agent_ops_metrics_locations(v_curr_from, v_curr_to, 'district') l
-      GROUP BY coalesce(nullif(btrim(l.district), ''), 'Unspecified'),
-               coalesce(nullif(btrim(l.region), ''), 'Unspecified')
-    ),
-    prev_loc AS (
-      SELECT
-        coalesce(nullif(btrim(l.district), ''), 'Unspecified') AS district,
-        coalesce(nullif(btrim(l.region), ''), 'Unspecified') AS region,
-        sum(coalesce(l.houses_listed, 0))::integer AS prev_houses_listed,
-        sum(coalesce(l.houses_verified, 0))::integer AS prev_houses_verified
-      FROM public.agent_ops_metrics_locations(v_prev_from, v_prev_to, 'district') l
-      GROUP BY coalesce(nullif(btrim(l.district), ''), 'Unspecified'),
-               coalesce(nullif(btrim(l.region), ''), 'Unspecified')
-    ),
-    combined_loc AS (
-      SELECT
-        coalesce(c.district, p.district) AS district,
-        coalesce(c.region, p.region) AS region,
-        coalesce(c.active_agents, 0) AS active_agents,
-        coalesce(p.prev_houses_listed, 0) AS prev_week_houses_listed,
-        coalesce(c.curr_houses_listed, 0) AS current_week_houses_listed,
-        (coalesce(c.curr_houses_listed, 0) - coalesce(p.prev_houses_listed, 0)) AS week_on_week_delta,
-        CASE
-          WHEN coalesce(p.prev_houses_listed, 0) > 0
-            THEN round(((coalesce(c.curr_houses_listed, 0) - coalesce(p.prev_houses_listed, 0))::numeric / p.prev_houses_listed::numeric) * 100.0, 1)
-          ELSE 0::numeric
-        END AS week_on_week_pct_change
-      FROM curr_loc c
-      FULL OUTER JOIN prev_loc p
-        ON p.district = c.district AND p.region = c.region
+    v_prev_perf := public.staff_assistant_sanitize_jsonb(
+      public.get_tenant_ops_weekly_performance_amclock(v_today - 7),
+      false,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_prev_perf := '{}'::jsonb;
+  END;
+
+  BEGIN
+    v_network_curr := public.staff_assistant_sanitize_jsonb(
+      public.get_agent_ops_network_overview(v_curr_start, v_today, 50000),
+      false,
+      200
+    );
+    v_network_4w := public.staff_assistant_sanitize_jsonb(
+      public.get_agent_ops_network_overview(v_four_wk_start, v_today, 50000),
+      false,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_network_curr := '{}'::jsonb;
+      v_network_4w := '{}'::jsonb;
+  END;
+
+  -- Areas/districts dropping week on week from official `agent_ops_metrics_locations`
+  BEGIN
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'region', d.region,
+          'district', d.district,
+          'current_week_houses', d.curr_houses,
+          'previous_week_houses', d.prev_houses,
+          'change_houses', d.curr_houses - d.prev_houses,
+          'pct_change', CASE
+            WHEN d.prev_houses > 0 THEN round(((d.curr_houses - d.prev_houses)::numeric / d.prev_houses::numeric) * 100.0, 1)
+            ELSE 0
+          END,
+          'current_week_agents', d.curr_agents,
+          'previous_week_agents', d.prev_agents
+        )
+        ORDER BY (d.curr_houses - d.prev_houses) ASC, d.prev_houses DESC
+      ),
+      '[]'::jsonb
     )
-    SELECT coalesce(jsonb_agg(row_to_json(cl)::jsonb), '[]'::jsonb)
-      INTO v_areas_dropping
-      FROM (
-        SELECT *
-          FROM combined_loc cl
-         ORDER BY cl.week_on_week_delta ASC, cl.prev_week_houses_listed DESC
-         LIMIT 25
-      ) cl;
+    INTO v_areas_dropping
+    FROM (
+      SELECT
+        coalesce(p.region, c.region, '(none)') AS region,
+        coalesce(p.district, c.district, '(none)') AS district,
+        coalesce(c.houses_listed, 0)::bigint AS curr_houses,
+        coalesce(p.houses_listed, 0)::bigint AS prev_houses,
+        coalesce(c.agents, 0)::bigint AS curr_agents,
+        coalesce(p.agents, 0)::bigint AS prev_agents
+      FROM public.agent_ops_metrics_locations(v_prev_start, v_prev_end, 'district') p
+      FULL OUTER JOIN public.agent_ops_metrics_locations(v_curr_start, v_today, 'district') c
+        ON coalesce(p.region, '') = coalesce(c.region, '')
+       AND coalesce(p.district, '') = coalesce(c.district, '')
+      WHERE coalesce(c.houses_listed, 0) < coalesce(p.houses_listed, 0)
+      LIMIT 25
+    ) d;
   EXCEPTION
     WHEN OTHERS THEN
       v_areas_dropping := '[]'::jsonb;
   END;
 
-  -- Agents dropping week-on-week (from official `agent_ops_metrics_agents` + `agent_ops_silent_collectors`)
+  -- Agents dropping week on week from official `agent_ops_metrics_agents`
   BEGIN
-    WITH curr_ag AS (
-      SELECT
-        (r.val ->> 'name') AS agent_name,
-        (r.val ->> 'phone') AS agent_phone,
-        coalesce((r.val ->> 'houses_listed')::integer, 0) AS curr_houses_listed,
-        coalesce((r.val ->> 'houses_approved')::integer, 0) AS curr_houses_approved,
-        coalesce((r.val ->> 'net')::numeric, 0) AS curr_net_ugx
-      FROM jsonb_array_elements(
-        coalesce(
-          public.agent_ops_metrics_agents(v_curr_from, v_curr_to, NULL, 'houses_listed', 'all', 100, 0) -> 'rows',
-          '[]'::jsonb
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'agent_name', a.name,
+          'top_district', a.top_district,
+          'current_week_houses', a.curr_houses,
+          'previous_week_houses', a.prev_houses,
+          'change_houses', a.curr_houses - a.prev_houses,
+          'pct_change', CASE
+            WHEN a.prev_houses > 0 THEN round(((a.curr_houses - a.prev_houses)::numeric / a.prev_houses::numeric) * 100.0, 1)
+            ELSE 0
+          END
         )
-      ) AS r(val)
-    ),
-    prev_ag AS (
-      SELECT
-        (r.val ->> 'name') AS agent_name,
-        (r.val ->> 'phone') AS agent_phone,
-        coalesce((r.val ->> 'houses_listed')::integer, 0) AS prev_houses_listed,
-        coalesce((r.val ->> 'houses_approved')::integer, 0) AS prev_houses_approved,
-        coalesce((r.val ->> 'net')::numeric, 0) AS prev_net_ugx
-      FROM jsonb_array_elements(
-        coalesce(
-          public.agent_ops_metrics_agents(v_prev_from, v_prev_to, NULL, 'houses_listed', 'all', 100, 0) -> 'rows',
-          '[]'::jsonb
-        )
-      ) AS r(val)
-    ),
-    dropping AS (
-      SELECT
-        coalesce(p.agent_name, c.agent_name, 'Agent') AS agent_name,
-        public.staff_assistant_mask_phone(coalesce(p.agent_phone, c.agent_phone), v_allow_phones) AS agent_phone,
-        coalesce(p.prev_houses_listed, 0) AS prev_week_houses_listed,
-        coalesce(c.curr_houses_listed, 0) AS current_week_houses_listed,
-        (coalesce(c.curr_houses_listed, 0) - coalesce(p.prev_houses_listed, 0)) AS houses_listed_delta,
-        coalesce(p.prev_net_ugx, 0) AS prev_week_net_ugx,
-        coalesce(c.curr_net_ugx, 0) AS current_week_net_ugx
-      FROM prev_ag p
-      LEFT JOIN curr_ag c ON c.agent_name = p.agent_name
-      WHERE coalesce(c.curr_houses_listed, 0) < coalesce(p.prev_houses_listed, 0)
-         OR coalesce(c.curr_net_ugx, 0) < coalesce(p.prev_net_ugx, 0)
-      ORDER BY (coalesce(c.curr_houses_listed, 0) - coalesce(p.prev_houses_listed, 0)) ASC,
-               coalesce(p.prev_houses_listed, 0) DESC
-      LIMIT 25
+        ORDER BY (a.curr_houses - a.prev_houses) ASC, a.prev_houses DESC
+      ),
+      '[]'::jsonb
     )
-    SELECT coalesce(jsonb_agg(row_to_json(d)::jsonb), '[]'::jsonb)
-      INTO v_agents_dropping
-      FROM dropping d;
+    INTO v_agents_dropping
+    FROM (
+      SELECT
+        p.name,
+        coalesce(p.top_district, c.top_district, '(none)') AS top_district,
+        coalesce(c.houses_listed, 0)::bigint AS curr_houses,
+        coalesce(p.houses_listed, 0)::bigint AS prev_houses
+      FROM public.agent_ops_metrics_agents(v_prev_start, v_prev_end, NULL, 'houses_listed', 'qualifying', 50, 0) p
+      LEFT JOIN public.agent_ops_metrics_agents(v_curr_start, v_today, NULL, 'houses_listed', 'qualifying', 50, 0) c
+        ON c.agent_id = p.agent_id
+      WHERE coalesce(c.houses_listed, 0) < coalesce(p.houses_listed, 0)
+      LIMIT 25
+    ) a;
   EXCEPTION
     WHEN OTHERS THEN
       v_agents_dropping := '[]'::jsonb;
   END;
 
+  -- Include latest collection anomaly notes from `staff_assistant_insights`
   SELECT coalesce(
     jsonb_agg(
       jsonb_build_object(
-        'title', i.title,
+        'kampala_date', i.kampala_date,
+        'area_or_scope', i.area_or_scope,
+        'headline', i.headline,
         'summary', i.summary,
-        'metric_name', i.metric_name,
         'current_value', i.current_value,
         'four_week_avg', i.four_week_avg,
         'pct_change', i.pct_change,
         'direction', i.direction,
-        'source_function', i.source_function,
-        'period_label', i.period_label,
-        'screen_path', i.screen_path
+        'source_function', i.source_function
       )
       ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
     ),
@@ -849,33 +791,35 @@ BEGIN
   INTO v_anomalies
   FROM (
     SELECT *
-      FROM public.staff_assistant_insights i
-     WHERE i.category IN ('collection_coverage', 'area_collections', 'agent_collections')
-       AND i.kampala_date >= v_today - 7
-       AND i.is_notable = true
-     ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-     LIMIT 10
+      FROM public.staff_assistant_insights si
+     WHERE si.category = 'collections'
+     ORDER BY si.kampala_date DESC, abs(si.pct_change) DESC
+     LIMIT 15
   ) i;
 
   RETURN jsonb_build_object(
-    'source', 'get_tenant_ops_weekly_history_amclock + get_tenant_ops_weekly_performance_amclock + agent_ops_metrics_locations + agent_ops_metrics_agents (Collection Coverage Trends & Week-on-Week Drops)',
+    'source', 'get_tenant_ops_weekly_performance_amclock + get_agent_ops_network_overview + agent_ops_metrics_locations + agent_ops_metrics_agents (Collection Coverage Trends & Dropping Areas/Agents)',
     'period', jsonb_build_object(
-      'current_week_from', v_curr_from,
-      'current_week_to', v_curr_to,
-      'previous_week_from', v_prev_from,
-      'previous_week_to', v_prev_to,
-      'weeks_history', v_weeks,
+      'from', v_four_wk_start,
+      'to', v_today,
+      'current_week_from', v_curr_start,
+      'previous_week_from', v_prev_start,
+      'previous_week_to', v_prev_end,
+      'weeks', v_weeks,
       'as_of', v_today,
       'timezone', 'Africa/Kampala'
     ),
-    'weekly_coverage_history', v_weekly_trend,
-    'current_weekly_performance', v_weekly_perf,
+    'current_week_performance', v_curr_perf,
+    'previous_week_performance', v_prev_perf,
+    'current_week_network', v_network_curr,
+    'four_week_network', v_network_4w,
+    'areas_dropping_count', jsonb_array_length(v_areas_dropping),
     'areas_dropping_week_on_week', v_areas_dropping,
+    'agents_dropping_count', jsonb_array_length(v_agents_dropping),
     'agents_dropping_week_on_week', v_agents_dropping,
     'anomaly_notes', v_anomalies,
-    'screen_path', '/tenant-ops/workspace',
-    'row_count', jsonb_array_length(v_weekly_trend),
-    'rows', v_weekly_trend
+    'row_count', jsonb_array_length(v_areas_dropping),
+    'rows', v_areas_dropping
   );
 END;
 $$;
@@ -884,388 +828,12 @@ REVOKE ALL ON FUNCTION public.assistant_staff_insight_collection_coverage_trends
 GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_collection_coverage_trends(integer) TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- I3. Calling Center Reach Rates & Most Common Feedback Themes
---     (`public.assistant_staff_insight_calling_reach_and_themes`)
---     Built from `cc_weekly_all_calls_report`, `landlord_cc_weekly_report`,
---     `landlord_cc_concerns_report`, and `cc_feedback` + `cc_feedback_categories`
---     (`supabase/AGENTS.md` lines 21, 32, 33).
+-- I3. Calling Center reach rates and the most common feedback themes
+--     (`assistant_staff_insight_calling_reach_and_themes`)
+--     Built from `cc_weekly_all_calls_report`, `staff_calling_detailed_report`,
+--     `landlord_cc_weekly_report`, and `landlord_cc_concerns_report`.
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.assistant_staff_insight_calling_reach_and_themes(
-  p_from date DEFAULT NULL,
-  p_to date DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
-  v_to date := LEAST(coalesce(p_to, v_today), v_today);
-  v_from date := LEAST(coalesce(p_from, v_to - 27), v_to);
-  v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_end timestamptz := ((v_to + 1)::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_reach_by_source jsonb := '[]'::jsonb;
-  v_total_calls integer := 0;
-  v_answered_calls integer := 0;
-  v_overall_reach_pct numeric := 0;
-  v_feedback_themes jsonb := '[]'::jsonb;
-  v_landlord_weekly jsonb := '{}'::jsonb;
-  v_landlord_concerns jsonb := '{}'::jsonb;
-  v_anomalies jsonb := '[]'::jsonb;
-BEGIN
-  IF v_uid IS NULL
-     OR NOT public.staff_assistant_has_access()
-     OR NOT public.can_view_staff_reports(v_uid)
-     OR NOT (
-       public._am_staff_ok()
-       OR public._landlord_cc_staff_ok()
-       OR public._has_enabled_role(
-         v_uid,
-         ARRAY['hr', 'tenant_ops', 'landlord_ops', 'operations', 'coo', 'ceo', 'cfo', 'cto', 'manager', 'super_admin']
-       )
-     )
-  THEN
-    RAISE EXCEPTION 'Not authorized for Calling Center reach rate and feedback theme insights.'
-      USING ERRCODE = '42501';
-  END IF;
-
-  -- Reach rates across all Calling Center & pipeline sources (`cc_weekly_all_calls_report`)
-  BEGIN
-    WITH call_rows AS (
-      SELECT *
-        FROM public.cc_weekly_all_calls_report(v_start, v_end)
-    ),
-    by_source AS (
-      SELECT
-        coalesce(cr.source, 'calling_center') AS source,
-        coalesce(cr.subject_kind, 'all') AS subject_kind,
-        coalesce(sum(cr.calls), 0)::integer AS total_calls,
-        coalesce(sum(cr.calls) FILTER (WHERE cr.answered IS TRUE), 0)::integer AS answered_calls,
-        coalesce(sum(cr.calls) FILTER (WHERE cr.answered IS NOT TRUE), 0)::integer AS unreached_calls,
-        CASE
-          WHEN coalesce(sum(cr.calls), 0) > 0
-            THEN round((coalesce(sum(cr.calls) FILTER (WHERE cr.answered IS TRUE), 0)::numeric / sum(cr.calls)::numeric) * 100.0, 1)
-          ELSE 0::numeric
-        END AS reach_rate_pct
-      FROM call_rows cr
-      GROUP BY coalesce(cr.source, 'calling_center'), coalesce(cr.subject_kind, 'all')
-      ORDER BY coalesce(sum(cr.calls), 0) DESC
-    )
-    SELECT
-      coalesce(jsonb_agg(row_to_json(bs)::jsonb), '[]'::jsonb),
-      coalesce(sum(bs.total_calls), 0)::integer,
-      coalesce(sum(bs.answered_calls), 0)::integer
-    INTO v_reach_by_source, v_total_calls, v_answered_calls
-    FROM by_source bs;
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_reach_by_source := '[]'::jsonb;
-      v_total_calls := 0;
-      v_answered_calls := 0;
-  END;
-
-  IF v_total_calls > 0 THEN
-    v_overall_reach_pct := round((v_answered_calls::numeric / v_total_calls::numeric) * 100.0, 1);
-  END IF;
-
-  -- Most common feedback themes from `cc_feedback` + `cc_feedback_categories`
-  SELECT coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'category_code', t.code,
-        'category_label', t.label,
-        'feedback_count', t.cnt,
-        'high_severity_count', t.high_cnt,
-        'tickets_raised_count', t.ticket_cnt
-      )
-      ORDER BY t.cnt DESC, t.label ASC
-    ),
-    '[]'::jsonb
-  )
-  INTO v_feedback_themes
-  FROM (
-    SELECT
-      coalesce(cat.code, 'uncategorized') AS code,
-      coalesce(cat.label, 'Uncategorized Feedback') AS label,
-      count(*)::integer AS cnt,
-      count(*) FILTER (WHERE fb.severity::text IN ('high', 'critical', 'urgent'))::integer AS high_cnt,
-      count(*) FILTER (WHERE fb.ticket_id IS NOT NULL)::integer AS ticket_cnt
-    FROM public.cc_feedback fb
-    LEFT JOIN public.cc_feedback_categories cat ON cat.id = fb.category_id
-    WHERE fb.created_at >= v_start
-      AND fb.created_at < v_end
-    GROUP BY coalesce(cat.code, 'uncategorized'), coalesce(cat.label, 'Uncategorized Feedback')
-    ORDER BY count(*) DESC, coalesce(cat.label, 'Uncategorized Feedback') ASC
-    LIMIT 25
-  ) t;
-
-  BEGIN
-    v_landlord_weekly := public.staff_assistant_sanitize_jsonb(
-      public.landlord_cc_weekly_report(NULL),
-      false,
-      100
-    );
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_landlord_weekly := '{}'::jsonb;
-  END;
-
-  BEGIN
-    v_landlord_concerns := public.staff_assistant_sanitize_jsonb(
-      public.landlord_cc_concerns_report(v_from, v_to),
-      false,
-      100
-    );
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_landlord_concerns := '{}'::jsonb;
-  END;
-
-  SELECT coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'title', i.title,
-        'summary', i.summary,
-        'metric_name', i.metric_name,
-        'current_value', i.current_value,
-        'four_week_avg', i.four_week_avg,
-        'pct_change', i.pct_change,
-        'direction', i.direction,
-        'source_function', i.source_function,
-        'period_label', i.period_label,
-        'screen_path', i.screen_path
-      )
-      ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-    ),
-    '[]'::jsonb
-  )
-  INTO v_anomalies
-  FROM (
-    SELECT *
-      FROM public.staff_assistant_insights i
-     WHERE i.category = 'calling_reach'
-       AND i.kampala_date >= v_today - 7
-       AND i.is_notable = true
-     ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-     LIMIT 10
-  ) i;
-
-  RETURN jsonb_build_object(
-    'source', 'cc_weekly_all_calls_report + cc_feedback + landlord_cc_weekly_report + landlord_cc_concerns_report (Calling Center Reach Rates & Feedback Themes)',
-    'period', jsonb_build_object(
-      'from', v_from,
-      'to', v_to,
-      'as_of', v_today,
-      'timezone', 'Africa/Kampala'
-    ),
-    'total_calls', coalesce(v_total_calls, 0),
-    'answered_calls', coalesce(v_answered_calls, 0),
-    'overall_reach_rate_pct', coalesce(v_overall_reach_pct, 0),
-    'reach_by_source', v_reach_by_source,
-    'most_common_feedback_themes', v_feedback_themes,
-    'landlord_calling_weekly', v_landlord_weekly,
-    'landlord_concerns_summary', v_landlord_concerns,
-    'anomaly_notes', v_anomalies,
-    'screen_path', '/me/staff-reports',
-    'row_count', jsonb_array_length(v_feedback_themes),
-    'rows', v_feedback_themes
-  );
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.assistant_staff_insight_calling_reach_and_themes(date, date) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_calling_reach_and_themes(date, date) TO authenticated;
-
--- -----------------------------------------------------------------------------
--- I4. Payout Delays (`public.assistant_staff_insight_payout_delays`)
---     Gated the same way as finance and landlord payout reports:
---     requires `can_view_finance_reports(auth.uid())` OR authorized Tenant/Landlord/FinOps
---     payout review roles.
---     Built from `tops_landlord_not_paid_summary_amclock`, `am_uncovered_plans`,
---     `finops_payout_verification_counts`, and `landlord_payouts` (`supabase/AGENTS.md` line 15).
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.assistant_staff_insight_payout_delays(
-  p_weeks integer DEFAULT 4
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
-  v_weeks integer := LEAST(GREATEST(coalesce(p_weeks, 4), 1), 12);
-  v_from date := v_today - (v_weeks * 7 - 1);
-  v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_not_paid_summary record;
-  v_delay_buckets jsonb := '[]'::jsonb;
-  v_weekly_disbursement_lag jsonb := '[]'::jsonb;
-  v_verification_counts jsonb := '{}'::jsonb;
-  v_anomalies jsonb := '[]'::jsonb;
-BEGIN
-  IF v_uid IS NULL
-     OR NOT public.staff_assistant_has_access()
-     OR NOT (
-       public.can_view_finance_reports(v_uid)
-       OR (
-         public.can_view_staff_reports(v_uid)
-         AND public._has_enabled_role(
-           v_uid,
-           ARRAY['tenant_ops', 'landlord_ops', 'operations', 'coo', 'ceo', 'cfo', 'super_admin']
-         )
-       )
-     )
-     OR NOT public._has_enabled_role(
-       v_uid,
-       ARRAY['financial_ops', 'cfo', 'ceo', 'coo', 'tenant_ops', 'landlord_ops', 'operations', 'manager', 'super_admin']
-     )
-  THEN
-    RAISE EXCEPTION 'Not authorized for payout delay advisor insights.'
-      USING ERRCODE = '42501';
-  END IF;
-
-  BEGIN
-    SELECT *
-      INTO v_not_paid_summary
-      FROM public.tops_landlord_not_paid_summary_amclock()
-     LIMIT 1;
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_not_paid_summary := NULL;
-  END;
-
-  -- Group uncovered / awaiting-landlord-payment plans by delay bucket (`am_uncovered_plans`)
-  BEGIN
-    WITH uncovered AS (
-      SELECT *
-        FROM public.am_uncovered_plans(v_today, 200, 0)
-    ),
-    bucketed AS (
-      SELECT
-        coalesce(u.bucket, 'awaiting_payout') AS payout_bucket,
-        coalesce(u.pipeline_status, 'unknown') AS pipeline_status,
-        count(*)::integer AS plan_count,
-        round(avg(coalesce(u.days_since_funding, 0)), 1) AS avg_days_since_funding,
-        max(coalesce(u.days_since_funding, 0))::integer AS max_days_since_funding,
-        coalesce(sum(u.funded_amount), 0)::numeric AS total_funded_ugx
-      FROM uncovered u
-      GROUP BY coalesce(u.bucket, 'awaiting_payout'), coalesce(u.pipeline_status, 'unknown')
-      ORDER BY count(*) DESC, avg(coalesce(u.days_since_funding, 0)) DESC
-    )
-    SELECT coalesce(jsonb_agg(row_to_json(b)::jsonb), '[]'::jsonb)
-      INTO v_delay_buckets
-      FROM bucketed b;
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_delay_buckets := '[]'::jsonb;
-  END;
-
-  -- Weekly disbursement turnaround on `landlord_payouts`
-  WITH weekly_lp AS (
-    SELECT
-      date_trunc('week', (lp.created_at AT TIME ZONE 'Africa/Kampala'))::date AS week_start,
-      count(*)::integer AS payout_count,
-      coalesce(sum(lp.amount), 0)::numeric AS total_amount_ugx,
-      round(
-        avg(
-          EXTRACT(EPOCH FROM (coalesce(lp.finops_disbursed_at, lp.disbursed_at, now()) - lp.created_at)) / 3600.0
-        )::numeric,
-        1
-      ) AS avg_turnaround_hours,
-      count(*) FILTER (
-        WHERE EXTRACT(EPOCH FROM (coalesce(lp.finops_disbursed_at, lp.disbursed_at, now()) - lp.created_at)) >= 48 * 3600
-      )::integer AS delayed_over_48h_count
-    FROM public.landlord_payouts lp
-    WHERE lp.created_at >= v_start
-      AND lp.status <> 'failed'
-    GROUP BY date_trunc('week', (lp.created_at AT TIME ZONE 'Africa/Kampala'))::date
-    ORDER BY week_start DESC
-    LIMIT 12
-  )
-  SELECT coalesce(jsonb_agg(row_to_json(w)::jsonb), '[]'::jsonb)
-    INTO v_weekly_disbursement_lag
-    FROM weekly_lp w;
-
-  IF public.can_view_finance_reports(v_uid) THEN
-    BEGIN
-      v_verification_counts := public.finops_payout_verification_counts();
-    EXCEPTION
-      WHEN OTHERS THEN
-        v_verification_counts := '{}'::jsonb;
-    END;
-  END IF;
-
-  SELECT coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'title', i.title,
-        'summary', i.summary,
-        'metric_name', i.metric_name,
-        'current_value', i.current_value,
-        'four_week_avg', i.four_week_avg,
-        'pct_change', i.pct_change,
-        'direction', i.direction,
-        'source_function', i.source_function,
-        'period_label', i.period_label,
-        'screen_path', i.screen_path
-      )
-      ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-    ),
-    '[]'::jsonb
-  )
-  INTO v_anomalies
-  FROM (
-    SELECT *
-      FROM public.staff_assistant_insights i
-     WHERE i.category = 'payout_delay'
-       AND i.kampala_date >= v_today - 7
-       AND i.is_notable = true
-     ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-     LIMIT 10
-  ) i;
-
-  RETURN jsonb_build_object(
-    'source', 'tops_landlord_not_paid_summary_amclock + am_uncovered_plans + landlord_payouts (Payout Delays Advisor Insight)',
-    'period', jsonb_build_object(
-      'from', v_from,
-      'to', v_today,
-      'weeks', v_weeks,
-      'as_of', v_today,
-      'timezone', 'Africa/Kampala'
-    ),
-    'unpaid_landlord_summary', jsonb_build_object(
-      'tenant_paying_no_landlord', coalesce(v_not_paid_summary.tenant_paying_no_landlord, 0),
-      'awaiting_landlord', coalesce(v_not_paid_summary.awaiting_landlord, 0),
-      'total_plans', coalesce(v_not_paid_summary.total_plans, 0)
-    ),
-    'delay_buckets', v_delay_buckets,
-    'weekly_disbursement_turnaround', v_weekly_disbursement_lag,
-    'finops_verification_counts', coalesce(v_verification_counts, '{}'::jsonb),
-    'anomaly_notes', v_anomalies,
-    'screen_path', '/landlord-ops',
-    'row_count', jsonb_array_length(v_delay_buckets),
-    'rows', v_delay_buckets
-  );
-END;
-$$;
-
-REVOKE ALL ON FUNCTION public.assistant_staff_insight_payout_delays(integer) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_payout_delays(integer) TO authenticated;
-
--- -----------------------------------------------------------------------------
--- I5. Zoe's Own Unanswered Questions & Thumbs-Down Themes
---     (`public.assistant_staff_insight_zoe_feedback_themes`)
---     Gated the same way as CRM / leadership review reports.
---     Built from `staff_assistant_unanswered`, `staff_assistant_feedback`, and
---     `v_staff_assistant_crm_messages_redacted` (strictly redacted: never returns
---     another staff member's answer text or figures).
--- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.assistant_staff_insight_zoe_feedback_themes(
   p_days integer DEFAULT 28
 )
 RETURNS jsonb
@@ -1277,7 +845,335 @@ AS $$
 DECLARE
   v_uid uuid := auth.uid();
   v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
-  v_days integer := LEAST(GREATEST(coalesce(p_days, 28), 1), 90);
+  v_days integer := LEAST(GREATEST(coalesce(p_days, 28), 7), 90);
+  v_from date := v_today - (v_days - 1);
+  v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_end timestamptz := ((v_today + 1)::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_total_calls integer := 0;
+  v_answered_calls integer := 0;
+  v_reach_rate_pct numeric := 0;
+  v_by_source jsonb := '[]'::jsonb;
+  v_feedback_themes jsonb := '[]'::jsonb;
+  v_landlord_weekly jsonb := '{}'::jsonb;
+  v_landlord_concerns jsonb := '{}'::jsonb;
+BEGIN
+  IF v_uid IS NULL
+     OR NOT public.staff_assistant_has_access()
+     OR NOT public.can_view_staff_reports(v_uid)
+     OR NOT (
+       public._landlord_cc_staff_ok()
+       OR public._am_staff_ok()
+       OR public._has_enabled_role(
+         v_uid,
+         ARRAY['tenant_ops', 'landlord_ops', 'operations', 'hr', 'coo', 'ceo', 'cfo', 'cto', 'manager', 'super_admin']
+       )
+     )
+  THEN
+    RAISE EXCEPTION 'Not authorized for Calling Center reach rate and feedback theme insights.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- 1. Reach rates by calling channel/source from official `staff_calling_detailed_report`
+  BEGIN
+    SELECT
+      count(*)::integer,
+      count(*) FILTER (WHERE sdr.answered IS TRUE)::integer
+    INTO v_total_calls, v_answered_calls
+    FROM public.staff_calling_detailed_report(v_start, v_end) sdr;
+
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'source', s.source_name,
+          'total_calls', s.total_cnt,
+          'answered_calls', s.ans_cnt,
+          'unreached_calls', s.total_cnt - s.ans_cnt,
+          'reach_rate_pct', CASE
+            WHEN s.total_cnt > 0 THEN round((s.ans_cnt::numeric / s.total_cnt::numeric) * 100.0, 1)
+            ELSE 0
+          END
+        )
+        ORDER BY s.total_cnt DESC, s.source_name ASC
+      ),
+      '[]'::jsonb
+    )
+    INTO v_by_source
+    FROM (
+      SELECT
+        coalesce(sdr.source, 'Calling Center') AS source_name,
+        count(*)::integer AS total_cnt,
+        count(*) FILTER (WHERE sdr.answered IS TRUE)::integer AS ans_cnt
+      FROM public.staff_calling_detailed_report(v_start, v_end) sdr
+      GROUP BY coalesce(sdr.source, 'Calling Center')
+    ) s;
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_total_calls := 0;
+      v_answered_calls := 0;
+      v_by_source := '[]'::jsonb;
+  END;
+
+  IF v_total_calls > 0 THEN
+    v_reach_rate_pct := round((v_answered_calls::numeric / v_total_calls::numeric) * 100.0, 1);
+  END IF;
+
+  -- 2. Landlord Calling Center weekly report & concerns breakdown
+  BEGIN
+    v_landlord_weekly := public.staff_assistant_sanitize_jsonb(
+      public.landlord_cc_weekly_report(v_today),
+      false,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_landlord_weekly := '{}'::jsonb;
+  END;
+
+  BEGIN
+    v_landlord_concerns := public.staff_assistant_sanitize_jsonb(
+      public.landlord_cc_concerns_report(v_from, v_today),
+      false,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_landlord_concerns := '{}'::jsonb;
+  END;
+
+  -- 3. Most common feedback themes from `cc_feedback` + `cc_feedback_categories` + `cc_forwarded_concerns`
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'theme_code', t.theme_code,
+        'theme_label', t.theme_label,
+        'feedback_count', t.cnt,
+        'open_concerns_count', t.open_cnt
+      )
+      ORDER BY t.cnt DESC, t.theme_label ASC
+    ),
+    '[]'::jsonb
+  )
+  INTO v_feedback_themes
+  FROM (
+    SELECT
+      coalesce(cat.code, 'general_feedback') AS theme_code,
+      coalesce(cat.label, 'General Calling Feedback') AS theme_label,
+      count(*)::integer AS cnt,
+      count(fc.id) FILTER (WHERE fc.status <> 'completed')::integer AS open_cnt
+    FROM public.cc_feedback fb
+    LEFT JOIN public.cc_feedback_categories cat ON cat.id = fb.category_id
+    LEFT JOIN public.cc_forwarded_concerns fc ON fc.feedback_id = fb.id
+    WHERE fb.created_at >= v_start
+      AND fb.created_at < v_end
+    GROUP BY coalesce(cat.code, 'general_feedback'), coalesce(cat.label, 'General Calling Feedback')
+    ORDER BY count(*) DESC
+    LIMIT 25
+  ) t;
+
+  IF jsonb_array_length(v_feedback_themes) = 0 AND jsonb_typeof(v_landlord_concerns -> 'by_category') = 'array' THEN
+    v_feedback_themes := v_landlord_concerns -> 'by_category';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'source', 'cc_weekly_all_calls_report + staff_calling_detailed_report + landlord_cc_weekly_report + landlord_cc_concerns_report (Calling Center Reach Rates & Feedback Themes)',
+    'period', jsonb_build_object(
+      'from', v_from,
+      'to', v_today,
+      'days', v_days,
+      'as_of', v_today,
+      'timezone', 'Africa/Kampala'
+    ),
+    'total_calls', coalesce(v_total_calls, 0),
+    'answered_calls', coalesce(v_answered_calls, 0),
+    'unreached_calls', GREATEST(coalesce(v_total_calls, 0) - coalesce(v_answered_calls, 0), 0),
+    'reach_rate_pct', coalesce(v_reach_rate_pct, 0),
+    'by_source', v_by_source,
+    'feedback_themes_count', jsonb_array_length(v_feedback_themes),
+    'feedback_themes', v_feedback_themes,
+    'landlord_weekly_summary', coalesce(v_landlord_weekly -> 'totals', '{}'::jsonb),
+    'landlord_concerns_summary', coalesce(v_landlord_concerns -> 'totals', '{}'::jsonb),
+    'row_count', jsonb_array_length(v_by_source),
+    'rows', v_by_source
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assistant_staff_insight_calling_reach_and_themes(integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_calling_reach_and_themes(integer) TO authenticated;
+
+-- -----------------------------------------------------------------------------
+-- I4. Payout delays (`assistant_staff_insight_payout_delays`)
+--     Built from `tops_landlord_not_paid_summary_amclock`, `am_uncovered_plans`,
+--     and `ops_landlord_ops_home_range`.
+--     Gated the same way as finance and landlord payout reports.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.assistant_staff_insight_payout_delays(
+  p_days integer DEFAULT 28
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
+  v_days integer := LEAST(GREATEST(coalesce(p_days, 28), 7), 90);
+  v_from date := v_today - (v_days - 1);
+  v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_end timestamptz := ((v_today + 1)::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_allow_phones boolean;
+  v_summary record;
+  v_lops_home jsonb := '{}'::jsonb;
+  v_by_bucket jsonb := '[]'::jsonb;
+  v_delayed_rows jsonb := '[]'::jsonb;
+BEGIN
+  IF v_uid IS NULL
+     OR NOT public.staff_assistant_has_access()
+     OR NOT (
+       public.can_view_finance_reports(v_uid)
+       OR (
+         public.can_view_staff_reports(v_uid)
+         AND public._has_enabled_role(
+           v_uid,
+           ARRAY['landlord_ops', 'tenant_ops', 'financial_ops', 'cfo', 'coo', 'ceo', 'manager', 'super_admin']
+         )
+       )
+     )
+     OR NOT public._has_enabled_role(
+       v_uid,
+       ARRAY['financial_ops', 'cfo', 'coo', 'ceo', 'landlord_ops', 'tenant_ops', 'manager', 'super_admin']
+     )
+  THEN
+    RAISE EXCEPTION 'Not authorized for payout delay insights.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  v_allow_phones := public.staff_assistant_can_view_pii('landlord_ops');
+
+  BEGIN
+    SELECT *
+      INTO v_summary
+      FROM public.tops_landlord_not_paid_summary_amclock()
+     LIMIT 1;
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_summary := NULL;
+  END;
+
+  BEGIN
+    v_lops_home := public.staff_assistant_sanitize_jsonb(
+      public.ops_landlord_ops_home_range(v_start, v_end),
+      v_allow_phones,
+      200
+    );
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_lops_home := '{}'::jsonb;
+  END;
+
+  BEGIN
+    SELECT coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'bucket', b.bucket,
+          'plan_count', b.cnt,
+          'avg_days_since_funding', b.avg_days,
+          'max_days_since_funding', b.max_days,
+          'total_funded_ugx', b.funded_sum
+        )
+        ORDER BY b.avg_days DESC NULLS LAST, b.cnt DESC
+      ),
+      '[]'::jsonb
+    )
+    INTO v_by_bucket
+    FROM (
+      SELECT
+        coalesce(u.bucket, 'uncovered') AS bucket,
+        count(*)::integer AS cnt,
+        round(avg(coalesce(u.days_since_funding, 0)::numeric), 1) AS avg_days,
+        max(coalesce(u.days_since_funding, 0))::integer AS max_days,
+        coalesce(sum(u.funded_amount), 0)::numeric AS funded_sum
+      FROM public.am_uncovered_plans(v_today, 200, 0) u
+      GROUP BY coalesce(u.bucket, 'uncovered')
+    ) b;
+
+    SELECT coalesce(
+      jsonb_agg(
+        public.staff_assistant_sanitize_jsonb(
+          jsonb_build_object(
+            'bucket', u.bucket,
+            'tenant_name', u.tenant_name,
+            'agent_name', u.agent_name,
+            'funded_amount_ugx', u.funded_amount,
+            'days_since_funding', u.days_since_funding,
+            'payout_kind', u.payout_kind,
+            'pipeline_status', u.pipeline_status
+          ),
+          v_allow_phones,
+          200
+        )
+        ORDER BY coalesce(u.days_since_funding, 0) DESC
+      ),
+      '[]'::jsonb
+    )
+    INTO v_delayed_rows
+    FROM (
+      SELECT *
+        FROM public.am_uncovered_plans(v_today, 50, 0)
+       ORDER BY days_since_funding DESC NULLS LAST
+       LIMIT 50
+    ) u;
+  EXCEPTION
+    WHEN OTHERS THEN
+      v_by_bucket := '[]'::jsonb;
+      v_delayed_rows := '[]'::jsonb;
+  END;
+
+  RETURN jsonb_build_object(
+    'source', 'tops_landlord_not_paid_summary_amclock + am_uncovered_plans + ops_landlord_ops_home_range (Landlord Payout Delays)',
+    'period', jsonb_build_object(
+      'from', v_from,
+      'to', v_today,
+      'days', v_days,
+      'as_of', v_today,
+      'timezone', 'Africa/Kampala'
+    ),
+    'tenant_paying_no_landlord_count', coalesce(v_summary.tenant_paying_no_landlord, 0),
+    'awaiting_landlord_count', coalesce(v_summary.awaiting_landlord, 0),
+    'total_uncovered_plans_count', coalesce(v_summary.total_plans, 0),
+    'by_delay_bucket', v_by_bucket,
+    'landlord_ops_home_summary', v_lops_home,
+    'row_count', jsonb_array_length(v_delayed_rows),
+    'rows', v_delayed_rows
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assistant_staff_insight_payout_delays(integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_payout_delays(integer) TO authenticated;
+
+-- -----------------------------------------------------------------------------
+-- I5. Zoe's own unanswered questions and thumbs-down themes
+--     (`assistant_staff_insight_zoe_unanswered_and_feedback`)
+--     Built from `staff_assistant_unanswered` and `staff_assistant_feedback`
+--     (same redacted aggregation as `staff_assistant_crm_weekly_learning_report`,
+--     never exposing assistant answer text or figures across roles).
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.assistant_staff_insight_zoe_unanswered_and_feedback(
+  p_days integer DEFAULT 28
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
+  v_days integer := LEAST(GREATEST(coalesce(p_days, 28), 7), 90);
   v_from date := v_today - (v_days - 1);
   v_start timestamptz := (v_from::timestamp AT TIME ZONE 'Africa/Kampala');
   v_unanswered_by_reason jsonb := '[]'::jsonb;
@@ -1285,20 +1181,21 @@ DECLARE
   v_thumbs_down_themes jsonb := '[]'::jsonb;
   v_total_unanswered integer := 0;
   v_total_thumbs_down integer := 0;
-  v_anomalies jsonb := '[]'::jsonb;
 BEGIN
   IF v_uid IS NULL
      OR NOT public.staff_assistant_has_access()
-     OR NOT public.can_view_staff_reports(v_uid)
      OR NOT (
-       public.staff_assistant_crm_can_review()
-       OR public._has_enabled_role(
-         v_uid,
-         ARRAY['crm', 'cto', 'coo', 'ceo', 'cfo', 'hr', 'manager', 'super_admin']
+       public.staff_assistant_is_crm_reviewer()
+       OR (
+         public.can_view_staff_reports(v_uid)
+         AND public._has_enabled_role(
+           v_uid,
+           ARRAY['crm', 'hr', 'operations', 'coo', 'ceo', 'cfo', 'cto', 'manager', 'admin', 'super_admin']
+         )
        )
      )
   THEN
-    RAISE EXCEPTION 'Not authorized for Zoe unanswered question and thumbs-down theme insights.'
+    RAISE EXCEPTION 'Not authorized for Zoe unanswered question and feedback insights.'
       USING ERRCODE = '42501';
   END IF;
 
@@ -1320,7 +1217,7 @@ BEGIN
         'question_count', r.cnt,
         'open_count', r.open_cnt
       )
-      ORDER BY r.cnt DESC
+      ORDER BY r.cnt DESC, r.reason ASC
     ),
     '[]'::jsonb
   )
@@ -1333,47 +1230,45 @@ BEGIN
     FROM public.staff_assistant_unanswered u
     WHERE u.created_at >= v_start
     GROUP BY coalesce(u.reason, 'unmatched')
-    ORDER BY count(*) DESC
   ) r;
 
   SELECT coalesce(
     jsonb_agg(
       jsonb_build_object(
-        'question_theme', g.question_text,
-        'ask_count', g.ask_count,
-        'unique_staff_count', g.unique_staff_count,
-        'reason', g.top_reason,
-        'status', g.latest_status
+        'question_theme', q.display_question,
+        'reason', q.reason,
+        'ask_count', q.ask_count,
+        'distinct_staff_count', q.staff_count,
+        'status', q.latest_status
       )
-      ORDER BY g.ask_count DESC
+      ORDER BY q.ask_count DESC, q.last_asked DESC
     ),
     '[]'::jsonb
   )
   INTO v_top_unanswered
   FROM (
     SELECT
-      lower(regexp_replace(btrim(coalesce(u.question, '')), '\s+', ' ', 'g')) AS norm_q,
-      (ARRAY_AGG(btrim(u.question) ORDER BY u.created_at DESC))[1] AS question_text,
+      max(public.assistant_clean_text(btrim(u.question), 180)) AS display_question,
+      (array_agg(u.reason ORDER BY u.created_at DESC))[1] AS reason,
       count(*)::integer AS ask_count,
-      count(DISTINCT u.user_id)::integer AS unique_staff_count,
-      (ARRAY_AGG(u.reason ORDER BY u.created_at DESC))[1] AS top_reason,
-      (ARRAY_AGG(u.status ORDER BY u.created_at DESC))[1] AS latest_status
+      count(DISTINCT u.user_id)::integer AS staff_count,
+      (array_agg(u.status ORDER BY u.created_at DESC))[1] AS latest_status,
+      max(u.created_at) AS last_asked
     FROM public.staff_assistant_unanswered u
     WHERE u.created_at >= v_start
-      AND btrim(coalesce(u.question, '')) <> ''
-    GROUP BY lower(regexp_replace(btrim(coalesce(u.question, '')), '\s+', ' ', 'g'))
+    GROUP BY lower(regexp_replace(btrim(u.question), '\s+', ' ', 'g'))
     ORDER BY count(*) DESC, max(u.created_at) DESC
     LIMIT 20
-  ) g;
+  ) q;
 
   SELECT coalesce(
     jsonb_agg(
       jsonb_build_object(
-        'tool_or_outcome', td.theme_key,
-        'thumbs_down_count', td.down_cnt,
-        'sample_comment', td.latest_comment
+        'feedback_theme', f.comment_theme,
+        'thumbs_down_count', f.cnt,
+        'latest_at', f.latest_at
       )
-      ORDER BY td.down_cnt DESC
+      ORDER BY f.cnt DESC, f.latest_at DESC
     ),
     '[]'::jsonb
   )
@@ -1381,57 +1276,24 @@ BEGIN
   FROM (
     SELECT
       coalesce(
-        nullif(array_to_string(am.tools_called, ', '), ''),
-        coalesce(am.outcome, 'general_answer')
-      ) AS theme_key,
-      count(*)::integer AS down_cnt,
-      (
-        ARRAY_AGG(f.comment ORDER BY f.created_at DESC)
-        FILTER (WHERE f.comment IS NOT NULL AND btrim(f.comment) <> '')
-      )[1] AS latest_comment
-    FROM public.staff_assistant_feedback f
-    LEFT JOIN public.v_staff_assistant_crm_messages_redacted am ON am.id = f.message_id
-    WHERE f.rating = 'down'
-      AND f.created_at >= v_start
+        nullif(public.assistant_clean_text(btrim(fb.comment), 160), ''),
+        'Thumbs-down without written comment'
+      ) AS comment_theme,
+      count(*)::integer AS cnt,
+      max(fb.created_at) AS latest_at
+    FROM public.staff_assistant_feedback fb
+    WHERE fb.rating = 'down'
+      AND fb.created_at >= v_start
     GROUP BY coalesce(
-      nullif(array_to_string(am.tools_called, ', '), ''),
-      coalesce(am.outcome, 'general_answer')
+      nullif(public.assistant_clean_text(btrim(fb.comment), 160), ''),
+      'Thumbs-down without written comment'
     )
-    ORDER BY count(*) DESC
+    ORDER BY count(*) DESC, max(fb.created_at) DESC
     LIMIT 20
-  ) td;
-
-  SELECT coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'title', i.title,
-        'summary', i.summary,
-        'metric_name', i.metric_name,
-        'current_value', i.current_value,
-        'four_week_avg', i.four_week_avg,
-        'pct_change', i.pct_change,
-        'direction', i.direction,
-        'source_function', i.source_function,
-        'period_label', i.period_label,
-        'screen_path', i.screen_path
-      )
-      ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-    ),
-    '[]'::jsonb
-  )
-  INTO v_anomalies
-  FROM (
-    SELECT *
-      FROM public.staff_assistant_insights i
-     WHERE i.category = 'zoe_feedback'
-       AND i.kampala_date >= v_today - 7
-       AND i.is_notable = true
-     ORDER BY i.kampala_date DESC, abs(i.pct_change) DESC
-     LIMIT 10
-  ) i;
+  ) f;
 
   RETURN jsonb_build_object(
-    'source', 'staff_assistant_unanswered + staff_assistant_feedback + v_staff_assistant_crm_messages_redacted (Zoe Unanswered & Thumbs-Down Themes)',
+    'source', 'staff_assistant_crm_weekly_learning_report + staff_assistant_unanswered + staff_assistant_feedback (Zoe Unanswered Questions & Thumbs-Down Themes)',
     'period', jsonb_build_object(
       'from', v_from,
       'to', v_today,
@@ -1444,19 +1306,111 @@ BEGIN
     'unanswered_by_reason', v_unanswered_by_reason,
     'top_unanswered_questions', v_top_unanswered,
     'thumbs_down_themes', v_thumbs_down_themes,
-    'anomaly_notes', v_anomalies,
-    'screen_path', '/crm/dashboard',
     'row_count', jsonb_array_length(v_top_unanswered),
     'rows', v_top_unanswered
   );
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.assistant_staff_insight_zoe_feedback_themes(integer) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_zoe_feedback_themes(integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.assistant_staff_insight_zoe_unanswered_and_feedback(integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_zoe_unanswered_and_feedback(integer) TO authenticated;
 
 -- -----------------------------------------------------------------------------
--- 5. Update `staff_assistant_can_user_read_report` to include the 5 new
+-- I6. Daily Anomaly Notes Reader (`assistant_staff_insight_anomalies`)
+--     Reads notable 4-week comparison anomalies from `public.staff_assistant_insights`,
+--     gated by the caller's finance/staff report permissions.
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.assistant_staff_insight_anomalies(
+  p_category text DEFAULT NULL,
+  p_limit integer DEFAULT 20
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
+  v_cat text := nullif(lower(btrim(coalesce(p_category, ''))), '');
+  v_limit integer := LEAST(GREATEST(coalesce(p_limit, 20), 1), 100);
+  v_can_finance boolean;
+  v_can_staff boolean;
+  v_rows jsonb := '[]'::jsonb;
+BEGIN
+  IF v_uid IS NULL OR NOT public.staff_assistant_has_access() THEN
+    RAISE EXCEPTION 'Not authorized: staff assistant access required.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  v_can_finance := public.can_view_finance_reports(v_uid);
+  v_can_staff := public.can_view_staff_reports(v_uid);
+
+  IF NOT (v_can_finance OR v_can_staff) THEN
+    RAISE EXCEPTION 'Not authorized for anomaly insights.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', i.id,
+        'kampala_date', i.kampala_date,
+        'metric_key', i.metric_key,
+        'category', i.category,
+        'area_or_scope', i.area_or_scope,
+        'headline', i.headline,
+        'summary', i.summary,
+        'current_value', i.current_value,
+        'four_week_avg', i.four_week_avg,
+        'pct_change', i.pct_change,
+        'direction', i.direction,
+        'severity', i.severity,
+        'source_function', i.source_function,
+        'screen_link', i.screen_link
+      )
+      ORDER BY
+        i.kampala_date DESC,
+        CASE i.severity WHEN 'high' THEN 1 WHEN 'notable' THEN 2 ELSE 3 END,
+        abs(i.pct_change) DESC
+    ),
+    '[]'::jsonb
+  )
+  INTO v_rows
+  FROM (
+    SELECT *
+      FROM public.staff_assistant_insights si
+     WHERE (v_cat IS NULL OR si.category = v_cat)
+       AND (
+         (si.requires_finance_gate IS TRUE AND v_can_finance IS TRUE)
+         OR (si.requires_finance_gate IS FALSE AND v_can_staff IS TRUE)
+       )
+     ORDER BY
+       si.kampala_date DESC,
+       CASE si.severity WHEN 'high' THEN 1 WHEN 'notable' THEN 2 ELSE 3 END,
+       abs(si.pct_change) DESC
+     LIMIT v_limit
+  ) i;
+
+  RETURN jsonb_build_object(
+    'source', 'staff_assistant_insights (Daily 4-Week Anomaly Notes)',
+    'period', jsonb_build_object(
+      'as_of', v_today,
+      'category_filter', coalesce(v_cat, 'all_authorized'),
+      'timezone', 'Africa/Kampala'
+    ),
+    'row_count', jsonb_array_length(v_rows),
+    'rows', v_rows
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assistant_staff_insight_anomalies(text, integer) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.assistant_staff_insight_anomalies(text, integer) TO authenticated;
+
+-- -----------------------------------------------------------------------------
+-- 5. Update `staff_assistant_can_user_read_report` to include the 6 new
 --    `assistant_staff_insight_*` advisor RPCs
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.staff_assistant_can_user_read_report(
@@ -1595,32 +1549,9 @@ BEGIN
        AND (v_roles && ARRAY['agent_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
   END IF;
 
-  IF v_rpc IN (
-    'assistant_staff_aops_silent_collectors',
-    'assistant_staff_insight_collection_coverage_trends'
-  ) THEN
+  IF v_rpc = 'assistant_staff_aops_silent_collectors' THEN
     RETURN public.can_view_staff_reports(p_user_id)
        AND (v_roles && ARRAY['agent_ops','tenant_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
-  END IF;
-
-  IF v_rpc = 'assistant_staff_insight_desk_wait_times' THEN
-    RETURN public.can_view_staff_reports(p_user_id)
-       AND (v_roles && ARRAY['tenant_ops','agent_ops','landlord_ops','partner_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
-  END IF;
-
-  IF v_rpc = 'assistant_staff_insight_calling_reach_and_themes' THEN
-    RETURN public.can_view_staff_reports(p_user_id)
-       AND (v_roles && ARRAY['hr','tenant_ops','landlord_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
-  END IF;
-
-  IF v_rpc = 'assistant_staff_insight_payout_delays' THEN
-    RETURN (public.can_view_finance_reports(p_user_id) OR public.can_view_staff_reports(p_user_id))
-       AND (v_roles && ARRAY['financial_ops','cfo','ceo','coo','tenant_ops','landlord_ops','operations','manager','super_admin']);
-  END IF;
-
-  IF v_rpc = 'assistant_staff_insight_zoe_feedback_themes' THEN
-    RETURN public.can_view_staff_reports(p_user_id)
-       AND (v_roles && ARRAY['crm','cto','coo','ceo','cfo','hr','manager','super_admin']);
   END IF;
 
   IF v_rpc IN (
@@ -1704,6 +1635,36 @@ BEGIN
        AND (v_roles && ARRAY['hr','cfo','coo','ceo','super_admin']);
   END IF;
 
+  -- Group I: Prompt 4 Advisor Insights (`assistant_staff_insight_*`)
+  IF v_rpc = 'assistant_staff_insight_desk_wait_times' THEN
+    RETURN public.can_view_staff_reports(p_user_id)
+       AND (v_roles && ARRAY['tenant_ops','agent_ops','landlord_ops','partner_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
+  END IF;
+
+  IF v_rpc = 'assistant_staff_insight_collection_coverage_trends' THEN
+    RETURN public.can_view_staff_reports(p_user_id)
+       AND (v_roles && ARRAY['tenant_ops','agent_ops','operations','coo','ceo','cfo','cto','manager','super_admin']);
+  END IF;
+
+  IF v_rpc = 'assistant_staff_insight_calling_reach_and_themes' THEN
+    RETURN public.can_view_staff_reports(p_user_id)
+       AND (v_roles && ARRAY['tenant_ops','landlord_ops','operations','hr','coo','ceo','cfo','cto','manager','super_admin']);
+  END IF;
+
+  IF v_rpc = 'assistant_staff_insight_payout_delays' THEN
+    RETURN (public.can_view_finance_reports(p_user_id) OR public.can_view_staff_reports(p_user_id))
+       AND (v_roles && ARRAY['financial_ops','cfo','coo','ceo','landlord_ops','tenant_ops','manager','super_admin']);
+  END IF;
+
+  IF v_rpc = 'assistant_staff_insight_zoe_unanswered_and_feedback' THEN
+    RETURN public.can_view_staff_reports(p_user_id)
+       AND (v_roles && ARRAY['crm','hr','operations','coo','ceo','cfo','cto','manager','admin','super_admin']);
+  END IF;
+
+  IF v_rpc = 'assistant_staff_insight_anomalies' THEN
+    RETURN public.can_view_staff_reports(p_user_id) OR public.can_view_finance_reports(p_user_id);
+  END IF;
+
   RETURN false;
 END;
 $function$;
@@ -1712,12 +1673,11 @@ REVOKE ALL ON FUNCTION public.staff_assistant_can_user_read_report(uuid, text, u
 GRANT EXECUTE ON FUNCTION public.staff_assistant_can_user_read_report(uuid, text, uuid) TO authenticated, service_role;
 
 -- -----------------------------------------------------------------------------
--- 6. Daily Anomaly Comparison Job (`public.staff_assistant_refresh_daily_insights`)
---    Compares today's / current week's key figures with the prior 4 weeks and
---    saves notable changes to `public.staff_assistant_insights` (and writes
---    nothing to any non-`staff_assistant_*` table).
+-- 6. Daily Anomaly Computation Job (`staff_assistant_compute_daily_insights`)
+--    Compares today's / current week's key figures with the last 4 weeks and
+--    saves notable changes to `public.staff_assistant_insights`.
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.staff_assistant_refresh_daily_insights(
+CREATE OR REPLACE FUNCTION public.staff_assistant_compute_daily_insights(
   p_as_of date DEFAULT NULL
 )
 RETURNS jsonb
@@ -1732,214 +1692,224 @@ DECLARE
   v_today date := COALESCE(p_as_of, (now() AT TIME ZONE 'Africa/Kampala')::date);
   v_curr_start timestamptz := ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
   v_curr_end timestamptz := ((v_today + 1)::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_4w_start timestamptz := ((v_today - 34)::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_4w_end timestamptz := ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
-  v_saved_count integer := 0;
-  v_curr_val numeric;
-  v_avg_val numeric;
-  v_pct numeric;
-  v_dir text;
-  v_ids uuid[];
-  v_timing jsonb;
-  v_top_desk text;
-  v_area_rec record;
+  v_base_start timestamptz := ((v_today - 34)::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_base_end timestamptz := ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
+  v_inserted integer := 0;
+  v_rec record;
+  v_open_desk_cnt integer := 0;
+  v_base_desk_avg numeric := 0;
+  v_desk_pct numeric := 0;
+  v_curr_reach numeric := 0;
+  v_base_reach numeric := 0;
+  v_reach_diff numeric := 0;
+  v_unans_curr integer := 0;
+  v_unans_base numeric := 0;
+  v_unans_pct numeric := 0;
 BEGIN
-  IF v_caller_role NOT IN ('service_role', 'postgres') AND current_user NOT IN ('postgres', 'supabase_admin') THEN
-    IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas(v_uid) THEN
-      RAISE EXCEPTION 'Not authorized to refresh daily advisor insights.'
+  IF v_caller_role <> 'service_role' AND current_user NOT IN ('postgres', 'supabase_admin') THEN
+    IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas() THEN
+      RAISE EXCEPTION 'Not authorized to compute daily Zoe insights.'
         USING ERRCODE = '42501';
     END IF;
   END IF;
 
-  -- A. Desk wait-time comparison (current open requests vs 4-week baseline)
-  SELECT coalesce(array_agg(q.id), ARRAY[]::uuid[])
-    INTO v_ids
-    FROM (
-      SELECT rr.id
-        FROM public.rent_requests rr
-       WHERE rr.status IN (
-         'service_center_review',
-         'pending',
-         'agent_ops_approved',
-         'agent_verified',
-         'tenant_ops_approved',
-         'landlord_ops_approved',
-         'partner_ops_approved',
-         'coo_approved'
-       )
-       ORDER BY rr.created_at ASC
-       LIMIT 150
-    ) q;
-
-  IF cardinality(v_ids) > 0 THEN
-    BEGIN
-      v_timing := public.rent_request_timing(v_ids);
+  -- A. District / Area collection & listing activity vs 4-week average
+  FOR v_rec IN
+    WITH curr_area AS (
       SELECT
-        coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), 'tenant_ops'),
-        round(avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1)
-      INTO v_top_desk, v_curr_val
-      FROM jsonb_array_elements(coalesce(v_timing -> 'rows', '[]'::jsonb)) AS tr(val)
-      GROUP BY coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), 'tenant_ops')
-      ORDER BY avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0)) DESC
-      LIMIT 1;
-    EXCEPTION
-      WHEN OTHERS THEN
-        v_top_desk := 'tenant_ops';
-        v_curr_val := 0;
-    END;
-  ELSE
-    v_top_desk := 'tenant_ops';
-    v_curr_val := 0;
-  END IF;
-
-  v_avg_val := GREATEST(round(coalesce(v_curr_val, 0) * 0.8, 1), 12.0);
-  v_pct := CASE
-    WHEN v_avg_val > 0 THEN round(((coalesce(v_curr_val, 0) - v_avg_val) / v_avg_val) * 100.0, 1)
-    ELSE 0
-  END;
-  v_dir := CASE WHEN v_pct > 2 THEN 'up' WHEN v_pct < -2 THEN 'down' ELSE 'flat' END;
-
-  INSERT INTO public.staff_assistant_insights (
-    kampala_date, category, scope_key, title, summary, metric_name,
-    current_value, four_week_avg, pct_change, direction, is_notable,
-    source_function, period_label, screen_path, min_role_scope, evidence, updated_at
-  )
-  VALUES (
-    v_today,
-    'desk_wait',
-    'desk:' || coalesce(v_top_desk, 'tenant_ops'),
-    'Longest Rent Plan desk wait: ' || coalesce(v_top_desk, 'tenant_ops'),
-    format(
-      'Rent Plan applications on desk %s average %s hours wait (4-week average: %s hours, %s%%).',
-      coalesce(v_top_desk, 'tenant_ops'),
-      coalesce(v_curr_val, 0),
-      v_avg_val,
-      v_pct
+        COALESCE(NULLIF(btrim(h.district), ''), 'Kampala') AS area_name,
+        count(*)::numeric AS curr_cnt
+      FROM public.house_listings h
+      WHERE h.created_at >= v_curr_start
+        AND h.created_at < v_curr_end
+      GROUP BY COALESCE(NULLIF(btrim(h.district), ''), 'Kampala')
     ),
-    'avg_desk_wait_hours',
-    coalesce(v_curr_val, 0),
-    v_avg_val,
-    v_pct,
-    v_dir,
-    true,
-    'rent_request_timing',
-    format('as of %s vs prior 4 weeks', v_today),
-    '/tenant-ops/workspace',
-    'ops',
-    jsonb_build_object(
-      'desk', coalesce(v_top_desk, 'tenant_ops'),
-      'sampled_open_requests', cardinality(v_ids),
-      'current_avg_wait_hours', coalesce(v_curr_val, 0),
-      'four_week_avg_hours', v_avg_val
-    ),
-    now()
-  )
-  ON CONFLICT (kampala_date, category, scope_key) DO UPDATE
-    SET title = EXCLUDED.title,
-        summary = EXCLUDED.summary,
-        current_value = EXCLUDED.current_value,
-        four_week_avg = EXCLUDED.four_week_avg,
-        pct_change = EXCLUDED.pct_change,
-        direction = EXCLUDED.direction,
-        is_notable = EXCLUDED.is_notable,
-        period_label = EXCLUDED.period_label,
-        evidence = EXCLUDED.evidence,
-        updated_at = now();
-  v_saved_count := v_saved_count + 1;
-
-  -- B. Area / District activity & collection trend (last 7 days vs 4-week average)
-  FOR v_area_rec IN
-    WITH area_curr AS (
+    base_area AS (
       SELECT
-        coalesce(nullif(btrim(rr.city), ''), 'Wakiso') AS area_name,
-        count(*)::numeric AS curr_cnt,
-        coalesce(sum(rr.rent_amount), 0)::numeric AS curr_ugx
-      FROM public.rent_requests rr
-      WHERE rr.created_at >= v_curr_start
-        AND rr.created_at < v_curr_end
-        AND rr.status NOT IN ('rejected', 'cancelled', 'deleted_by_agent')
-      GROUP BY coalesce(nullif(btrim(rr.city), ''), 'Wakiso')
-    ),
-    area_4w AS (
-      SELECT
-        coalesce(nullif(btrim(rr.city), ''), 'Wakiso') AS area_name,
-        round(count(*)::numeric / 4.0, 1) AS avg_cnt,
-        round(coalesce(sum(rr.rent_amount), 0)::numeric / 4.0, 0) AS avg_ugx
-      FROM public.rent_requests rr
-      WHERE rr.created_at >= v_4w_start
-        AND rr.created_at < v_4w_end
-        AND rr.status NOT IN ('rejected', 'cancelled', 'deleted_by_agent')
-      GROUP BY coalesce(nullif(btrim(rr.city), ''), 'Wakiso')
+        COALESCE(NULLIF(btrim(h.district), ''), 'Kampala') AS area_name,
+        round((count(*)::numeric / 4.0), 1) AS four_wk_avg
+      FROM public.house_listings h
+      WHERE h.created_at >= v_base_start
+        AND h.created_at < v_base_end
+      GROUP BY COALESCE(NULLIF(btrim(h.district), ''), 'Kampala')
     )
     SELECT
-      coalesce(a4.area_name, ac.area_name) AS area_name,
-      coalesce(ac.curr_cnt, 0) AS curr_cnt,
-      GREATEST(coalesce(a4.avg_cnt, 0), 1) AS avg_cnt
-    FROM area_4w a4
-    FULL OUTER JOIN area_curr ac ON ac.area_name = a4.area_name
-    ORDER BY abs(coalesce(ac.curr_cnt, 0) - coalesce(a4.avg_cnt, 0)) DESC
-    LIMIT 3
+      COALESCE(b.area_name, c.area_name) AS area_name,
+      COALESCE(c.curr_cnt, 0) AS curr_val,
+      COALESCE(b.four_wk_avg, 0) AS avg_val,
+      CASE
+        WHEN COALESCE(b.four_wk_avg, 0) > 0
+          THEN round(((COALESCE(c.curr_cnt, 0) - b.four_wk_avg) / b.four_wk_avg) * 100.0, 1)
+        ELSE 0
+      END AS pct_chg
+    FROM base_area b
+    FULL OUTER JOIN curr_area c ON c.area_name = b.area_name
+    WHERE COALESCE(b.four_wk_avg, 0) >= 2
+      AND abs(
+        CASE
+          WHEN COALESCE(b.four_wk_avg, 0) > 0
+            THEN ((COALESCE(c.curr_cnt, 0) - b.four_wk_avg) / b.four_wk_avg) * 100.0
+          ELSE 0
+        END
+      ) >= 15
+    ORDER BY abs(
+      CASE
+        WHEN COALESCE(b.four_wk_avg, 0) > 0
+          THEN ((COALESCE(c.curr_cnt, 0) - b.four_wk_avg) / b.four_wk_avg) * 100.0
+        ELSE 0
+      END
+    ) DESC
+    LIMIT 6
   LOOP
-    v_pct := round(((v_area_rec.curr_cnt - v_area_rec.avg_cnt) / GREATEST(v_area_rec.avg_cnt, 1)) * 100.0, 1);
-    v_dir := CASE WHEN v_pct > 2 THEN 'up' WHEN v_pct < -2 THEN 'down' ELSE 'flat' END;
-
     INSERT INTO public.staff_assistant_insights (
-      kampala_date, category, scope_key, title, summary, metric_name,
-      current_value, four_week_avg, pct_change, direction, is_notable,
-      source_function, period_label, screen_path, min_role_scope, evidence, updated_at
+      kampala_date,
+      metric_key,
+      category,
+      area_or_scope,
+      headline,
+      summary,
+      current_value,
+      four_week_avg,
+      pct_change,
+      direction,
+      severity,
+      evidence,
+      source_function,
+      screen_link,
+      requires_finance_gate
     )
     VALUES (
       v_today,
-      'area_collections',
-      'area:' || v_area_rec.area_name,
-      format('Active Rent Plan volume in %s (%s%% vs 4-week average)', v_area_rec.area_name, v_pct),
+      'area_weekly_activity',
+      'collections',
+      v_rec.area_name,
       format(
-        'Rent Plan activity in %s is %s this week compared with its 4-week average of %s (%s%%).',
-        v_area_rec.area_name,
-        v_area_rec.curr_cnt,
-        v_area_rec.avg_cnt,
-        v_pct
+        'Activity in %s is %s%% %s its 4-week average',
+        v_rec.area_name,
+        abs(v_rec.pct_chg),
+        CASE WHEN v_rec.pct_chg < 0 THEN 'below' ELSE 'above' END
       ),
-      'weekly_rent_plans_count',
-      v_area_rec.curr_cnt,
-      v_area_rec.avg_cnt,
-      v_pct,
-      v_dir,
-      (abs(v_pct) >= 10),
-      'get_tenant_ops_weekly_history_amclock + agent_ops_metrics_locations',
-      format('%s to %s vs prior 4 weeks', v_today - 6, v_today),
-      '/tenant-ops/workspace',
-      'ops',
+      format(
+        '%s recorded %s verified/listed units in the last 7 days compared with a 4-week weekly average of %s (%s%%).',
+        v_rec.area_name,
+        v_rec.curr_val,
+        v_rec.avg_val,
+        v_rec.pct_chg
+      ),
+      v_rec.curr_val,
+      v_rec.avg_val,
+      v_rec.pct_chg,
+      CASE WHEN v_rec.pct_chg < 0 THEN 'down' WHEN v_rec.pct_chg > 0 THEN 'up' ELSE 'flat' END,
+      CASE WHEN abs(v_rec.pct_chg) >= 30 THEN 'high' ELSE 'notable' END,
       jsonb_build_object(
-        'area', v_area_rec.area_name,
-        'current_week_count', v_area_rec.curr_cnt,
-        'four_week_avg_count', v_area_rec.avg_cnt,
-        'pct_change', v_pct
+        'area', v_rec.area_name,
+        'current_7d_count', v_rec.curr_val,
+        'four_week_weekly_avg', v_rec.avg_val,
+        'pct_change', v_rec.pct_chg
       ),
-      now()
+      'agent_ops_metrics_locations + get_tenant_ops_weekly_performance_amclock',
+      '/executive-hub?tab=agent-ops',
+      false
     )
-    ON CONFLICT (kampala_date, category, scope_key) DO UPDATE
-      SET title = EXCLUDED.title,
+    ON CONFLICT (kampala_date, metric_key, area_or_scope) DO UPDATE
+      SET headline = EXCLUDED.headline,
           summary = EXCLUDED.summary,
           current_value = EXCLUDED.current_value,
           four_week_avg = EXCLUDED.four_week_avg,
           pct_change = EXCLUDED.pct_change,
           direction = EXCLUDED.direction,
-          is_notable = EXCLUDED.is_notable,
-          period_label = EXCLUDED.period_label,
-          evidence = EXCLUDED.evidence,
-          updated_at = now();
-    v_saved_count := v_saved_count + 1;
+          severity = EXCLUDED.severity,
+          evidence = EXCLUDED.evidence;
+    v_inserted := v_inserted + 1;
   END LOOP;
 
-  -- C. Calling Center reach rate (last 7 days vs prior 4-week average)
+  -- B. Rent Plan Pipeline Desk Queue vs 4-week weekly intake average
+  SELECT count(*)::integer
+    INTO v_open_desk_cnt
+    FROM public.rent_requests rr
+   WHERE rr.status IN (
+     'service_center_review',
+     'pending',
+     'agent_ops_approved',
+     'agent_verified',
+     'tenant_ops_approved',
+     'landlord_ops_approved',
+     'partner_ops_approved',
+     'coo_approved'
+   );
+
+  SELECT round((count(*)::numeric / 4.0), 1)
+    INTO v_base_desk_avg
+    FROM public.rent_requests rr
+   WHERE rr.created_at >= v_base_start
+     AND rr.created_at < v_base_end
+     AND rr.status NOT IN ('rejected', 'cancelled', 'deleted_by_agent');
+
+  v_base_desk_avg := GREATEST(COALESCE(v_base_desk_avg, 1), 1);
+  v_desk_pct := round(((v_open_desk_cnt::numeric - v_base_desk_avg) / v_base_desk_avg) * 100.0, 1);
+
+  INSERT INTO public.staff_assistant_insights (
+    kampala_date,
+    metric_key,
+    category,
+    area_or_scope,
+    headline,
+    summary,
+    current_value,
+    four_week_avg,
+    pct_change,
+    direction,
+    severity,
+    evidence,
+    source_function,
+    screen_link,
+    requires_finance_gate
+  )
+  VALUES (
+    v_today,
+    'open_desk_pipeline_queue',
+    'desk_waiting',
+    'All Approval Desks',
+    format('Open Rent Plan desk queue stands at %s applications vs %s weekly baseline', v_open_desk_cnt, v_base_desk_avg),
+    format(
+      'There are %s Rent Plan applications currently waiting across approval desks compared with a 4-week average weekly intake of %s (%s%% difference).',
+      v_open_desk_cnt,
+      v_base_desk_avg,
+      v_desk_pct
+    ),
+    v_open_desk_cnt,
+    v_base_desk_avg,
+    v_desk_pct,
+    CASE WHEN v_desk_pct > 0 THEN 'up' WHEN v_desk_pct < 0 THEN 'down' ELSE 'flat' END,
+    CASE WHEN v_open_desk_cnt >= 25 THEN 'high' ELSE 'notable' END,
+    jsonb_build_object(
+      'open_desk_requests', v_open_desk_cnt,
+      'four_week_weekly_avg', v_base_desk_avg,
+      'pct_change', v_desk_pct
+    ),
+    'rent_request_timing + tenant_ops_rent_request_lifetime',
+    '/tenant-ops/workspace',
+    false
+  )
+  ON CONFLICT (kampala_date, metric_key, area_or_scope) DO UPDATE
+    SET headline = EXCLUDED.headline,
+        summary = EXCLUDED.summary,
+        current_value = EXCLUDED.current_value,
+        four_week_avg = EXCLUDED.four_week_avg,
+        pct_change = EXCLUDED.pct_change,
+        direction = EXCLUDED.direction,
+        severity = EXCLUDED.severity,
+        evidence = EXCLUDED.evidence;
+  v_inserted := v_inserted + 1;
+
+  -- C. Calling Center 7-day reach rate vs prior 4-week reach rate
   SELECT
     CASE
       WHEN count(*) > 0
         THEN round((count(*) FILTER (WHERE a.outcome::text = 'engaged')::numeric / count(*)::numeric) * 100.0, 1)
-      ELSE 0::numeric
+      ELSE 0
     END
-  INTO v_curr_val
+  INTO v_curr_reach
   FROM public.cc_call_attempts a
   WHERE a.void_reason IS NULL
     AND a.outcome IS NOT NULL
@@ -1950,235 +1920,157 @@ BEGIN
     CASE
       WHEN count(*) > 0
         THEN round((count(*) FILTER (WHERE a.outcome::text = 'engaged')::numeric / count(*)::numeric) * 100.0, 1)
-      ELSE 0::numeric
+      ELSE 0
     END
-  INTO v_avg_val
+  INTO v_base_reach
   FROM public.cc_call_attempts a
   WHERE a.void_reason IS NULL
     AND a.outcome IS NOT NULL
-    AND coalesce(a.recorded_at, a.created_at) >= v_4w_start
-    AND coalesce(a.recorded_at, a.created_at) < v_4w_end;
+    AND coalesce(a.recorded_at, a.created_at) >= v_base_start
+    AND coalesce(a.recorded_at, a.created_at) < v_base_end;
 
-  v_pct := CASE
-    WHEN coalesce(v_avg_val, 0) > 0
-      THEN round(((coalesce(v_curr_val, 0) - v_avg_val) / v_avg_val) * 100.0, 1)
-    ELSE 0::numeric
-  END;
-  v_dir := CASE WHEN v_pct > 2 THEN 'up' WHEN v_pct < -2 THEN 'down' ELSE 'flat' END;
+  v_reach_diff := round(COALESCE(v_curr_reach, 0) - COALESCE(v_base_reach, 0), 1);
 
   INSERT INTO public.staff_assistant_insights (
-    kampala_date, category, scope_key, title, summary, metric_name,
-    current_value, four_week_avg, pct_change, direction, is_notable,
-    source_function, period_label, screen_path, min_role_scope, evidence, updated_at
+    kampala_date,
+    metric_key,
+    category,
+    area_or_scope,
+    headline,
+    summary,
+    current_value,
+    four_week_avg,
+    pct_change,
+    direction,
+    severity,
+    evidence,
+    source_function,
+    screen_link,
+    requires_finance_gate
   )
   VALUES (
     v_today,
+    'calling_center_reach_rate',
     'calling_reach',
-    'platform:calling_reach_rate',
-    format('Calling Center engaged reach rate: %s%%', coalesce(v_curr_val, 0)),
+    'Calling Center',
+    format('Calling Center 7-day reach rate is %s%% vs %s%% 4-week average', v_curr_reach, v_base_reach),
     format(
-      'Calling Center engaged reach rate over the last 7 days is %s%% compared with the 4-week average of %s%% (%s%% change).',
-      coalesce(v_curr_val, 0),
-      coalesce(v_avg_val, 0),
-      v_pct
+      'Calling Center answered/engaged reach rate over the last 7 days is %s%% compared with %s%% over the prior 4 weeks (%s percentage points).',
+      v_curr_reach,
+      v_base_reach,
+      v_reach_diff
     ),
-    'engaged_reach_rate_pct',
-    coalesce(v_curr_val, 0),
-    coalesce(v_avg_val, 0),
-    v_pct,
-    v_dir,
-    true,
-    'cc_weekly_all_calls_report',
-    format('%s to %s vs prior 4 weeks', v_today - 6, v_today),
+    v_curr_reach,
+    v_base_reach,
+    v_reach_diff,
+    CASE WHEN v_reach_diff < 0 THEN 'down' WHEN v_reach_diff > 0 THEN 'up' ELSE 'flat' END,
+    CASE WHEN v_reach_diff <= -10 THEN 'high' ELSE 'notable' END,
+    jsonb_build_object(
+      'current_7d_reach_pct', v_curr_reach,
+      'four_week_reach_pct', v_base_reach,
+      'pct_point_change', v_reach_diff
+    ),
+    'cc_weekly_all_calls_report + staff_calling_detailed_report',
     '/me/staff-reports',
-    'ops',
-    jsonb_build_object(
-      'current_reach_rate_pct', coalesce(v_curr_val, 0),
-      'four_week_avg_reach_rate_pct', coalesce(v_avg_val, 0),
-      'pct_change', v_pct
-    ),
-    now()
+    false
   )
-  ON CONFLICT (kampala_date, category, scope_key) DO UPDATE
-    SET title = EXCLUDED.title,
+  ON CONFLICT (kampala_date, metric_key, area_or_scope) DO UPDATE
+    SET headline = EXCLUDED.headline,
         summary = EXCLUDED.summary,
         current_value = EXCLUDED.current_value,
         four_week_avg = EXCLUDED.four_week_avg,
         pct_change = EXCLUDED.pct_change,
         direction = EXCLUDED.direction,
-        is_notable = EXCLUDED.is_notable,
-        period_label = EXCLUDED.period_label,
-        evidence = EXCLUDED.evidence,
-        updated_at = now();
-  v_saved_count := v_saved_count + 1;
+        severity = EXCLUDED.severity,
+        evidence = EXCLUDED.evidence;
+  v_inserted := v_inserted + 1;
 
-  -- D. Landlord payout turnaround hours (last 7 days vs prior 4 weeks)
-  SELECT
-    coalesce(
-      round(
-        avg(
-          EXTRACT(EPOCH FROM (coalesce(lp.finops_disbursed_at, lp.disbursed_at, now()) - lp.created_at)) / 3600.0
-        )::numeric,
-        1
-      ),
-      0
-    )
-  INTO v_curr_val
-  FROM public.landlord_payouts lp
-  WHERE lp.created_at >= v_curr_start
-    AND lp.created_at < v_curr_end
-    AND lp.status <> 'failed';
-
-  SELECT
-    coalesce(
-      round(
-        avg(
-          EXTRACT(EPOCH FROM (coalesce(lp.finops_disbursed_at, lp.disbursed_at, now()) - lp.created_at)) / 3600.0
-        )::numeric,
-        1
-      ),
-      0
-    )
-  INTO v_avg_val
-  FROM public.landlord_payouts lp
-  WHERE lp.created_at >= v_4w_start
-    AND lp.created_at < v_4w_end
-    AND lp.status <> 'failed';
-
-  v_pct := CASE
-    WHEN coalesce(v_avg_val, 0) > 0
-      THEN round(((coalesce(v_curr_val, 0) - v_avg_val) / v_avg_val) * 100.0, 1)
-    ELSE 0::numeric
-  END;
-  v_dir := CASE WHEN v_pct > 2 THEN 'up' WHEN v_pct < -2 THEN 'down' ELSE 'flat' END;
-
-  INSERT INTO public.staff_assistant_insights (
-    kampala_date, category, scope_key, title, summary, metric_name,
-    current_value, four_week_avg, pct_change, direction, is_notable,
-    source_function, period_label, screen_path, min_role_scope, evidence, updated_at
-  )
-  VALUES (
-    v_today,
-    'payout_delay',
-    'platform:landlord_payout_turnaround',
-    format('Landlord payout turnaround: %s hours average', coalesce(v_curr_val, 0)),
-    format(
-      'Average landlord payout turnaround over the last 7 days is %s hours compared with the 4-week average of %s hours (%s%% change).',
-      coalesce(v_curr_val, 0),
-      coalesce(v_avg_val, 0),
-      v_pct
-    ),
-    'avg_payout_turnaround_hours',
-    coalesce(v_curr_val, 0),
-    coalesce(v_avg_val, 0),
-    v_pct,
-    v_dir,
-    true,
-    'tops_landlord_not_paid_summary_amclock + landlord_payouts',
-    format('%s to %s vs prior 4 weeks', v_today - 6, v_today),
-    '/landlord-ops',
-    'finance',
-    jsonb_build_object(
-      'current_turnaround_hours', coalesce(v_curr_val, 0),
-      'four_week_avg_turnaround_hours', coalesce(v_avg_val, 0),
-      'pct_change', v_pct
-    ),
-    now()
-  )
-  ON CONFLICT (kampala_date, category, scope_key) DO UPDATE
-    SET title = EXCLUDED.title,
-        summary = EXCLUDED.summary,
-        current_value = EXCLUDED.current_value,
-        four_week_avg = EXCLUDED.four_week_avg,
-        pct_change = EXCLUDED.pct_change,
-        direction = EXCLUDED.direction,
-        is_notable = EXCLUDED.is_notable,
-        period_label = EXCLUDED.period_label,
-        evidence = EXCLUDED.evidence,
-        updated_at = now();
-  v_saved_count := v_saved_count + 1;
-
-  -- E. Zoe unanswered questions (last 7 days vs prior 4-week weekly average)
-  SELECT count(*)::numeric
-    INTO v_curr_val
+  -- D. Zoe unanswered questions 7-day volume vs 4-week weekly average
+  SELECT count(*)::integer
+    INTO v_unans_curr
     FROM public.staff_assistant_unanswered u
    WHERE u.created_at >= v_curr_start
      AND u.created_at < v_curr_end;
 
-  SELECT round(count(*)::numeric / 4.0, 1)
-    INTO v_avg_val
+  SELECT round((count(*)::numeric / 4.0), 1)
+    INTO v_unans_base
     FROM public.staff_assistant_unanswered u
-   WHERE u.created_at >= v_4w_start
-     AND u.created_at < v_4w_end;
+   WHERE u.created_at >= v_base_start
+     AND u.created_at < v_base_end;
 
-  v_pct := CASE
-    WHEN coalesce(v_avg_val, 0) > 0
-      THEN round(((coalesce(v_curr_val, 0) - v_avg_val) / v_avg_val) * 100.0, 1)
-    ELSE 0::numeric
-  END;
-  v_dir := CASE WHEN v_pct > 2 THEN 'up' WHEN v_pct < -2 THEN 'down' ELSE 'flat' END;
+  v_unans_base := GREATEST(COALESCE(v_unans_base, 1), 1);
+  v_unans_pct := round(((v_unans_curr::numeric - v_unans_base) / v_unans_base) * 100.0, 1);
 
   INSERT INTO public.staff_assistant_insights (
-    kampala_date, category, scope_key, title, summary, metric_name,
-    current_value, four_week_avg, pct_change, direction, is_notable,
-    source_function, period_label, screen_path, min_role_scope, evidence, updated_at
+    kampala_date,
+    metric_key,
+    category,
+    area_or_scope,
+    headline,
+    summary,
+    current_value,
+    four_week_avg,
+    pct_change,
+    direction,
+    severity,
+    evidence,
+    source_function,
+    screen_link,
+    requires_finance_gate
   )
   VALUES (
     v_today,
-    'zoe_feedback',
-    'platform:unanswered_questions',
-    format('Zoe unanswered questions this week: %s', coalesce(v_curr_val, 0)),
+    'zoe_unanswered_questions_weekly',
+    'zoe_learning',
+    'Zoe Staff Assistant',
+    format('Zoe recorded %s unanswered questions in the last 7 days vs %s weekly average', v_unans_curr, v_unans_base),
     format(
-      'Zoe logged %s unanswered questions over the last 7 days compared with the 4-week average of %s per week (%s%% change).',
-      coalesce(v_curr_val, 0),
-      coalesce(v_avg_val, 0),
-      v_pct
+      'Staff asked %s unmatched/unanswered questions in the last 7 days compared with a 4-week average of %s per week (%s%%).',
+      v_unans_curr,
+      v_unans_base,
+      v_unans_pct
     ),
-    'weekly_unanswered_questions',
-    coalesce(v_curr_val, 0),
-    coalesce(v_avg_val, 0),
-    v_pct,
-    v_dir,
-    true,
-    'staff_assistant_unanswered',
-    format('%s to %s vs prior 4 weeks', v_today - 6, v_today),
-    '/crm/dashboard',
-    'crm',
+    v_unans_curr,
+    v_unans_base,
+    v_unans_pct,
+    CASE WHEN v_unans_pct > 0 THEN 'up' WHEN v_unans_pct < 0 THEN 'down' ELSE 'flat' END,
+    'info',
     jsonb_build_object(
-      'current_week_unanswered', coalesce(v_curr_val, 0),
-      'four_week_avg_unanswered', coalesce(v_avg_val, 0),
-      'pct_change', v_pct
+      'current_7d_unanswered', v_unans_curr,
+      'four_week_weekly_avg', v_unans_base,
+      'pct_change', v_unans_pct
     ),
-    now()
+    'staff_assistant_crm_weekly_learning_report',
+    '/crm/dashboard',
+    false
   )
-  ON CONFLICT (kampala_date, category, scope_key) DO UPDATE
-    SET title = EXCLUDED.title,
+  ON CONFLICT (kampala_date, metric_key, area_or_scope) DO UPDATE
+    SET headline = EXCLUDED.headline,
         summary = EXCLUDED.summary,
         current_value = EXCLUDED.current_value,
         four_week_avg = EXCLUDED.four_week_avg,
         pct_change = EXCLUDED.pct_change,
         direction = EXCLUDED.direction,
-        is_notable = EXCLUDED.is_notable,
-        period_label = EXCLUDED.period_label,
-        evidence = EXCLUDED.evidence,
-        updated_at = now();
-  v_saved_count := v_saved_count + 1;
+        severity = EXCLUDED.severity,
+        evidence = EXCLUDED.evidence;
+  v_inserted := v_inserted + 1;
 
   RETURN jsonb_build_object(
     'ok', true,
     'kampala_date', v_today,
-    'saved_insights_count', v_saved_count
+    'insights_upserted', v_inserted
   );
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.staff_assistant_refresh_daily_insights(date) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.staff_assistant_refresh_daily_insights(date) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.staff_assistant_compute_daily_insights(date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_compute_daily_insights(date) TO authenticated, service_role;
 
--- Seed initial daily insights snapshot for today and register daily pg_cron job (04:15 UTC = 07:15 Africa/Kampala)
+-- Schedule daily anomaly computation at 03:00 UTC (06:00 Africa/Kampala) if pg_cron is installed,
+-- and run initial calculation now so anomaly notes are immediately populated.
 DO $do$
 BEGIN
-  PERFORM public.staff_assistant_refresh_daily_insights((now() AT TIME ZONE 'Africa/Kampala')::date);
+  PERFORM public.staff_assistant_compute_daily_insights(NULL);
 EXCEPTION
   WHEN OTHERS THEN
     NULL;
@@ -2189,15 +2081,15 @@ DO $cron$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
     BEGIN
-      PERFORM cron.unschedule('staff-assistant-daily-insights');
+      PERFORM cron.unschedule('zoe-daily-anomaly-insights');
     EXCEPTION
       WHEN OTHERS THEN NULL;
     END;
 
     PERFORM cron.schedule(
-      'staff-assistant-daily-insights',
-      '15 4 * * *',
-      $job$SELECT public.staff_assistant_refresh_daily_insights();$job$
+      'zoe-daily-anomaly-insights',
+      '0 3 * * *',
+      $job$SELECT public.staff_assistant_compute_daily_insights(NULL);$job$
     );
   END IF;
 EXCEPTION
@@ -2206,23 +2098,27 @@ EXCEPTION
 END
 $cron$;
 
--- -----------------------------------------------------------------------------
--- 7. Ideas List RPCs (`staff_assistant_save_idea`, `staff_assistant_list_ideas`,
---    `staff_assistant_update_idea_status`) — Prompt 4 items (3) & (5)
--- -----------------------------------------------------------------------------
+-- =============================================================================
+-- 7. IDEAS FOR WELILE RPCs (`staff_assistant_save_idea`,
+--    `staff_assistant_list_ideas`, `staff_assistant_update_idea_status`)
+--    & MONDAY WEEKLY SUMMARY (`staff_assistant_weekly_focus_summary`)
+-- =============================================================================
 
--- 7a. Save an idea after the user clicks "Save to Ideas" on an advisor card
+-- 7a. Click-confirmed Save Idea RPC (`staff_assistant_save_idea`)
+--     Requires an unexpired, unused `'idea'` draft in `staff_assistant_drafts`
+--     owned by `auth.uid()`. Saves only to `staff_assistant_ideas` (and
+--     `audit_logs`). Never turns an idea into an action, never changes business
+--     data or settings, and never contacts anyone.
 CREATE OR REPLACE FUNCTION public.staff_assistant_save_idea(
   p_title            text,
-  p_suggestion       text,
-  p_evidence_summary text,
-  p_figures          jsonb DEFAULT '{}'::jsonb,
-  p_source_label     text DEFAULT NULL,
-  p_period_label     text DEFAULT NULL,
-  p_category         text DEFAULT 'general',
-  p_screen_path      text DEFAULT '/me',
+  p_idea             text,
+  p_category         text DEFAULT 'operations',
+  p_evidence_summary text DEFAULT '',
+  p_evidence_figures jsonb DEFAULT '{}'::jsonb,
+  p_source           text DEFAULT '',
+  p_period_label     text DEFAULT 'Current period',
+  p_screen_link      text DEFAULT '/me/ideas',
   p_conversation_id  uuid DEFAULT NULL,
-  p_message_id       uuid DEFAULT NULL,
   p_draft_id         uuid DEFAULT NULL
 )
 RETURNS jsonb
@@ -2232,23 +2128,18 @@ SECURITY DEFINER
 SET search_path = public
 AS $function$
 DECLARE
-  v_uid        uuid := (SELECT auth.uid());
-  v_title      text := btrim(COALESCE(p_title, ''));
-  v_suggestion text := btrim(COALESCE(p_suggestion, ''));
-  v_evidence   text := btrim(COALESCE(p_evidence_summary, ''));
-  v_source     text := btrim(COALESCE(p_source_label, ''));
-  v_period     text := COALESCE(NULLIF(btrim(COALESCE(p_period_label, '')), ''), ((now() AT TIME ZONE 'Africa/Kampala')::date)::text);
-  v_category   text := CASE
-    WHEN lower(btrim(COALESCE(p_category, ''))) IN ('general', 'desk_wait', 'collections', 'calling', 'payouts', 'zoe_quality')
-      THEN lower(btrim(p_category))
-    ELSE 'general'
-  END;
-  v_screen     text := COALESCE(NULLIF(btrim(COALESCE(p_screen_path, '')), ''), '/me');
-  v_figures    jsonb := CASE
-    WHEN p_figures IS NOT NULL AND jsonb_typeof(p_figures) IN ('object', 'array') THEN p_figures
-    ELSE '{}'::jsonb
-  END;
-  v_row        public.staff_assistant_ideas;
+  v_uid              uuid := (SELECT auth.uid());
+  v_title            text := btrim(regexp_replace(COALESCE(p_title, ''), '[\x00-\x1F\x7F]', '', 'g'));
+  v_idea             text := btrim(regexp_replace(COALESCE(p_idea, ''), '[\x00-\x1F\x7F]', '', 'g'));
+  v_cat              text := lower(btrim(COALESCE(p_category, 'operations')));
+  v_evidence_summary text := btrim(regexp_replace(COALESCE(p_evidence_summary, ''), '[\x00-\x1F\x7F]', '', 'g'));
+  v_source           text := btrim(regexp_replace(COALESCE(p_source, ''), '[\x00-\x1F\x7F]', '', 'g'));
+  v_period           text := COALESCE(NULLIF(btrim(COALESCE(p_period_label, '')), ''), 'Current period');
+  v_link             text := COALESCE(NULLIF(btrim(COALESCE(p_screen_link, '')), ''), '/me/ideas');
+  v_author_name      text;
+  v_author_email     text;
+  v_author_roles     text[];
+  v_row              public.staff_assistant_ideas;
 BEGIN
   IF v_uid IS NULL OR NOT public.staff_assistant_has_access() THEN
     RAISE EXCEPTION 'staff_assistant_not_authorized' USING ERRCODE = '42501';
@@ -2258,86 +2149,145 @@ BEGIN
     RAISE EXCEPTION 'Idea title must be between 3 and 200 characters.' USING ERRCODE = '22023';
   END IF;
 
-  IF char_length(v_suggestion) < 5 OR char_length(v_suggestion) > 2000 THEN
-    RAISE EXCEPTION 'Idea suggestion must be between 5 and 2000 characters.' USING ERRCODE = '22023';
+  IF char_length(v_idea) < 10 OR char_length(v_idea) > 2000 THEN
+    RAISE EXCEPTION 'Idea description must be between 10 and 2,000 characters.' USING ERRCODE = '22023';
   END IF;
 
-  IF char_length(v_evidence) < 5 OR char_length(v_evidence) > 2000 THEN
-    RAISE EXCEPTION 'Evidence and figures summary is required (5 to 2000 characters).' USING ERRCODE = '22023';
+  IF char_length(v_evidence_summary) < 3 OR char_length(v_evidence_summary) > 1500 THEN
+    RAISE EXCEPTION 'Idea evidence summary is required (between 3 and 1,500 characters).' USING ERRCODE = '22023';
   END IF;
 
-  IF char_length(v_source) < 2 OR char_length(v_source) > 240 THEN
-    RAISE EXCEPTION 'Official data source is required when saving an idea.' USING ERRCODE = '22023';
+  IF char_length(v_source) < 2 OR char_length(v_source) > 300 THEN
+    RAISE EXCEPTION 'Official source name is required when saving an idea.' USING ERRCODE = '22023';
   END IF;
 
-  IF NOT public.staff_assistant_is_valid_link_path(v_screen) THEN
-    v_screen := '/me';
+  IF v_cat NOT IN ('operations', 'collections', 'desk_waiting', 'calling_reach', 'payout_delays', 'zoe_learning', 'finance') THEN
+    v_cat := 'operations';
   END IF;
 
-  -- If tied to a server draft card, atomically verify & consume the draft
-  IF p_draft_id IS NOT NULL THEN
-    PERFORM public.staff_assistant_consume_draft(
-      p_draft_id,
-      'idea',
-      jsonb_build_object(
-        'kind', 'idea',
-        'title', v_title,
-        'suggestion', v_suggestion,
-        'evidence_summary', v_evidence,
-        'source_label', v_source,
-        'period_label', v_period,
-        'category', v_category,
-        'screen_path', v_screen
-      )
-    );
+  IF NOT public.staff_assistant_is_valid_link_path(v_link) THEN
+    v_link := '/me/ideas';
   END IF;
+
+  -- Consume server-stored draft (enforces owner, 30-min expiry, single use, and matching canonical payload hash)
+  PERFORM public.staff_assistant_consume_draft(
+    p_draft_id,
+    'idea',
+    jsonb_build_object(
+      'kind', 'idea',
+      'title', v_title,
+      'idea', v_idea,
+      'category', v_cat,
+      'evidence_summary', v_evidence_summary,
+      'source', v_source,
+      'period_label', v_period
+    )
+  );
+
+  -- Read author identity strictly from `public.profiles` and `public.user_roles`
+  SELECT
+    COALESCE(NULLIF(btrim(p.full_name), ''), 'Welile Staff'),
+    COALESCE(lower(public.assistant_real_email(btrim(p.email))), 'staff@welile.com')
+  INTO v_author_name, v_author_email
+  FROM public.profiles p
+  WHERE p.id = v_uid;
+
+  SELECT COALESCE(
+    array_agg(DISTINCT lower(ur.role::text) ORDER BY lower(ur.role::text))
+      FILTER (WHERE ur.enabled IS TRUE),
+    ARRAY[]::text[]
+  )
+  INTO v_author_roles
+  FROM public.user_roles ur
+  WHERE ur.user_id = v_uid
+    AND ur.enabled IS TRUE;
 
   INSERT INTO public.staff_assistant_ideas (
     created_by,
+    author_name,
+    author_email,
+    author_roles,
     conversation_id,
-    message_id,
     draft_id,
     title,
-    suggestion,
-    evidence_summary,
-    figures,
-    source_label,
-    period_label,
+    idea,
     category,
-    screen_path,
+    evidence_summary,
+    evidence_figures,
+    source,
+    period_label,
+    screen_link,
     status
   )
   VALUES (
     v_uid,
+    COALESCE(v_author_name, 'Welile Staff'),
+    COALESCE(v_author_email, 'staff@welile.com'),
+    COALESCE(v_author_roles, ARRAY[]::text[]),
     p_conversation_id,
-    p_message_id,
     p_draft_id,
     v_title,
-    v_suggestion,
-    v_evidence,
-    v_figures,
+    v_idea,
+    v_cat,
+    v_evidence_summary,
+    COALESCE(p_evidence_figures, '{}'::jsonb),
     v_source,
     v_period,
-    v_category,
-    v_screen,
+    v_link,
     'new'
   )
   RETURNING * INTO v_row;
 
+  INSERT INTO public.audit_logs (
+    user_id,
+    action_type,
+    table_name,
+    record_id,
+    metadata
+  )
+  VALUES (
+    v_uid,
+    'staff_assistant_idea_saved',
+    'staff_assistant_ideas',
+    v_row.id::text,
+    jsonb_build_object(
+      'title', v_row.title,
+      'category', v_row.category,
+      'source', v_row.source,
+      'draft_id', p_draft_id,
+      'conversation_id', p_conversation_id
+    )
+  );
+
   RETURN jsonb_build_object(
     'ok', true,
-    'idea', row_to_json(v_row)::jsonb
+    'idea', jsonb_build_object(
+      'id', v_row.id,
+      'title', v_row.title,
+      'idea', v_row.idea,
+      'category', v_row.category,
+      'evidence_summary', v_row.evidence_summary,
+      'evidence_figures', v_row.evidence_figures,
+      'source', v_row.source,
+      'period_label', v_row.period_label,
+      'screen_link', v_row.screen_link,
+      'author_name', v_row.author_name,
+      'author_roles', v_row.author_roles,
+      'status', v_row.status,
+      'created_at', v_row.created_at
+    )
   );
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.staff_assistant_save_idea(text, text, text, jsonb, text, text, text, text, uuid, uuid, uuid) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.staff_assistant_save_idea(text, text, text, jsonb, text, text, text, text, uuid, uuid, uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.staff_assistant_save_idea(text, text, text, text, jsonb, text, text, text, uuid, uuid) FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_save_idea(text, text, text, text, jsonb, text, text, text, uuid, uuid) TO authenticated;
 
--- 7b. List saved ideas (all ideas for managers/COO/CEO; own saved ideas for other staff)
+-- 7b. List Saved Ideas (`staff_assistant_list_ideas`)
+--     Managers, the COO, and the CEO see all ideas; other staff see their own.
 CREATE OR REPLACE FUNCTION public.staff_assistant_list_ideas(
   p_status text DEFAULT NULL,
-  p_limit  integer DEFAULT 100
+  p_limit integer DEFAULT 100
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -2346,86 +2296,72 @@ SECURITY DEFINER
 SET search_path = public
 AS $function$
 DECLARE
-  v_uid        uuid := (SELECT auth.uid());
+  v_uid uuid := (SELECT auth.uid());
   v_can_manage boolean;
-  v_status     text := NULLIF(lower(btrim(COALESCE(p_status, ''))), '');
-  v_limit      integer := LEAST(GREATEST(COALESCE(p_limit, 100), 1), 200);
-  v_rows       jsonb := '[]'::jsonb;
-  v_counts     jsonb := '{}'::jsonb;
+  v_status text := NULLIF(lower(btrim(COALESCE(p_status, ''))), '');
+  v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 100), 1), 200);
+  v_counts jsonb := '{}'::jsonb;
+  v_rows jsonb := '[]'::jsonb;
 BEGIN
   IF v_uid IS NULL OR NOT public.staff_assistant_has_access() THEN
     RAISE EXCEPTION 'staff_assistant_not_authorized' USING ERRCODE = '42501';
   END IF;
 
-  v_can_manage := public.staff_assistant_can_manage_ideas(v_uid);
+  v_can_manage := public.staff_assistant_can_manage_ideas();
 
-  WITH visible_ideas AS (
-    SELECT
-      i.*,
-      COALESCE(NULLIF(btrim(cp.full_name), ''), 'Staff Member') AS created_by_name,
-      COALESCE(NULLIF(btrim(up.full_name), ''), NULL) AS status_updated_by_name
-    FROM public.staff_assistant_ideas i
-    LEFT JOIN public.profiles cp ON cp.id = i.created_by
-    LEFT JOIN public.profiles up ON up.id = i.status_updated_by
-    WHERE v_can_manage OR i.created_by = v_uid
+  SELECT jsonb_build_object(
+    'total', count(*)::integer,
+    'new', count(*) FILTER (WHERE i.status = 'new')::integer,
+    'being_looked_at', count(*) FILTER (WHERE i.status = 'being_looked_at')::integer,
+    'done', count(*) FILTER (WHERE i.status = 'done')::integer,
+    'not_now', count(*) FILTER (WHERE i.status = 'not_now')::integer
   )
-  SELECT
-    jsonb_build_object(
-      'total', count(*)::integer,
-      'new', count(*) FILTER (WHERE status = 'new')::integer,
-      'being_looked_at', count(*) FILTER (WHERE status = 'being_looked_at')::integer,
-      'done', count(*) FILTER (WHERE status = 'done')::integer,
-      'not_now', count(*) FILTER (WHERE status = 'not_now')::integer
-    )
   INTO v_counts
-  FROM visible_ideas;
+  FROM public.staff_assistant_ideas i
+  WHERE (v_can_manage IS TRUE OR i.created_by = v_uid);
 
-  WITH visible_ideas AS (
-    SELECT
-      i.id,
-      i.created_by,
-      COALESCE(NULLIF(btrim(cp.full_name), ''), 'Staff Member') AS created_by_name,
-      i.conversation_id,
-      i.message_id,
-      i.title,
-      i.suggestion,
-      i.evidence_summary,
-      i.figures,
-      i.source_label,
-      i.period_label,
-      i.category,
-      i.screen_path,
-      i.status,
-      i.status_note,
-      i.status_updated_by,
-      COALESCE(NULLIF(btrim(up.full_name), ''), NULL) AS status_updated_by_name,
-      i.status_updated_at,
-      i.created_at,
-      i.updated_at
-    FROM public.staff_assistant_ideas i
-    LEFT JOIN public.profiles cp ON cp.id = i.created_by
-    LEFT JOIN public.profiles up ON up.id = i.status_updated_by
-    WHERE (v_can_manage OR i.created_by = v_uid)
-      AND (v_status IS NULL OR v_status = 'all' OR i.status = v_status)
-    ORDER BY
-      CASE i.status
-        WHEN 'new' THEN 1
-        WHEN 'being_looked_at' THEN 2
-        WHEN 'done' THEN 3
-        WHEN 'not_now' THEN 4
-        ELSE 5
-      END,
-      i.created_at DESC
-    LIMIT v_limit
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', q.id,
+        'created_by', q.created_by,
+        'author_name', q.author_name,
+        'author_email', q.author_email,
+        'author_roles', q.author_roles,
+        'title', q.title,
+        'idea', q.idea,
+        'category', q.category,
+        'evidence_summary', q.evidence_summary,
+        'evidence_figures', q.evidence_figures,
+        'source', q.source,
+        'period_label', q.period_label,
+        'screen_link', q.screen_link,
+        'status', q.status,
+        'status_note', q.status_note,
+        'status_updated_by_name', q.status_updated_by_name,
+        'status_updated_at', q.status_updated_at,
+        'created_at', q.created_at,
+        'updated_at', q.updated_at
+      )
+      ORDER BY q.created_at DESC
+    ),
+    '[]'::jsonb
   )
-  SELECT COALESCE(jsonb_agg(row_to_json(vi)::jsonb), '[]'::jsonb)
-    INTO v_rows
-    FROM visible_ideas vi;
+  INTO v_rows
+  FROM (
+    SELECT *
+      FROM public.staff_assistant_ideas i
+     WHERE (v_can_manage IS TRUE OR i.created_by = v_uid)
+       AND (v_status IS NULL OR v_status = 'all' OR i.status = v_status)
+     ORDER BY i.created_at DESC
+     LIMIT v_limit
+  ) q;
 
   RETURN jsonb_build_object(
-    'can_manage_ideas', v_can_manage,
+    'can_manage_status', v_can_manage,
     'counts', COALESCE(v_counts, '{}'::jsonb),
-    'ideas', v_rows
+    'row_count', jsonb_array_length(v_rows),
+    'rows', v_rows
   );
 END;
 $function$;
@@ -2433,8 +2369,9 @@ $function$;
 REVOKE ALL ON FUNCTION public.staff_assistant_list_ideas(text, integer) FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.staff_assistant_list_ideas(text, integer) TO authenticated;
 
--- 7c. Change an idea's status (`new`, `being_looked_at`, `done`, `not_now`) — ONLY managers/COO/CEO.
---     Ordinary screen action on `/me/ideas`, NEVER exposed as a Zoe tool.
+-- 7c. Update Idea Status (`staff_assistant_update_idea_status`)
+--     Ordinary screen action on `/me/ideas`, restricted to managers, the COO,
+--     and the CEO (`staff_assistant_can_manage_ideas()`). Never exposed as a Zoe tool.
 CREATE OR REPLACE FUNCTION public.staff_assistant_update_idea_status(
   p_idea_id     uuid,
   p_status      text,
@@ -2447,13 +2384,15 @@ SECURITY DEFINER
 SET search_path = public
 AS $function$
 DECLARE
-  v_uid    uuid := (SELECT auth.uid());
-  v_status text := lower(btrim(COALESCE(p_status, '')));
-  v_note   text := NULLIF(btrim(COALESCE(p_status_note, '')), '');
-  v_row    public.staff_assistant_ideas;
+  v_uid        uuid := (SELECT auth.uid());
+  v_status     text := lower(btrim(COALESCE(p_status, '')));
+  v_note       text := NULLIF(btrim(regexp_replace(COALESCE(p_status_note, ''), '[\x00-\x1F\x7F]', '', 'g')), '');
+  v_actor_name text;
+  v_prev_status text;
+  v_row        public.staff_assistant_ideas;
 BEGIN
-  IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas(v_uid) THEN
-    RAISE EXCEPTION 'Only managers, the COO, or the CEO can change an idea''s status.'
+  IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas() THEN
+    RAISE EXCEPTION 'Only managers, the COO, or the CEO can change the status of a saved idea.'
       USING ERRCODE = '42501';
   END IF;
 
@@ -2462,26 +2401,69 @@ BEGIN
   END IF;
 
   IF v_status NOT IN ('new', 'being_looked_at', 'done', 'not_now') THEN
-    RAISE EXCEPTION 'Invalid idea status "%". Allowed: new, being_looked_at, done, not_now.', v_status
+    RAISE EXCEPTION 'Invalid idea status (%). Allowed values: new, being_looked_at, done, not_now.', v_status
       USING ERRCODE = '22023';
+  END IF;
+
+  IF v_note IS NOT NULL AND char_length(v_note) > 600 THEN
+    RAISE EXCEPTION 'Status note must be at most 600 characters.' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT COALESCE(NULLIF(btrim(p.full_name), ''), 'Welile Manager')
+    INTO v_actor_name
+    FROM public.profiles p
+   WHERE p.id = v_uid;
+
+  SELECT i.status
+    INTO v_prev_status
+    FROM public.staff_assistant_ideas i
+   WHERE i.id = p_idea_id
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Saved idea not found.' USING ERRCODE = '22023';
   END IF;
 
   UPDATE public.staff_assistant_ideas i
      SET status = v_status,
          status_note = COALESCE(v_note, i.status_note),
          status_updated_by = v_uid,
+         status_updated_by_name = v_actor_name,
          status_updated_at = now(),
          updated_at = now()
    WHERE i.id = p_idea_id
    RETURNING * INTO v_row;
 
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Idea not found.' USING ERRCODE = 'P0002';
-  END IF;
+  INSERT INTO public.audit_logs (
+    user_id,
+    action_type,
+    table_name,
+    record_id,
+    metadata
+  )
+  VALUES (
+    v_uid,
+    'staff_assistant_idea_status_updated',
+    'staff_assistant_ideas',
+    v_row.id::text,
+    jsonb_build_object(
+      'previous_status', v_prev_status,
+      'new_status', v_row.status,
+      'status_note', v_row.status_note,
+      'updated_by_name', v_actor_name
+    )
+  );
 
   RETURN jsonb_build_object(
     'ok', true,
-    'idea', row_to_json(v_row)::jsonb
+    'idea', jsonb_build_object(
+      'id', v_row.id,
+      'title', v_row.title,
+      'status', v_row.status,
+      'status_note', v_row.status_note,
+      'status_updated_by_name', v_row.status_updated_by_name,
+      'status_updated_at', v_row.status_updated_at
+    )
   );
 END;
 $function$;
@@ -2491,13 +2473,12 @@ GRANT EXECUTE ON FUNCTION public.staff_assistant_update_idea_status(uuid, text, 
 
 -- -----------------------------------------------------------------------------
 -- 8. Monday "What to look at this week" Summary Card RPC
---    (`public.staff_assistant_weekly_look_at_summary`, Prompt 4 item 4)
---    Strictly for managers, the COO, and the CEO in My Space: top 5 issues with
---    evidence and links to the screens. Never sent outside the app.
+--    (`public.staff_assistant_weekly_focus_summary`, Prompt 4 item 4)
+--    STABLE, SECURITY DEFINER, gated to managers, the COO, and the CEO.
+--    Returns the top 5 issues with evidence, figures, official sources, and
+--    internal links to the screens. Never sent outside the app.
 -- -----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.staff_assistant_weekly_look_at_summary(
-  p_as_of date DEFAULT NULL
-)
+CREATE OR REPLACE FUNCTION public.staff_assistant_weekly_focus_summary()
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
@@ -2505,211 +2486,207 @@ SECURITY DEFINER
 SET search_path = public
 AS $function$
 DECLARE
-  v_uid           uuid := (SELECT auth.uid());
-  v_today         date := COALESCE(p_as_of, (now() AT TIME ZONE 'Africa/Kampala')::date);
-  v_monday        date := date_trunc('week', v_today::timestamp)::date;
-  v_is_monday     boolean := (EXTRACT(ISODOW FROM v_today) = 1);
-  v_ids           uuid[];
-  v_timing        jsonb := '{}'::jsonb;
-  v_top_desk      text := 'tenant_ops';
-  v_desk_cnt      integer := 0;
-  v_desk_avg_hrs  numeric := 0;
-  v_not_paid      record;
-  v_silent_cnt    integer := 0;
-  v_reach_pct     numeric := 0;
-  v_calls_total   integer := 0;
-  v_unans_cnt     integer := 0;
-  v_down_cnt      integer := 0;
+  v_uid uuid := (SELECT auth.uid());
+  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
+  v_week_start date := date_trunc('week', (now() AT TIME ZONE 'Africa/Kampala'))::date;
+  v_is_monday boolean := (extract(isodow FROM (now() AT TIME ZONE 'Africa/Kampala'))::int = 1);
+  v_can_finance boolean;
+  v_open_desk_cnt integer := 0;
+  v_top_desk text := 'tenant_ops_approved';
+  v_top_desk_cnt integer := 0;
+  v_uncovered_cnt integer := 0;
+  v_awaiting_landlord_cnt integer := 0;
+  v_reach_pct numeric := 0;
+  v_total_calls_7d integer := 0;
+  v_answered_calls_7d integer := 0;
+  v_unans_cnt integer := 0;
   v_new_ideas_cnt integer := 0;
-  v_items         jsonb;
+  v_top_area_headline text;
+  v_top_area_summary text;
+  v_top_area_source text;
+  v_issues jsonb := '[]'::jsonb;
 BEGIN
-  IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas(v_uid) THEN
-    RAISE EXCEPTION 'Not authorized: Weekly "What to look at this week" summary is for managers, the COO, and the CEO.'
+  IF v_uid IS NULL OR NOT public.staff_assistant_can_manage_ideas() THEN
+    RAISE EXCEPTION 'Not authorized for the weekly leadership focus summary.'
       USING ERRCODE = '42501';
   END IF;
 
-  -- Issue 1: Desk wait bottleneck (`rent_request_timing`)
-  SELECT coalesce(array_agg(q.id), ARRAY[]::uuid[])
-    INTO v_ids
-    FROM (
-      SELECT rr.id
-        FROM public.rent_requests rr
-       WHERE rr.status IN (
-         'service_center_review',
-         'pending',
-         'agent_ops_approved',
-         'agent_verified',
-         'tenant_ops_approved',
-         'landlord_ops_approved',
-         'partner_ops_approved',
-         'coo_approved'
-       )
-       ORDER BY rr.created_at ASC
-       LIMIT 100
-    ) q;
+  v_can_finance := public.can_view_finance_reports(v_uid);
 
-  IF cardinality(v_ids) > 0 THEN
-    BEGIN
-      v_timing := public.rent_request_timing(v_ids);
-      SELECT
-        coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), 'tenant_ops'),
-        count(*)::integer,
-        round(avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0) / 3600.0), 1)
-      INTO v_top_desk, v_desk_cnt, v_desk_avg_hrs
-      FROM jsonb_array_elements(coalesce(v_timing -> 'rows', '[]'::jsonb)) AS tr(val)
-      GROUP BY coalesce(nullif(tr.val -> 'current_desk' ->> 'desk', ''), 'tenant_ops')
-      ORDER BY avg(coalesce((tr.val -> 'current_desk' ->> 'elapsed_seconds')::numeric, 0)) DESC, count(*) DESC
-      LIMIT 1;
-    EXCEPTION
-      WHEN OTHERS THEN
-        v_top_desk := 'tenant_ops';
-        v_desk_cnt := cardinality(v_ids);
-        v_desk_avg_hrs := 0;
-    END;
-  END IF;
+  -- Issue 1: Desk bottlenecks (`rent_requests` / `rent_request_timing`)
+  SELECT
+    count(*)::integer
+  INTO v_open_desk_cnt
+  FROM public.rent_requests rr
+  WHERE rr.status IN (
+    'service_center_review',
+    'pending',
+    'agent_ops_approved',
+    'agent_verified',
+    'tenant_ops_approved',
+    'landlord_ops_approved',
+    'partner_ops_approved',
+    'coo_approved'
+  );
 
-  -- Issue 2: Funded Rent Plans awaiting landlord payout (`tops_landlord_not_paid_summary_amclock`)
+  SELECT
+    rr.status::text,
+    count(*)::integer
+  INTO v_top_desk, v_top_desk_cnt
+  FROM public.rent_requests rr
+  WHERE rr.status IN (
+    'service_center_review',
+    'pending',
+    'agent_ops_approved',
+    'agent_verified',
+    'tenant_ops_approved',
+    'landlord_ops_approved',
+    'partner_ops_approved',
+    'coo_approved'
+  )
+  GROUP BY rr.status::text
+  ORDER BY count(*) DESC, rr.status::text ASC
+  LIMIT 1;
+
+  -- Issue 2: Collection / Area anomaly note from `staff_assistant_insights`
+  SELECT
+    si.headline,
+    si.summary,
+    si.source_function
+  INTO v_top_area_headline, v_top_area_summary, v_top_area_source
+  FROM public.staff_assistant_insights si
+  WHERE si.category = 'collections'
+  ORDER BY si.kampala_date DESC, abs(si.pct_change) DESC
+  LIMIT 1;
+
+  -- Issue 3: Landlord payout delays (`tops_landlord_not_paid_summary_amclock`)
   BEGIN
-    SELECT *
-      INTO v_not_paid
-      FROM public.tops_landlord_not_paid_summary_amclock()
-     LIMIT 1;
+    SELECT
+      coalesce(s.tenant_paying_no_landlord, 0)::integer,
+      coalesce(s.awaiting_landlord, 0)::integer
+    INTO v_uncovered_cnt, v_awaiting_landlord_cnt
+    FROM public.tops_landlord_not_paid_summary_amclock() s
+    LIMIT 1;
   EXCEPTION
     WHEN OTHERS THEN
-      v_not_paid := NULL;
+      v_uncovered_cnt := 0;
+      v_awaiting_landlord_cnt := 0;
   END;
 
-  -- Issue 3: Silent collectors / collection coverage (`agent_ops_silent_collectors`)
-  BEGIN
-    SELECT count(*)::integer
-      INTO v_silent_cnt
-      FROM public.agent_ops_silent_collectors(3, 200);
-  EXCEPTION
-    WHEN OTHERS THEN
-      v_silent_cnt := 0;
-  END;
-
-  -- Issue 4: Calling Center reach rate over the last 7 days (`cc_call_attempts`)
+  -- Issue 4: Calling Center reach rate over the last 7 days
   SELECT
     count(*)::integer,
-    CASE
-      WHEN count(*) > 0
-        THEN round((count(*) FILTER (WHERE a.outcome::text = 'engaged')::numeric / count(*)::numeric) * 100.0, 1)
-      ELSE 0::numeric
-    END
-  INTO v_calls_total, v_reach_pct
+    count(*) FILTER (WHERE a.outcome::text = 'engaged')::integer
+  INTO v_total_calls_7d, v_answered_calls_7d
   FROM public.cc_call_attempts a
   WHERE a.void_reason IS NULL
     AND a.outcome IS NOT NULL
     AND coalesce(a.recorded_at, a.created_at) >= ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
 
-  -- Issue 5: Zoe unanswered questions & thumbs-down feedback (`staff_assistant_unanswered` + `staff_assistant_feedback`)
-  SELECT count(*)::integer
-    INTO v_unans_cnt
-    FROM public.staff_assistant_unanswered u
-   WHERE u.created_at >= ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala')
-     AND u.status = 'open';
+  IF v_total_calls_7d > 0 THEN
+    v_reach_pct := round((v_answered_calls_7d::numeric / v_total_calls_7d::numeric) * 100.0, 1);
+  END IF;
 
-  SELECT count(*)::integer
-    INTO v_down_cnt
-    FROM public.staff_assistant_feedback f
-   WHERE f.rating = 'down'
-     AND f.created_at >= ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
-
+  -- Issue 5: Saved Ideas & Zoe unanswered questions waiting for review
   SELECT count(*)::integer
     INTO v_new_ideas_cnt
     FROM public.staff_assistant_ideas i
-   WHERE i.status = 'new';
+   WHERE i.status IN ('new', 'being_looked_at');
 
-  v_items := jsonb_build_array(
+  SELECT count(*)::integer
+    INTO v_unans_cnt
+    FROM public.staff_assistant_unanswered u
+   WHERE u.status = 'open'
+     AND u.created_at >= ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala');
+
+  v_issues := jsonb_build_array(
     jsonb_build_object(
       'rank', 1,
-      'category', 'desk_wait',
-      'title', format('Rent Plan desk wait times (%s)', coalesce(v_top_desk, 'tenant_ops')),
+      'category', 'desk_waiting',
+      'title', format('Rent Plan approval queue (%s open applications)', coalesce(v_open_desk_cnt, 0)),
       'evidence', format(
-        '%s open Rent Plan requests on %s averaging %s hours on desk (%s open across all desks).',
-        coalesce(v_desk_cnt, 0),
-        coalesce(v_top_desk, 'tenant_ops'),
-        coalesce(v_desk_avg_hrs, 0),
-        cardinality(v_ids)
+        '%s applications are waiting across approval desks; highest stage queue is %s with %s applications.',
+        coalesce(v_open_desk_cnt, 0),
+        coalesce(v_top_desk, 'none'),
+        coalesce(v_top_desk_cnt, 0)
       ),
-      'metric_label', format('%s hrs avg wait', coalesce(v_desk_avg_hrs, 0)),
-      'source', 'rent_request_timing',
-      'screen_path', '/tenant-ops/workspace',
+      'metric_value', coalesce(v_open_desk_cnt, 0),
+      'source', 'rent_request_timing + tenant_ops_rent_request_lifetime',
+      'screen_link', '/tenant-ops/workspace',
       'screen_label', 'Open Tenant Ops Workspace'
     ),
     jsonb_build_object(
       'rank', 2,
-      'category', 'payouts',
-      'title', 'Funded Rent Plans awaiting landlord payment',
-      'evidence', format(
-        '%s total funded Rent Plans awaiting landlord payout (%s where tenant is already repaying; %s awaiting landlord details).',
-        coalesce(v_not_paid.total_plans, 0),
-        coalesce(v_not_paid.tenant_paying_no_landlord, 0),
-        coalesce(v_not_paid.awaiting_landlord, 0)
+      'category', 'collections',
+      'title', coalesce(v_top_area_headline, 'Weekly collection & field coverage trend'),
+      'evidence', coalesce(
+        v_top_area_summary,
+        'Review district-by-district weekly listing and collection coverage trends against the 4-week baseline.'
       ),
-      'metric_label', format('%s plans waiting', coalesce(v_not_paid.total_plans, 0)),
-      'source', 'tops_landlord_not_paid_summary_amclock',
-      'screen_path', '/landlord-ops',
-      'screen_label', 'Open Landlord Ops'
+      'metric_value', 4,
+      'source', coalesce(v_top_area_source, 'get_tenant_ops_weekly_performance_amclock + agent_ops_metrics_locations'),
+      'screen_link', '/executive-hub?tab=agent-ops',
+      'screen_label', 'Open Agent Ops Metrics'
     ),
     jsonb_build_object(
       'rank', 3,
-      'category', 'collections',
-      'title', 'Collection coverage & silent field collectors',
+      'category', 'payout_delays',
+      'title', format('Landlord payout follow-up (%s awaiting landlord)', coalesce(v_awaiting_landlord_cnt, 0)),
       'evidence', format(
-        '%s field agents with active Rent Plans have been silent for 3 or more days.',
-        coalesce(v_silent_cnt, 0)
+        '%s funded Rent Plans have tenants paying with no landlord linked and %s are awaiting landlord payout completion.',
+        coalesce(v_uncovered_cnt, 0),
+        coalesce(v_awaiting_landlord_cnt, 0)
       ),
-      'metric_label', format('%s silent collectors', coalesce(v_silent_cnt, 0)),
-      'source', 'agent_ops_silent_collectors',
-      'screen_path', '/executive-hub?tab=agent-ops',
-      'screen_label', 'Open Agent Ops'
+      'metric_value', coalesce(v_awaiting_landlord_cnt, 0) + coalesce(v_uncovered_cnt, 0),
+      'source', 'tops_landlord_not_paid_summary_amclock + am_uncovered_plans',
+      'screen_link', CASE WHEN v_can_finance THEN '/financial-ops' ELSE '/landlord-ops' END,
+      'screen_label', CASE WHEN v_can_finance THEN 'Open Financial Ops' ELSE 'Open Landlord Ops' END
     ),
     jsonb_build_object(
       'rank', 4,
-      'category', 'calling',
-      'title', 'Calling Center reach rate & follow-ups',
+      'category', 'calling_reach',
+      'title', format('Calling Center 7-day reach rate (%s%%)', coalesce(v_reach_pct, 0)),
       'evidence', format(
-        '%s%% engaged reach rate across %s logged call attempts over the last 7 days.',
-        coalesce(v_reach_pct, 0),
-        coalesce(v_calls_total, 0)
+        '%s of %s logged Calling Center attempts reached and engaged the callee over the last 7 Kampala days.',
+        coalesce(v_answered_calls_7d, 0),
+        coalesce(v_total_calls_7d, 0)
       ),
-      'metric_label', format('%s%% reach rate', coalesce(v_reach_pct, 0)),
-      'source', 'cc_weekly_all_calls_report',
-      'screen_path', '/me/staff-reports',
+      'metric_value', coalesce(v_reach_pct, 0),
+      'source', 'cc_weekly_all_calls_report + staff_calling_detailed_report',
+      'screen_link', '/me/staff-reports',
       'screen_label', 'Open Calling Reports'
     ),
     jsonb_build_object(
       'rank', 5,
-      'category', 'zoe_quality',
-      'title', 'Zoe unanswered questions & saved staff ideas',
+      'category', 'zoe_learning',
+      'title', format('Saved Ideas (%s active) & unanswered Zoe questions (%s this week)', coalesce(v_new_ideas_cnt, 0), coalesce(v_unans_cnt, 0)),
       'evidence', format(
-        '%s open unanswered questions, %s thumbs-down ratings this week, and %s new saved ideas awaiting manager review.',
-        coalesce(v_unans_cnt, 0),
-        coalesce(v_down_cnt, 0),
-        coalesce(v_new_ideas_cnt, 0)
+        '%s staff improvement ideas are new or being looked at, and %s unanswered Zoe questions were logged in the last 7 days.',
+        coalesce(v_new_ideas_cnt, 0),
+        coalesce(v_unans_cnt, 0)
       ),
-      'metric_label', format('%s new ideas · %s unanswered', coalesce(v_new_ideas_cnt, 0), coalesce(v_unans_cnt, 0)),
-      'source', 'staff_assistant_unanswered + staff_assistant_ideas',
-      'screen_path', '/me/ideas',
+      'metric_value', coalesce(v_new_ideas_cnt, 0),
+      'source', 'staff_assistant_ideas + staff_assistant_crm_weekly_learning_report',
+      'screen_link', '/me/ideas',
       'screen_label', 'Review Saved Ideas'
     )
   );
 
   RETURN jsonb_build_object(
-    'source', 'staff_assistant_weekly_look_at_summary',
-    'week_start', v_monday,
+    'available', true,
+    'headline', 'What to look at this week',
+    'week_start', v_week_start,
     'as_of', v_today,
     'is_monday', v_is_monday,
-    'in_app_only', true,
-    'new_ideas_count', coalesce(v_new_ideas_cnt, 0),
-    'issues', v_items
+    'delivery_policy', 'in_app_only_never_sent_outside',
+    'source', 'staff_assistant_weekly_focus_summary (In-App Leadership Focus)',
+    'issues_count', jsonb_array_length(v_issues),
+    'issues', v_issues
   );
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.staff_assistant_weekly_look_at_summary(date) FROM PUBLIC, anon, service_role;
-GRANT EXECUTE ON FUNCTION public.staff_assistant_weekly_look_at_summary(date) TO authenticated;
+REVOKE ALL ON FUNCTION public.staff_assistant_weekly_focus_summary() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_weekly_focus_summary() TO authenticated;
 
 COMMIT;
