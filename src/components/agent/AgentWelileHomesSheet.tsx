@@ -1525,7 +1525,7 @@ function EnrollDialog({
             }
             if (row.village || row.district) {
               ugLoc = {
-                villageId: row.ug_village_id || 0,
+                villageId: row.ug_village_id || 0, parishId: 0, subcountyId: 0, countyId: 0, districtId: 0,
                 village: row.village || '',
                 parish: row.cell || '',
                 subcounty: row.sub_county || '',

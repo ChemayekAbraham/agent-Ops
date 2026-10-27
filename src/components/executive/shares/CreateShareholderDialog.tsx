@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -31,17 +32,15 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
 
   const { data: people = [], isFetching } = useQuery({
     queryKey: ['share-person-search', debounced],
-    enabled: open && mode === 'existing' && debounced.length >= 2 && !picked,
+    enabled: open && mode === 'existing' && debounced.length >= 3 && !picked,
     queryFn: async () => {
-      const s = debounced.replace(/[%,()]/g, '');
-      const [{ data, error }, { data: authData }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, email')
-          .or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%`).limit(8),
+      const [{ rows, error }, { data: authData }] = await Promise.all([
+        searchProfilesTypeahead(debounced, { limit: 8, columns: 'id, full_name, phone, email' }),
         supabase.auth.getUser(),
       ]);
-      if (error) throw error;
+      if (error) throw new Error(error);
       const currentUserId = authData.user?.id;
-      return ((data ?? []) as Person[]).sort((a, b) =>
+      return (rows as Person[]).sort((a, b) =>
         Number(b.id === currentUserId) - Number(a.id === currentUserId));
     },
   });

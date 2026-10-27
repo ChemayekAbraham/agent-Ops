@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
 import { returnCycleMonth } from '@/lib/returnCycle';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, sanitizeProfileQuery, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
@@ -146,37 +147,23 @@ export async function fetchPaginatedSupporterIds(
   pageSize: number,
   search?: string
 ): Promise<{ ids: string[]; totalCount: number }> {
+  // A short term is not queried: `%a%` OR'd across name, phone and email
+  // seq-scans profiles and hits the 8s statement timeout.
+  const q = sanitizeProfileQuery(search || '');
+  if ((search || '').trim().length > 0 && q.length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+    return { ids: [], totalCount: 0 };
+  }
+
   const partnerIds = await fetchAllPartnerIds();
   if (partnerIds.length === 0) return { ids: [], totalCount: 0 };
   const partnerSet = new Set(partnerIds);
 
-  // If searching, do a single broad profile search then intersect with supporter set in memory.
-  // This avoids N batched .in() round-trips against profiles (the previous slow path).
-  if (search && search.trim().length > 0) {
-    const raw = search.trim();
-    const q = raw.replace(/[%,]/g, ''); // sanitize PostgREST wildcards/separators
-    if (!q) return { ids: [], totalCount: 0 };
-
-    // Use the indexed `search_users_fast` RPC (name-prefix + trigram, phone
-    // last-9, email prefix, national-id, UUID). Falls back to a broad ilike
-    // scan if the RPC returns nothing (e.g. very short/edge queries) so we
-    // never miss a matching partner.
-    let allMatched: string[] = [];
-    if (q.length >= 3) {
-      const { data: rpcMatches } = await supabase.rpc('search_users_fast', {
-        p_query: q,
-        p_limit: 50,
-      });
-      allMatched = (rpcMatches || []).map((p: any) => p.id as string);
-    }
-    if (allMatched.length === 0) {
-      const { data: matches } = await supabase
-        .from('profiles')
-        .select('id')
-        .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
-        .limit(2000);
-      allMatched = (matches || []).map((p: any) => p.id as string);
-    }
+  // Indexed typeahead (phone last-9 or one trigram), then intersect with the
+  // supporter set in memory. An empty RPC result is a real miss and is not
+  // re-run as a three-column ILIKE.
+  if (q.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+    const { rows: rpcMatches } = await searchProfilesTypeahead(q, { limit: 50 });
+    const allMatched = rpcMatches.map((p) => p.id);
 
     // Surface BOTH existing partners and any other user who matches (e.g. a
     // verified depositor with wallet money but no portfolio yet). This lets
@@ -213,6 +200,9 @@ export async function fetchVerifiedFundedProspectIds(
   pageSize: number,
   search?: string
 ): Promise<{ ids: string[]; totalCount: number }> {
+  const q = sanitizeProfileQuery(search || '');
+  if (q.length > 0 && q.length < PROFILE_TYPEAHEAD_MIN_CHARS) return { ids: [], totalCount: 0 };
+
   const partnerIds = await fetchAllPartnerIds();
   const partnerSet = new Set(partnerIds);
 
@@ -241,19 +231,26 @@ export async function fetchVerifiedFundedProspectIds(
   if (candidateIds.length === 0) return { ids: [], totalCount: 0 };
 
   // 2) Keep only VERIFIED candidates (optionally matching the search term).
-  const raw = (search || '').trim();
-  const q = raw.replace(/[%,]/g, ''); // sanitize PostgREST wildcards/separators
   const verifiedIds: string[] = [];
-  for (let i = 0; i < candidateIds.length; i += 100) {
-    const batch = candidateIds.slice(i, i + 100);
-    let query = supabase
-      .from('profiles')
-      .select('id')
-      .in('id', batch)
-      .eq('verified', true);
-    if (q) query = query.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`);
-    const { data } = await query;
-    (data || []).forEach((p: any) => { if (p.id) verifiedIds.push(p.id as string); });
+  if (q.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+    const { rows } = await searchProfilesTypeahead(q, {
+      limit: 50,
+      columns: 'id, verified',
+    });
+    const matched = new Set(rows.filter((row) => row.verified === true).map((row) => row.id));
+    for (const id of candidateIds) {
+      if (matched.has(id)) verifiedIds.push(id);
+    }
+  } else {
+    for (let i = 0; i < candidateIds.length; i += 100) {
+      const batch = candidateIds.slice(i, i + 100);
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('id', batch)
+        .eq('verified', true);
+      (data || []).forEach((p: any) => { if (p.id) verifiedIds.push(p.id as string); });
+    }
   }
 
   const start = page * pageSize;

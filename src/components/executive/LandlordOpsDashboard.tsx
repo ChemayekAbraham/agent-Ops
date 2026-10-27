@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { HOUSE_LISTING_SELECT } from '@/lib/landlord-ops/queries';
 import { fetchListingProfileMaps, enrichListingsWithProfiles } from '@/lib/landlord-ops/profile-utils';
@@ -1148,7 +1149,7 @@ export function LandlordOpsDashboard({
   const debouncedVerifySearch = useDebouncedValue(verifySearch.trim(), 300);
   const { data: globalSearchListings, isFetching: isGlobalSearching } = useQuery({
     queryKey: ['exec-house-listings-global-search', debouncedVerifySearch],
-    enabled: debouncedVerifySearch.length >= 2,
+    enabled: debouncedVerifySearch.length >= 3,
     staleTime: 30_000,
     queryFn: async () => {
       const q = debouncedVerifySearch;
@@ -1156,12 +1157,11 @@ export function LandlordOpsDashboard({
 
       // 1) Find matching agents/landlords by name/phone
       const [agentProfiles, landlordMatches] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, email')
-          .or(`full_name.ilike.${like},phone.ilike.${like}`).limit(200),
+        searchProfilesTypeahead(q, { limit: 50, columns: 'id, full_name, phone, email' }),
         // Trigram-indexed RPC — replaces the raw OR-ILIKE that was the #1 DB CPU offender.
         supabase.rpc('search_landlords_fuzzy', { p_query: q, p_limit: 200, p_threshold: 0.15 }),
       ]);
-      const agentIds = (agentProfiles.data || []).map(p => p.id);
+      const agentIds = (agentProfiles.rows || []).map(p => p.id);
       const landlordIds = (landlordMatches.data || []).map(l => l.id);
 
       // 2) Fetch listings that match by agent id, landlord id, or listing text fields
@@ -1182,7 +1182,7 @@ export function LandlordOpsDashboard({
 
       const rows = (data ?? []) as any[];
       // Seed the agent map with what we already resolved so we don't refetch.
-      const seed = new Map<string, any>((agentProfiles.data || []).map((p: any) => [p.id, p]));
+      const seed = new Map<string, any>((agentProfiles.rows || []).map((p: any) => [p.id, p]));
       const maps = await fetchListingProfileMaps(rows);
       // Merge the pre-resolved agent profiles that fetchListingProfileMaps missed
       // (agents matched by the search but with no listing in the result set).

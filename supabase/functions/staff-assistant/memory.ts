@@ -335,6 +335,12 @@ export function statusLineForTool(toolName: string): string {
     get_hr_calling_detailed_report: "Looking up detailed staff calling report...",
     get_hr_contracts_and_birthdays: "Checking HR contracts and birthdays...",
     get_hr_payroll_cost_by_department: "Looking up HR payroll cost by department...",
+    get_insight_desk_wait_times: "Analyzing Rent Plan wait times by desk and week...",
+    get_insight_collection_coverage_trends: "Comparing collection coverage trends and 4-week anomalies...",
+    get_insight_calling_reach_and_themes: "Analyzing Calling Center reach rates and feedback themes...",
+    get_insight_payout_delays: "Analyzing landlord payout delays and verification queues...",
+    get_insight_zoe_feedback_themes: "Reviewing Zoe unanswered questions and feedback themes...",
+    draft_welile_idea: "Preparing Ideas for Welile draft card...",
   };
   return map[toolName] ?? "Looking up official Welile report...";
 }
@@ -347,6 +353,14 @@ export function buildFollowUpSuggestions(opts: {
   callerRoles: readonly string[];
 }): string[] {
   const lastTool = opts.toolsCalled[opts.toolsCalled.length - 1] ?? "";
+
+  if (lastTool.startsWith("get_insight_")) {
+    return [
+      "Save this suggestion to Ideas for Welile",
+      "Give me the full breakdown in a table",
+      "Compare this week with the 4-week average",
+    ];
+  }
 
   if (lastTool.startsWith("get_tops_")) {
     return [

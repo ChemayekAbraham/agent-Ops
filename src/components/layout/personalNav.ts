@@ -22,6 +22,7 @@ import {
   FileBarChart,
   ClipboardList,
   MessageSquare,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -113,6 +114,13 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     icon: MessageSquare,
     title: 'Ask Zoe',
     description: 'Read-only assistant for your My Space records and department reports',
+    requiresZoeAccess: true,
+  },
+  {
+    to: '/me/ideas',
+    icon: Lightbulb,
+    title: 'Ideas for Welile',
+    description: 'Evidence-based improvement suggestions saved from Zoe and reviewed by managers',
     requiresZoeAccess: true,
   },
 ];

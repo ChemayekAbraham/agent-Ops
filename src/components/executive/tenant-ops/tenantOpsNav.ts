@@ -126,7 +126,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'collection-shortfall', label: 'Collection Shortfall', icon: TrendingDown, keywords: ['short', 'shortfall', 'behind', 'arrears'] },
       { key: 'pipeline-hub', label: 'Pipeline Status', icon: Activity, keywords: ['lifecycle', 'receivables', 'payables', 'charts'] },
       { key: 'agent-capacity-hub', label: 'Agent Rent Capacity', icon: Gauge, keywords: ['capacity', 'eligibility', 'rating'] },
-      { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },
+      // { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },
       { key: 'tenant-locations-test', label: 'Tenant Locations', icon: MapPin, keywords: ['region', 'district', 'county', 'subcounty', 'parish', 'village', 'unmapped', 'locations'] },
       { key: 'daily-collections', label: 'Daily Collection Monitoring', icon: CalendarCheck, keywords: ['expected', 'collected', 'edit'] },
       { key: 'agent-monitoring', label: 'Agent Monitoring', icon: Users, keywords: ['agents', 'monitoring', 'collections', 'expected', 'collected', 'performance'] },

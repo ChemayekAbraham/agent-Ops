@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
 import {
+  buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
@@ -65,6 +66,7 @@ import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
+  DraftIdeaArgsSchema,
   DraftReminderArgsSchema,
   DraftReportEmailArgsSchema,
   DraftReportScheduleArgsSchema,
@@ -1429,6 +1431,103 @@ export async function handleStaffAssistantRequest(
             reportPayload: {
               ...lastReportPayload,
               action_draft: scheduleOutcome.draft,
+            },
+          });
+        }
+
+        // Action tool: draft_welile_idea (Prompt 4 item 3: "Ideas for Welile" draft card)
+        if (call.function.name === "draft_welile_idea") {
+          const ideaParsed = DraftIdeaArgsSchema.safeParse(rawArgs);
+          if (!ideaParsed.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          if (!lastReportPayload) {
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
+          }
+
+          const combinedIdeaOutputs = [
+            ...rawToolOutputs,
+            ...(lastReportPayload ? [JSON.stringify(lastReportPayload)] : []),
+            JSON.stringify({ period: today }),
+          ];
+
+          const ideaGuard = checkDraftCardText(
+            [
+              ideaParsed.data.title,
+              ideaParsed.data.suggestion,
+              ideaParsed.data.evidence_summary,
+            ],
+            combinedIdeaOutputs,
+            userText,
+          );
+          if (!ideaGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_welile_idea"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const resolvedIdeaPeriod =
+            ideaParsed.data.period_label ??
+            periodsUsed[0] ??
+            (lastReportPayload ? formatPeriodLabel(lastReportPayload.period) : null) ??
+            `as of ${today}`;
+
+          const builtIdea = buildIdeaDraft({
+            title: ideaParsed.data.title,
+            suggestion: ideaParsed.data.suggestion,
+            evidenceSummary: ideaParsed.data.evidence_summary,
+            category: ideaParsed.data.category,
+            screenPath: ideaParsed.data.screen_path,
+            sourceLabel: ideaParsed.data.source_label,
+            figures: ideaParsed.data.figures,
+            reportPayload: lastReportPayload,
+            periodLabel: resolvedIdeaPeriod,
+            todayKampala: today,
+          });
+
+          const savedIdeaDraftId = await saveServerDraft(
+            userClient,
+            "idea",
+            {
+              kind: "idea",
+              title: builtIdea.draft.title,
+              suggestion: builtIdea.draft.suggestion,
+              evidence_summary: builtIdea.draft.evidence_summary,
+              source_label: builtIdea.draft.source_label,
+              period_label: builtIdea.draft.period_label,
+              category: builtIdea.draft.category,
+              screen_path: builtIdea.draft.screen_path,
+            },
+            conv.id,
+          );
+          if (savedIdeaDraftId) {
+            builtIdea.draft.draft_id = savedIdeaDraftId;
+          }
+
+          return await finish(builtIdea.replyText, "answered", {
+            tools: [...toolsCalled, "draft_welile_idea"],
+            model: lastModel,
+            sourceLabel: builtIdea.draft.source_label,
+            periodLabel: builtIdea.draft.period_label,
+            reportPayload: {
+              ...(lastReportPayload ?? {}),
+              action_draft: builtIdea.draft,
             },
           });
         }

@@ -34,6 +34,16 @@ vi.mock('@/hooks/useServiceCenterRentQueue', () => ({
   useServiceCenterReviewRentRequest: () => ({ mutateAsync: (...a: unknown[]) => reviewMutate(...a) }),
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'mgr-1' },
+    session: { access_token: 'jwt' },
+    loading: false,
+    rolesResolved: true,
+    roles: ['agent', 'tenant_ops'],
+    enabledRoles: ['tenant_ops'],
+  }),
+}));
 vi.mock('@/hooks/useOverdueVettingAlert', () => ({ useOverdueVettingAlert: () => ({ data: undefined }) }));
 
 import { ServiceCenterRentVettingQueue } from './ServiceCenterRentVettingQueue';

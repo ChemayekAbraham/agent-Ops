@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   Bell,
   CalendarClock,
   CheckCircle2,
   Clock,
+  ExternalLink,
+  Lightbulb,
   Loader2,
   Pencil,
   Send,
@@ -12,10 +15,12 @@ import {
   X,
 } from 'lucide-react';
 import {
+  confirmZoeIdeaDraft,
   confirmZoeNotificationDraft,
   confirmZoeReminderDraft,
   confirmZoeScheduleDraft,
   type ConfirmZoeActionResult,
+  type ConfirmZoeIdeaInput,
   type ConfirmZoeNotificationInput,
   type ConfirmZoeReminderInput,
   type ConfirmZoeScheduleInput,
@@ -26,9 +31,11 @@ import {
 export interface ZoeActionDraftCardProps {
   draft: ZoeActionDraft;
   conversationId?: string | null;
+  messageId?: string | null;
   onConfirmReminder?: (input: ConfirmZoeReminderInput) => Promise<ConfirmZoeActionResult>;
   onConfirmNotification?: (input: ConfirmZoeNotificationInput) => Promise<ConfirmZoeActionResult>;
   onConfirmSchedule?: (input: ConfirmZoeScheduleInput) => Promise<ConfirmZoeActionResult>;
+  onConfirmIdea?: (input: ConfirmZoeIdeaInput) => Promise<ConfirmZoeActionResult>;
 }
 
 const DAY_NAMES: Record<number, string> = {
@@ -52,9 +59,11 @@ const DAY_NAMES: Record<number, string> = {
 export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
   draft,
   conversationId = null,
+  messageId = null,
   onConfirmReminder = confirmZoeReminderDraft,
   onConfirmNotification = confirmZoeNotificationDraft,
   onConfirmSchedule = confirmZoeScheduleDraft,
+  onConfirmIdea = confirmZoeIdeaDraft,
 }) => {
   // Shared states
   const [isEditing, setIsEditing] = useState(false);
@@ -62,6 +71,17 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
   const [isCancelled, setIsCancelled] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Idea states
+  const [ideaTitle, setIdeaTitle] = useState(
+    draft.action_type === 'idea' ? draft.title : '',
+  );
+  const [ideaSuggestion, setIdeaSuggestion] = useState(
+    draft.action_type === 'idea' ? draft.suggestion : '',
+  );
+  const [ideaEvidence, setIdeaEvidence] = useState(
+    draft.action_type === 'idea' ? draft.evidence_summary : '',
+  );
 
   // Reminder states
   const [reminderTitle, setReminderTitle] = useState(
@@ -145,6 +165,7 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
             {draft.action_type === 'reminder' && 'Reminder saved for your My Space'}
             {draft.action_type === 'notification' && 'In-app notification sent to staff colleague'}
             {draft.action_type === 'schedule' && 'Scheduled report email saved'}
+            {draft.action_type === 'idea' && 'Idea saved to Ideas for Welile'}
           </span>
         </div>
         <p className="mt-1 leading-relaxed text-muted-foreground">
@@ -176,7 +197,26 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
               .
             </>
           )}
+          {draft.action_type === 'idea' && (
+            <>
+              Saved <span className="font-semibold text-foreground">{ideaTitle}</span> with evidence
+              from <span className="font-mono">{draft.source_label}</span>. Visible to managers, the
+              COO, and the CEO in Ideas for Welile. Zoe changes no settings or business records.
+            </>
+          )}
         </p>
+        {draft.action_type === 'idea' && (
+          <div className="mt-2">
+            <Link
+              to="/me/ideas"
+              data-testid="zoe-idea-confirmed-link"
+              className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-primary hover:bg-muted"
+            >
+              <span>Open Ideas for Welile</span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
@@ -306,6 +346,46 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
       } finally {
         setIsSubmitting(false);
       }
+      return;
+    }
+
+    if (draft.action_type === 'idea') {
+      if (!ideaTitle.trim() || !ideaSuggestion.trim() || !ideaEvidence.trim()) {
+        setActionError('Please keep a title, suggestion, and evidence summary.');
+        return;
+      }
+      setIsSubmitting(true);
+      try {
+        const wasModified =
+          ideaTitle.trim() !== draft.title.trim() ||
+          ideaSuggestion.trim() !== draft.suggestion.trim() ||
+          ideaEvidence.trim() !== draft.evidence_summary.trim();
+
+        const res = await onConfirmIdea({
+          draft_id: draft.draft_id,
+          rebind_draft: wasModified,
+          title: ideaTitle,
+          suggestion: ideaSuggestion,
+          evidence_summary: ideaEvidence,
+          figures: draft.figures,
+          source_label: draft.source_label,
+          period_label: draft.period_label,
+          category: draft.category,
+          screen_path: draft.screen_path,
+          conversation_id: conversationId,
+          message_id: messageId,
+        });
+        if (!res.ok) {
+          setActionError(res.error || 'Could not save idea.');
+        } else {
+          setConfirmed(true);
+          setIsEditing(false);
+        }
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Could not save idea.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -330,6 +410,7 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
             {draft.action_type === 'schedule' && (
               <CalendarClock className="h-4 w-4" aria-hidden="true" />
             )}
+            {draft.action_type === 'idea' && <Lightbulb className="h-4 w-4" aria-hidden="true" />}
           </span>
           <div>
             <h4 className="text-xs font-semibold text-foreground sm:text-sm">
@@ -339,12 +420,16 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
                 'Staff Notification Draft · Never sent until you click Send Notification'}
               {draft.action_type === 'schedule' &&
                 'Scheduled Report Draft · Never scheduled until you click Save Schedule'}
+              {draft.action_type === 'idea' &&
+                'Idea for Welile Draft · Never saved until you click Save Idea'}
             </h4>
             <p className="text-xs text-muted-foreground">
               {draft.action_type === 'reminder' && 'Delivers to your My Space notifications when due'}
               {draft.action_type === 'notification' && 'In-app notification to verified Welile staff only'}
               {draft.action_type === 'schedule' &&
                 `Source: ${draft.source} · Verified Welile staff recipients only`}
+              {draft.action_type === 'idea' &&
+                'Visible to managers, COO, and CEO · Zoe never changes business data or settings'}
             </p>
           </div>
         </div>
@@ -623,6 +708,78 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
         </>
       )}
 
+      {/* IDEA FOR WELILE DRAFT BODY */}
+      {draft.action_type === 'idea' && (
+        <dl className="mt-3 space-y-2 text-xs">
+          <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+            <dt className="font-medium text-muted-foreground">Idea Title</dt>
+            {isEditing ? (
+              <input
+                type="text"
+                value={ideaTitle}
+                onChange={(e) => setIdeaTitle(e.target.value)}
+                data-testid="zoe-idea-title-input"
+                maxLength={200}
+                className="mt-1 min-h-[44px] w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+              />
+            ) : (
+              <dd data-testid="zoe-idea-title" className="mt-0.5 font-semibold text-foreground">
+                {ideaTitle}
+              </dd>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+            <dt className="font-medium text-muted-foreground">Suggested Improvement</dt>
+            {isEditing ? (
+              <textarea
+                value={ideaSuggestion}
+                onChange={(e) => setIdeaSuggestion(e.target.value)}
+                data-testid="zoe-idea-suggestion-input"
+                rows={3}
+                maxLength={2000}
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+              />
+            ) : (
+              <dd
+                data-testid="zoe-idea-suggestion"
+                className="mt-0.5 whitespace-pre-wrap leading-relaxed text-foreground"
+              >
+                {ideaSuggestion}
+              </dd>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+            <dt className="font-medium text-muted-foreground">Evidence & Official Figures</dt>
+            {isEditing ? (
+              <textarea
+                value={ideaEvidence}
+                onChange={(e) => setIdeaEvidence(e.target.value)}
+                data-testid="zoe-idea-evidence-input"
+                rows={2}
+                maxLength={1200}
+                className="mt-1 w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+              />
+            ) : (
+              <dd
+                data-testid="zoe-idea-evidence"
+                className="mt-0.5 whitespace-pre-wrap leading-relaxed text-foreground"
+              >
+                {ideaEvidence}
+              </dd>
+            )}
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2">
+            <dt className="font-medium text-muted-foreground">Source & Period</dt>
+            <dd data-testid="zoe-idea-source" className="mt-0.5 font-semibold text-foreground">
+              {draft.source_label} · {draft.period_label}
+            </dd>
+          </div>
+        </dl>
+      )}
+
       {actionError && (
         <div
           data-testid={`zoe-action-draft-error-${draft.action_type}`}
@@ -656,6 +813,7 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
             {draft.action_type === 'reminder' && 'Save Reminder'}
             {draft.action_type === 'notification' && 'Send Notification'}
             {draft.action_type === 'schedule' && 'Save Schedule'}
+            {draft.action_type === 'idea' && 'Save Idea'}
           </span>
         </button>
 

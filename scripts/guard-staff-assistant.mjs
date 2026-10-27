@@ -887,6 +887,19 @@ if (existsSync(MIGRATIONS_DIR)) {
     fail(err);
   }
 
+  const REQUIRED_ADVISOR_INSIGHT_RPCS = [
+    'assistant_staff_insight_desk_wait_times',
+    'assistant_staff_insight_collection_coverage_trends',
+    'assistant_staff_insight_calling_reach_and_themes',
+    'assistant_staff_insight_payout_delays',
+    'assistant_staff_insight_zoe_feedback_themes',
+  ];
+  for (const reqFn of REQUIRED_ADVISOR_INSIGHT_RPCS) {
+    if (!allFound.has(reqFn)) {
+      fail(`Missing required advisor insight function public.${reqFn}() in supabase/migrations.`);
+    }
+  }
+
   seen.sqlFunctions = allFound.size;
   if (seen.sqlFunctions === 0) {
     fail('no assistant_staff_* functions found in supabase/migrations.');
