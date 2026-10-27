@@ -1,7 +1,3 @@
-# Re-sync to 345ac05c72
+Sync check: commit 3581f42f3c (login_phase_events user_id fix) is already in the project's history (HEAD 4dccdc867f). Nothing to pull.
 
-Commit 345ac05c72 (Stop unauthorized clients from calling get_merchant_float_positions) is already part of the project's current history, so there is nothing to pull.
-
-- No code, database or permission changes.
-- get_merchant_float_positions and who can call it stay exactly as committed.
-- Branch lovable-sync-1793094360 is left untouched.
+No code, database or policy changes. `src/lib/loginTelemetry.ts` and `src/hooks/useAuth.tsx` stay exactly as pushed.
