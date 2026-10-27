@@ -24,7 +24,7 @@
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized client-side only; server authorization is the sole permission authority.
+- Requisition approval errors are normalized client-side only; the server alone authorizes.
 - CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
 - CFO 7-day reporting uses Kampala days via `src/lib/kampalaDays.ts`, matching the RPCs.
