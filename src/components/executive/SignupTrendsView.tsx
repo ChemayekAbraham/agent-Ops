@@ -317,8 +317,8 @@ export function SignupTrendsView() {
                   <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id="organicG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.05} />
+                  <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -331,7 +331,7 @@ export function SignupTrendsView() {
                 stackId="1"
                 dataKey="organic"
                 name="Organic"
-                stroke="hsl(var(--muted-foreground))"
+                stroke="hsl(142 71% 45%)"
                 fill="url(#organicG)"
               />
               <Area
