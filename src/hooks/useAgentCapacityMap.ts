@@ -280,6 +280,20 @@ export type WeeklyPostingResult = {
   reason: string | null;
 };
 
+/**
+ * Days from the start of the current posting-rule week (the judged week's
+ * start + 7) to today, inclusive, in Kampala time: 1 on a Thursday, 7 on a
+ * Wednesday. Clamped to 1..7.
+ */
+export function daysIntoRuleWeek(judgedWeekStart: string, now: Date = new Date()): number {
+  const [y, m, d] = judgedWeekStart.split('-').map(Number);
+  const currentStart = Date.UTC(y, (m || 1) - 1, (d || 1) + 7);
+  const kampala = new Date(now.getTime() + 3 * 3600_000);
+  const today = Date.UTC(kampala.getUTCFullYear(), kampala.getUTCMonth(), kampala.getUTCDate());
+  const days = Math.round((today - currentStart) / 86_400_000) + 1;
+  return Math.min(7, Math.max(1, days));
+}
+
 export function classifyAgent(
   active_count: number,
   response_rate: number,
@@ -421,10 +435,17 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // dropped the agent's week. agent_expected_week sums the PINNED bill for
       // the days themselves, and returns the collections answering it from
       // `agent_collections` — the same book today/yesterday come from.
+      //
+      // Window: the posting rule's week so far (Thursday to today), so this card
+      // agrees with the Weekly Performance page. The current rule week starts
+      // 7 days after the judged week the posting RPC just returned; if that read
+      // failed, fall back to the last 7 days.
       const weekByAgent = new Map<string, { expected: number; collected: number }>();
+      const judgedStart = ((weeklyRows as any[]) || []).find((r: any) => r.week_start)?.week_start as string | undefined;
+      const ruleWeekDays = judgedStart ? daysIntoRuleWeek(judgedStart) : 7;
       const { data: weekRows, error: weekErr } = await supabase.rpc(
         'agent_expected_week',
-        { p_agent_ids: agentIds, p_days: 7 },
+        { p_agent_ids: agentIds, p_days: ruleWeekDays },
       );
       if (weekErr) console.error('[useAgentCapacityMap] weekly bill RPC failed', weekErr);
       (weekRows || []).forEach((r: any) => {

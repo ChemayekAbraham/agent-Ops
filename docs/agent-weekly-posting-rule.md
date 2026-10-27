@@ -162,6 +162,23 @@ A failed job therefore never blocks everyone.
 
 Client reads **fail open**; the trigger is the real gate. One flag, `enforce_weekly`, switches the database and the app together.
 
+### 5.5 One "expected" for every agent report
+
+Since migration `20261027150000`, every expected/target figure the agent sees reads one source, `_agent_expected_effective__impl(agents, from, to)`: the pinned daily bill, plus a normal day (`daily_repayment`) for expired tenants whose billing stopped, exactly as the weekly rule counts them. So the dashboard's daily target, the "this week" card, the weekly PDF, the performance calendar and the Weekly Performance page all agree.
+
+| Agent-facing figure | Reads |
+|---|---|
+| Daily target everywhere on the dashboard (today's capacity strip, report card, rating card, tenants sheet, breakdown panel, drill-down) | `v_agent_daily_eligibility.expected_daily` → `_agent_expected_effective` (today/yesterday) |
+| "This week (since Thursday)" card in the capacity self-card | `agent_expected_week(p_days = days into the rule week)` → shared source |
+| Weekly PDF ("This week so far") and the performance calendar | `get_my_expected_days(from, to)` → shared source |
+| Weekly Performance page and the posting rule | `_agent_weekly_plan_lines` / `_agent_weekly_posting_compute` → shared source |
+
+Not changed:
+- The **Collection League** card is a whole-team, Monday–Sunday measure from `agent_team_daily_collection_stats`.
+- The **weekly streak** counts tenants, not amounts.
+
+Known older quirk: for 3 agents the daily view already showed a daily target with nothing billed to them that day. That's its fallback to plans' daily amounts, and its owner field is `rent_requests.agent_id` rather than the billed agent. It predates this change and still differs from the shared source for them.
+
 ---
 
 ## 6. Database objects
@@ -188,6 +205,9 @@ Client reads **fail open**; the trigger is the real gate. One flag, `enforce_wee
 | `_agent_weekly_plan_lines(agent, week_start, through)` | Per-plan lines for a week, using bill days up to `through` | `service_role` |
 | `get_my_weekly_performance(weeks, agent)` | Weekly Performance page document | `authenticated` (self, network, staff) |
 | `enforce_agent_daily_eligibility()` | Trigger function, now weekly-aware (see 5.2) | trigger |
+| `_agent_expected_effective__impl(agents, from, to)` | The shared expected: one row per day, agent and plan (see 5.5) | `service_role` |
+| `_agent_expected_effective(agents, from, to)` | Same, for the daily view. A direct call by a non-staff user returns only their own agents and network | `authenticated` |
+| `get_my_expected_days(from, to, agent)` | An agent's expected per tenant per day (weekly PDF, performance calendar) | `authenticated` (self, network, staff) |
 
 `anon` can execute none of these.
 
@@ -309,6 +329,8 @@ They are not recorded in `supabase_migrations.schema_migrations`. **Lovable must
 |---|---|---|
 | `supabase/tests/agent_weekly_posting_rule.sql` | 12 checks: week arithmetic, saved = live, 50/20/70 logic and reasons, per-plan cap, access (self / other agent / anon), gate with the flag on | Against the live DB. Ends in `RAISE EXCEPTION 'REPORT …'`, so nothing is kept; the error text is the report. |
 | `supabase/tests/agent_weekly_performance.sql` | 7 checks: plan lines add up to saved results for every agent, judged week matches the gate, current-week cap and projection, access | Same as above |
+| `supabase/tests/agent_reports_match_weekly_rule.sql` | 8 checks: page, this-week card and saved weekly result all equal the shared source for every agent; the daily view today equals it; an agent reads own expected days and is refused another's; the view's helper called directly by an agent returns only their rows; the fast function is closed | Same as above |
+| `src/test/daysIntoRuleWeek.test.ts` | The this-week card's window: Thursday = day 1, Wednesday = day 7, Kampala dates | `npx vitest run src/test/daysIntoRuleWeek.test.ts` |
 | `supabase/tests/weekly_rule_fill_stopped_billing.sql` | 6 checks: a stopped tenant counts a normal week, no plan's due above a normal week unless actually billed, counted never above paid or due, no days before the 19 Oct go-live, plan lines match saved results, judged week re-saved | Same as above |
 | `supabase/tests/weekly_rule_count_plan_payoff.sql` | 5 checks: a cleared plan counts in full, only finished plans exceed their bill (never above paid or what was left), no early credit for plans finished later, plan lines match saved results, judged week re-saved | Same as above |
 | `supabase/tests/tenant_self_applications_not_gated.sql` | 8 checks: each insert path (agent, agent faking the flag, tenant in app, self-onboarding, register-tenant, agent as own tenant) against a blocked and a passing agent, using the real gate function on a temp table | Same as above |
@@ -342,6 +364,7 @@ Also run `npm run guard:all` before shipping changes in this area.
 | 23 Oct 2026 | `20261023140000` | `get_my_weekly_performance`, `_agent_weekly_plan_lines`. Applied. |
 | 23 Oct 2026 | `2f1c99c8e7` | Weekly Performance page, route, More Actions tab, tests |
 | 23 Oct 2026 | `bd4b5bce97` | Top-bar menu item; agent announcement |
+| 27 Oct 2026 | `20261027150000` | One shared expected for every agent report (daily view, this-week card, weekly PDF, calendar, weekly rule). |
 | 27 Oct 2026 | `20261027100000` | Expired tenants whose billing stopped count as a normal week (target and credit). Applied; judged week re-saved. |
 | 26 Oct 2026 | `20261026090000` | A payment that finishes a Rent Plan counts in full (up to what was left). Applied; judged week re-saved. |
 | 23 Oct 2026 | `20261023150000` | Tenant self-applications no longer gated: `rent_requests.tenant_self_applied`, gate updated. Applied; `tenant-self-onboarding` v30 deployed. |
