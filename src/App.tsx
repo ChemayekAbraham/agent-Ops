@@ -5,6 +5,8 @@ import type { AppRole } from '@/hooks/useAuth';
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AgentNotVettedDialogHost } from "@/components/agent/vetting/AgentNotVettedDialog";
+import type { AppRole } from "@/hooks/useAuth";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
@@ -330,6 +332,8 @@ const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
 const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReviewPage = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
 const AgentWelileMedicinePage = lazy(() => import('./pages/agent/AgentWelileMedicine'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
@@ -589,6 +593,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/verification" element={<RoleGuard allowedRoles={['agent']}><AgentVerificationPage /></RoleGuard>} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -883,6 +888,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'agent_ops' as AppRole]} requiredPermission="agent-ops"><AgentVerificationReviewPage /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -944,6 +950,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
+      <AgentNotVettedDialogHost />
       </div>
     </div>
   );
