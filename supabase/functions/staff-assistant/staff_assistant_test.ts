@@ -8,13 +8,22 @@ import { currentWednesdayWeekStart, kampalaToday, resolvePeriod } from "./dates.
 import { checkAnswer } from "./guards.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
-import { AI_GATEWAY_URL, DEFAULT_ZOE_MODEL } from "./openai.ts";
+import {
+  AI_CALL_TIMEOUT_MS,
+  AI_GATEWAY_URL,
+  AI_MAX_RETRIES,
+  AiGatewayError,
+  chatCompletion,
+  DEFAULT_ZOE_MODEL,
+} from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { cleanMessage, RequestSchema } from "./schemas.ts";
 import {
   canUseTool,
   findTool,
+  isHistoryMessageAllowedForRoles,
   openAiToolsForRoles,
+  PSEUDO_AND_DRAFT_TOOL_NAMES,
   STAFF_TOOLS,
   toolsForRoles,
 } from "./tools.ts";
@@ -529,4 +538,152 @@ Deno.test("morningBrief: off by default and built strictly from assistant_staff_
   for (const rpc of toolsRun) {
     assert(rpc.startsWith("assistant_staff_"));
   }
+});
+
+// ---- Security Review Hardening Tests (Prompt 1) ---------------------------------------------
+
+Deno.test("security: AI tool list contains zero tools that write or send directly", () => {
+  const allRoles = [
+    "employee",
+    "tenant_ops",
+    "landlord_ops",
+    "agent_ops",
+    "partner_ops",
+    "financial_ops",
+    "hr",
+    "operations",
+    "coo",
+    "cfo",
+    "ceo",
+    "cto",
+    "manager",
+    "super_admin",
+  ];
+  const openAiTools = openAiToolsForRoles(allRoles);
+
+  // 43 read-only report tools + 1 clarification tool + 4 draft-only tools = 48
+  assertEquals(openAiTools.length, 48);
+
+  const forbiddenWritePrefixes = /^(create|insert|update|delete|drop|alter|approve|reject|send|transfer|post|debit|credit|cancel|write|mutate)_/i;
+
+  for (const tool of openAiTools) {
+    const name = tool.function.name;
+    assert(
+      !forbiddenWritePrefixes.test(name),
+      `AI tool list must never contain a write/send tool, found: ${name}`,
+    );
+
+    if (PSEUDO_AND_DRAFT_TOOL_NAMES.has(name)) {
+      // Every draft tool description must state it never sends or writes directly
+      if (name.startsWith("draft_")) {
+        assert(
+          /never\s+(sends|writes|stores)/i.test(tool.function.description),
+          `Draft tool ${name} description must state it never sends/writes directly`,
+        );
+      }
+    } else {
+      // Every non-pseudo tool must be a registered read-only assistant_staff_* tool starting with get_
+      assert(name.startsWith("get_"), `Data tool ${name} must start with get_`);
+      const registered = findTool(name);
+      assert(registered, `Tool ${name} must exist in STAFF_TOOLS`);
+      assert(
+        /^assistant_staff_[a-z_]+$/.test(registered.rpc),
+        `Tool ${name} must map to an assistant_staff_* RPC`,
+      );
+    }
+  }
+});
+
+Deno.test("security: history role re-check hides answers when a user's department role was revoked", () => {
+  const cfoMessage = {
+    role: "assistant",
+    tools_called: ["get_cfo_treasury_cash_position"],
+    report_payload: {
+      tool: "get_cfo_treasury_cash_position",
+      rpc: "assistant_staff_cfo_treasury_cash_position",
+      data: { available_cash_ugx: 120_000_000 },
+    },
+  };
+
+  // CFO still has role -> allowed
+  assertEquals(isHistoryMessageAllowedForRoles(cfoMessage, ["cfo", "employee"]), true);
+
+  // Role changed to employee or tenant_ops -> no longer allowed to see old CFO answer/payload
+  assertEquals(isHistoryMessageAllowedForRoles(cfoMessage, ["employee"]), false);
+  assertEquals(isHistoryMessageAllowedForRoles(cfoMessage, ["tenant_ops"]), false);
+
+  // Personal My Space tool -> still allowed for any staff role
+  const personalMessage = {
+    role: "assistant",
+    tools_called: ["get_my_tasks"],
+    report_payload: {
+      tool: "get_my_tasks",
+      rpc: "assistant_staff_my_tasks",
+    },
+  };
+  assertEquals(isHistoryMessageAllowedForRoles(personalMessage, ["employee"]), true);
+});
+
+Deno.test("security: AI call enforces 20-second timeout, 1 retry on transient error, and surfaces 429/402", async () => {
+  assertEquals(AI_CALL_TIMEOUT_MS, 20_000);
+  assertEquals(AI_MAX_RETRIES, 1);
+  assert(MSG.gatewayBusy.length > 10);
+  assert(MSG.gatewayOutOfCredit.length > 10);
+
+  Deno.env.set("LOVABLE_API_KEY", "test-key");
+
+  // 1. Retries once on 503 and succeeds on the second attempt
+  let attempts = 0;
+  const retryRes = await chatCompletion({
+    messages: [{ role: "user", content: "hi" }],
+    fetchImpl: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return new Response("upstream busy", { status: 503 });
+      }
+      return new Response(
+        JSON.stringify({
+          model: DEFAULT_ZOE_MODEL,
+          choices: [{ message: { role: "assistant", content: "ok" } }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+  });
+  assertEquals(attempts, 2);
+  assertEquals(retryRes.message.content, "ok");
+
+  // 2. Does NOT retry 402 (out of credit) and throws AiGatewayError(402)
+  let calls402 = 0;
+  let caught402: AiGatewayError | null = null;
+  try {
+    await chatCompletion({
+      messages: [{ role: "user", content: "hi" }],
+      fetchImpl: async () => {
+        calls402 += 1;
+        return new Response("out of credit", { status: 402 });
+      },
+    });
+  } catch (e) {
+    if (e instanceof AiGatewayError) caught402 = e;
+  }
+  assertEquals(calls402, 1);
+  assertEquals(caught402?.status, 402);
+
+  // 3. Retries 429 once and throws AiGatewayError(429) if still rate-limited
+  let calls429 = 0;
+  let caught429: AiGatewayError | null = null;
+  try {
+    await chatCompletion({
+      messages: [{ role: "user", content: "hi" }],
+      fetchImpl: async () => {
+        calls429 += 1;
+        return new Response("rate limited", { status: 429 });
+      },
+    });
+  } catch (e) {
+    if (e instanceof AiGatewayError) caught429 = e;
+  }
+  assertEquals(calls429, 2);
+  assertEquals(caught429?.status, 429);
 });

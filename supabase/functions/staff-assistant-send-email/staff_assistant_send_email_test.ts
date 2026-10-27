@@ -99,6 +99,7 @@ function createMockSendDeps(
 }
 
 const validRequestBody = {
+  draft_id: "55555555-5555-4555-8555-555555555555",
   recipient_email: "jane@welile.com",
   recipient_name: "Janehephzibar Gimono",
   subject: "Report shared from Zoe: Tenant Ops Arrears Ageing (as of 2026-10-26)",
@@ -325,7 +326,7 @@ Deno.test("staff-assistant-send-email sends through send-transactional-email wit
   assertEquals(calls.reportRpcCalls.length, 1);
   assertEquals(calls.reportRpcCalls[0].rpc, "assistant_staff_tops_arrears_ageing");
 
-  // Sent via send-transactional-email with PDF attached
+  // Sent via send-transactional-email with PDF attached and NO inline rows/headers in templateData
   assertEquals(calls.sentEmails.length, 1);
   const sent = calls.sentEmails[0];
   assertEquals(sent.templateName, "zoe-report-shared");
@@ -334,9 +335,73 @@ Deno.test("staff-assistant-send-email sends through send-transactional-email wit
   assertEquals(tData.attachment_base64, "JVBERi0xLjQK");
   assertStringIncludes(String(tData.attachment_filename), ".pdf");
   assertEquals(tData.row_count, 2);
+  assertEquals(tData.rows, undefined);
+  assertEquals(tData.headers, undefined);
 
   // Wrote audit_logs and system_events
   assertEquals(calls.auditEntries.length, 1);
   assertEquals(calls.auditEntries[0].recipientEmail, "jane@welile.com");
   assertEquals(calls.auditEntries[0].rpcName, "assistant_staff_tops_arrears_ageing");
+});
+
+Deno.test("staff-assistant-send-email refuses when recipient's own roles cannot read the report (Finding H4)", async () => {
+  // Sender is CFO, recipient is Tenant Ops (cannot read CFO treasury cash position)
+  const { deps, calls } = createMockSendDeps({
+    getSenderRoles: async () => ["cfo"],
+    checkRecipientCanReadReport: async () => false,
+  });
+
+  const res = await handleStaffAssistantSendEmail(
+    {
+      ...validRequestBody,
+      report_reference: {
+        tool: "get_cfo_treasury_cash_position",
+        rpc: "assistant_staff_cfo_treasury_cash_position",
+        args: {},
+      },
+    },
+    deps,
+  );
+  assertEquals(res.status, 403);
+  assertEquals(res.body.code, "RECIPIENT_ROLE_RESTRICTED");
+  assertEquals(calls.sentEmails.length, 0);
+  assertEquals(calls.reportRpcCalls.length, 0);
+
+  // Personal My Space report ("assistant_staff_my_payslips") cannot be emailed to another staff member
+  const { deps: personalDeps, calls: personalCalls } = createMockSendDeps();
+  const personalRes = await handleStaffAssistantSendEmail(
+    {
+      ...validRequestBody,
+      report_reference: {
+        tool: "get_my_payslips",
+        rpc: "assistant_staff_my_payslips",
+        args: {},
+      },
+    },
+    personalDeps,
+  );
+  assertEquals(personalRes.status, 403);
+  assertEquals(personalRes.body.code, "RECIPIENT_ROLE_RESTRICTED");
+  assertEquals(personalCalls.sentEmails.length, 0);
+});
+
+Deno.test("staff-assistant-send-email requires a valid, unexpired, unused server-side draft (Finding M9)", async () => {
+  // Missing draft_id rejected at schema boundary
+  const { deps: schemaDeps } = createMockSendDeps();
+  const { draft_id: _omitted, ...withoutDraftId } = validRequestBody;
+  const missingDraftRes = await handleStaffAssistantSendEmail(withoutDraftId, schemaDeps);
+  assertEquals(missingDraftRes.status, 400);
+
+  // Tampered or already-used draft rejected by consumeDraft
+  const { deps, calls } = createMockSendDeps({
+    consumeDraft: async () => ({
+      ok: false,
+      error: "Draft payload does not match the server-stored draft",
+    }),
+  });
+  const tamperedRes = await handleStaffAssistantSendEmail(validRequestBody, deps);
+  assertEquals(tamperedRes.status, 403);
+  assertEquals(tamperedRes.body.code, "DRAFT_INVALID_OR_EXPIRED");
+  assertEquals(calls.sentEmails.length, 0);
+  assertEquals(calls.reportRpcCalls.length, 0);
 });

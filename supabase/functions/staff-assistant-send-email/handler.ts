@@ -13,6 +13,7 @@ export const ZOE_REPORT_EMAIL_DISPLAY_NAME = "Report shared from Zoe";
 
 export const SendReportEmailRequestSchema = z
   .object({
+    draft_id: z.string().uuid(),
     recipient_email: z.string().trim().email().max(254),
     recipient_name: z.string().trim().max(160).optional(),
     subject: z.string().trim().min(3).max(160),
@@ -187,6 +188,17 @@ export interface SendEmailDependencies {
   checkIsStaffEmail: (email: string) => Promise<boolean>;
   /** Looks up canonical recipient via `public.staff_assistant_email_recipients(p_search)` using the sender's JWT. */
   lookupStaffRecipients: (search: string) => Promise<unknown>;
+  /** Confirms that the recipient's own roles can read the report (`public.staff_assistant_can_user_read_report`). */
+  checkRecipientCanReadReport?: (
+    recipientUserId: string,
+    reportRpc: string,
+    ownerId: string,
+  ) => Promise<boolean>;
+  /** Validates and consumes a server-stored draft in `public.staff_assistant_drafts` (`public.staff_assistant_consume_draft`). */
+  consumeDraft?: (
+    draftId: string,
+    payload: Record<string, unknown>,
+  ) => Promise<{ ok: boolean; error?: string }>;
   /** Checks AAL2 MFA when the report tool is marked sensitive. */
   checkSenderMfa: (userId: string) => Promise<{ ok: boolean }>;
   /** Re-runs the `assistant_staff_*` RPC using the sender's own JWT (`userClient`). */
@@ -350,6 +362,31 @@ export async function handleStaffAssistantSendEmail(
     };
   }
 
+  // 6b. Check that the recipient's own roles can read this report (Finding H4)
+  const isPersonalReport = tool.rpc.startsWith("assistant_staff_my_");
+  const recipientAllowedByTool =
+    canUseTool(tool, canonicalRecipient.roles) &&
+    (!isPersonalReport || canonicalRecipient.staff_user_id === sender.id);
+  const recipientAllowedByDb = deps.checkRecipientCanReadReport
+    ? await deps.checkRecipientCanReadReport(
+        canonicalRecipient.staff_user_id,
+        tool.rpc,
+        sender.id,
+      )
+    : true;
+
+  if (!recipientAllowedByTool || !recipientAllowedByDb) {
+    return {
+      status: 403,
+      body: {
+        error:
+          "Refused: that colleague's role does not have permission to view this report. You may share a sign-in link to My Space instead of attaching the report data.",
+        code: "RECIPIENT_ROLE_RESTRICTED",
+        sign_in_url: "https://welilereceipts.com/me/zoe",
+      },
+    };
+  }
+
   if (tool.sensitive) {
     const mfa = await deps.checkSenderMfa(sender.id);
     if (!mfa.ok) {
@@ -370,6 +407,32 @@ export async function handleStaffAssistantSendEmail(
       status: 400,
       body: { error: "Invalid report tool arguments in report_reference." },
     };
+  }
+
+  // 6c. Consume the server-side draft (Finding M9: unexpired, unused, owned by caller, identical payload)
+  if (deps.consumeDraft) {
+    const consumed = await deps.consumeDraft(req.draft_id, {
+      kind: "email",
+      recipient_email: canonicalRecipient.email,
+      subject: req.subject,
+      message: req.message,
+      report_reference: {
+        tool: tool.name,
+        rpc: tool.rpc,
+        args: validatedToolArgs.data,
+      },
+    });
+    if (!consumed.ok) {
+      return {
+        status: 403,
+        body: {
+          error:
+            consumed.error ||
+            "This email draft has expired, was already sent, or does not match the drafted report. Please ask Zoe to prepare a fresh draft.",
+          code: "DRAFT_INVALID_OR_EXPIRED",
+        },
+      };
+    }
   }
 
   const rpcArgs = tool.toRpcArgs(validatedToolArgs.data);
@@ -435,6 +498,7 @@ export async function handleStaffAssistantSendEmail(
   });
 
   // 8. Send through `send-transactional-email` and the email queue using template "Report shared from Zoe"
+  //    Note: inline rows/headers are NEVER placed in templateData or email HTML body (Finding H4).
   const idempotencyKey = `zoe-email-${sender.id}-${crypto.randomUUID()}`;
   const sendRes = await deps.sendTransactionalEmail({
     templateName: ZOE_REPORT_EMAIL_TEMPLATE,
@@ -455,8 +519,6 @@ export async function handleStaffAssistantSendEmail(
       how_counted: extracted.howCounted,
       attachment_filename: attachmentFilename,
       attachment_base64: pdfBase64,
-      headers: extracted.headers,
-      rows: extracted.rows.slice(0, 20),
     },
   });
 

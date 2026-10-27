@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -17,7 +18,8 @@ import { BonusPromptGate } from '@/hr/bonuses/BonusPromptGate';
  *
  * FAIL OPEN: the modal renders only when `hr_pay_pending_prompt()` succeeds AND
  * returns a row. Any error, timeout or offline state leaves the app usable. No
- * role check is performed; the rpc alone decides who is prompted.
+ * role check is performed; the rpc alone decides who is prompted. The poll
+ * waits for a signed-in session — a missing or expired user JWT is not sent.
  *
  * It deliberately takes no payroll action itself. Approving a run and releasing
  * money happen on the run page, where the register, the dry run and the RELEASE
@@ -63,8 +65,10 @@ export function PayrollApprovalGate() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  const ready = useAuthenticatedAudience();
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
+    if (!(await hasUsableUserSession())) { setPrompt(null); return; }
     try {
       const { data, error } = await supabase.rpc('hr_pay_pending_prompt' as never);
       if (error) { setPrompt(null); return; }
@@ -77,17 +81,8 @@ export function PayrollApprovalGate() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => { void load(); }, POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [load]);
-
-  // Re-check on every navigation, so the prompt appears promptly and clears
-  // promptly once the run has moved on.
-  useEffect(() => {
-    void load();
-  }, [location.pathname, load]);
+  useAuthenticatedPoll(load, POLL_MS, { onNavigate: true });
+  useEffect(() => { if (!ready) setPrompt(null); }, [ready]);
 
   const openRun = () => {
     if (!prompt) return;

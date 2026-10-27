@@ -19,6 +19,7 @@ export function toAuthGatedUrl(path: string, baseUrl = 'https://welileapp.com'):
 export const NEXA_ACTION_LINKS = Object.fromEntries([
   '/dashboard/funder-new', '/dashboard', '/rent-calculator', '/register-tenant',
   '/become-agent', '/register-landlord', '/find-a-house', '/marketplace',
+  '/merchandise', '/merchandise?tab=orders',
 ].map(path => [path, toAuthGatedUrl(path)]));
 export function extractPhoneNumberFromText(text: string): string | null {
   const match = text.match(/(?<![\d+])(?:\+?256[\s-]*7(?:[\s-]*\d){8}|07(?:[\s-]*\d){8})(?![\s-]*\d)/);
@@ -35,6 +36,40 @@ export function buildAccountPhoneAndDashboardGuideReply(text = ''): string {
     : 'What is your registered Welile phone number (07XX XXX XXX or +256...)? Never share your password or one-time code here. Your number alone does not verify ownership; private figures are only available on your own signed-in dashboard.';
   return `${intro}\n\n**Partners / Supporters — Portfolio & 15% Monthly Returns**\n1. Open [Sign In / Sign Up to Funder Dashboard](${toAuthGatedUrl('/dashboard/funder-new')}).\n2. Enter your registered phone number and complete sign-in.\n3. View **Active Portfolio**, **Monthly 15% Reward Schedule**, **Promissory Notes**, and **Supported Houses**. Approved plan terms apply.\n\n**Tenants — Rent Balance & UGX 30M Access Limit**\n1. Open [Sign In / Sign Up to Tenant Dashboard](${toAuthGatedUrl('/dashboard')}).\n2. Enter your registered phone number and complete sign-in.\n3. View **Remaining Rent Balance**, **Daily Repayment Schedule**, **On-Time Streak**, and **Welile Access Limit (growing up to UGX 30,000,000)**.`;
 }
+export function isMerchandiseQuery(text: string): boolean {
+  return /\bmerch(?:andise)?\b|\bjackets?\b|\bpress\s+(?:jacket|vest)\b|\bvests?\b|\bjumpers?\b|\bpolo\s+shirts?\b|\bt[\s-]?shirts?\b|\buniforms?\b|\bcompany\s+ids?\b|\bstaff\s+badges?\b|\bsignag(?:e|es)\b|\bpull[\s-]up\s+banners?\b|\btable\s+mounts?\b|\bbillboards?\b|\bbranded\s+(?:gear|items?|clothing)\b|\border(?:ing)?\b.*\b(?:from\s+)?welile\s+merchandise\s+store\b|\bwelile\s+merchandise\b|\be[\s-]bikes?\b|\bsmartphones?\b/i.test(text)
+    || /\bbuy\b|\border\b|\bget\b|\bwhere\b.*\b(?:buy|order)\b/i.test(text) && /\bjacket|vest|jumper|polo|t[\s-]?shirt|uniform|company\s+id|badge|signage|banner|billboard|merch\b/i.test(text);
+}
+
+export function buildMerchandiseGuideReply(isAuthenticated = false): string {
+  const storeLink = isAuthenticated ? '/merchandise' : toAuthGatedPath('/merchandise');
+  const ordersLink = isAuthenticated ? '/merchandise?tab=orders' : toAuthGatedPath('/merchandise?tab=orders');
+  return `**Welile Merchandise — Branded Gear, IDs, Signage, Smartphones & E-Bikes**
+
+**1. Welile Merchandise Store (All Branded Gear, Signage, Smartphones & E-Bikes)**
+Browse and order everything in one place: [Open Welile Merchandise Store](${storeLink}) — https://welileapp.com/merchandise
+
+**2. Order Welile Press Jacket (Khaki Branded Vest — UGX 55,000, Sizes L–4XL)**
+[Order Press Jacket](https://welileapp.com/m/welile-1rfmin) or direct checkout: /merchandise?item=ec9493a7-75d8-441d-96eb-3550ffec3bb0
+
+**3. Other Branded Items Available on /merchandise**
+- **Welile Polo Shirts:** [White Polo — UGX 35,000](https://welileapp.com/m/welile-v8iydr) · Black Polo — UGX 35,000
+- **Welile Jumpers:** UGX 60,000–65,000
+- **Welile Purple T-Shirts:** UGX 30,000
+- **Company IDs:** UGX 45,000
+- **Signages & Banners:** from UGX 50,000 (pull-up banners, table mounts, billboards)
+- **Welile Smartphone:** 0% cash down advance
+- **Spiro / Mocoo E-Bike leases** for field agents
+
+**4. Flexible Payment**
+Pay in full from your Welile Wallet, or choose **daily installments over 1–12 months with UGX 0 down** — deducted automatically from your wallet/earnings.
+
+**5. Track Orders & Repayments**
+[Track My Orders](${ordersLink}) — https://welileapp.com/merchandise?tab=orders
+
+${isAuthenticated ? 'You are already signed in; open the store with your existing account.' : buildSignupPersuasionPitch('agent')}`;
+}
+
 export function isWalletHowToQuery(text: string): boolean {
   return /\bwallet\b/i.test(text) && /\b(?:how|use|open|deposit|withdraw|transfer|fund|teach|guide)\b/i.test(text)
     || /\bhow\b.*\b(?:deposit|withdraw|transfer)\b/i.test(text);
@@ -54,6 +89,7 @@ export function buildNexaPublicGuideReply(text: string, isAuthenticated = false)
   if (extractPhoneNumberFromText(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
+  if (isMerchandiseQuery(text)) return buildMerchandiseGuideReply(isAuthenticated);
   if (isAccountOrBalanceQuery(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   const link = (label: string, path: string) => `[${label}](${isAuthenticated ? path : toAuthGatedPath(path)})`;
   if (/\brequest(?:ing)? rent\b|\bget rent (?:help|support)\b/i.test(text)) {

@@ -3,6 +3,18 @@
 
 export const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
 export const DEFAULT_ZOE_MODEL = "google/gemini-3-flash-preview";
+export const AI_CALL_TIMEOUT_MS = 20_000;
+export const AI_MAX_RETRIES = 1;
+
+export class AiGatewayError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly detail: string,
+  ) {
+    super(`AI provider HTTP ${status}: ${detail}`);
+    this.name = "AiGatewayError";
+  }
+}
 
 function config() {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -38,31 +50,70 @@ export async function chatCompletion(opts: {
   messages: ChatMessage[];
   tools?: OpenAiTool[];
   maxTokens?: number;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
 }): Promise<{ message: ChatMessage; model: string }> {
   const { apiKey, baseUrl, model } = config();
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      max_tokens: opts.maxTokens ?? 450,
-      messages: opts.messages,
-      ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, tool_choice: "auto" } : {}),
-    }),
-  });
+  const timeoutMs = opts.timeoutMs ?? AI_CALL_TIMEOUT_MS;
+  const doFetch = opts.fetchImpl ?? fetch;
 
-  if (!res.ok) {
-    const detail = (await res.text().catch(() => "")).slice(0, 200);
-    throw new Error(`AI provider HTTP ${res.status}: ${detail}`);
+  let lastErr: unknown = null;
+
+  for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort("AI call timed out after 20s"), timeoutMs);
+
+    try {
+      const res = await doFetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0,
+          max_tokens: opts.maxTokens ?? 450,
+          messages: opts.messages,
+          ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, tool_choice: "auto" } : {}),
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => "")).slice(0, 200);
+        const gatewayErr = new AiGatewayError(res.status, detail);
+        // Retry once on transient 5xx or 429; never retry 402 (out of credit) or 4xx client errors
+        if ((res.status >= 500 || res.status === 429) && attempt < AI_MAX_RETRIES) {
+          lastErr = gatewayErr;
+          continue;
+        }
+        throw gatewayErr;
+      }
+
+      const data = await res.json();
+      const message = data?.choices?.[0]?.message as ChatMessage | undefined;
+      if (!message) throw new Error("AI provider returned no message");
+      return { message, model: data?.model ?? model };
+    } catch (err) {
+      lastErr = err;
+      if (err instanceof AiGatewayError) {
+        if ((err.status >= 500 || err.status === 429) && attempt < AI_MAX_RETRIES) {
+          continue;
+        }
+        throw err;
+      }
+      // Timeout / network error: retry once
+      if (attempt < AI_MAX_RETRIES) {
+        continue;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  const data = await res.json();
-  const message = data?.choices?.[0]?.message as ChatMessage | undefined;
-  if (!message) throw new Error("AI provider returned no message");
-  return { message, model: data?.model ?? model };
+
+  throw lastErr instanceof Error ? lastErr : new Error("AI call failed");
 }
 
 /** Cheap single-shot JSON classification call with no tools and a tiny token cap. */

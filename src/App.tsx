@@ -22,6 +22,7 @@ const lazy = lazyWithRetry;
 
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
 import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
@@ -478,6 +479,11 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
+  // Staff prompt RPCs are granted to authenticated only. Mounting them for every
+  // visitor fired hr_pay_pending_prompt, staff_survey_pending, the requisition
+  // prompt/notice RPCs, pso_facilitation_pending_prompt and staff_loan_pending_prompt
+  // with the anon key (HTTP 401) on each page load, navigation and poll.
+  const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -495,12 +501,15 @@ function GlobalOnboardingGates() {
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
-      <FacilitationApprovalGate />
-      <StaffLoanApprovalGate />
-      <StaffRequisitionApprovalGate />
-      <PayrollApprovalGate />
-      <StaffSurveyGate />
-
+      {signedIn && (
+        <>
+          <FacilitationApprovalGate />
+          <StaffLoanApprovalGate />
+          <StaffRequisitionApprovalGate />
+          <PayrollApprovalGate />
+          <StaffSurveyGate />
+        </>
+      )}
     </>
   );
 }
@@ -713,7 +722,7 @@ function AppRoutes() {
           <Route path="/agent-registrations" element={<AgentRegistrations />} />
           <Route path="/sub-agents" element={<SubAgentAnalytics />} />
           <Route path="/agent/service-center" element={<AgentServiceCenter />} />
-          <Route path="/merchandise" element={<MerchandiseStore />} />
+          <Route path="/merchandise" element={<SignInReturnGate><MerchandiseStore /></SignInReturnGate>} />
           <Route path="/agent/partners" element={<AgentPartners />} />
           <Route path="/agent/proxy-agents" element={<ProxyAgentGuard><ProxyAgentCommandCenter /></ProxyAgentGuard>} />
           <Route path="/join" element={<Join />} />

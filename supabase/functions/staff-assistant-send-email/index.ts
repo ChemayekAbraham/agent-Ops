@@ -106,15 +106,24 @@ Deno.serve(async (req) => {
         error,
       } = await userClient.auth.getUser(token);
       if (error || !user) return null;
-      const fullName =
-        (typeof user.user_metadata?.full_name === "string" &&
-          user.user_metadata.full_name.trim()) ||
-        user.email ||
-        "Welile Staff Member";
+      // Take sender name and email strictly from public.profiles — NEVER from user.user_metadata
+      const { data: profile } = await userClient
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .maybeSingle();
+      const profileName =
+        typeof profile?.full_name === "string" && profile.full_name.trim()
+          ? profile.full_name.trim()
+          : "";
+      const profileEmail =
+        typeof profile?.email === "string" && profile.email.trim()
+          ? profile.email.trim()
+          : user.email ?? "";
       return {
         id: user.id,
-        email: user.email ?? "",
-        fullName,
+        email: profileEmail,
+        fullName: profileName || profileEmail || "Welile Staff Member",
       };
     },
     getSenderRoles: (userId) => resolveSenderRoles(userClient, userId),
@@ -135,6 +144,28 @@ Deno.serve(async (req) => {
       if (error) return [];
       return data ?? [];
     },
+    checkRecipientCanReadReport: async (recipientUserId, reportRpc, ownerId) => {
+      const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
+        p_user_id: recipientUserId,
+        p_report_rpc: reportRpc,
+        p_owner_id: ownerId,
+      });
+      return !error && data === true;
+    },
+    consumeDraft: async (draftId, payload) => {
+      const { data, error } = await userClient.rpc("staff_assistant_consume_draft", {
+        p_draft_id: draftId,
+        p_kind: "email",
+        p_payload: payload,
+      });
+      if (error || !data) {
+        return {
+          ok: false,
+          error: error?.message || "Draft validation failed",
+        };
+      }
+      return { ok: true };
+    },
     checkSenderMfa: async (userId) => {
       const mfa = await requireStaffAal2(adminClient, token, userId);
       return { ok: mfa.ok };
@@ -147,6 +178,24 @@ Deno.serve(async (req) => {
       };
     },
     getDailyEmailUsage: async (userId) => {
+      const { data: budgetRow, error: budgetErr } = await adminClient.rpc(
+        "staff_assistant_check_email_budget",
+        {
+          p_user_id: userId,
+          p_recipient_count: 1,
+        },
+      );
+      if (!budgetErr && budgetRow && typeof budgetRow === "object") {
+        const rec = budgetRow as Record<string, unknown>;
+        return {
+          sentToday: typeof rec.sent_today === "number" ? rec.sent_today : 0,
+          maxEmailsPerDay:
+            typeof rec.max_emails_per_day === "number"
+              ? rec.max_emails_per_day
+              : DEFAULT_MAX_EMAILS_PER_DAY,
+        };
+      }
+
       const { data: cfg } = await adminClient
         .from("staff_assistant_config")
         .select("max_emails_per_day")
@@ -204,6 +253,7 @@ Deno.serve(async (req) => {
           source: entry.source,
           period: entry.periodLabel,
           row_count: entry.rowCount,
+          recipient_count: 1,
           recipient_user_id: entry.recipientUserId,
           recipient_name: entry.recipientName,
           recipient_email: entry.recipientEmail,
@@ -228,6 +278,7 @@ Deno.serve(async (req) => {
           source: entry.source,
           period: entry.periodLabel,
           row_count: entry.rowCount,
+          recipient_count: 1,
           recipient_user_id: entry.recipientUserId,
           recipient_name: entry.recipientName,
           recipient_email: entry.recipientEmail,
