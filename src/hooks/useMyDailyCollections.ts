@@ -11,8 +11,10 @@ export function kampalaDay(ts: string): string {
 }
 
 /**
- * Read-only: the signed-in agent's pinned expected amounts per tenant per day
- * (agent_expected_day_plans) against non-reversed collections (agent_collections).
+ * Read-only: the signed-in agent's expected amounts per tenant per day against
+ * non-reversed collections (agent_collections). Expected comes from
+ * get_my_expected_days (the pinned bill plus a normal day for expired tenants
+ * whose billing stopped), the same figures the weekly posting rule uses.
  */
 export function useMyDailyCollections(from: string | null, to: string | null, names: Record<string, { name: string; phone: string | null }>) {
   const { user } = useAuth();
@@ -22,9 +24,7 @@ export function useMyDailyCollections(from: string | null, to: string | null, na
     staleTime: 30_000,
     queryFn: async (): Promise<Record<string, DayCell>> => {
       const [plans, cols] = await Promise.all([
-        (supabase.from as any)('agent_expected_day_plans')
-          .select('day, tenant_id, expected_ugx').eq('agent_id', user!.id)
-          .gte('day', from).lte('day', to).limit(5000),
+        (supabase.rpc as any)('get_my_expected_days', { p_from: from, p_to: to }),
         (supabase.from as any)('agent_collections')
           .select('tenant_id, amount, created_at, reversed_at').eq('agent_id', user!.id)
           .is('reversed_at', null)
