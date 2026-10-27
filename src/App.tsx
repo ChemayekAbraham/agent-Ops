@@ -22,6 +22,7 @@ const lazy = lazyWithRetry;
 
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
 import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
@@ -100,6 +101,7 @@ const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsCont
 // Lazy load optional UI components
 const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
+const PendingCollectionsSync = optionalLazyWithRetry(() => import("@/components/agent/PendingCollectionsSync"), "PendingCollectionsSync");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/hr/HRBirthdayNoticeDialog"), "HRBirthdayNoticeDialog");
@@ -344,6 +346,9 @@ const RentCoverageDetail = lazy(() => import('./pages/coo/RentCoverageDetail'));
 const COOPartnerOpsReport = lazy(() => import('./pages/coo/reports/PartnerOpsReport'));
 const COOAgentOpsReport = lazy(() => import('./pages/coo/reports/AgentOpsReport'));
 const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsReport'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReview = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
+const NotVettedDialog = lazy(() => import('./components/agent-vetting/NotVettedDialog'));
 const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
@@ -466,6 +471,7 @@ function GlobalFloatingWidgets() {
   return (
     <>
       <FloatingToolbar />
+      <Suspense fallback={null}><NotVettedDialog /></Suspense>
       <MerchantDispatchListener />
       <GlobalInstallPrompt />
     </>
@@ -478,6 +484,11 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
+  // Staff prompt RPCs are granted to authenticated only. Mounting them for every
+  // visitor fired hr_pay_pending_prompt, staff_survey_pending, the requisition
+  // prompt/notice RPCs, pso_facilitation_pending_prompt and staff_loan_pending_prompt
+  // with the anon key (HTTP 401) on each page load, navigation and poll.
+  const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -495,12 +506,15 @@ function GlobalOnboardingGates() {
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
-      <FacilitationApprovalGate />
-      <StaffLoanApprovalGate />
-      <StaffRequisitionApprovalGate />
-      <PayrollApprovalGate />
-      <StaffSurveyGate />
-
+      {signedIn && (
+        <>
+          <FacilitationApprovalGate />
+          <StaffLoanApprovalGate />
+          <StaffRequisitionApprovalGate />
+          <PayrollApprovalGate />
+          <StaffSurveyGate />
+        </>
+      )}
     </>
   );
 }
@@ -580,6 +594,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/verification" element={<AgentVerificationPage />} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -713,7 +728,7 @@ function AppRoutes() {
           <Route path="/agent-registrations" element={<AgentRegistrations />} />
           <Route path="/sub-agents" element={<SubAgentAnalytics />} />
           <Route path="/agent/service-center" element={<AgentServiceCenter />} />
-          <Route path="/merchandise" element={<MerchandiseStore />} />
+          <Route path="/merchandise" element={<SignInReturnGate><MerchandiseStore /></SignInReturnGate>} />
           <Route path="/agent/partners" element={<AgentPartners />} />
           <Route path="/agent/proxy-agents" element={<ProxyAgentGuard><ProxyAgentCommandCenter /></ProxyAgentGuard>} />
           <Route path="/join" element={<Join />} />
@@ -874,6 +889,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['agent_ops' as any, 'ceo', 'cto', 'coo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentVerificationReview /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -1107,6 +1123,7 @@ const App = () => {
                           <GlobalFloatingWidgets />
                           <Toaster />
                           <SonnerToaster />
+                          <PendingCollectionsSync />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <DeviceStepUpGate />

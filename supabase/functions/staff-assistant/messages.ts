@@ -28,6 +28,14 @@ export const MSG = {
     "I can only draft report emails to active Welile staff members with a registered profile email. No active staff member matched that recipient.",
   dataEmailForbidden:
     "For security, Zoe never uses email addresses found inside report data. Please enter the Welile staff colleague's name or registered staff email directly.",
+  recipientRoleRestricted:
+    "That colleague's role does not have permission to view this report, so Zoe cannot email the report data to them.",
+  gatewayBusy:
+    "Zoe is busy right now due to high demand. Please wait a moment and try again.",
+  gatewayOutOfCredit:
+    "Zoe's AI service is temporarily unavailable (service quota reached). The team has been notified — please try again shortly.",
+  historyRoleRestricted:
+    "This earlier answer used a report your current role no longer accesses.",
 } as const;
 
 /** Outcomes that should be recorded in `staff_assistant_unanswered` for coverage tracking. */

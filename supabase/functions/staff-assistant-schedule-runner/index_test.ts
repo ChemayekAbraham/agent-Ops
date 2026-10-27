@@ -148,3 +148,119 @@ Deno.test("schedule runner pauses and refuses when owner role no longer permits 
   assertEquals(res.body.schedules_sent, 0);
   assertEquals(res.body.outcomes[0].status, "paused_owner_role_revoked");
 });
+
+Deno.test("schedule runner full path: forwards p_report_args, renders real rows, sends attachment_base64, and records recipient_count", async () => {
+  let capturedRpcArgs: Record<string, unknown> | null = null;
+  let capturedPdfRows: Array<Array<string | number | null>> = [];
+  let capturedTemplateData: Record<string, unknown> = {};
+  let capturedAuditMeta: Record<string, unknown> = {};
+
+  const res = await runStaffAssistantSchedules(
+    makeDeps({
+      loadDueSchedules: async () => [
+        makeBaseSchedule({
+          report_tool: "get_tops_repayments_and_collection_rate",
+          report_rpc: "assistant_staff_tops_repayments_and_collection_rate",
+          report_args: { from: "2026-10-01", to: "2026-10-15" },
+          recipient_emails: ["winnie@welile.com", "hanisha@welile.com"],
+          recipient_names: ["Winfred Asiimwe", "Hanishah Amber Kawuki"],
+        }),
+      ],
+      checkRecipientCanReadReport: async () => true,
+      runReportAsOwner: async (_ownerId, _rpcName, rpcArgs) => {
+        capturedRpcArgs = rpcArgs;
+        return {
+          data: {
+            source: "get_tenant_ops_repayments",
+            period: { from: "2026-10-01", to: "2026-10-15" },
+            row_count: 2,
+            rows: [
+              { day: "2026-10-01", scheduled_ugx: 1200000, collected_ugx: 1100000 },
+              { day: "2026-10-02", scheduled_ugx: 1350000, collected_ugx: 1300000 },
+            ],
+          },
+          error: null,
+        };
+      },
+      renderPdfBase64: async (pdfData) => {
+        capturedPdfRows = pdfData.rows;
+        return "JVBERi0xLjQtRkxBVA==";
+      },
+      sendTransactionalEmail: async (payload) => {
+        capturedTemplateData = payload.templateData;
+        return { ok: true };
+      },
+      writeScheduleAudit: async (entry) => {
+        capturedAuditMeta = entry.metadata;
+      },
+    }),
+  );
+
+  assertEquals(res.status, 200);
+  assertEquals(res.body.schedules_sent, 1);
+  assertEquals(res.body.outcomes[0].status, "sent");
+  assertEquals(res.body.outcomes[0].sent_to, ["winnie@welile.com", "hanisha@welile.com"]);
+
+  // Verified p_report_args forwarded
+  assertEquals(capturedRpcArgs, { p_from: "2026-10-01", p_to: "2026-10-15" });
+
+  // Verified real rows passed to PDF renderer
+  assertEquals(capturedPdfRows.length, 2);
+  assertEquals(capturedPdfRows[0], ["2026-10-01", 1200000, 1100000]);
+
+  // Verified PDF sent under attachment_base64 (and NOT pdf_base64 or inline rows)
+  assertEquals(capturedTemplateData.attachment_base64, "JVBERi0xLjQtRkxBVA==");
+  assertEquals(capturedTemplateData.pdf_base64, undefined);
+  assertEquals(capturedTemplateData.rows, undefined);
+
+  // Verified per-recipient count in audit metadata
+  assertEquals(capturedAuditMeta.recipient_count, 2);
+});
+
+Deno.test("schedule runner pauses when recipient's own roles cannot read the report (Finding H4/H5)", async () => {
+  let sentCount = 0;
+  const res = await runStaffAssistantSchedules(
+    makeDeps({
+      checkRecipientCanReadReport: async () => false,
+      sendTransactionalEmail: async () => {
+        sentCount += 1;
+        return { ok: true };
+      },
+    }),
+  );
+
+  assertEquals(sentCount, 0);
+  assertEquals(res.body.schedules_sent, 0);
+  assertEquals(res.body.outcomes[0].status, "paused_recipient_role_revoked");
+});
+
+Deno.test("schedule runner does not forge aal2: sends sign-in link only for sensitive report without MFA confirmation", async () => {
+  let rpcRunCount = 0;
+  let capturedTemplateData: Record<string, unknown> = {};
+
+  const res = await runStaffAssistantSchedules(
+    makeDeps({
+      loadDueSchedules: async () => [
+        makeBaseSchedule({
+          report_tool: "get_tops_arrears_ageing", // sensitive: true
+          report_rpc: "assistant_staff_tops_arrears_ageing",
+          mfa_confirmed_at: null,
+        }),
+      ],
+      runReportAsOwner: async () => {
+        rpcRunCount += 1;
+        return { data: {}, error: null };
+      },
+      sendTransactionalEmail: async (payload) => {
+        capturedTemplateData = payload.templateData;
+        return { ok: true };
+      },
+    }),
+  );
+
+  assertEquals(rpcRunCount, 0);
+  assertEquals(res.body.schedules_sent, 1);
+  assertEquals(res.body.outcomes[0].status, "sent_sign_in_link_mfa_required");
+  assertEquals(capturedTemplateData.sign_in_only, true);
+  assertEquals(capturedTemplateData.attachment_base64, undefined);
+});

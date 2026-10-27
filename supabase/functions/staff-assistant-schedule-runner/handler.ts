@@ -25,6 +25,7 @@ export interface DueScheduleRecord {
   recipient_names: string[];
   custom_message: string | null;
   run_count: number;
+  mfa_confirmed_at?: string | null;
 }
 
 export interface ScheduleRunnerDependencies {
@@ -40,6 +41,12 @@ export interface ScheduleRunnerDependencies {
   ) => Promise<{ fullName: string; email: string; roles: string[] }>;
   /** Re-checks each recipient email via `staff_assistant_is_staff_email` on every run. */
   checkRecipientIsStaffEmail: (email: string) => Promise<boolean>;
+  /** Re-checks whether each recipient's own roles can read the scheduled report (`staff_assistant_can_user_read_report`). */
+  checkRecipientCanReadReport?: (
+    recipientEmail: string,
+    reportRpc: string,
+    ownerId: string,
+  ) => Promise<boolean>;
   /** Checks the owner's daily email budget (`max_emails_per_day` in `staff_assistant_config`). */
   getDailyEmailUsage: (
     ownerId: string,
@@ -108,9 +115,11 @@ export interface ScheduleRunOutcome {
   owner_id: string;
   status:
     | "sent"
+    | "sent_sign_in_link_mfa_required"
     | "paused_owner_access_revoked"
     | "paused_owner_role_revoked"
     | "paused_recipient_not_staff"
+    | "paused_recipient_role_revoked"
     | "skipped_daily_budget"
     | "error";
   sent_to: string[];
@@ -232,51 +241,68 @@ export async function runStaffAssistantSchedules(
       continue;
     }
 
-    // 3. Re-check EVERY recipient's staff status via staff_assistant_is_staff_email on every run
+    // 3. Re-check EVERY recipient's staff status AND report role permission on every run
     const verifiedRecipients: Array<{ email: string; name: string }> = [];
     const refusedRecipients: string[] = [];
+    let refusedByRole = false;
 
     for (let i = 0; i < sched.recipient_emails.length; i++) {
       const email = String(sched.recipient_emails[i] ?? "").trim().toLowerCase();
       const name = String(sched.recipient_names[i] ?? email).trim();
       if (!email) continue;
       const isStaff = await deps.checkRecipientIsStaffEmail(email);
-      if (isStaff) {
-        verifiedRecipients.push({ email, name });
-      } else {
+      if (!isStaff) {
         refusedRecipients.push(email);
+        continue;
       }
+      if (deps.checkRecipientCanReadReport) {
+        const canRead = await deps.checkRecipientCanReadReport(email, tool.rpc, sched.user_id);
+        if (!canRead) {
+          refusedRecipients.push(email);
+          refusedByRole = true;
+          continue;
+        }
+      }
+      verifiedRecipients.push({ email, name });
     }
 
     if (verifiedRecipients.length === 0) {
+      const pauseStatus = refusedByRole
+        ? "paused_recipient_role_revoked"
+        : "paused_recipient_not_staff";
       await deps.updateScheduleState(sched.id, {
         status: "paused",
         last_run_at: nowIso,
-        last_run_status: "paused_recipient_not_staff",
+        last_run_status: pauseStatus,
       });
       await deps.writeScheduleAudit({
         scheduleId: sched.id,
         ownerId: sched.user_id,
         actionType: "staff_assistant_schedule_refused_recipient",
         eventType: "staff_assistant.schedule_refused_recipient",
-        reason: "Paused scheduled Zoe report because no recipient passed staff_assistant_is_staff_email",
+        reason: refusedByRole
+          ? "Paused scheduled Zoe report because recipient role is not authorized to read this report"
+          : "Paused scheduled Zoe report because no recipient passed staff_assistant_is_staff_email",
         metadata: {
           schedule_id: sched.id,
           refused_recipients: refusedRecipients,
+          refused_by_role: refusedByRole,
         },
       });
       outcomes.push({
         schedule_id: sched.id,
         owner_id: sched.user_id,
-        status: "paused_recipient_not_staff",
+        status: pauseStatus,
         sent_to: [],
         refused_recipients: refusedRecipients,
-        reason: "Recipient is no longer an active Welile staff email",
+        reason: refusedByRole
+          ? "Recipient role is not permitted to view this report"
+          : "Recipient is no longer an active Welile staff email",
       });
       continue;
     }
 
-    // 4. Re-check owner's daily email budget
+    // 4. Re-check owner's daily email budget (counts each recipient against the 30/day cap)
     const usage = await deps.getDailyEmailUsage(sched.user_id);
     const maxEmails = usage.maxEmailsPerDay || DEFAULT_MAX_EMAILS_PER_DAY;
     if (usage.sentToday + verifiedRecipients.length > maxEmails) {
@@ -301,7 +327,97 @@ export async function runStaffAssistantSchedules(
       continue;
     }
 
-    // 5. Re-run the report as the schedule owner
+    // 5. Never forge aal2: if the report needs two-step login (`tool.sensitive === true`) and the
+    //    schedule has not been confirmed after a fresh two-step login (`!sched.mfa_confirmed_at`),
+    //    send a sign-in link only (no report rows and no PDF attachment).
+    const reportTitle = sanitizeWelileTermsServer(
+      sched.title || formatReportTitleFromTool(tool.name, tool.rpc),
+    );
+
+    if (tool.sensitive && !sched.mfa_confirmed_at) {
+      const sentToSignInOnly: string[] = [];
+      const signInSubject = sanitizeWelileTermsServer(
+        `Scheduled Report from Zoe (Sign-in Required): ${reportTitle}`,
+      );
+      const signInMessage = sanitizeWelileTermsServer(
+        `This scheduled ${sched.frequency} Zoe report (${reportTitle}) contains sensitive figures that require two-step verification (MFA). Please sign in to My Space to view the report or re-confirm the schedule after two-step login.`,
+      );
+
+      for (const recipient of verifiedRecipients) {
+        const sendRes = await deps.sendTransactionalEmail({
+          templateName: ZOE_REPORT_EMAIL_TEMPLATE,
+          recipientEmail: recipient.email,
+          idempotencyKey: `zoe-sched-mfa-${sched.id}-${todayKampala}-${recipient.email}`,
+          templateData: {
+            recipient_name: recipient.name,
+            recipient_email: recipient.email,
+            sender_name: ownerProfile.fullName,
+            sender_email: ownerProfile.email,
+            subject: signInSubject,
+            message: signInMessage,
+            report_title: reportTitle,
+            source: tool.rpc,
+            period_label: todayKampala,
+            row_count: 0,
+            generated_at: nowIso,
+            how_counted: "Sign-in required in My Space (two-step verification required for sensitive report figures).",
+            sign_in_only: true,
+            sign_in_url: "https://welileapp.com/me/zoe",
+            template_display_name: ZOE_REPORT_EMAIL_DISPLAY_NAME,
+          },
+        });
+        if (sendRes.ok) {
+          sentToSignInOnly.push(recipient.email);
+        }
+      }
+
+      const nextRunAt = await deps.computeNextRunAt({
+        frequency: sched.frequency,
+        sendTimeKampala: sched.send_time_kampala,
+        dayOfWeek: sched.day_of_week,
+      });
+
+      await deps.updateScheduleState(sched.id, {
+        status: "active",
+        last_run_at: nowIso,
+        last_run_status:
+          sentToSignInOnly.length > 0 ? "sent_sign_in_link_mfa_required" : "error_send_failed",
+        next_run_at: nextRunAt,
+        run_count: (sched.run_count ?? 0) + (sentToSignInOnly.length > 0 ? 1 : 0),
+      });
+
+      if (sentToSignInOnly.length > 0) {
+        schedulesSent += 1;
+        await deps.writeScheduleAudit({
+          scheduleId: sched.id,
+          ownerId: sched.user_id,
+          actionType: "staff_assistant_report_email_sent",
+          eventType: "staff_assistant.scheduled_report_sign_in_link_sent",
+          reason: `Sent sign-in-only scheduled Zoe notice (${tool.name}) because report requires two-step login`,
+          metadata: {
+            schedule_id: sched.id,
+            report_tool: tool.name,
+            report_rpc: tool.rpc,
+            frequency: sched.frequency,
+            sent_to: sentToSignInOnly,
+            recipient_count: sentToSignInOnly.length,
+            sign_in_only: true,
+          },
+        });
+      }
+
+      outcomes.push({
+        schedule_id: sched.id,
+        owner_id: sched.user_id,
+        status: sentToSignInOnly.length > 0 ? "sent_sign_in_link_mfa_required" : "error",
+        sent_to: sentToSignInOnly,
+        refused_recipients: refusedRecipients,
+        reason: "Report requires two-step login; sent sign-in link without attachment",
+      });
+      continue;
+    }
+
+    // 6. Re-run the report as the schedule owner, forwarding `p_report_args` (`rpcArgs`)
     const parsedArgs = tool.schema.safeParse(sched.report_args ?? {});
     const rpcArgs = tool.toRpcArgs(parsedArgs.success ? parsedArgs.data : {});
     const rpcResult = await deps.runReportAsOwner(sched.user_id, tool.rpc, rpcArgs);
@@ -324,30 +440,30 @@ export async function runStaffAssistantSchedules(
       continue;
     }
 
-    // 6. Build branded PDF and send to each verified staff recipient
+    // 7. Build branded PDF with real rows and send under `attachment_base64`
     const extracted = extractReportTableFromFreshRpc(rpcResult.data, tool.rpc, todayKampala);
-    const reportTitle = sanitizeWelileTermsServer(
+    const resolvedReportTitle = sanitizeWelileTermsServer(
       sched.title || formatReportTitleFromTool(tool.name, extracted.source),
     );
     const periodLabel = formatPeriodLabel(rpcResult.data.period) ?? extracted.periodLabel;
-    const slug = reportTitle
+    const slug = resolvedReportTitle
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "")
       .slice(0, 44);
     const filename = `welile-zoe-${slug || "scheduled-report"}-${todayKampala}.pdf`;
     const subject = sanitizeWelileTermsServer(
-      `Scheduled Report from Zoe: ${reportTitle} (${periodLabel})`,
+      `Scheduled Report from Zoe: ${resolvedReportTitle} (${periodLabel})`,
     );
     const messageBody = sanitizeWelileTermsServer(
       sched.custom_message ||
-        `Scheduled ${sched.frequency} Zoe report (${reportTitle}) for ${periodLabel}.`,
+        `Scheduled ${sched.frequency} Zoe report (${resolvedReportTitle}) for ${periodLabel}.`,
     );
 
     const sentTo: string[] = [];
     for (const recipient of verifiedRecipients) {
       const pdfBase64 = await deps.renderPdfBase64({
-        report_title: reportTitle,
+        report_title: resolvedReportTitle,
         source: extracted.source,
         period_label: periodLabel,
         generated_at: nowIso,
@@ -372,14 +488,14 @@ export async function runStaffAssistantSchedules(
           sender_email: ownerProfile.email,
           subject,
           message: messageBody,
-          report_title: reportTitle,
+          report_title: resolvedReportTitle,
           source: extracted.source,
           period_label: periodLabel,
           row_count: extracted.rowCount,
           generated_at: nowIso,
           how_counted: extracted.howCounted,
           attachment_filename: filename,
-          pdf_base64: pdfBase64,
+          attachment_base64: pdfBase64,
           template_display_name: ZOE_REPORT_EMAIL_DISPLAY_NAME,
         },
       });
@@ -417,6 +533,7 @@ export async function runStaffAssistantSchedules(
           report_rpc: tool.rpc,
           frequency: sched.frequency,
           sent_to: sentTo,
+          recipient_count: sentTo.length,
           refused_recipients: refusedRecipients,
           row_count: extracted.rowCount,
           attachment_filename: filename,

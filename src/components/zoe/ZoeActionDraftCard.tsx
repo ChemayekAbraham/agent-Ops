@@ -192,7 +192,14 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
       }
       setIsSubmitting(true);
       try {
+        const wasModified =
+          reminderTitle.trim() !== draft.title.trim() ||
+          remindAt.trim() !== draft.remind_at.trim() ||
+          (reminderNote || '').trim() !== (draft.note ?? '').trim();
+
         const res = await onConfirmReminder({
+          draft_id: draft.draft_id,
+          rebind_draft: wasModified,
           title: reminderTitle,
           remind_at: remindAt,
           note: reminderNote || null,
@@ -223,7 +230,15 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
       }
       setIsSubmitting(true);
       try {
+        const wasModified =
+          selectedNotifRecipient.email.toLowerCase() !==
+            (draft.recipient_email ?? '').toLowerCase() ||
+          notifTitle.trim() !== draft.title.trim() ||
+          notifMessage.trim() !== draft.message.trim();
+
         const res = await onConfirmNotification({
+          draft_id: draft.draft_id,
+          rebind_draft: wasModified,
           recipient_email: selectedNotifRecipient.email,
           title: notifTitle,
           message: notifMessage,
@@ -250,7 +265,25 @@ export const ZoeActionDraftCard: React.FC<ZoeActionDraftCardProps> = ({
       }
       setIsSubmitting(true);
       try {
+        const initialEmailsSorted = [...draft.recipient_emails]
+          .map((e) => e.toLowerCase())
+          .sort()
+          .join(',');
+        const currentEmailsSorted = [...selectedScheduleEmails]
+          .map((e) => e.toLowerCase())
+          .sort()
+          .join(',');
+        const wasModified =
+          scheduleTitle.trim() !== draft.title.trim() ||
+          scheduleFrequency !== draft.frequency ||
+          (scheduleFrequency === 'weekly' && scheduleDayOfWeek !== (draft.day_of_week ?? 1)) ||
+          scheduleSendTime.trim() !== draft.send_time_kampala.trim() ||
+          (scheduleMessage || '').trim() !== draft.custom_message.trim() ||
+          initialEmailsSorted !== currentEmailsSorted;
+
         const res = await onConfirmSchedule({
+          draft_id: draft.draft_id,
+          rebind_draft: wasModified,
           title: scheduleTitle,
           report_tool: draft.report_tool,
           report_rpc: draft.report_rpc,

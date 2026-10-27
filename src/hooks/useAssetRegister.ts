@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { cfoReportRetry } from './cfoReportRetry';
@@ -147,7 +148,7 @@ export function useAttachAssetEvidence() {
     mutationFn: async (args: { assetId: string; kind: 'photo' | 'evidence'; file: File }) => {
       const problem = evidenceFileProblem(args.file);
       if (problem) throw new Error(problem);
-      const path = `assets/${args.assetId}/${crypto.randomUUID()}.${EXT_BY_MIME[args.file.type]}`;
+      const path = `assets/${args.assetId}/${safeUUID()}.${EXT_BY_MIME[args.file.type]}`;
       const { error: upErr } = await supabase.storage
         .from(ASSET_EVIDENCE_BUCKET)
         .upload(path, args.file, { contentType: args.file.type, upsert: false });
