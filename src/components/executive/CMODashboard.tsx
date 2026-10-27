@@ -140,51 +140,43 @@ function CMOMarketingDashboard() {
     staleTime: 600000,
   });
 
-  // Every referrals query below joins the referred profile (!inner) and
-  // requires deleted_at IS NULL, so a soft-deleted bot/fraud account (the
-  // referral-bonus rings — see docs/HANDOVER/21, 23, 39, 42) never counts as
-  // a real referral. Without this, "Total/Completed Referrals" and
-  // "Conversion Rate" were counting ~34,300 purged bot accounts as growth.
+  // Referral figures come from SECURITY DEFINER functions: row-level security lets a CMO read only
+  // their OWN rows in `referrals`, so direct reads showed ~41 referrals instead of the real ~53,000.
+  // The functions count a referral only while the referred account is not deleted, so soft-deleted
+  // bot/fraud accounts (docs/HANDOVER/21, 23, 39, 42) never count as growth.
+  const callRpc = async <T,>(fn: string, args: Record<string, unknown>): Promise<T> => {
+    // The functions are newer than the generated database types, so call them through a narrow cast.
+    const rpc = supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }> };
+    const { data, error } = await rpc.rpc(fn, args);
+    if (error) throw error;
+    return data as T;
+  };
+
   const { data: referralStats, isLoading: loadingReferralStats } = useQuery({
-    queryKey: ['exec-referral-stats', startMonth, endMonth, rangeKey],
+    queryKey: ['exec-referral-stats', rangeKey, startMonth, endMonth],
     queryFn: async () => {
-      const rangeFilter = (q: any) =>
-        q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
-      const activeReferred = () =>
-        supabase.from('referrals')
-          .select('*, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
-          .is('referred.deleted_at', null);
-
-      const { count: totalReferrals } = await rangeFilter(activeReferred());
-
-      const { count: pendingReferrals } = await rangeFilter(activeReferred().eq('credited', false));
-
-      const { count: completedReferrals } = await rangeFilter(activeReferred().eq('credited', true));
+      const res = await callRpc<{
+        total: number; pending: number; completed: number;
+        by_month: Array<{ label: string; total: number; pending: number; completed: number }>;
+      }>('get_cmo_referral_totals', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_months: months.map((m) => ({
+          label: format(startOfMonth(m), 'MMM yyyy'),
+          s: startOfMonth(m).toISOString(),
+          e: endOfMonth(m).toISOString(),
+        })),
+      });
 
       const byMonth: Record<string, { total: number; pending: number; completed: number }> = {};
-      for (const m of months) {
-        const s = startOfMonth(m);
-        const e = endOfMonth(m);
-        const monthQ = (q: any) =>
-          q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString());
-
-        const [{ count: total }, { count: pending }, { count: completed }] = await Promise.all([
-          monthQ(activeReferred()),
-          monthQ(activeReferred().eq('credited', false)),
-          monthQ(activeReferred().eq('credited', true)),
-        ]);
-
-        byMonth[format(s, 'MMM yyyy')] = {
-          total: total || 0,
-          pending: pending || 0,
-          completed: completed || 0,
-        };
+      for (const m of res?.by_month ?? []) {
+        byMonth[m.label] = { total: m.total || 0, pending: m.pending || 0, completed: m.completed || 0 };
       }
 
       return {
-        totalReferrals: totalReferrals || 0,
-        pendingReferrals: pendingReferrals || 0,
-        completedReferrals: completedReferrals || 0,
+        totalReferrals: res?.total || 0,
+        pendingReferrals: res?.pending || 0,
+        completedReferrals: res?.completed || 0,
         byMonth,
       };
     },
@@ -350,92 +342,25 @@ function CMOMarketingDashboard() {
     },
   ];
 
-  const { data: recentReferrals, isLoading: loadingReferrals } = useQuery({
-    queryKey: ['exec-recent-referrals', rangeKey, referralStatus],
-    queryFn: async () => {
-      let q = supabase
-        .from('referrals')
-        .select('id, referred_id, referrer_id, credited, created_at, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
-        .is('referred.deleted_at', null)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (referralStatus === 'pending') q = q.eq('credited', false);
-      if (referralStatus === 'completed') q = q.eq('credited', true);
-
-      const { data: refRows } = await q;
-      if (!refRows || refRows.length === 0) return [];
-
-      const userIds = [...new Set([...refRows.map(r => r.referred_id), ...refRows.map(r => r.referrer_id)])];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', userIds);
-
-      const profileMap = new Map((profilesData || []).map(p => [p.id, p]));
-
-      return refRows.map(r => ({
-        id: r.id,
-        created_at: r.created_at,
-        credited: r.credited,
-        referred_name: profileMap.get(r.referred_id)?.full_name || profileMap.get(r.referred_id)?.phone || 'Unknown',
-        referrer_name: profileMap.get(r.referrer_id)?.full_name || profileMap.get(r.referrer_id)?.phone || 'Unknown',
-      }));
-    },
+  // Top referrers and the 200 most recent referrals share one server-side call (the old client-side
+  // aggregation was also cut short by the 1,000-row API limit, so rankings were wrong on busy ranges).
+  const { data: referralLists, isLoading: loadingReferralLists } = useQuery({
+    queryKey: ['exec-referral-lists', rangeKey, referralStatus],
+    queryFn: () =>
+      callRpc<{
+        top_referrers: Array<{ rank: number; referrer_id: string; name: string; referrals: number; pending: number; completed: number }>;
+        recent: Array<{ id: string; created_at: string; credited: boolean; referred_name: string; referrer_name: string }>;
+      }>('get_cmo_referral_lists', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_status: referralStatus,
+      }),
     staleTime: 600000,
   });
-
-  const { data: topReferrers, isLoading: loadingTopReferrers } = useQuery({
-    queryKey: ['exec-top-referrers', rangeKey, referralStatus],
-    queryFn: async () => {
-      let q = supabase
-        .from('referrals')
-        .select('referrer_id, credited, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
-        .is('referred.deleted_at', null)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-
-      if (referralStatus === 'pending') q = q.eq('credited', false);
-      if (referralStatus === 'completed') q = q.eq('credited', true);
-
-      const { data: refRows } = await q;
-      if (!refRows || refRows.length === 0) return [];
-
-      const counts: Record<string, { total: number; pending: number; completed: number }> = {};
-      refRows.forEach((r) => {
-        const c = counts[r.referrer_id] || { total: 0, pending: 0, completed: 0 };
-        c.total += 1;
-        if (r.credited) c.completed += 1;
-        else c.pending += 1;
-        counts[r.referrer_id] = c;
-      });
-
-      const sortKey = referralStatus === 'pending' ? 'pending' : referralStatus === 'completed' ? 'completed' : 'total';
-      const sorted = Object.entries(counts)
-        .sort((a, b) => b[1][sortKey as keyof typeof b[1]] - a[1][sortKey as keyof typeof a[1]])
-        .slice(0, 20);
-
-      const referrerIds = sorted.map(([id]) => id);
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', referrerIds);
-
-      const profileMap = new Map((profilesData || []).map((p) => [p.id, p]));
-
-      return sorted.map(([id, c], idx) => ({
-        rank: idx + 1,
-        referrer_id: id,
-        name: profileMap.get(id)?.full_name || profileMap.get(id)?.phone || 'Unknown',
-        referrals: c.total,
-        pending: c.pending,
-        completed: c.completed,
-      }));
-    },
-    staleTime: 600000,
-  });
+  const recentReferrals = referralLists?.recent;
+  const topReferrers = referralLists?.top_referrers;
+  const loadingReferrals = loadingReferralLists;
+  const loadingTopReferrers = loadingReferralLists;
 
   const statusOptions: { label: string; value: ReferralStatus }[] = [
     { label: 'All', value: 'all' },
@@ -499,7 +424,8 @@ function CMOMarketingDashboard() {
               <Button
                 key={opt.value}
                 size="sm"
-                variant={datePreset === opt.value ? 'secondary' : 'outline'}
+                variant={datePreset === opt.value ? 'default' : 'outline'}
+                aria-pressed={datePreset === opt.value}
                 onClick={() => setDatePreset(opt.value)}
                 className="text-xs"
               >
@@ -572,6 +498,7 @@ function CMOMarketingDashboard() {
                   key={opt.value}
                   size="sm"
                   variant={referralStatus === opt.value ? 'default' : 'outline'}
+                  aria-pressed={referralStatus === opt.value}
                   onClick={() => setReferralStatus(opt.value)}
                   className="text-xs"
                 >
@@ -588,6 +515,7 @@ function CMOMarketingDashboard() {
                   key={opt.value}
                   size="sm"
                   variant={signupSource === opt.value ? 'default' : 'outline'}
+                  aria-pressed={signupSource === opt.value}
                   onClick={() => setSignupSource(opt.value)}
                   className="text-xs"
                 >
