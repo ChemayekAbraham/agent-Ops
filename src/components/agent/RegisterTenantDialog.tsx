@@ -1,3 +1,4 @@
+import { handleAgentNotVetted } from '@/components/agent/vetting/AgentNotVettedDialog';
 import { useState } from 'react';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import {
@@ -432,6 +433,11 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
         }
         setConsentErrorMessage(typeof parsedBody.error === 'string' ? parsedBody.error : null);
         setConsentModalOpen(true);
+        return;
+      }
+
+      if (parsedBody && handleAgentNotVetted(parsedBody)) {
+        setConsentModalOpen(false);
         return;
       }
 
