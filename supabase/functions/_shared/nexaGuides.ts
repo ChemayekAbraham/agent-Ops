@@ -88,9 +88,9 @@ export const AGENT_COLLECTIONS_PLAYBOOK_RULES = 'Welile Entebbe collections play
 
 export function isAgentCollectionsCoachingQuery(text: string): boolean {
   const t = text.toLowerCase();
-  if (/(top[- ]?up).*70\s*%|70\s*%.*(top[- ]?up|repay)/.test(t)) return true;
-  const coach = /(how (?:can|do|should) (?:i|we)|how to|what (?:should|can) i do|tips?|advice|ways? to|help me|improve|increase|boost|get)/.test(t);
-  const topic = /(collections?|collect(?:ing)?|repayments?|repay(?:ing)?|tenants? (?:to )?pay|pay on time|late (?:tenants?|payers?|payments?)|delayed? (?:tenants?|payments?)|defaulting|defaulters?|not paying|arrears)/.test(t);
+  if (/\b(top[- ]?up)\b.*\b70\s*%|\b70\s*%.*\b(top[- ]?up|repay)/.test(t)) return true;
+  const coach = /\b(how (?:can|do|should) (?:i|we)|how to|what (?:should|can) i do|tips?|advice|ways? to|help me|improve|increase|boost|get)\b/.test(t);
+  const topic = /\b(collections?|collect(?:ing)?|repayments?|repay(?:ing)?|tenants? (?:to )?pay|pay on time|late (?:tenants?|payers?|payments?)|delayed? (?:tenants?|payments?)|defaulting|defaulters?|not paying|arrears)\b/.test(t);
   return coach && topic;
 }
 
