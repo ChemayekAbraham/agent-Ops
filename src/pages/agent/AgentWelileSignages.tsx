@@ -34,7 +34,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import UgLocationPicker, { type UgLocationSelection } from '@/components/location/UgLocationPicker';
+import UgLocationPicker from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { hapticTap, hapticSuccess, hapticError } from '@/lib/haptics';
 import {
   SIGNAGE_RATES,
