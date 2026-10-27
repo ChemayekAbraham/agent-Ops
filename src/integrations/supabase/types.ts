@@ -70318,6 +70318,7 @@ export type Database = {
         Args: { p_email: string }
         Returns: boolean
       }
+      agent_vetting_parent_id_link_state: { Args: never; Returns: Json }
       agent_vetting_queue: {
         Args: {
           p_in_scope_only?: boolean
@@ -70328,6 +70329,7 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_vetting_request_parent_id_link: { Args: never; Returns: Json }
       agent_vetting_save_details: {
         Args: {
           p_id_source?: string
