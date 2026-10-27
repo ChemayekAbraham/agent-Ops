@@ -10,7 +10,7 @@ import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPi
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { kampalaLabel, kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
-  RATE_BASIS_LABEL, RATE_MAX_PERCENT, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
+  RATE_BASIS_LABEL, RATE_MAX_BY_BASIS, RATE_MAX_PERCENT, SPECIAL_ADVANCE_FREQUENCIES, SPECIAL_ADVANCE_RATE_PRESETS, SPECIAL_ADVANCE_TERMS,
   TERM_MAX_DAYS, TERM_MIN_DAYS, previewSpecialAdvance, rateLabel, type RateBasis, type SpecialAdvanceFrequency,
 } from '@/lib/specialAdvancePreview';
 import { cn } from '@/lib/utils';
@@ -76,7 +76,10 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   const preset = SPECIAL_ADVANCE_RATE_PRESETS.find((p) => p.id === ratePreset);
   const isCustomRate = ratePreset === CUSTOM;
   const customRateNum = Number(customRate);
-  const customRateValid = customRate.trim() !== '' && Number.isFinite(customRateNum) && customRateNum >= 0 && customRateNum <= RATE_MAX_PERCENT;
+  // Same limits as the server (_special_advance_term_errors): > 0, at most 1% per day or 28% per month, 2 decimals.
+  const customRateMax = customBasis ? RATE_MAX_BY_BASIS[customBasis] : RATE_MAX_PERCENT;
+  const customRateValid = customRate.trim() !== '' && Number.isFinite(customRateNum) && customRateNum > 0
+    && customRateNum <= customRateMax && /^\d+(\.\d{1,2})?$/.test(customRate.trim());
   const rate: { ratePercent: number; basis: RateBasis } | null = preset
     ? { ratePercent: preset.ratePercent, basis: preset.basis }
     : isCustomRate && customBasis && customRateValid ? { ratePercent: customRateNum, basis: customBasis } : null;
@@ -342,7 +345,9 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                   </div>
                   {!customBasis && <p className="col-span-2 text-[11px] text-amber-600">Choose whether the agreed rate is per day or per month.</p>}
                   {customRate !== '' && !customRateValid && (
-                    <p className="col-span-2 text-[11px] text-destructive">Enter a rate between 0 and {RATE_MAX_PERCENT}.</p>
+                    <p className="col-span-2 text-[11px] text-destructive">
+                      Enter a rate above 0 and up to {customRateMax}%{customBasis ? ` ${RATE_BASIS_LABEL[customBasis]}` : ''} (at most 2 decimals).
+                    </p>
                   )}
                 </div>
               )}

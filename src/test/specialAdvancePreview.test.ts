@@ -103,7 +103,7 @@ describe('Special Advance preview — approved options (2026-10-27)', () => {
 
   it('instalment counts match installmentCount for preset and custom terms', () => {
     for (const f of SPECIAL_ADVANCE_FREQUENCIES) {
-      for (const d of [1, 7, 10, 14, 21, 30, 45, 365]) {
+      for (const d of [1, 7, 10, 14, 21, 30, 45, 90]) {
         expect(run({ frequency: f.value, termDays: d }).instalments).toBe(installmentCount(d, f.value));
       }
     }
@@ -145,5 +145,26 @@ describe('Special Advance preview — approved options (2026-10-27)', () => {
     expect(validateSpecialAdvanceInput({ ...ok, frequency: 'biweekly' as never })).toEqual(['frequency']);
     expect(validateSpecialAdvanceInput({ ...ok, issueYmd: '01/01/2026' })).toEqual(['issueDate']);
     expect(previewSpecialAdvance({ ...ok, rateBasis: undefined as never })).toBeNull();
+  });
+
+  it('enforces the CFO limits (2026-10-27): rate > 0, ≤ 1%/day or ≤ 28%/month, 2 decimals; term 1–90; principal ≥ 10,000', () => {
+    const ok = { ...base };
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 0 })).toEqual(['rate']); // 0% not permitted
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 28 })).toEqual([]);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 28.01 })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 1, rateBasis: 'daily' })).toEqual([]);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 1.01, rateBasis: 'daily' })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 12.345 })).toEqual(['rate']);
+    expect(validateSpecialAdvanceInput({ ...ok, ratePercent: 0.07 })).toEqual([]); // 0.07 × 100 is not exactly 7 in floating point
+    expect(validateSpecialAdvanceInput({ ...ok, termDays: 90 })).toEqual([]);
+    expect(validateSpecialAdvanceInput({ ...ok, termDays: 91 })).toEqual(['term']);
+    expect(validateSpecialAdvanceInput({ ...ok, principal: 10_000 })).toEqual([]);
+    expect(validateSpecialAdvanceInput({ ...ok, principal: 9_999 })).toEqual(['principal']);
+  });
+
+  it('rounds exact half shillings up, without floating-point error (matches the server)', () => {
+    expect(specialAdvanceAccessFee(10_000, 20.13, 'monthly', 5)).toBe(336); // 335.5 exactly; floats gave 335
+    expect(specialAdvanceAccessFee(10_100, 0.5, 'daily', 1)).toBe(51);      // 50.5
+    expect(specialAdvanceAccessFee(10_100, 15, 'monthly', 1)).toBe(51);     // 50.5
   });
 });

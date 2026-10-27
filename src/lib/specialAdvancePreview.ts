@@ -1,33 +1,30 @@
 /**
- * Special Advance — repayment PREVIEW only.
+ * Special Advance — repayment PREVIEW. Mirrors the authoritative server engine
+ * `_special_advance_schedule` (supabase/migrations/20261027230000_special_advances_calc_engine.sql) exactly; the
+ * server recalculates everything and never trusts these figures. Parity is tested on thousands of random agreements
+ * (src/test/specialAdvanceServerEngine.test.ts).
  *
- * Approved rate/term options (user, 2026-10-27):
+ * Approved options (CFO, 2026-10-27):
  *   - rate presets: 1% per day, 15% per month, 28% per month, or an individually agreed custom rate whose basis
- *     (per day / per month) must be chosen explicitly — never assumed;
- *   - terms: 7, 14 or 30 days, or a custom whole number of days.
+ *     (per day / per month) must be chosen explicitly — never assumed. Custom: > 0 and at most 1% per day or 28% per
+ *     month; 0% is not permitted; at most 2 decimal places;
+ *   - terms: 7, 14 or 30 days, or a custom whole number of days from 1 to 90;
+ *   - principal: whole UGX, at least 10,000;
+ *   - the term and due dates run from the PAYOUT date (`issueYmd`), not the approval date; monthly = every 30 days.
  *
- * Calculation (approved 2026-10-27 — the fee is never charged as a full month on a short term):
- *   monthly basis: access fee = round(principal × monthly rate × days / 30)   (simple pro-rata, as existing advances;
- *                  this is `calculateAccessFeeSimple`, the same formula `cfo_create_advance` /
- *                  `disburse_agent_advance_request` use)
+ * Calculation (the fee is never charged as a full month on a short term; exact integer arithmetic, half up):
+ *   monthly basis: access fee = round(principal × monthly rate × days / 30)   (simple pro-rata, as existing advances)
  *   daily basis:   access fee = round(principal × daily rate × days)          (simple, not compounded)
  *   registration fee  = 10,000 if principal ≤ 200,000, else 20,000          (unchanged, applies to Special Advances)
  *   total repayable   = principal + access fee + registration fee
  *   instalments       = max(1, ceil(term days / period days))   daily 1 · weekly 7 · monthly 30
- *   instalment amount = ceil(total / instalments)
+ *   instalment amount = ceil(total / instalments); the final instalment is whatever remains
+ *   due dates         = payout day + min(k × period days, term) (Kampala calendar)
+ *   split             = Late Fee → Access Fee → Registration Fee → Principal, assuming on-time payment (no late fee)
  *
- * Nothing here issues, approves or posts anything. Server-side validation and storage of the agreed terms, and the
- * exemption of Special Advances from the tier rate reset, are pending (see the handoff spec) — until then the server
- * remains the authority.
- *
- * Presentation-only derivations (not stored by the server, labelled "indicative" in the UI):
- *   - due dates: issue day + k × period days (Kampala calendar), the last capped at the term end;
- *   - the final instalment is whatever remains;
- *   - the per-instalment split follows the approved waterfall Late Fee → Access Fee → Registration Fee → Principal,
- *     assuming every instalment is paid in full and on time (so no late fee).
+ * Nothing here issues, approves or posts anything.
  */
 import {
-  calculateAccessFeeSimple,
   calculateRegistrationFee,
   installmentCount,
   periodDays,
@@ -57,13 +54,26 @@ export const SPECIAL_ADVANCE_RATE_PRESETS = [
 /** Approved term presets (days). A custom whole number of days is also allowed. */
 export const SPECIAL_ADVANCE_TERMS = [7, 14, 30] as const;
 
-/**
- * Preview input bounds. These only stop obviously invalid entries in the browser; the server bounds for custom
- * Special Advance terms are still to be confirmed and enforced server-side (handoff spec).
- */
-export const RATE_MAX_PERCENT = 100;
+/** Limits (CFO 2026-10-27), identical to `_special_advance_term_errors` on the server. */
+export const RATE_MAX_BY_BASIS: Record<RateBasis, number> = { daily: 1, monthly: 28 };
+/** Highest rate on any basis (input guard only; the per-basis limit above is the rule). */
+export const RATE_MAX_PERCENT = 28;
 export const TERM_MIN_DAYS = 1;
-export const TERM_MAX_DAYS = 365;
+export const TERM_MAX_DAYS = 90;
+export const PRINCIPAL_MIN = 10_000;
+/** Technical overflow bound only, not a policy limit. */
+export const PRINCIPAL_MAX = 1_000_000_000_000;
+
+/** Rate in hundredths of a percent (28% → 2800), or null when it has more than 2 decimal places. */
+function rateHundredths(ratePercent: number): number | null {
+  const h = Math.round(ratePercent * 100);
+  return Math.abs(ratePercent * 100 - h) < 1e-9 ? h : null;
+}
+
+/** round(numerator / denominator), half up, for non-negative integers, exactly (no floating point). */
+function roundDiv(numerator: bigint, denominator: bigint): number {
+  return Number((2n * numerator + denominator) / (2n * denominator));
+}
 
 export interface SpecialAdvanceInput {
   principal: number;
@@ -106,21 +116,24 @@ export type SpecialAdvanceInputError = 'principal' | 'rate' | 'rateBasis' | 'ter
 
 export function validateSpecialAdvanceInput(i: Partial<SpecialAdvanceInput>): SpecialAdvanceInputError[] {
   const errs: SpecialAdvanceInputError[] = [];
-  if (!Number.isInteger(i.principal) || (i.principal ?? 0) <= 0) errs.push('principal');
-  if (!Number.isFinite(i.ratePercent) || (i.ratePercent ?? -1) < 0 || (i.ratePercent ?? 0) > RATE_MAX_PERCENT) errs.push('rate');
+  const p = i.principal;
+  if (typeof p !== 'number' || !Number.isInteger(p) || p < PRINCIPAL_MIN || p > PRINCIPAL_MAX) errs.push('principal');
+  const r = i.ratePercent;
+  const maxRate = i.rateBasis === 'daily' ? RATE_MAX_BY_BASIS.daily : RATE_MAX_BY_BASIS.monthly;
+  if (typeof r !== 'number' || !Number.isFinite(r) || r <= 0 || r > maxRate || rateHundredths(r) === null) errs.push('rate');
   if (i.rateBasis !== 'daily' && i.rateBasis !== 'monthly') errs.push('rateBasis');
-  if (!Number.isInteger(i.termDays) || (i.termDays ?? 0) < TERM_MIN_DAYS || (i.termDays ?? 0) > TERM_MAX_DAYS) errs.push('term');
+  const d = i.termDays;
+  if (typeof d !== 'number' || !Number.isInteger(d) || d < TERM_MIN_DAYS || d > TERM_MAX_DAYS) errs.push('term');
   if (!SPECIAL_ADVANCE_FREQUENCIES.some((f) => f.value === i.frequency)) errs.push('frequency');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(i.issueYmd ?? '')) errs.push('issueDate');
   return errs;
 }
 
-/** Access fee for the agreed rate and basis (simple, prorated by days — approved 2026-10-27). */
+/** Access fee for the agreed rate and basis (simple, prorated by days, exact half-up rounding to whole UGX). */
 export function specialAdvanceAccessFee(principal: number, ratePercent: number, rateBasis: RateBasis, termDays: number): number {
-  const rate = ratePercent / 100;
-  return rateBasis === 'monthly'
-    ? calculateAccessFeeSimple(principal, termDays, rate)
-    : Math.round(principal * rate * termDays);
+  const h = rateHundredths(ratePercent) ?? Math.round(ratePercent * 100);
+  const numerator = BigInt(principal) * BigInt(h) * BigInt(termDays);
+  return roundDiv(numerator, rateBasis === 'monthly' ? 300_000n : 10_000n);
 }
 
 /** Human label for an agreed rate, e.g. "28% per month". */

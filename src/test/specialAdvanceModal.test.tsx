@@ -88,9 +88,13 @@ describe('SpecialAdvanceModal (preview only)', () => {
     expect(previewText()).toContain('Rate 20% per month');
     expect(previewText()).toContain('Term 21 days');
     for (const v of [42_000, 362_000]) expect(previewText()).toContain(formatUGX(v));
+    // 20% is within the monthly limit but far above the 1% daily limit: switching the basis refuses it
     click('special-advance-basis-daily');
-    expect(previewText()).toContain('Rate 20% per day');
-    expect(previewText()).toContain(formatUGX(1_260_000)); // 300,000 × 20% × 21
+    expect(document.getElementById('special-advance-preview')).toBeNull();
+    expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '0.5' } });
+    expect(previewText()).toContain('Rate 0.5% per day');
+    for (const v of [31_500, 351_500]) expect(previewText()).toContain(formatUGX(v)); // 300,000 × 0.5% × 21
   });
 
   it('rejects invalid custom rate and term values', () => {
@@ -101,9 +105,24 @@ describe('SpecialAdvanceModal (preview only)', () => {
     fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '150' } });
     click('special-advance-term-custom');
     fireEvent.change(screen.getByLabelText('Term (days)'), { target: { value: '400' } });
-    expect(screen.getByText(/Enter a rate between 0 and 100/)).toBeTruthy();
-    expect(screen.getByText(/Enter whole days between 1 and 365/)).toBeTruthy();
+    expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
+    expect(screen.getByText(/Enter whole days between 1 and 90/)).toBeTruthy();
     expect(document.getElementById('special-advance-preview')).toBeNull();
+  });
+
+  it('refuses 0%, more than 2 decimals and a monthly rate above 28%', () => {
+    renderModal();
+    setPrincipal('300000');
+    click('special-advance-rate-custom');
+    click('special-advance-basis-monthly');
+    click('special-advance-term-14');
+    for (const bad of ['0', '28.01', '12.345']) {
+      fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: bad } });
+      expect(screen.getByText(/Enter a rate above 0 and up to 28% per month/)).toBeTruthy();
+      expect(document.getElementById('special-advance-preview')).toBeNull();
+    }
+    fireEvent.change(screen.getByLabelText('Agreed rate (%)'), { target: { value: '28' } });
+    expect(previewText()).toContain('Rate 28% per month');
   });
 
   it('uses access-fee wording and never interest/loan terminology', () => {
