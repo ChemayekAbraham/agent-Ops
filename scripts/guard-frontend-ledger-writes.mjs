@@ -7,9 +7,8 @@
  * Every money movement MUST go through a backend edge function which calls
  * the canonical create_ledger_transaction / apply_wallet_movement RPCs.
  *
- * Two zero-balance bootstrap inserts are the only allowed exceptions —
- * they create an empty wallet row (balance: 0) for a brand-new user and
- * cannot create drift.
+ * public.wallets is a read-only view. Inserts, upserts, updates and deletes
+ * from the browser always fail and are forbidden here.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, dirname } from 'node:path';
@@ -80,12 +79,6 @@ function isUserFacing(rel) {
   return true;
 }
 
-// Allowlist: file path → reason. Bootstrapping a wallet row with balance 0 is
-// inert — it cannot create drift.
-const ALLOWED_INSERTS = new Map([
-  ['hooks/useWallet.ts', 'Bootstrap empty wallet row (balance: 0) on first load'],
-]);
-
 const WALLETS_INSERT_RE = /\.from\(\s*['"]wallets['"]\s*\)\s*\.insert\s*\(/;
 
 function* walk(dir) {
@@ -125,7 +118,7 @@ for (const file of walk(ROOT)) {
         code: line.trim(),
       });
     }
-    if (WALLETS_INSERT_RE.test(line) && !ALLOWED_INSERTS.has(rel)) {
+    if (WALLETS_INSERT_RE.test(line)) {
       violations.push({
         file: rel, line: idx + 1, label: "wallets.insert(",
         code: line.trim(),

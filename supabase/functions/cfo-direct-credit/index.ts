@@ -611,16 +611,13 @@ Deno.serve(async (req) => {
       ? `${managedProxy.agentName || "Proxy Agent"} for ${targetProfile.full_name || "partner"}`
       : targetProfile.full_name;
 
-    // Ensure wallet exists
+    // Read-only. A missing wallets view row is balance 0; the signup trigger
+    // owns wallets_physical and the view cannot be inserted into.
     const { data: existingWallet } = await adminClient
       .from("wallets")
       .select("id, balance, withdrawable_balance, float_balance")
       .eq("user_id", walletUserId)
-      .single();
-
-    if (!existingWallet) {
-      await adminClient.from("wallets").insert({ user_id: walletUserId, balance: 0 });
-    }
+      .maybeSingle();
 
     // CFO has authority to debit regardless of balance (corrections, clawbacks)
     // Log a warning if balance is insufficient for audit trail
