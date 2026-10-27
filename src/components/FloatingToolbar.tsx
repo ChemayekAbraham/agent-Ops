@@ -96,7 +96,7 @@ export default function FloatingToolbar() {
         </>
       )}
 
-      <AgentAssistant hideLauncher={modalOpen && !document.querySelector('.assistant-chat[data-state="open"]')} />
+      <AgentAssistant hideLauncher={!isDashboardRoute || (modalOpen && !document.querySelector('.assistant-chat[data-state="open"]'))} />
     </>
   );
 }
