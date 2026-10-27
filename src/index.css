@@ -1876,3 +1876,9 @@ html.reduce-motion *::after {
   .assistant-chat > div:has(> div > button > h2) > button[data-state] { width: 32px; min-width: 32px; padding: 0; }
   .assistant-chat > div:has(> div > button > h2) h2 { font-size: 14px; }
 }
+
+/* Agent verification map pins (semantic tokens) */
+.vetting-pin { stroke-width: 2; fill-opacity: 0.85; }
+.vetting-pin-primary { stroke: hsl(var(--background)); fill: hsl(var(--primary)); }
+.vetting-pin-accent { stroke: hsl(var(--background)); fill: hsl(var(--destructive)); }
+.vetting-pin-muted { stroke: hsl(var(--background)); fill: hsl(var(--muted-foreground)); }

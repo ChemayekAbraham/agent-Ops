@@ -1,3 +1,4 @@
+import { handleAgentNotVetted } from '@/components/agent/vetting/AgentNotVettedDialog';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
@@ -3135,6 +3136,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
             ? `${msg}\n\nServer response:\n${JSON.stringify(error.response.data, null, 2)}`
             : msg
       );
+      if (handleAgentNotVetted(error)) {
+        setSubmissionError(msg.replace(/^.*AGENT_NOT_VETTED:\s*/s, ''));
+        return;
+      }
       const capacityMsg = humanizeCapacityError(msg);
       // Server-side guard (DB trigger) rejected the request because the
       // landlord isn't registered. Surface a clear, actionable inline error
