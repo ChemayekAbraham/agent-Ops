@@ -34,6 +34,7 @@
     "src"
   ],
   "exclude": [
-    "src/lib/zoe/__tests__/zoeEmailDraftAndSend.test.ts"
+    "src/lib/zoe/__tests__/zoeEmailDraftAndSend.test.ts",
+    "src/lib/zoe/__tests__/zoeRealHandler.test.ts"
   ]
 }
