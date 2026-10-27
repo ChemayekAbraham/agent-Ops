@@ -68666,6 +68666,13 @@ export type Database = {
         }
         Returns: string
       }
+      _credit_limit_subagent_counts: {
+        Args: { p_user_id: string }
+        Returns: {
+          active_subagents: number
+          registered_subagents: number
+        }[]
+      }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
       _dormant_bike_leases: {
@@ -78712,6 +78719,10 @@ export type Database = {
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_performance_rows: {
         Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_referral_performance_summary: {
+        Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
@@ -89561,6 +89572,19 @@ export type Database = {
           float_balance: number
           pending_holds: number
           total_visible: number
+          withdrawable: number
+        }[]
+      }
+      user_wallet_strict_for: {
+        Args: { p_user_id: string }
+        Returns: {
+          advance_balance: number
+          float_balance: number
+          float_balance_signed: number
+          pending_holds: number
+          restricted_held: number
+          total_visible: number
+          user_id: string
           withdrawable: number
         }[]
       }
