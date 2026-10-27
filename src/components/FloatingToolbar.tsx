@@ -36,6 +36,9 @@ export default function FloatingToolbar() {
 
   const shouldHide = modalOpen || isSettingsOrWithdraw;
 
+  // The Welile Assistant launcher is only for dashboard workspaces.
+  const isDashboardRoute = location.pathname.startsWith('/dashboard');
+
   return (
     <>
       {!shouldHide && (
