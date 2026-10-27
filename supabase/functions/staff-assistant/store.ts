@@ -36,6 +36,8 @@ export interface StaffAssistantConfig {
   enabled: boolean;
   maxQuestionsPerDay: number;
   maxEmailsPerDay: number;
+  maxModelRounds: number;
+  maxToolCalls: number;
   historyDays: number;
 }
 
@@ -105,7 +107,9 @@ export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> 
   const db = admin();
   const { data } = await db
     .from("staff_assistant_config")
-    .select("enabled, max_questions_per_day, max_emails_per_day, history_days")
+    .select(
+      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days",
+    )
     .eq("id", true)
     .maybeSingle();
 
@@ -113,12 +117,20 @@ export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> 
     enabled: data?.enabled ?? true,
     maxQuestionsPerDay: data?.max_questions_per_day ?? DEFAULT_MAX_QUESTIONS_PER_DAY,
     maxEmailsPerDay: data?.max_emails_per_day ?? 30,
+    maxModelRounds: data?.max_model_rounds ?? 4,
+    maxToolCalls: data?.max_tool_calls ?? 6,
     historyDays: data?.history_days ?? 90,
   };
 }
 
 export type BudgetCheckResult =
-  | { allowed: true; remainingToday: number; maxQuestionsPerDay: number }
+  | {
+      allowed: true;
+      remainingToday: number;
+      maxQuestionsPerDay: number;
+      maxModelRounds: number;
+      maxToolCalls: number;
+    }
   | { allowed: false; reason: "burst" | "daily_budget"; maxQuestionsPerDay: number };
 
 /**
@@ -126,9 +138,39 @@ export type BudgetCheckResult =
  *  1. Burst rate limit (max 10 messages per minute per staff member).
  *  2. Daily question budget (`max_questions_per_day` from `staff_assistant_config`,
  *     counted across the current Africa/Kampala day).
+ * Uses `staff_assistant_check_question_rate_limit` (transaction advisory lock) first so
+ * parallel requests cannot race the counter, with a fallback to direct queries.
  */
 export async function checkQuestionBudget(userId: string): Promise<BudgetCheckResult> {
   const db = admin();
+  const { data: atomicRes, error: atomicErr } = await db.rpc(
+    "staff_assistant_check_question_rate_limit",
+    { p_user_id: userId },
+  );
+
+  if (!atomicErr && atomicRes && typeof atomicRes === "object") {
+    const r = atomicRes as Record<string, unknown>;
+    const limitToday =
+      typeof r.limit_today === "number" ? r.limit_today : DEFAULT_MAX_QUESTIONS_PER_DAY;
+    const usedToday = typeof r.used_today === "number" ? r.used_today : 0;
+    const maxModelRounds = typeof r.max_model_rounds === "number" ? r.max_model_rounds : 4;
+    const maxToolCalls = typeof r.max_tool_calls === "number" ? r.max_tool_calls : 6;
+    if (r.allowed === false) {
+      return {
+        allowed: false,
+        reason: r.reason === "rate_limited" ? "burst" : "daily_budget",
+        maxQuestionsPerDay: limitToday,
+      };
+    }
+    return {
+      allowed: true,
+      remainingToday: Math.max(limitToday - usedToday - 1, 0),
+      maxQuestionsPerDay: limitToday,
+      maxModelRounds,
+      maxToolCalls,
+    };
+  }
+
   const cfg = await loadStaffAssistantConfig();
 
   const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
@@ -160,6 +202,8 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
     allowed: true,
     remainingToday: Math.max(cfg.maxQuestionsPerDay - usedToday - 1, 0),
     maxQuestionsPerDay: cfg.maxQuestionsPerDay,
+    maxModelRounds: cfg.maxModelRounds,
+    maxToolCalls: cfg.maxToolCalls,
   };
 }
 
@@ -207,6 +251,7 @@ export async function loadRecentTurns(userId: string, conversationId: string): P
     .select("role, content")
     .eq("conversation_id", conversationId)
     .eq("user_id", userId)
+    .eq("hidden_by_user", false)
     .order("created_at", { ascending: false })
     .limit(RECENT_HISTORY_MESSAGES);
 
@@ -226,6 +271,7 @@ export async function loadLatestReportPayload(
     .eq("conversation_id", conversationId)
     .eq("user_id", userId)
     .eq("role", "assistant")
+    .eq("hidden_by_user", false)
     .not("report_payload", "is", null)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -367,6 +413,7 @@ export async function loadConversationHistory(
     role: string;
     content: string;
     outcome: string | null;
+    tools_called?: string[];
     source_label: string | null;
     period_label: string | null;
     report_payload: Record<string, unknown> | null;
@@ -382,6 +429,7 @@ export async function loadConversationHistory(
       .select("id")
       .eq("user_id", userId)
       .eq("status", "open")
+      .eq("hidden_by_user", false)
       .order("last_active_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -392,9 +440,12 @@ export async function loadConversationHistory(
 
   const { data: rows } = await db
     .from("staff_assistant_messages")
-    .select("id, role, content, outcome, source_label, period_label, report_payload, created_at")
+    .select(
+      "id, role, content, outcome, tools_called, source_label, period_label, report_payload, created_at",
+    )
     .eq("conversation_id", targetId)
     .eq("user_id", userId)
+    .eq("hidden_by_user", false)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 50));
 
@@ -404,15 +455,39 @@ export async function loadConversationHistory(
   };
 }
 
+/**
+ * Soft-hides the user's conversation history (`hidden_by_user = true`) rather than deleting rows,
+ * preserving the 90-day server audit trail for CRM review.
+ */
 export async function clearUserHistory(userId: string, conversationId?: string): Promise<void> {
   const db = admin();
+  const nowIso = new Date().toISOString();
+
+  await db.rpc("staff_assistant_hide_my_history", {
+    p_user_id: userId,
+    p_conversation_id: conversationId ?? null,
+  });
+
   if (conversationId) {
     await db
+      .from("staff_assistant_messages")
+      .update({ hidden_by_user: true, hidden_at: nowIso })
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId);
+    await db
       .from("staff_assistant_conversations")
-      .delete()
+      .update({ hidden_by_user: true, hidden_at: nowIso })
       .eq("id", conversationId)
       .eq("user_id", userId);
     return;
   }
-  await db.from("staff_assistant_conversations").delete().eq("user_id", userId);
+
+  await db
+    .from("staff_assistant_messages")
+    .update({ hidden_by_user: true, hidden_at: nowIso })
+    .eq("user_id", userId);
+  await db
+    .from("staff_assistant_conversations")
+    .update({ hidden_by_user: true, hidden_at: nowIso })
+    .eq("user_id", userId);
 }

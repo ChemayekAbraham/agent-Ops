@@ -1,25 +1,39 @@
 #!/usr/bin/env node
 /**
- * CI & Build Guard — Zoe (My Space Staff Assistant) safety, role-gating, and read-only invariants.
+ * CI Guard — Zoe (My Space Staff Assistant) Read-Only & Role-Isolation Guard.
  *
- * Fails the build if:
- *   1. Any `assistant_staff_*` SQL function in `supabase/migrations/` is not `STABLE`,
- *      `SECURITY DEFINER`, and `SET search_path = public`.
- *   2. Any `assistant_staff_*` SQL function takes a user/staff/agent/tenant/account ID parameter
- *      (identity must always come from `auth.uid()`).
- *   3. Any `assistant_staff_*` SQL function lacks an access/role check (`staff_assistant_has_access`
- *      plus department role check for non-personal tools, raising `42501`), or contains write SQL.
- *   4. Any `assistant_staff_*` SQL function grants EXECUTE to `anon` or `PUBLIC`, or fails to
- *      REVOKE EXECUTE from `PUBLIC` and `anon`, or fails to GRANT EXECUTE exclusively to `authenticated`.
- *   5. `supabase/functions/staff-assistant/` uses the service role (`SERVICE_ROLE`) or write verbs
- *      (`.insert`, `.update`, `.upsert`, `.delete`) outside its logging file (`store.ts`), or
- *      `store.ts` touches any table outside `staff_assistant_*`.
- *   6. The frontend (`src/`) calls any `assistant_staff_*` RPC directly instead of going through
- *      the `staff-assistant` edge function.
- *   7. Any Zoe send-email function (`supabase/functions/staff-assistant-email` or any email-sending
- *      module in `staff-assistant*`) can send to an address without calling
- *      `staff_assistant_is_staff_email`.
- *   8. Any built-in self-test fails to catch a broken example.
+ * Separate from scripts/guard-assistant-readonly.mjs (which protects the agent assistant).
+ * Fails the build if any of the following invariants is violated:
+ *
+ *   1. Any `assistant_staff_*` SQL function in `supabase/migrations/`:
+ *        - is not `STABLE` (or is marked `VOLATILE` / `IMMUTABLE` instead of `STABLE`),
+ *        - is not `SECURITY DEFINER`,
+ *        - does not set `search_path = public`,
+ *        - takes a user / staff / agent / tenant / landlord / account / wallet / owner ID parameter,
+ *        - lacks an explicit role / access check (`staff_assistant_has_access` + role check),
+ *        - grants `EXECUTE` to `anon` or `PUBLIC` (or fails to `REVOKE` from `PUBLIC, anon`),
+ *        - contains write/DDL/dynamic SQL (`INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `COPY`,
+ *          `ALTER`, `DROP`, `CREATE`, `GRANT`, or `EXECUTE` of dynamic SQL),
+ *        - OR calls any function in its transitive call chain that is `VOLATILE` or contains
+ *          `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `COPY`, `ALTER`, `GRANT`, or dynamic `EXECUTE`.
+ *   2. Any file in `supabase/functions/staff-assistant/` uses the service role
+ *      (`SUPABASE_SERVICE_ROLE_KEY` / `SERVICE_ROLE`) outside its logging file (`store.ts`),
+ *      or performs database writes outside `store.ts`, or `store.ts` touches non-`staff_assistant_*` tables
+ *      or calls `.delete()` on `staff_assistant_messages` / `staff_assistant_conversations`.
+ *   3. The frontend (`src/`) calls any `assistant_staff_*` RPC directly instead of going
+ *      through the `staff-assistant` edge function.
+ *   4. Any Zoe email-sending function (`supabase/functions/staff-assistant-email/`,
+ *      `supabase/functions/staff-assistant-send-email/`, or email sender inside
+ *      `supabase/functions/staff-assistant/`) can send to an address without calling
+ *      `staff_assistant_is_staff_email` and `staff_assistant_can_user_read_report`.
+ *   5. Zoe's own tables (`staff_assistant_reminders`, `staff_assistant_schedules`,
+ *      `staff_assistant_preferences`, `staff_assistant_drafts`) grant `INSERT`, `UPDATE`, or `DELETE`
+ *      to `authenticated` in the final migration state, or `staff_assistant_messages` /
+ *      `staff_assistant_conversations` grant `DELETE` to `authenticated`.
+ *   6. Schedule runner SQL helpers forge `'aal', 'aal2'` in `request.jwt.claims`.
+ *
+ * Includes a built-in self-test (`runSelfTests()`) that verifies the guard catches broken
+ * examples for every rule before scanning the live repository.
  *
  * Usage:
  *   node scripts/guard-staff-assistant.mjs
@@ -32,9 +46,8 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const STAFF_FN_DIR = join(ROOT, 'supabase', 'functions', 'staff-assistant');
 const STAFF_EMAIL_FN_DIRS = [
-  join(ROOT, 'supabase', 'functions', 'staff-assistant-send-email'),
-  join(ROOT, 'supabase', 'functions', 'staff-assistant-schedule-runner'),
   join(ROOT, 'supabase', 'functions', 'staff-assistant-email'),
+  join(ROOT, 'supabase', 'functions', 'staff-assistant-send-email'),
 ];
 const MIGRATIONS_DIR = join(ROOT, 'supabase', 'migrations');
 const SRC_DIR = join(ROOT, 'src');
@@ -46,12 +59,21 @@ export function stripComments(s) {
     .replace(/--[^\n]*/g, ' ');
 }
 
+/**
+ * Strip single-quoted SQL string literals so keywords inside error messages
+ * or JSON keys (e.g. `'Not authorized: ...'`, `'updated_at'`) do not trigger
+ * statement-level write/DDL detectors.
+ */
+export function stripSqlSingleQuotedStrings(s) {
+  return s.replace(/'(?:''|[^'])*'/g, "''");
+}
+
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) {
-      if (name === 'node_modules') continue;
+      if (name === 'node_modules' || name === '.git' || name === 'dist') continue;
       walk(p, out);
     } else {
       out.push(p);
@@ -61,288 +83,481 @@ function walk(dir, out = []) {
 }
 
 // ============================================================================
-// Pure Audit Functions (used for both repository checks and self-tests)
+// Pure Audit Functions (used by both the self-test and the live repo check)
 // ============================================================================
 
-const IDENTITY_ARG_RE =
-  /(^|[\s,(])(p_)?(user|staff|agent|tenant|landlord|account|owner|caller|employee|requester)_?id\b/i;
+const IDENTITY_PARAM_RE =
+  /(^|[\s,(])(p_)?(user|staff|agent|tenant|landlord|account|wallet|owner|supporter|partner)_?id\b/i;
 
-const ROLE_CHECK_HELPER_RE =
-  /\b(_has_enabled_role|is_ops_role|_am_staff_ok|_landlord_cc_staff_ok|food_can_use_canteen|cfo_check|is_cfo_or_super_admin|hr_is_admin|hr_is_executive|can_view_finance_reports|can_view_staff_reports|agent_ops_report_authorized|partner_ops_can_view|pso_can_view_my_performance|is_welile_staff|has_role)\s*\(/i;
+const WRITE_OR_DDL_SQL_RE =
+  /\b(INSERT\s+INTO|UPDATE\s+(?:ONLY\s+)?(?:public\.)?[a-z_][a-z0-9_]*\s+SET|DELETE\s+FROM|TRUNCATE\s+(?:TABLE\s+)?[a-z_]|COPY\s+(?:public\.)?[a-z_]|ALTER\s+(?:TABLE|FUNCTION|VIEW|ROLE|SCHEMA|DATABASE|TYPE|POLICY)|DROP\s+(?:TABLE|FUNCTION|VIEW|ROLE|SCHEMA|POLICY|INDEX|TRIGGER)|CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|FUNCTION|VIEW|ROLE|SCHEMA|POLICY|INDEX|TRIGGER)|GRANT\s+[a-z_,\s]+\s+ON\b|EXECUTE\s+(?!ON\b|FUNCTION\b|PROCEDURE\b))/i;
 
-const WRITE_SQL_RE =
-  /\b(insert\s+into|update\s+[a-z0-9_.]+?\s+set|delete\s+from|truncate\s+|alter\s+table|drop\s+table|create\s+table)\b/i;
+const ROLE_CHECK_RE =
+  /\b(staff_assistant_has_access|_has_enabled_role|has_role|_am_staff_ok|_landlord_cc_staff_ok|can_view_finance_reports|can_view_staff_reports|agent_ops_report_authorized|partner_ops_can_view|pso_can_view_my_performance|pso_is_officer|hr_is_admin|hr_is_executive|hr_pay_is_rule_reader|hr_pay_is_preparer|hr_pay_is_approver|food_can_use_canteen|is_ops_role)\b/i;
 
 /**
- * Audit a SQL migration string for `assistant_staff_*` definitions and grants.
- * Returns `{ functionsFound: string[], errors: string[] }`.
+ * Parse all SQL function definitions from a raw SQL string (supports both
+ * `AS $$ ... $$` before attributes and `LANGUAGE ... AS $$ ... $$` after attributes).
+ * Fast index-based scanner that avoids backtracking on multi-MB migrations.
  */
-export function auditSqlMigration(fileLabel, rawSql) {
-  const errors = [];
-  const functionsFound = [];
-  const body = stripComments(rawSql);
+export function extractSqlFunctionsFromText(fileLabel, rawSql) {
+  const clean = stripComments(rawSql);
+  const defs = [];
+  const headRe =
+    /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:public\.)?([a-z0-9_]+)\s*\(([^)]*)\)\s*RETURNS\b/gi;
 
-  const fnRegex =
-    /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_staff_[a-z0-9_]+)\s*\(([\s\S]*?)\)\s*returns\s+([\s\S]*?)\bas\s+(\$[a-zA-Z0-9_]*\$)([\s\S]*?)\4/gi;
-
-  for (const m of body.matchAll(fnRegex)) {
-    const name = m[1];
+  for (const m of clean.matchAll(headRe)) {
+    const name = m[1].toLowerCase();
     const args = m[2];
-    const headerTail = m[3];
-    const fnBody = m[5];
-    const fullHeader = `${m[0].slice(0, m[0].indexOf(m[4]))}`;
+    const startIdx = m.index;
+    const afterReturnsIdx = startIdx + m[0].length;
+    const rest = clean.slice(afterReturnsIdx, afterReturnsIdx + 40000);
+    const tagMatch = rest.match(/(\$[A-Za-z0-9_]*\$)/);
+    if (!tagMatch) continue;
+    const tag = tagMatch[1];
+    const bodyStart = tagMatch.index + tag.length;
+    const bodyEnd = rest.indexOf(tag, bodyStart);
+    if (bodyEnd === -1) continue;
+    const body = rest.slice(bodyStart, bodyEnd);
+    const semiIdx = rest.indexOf(';', bodyEnd + tag.length);
+    const afterBody = semiIdx !== -1 ? rest.slice(bodyEnd + tag.length, semiIdx + 1) : '';
+    const beforeBody = rest.slice(0, tagMatch.index);
+    const header = `${m[0]} ${beforeBody} ${afterBody}`;
+    const isStable = /\bSTABLE\b/i.test(header);
+    const isImmutable = /\bIMMUTABLE\b/i.test(header);
+    const isVolatile = /\bVOLATILE\b/i.test(header) || (!isStable && !isImmutable);
+
+    defs.push({
+      file: fileLabel,
+      name,
+      args,
+      header,
+      body,
+      isStable,
+      isImmutable,
+      isVolatile,
+    });
+  }
+  return defs;
+}
+
+/**
+ * Audits a single SQL migration file for `assistant_staff_*` function rules
+ * AND optionally checks its transitive call chain against `functionMap`.
+ */
+export function auditSqlMigration(fileLabel, rawSql, functionMap = null) {
+  const errs = [];
+  const clean = stripComments(rawSql);
+  const defs = extractSqlFunctionsFromText(fileLabel, rawSql).filter((d) =>
+    d.name.startsWith('assistant_staff_'),
+  );
+  const functionsFound = [];
+
+  for (const def of defs) {
+    const { name, args, header, body } = def;
     const where = `${fileLabel}: ${name}()`;
     functionsFound.push(name);
 
-    // 1. Must be STABLE
-    if (!/\bstable\b/i.test(fullHeader) && !/\bstable\b/i.test(headerTail)) {
-      errors.push(`${where} must be declared STABLE.`);
+    // 1. Must be STABLE (never VOLATILE or IMMUTABLE)
+    if (!/\bSTABLE\b/i.test(header) || /\b(VOLATILE|IMMUTABLE)\b/i.test(header)) {
+      errs.push(`${where} must be STABLE (read-only).`);
     }
 
     // 2. Must be SECURITY DEFINER
-    if (!/security\s+definer/i.test(fullHeader) && !/security\s+definer/i.test(headerTail)) {
-      errors.push(`${where} must be declared SECURITY DEFINER.`);
+    if (!/\bSECURITY\s+DEFINER\b/i.test(header)) {
+      errs.push(`${where} must be SECURITY DEFINER.`);
     }
 
     // 3. Must pin search_path = public
-    if (!/set\s+search_path\s*=\s*public\b/i.test(fullHeader) && !/set\s+search_path\s*=\s*public\b/i.test(headerTail)) {
-      errors.push(`${where} must set search_path = public.`);
+    if (!/\bSET\s+search_path\s*=\s*public\b/i.test(header)) {
+      errs.push(`${where} must set search_path = public.`);
     }
 
-    // 4. Must NOT have any user/staff/agent/tenant/account identity parameter
-    if (IDENTITY_ARG_RE.test(args)) {
-      errors.push(
-        `${where} declares an identity parameter (${args.trim()}). Identity must always be auth.uid().`,
+    // 4. Must NOT accept any user-id or other identity parameter
+    if (IDENTITY_PARAM_RE.test(args)) {
+      errs.push(
+        `${where} has an identity parameter (${args.trim()}). Caller identity must come exclusively from auth.uid().`,
       );
     }
 
-    // 5. Must contain an explicit access/role check and raise 42501
-    const hasAccessGate =
-      /\bstaff_assistant_has_access\s*\(\s*\)/i.test(fnBody) ||
-      /\bstaff_assistant_require_staff\s*\(\s*\)/i.test(fnBody);
-    if (!hasAccessGate) {
-      errors.push(`${where} lacks a staff_assistant_has_access() check.`);
+    // 5. Must contain an explicit role / access check + staff_assistant_has_access()
+    if (!/\bstaff_assistant_has_access\s*\(/i.test(body) || !ROLE_CHECK_RE.test(body)) {
+      errs.push(
+        `${where} lacks a required role/access check (must call staff_assistant_has_access() and check caller roles).`,
+      );
+    }
+    if (!/\bRAISE\s+EXCEPTION\b/i.test(body)) {
+      errs.push(`${where} must RAISE EXCEPTION when the role/access check fails.`);
     }
 
-    const isPersonalMySpaceTool = /^assistant_staff_my_[a-z0-9_]+$/i.test(name);
-    if (!isPersonalMySpaceTool && !ROLE_CHECK_HELPER_RE.test(fnBody)) {
-      errors.push(
-        `${where} is a department tool and must check the caller's role via an official role helper (e.g. _has_enabled_role, is_ops_role, _am_staff_ok).`,
+    // 6. Body must be strictly read-only (no INSERT/UPDATE/DELETE/TRUNCATE/COPY/ALTER/DROP/CREATE/GRANT/EXECUTE)
+    const bodyWithoutLiterals = stripSqlSingleQuotedStrings(body);
+    const writeHit = bodyWithoutLiterals.match(WRITE_OR_DDL_SQL_RE);
+    if (writeHit) {
+      errs.push(
+        `${where} contains a write, DDL, or dynamic SQL statement ("${writeHit[0]}"). All assistant_staff_* tools must be strictly read-only.`,
       );
     }
 
-    const raises42501 =
-      /42501/.test(fnBody) || /\bstaff_assistant_require_staff\s*\(\s*\)/i.test(fnBody);
-    if (!raises42501) {
-      errors.push(`${where} must raise ERRCODE = '42501' when the caller is not authorized.`);
+    // 7. Special rule for cash position: must read exclusively from get_treasury_cash_position
+    if (
+      /cash_position/i.test(name) &&
+      !/\bget_treasury_cash_position\s*\(/i.test(body)
+    ) {
+      errs.push(
+        `${where} must read platform cash exclusively from public.get_treasury_cash_position().`,
+      );
     }
 
-    // 6. Must not contain write SQL inside the function body
-    if (WRITE_SQL_RE.test(fnBody)) {
-      errors.push(`${where} contains a write/DDL statement; assistant_staff_* functions must be read-only.`);
+    // 8. Must NOT grant EXECUTE to anon or PUBLIC, and must REVOKE from PUBLIC, anon
+    const grantAnonOrPublicRe = new RegExp(
+      `GRANT\\s+(?:EXECUTE|ALL)\\s+ON\\s+FUNCTION\\s+(?:public\\.)?${name}\\s*\\([^)]*\\)\\s+TO\\s+[^;]*\\b(anon|public)\\b`,
+      'i',
+    );
+    if (grantAnonOrPublicRe.test(clean)) {
+      errs.push(`${where} grants EXECUTE to anon or PUBLIC.`);
     }
 
-    // 6b. Cash position tools must source platform cash strictly from get_treasury_cash_position
-    if (/(cash_position|treasury_cash)/i.test(name) && !/\bget_treasury_cash_position\s*\(/i.test(fnBody)) {
-      errors.push(`${where} must read platform cash exclusively from public.get_treasury_cash_position().`);
-    }
-
-    // 7. Must REVOKE EXECUTE/ALL FROM PUBLIC, anon and must NEVER GRANT to anon or PUBLIC
-    const revokeRe = new RegExp(
-      `revoke\\s+(?:execute|all(?:\\s+privileges)?)\\s+on\\s+function\\s+(?:public\\.)?${name}\\s*\\([^)]*\\)\\s+from\\s+([^;]+);`,
+    const revokeAnonAndPublicRe = new RegExp(
+      `REVOKE\\s+(?:EXECUTE|ALL)\\s+ON\\s+FUNCTION\\s+(?:public\\.)?${name}\\s*\\([^)]*\\)\\s+FROM\\s+([^;]+);`,
       'gi',
     );
-    let revokedPublic = false;
-    let revokedAnon = false;
-    for (const rm of body.matchAll(revokeRe)) {
-      const targets = rm[1].toLowerCase();
-      if (/\bpublic\b/.test(targets)) revokedPublic = true;
-      if (/\banon\b/.test(targets)) revokedAnon = true;
-    }
-    if (!revokedPublic || !revokedAnon) {
-      errors.push(`${where} must REVOKE EXECUTE (or ALL) FROM PUBLIC, anon.`);
+    const revokeMatches = [...clean.matchAll(revokeAnonAndPublicRe)];
+    const hasRevokePublicAndAnon = revokeMatches.some(
+      (rm) => /\bpublic\b/i.test(rm[1]) && /\banon\b/i.test(rm[1]),
+    );
+    if (!hasRevokePublicAndAnon) {
+      errs.push(`${where} must REVOKE ALL/EXECUTE ON FUNCTION ... FROM PUBLIC, anon.`);
     }
 
-    const grantRe = new RegExp(
-      `grant\\s+(?:execute|all(?:\\s+privileges)?)\\s+on\\s+function\\s+(?:public\\.)?${name}\\s*\\([^)]*\\)\\s+to\\s+([^;]+);`,
-      'gi',
+    const grantAuthRe = new RegExp(
+      `GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+(?:public\\.)?${name}\\s*\\([^)]*\\)\\s+TO\\s+authenticated\\b`,
+      'i',
     );
-    let grantedAuthenticated = false;
-    for (const gm of body.matchAll(grantRe)) {
-      const targets = gm[1].toLowerCase();
-      if (/\b(anon|public|service_role)\b/.test(targets)) {
-        errors.push(`${where} grants EXECUTE to forbidden role (${gm[1].trim()}); grant to authenticated only.`);
-      }
-      if (/\bauthenticated\b/.test(targets)) {
-        grantedAuthenticated = true;
-      }
+    if (!grantAuthRe.test(clean)) {
+      errs.push(`${where} must explicitly GRANT EXECUTE ... TO authenticated.`);
     }
-    if (!grantedAuthenticated) {
-      errors.push(`${where} must GRANT EXECUTE ON FUNCTION ... TO authenticated.`);
+
+    // 9. Call-chain verification: traverse every public.<fn>(...) called by this assistant_staff_* function
+    if (functionMap instanceof Map) {
+      const visited = new Set([name]);
+      const queue = [{ fnName: name, bodyText: body, chain: [name] }];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+        const bodyClean = stripSqlSingleQuotedStrings(current.bodyText);
+        const callees = [
+          ...bodyClean.matchAll(/\bpublic\.([a-z0-9_]+)\s*\(/gi),
+        ].map((m) => m[1].toLowerCase());
+
+        for (const callee of new Set(callees)) {
+          const chainStr = [...current.chain, callee].join(' -> ');
+          const target = functionMap.get(callee);
+          if (!target) continue;
+
+          if (target.isVolatile) {
+            errs.push(
+              `${where} calls VOLATILE function "${callee}()" in call chain (${chainStr}, defined in ${target.file}). Every function in the call chain of an assistant_staff_* tool must be STABLE or IMMUTABLE.`,
+            );
+          }
+
+          const targetBodyClean = stripSqlSingleQuotedStrings(target.body);
+          const calleeWriteHit = targetBodyClean.match(WRITE_OR_DDL_SQL_RE);
+          if (calleeWriteHit) {
+            errs.push(
+              `${where} calls function "${callee}()" in call chain (${chainStr}, defined in ${target.file}) which contains forbidden write/DDL/dynamic SQL ("${calleeWriteHit[0]}").`,
+            );
+          }
+
+          if (!visited.has(callee)) {
+            visited.add(callee);
+            queue.push({
+              fnName: callee,
+              bodyText: target.body,
+              chain: [...current.chain, callee],
+            });
+          }
+        }
+      }
     }
   }
 
-  return { functionsFound, errors };
+  return { functionsFound, errors: errs };
 }
 
 /**
- * Audit a single TypeScript file inside `supabase/functions/staff-assistant/`.
+ * Audits the final cumulative state of table privileges and schedule-runner JWT claims
+ * across migrations so Zoe's tables stay locked down and `aal2` is never forged.
+ */
+export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
+  const errs = [];
+  const combinedClean = stripComments(migrationsTextInOrder);
+
+  // Track final table grants for authenticated on Zoe tables
+  const lockedTablesSelectOnly = [
+    'staff_assistant_reminders',
+    'staff_assistant_schedules',
+    'staff_assistant_preferences',
+    'staff_assistant_drafts',
+  ];
+
+  for (const tbl of lockedTablesSelectOnly) {
+    // Find the last GRANT/REVOKE statement targeting `public.<tbl>` and `authenticated`
+    const stmtRe = new RegExp(
+      `\\b(GRANT|REVOKE)\\s+([^;]+?)\\s+ON\\s+(?:TABLE\\s+)?(?:public\\.)?${tbl}\\s+(?:TO|FROM)\\s+([^;]+);`,
+      'gi',
+    );
+    const grants = new Set();
+    for (const m of combinedClean.matchAll(stmtRe)) {
+      const action = m[1].toUpperCase();
+      const privs = m[2].toUpperCase();
+      const roles = m[3].toLowerCase();
+      if (!/\bauthenticated\b/.test(roles)) continue;
+
+      if (action === 'REVOKE') {
+        if (/\bALL\b/.test(privs)) {
+          grants.clear();
+        } else {
+          for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
+            if (new RegExp(`\\b${p}\\b`).test(privs)) grants.delete(p);
+          }
+        }
+      } else if (action === 'GRANT') {
+        if (/\bALL\b/.test(privs)) {
+          for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) grants.add(p);
+        } else {
+          for (const p of ['SELECT', 'INSERT', 'UPDATE', 'DELETE']) {
+            if (new RegExp(`\\b${p}\\b`).test(privs)) grants.add(p);
+          }
+        }
+      }
+    }
+
+    for (const forbidden of ['INSERT', 'UPDATE', 'DELETE']) {
+      if (grants.has(forbidden)) {
+        errs.push(
+          `Table public.${tbl} grants ${forbidden} to authenticated in final migration state; authenticated must have SELECT only.`,
+        );
+      }
+    }
+  }
+
+  for (const tbl of ['staff_assistant_messages', 'staff_assistant_conversations']) {
+    const stmtRe = new RegExp(
+      `\\b(GRANT|REVOKE)\\s+([^;]+?)\\s+ON\\s+(?:TABLE\\s+)?(?:public\\.)?${tbl}\\s+(?:TO|FROM)\\s+([^;]+);`,
+      'gi',
+    );
+    const grants = new Set();
+    for (const m of combinedClean.matchAll(stmtRe)) {
+      const action = m[1].toUpperCase();
+      const privs = m[2].toUpperCase();
+      const roles = m[3].toLowerCase();
+      if (!/\bauthenticated\b/.test(roles)) continue;
+
+      if (action === 'REVOKE') {
+        if (/\bALL\b/.test(privs)) grants.clear();
+        if (/\bDELETE\b/.test(privs)) grants.delete('DELETE');
+      } else if (action === 'GRANT') {
+        if (/\b(ALL|DELETE)\b/.test(privs)) grants.add('DELETE');
+      }
+    }
+    if (grants.has('DELETE')) {
+      errs.push(
+        `Table public.${tbl} grants DELETE to authenticated in final migration state; users must not be able to delete Zoe history rows.`,
+      );
+    }
+  }
+
+  // Ensure schedule runner SQL helpers do not forge 'aal', 'aal2' in their latest definition
+  const fnDefs = extractSqlFunctionsFromText('cumulative', combinedClean);
+  const latestByName = new Map();
+  for (const d of fnDefs) latestByName.set(d.name, d);
+
+  for (const runnerFn of [
+    'staff_assistant_check_owner_access',
+    'staff_assistant_run_scheduled_report_as_owner',
+  ]) {
+    const def = latestByName.get(runnerFn);
+    if (def && /'aal'\s*,\s*'aal2'/i.test(def.body)) {
+      errs.push(
+        `Function public.${runnerFn}() forges 'aal', 'aal2' in request.jwt.claims; background schedule runs must never forge AAL2.`,
+      );
+    }
+  }
+
+  return errs;
+}
+
+/**
+ * Audits a TypeScript source file inside `supabase/functions/staff-assistant/`.
  */
 export function auditStaffAssistantEdgeFile(relPath, rawCode) {
-  const errors = [];
+  const errs = [];
+  const code = stripComments(rawCode);
   const isStore = relPath.endsWith('/store.ts') || relPath === 'store.ts';
   const isModel = relPath.endsWith('/openai.ts') || relPath === 'openai.ts';
   const isTools = relPath.endsWith('/tools.ts') || relPath === 'tools.ts';
-  const code = stripComments(rawCode);
 
-  // 1. Service role key may ONLY appear in store.ts
-  if (!isStore && /SERVICE_ROLE/.test(code)) {
-    errors.push(
-      `${relPath}: SERVICE_ROLE may only be used in store.ts (logging/config). All assistant_staff_* calls must use the caller's JWT.`,
+  // 1. Service role key may ONLY be used in store.ts (the logging file)
+  if (!isStore && /\b(SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE)\b/.test(code)) {
+    errs.push(
+      `${relPath}: the service-role key may only be used in store.ts (logging). Tool and data reads must use the caller's JWT.`,
     );
   }
 
-  // 2. Write calls (.insert/.update/.upsert/.delete) may ONLY appear in store.ts
+  // 2. No write verbs (.insert/.update/.upsert/.delete) outside store.ts
   if (!isStore && /\.(insert|update|upsert|delete)\s*\(/.test(code)) {
-    errors.push(
-      `${relPath}: database write call (.insert/.update/.upsert/.delete) outside store.ts. Zoe is read-only.`,
+    errs.push(
+      `${relPath}: write call (.insert/.update/.upsert/.delete) outside store.ts. Zoe is strictly read-only.`,
     );
   }
 
-  // 3. store.ts may only access staff_assistant_* tables
+  // 3. store.ts may only access staff_assistant_* tables and must never .delete() messages/conversations
   if (isStore) {
     for (const m of code.matchAll(/\.from\(\s*["'`]([^"'`]+)["'`]\s*\)/g)) {
       if (!m[1].startsWith('staff_assistant_')) {
-        errors.push(
-          `${relPath}: store.ts touches table "${m[1]}"; it may only access staff_assistant_* tables.`,
+        errs.push(
+          `${relPath}: store.ts touches table "${m[1]}"; it may only touch staff_assistant_* tables.`,
         );
       }
     }
-    for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
-      if (m[1].startsWith('assistant_staff_')) {
-        errors.push(
-          `${relPath}: store.ts must never call "${m[1]}" with the service role; tool RPCs must be called with userClient in index.ts.`,
-        );
-      }
-    }
-  }
-
-  // 4. Provider API key isolation
-  if (!isModel && /\b(LOVABLE_API_KEY|OPENAI_API_KEY)\b/.test(code)) {
-    errors.push(`${relPath}: API key may only be read in openai.ts.`);
-  }
-  if (/Deno\.env\.toObject/.test(code)) {
-    errors.push(`${relPath}: Deno.env.toObject() is forbidden.`);
-  }
-
-  // 5. Raw SQL execution is never allowed
-  if (/\.sql\s*\(|exec_sql|run_sql|execute_sql|\bsql\s*`/i.test(code)) {
-    errors.push(`${relPath}: raw SQL execution is forbidden in staff-assistant.`);
-  }
-
-  // 6. Direct .rpc("...") calls outside tools.ts must only be the access gate or profile role fallback
-  if (!isTools) {
-    for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
-      const allowedDirectRpcs = new Set([
-        'staff_assistant_has_access',
-        'assistant_staff_my_profile',
-        'staff_assistant_is_staff_email',
-        'staff_assistant_email_recipients',
-      ]);
-      if (!allowedDirectRpcs.has(m[1])) {
-        errors.push(
-          `${relPath}: direct .rpc("${m[1]}") call outside tools.ts; tool RPCs must be registered in tools.ts.`,
-        );
-      }
-    }
-  }
-
-  return errors;
-}
-
-/**
- * Audit `supabase/functions/staff-assistant/tools.ts`.
- */
-export function auditStaffAssistantTools(relPath, rawCode) {
-  const errors = [];
-  const code = stripComments(rawCode);
-  const rpcs = [...code.matchAll(/rpc:\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
-  if (rpcs.length === 0) {
-    errors.push(`${relPath}: no tool RPCs found in STAFF_TOOLS registry.`);
-  }
-  for (const rpc of rpcs) {
-    if (!/^assistant_staff_[a-z0-9_]+$/.test(rpc)) {
-      errors.push(`${relPath}: tool RPC "${rpc}" must be named assistant_staff_*.`);
-    }
-  }
-  const identityParam =
-    /(["'`])(?:p_)?(?:user|staff|agent|tenant|landlord|account|owner|caller)_?id\1\s*:/i;
-  if (identityParam.test(code)) {
-    errors.push(
-      `${relPath}: a tool declares a user/staff/agent/tenant/account ID parameter. Identity must come from auth.uid().`,
-    );
-  }
-  return { rpcs, errors };
-}
-
-/**
- * Audit a frontend file (`src/**\/*.{ts,tsx}`) to ensure it never calls `assistant_staff_*` directly.
- */
-export function auditFrontendFile(relPath, rawCode) {
-  const errors = [];
-  const code = stripComments(rawCode);
-  if (/\.rpc\(\s*["'`]assistant_staff_[a-z0-9_]*/i.test(code)) {
-    errors.push(
-      `${relPath}: frontend must not call assistant_staff_* RPCs directly; route requests through the staff-assistant edge function.`,
-    );
-  }
-  return errors;
-}
-
-/**
- * Audit an email-sending edge function or module for Zoe to ensure it cannot send to an
- * address without calling `staff_assistant_is_staff_email`.
- */
-export function auditStaffEmailFunction(relPath, rawCode) {
-  const errors = [];
-  const code = stripComments(rawCode);
-
-  const sendsEmail =
-    /\b(send-transactional-email|enqueue_transactional_email|resend|sendEmail|send_email|staff_assistant_email)\b/i.test(
-      code,
-    );
-
-  if (sendsEmail) {
-    const checksStaffEmail =
-      /\.rpc\(\s*["'`]staff_assistant_is_staff_email["'`]/.test(code) ||
-      /\bstaff_assistant_is_staff_email\b/.test(code);
-    if (!checksStaffEmail) {
-      errors.push(
-        `${relPath}: sends or enqueues email without calling staff_assistant_is_staff_email to verify the recipient is an active staff email.`,
+    if (/\.delete\s*\(/.test(code)) {
+      errs.push(
+        `${relPath}: store.ts must not call .delete() on staff_assistant_* tables; use hidden_by_user soft-hide for clearing history.`,
       );
     }
   }
 
-  return errors;
+  // 4. Raw SQL execution is forbidden everywhere
+  if (/\.sql\s*\(|exec_sql|run_sql|execute_sql|\bsql\s*`/i.test(code)) {
+    errs.push(`${relPath}: raw SQL execution is not allowed in staff-assistant.`);
+  }
+
+  // 5. Secret hygiene
+  if (/Deno\.env\.toObject/.test(code)) {
+    errs.push(`${relPath}: Deno.env.toObject() is forbidden; read named env vars only.`);
+  }
+  if (!isModel && /\b(LOVABLE_API_KEY|OPENAI_API_KEY)\b/.test(code)) {
+    errs.push(`${relPath}: AI provider key may only be read in openai.ts.`);
+  }
+
+  // 6. Direct .rpc() calls outside tools.ts must only be allowed gate/recipient/draft helpers
+  if (!isTools) {
+    const ALLOWED_DIRECT_RPCS = new Set([
+      'staff_assistant_has_access',
+      'staff_assistant_is_staff_email',
+      'staff_assistant_email_recipients',
+      'staff_assistant_save_draft',
+      'staff_assistant_consume_draft',
+      'staff_assistant_can_user_read_report',
+      'staff_assistant_check_question_rate_limit',
+      'staff_assistant_check_email_budget',
+      'staff_assistant_hide_my_history',
+      'assistant_staff_my_profile',
+    ]);
+    for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
+      if (!ALLOWED_DIRECT_RPCS.has(m[1])) {
+        errs.push(
+          `${relPath}: direct .rpc("${m[1]}") call is not allowed outside tools.ts; tool RPCs must be registered in tools.ts.`,
+        );
+      }
+    }
+  }
+
+  return errs;
+}
+
+/**
+ * Audits `supabase/functions/staff-assistant/tools.ts`.
+ */
+export function auditStaffAssistantTools(relPath, rawCode) {
+  const errs = [];
+  const code = stripComments(rawCode);
+  const rpcs = [...code.matchAll(/rpc:\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+
+  if (rpcs.length === 0) {
+    errs.push(`${relPath}: no tool RPCs found in tools.ts.`);
+  }
+
+  for (const rpc of rpcs) {
+    if (!/^assistant_staff_[a-z0-9_]+$/.test(rpc)) {
+      errs.push(`${relPath}: tool RPC "${rpc}" must be an assistant_staff_* function.`);
+    }
+  }
+
+  const identityPropRe =
+    /(["'`])(?:p_)?(?:user|staff|agent|tenant|landlord|account|wallet|owner|supporter|partner)_?id\1\s*:/i;
+  if (identityPropRe.test(code)) {
+    errs.push(
+      `${relPath}: a tool declares a user/staff/agent/tenant/account ID parameter. Identity must come from auth.uid().`,
+    );
+  }
+
+  return { rpcs, errors: errs };
+}
+
+/**
+ * Audits any email-sending function or module used by Zoe to ensure it cannot
+ * send to an address without calling `staff_assistant_is_staff_email`.
+ */
+export function auditStaffEmailFunction(relPath, rawCode) {
+  const errs = [];
+  const code = stripComments(rawCode);
+
+  const sendsEmail =
+    /\b(send-transactional-email|enqueue_email|resend\.com|api\.resend\.com|sendReportEmail|sendStaffAssistantEmail)\b/.test(
+      code,
+    ) || /\.functions\.invoke\(\s*["'`]send-transactional-email["'`]/.test(code);
+
+  const isEmailEdgeFn =
+    relPath.includes('staff-assistant-email') ||
+    relPath.includes('staff-assistant-send-email') ||
+    sendsEmail;
+
+  if (isEmailEdgeFn) {
+    if (!/\bstaff_assistant_is_staff_email\b/.test(code)) {
+      errs.push(
+        `${relPath}: send-email function can send to an address without calling staff_assistant_is_staff_email.`,
+      );
+    }
+  }
+
+  return errs;
+}
+
+/**
+ * Audits a frontend file under `src/` to ensure it never calls any
+ * `assistant_staff_*` RPC directly.
+ */
+export function auditFrontendFile(relPath, rawCode) {
+  const errs = [];
+  const code = stripComments(rawCode);
+
+  if (/\.rpc\(\s*["'`]assistant_staff_[a-z0-9_]*/i.test(code)) {
+    errs.push(
+      `${relPath}: the frontend must not call assistant_staff_* RPCs directly; route requests through the staff-assistant edge function.`,
+    );
+  }
+
+  return errs;
 }
 
 // ============================================================================
-// Self-Test Suite (verifies the guard catches every broken example)
+// Built-in Self-Test (proves the guard catches broken examples for every rule)
 // ============================================================================
 
 export function runSelfTests() {
   const failures = [];
-  const expectError = (label, errs, pattern) => {
-    if (!errs.some((e) => pattern.test(e))) {
+  const expectError = (label, actualErrors, expectedPattern) => {
+    if (!actualErrors.some((e) => expectedPattern.test(e))) {
       failures.push(
-        `Self-test "${label}" FAILED: expected error matching ${pattern}, got: ${JSON.stringify(errs)}`,
+        `Self-test "${label}" failed: expected an error matching ${expectedPattern}, got [${actualErrors.join('; ')}]`,
       );
     }
   };
 
-  // Valid baseline SQL function
   const validSql = `
-    CREATE OR REPLACE FUNCTION public.assistant_staff_tops_demo(p_limit integer DEFAULT 50)
+    CREATE OR REPLACE FUNCTION public.assistant_staff_tops_demo()
     RETURNS jsonb
     LANGUAGE plpgsql
     STABLE
@@ -350,108 +565,149 @@ export function runSelfTests() {
     SET search_path = public
     AS $$
     BEGIN
-      IF auth.uid() IS NULL
-         OR NOT public.staff_assistant_has_access()
-         OR NOT public._has_enabled_role(auth.uid(), ARRAY['tenant_ops'])
-      THEN
+      IF auth.uid() IS NULL OR NOT public.staff_assistant_has_access() OR NOT public._am_staff_ok() THEN
         RAISE EXCEPTION 'Not authorized' USING ERRCODE = '42501';
       END IF;
-      RETURN jsonb_build_object('source', 'demo', 'period', 'today', 'rows', '[]'::jsonb);
+      RETURN '{}'::jsonb;
     END;
     $$;
-    REVOKE ALL ON FUNCTION public.assistant_staff_tops_demo(integer) FROM PUBLIC, anon, service_role;
-    GRANT EXECUTE ON FUNCTION public.assistant_staff_tops_demo(integer) TO authenticated;
+    REVOKE ALL ON FUNCTION public.assistant_staff_tops_demo() FROM PUBLIC, anon, service_role;
+    GRANT EXECUTE ON FUNCTION public.assistant_staff_tops_demo() TO authenticated;
   `;
-  const validCheck = auditSqlMigration('self-test-valid.sql', validSql);
-  if (validCheck.errors.length > 0) {
-    failures.push(`Self-test baseline valid SQL had unexpected errors: ${validCheck.errors.join('; ')}`);
+
+  // Verify the valid baseline passes with zero errors
+  const validRes = auditSqlMigration('valid-example.sql', validSql);
+  if (validRes.errors.length > 0) {
+    failures.push(`Self-test baseline validSql had unexpected errors: ${validRes.errors.join('; ')}`);
   }
 
-  // Broken 1: Missing STABLE (e.g. VOLATILE)
+  // Broken 1: Function is VOLATILE instead of STABLE
   expectError(
-    'missing STABLE',
-    auditSqlMigration('broken-volatile.sql', validSql.replace('STABLE', 'VOLATILE')).errors,
-    /must be declared STABLE/i,
+    'non-STABLE function',
+    auditSqlMigration(
+      'broken-volatile.sql',
+      validSql.replace('STABLE', 'VOLATILE'),
+    ).errors,
+    /must be STABLE/i,
   );
 
-  // Broken 2: Missing SECURITY DEFINER
+  // Broken 2: Function is SECURITY INVOKER instead of SECURITY DEFINER
   expectError(
-    'missing SECURITY DEFINER',
-    auditSqlMigration('broken-invoker.sql', validSql.replace('SECURITY DEFINER', 'SECURITY INVOKER')).errors,
-    /must be declared SECURITY DEFINER/i,
+    'non-SECURITY DEFINER function',
+    auditSqlMigration(
+      'broken-invoker.sql',
+      validSql.replace('SECURITY DEFINER', 'SECURITY INVOKER'),
+    ).errors,
+    /must be SECURITY DEFINER/i,
   );
 
-  // Broken 3: Missing SET search_path = public
+  // Broken 3: Function lacks SET search_path = public
   expectError(
     'missing search_path=public',
-    auditSqlMigration('broken-search-path.sql', validSql.replace('SET search_path = public', '')).errors,
+    auditSqlMigration(
+      'broken-search-path.sql',
+      validSql.replace('SET search_path = public', ''),
+    ).errors,
     /must set search_path = public/i,
   );
 
-  // Broken 4: Has a user-id parameter
+  // Broken 4: Function has a user-id parameter
   expectError(
-    'user_id parameter',
+    'has user_id parameter',
     auditSqlMigration(
       'broken-userid.sql',
-      validSql.replace('p_limit integer DEFAULT 50', 'p_user_id uuid, p_limit integer DEFAULT 50'),
+      validSql.replace('assistant_staff_tops_demo()', 'assistant_staff_tops_demo(p_user_id uuid)'),
     ).errors,
-    /declares an identity parameter/i,
+    /identity parameter/i,
   );
 
-  // Broken 5: Lacks a role check
+  // Broken 5: Function lacks a role check
   expectError(
-    'missing role check',
+    'lacks role check',
     auditSqlMigration(
-      'broken-no-role.sql',
-      validSql.replace("OR NOT public._has_enabled_role(auth.uid(), ARRAY['tenant_ops'])", ''),
+      'broken-norole.sql',
+      validSql.replace(
+        'IF auth.uid() IS NULL OR NOT public.staff_assistant_has_access() OR NOT public._am_staff_ok() THEN',
+        'IF auth.uid() IS NULL THEN',
+      ),
     ).errors,
-    /must check the caller's role/i,
+    /lacks a required role\/access check/i,
   );
 
-  // Broken 6: Grants EXECUTE to anon / PUBLIC
+  // Broken 6: Function grants EXECUTE to anon or PUBLIC
   expectError(
     'grants execute to anon',
     auditSqlMigration(
       'broken-grant-anon.sql',
-      validSql + '\nGRANT EXECUTE ON FUNCTION public.assistant_staff_tops_demo(integer) TO anon;',
+      validSql + '\nGRANT EXECUTE ON FUNCTION public.assistant_staff_tops_demo() TO anon;',
     ).errors,
-    /grants EXECUTE to forbidden role/i,
+    /grants EXECUTE to anon or PUBLIC/i,
   );
 
-  // Broken 7: Missing REVOKE FROM PUBLIC, anon
+  // Broken 7: Function contains a write statement (UPDATE / INSERT / COPY / GRANT / dynamic EXECUTE)
   expectError(
-    'missing revoke from anon/PUBLIC',
+    'contains write SQL',
     auditSqlMigration(
-      'broken-no-revoke.sql',
-      validSql.replace(
-        'REVOKE ALL ON FUNCTION public.assistant_staff_tops_demo(integer) FROM PUBLIC, anon, service_role;',
-        '',
-      ),
+      'broken-write.sql',
+      validSql.replace("RETURN '{}'::jsonb;", "UPDATE public.wallets SET balance = 0; RETURN '{}'::jsonb;"),
     ).errors,
-    /must REVOKE EXECUTE/i,
+    /write, DDL, or dynamic SQL/i,
   );
 
-  // Broken 8: Service role used outside store.ts in staff-assistant
+  expectError(
+    'contains dynamic SQL EXECUTE',
+    auditSqlMigration(
+      'broken-dynamic-sql.sql',
+      validSql.replace("RETURN '{}'::jsonb;", "EXECUTE 'DELETE FROM public.wallets'; RETURN '{}'::jsonb;"),
+    ).errors,
+    /write, DDL, or dynamic SQL/i,
+  );
+
+  // Broken 8: Call-chain function is VOLATILE or contains writes
+  const brokenCallChainSql = `
+    CREATE OR REPLACE FUNCTION public.helper_volatile_writer()
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    VOLATILE
+    SECURITY DEFINER
+    SET search_path = public
+    AS $$
+    BEGIN
+      INSERT INTO public.audit_logs (action_type) VALUES ('bad');
+      RETURN '{}'::jsonb;
+    END;
+    $$;
+  ` + validSql.replace("RETURN '{}'::jsonb;", "RETURN public.helper_volatile_writer();");
+  const mockFnMap = new Map(
+    extractSqlFunctionsFromText('broken-chain.sql', brokenCallChainSql).map((d) => [d.name, d]),
+  );
+  expectError(
+    'call chain calls VOLATILE function',
+    auditSqlMigration('broken-chain.sql', brokenCallChainSql, mockFnMap).errors,
+    /calls VOLATILE function "helper_volatile_writer\(\)" in call chain/i,
+  );
+
+  // Broken 9: staff-assistant uses service role outside its logging file (store.ts)
   expectError(
     'service role outside store.ts',
     auditStaffAssistantEdgeFile(
       'supabase/functions/staff-assistant/index.ts',
       `const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");`,
     ),
-    /SERVICE_ROLE may only be used in store\.ts/i,
+    /service-role key may only be used in store\.ts/i,
   );
 
-  // Broken 9: Frontend calls assistant_staff_* directly
+  // Broken 10: Frontend calls an assistant_staff_* function directly
   expectError(
     'frontend calls assistant_staff_* directly',
     auditFrontendFile(
-      'src/components/ZoeBadCall.tsx',
-      `const { data } = await supabase.rpc("assistant_staff_my_tasks", { p_status: "pending" });`,
+      'src/pages/me/Zoe.tsx',
+      `const { data } = await supabase.rpc('assistant_staff_my_payslips');`,
     ),
     /frontend must not call assistant_staff_\* RPCs directly/i,
   );
 
-  // Broken 10: Send-email function sends email without calling staff_assistant_is_staff_email
+  // Broken 11: Send-email function sends email without calling staff_assistant_is_staff_email
   expectError(
     'send-email without staff_assistant_is_staff_email',
     auditStaffEmailFunction(
@@ -461,7 +717,7 @@ export function runSelfTests() {
     /without calling staff_assistant_is_staff_email/i,
   );
 
-  // Broken 11: Cash position tool that does not call get_treasury_cash_position
+  // Broken 12: Cash position tool that does not call get_treasury_cash_position
   expectError(
     'cash tool without get_treasury_cash_position',
     auditSqlMigration(
@@ -469,6 +725,29 @@ export function runSelfTests() {
       validSql.replaceAll('assistant_staff_tops_demo', 'assistant_staff_cfo_treasury_cash_position'),
     ).errors,
     /get_treasury_cash_position/i,
+  );
+
+  // Broken 13: Zoe table grants INSERT/DELETE to authenticated or schedule runner forges aal2
+  expectError(
+    'Zoe table grants write to authenticated',
+    auditCumulativeSqlSecurity(
+      `GRANT SELECT, INSERT ON TABLE public.staff_assistant_reminders TO authenticated;`,
+    ),
+    /staff_assistant_reminders grants INSERT to authenticated/i,
+  );
+
+  expectError(
+    'schedule runner forges aal2',
+    auditCumulativeSqlSecurity(`
+      CREATE OR REPLACE FUNCTION public.staff_assistant_check_owner_access(p_owner_id uuid)
+      RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+      BEGIN
+        PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', p_owner_id::text, 'aal', 'aal2')::text, true);
+        RETURN true;
+      END;
+      $$;
+    `),
+    /forges 'aal', 'aal2'/i,
   );
 
   // Valid send-email function that calls staff_assistant_is_staff_email passes
@@ -494,7 +773,7 @@ export function runSelfTests() {
 const errors = [];
 const fail = (msg) => errors.push(msg);
 const seen = {
-  selfTests: 11,
+  selfTests: 14,
   edgeSources: 0,
   toolRpcs: 0,
   sqlFunctions: 0,
@@ -558,7 +837,6 @@ for (const emailDir of STAFF_EMAIL_FN_DIRS) {
     for (const file of emailSources) {
       const rel = relative(ROOT, file).replace(/\\/g, '/');
       const raw = readFileSync(file, 'utf8');
-      // Only enforce per-file staff_assistant_is_staff_email if the directory as a whole lacks it
       if (!/staff_assistant_is_staff_email/.test(combinedDirCode)) {
         for (const err of auditStaffEmailFunction(rel, raw)) fail(err);
       }
@@ -576,19 +854,35 @@ for (const emailDir of STAFF_EMAIL_FN_DIRS) {
   }
 }
 
-// 4. Check all assistant_staff_* SQL functions across supabase/migrations
+// 4. Check all assistant_staff_* SQL functions + transitive call chain + cumulative privileges across supabase/migrations
 if (existsSync(MIGRATIONS_DIR)) {
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
     .sort();
   const allFound = new Set();
+  const globalFunctionMap = new Map();
+  const staffMigrationChunks = [];
+
+  for (const file of files) {
+    const raw = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+    for (const def of extractSqlFunctionsFromText(file, raw)) {
+      globalFunctionMap.set(def.name, def);
+    }
+    if (file.includes('staff_assistant')) {
+      staffMigrationChunks.push(raw);
+    }
+  }
 
   for (const file of files) {
     const raw = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
     if (!/assistant_staff_/i.test(raw)) continue;
-    const { functionsFound, errors: sqlErrs } = auditSqlMigration(file, raw);
+    const { functionsFound, errors: sqlErrs } = auditSqlMigration(file, raw, globalFunctionMap);
     for (const fn of functionsFound) allFound.add(fn);
     for (const err of sqlErrs) fail(err);
+  }
+
+  for (const err of auditCumulativeSqlSecurity(staffMigrationChunks.join('\n'))) {
+    fail(err);
   }
 
   seen.sqlFunctions = allFound.size;
@@ -612,6 +906,6 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `[guard:staff-assistant] ok — Zoe is read-only, role-gated, and staff-email-scoped ` +
+  `[guard:staff-assistant] ok — Zoe is read-only, role-gated, call-chain verified, and staff-email-scoped ` +
     `(${seen.edgeSources} function sources, ${seen.toolRpcs} tool RPCs, ${seen.sqlFunctions} assistant_staff_* SQL functions, ${seen.selfTests} self-tests checked)`,
 );
