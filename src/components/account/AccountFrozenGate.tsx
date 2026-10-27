@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 import { ShieldAlert, Phone } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { Button } from '@/components/ui/button';
@@ -25,10 +31,11 @@ interface ListingBlock {
  */
 export function AccountFrozenGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
 
   const { data: profileFreeze } = useQuery({
     queryKey: ['account-frozen-profile', user?.id],
-    enabled: !!user?.id,
+    enabled: signedIn,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
@@ -44,10 +51,13 @@ export function AccountFrozenGate({ children }: { children: React.ReactNode }) {
 
   const { data: listingBlock } = useQuery({
     queryKey: ['account-frozen-listing-block', user?.id],
-    enabled: !!user?.id,
+    enabled: signedIn,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).rpc('get_my_listing_block');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) return { blocked: false } as ListingBlock;
       return (data as ListingBlock) ?? { blocked: false };
     },

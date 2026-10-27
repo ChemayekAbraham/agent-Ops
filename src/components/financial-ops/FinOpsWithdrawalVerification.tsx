@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import { useAuth } from '@/hooks/useAuth';
 import { UserAvatar } from '@/components/UserAvatar';
 import { formatDistanceToNow } from 'date-fns';
@@ -160,6 +161,7 @@ export function FinOpsWithdrawalVerification() {
   const fetchWalletBalances = useCallback(async (userIds: string[]) => {
     const uniq = Array.from(new Set(userIds.filter(Boolean)));
     if (uniq.length === 0) return;
+    if (!(await hasUsableUserSession())) return;
     const results = await Promise.all(
       uniq.map(async (uid) => {
         const { data } = await supabase.rpc('get_user_wallet_view', { p_user_id: uid });

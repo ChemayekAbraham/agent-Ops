@@ -25,6 +25,7 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isUnauthenticatedRpcError, requireUserSession, useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import { trackRequest } from "@/lib/costMonitor";
 import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from "@/lib/customerWalletHistory";
 
@@ -95,6 +96,7 @@ export async function fetchRecentWalletTransactions(
   userId: string,
   limit = WALLET_RECENT_TX_LIMIT,
 ): Promise<WalletTxRow[]> {
+  await requireUserSession();
   trackRequest("db", "wallet_recent_transactions");
   const { data, error } = await baseUserLedgerQuery(userId)
     .order("transaction_date", { ascending: false })
@@ -151,6 +153,7 @@ const EMPTY: Omit<WalletBalanceView, "userId"> = {
 };
 
 export async function fetchWalletBalance(userId: string): Promise<WalletBalanceView> {
+  await requireUserSession();
   trackRequest("db", "get_user_wallet_view");
   const { data, error } = await supabase.rpc("get_user_wallet_view", { p_user_id: userId });
   if (error) throw error;
@@ -237,17 +240,19 @@ function releaseChannel(userId: string) {
  */
 export function useWalletBalance(userId: string | null | undefined) {
   const qc = useQueryClient();
+  const signedIn = useAuthenticatedAudience();
+  const canRead = signedIn && !!userId;
 
   const query = useQuery<WalletBalanceView>({
     queryKey: walletBalanceKey(userId),
-    enabled: !!userId,
+    enabled: canRead,
     queryFn: () => fetchWalletBalance(userId as string),
     staleTime: WALLET_VIEW_STALE_MS,
     gcTime: WALLET_VIEW_GC_MS,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
   });
 
   // Latest 10 transactions ship alongside the balance. Same realtime channel
@@ -256,21 +261,21 @@ export function useWalletBalance(userId: string | null | undefined) {
   // canonical source with one round-trip apiece.
   const recent = useQuery<WalletTxRow[]>({
     queryKey: walletRecentTxKey(userId),
-    enabled: !!userId,
+    enabled: canRead,
     queryFn: () => fetchRecentWalletTransactions(userId as string),
     staleTime: WALLET_VIEW_STALE_MS,
     gcTime: WALLET_VIEW_GC_MS,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
   });
 
   useEffect(() => {
-    if (!userId) return;
+    if (!canRead || !userId) return;
     acquireChannel(userId, qc);
     return () => releaseChannel(userId);
-  }, [userId, qc]);
+  }, [canRead, userId, qc]);
 
   const value: WalletBalanceView = query.data ?? { userId: userId ?? "", ...EMPTY };
   return {
