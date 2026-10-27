@@ -11,19 +11,18 @@ import { count, kampalaDateTime, percent } from '@/lib/awarenessMonitoringLabels
 /**
  * "Your awareness calls": this week's own calls (Monday to today, Kampala days) with the answered share, the people reached and
  * the last few calls. Read-only. It sits at the top of the Service Centre queue and of the Agent Ops, Tenant Ops and Landlord Ops
- * pipeline screens. Someone who is not allowed to use the call log sees nothing; any other failure shows a short line with a retry.
+ * pipeline screens. Someone the report refuses sees an empty state, with no retry. Any other failure shows a short line with a retry.
  */
 export function MyAwarenessCallsCard() {
   const { from, to } = useMemo(() => awarenessWeekRange(), []);
   const summary = useMyAwarenessSummary(from, to);
   const log = useMyAwarenessLog(from, to, 5);
 
-  if (isNotAuthorizedError(summary.error) || isNotAuthorizedError(log.error)) return null;
-
-  const failed = summary.isError || log.isError;
+  const denied = isNotAuthorizedError(summary.error) || isNotAuthorizedError(log.error);
+  const failed = !denied && (summary.isError || log.isError);
   const t = summary.data?.totals;
   const rows = log.data?.rows ?? [];
-  const loading = summary.isLoading || log.isLoading;
+  const loading = !denied && (summary.isPending || log.isPending);
 
   return (
     <section className="space-y-2.5 rounded-xl border border-border bg-card p-3" aria-label="Your awareness calls" data-testid="my-awareness-calls">
@@ -35,7 +34,9 @@ export function MyAwarenessCallsCard() {
         <Badge variant="outline" className="text-[10px]">This week</Badge>
       </div>
 
-      {failed ? (
+      {denied ? (
+        <p className="text-xs text-muted-foreground" data-testid="my-awareness-empty">No awareness calls to show.</p>
+      ) : failed ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs" data-testid="my-awareness-error">
           <span className="text-muted-foreground">Could not load your calls</span>
           <Button

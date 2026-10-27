@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -74,27 +76,25 @@ export function AssignNearbyAgentDialog({
     },
   });
 
+  const debouncedSearch = useDebouncedValue(search, 300);
   // Manual search fallback (by name or phone)
   const { data: searchResults = [], isLoading: loadingSearch } = useQuery({
-    queryKey: ['search-agents', search],
-    enabled: open && search.trim().length >= 2,
+    queryKey: ['search-agents', debouncedSearch],
+    enabled: open && debouncedSearch.trim().length >= 3,
     queryFn: async () => {
-      const term = `%${search.trim()}%`;
-      // Two-step: get agent ids, then fetch matching profiles
+      const { rows, error } = await searchProfilesTypeahead(debouncedSearch, {
+        limit: 10,
+        columns: 'id, full_name, phone',
+      });
+      if (error) throw new Error(error);
+      if (rows.length === 0) return [];
       const { data: agentRoles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'agent');
-      const agentIds = (agentRoles || []).map((r: any) => r.user_id);
-      if (agentIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', agentIds)
-        .or(`full_name.ilike.${term},phone.ilike.${term}`)
-        .limit(10);
-      if (error) throw error;
-      return (data || []).map((p: any) => ({
+        .eq('role', 'agent')
+        .in('user_id', rows.map((p) => p.id));
+      const agentIds = new Set((agentRoles || []).map((r: any) => r.user_id));
+      return rows.filter((p) => agentIds.has(p.id)).map((p) => ({
         agent_id: p.id,
         full_name: p.full_name,
         phone: p.phone,
@@ -103,7 +103,7 @@ export function AssignNearbyAgentDialog({
     },
   });
 
-  const list = search.trim().length >= 2 ? searchResults : nearby;
+  const list = debouncedSearch.trim().length >= 3 ? searchResults : nearby;
 
   const assignMutation = useMutation({
     mutationFn: async () => {

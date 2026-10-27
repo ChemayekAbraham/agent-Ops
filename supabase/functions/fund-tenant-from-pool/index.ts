@@ -164,11 +164,6 @@ Deno.serve(async (req) => {
 
     // Credit landlord wallet via RPC (trigger handles wallet balance)
     if (landlordUserId) {
-      // Ensure wallet exists
-      await adminClient
-        .from("wallets")
-        .upsert({ user_id: landlordUserId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-
       const txDate = new Date().toISOString();
       await adminClient.rpc('create_ledger_transaction', {
         entries: [
@@ -328,11 +323,6 @@ Deno.serve(async (req) => {
 
     // Pay agent approval bonus (UGX 5,000) via RPC
     if (rr.agent_id) {
-      // Ensure agent wallet exists
-      await adminClient
-        .from("wallets")
-        .upsert({ user_id: rr.agent_id, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-
       const bonusTxDate = new Date().toISOString();
       await adminClient.rpc('create_ledger_transaction', {
         entries: [

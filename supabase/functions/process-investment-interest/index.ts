@@ -74,11 +74,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Ensure wallet exists
-      await supabase
-        .from("wallets")
-        .upsert({ user_id: account.user_id, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-
       // Credit interest via balanced RPC: platform cash_out (roi_expense) + wallet cash_in (roi_wallet_credit)
       const txDate = new Date().toISOString();
       const { error: rpcError } = await supabase.rpc('create_ledger_transaction', {

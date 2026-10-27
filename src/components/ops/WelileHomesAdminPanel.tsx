@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import {
-  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, selectWithOptionalFundingStatus,
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
 } from '@/lib/welileHomesPlanStatus';
 import {
@@ -117,9 +117,6 @@ interface Row {
   agent_phone?: string;
   source_type?: 'welile_homes' | 'general';
   subscription_status?: string;
-  // Set only by the CFO server disbursement (wh_cfo_disburse_float). Not selected until
-  // the Welile Homes float migration is applied, so it is undefined (never 'funded') before then.
-  funding_status?: string;
 }
 
 export interface FloatRequestItem {
@@ -173,7 +170,6 @@ interface AdminPlanFacts {
 function resolveAdminPipeline(row: Row, ctx: AdminPlanFacts): AdminPipelineStatus {
   const facts = {
     subscriptionStatus: row.subscription_status,
-    fundingStatus: row.funding_status,
     linkedRequestStatus: ctx.floatLinks.get(row.id) ?? null,
     hasCollections: ctx.collectedSubIds.has(row.id),
     collectionsUnknown: ctx.collectionsUnknown,
@@ -315,13 +311,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await selectWithOptionalFundingStatus<Row>((extra) =>
-        supabase
-          .from('welile_homes_subscriptions')
-          .select(`id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at, subscription_status${extra}`)
-          .eq('mode', 'agent_collection')
-          .order('created_at', { ascending: false }) as any,
-      );
+      // No funding_status: that column is not on welile_homes_subscriptions.
+      const { data: subRows, error: subErr } = await supabase
+        .from('welile_homes_subscriptions')
+        .select('id, tenant_id, agent_id, monthly_rent, receivable_total, outstanding_balance, payout_day, landlord_uses_wallet, landlord_name, landlord_phone, next_due_date, has_smartphone, created_at, subscription_status')
+        .eq('mode', 'agent_collection')
+        .order('created_at', { ascending: false });
+      if (subErr) throw new Error(subErr.message);
+      const list = (subRows ?? []) as Row[];
       const ids = Array.from(new Set([...list.map((r) => r.tenant_id), ...list.map((r) => r.agent_id).filter(Boolean) as string[]]));
       if (ids.length) {
         const { data: profs } = await supabase.from('profiles').select('id, full_name, phone, verified').in('id', ids);

@@ -483,11 +483,9 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
-  // Staff prompt RPCs return no rows without a user JWT, and anon may execute
-  // them so a public page does not log Postgres 42501. Still mount them only
-  // for a real session: hr_pay_pending_prompt, staff_survey_pending, the
-  // requisition prompt/notice RPCs, pso_facilitation_pending_prompt and
-  // staff_loan_pending_prompt should not run on every anonymous page view.
+  // Staff prompt RPCs, usage-report notices, National ID link requests and
+  // calling-centre concerns are granted to authenticated only. Mount them
+  // only for a real session so a signed-out page does not log Postgres 42501.
   const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
@@ -503,11 +501,11 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <RequisitionUsageReportGate />
-      <NationalIdLinkGate />
-      <ConcernAssignmentGate />
       {signedIn && (
         <>
+          <RequisitionUsageReportGate />
+          <NationalIdLinkGate />
+          <ConcernAssignmentGate />
           <FacilitationApprovalGate />
           <StaffLoanApprovalGate />
           <StaffRequisitionApprovalGate />

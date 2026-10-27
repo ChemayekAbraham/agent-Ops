@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_DEBOUNCE_MS, PROFILE_TYPEAHEAD_MIN_CHARS } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -48,11 +50,11 @@ export function AddSubAgentSearch({ onAdded }: AddSubAgentSearchProps) {
   const [sentInvite, setSentInvite] = useState<{ name: string; link: string; hasEmail: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const term = query.trim();
+  const term = useDebouncedValue(query.trim(), PROFILE_TYPEAHEAD_DEBOUNCE_MS);
 
   const { data: results, isFetching } = useQuery({
     queryKey: ['add-subagent-search', term],
-    enabled: term.length >= 2,
+    enabled: term.length >= PROFILE_TYPEAHEAD_MIN_CHARS,
     staleTime: 10_000,
     queryFn: async (): Promise<UserResult[]> => {
       // Use a SECURITY DEFINER RPC: a normal agent cannot read other users'
@@ -226,7 +228,7 @@ export function AddSubAgentSearch({ onAdded }: AddSubAgentSearchProps) {
           )}
         </div>
 
-        {term.length >= 2 && !selected && (
+        {term.length >= PROFILE_TYPEAHEAD_MIN_CHARS && !selected && (
           <div className="border border-border rounded-lg max-h-56 overflow-y-auto bg-card">
             {!isFetching && (results?.length || 0) === 0 && (
               <div className="p-3 text-sm text-muted-foreground">No matching users.</div>

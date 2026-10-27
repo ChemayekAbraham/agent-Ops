@@ -47,6 +47,15 @@ export async function hasUsableUserSession(): Promise<boolean> {
   }
 }
 
+/**
+ * Stop a query before PostgREST. A dashboard that still holds a React user
+ * after the access token has expired otherwise calls authenticated-only RPCs
+ * with the anon key and logs Postgres 42501.
+ */
+export async function requireUserSession(): Promise<void> {
+  if (!(await hasUsableUserSession())) throw new AuthRequiredError();
+}
+
 /** PostgREST / GoTrue failures that mean "no usable user JWT", including anon-key calls. */
 export function isUnauthenticatedRpcError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;

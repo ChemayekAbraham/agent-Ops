@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -40,7 +40,6 @@ interface ReferralRow {
   full_name: string | null;
   phone: string | null;
   created_at: string;
-  referrer_id: string;
   signup_source: string | null;
 }
 
@@ -51,6 +50,31 @@ interface ReferrerAggRow {
   total: number;
   rate: number;
 }
+
+/** What get_referral_performance_summary returns: everything is aggregated in the database. */
+interface PerfSummary {
+  total_signups: number;
+  excluded_referred: number;
+  referred: number;
+  active_referrers: number;
+  trend: { bucket: string; count: number }[];
+  sources: { source: string; count: number }[];
+  top_referrers: { referrer_id: string; full_name: string | null; phone: string | null; total: number }[];
+  recent: ReferralRow[];
+}
+
+/** Parses 'YYYY-MM-DD' as a LOCAL date; null when empty or invalid (a cleared date input). */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 'funder-onboarding' -> 'Funder onboarding'. */
+const humanize = (v: string) => {
+  const t = v.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
+};
 
 function rangeBounds(preset: RangePreset, cs: string, ce: string) {
   const now = new Date();
@@ -64,7 +88,10 @@ function rangeBounds(preset: RangePreset, cs: string, ce: string) {
     case 'last_180':
       return { start: startOfDay(subDays(now, 179)), end: endOfDay(now) };
     case 'custom':
-      return { start: startOfDay(new Date(cs)), end: endOfDay(new Date(ce)) };
+      return {
+        start: startOfDay(parseLocalDate(cs) ?? subDays(now, 29)),
+        end: endOfDay(parseLocalDate(ce) ?? now),
+      };
   }
 }
 
@@ -75,8 +102,8 @@ function bucketKey(d: Date, g: Granularity) {
 }
 
 function bucketLabel(k: string, g: Granularity) {
-  if (g === 'month') return format(new Date(k + '-01'), 'MMM yyyy');
-  return format(new Date(k), g === 'week' ? "MMM d 'wk'" : 'MMM d');
+  if (g === 'month') return format(new Date(`${k}-01T00:00:00`), 'MMM yyyy');
+  return format(new Date(`${k}T00:00:00`), g === 'week' ? "MMM d 'wk'" : 'MMM d');
 }
 
 export function ReferralPerformanceView() {
@@ -86,118 +113,59 @@ export function ReferralPerformanceView() {
   const [customEnd, setCustomEnd] = useState(format(now, 'yyyy-MM-dd'));
 
   const { start, end } = rangeBounds(preset, customStart, customEnd);
+  // Changing one end past the other moves the other end too. A cleared input is ignored (it crashed the page).
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStart(v); if (v > customEnd) setCustomEnd(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEnd(v); if (v < customStart) setCustomStart(v); };
   const spanDays = differenceInCalendarDays(end, start) + 1;
   const granularity: Granularity = spanDays <= 45 ? 'day' : spanDays <= 120 ? 'week' : 'month';
 
-  // Real referred signups + real total in range, from one role-gated server function
-  // (suspected fake accounts — no phone and never signed in — are left out).
-  const { data: perf, isLoading: loadingRefs } = useQuery({
-    queryKey: ['referral-perf-real', start.toISOString(), end.toISOString()],
+  // One server call returns only what the page shows (totals, trend buckets, source mix, top 25
+  // referrers with names, 100 most recent). It used to download every referred signup in the range
+  // (about 11 MB on 180 days) and count them in the browser. Suspected fake accounts (no phone and
+  // never signed in) and deleted accounts are left out.
+  const rangeKey = `${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}_${granularity}`;
+  const { data: perf, isLoading: loadingRefs, isError } = useQuery({
+    queryKey: ['referral-perf-summary', rangeKey],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_referral_performance_rows', {
+      // The function is newer than the generated database types, so call it through a narrow cast.
+      const rpc = supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+      };
+      const { data, error } = await rpc.rpc('get_referral_performance_summary', {
         p_start: start.toISOString(),
         p_end: end.toISOString(),
+        p_granularity: granularity,
       });
       if (error) throw error;
-      return data as { total_signups: number; excluded_referred: number; rows: ReferralRow[] };
+      return data as PerfSummary;
     },
     staleTime: 60_000,
   });
-  const referrals = perf?.rows;
   const totalSignups = perf?.total_signups;
   const excludedReferred = perf?.excluded_referred ?? 0;
+  const referredCount = perf?.referred ?? 0;
+  const activeReferrerCount = perf?.active_referrers ?? 0;
+  const recent = perf?.recent ?? [];
 
-  // Enrich top referrers with name/phone/role
-  const topReferrerIds = useMemo(() => {
-    if (!referrals) return [] as string[];
-    const counts = new Map<string, number>();
-    referrals.forEach((r) => counts.set(r.referrer_id, (counts.get(r.referrer_id) || 0) + 1));
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 50)
-      .map(([id]) => id);
-  }, [referrals]);
+  // Fill empty buckets with zero so quiet days/weeks/months still show on the chart.
+  const trendData = (() => {
+    const counts = new Map<string, number>((perf?.trend ?? []).map((t) => [granularity === 'month' ? t.bucket.slice(0, 7) : t.bucket, t.count]));
+    const keys: string[] =
+      granularity === 'day'
+        ? eachDayOfInterval({ start, end }).map((d) => bucketKey(d, 'day'))
+        : granularity === 'week'
+          ? eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).map((d) => bucketKey(d, 'week'))
+          : eachMonthOfInterval({ start, end }).map((d) => bucketKey(d, 'month'));
+    return keys.map((k) => ({ label: bucketLabel(k, granularity), count: counts.get(k) ?? 0 }));
+  })();
 
-  const { data: referrerProfiles } = useQuery({
-    queryKey: ['referral-perf-referrers', topReferrerIds.join(',')],
-    queryFn: async () => {
-      if (topReferrerIds.length === 0) return [] as ReferrerAggRow[];
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', topReferrerIds);
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: topReferrerIds.length > 0,
-    staleTime: 60_000,
-  });
+  const sourceMix = (perf?.sources ?? []).map((x) => ({ source: humanize(x.source), count: x.count }));
 
-  // Aggregations
-  const {
-    trendData,
-    sourceMix,
-    leaderboard,
-    referredCount,
-  } = useMemo(() => {
-    const list = referrals || [];
-    const referredCount = list.length;
-    // Trend buckets
-    const buckets = new Map<string, number>();
-    if (granularity === 'day') {
-      eachDayOfInterval({ start, end }).forEach((d) => buckets.set(bucketKey(d, 'day'), 0));
-    } else if (granularity === 'week') {
-      eachWeekOfInterval({ start, end }, { weekStartsOn: 1 }).forEach((d) => buckets.set(bucketKey(d, 'week'), 0));
-    } else {
-      eachMonthOfInterval({ start, end }).forEach((d) => buckets.set(bucketKey(d, 'month'), 0));
-    }
-    list.forEach((r) => {
-      const k = bucketKey(new Date(r.created_at), granularity);
-      buckets.set(k, (buckets.get(k) || 0) + 1);
-    });
-    const trendData = Array.from(buckets.entries()).map(([k, v]) => ({
-      label: bucketLabel(k, granularity),
-      count: v,
-    }));
-
-    // Source mix (signup_source)
-    const sourceMap = new Map<string, number>();
-    list.forEach((r) => {
-      const s = r.signup_source || 'unknown';
-      sourceMap.set(s, (sourceMap.get(s) || 0) + 1);
-    });
-    const sourceMix = Array.from(sourceMap.entries())
-      .map(([source, count]) => ({ source, count }))
-      .sort((a, b) => b.count - a.count);
-
-    // Leaderboard
-    const byRef = new Map<string, { total: number }>();
-    list.forEach((r) => {
-      const cur = byRef.get(r.referrer_id) || { total: 0 };
-      cur.total += 1;
-      byRef.set(r.referrer_id, cur);
-    });
-    const nameById = new Map<string, { full_name: string | null; phone: string | null }>();
-    (referrerProfiles || []).forEach((p: any) => nameById.set(p.id, p));
-    const maxTotal = Math.max(1, ...Array.from(byRef.values()).map((v) => v.total));
-    const leaderboard: ReferrerAggRow[] = Array.from(byRef.entries())
-      .map(([id, v]) => ({
-        referrer_id: id,
-        full_name: nameById.get(id)?.full_name || null,
-        phone: nameById.get(id)?.phone || null,
-        total: v.total,
-        rate: Math.round((v.total / maxTotal) * 100),
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 25);
-
-    return { trendData, sourceMix, leaderboard, referredCount };
-  }, [referrals, referrerProfiles, granularity, start, end]);
-
-  const activeReferrerCount = useMemo(() => {
-    if (!referrals) return 0;
-    return new Set(referrals.map((r) => r.referrer_id)).size;
-  }, [referrals]);
+  const maxTotal = Math.max(1, ...(perf?.top_referrers ?? []).map((r) => r.total));
+  const leaderboard: ReferrerAggRow[] = (perf?.top_referrers ?? []).map((r) => ({
+    ...r,
+    rate: Math.round((r.total / maxTotal) * 100),
+  }));
 
   const conversionPct = totalSignups && totalSignups > 0
     ? Math.round((referredCount / totalSignups) * 100)
@@ -237,7 +205,7 @@ export function ReferralPerformanceView() {
         </div>
       ),
     },
-    { key: 'signup_source', label: 'Source', render: (_v, r) => <span className="text-xs">{r.signup_source || 'unknown'}</span> },
+    { key: 'signup_source', label: 'Source', render: (_v, r) => <span className="text-xs">{r.signup_source ? humanize(r.signup_source) : 'Unknown'}</span> },
     {
       key: 'created_at',
       label: 'Signed up',
@@ -263,6 +231,7 @@ export function ReferralPerformanceView() {
               key={p}
               size="sm"
               variant={preset === p ? 'default' : 'outline'}
+              aria-pressed={preset === p}
               onClick={() => setPreset(p)}
             >
               {p === 'last_7' ? '7d' : p === 'last_30' ? '30d' : p === 'last_90' ? '90d' : p === 'last_180' ? '180d' : 'Custom'}
@@ -275,16 +244,22 @@ export function ReferralPerformanceView() {
         <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-card p-3">
           <div>
             <Label className="text-xs">Start</Label>
-            <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+            <Input type="date" value={customStart} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomStart(e.target.value)} />
           </div>
           <div>
             <Label className="text-xs">End</Label>
-            <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+            <Input type="date" value={customEnd} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomEnd(e.target.value)} />
           </div>
           <div className="text-xs text-muted-foreground flex items-center gap-1">
             <CalendarRange className="h-3.5 w-3.5" /> {spanDays} day window · bucketed by {granularity}
           </div>
         </div>
+      )}
+
+      {isError && (
+        <p className="text-xs text-red-500">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
       )}
 
       {excludedReferred > 0 && (
@@ -297,18 +272,21 @@ export function ReferralPerformanceView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPICard
           title="Referred signups"
+          loading={loadingRefs}
           value={referredCount}
           icon={UserCheck}
           color="bg-primary/10 text-primary"
         />
         <KPICard
           title="Active referrers"
+          loading={loadingRefs}
           value={activeReferrerCount}
           icon={Users}
           color="bg-purple-500/10 text-purple-600"
         />
         <KPICard
           title="Referral share"
+          loading={loadingRefs}
           value={`${conversionPct}%`}
           subtitle={`${referredCount} of ${totalSignups ?? 0} signups`}
           icon={Percent}
@@ -316,6 +294,7 @@ export function ReferralPerformanceView() {
         />
         <KPICard
           title="Avg per referrer"
+          loading={loadingRefs}
           value={avgPerReferrer}
           subtitle="Signups / active referrer"
           icon={Trophy}
@@ -386,7 +365,7 @@ export function ReferralPerformanceView() {
       <div className="rounded-lg border bg-card p-4">
         <h3 className="text-sm font-semibold mb-3">Recent referred signups</h3>
         <ExecutiveDataTable
-          data={(referrals || []).slice(0, 100)}
+          data={recent}
           columns={recentColumns}
           loading={loadingRefs}
           title="Recent referrals"

@@ -4,11 +4,11 @@ import { Button } from '@/components/ui/button';
 import { useAgentVetting } from '@/hooks/useAgentVetting';
 import { vettingChecklist, vettingProgress } from '@/lib/agentVetting';
 
-/** Agent dashboard banner; hidden when verified, loading or on error. */
+/** Agent dashboard banner; hidden unless the signed-in user is a real agent with an unfinished record. */
 export default function AgentVettingBanner() {
-  const { vetting } = useAgentVetting();
+  const { vetting, applicability } = useAgentVetting();
   const navigate = useNavigate();
-  if (!vetting || vetting.status === 'verified') return null;
+  if (applicability !== 'ready' || !vetting || vetting.status === 'verified') return null;
 
   const { done, total } = vettingProgress(vettingChecklist(vetting));
   const submitted = vetting.status === 'submitted';

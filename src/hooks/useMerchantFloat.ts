@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -174,14 +174,20 @@ export function useMerchantFloatPositions(enabled = true) {
   const qc = useQueryClient();
   // The RPC is granted to every signed-in user and then raises
   // 'Not authorized' for anyone outside the finance role list. Merchant
-  // dashboards mount this hook, so the call itself has to wait for a role
-  // the function accepts. A refusal or a dead session stops the 30s poll.
+  // dashboards mount this hook, so the query stays disabled until
+  // `enabledRoles` contains a role the function accepts. A refusal or a
+  // dead session stops the poll. The client `roles` list is not used.
   const gate = useMerchantFloatPositionsGate();
   const mayFetch = enabled && gate.allowed;
+  const allowedRef = useRef(false);
+  allowedRef.current = mayFetch;
+  const waitingForRoles = enabled && !gate.ready;
 
   const query = useQuery({
-    queryKey: ['merchant-float-positions', gate.allowed ? 'finance' : 'blocked'],
-    enabled: enabled && gate.ready,
+    queryKey: ['merchant-float-positions'],
+    enabled: mayFetch,
+    // No automatic retry. A 400/403/P0001 "Not authorized" also stops the
+    // interval below; a timeout may still be polled.
     retry: false,
     // Heavy RPC (~4s): refresh only while the screen is visible, and rarely.
     staleTime: 60_000,
@@ -190,8 +196,9 @@ export function useMerchantFloatPositions(enabled = true) {
     ),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async (): Promise<MerchantFloatPosition[]> => {
-      if (!gate.allowed) throw merchantFloatPositionsDeniedError();
+      if (!allowedRef.current) throw merchantFloatPositionsDeniedError();
       if (!(await hasUsableUserSession())) throw new AuthRequiredError();
       const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
       if (isUnauthenticatedRpcError(error)) {
@@ -264,7 +271,11 @@ export function useMerchantFloatPositions(enabled = true) {
     };
   }, [enabled, gate.allowed, stopPoll, agentIds, qc]);
 
-  return query;
+  return {
+    ...query,
+    isLoading: query.isLoading || waitingForRoles,
+    isPending: query.isPending || waitingForRoles,
+  };
 }
 
 /**

@@ -696,7 +696,7 @@ export async function generateIndividualStaffCallingPdfBlob(
 
   ctx.section('How this report was compiled', 22);
   ctx.note(
-    `Scope: Every phone call and Rent Plan pipeline call-feedback entry recorded by ${person.display} during ${periodWindow.timeRangeLabel} (Africa/Kampala time), across Tenant Ops Calling Center, Landlord Ops Calling Center, Inbound Calling Center calls, Rent Plan Pipeline Awareness Calls, Landlord Ops Pre-Approval Verification & Review Feedback, Tenant Ops Pre-Approval Review Feedback, and In-App Voice Calls. Duplicate records of the same staff member phoning the same person or reviewing the same role on the same Rent Plan within 15 minutes are merged into one entry so no call is double-counted and no feedback is lost. Excluded: ${excludedReveals} Calling Center phone-reveals where no call outcome was ever submitted.`,
+    `Scope: Every phone call and Rent Plan pipeline call-feedback entry recorded by ${person.display} during ${periodWindow.timeRangeLabel} (Africa/Kampala time), across Tenant Ops Calling Center, Landlord Ops Calling Center, Landlord Ops Calling Hub, Inbound Calling Center calls, Rent Plan Pipeline Awareness Calls, Landlord Ops Pre-Approval Verification & Review Feedback, Tenant Ops Pre-Approval Review Feedback, and In-App Voice Calls. Duplicate records of the same staff member phoning the same person or reviewing the same role on the same Rent Plan within 15 minutes are merged into one entry so no call is double-counted and no feedback is lost. Excluded: ${excludedReveals} Calling Center phone-reveals and unrecorded Landlord Calling Hub dials older than 24 hours where no call outcome was ever submitted.`,
     7.4,
   );
 

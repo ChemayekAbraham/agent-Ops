@@ -29,7 +29,7 @@ import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import {
-  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, selectWithOptionalFundingStatus,
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
 } from '@/lib/welileHomesPlanStatus';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
@@ -95,8 +95,6 @@ interface WHSubscription {
   newly_created?: boolean;
   subscription_status?: string | null;
   notes?: string | null;
-  /** Present only after the Welile Homes float-link migration is applied. */
-  funding_status?: string | null;
 }
 
 type EnrollStatus = {
@@ -313,13 +311,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     if (!user) return;
     setLoading(true);
     try {
-      const list = await selectWithOptionalFundingStatus<WHSubscription>((extra) =>
-        supabase
-          .from('welile_homes_subscriptions')
-          .select(`id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, landlord_phone, created_at, subscription_status, notes${extra}`)
-          .or(`agent_id.eq.${user.id},enrolled_by.eq.${user.id}`)
-          .order('created_at', { ascending: false }) as any,
-      );
+      // No funding_status: that column is not on welile_homes_subscriptions.
+      const { data: subRows, error: subErr } = await supabase
+        .from('welile_homes_subscriptions')
+        .select('id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, landlord_phone, created_at, subscription_status, notes')
+        .or(`agent_id.eq.${user.id},enrolled_by.eq.${user.id}`)
+        .order('created_at', { ascending: false });
+      if (subErr) throw new Error(subErr.message);
+      const list = (subRows ?? []) as WHSubscription[];
       const tenantIds = list.map((s) => s.tenant_id);
       if (tenantIds.length) {
         const { data: profs } = await supabase
@@ -480,7 +479,6 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
     const facts = {
       subscriptionStatus: sub.subscription_status,
-      fundingStatus: sub.funding_status,
       linkedRequestStatus: floatLinks.get(sub.id) ?? null,
       hasCollections: collectedSubIds.has(sub.id),
       collectionsUnknown,

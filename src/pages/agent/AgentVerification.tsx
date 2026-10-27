@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Check, Circle, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocations';
 import VettingMap from '@/components/agent-vetting/VettingMap';
+import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
 import {
   VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress,
   type AgentVetting, type VettingStepKey,
@@ -86,6 +87,9 @@ export default function AgentVerification() {
   const scrollTo = (k: VettingStepKey | null) => {
     if (k) cardRefs.current[k]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const redirectTo = agentVettingRedirect(v.applicability);
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-8">

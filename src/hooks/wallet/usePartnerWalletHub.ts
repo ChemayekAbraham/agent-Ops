@@ -1,5 +1,6 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isUnauthenticatedRpcError, requireUserSession, useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import { trackRequest } from "@/lib/costMonitor";
 import { walletBalanceKey, invalidateWalletBalance } from "./useWalletBalance";
 
@@ -38,6 +39,7 @@ export async function fetchPartnerWalletHub(
   userId: string,
   page = 0,
 ): Promise<PartnerWalletHubData> {
+  await requireUserSession();
   trackRequest("db", "get_partner_wallet_hub");
   const { data, error } = await supabase.rpc("get_partner_wallet_hub", {
     p_user_id: userId,
@@ -73,16 +75,17 @@ export async function fetchPartnerWalletHub(
 }
 
 export function usePartnerWalletHub(userId: string | null | undefined, page = 0) {
+  const signedIn = useAuthenticatedAudience();
   return useQuery<PartnerWalletHubData>({
     queryKey: partnerWalletHubKey(userId, page),
-    enabled: !!userId,
+    enabled: signedIn && !!userId,
     queryFn: () => fetchPartnerWalletHub(userId as string, page),
     staleTime: 8_000,
     gcTime: 5 * 60_000,
     refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
   });
 }
 
