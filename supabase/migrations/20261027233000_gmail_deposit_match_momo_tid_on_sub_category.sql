@@ -15,6 +15,11 @@
 -- partner_funding stay. The thin SQL wrapper is unchanged. CREATE OR REPLACE
 -- keeps SECURITY DEFINER, search_path, and the existing execute grants
 -- (postgres and service_role only).
+--
+-- The unique MTN name match used min(profiles.id). This database has no
+-- min(uuid), so the first tick after the ILIKE fix aborted there and still
+-- created nothing. array_agg returns that same single id when the match
+-- count is 1, and null otherwise.
 
 CREATE OR REPLACE FUNCTION public.auto_create_deposits_from_gmail_impl(p_window_hours integer DEFAULT 24)
  RETURNS integer
@@ -190,7 +195,9 @@ begin
             join target t on c.toks = t.toks
            where coalesce(array_length(t.toks, 1), 0) >= 2
         )
-        select case when count(*) = 1 then min(id) end
+        -- min(uuid) does not exist on this database. One matching profile
+        -- still returns that id; zero or many matches still return null.
+        select case when count(*) = 1 then (array_agg(id))[1] end
           into v_user_id
           from matched;
       end if;
