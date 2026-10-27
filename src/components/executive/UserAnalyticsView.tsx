@@ -127,7 +127,7 @@ export function UserAnalyticsView() {
       const map = new Map<string, { signups: number; referred: number; organic: number }>();
       days.forEach((d) => map.set(format(d, 'yyyy-MM-dd'), { signups: 0, referred: 0, organic: 0 }));
       (data || []).forEach((r: any) => {
-        const k = format(new Date(r.day), 'yyyy-MM-dd');
+        const k = String(r.day).slice(0, 10);
         if (map.has(k)) {
           map.set(k, {
             signups: Number(r.signups) || 0,
@@ -136,7 +136,7 @@ export function UserAnalyticsView() {
           });
         }
       });
-      return Array.from(map.entries()).map(([k, v]) => ({ date: format(new Date(k), 'MMM d'), ...v }));
+      return Array.from(map.entries()).map(([k, v]) => ({ date: format(new Date(`${k}T00:00:00`), 'MMM d'), ...v }));
     },
     staleTime: 300000,
   });
@@ -155,10 +155,10 @@ export function UserAnalyticsView() {
       const map = new Map<string, number>();
       days.forEach((d) => map.set(format(d, 'yyyy-MM-dd'), 0));
       (data || []).forEach((r: any) => {
-        const k = format(new Date(r.day), 'yyyy-MM-dd');
+        const k = String(r.day).slice(0, 10);
         if (map.has(k)) map.set(k, Number(r.active) || 0);
       });
-      return Array.from(map.entries()).map(([k, v]) => ({ date: format(new Date(k), 'MMM d'), active: v }));
+      return Array.from(map.entries()).map(([k, v]) => ({ date: format(new Date(`${k}T00:00:00`), 'MMM d'), active: v }));
     },
     staleTime: 300000,
   });
@@ -172,7 +172,9 @@ export function UserAnalyticsView() {
         supabase.from('profiles').select('id', { count: 'exact', head: true })
           .is('deleted_at', null)
           .gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+        // Users registered by the end of the range, so past ranges show the then-current total.
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).is('deleted_at', null)
+          .lte('created_at', end.toISOString()),
         supabase.from('otp_login_audit').select('*', { count: 'exact', head: true })
           .gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
         supabase.from('otp_login_audit').select('*', { count: 'exact', head: true })
@@ -229,7 +231,7 @@ export function UserAnalyticsView() {
 
   const buildDatasets = () => ({
     summary: [
-      { metric: 'Total Users', value: totals?.allUsers ?? 0 },
+      { metric: `Total Users (by ${format(end, 'yyyy-MM-dd')})`, value: totals?.allUsers ?? 0 },
       { metric: 'New Signups (range)', value: totals?.signups ?? 0 },
       { metric: 'Active User-Days', value: totalActive },
       { metric: 'Login Attempts', value: totals?.loginAttempts ?? 0 },
@@ -348,7 +350,8 @@ export function UserAnalyticsView() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPICard title="Total Users" value={(totals?.allUsers ?? 0).toLocaleString()} icon={Users} loading={loadingTotals}
-          onClick={() => openDrill({ kind: 'total_users' })} />
+          subtitle={`registered by ${format(end, 'dd MMM yyyy')} · click to view`}
+          onClick={() => openDrill({ kind: 'total_users', end: endISO })} />
         <KPICard title="New Signups" value={(totals?.signups ?? 0).toLocaleString()} icon={UserPlus} loading={loadingTotals}
           color="bg-green-500/10 text-green-600" subtitle="in range · click to view"
           onClick={() => openDrill({ kind: 'signups', start: startISO, end: endISO })} />
