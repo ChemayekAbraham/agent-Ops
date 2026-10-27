@@ -46,7 +46,7 @@ function stepForMissing(text: string): VettingStepKey | null {
 export default function AgentVerification() {
   const v = useAgentVetting();
   const navigate = useNavigate();
-  const [submitResult, setSubmitResult] = useState<{ ok: true } | { ok: false; message: string; missing: string[] } | null>(null);
+  const [submitResult, setSubmitResult] = useState<{ ok: boolean; message?: string; missing?: string[] } | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | (() => void)>(null);
   const cardRefs = useRef<Partial<Record<VettingStepKey, HTMLDivElement | null>>>({});
 
@@ -76,7 +76,8 @@ export default function AgentVerification() {
     setSubmitResult(null);
     try {
       const r = await v.submit();
-      setSubmitResult(r.success ? { ok: true } : { ok: false, message: r.message, missing: r.missing });
+      if (r.success === true) setSubmitResult({ ok: true });
+      else { const f = r as { message: string; missing: string[] }; setSubmitResult({ ok: false, message: f.message, missing: f.missing }); }
     } catch (e) {
       toast.error(errMsg(e));
     }
@@ -135,7 +136,7 @@ export default function AgentVerification() {
                   <div className="mt-3 md:mt-0 rounded-xl border border-border bg-card p-3 space-y-2">
                     <p className="text-sm font-semibold">{submitResult.message}</p>
                     <ul className="space-y-1">
-                      {submitResult.missing.map((m, i) => (
+                      {(submitResult.missing ?? []).map((m, i) => (
                         <li key={i}>
                           <button className="text-left text-sm text-primary underline-offset-2 hover:underline min-h-11" onClick={() => scrollTo(stepForMissing(m))}>
                             {m}
