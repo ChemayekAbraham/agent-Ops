@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
 import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
-import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle, Lock } from 'lucide-react';
+import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle, Lock, Camera, Upload, Navigation, MapPin, X, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
@@ -32,6 +32,10 @@ import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, selectWithOptionalFundingStatus,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
 } from '@/lib/welileHomesPlanStatus';
+import { UgLocationPicker } from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { captureGps, type CapturedGps } from '@/lib/captureGps';
+import { optimizeImage } from '@/lib/imageOptimizer';
 
 // Shared client-side validation for the core enrollment fields. Kept strict so
 // agents cannot submit invalid or internally conflicting values (e.g. decimal
@@ -1412,6 +1416,10 @@ interface LandlordRecord {
   phone: string;
   address?: string;
   count: number;
+  passportUrl?: string | null;
+  housePhotos?: string[];
+  gps?: CapturedGps | null;
+  ugLocation?: UgLocationSelection | null;
 }
 
 function EnrollDialog({
@@ -1446,9 +1454,21 @@ function EnrollDialog({
   const [newLandlordPhone, setNewLandlordPhone] = useState('');
   const [newLandlordAddress, setNewLandlordAddress] = useState('');
 
+  // Landlord photo, house photos, Uganda location, and live GPS
+  const passportCameraRef = useRef<HTMLInputElement>(null);
+  const passportGalleryRef = useRef<HTMLInputElement>(null);
+  const houseCameraRef = useRef<HTMLInputElement>(null);
+  const houseGalleryRef = useRef<HTMLInputElement>(null);
+
+  const [passportPhoto, setPassportPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [housePhotos, setHousePhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
+  const [ugLocation, setUgLocation] = useState<UgLocationSelection | null>(null);
+  const [optimizingImage, setOptimizingImage] = useState(false);
+
   // Selected landlord details
   const [landlordName, setLandlordName] = useState('');
   const [landlordPhone, setLandlordPhone] = useState('');
+  const [selectedLandlordRecord, setSelectedLandlordRecord] = useState<LandlordRecord | null>(null);
 
   // Tenant fields
   const [phone, setPhone] = useState('');
@@ -1484,7 +1504,7 @@ function EnrollDialog({
         try {
           const { data: myDbLandlords } = await supabase
             .from('landlords')
-            .select('id, name, phone, property_address, description, receipt_request_channel')
+            .select('id, name, phone, property_address, description, receipt_request_channel, district, county, sub_county, village, cell, ug_village_id, latitude, longitude')
             .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`)
             .order('created_at', { ascending: false })
             .limit(300);
@@ -1494,12 +1514,49 @@ function EnrollDialog({
             const p = (row.phone || '').trim();
             if (!name) return;
             const key = `${name.toLowerCase()}|${p}`;
+
+            let passportUrl: string | null = null;
+            let housePhotoUrls: string[] = [];
+            let gps: CapturedGps | null = null;
+            let ugLoc: UgLocationSelection | null = null;
+
+            if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+              gps = { latitude: row.latitude, longitude: row.longitude, accuracy: null };
+            }
+            if (row.village || row.district) {
+              ugLoc = {
+                villageId: row.ug_village_id || 0,
+                village: row.village || '',
+                parish: row.cell || '',
+                subcounty: row.sub_county || '',
+                county: row.county || '',
+                district: row.district || '',
+                region: row.region || '',
+                fullPath: [row.village, row.sub_county, row.district].filter(Boolean).join(', '),
+              };
+            }
+            try {
+              if (row.description && row.description.startsWith('{')) {
+                const meta = JSON.parse(row.description);
+                if (meta.passport_photo || meta.passportUrl) passportUrl = meta.passport_photo || meta.passportUrl;
+                if (Array.isArray(meta.house_photos)) housePhotoUrls = meta.house_photos;
+                if (meta.gps) gps = meta.gps;
+                if (meta.ug_location) ugLoc = meta.ug_location;
+              }
+            } catch {
+              // ignore json parse error
+            }
+
             map.set(key, {
               id: row.id,
               name,
               phone: p,
               address: row.property_address || '',
               count: 0,
+              passportUrl,
+              housePhotos: housePhotoUrls,
+              gps,
+              ugLocation: ugLoc,
             });
           });
         } catch (e) {
@@ -1522,8 +1579,22 @@ function EnrollDialog({
                 if (existing) {
                   if (row.id && !existing.id) existing.id = row.id;
                   if (row.address && !existing.address) existing.address = row.address;
+                  if (row.passportUrl && !existing.passportUrl) existing.passportUrl = row.passportUrl;
+                  if (row.housePhotos && (!existing.housePhotos || existing.housePhotos.length === 0)) existing.housePhotos = row.housePhotos;
+                  if (row.gps && !existing.gps) existing.gps = row.gps;
+                  if (row.ugLocation && !existing.ugLocation) existing.ugLocation = row.ugLocation;
                 } else {
-                  map.set(key, { id: row.id, name, phone: p, address: row.address || '', count: 0 });
+                  map.set(key, {
+                    id: row.id,
+                    name,
+                    phone: p,
+                    address: row.address || '',
+                    count: 0,
+                    passportUrl: row.passportUrl || null,
+                    housePhotos: row.housePhotos || [],
+                    gps: row.gps || null,
+                    ugLocation: row.ugLocation || null,
+                  });
                 }
               });
             }
@@ -1593,13 +1664,88 @@ function EnrollDialog({
     setLandlordUsesWallet(false);
     setLandlordName('');
     setLandlordPhone('');
+    setSelectedLandlordRecord(null);
     setLandlordQuery('');
     setNewLandlordName('');
     setNewLandlordPhone('');
     setNewLandlordAddress('');
+    if (passportPhoto?.previewUrl) {
+      URL.revokeObjectURL(passportPhoto.previewUrl);
+    }
+    setPassportPhoto(null);
+    housePhotos.forEach((h) => URL.revokeObjectURL(h.previewUrl));
+    setHousePhotos([]);
+    setUgLocation(null);
   };
 
-  const handleSelectLandlord = (l: { name: string; phone: string }) => {
+  const handlePassportFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid image', description: 'Please choose an image file (JPG, PNG, WebP).', variant: 'destructive' });
+      return;
+    }
+    setOptimizingImage(true);
+    try {
+      const optimized = await optimizeImage(file, { maxWidth: 900, maxHeight: 900, quality: 0.85 });
+      if (passportPhoto?.previewUrl) {
+        URL.revokeObjectURL(passportPhoto.previewUrl);
+      }
+      setPassportPhoto({ file: optimized.file, previewUrl: optimized.previewUrl });
+      toast({ title: 'Passport photo attached 🪪' });
+    } catch (e: any) {
+      toast({ title: 'Could not process photo', description: e.message, variant: 'destructive' });
+    } finally {
+      setOptimizingImage(false);
+    }
+  };
+
+  const handleRemovePassportPhoto = () => {
+    if (passportPhoto?.previewUrl) {
+      URL.revokeObjectURL(passportPhoto.previewUrl);
+    }
+    setPassportPhoto(null);
+  };
+
+  const handleHouseFiles = async (files?: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = 5 - housePhotos.length;
+    if (remaining <= 0) {
+      toast({ title: 'Photo limit reached', description: 'You can upload up to 5 photos of the house.', variant: 'destructive' });
+      return;
+    }
+    const toProcess = Array.from(files).slice(0, remaining);
+    setOptimizingImage(true);
+    try {
+      const newItems: { id: string; file: File; previewUrl: string }[] = [];
+      for (const f of toProcess) {
+        if (!f.type.startsWith('image/')) continue;
+        const optimized = await optimizeImage(f, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
+        newItems.push({
+          id: `himg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          file: optimized.file,
+          previewUrl: optimized.previewUrl,
+        });
+      }
+      setHousePhotos((prev) => [...prev, ...newItems]);
+      toast({ title: `${newItems.length} house photo(s) added 🏠` });
+    } catch (e: any) {
+      toast({ title: 'Could not process photos', description: e.message, variant: 'destructive' });
+    } finally {
+      setOptimizingImage(false);
+    }
+  };
+
+  const handleRemoveHousePhoto = (id: string) => {
+    setHousePhotos((prev) => {
+      const target = prev.find((x) => x.id === id);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
+
+  const handleSelectLandlord = (l: LandlordRecord) => {
     const isCurrentlySelected =
       landlordName.trim().toLowerCase() === l.name.trim().toLowerCase() &&
       (!landlordPhone || landlordPhone.trim() === (l.phone || '').trim());
@@ -1608,10 +1754,12 @@ function EnrollDialog({
       // Deselect
       setLandlordName('');
       setLandlordPhone('');
+      setSelectedLandlordRecord(null);
     } else {
       // Select
       setLandlordName(l.name);
       setLandlordPhone(l.phone);
+      setSelectedLandlordRecord(l);
     }
   };
 
@@ -1781,13 +1929,19 @@ function EnrollDialog({
       });
       return;
     }
+    if (!selectedLandlordRecord) {
+      const match = landlords.find(
+        (l) => l.name.trim().toLowerCase() === landlordName.trim().toLowerCase()
+      );
+      if (match) setSelectedLandlordRecord(match);
+    }
     setStep('tenant');
   };
 
   const handleSaveNewLandlord = async () => {
     const name = newLandlordName.trim();
     const p = newLandlordPhone.trim();
-    const addr = newLandlordAddress.trim();
+    const landmark = newLandlordAddress.trim();
 
     if (name.length < 2) {
       toast({ title: 'Enter landlord name', description: 'Please provide at least 2 characters.', variant: 'destructive' });
@@ -1800,61 +1954,152 @@ function EnrollDialog({
 
     setSavingLandlord(true);
     let createdId: string | undefined;
-    try {
-      if (agentId) {
-        const { data: inserted } = await supabase
-          .from('landlords')
-          .insert({
-            name,
-            phone: p,
-            property_address: addr || 'Welile Homes Property',
-            registered_by: agentId,
-            managed_by_agent_id: agentId,
-            is_agent_managed: true,
-            has_smartphone: false,
-            ready_to_receive: false,
-            description: 'welile_homes',
-            receipt_request_channel: 'welile_homes',
-            service_center_comment: 'Welile Homes Landlord',
-          })
-          .select('id')
-          .maybeSingle();
+    let uploadedPassportUrl: string | null = null;
+    const uploadedHouseUrls: string[] = [];
 
-        if (inserted?.id) {
-          createdId = inserted.id;
+    try {
+      // 1. Upload landlord passport photo if provided
+      if (passportPhoto?.file) {
+        try {
+          const path = `landlords/${agentId || 'agent'}/${Date.now()}_passport_${Math.random().toString(36).slice(2, 7)}.webp`;
+          const { error: upErr } = await supabase.storage
+            .from('house-images')
+            .upload(path, passportPhoto.file, { contentType: 'image/webp', upsert: true });
+          if (!upErr) {
+            uploadedPassportUrl = supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+          }
+        } catch (e) {
+          console.warn('Storage upload error for passport photo:', e);
         }
       }
+
+      // 2. Upload house photos if provided
+      for (let i = 0; i < housePhotos.length; i++) {
+        try {
+          const item = housePhotos[i];
+          const path = `landlords/${agentId || 'agent'}/${Date.now()}_house_${i}_${Math.random().toString(36).slice(2, 7)}.webp`;
+          const { error: upErr } = await supabase.storage
+            .from('house-images')
+            .upload(path, item.file, { contentType: 'image/webp', upsert: true });
+          if (!upErr) {
+            const pubUrl = supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+            uploadedHouseUrls.push(pubUrl);
+          }
+        } catch (e) {
+          console.warn(`Storage upload error for house photo ${i}:`, e);
+        }
+      }
+
+      // 3. Format address from Uganda location + landmark
+      const addressParts = [
+        landmark,
+        ugLocation?.village,
+        ugLocation?.parish,
+        ugLocation?.subcounty,
+        ugLocation?.district,
+      ].filter(Boolean);
+      const finalAddress = addressParts.join(', ') || 'Welile Homes Property';
+
+      const metadataObj = {
+        welile_homes: true,
+        passport_photo: uploadedPassportUrl || passportPhoto?.previewUrl || null,
+        house_photos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
+        ug_location: ugLocation,
+        landmark: landmark || null,
+        registered_at: new Date().toISOString(),
+      };
+
+      if (agentId) {
+        try {
+          const { data: inserted, error: insertErr } = await supabase
+            .from('landlords')
+            .insert({
+              name,
+              phone: p,
+              property_address: finalAddress,
+              district: ugLocation?.district || null,
+              county: ugLocation?.county || null,
+              sub_county: ugLocation?.subcounty || null,
+              village: ugLocation?.village || null,
+              region: ugLocation?.region || null,
+              ug_village_id: ugLocation?.villageId || null,
+              latitude: null,
+              longitude: null,
+              location_captured_at: null,
+              location_captured_by: null,
+              registered_by: agentId,
+              managed_by_agent_id: agentId,
+              is_agent_managed: true,
+              has_smartphone: false,
+              ready_to_receive: false,
+              description: JSON.stringify(metadataObj),
+              receipt_request_channel: 'welile_homes',
+              service_center_comment: 'Welile Homes Landlord',
+            })
+            .select('id')
+            .maybeSingle();
+
+          if (inserted?.id) {
+            createdId = inserted.id;
+          }
+          if (insertErr) {
+            console.warn('Could not insert landlord record:', insertErr);
+          }
+        } catch (err: any) {
+          console.warn('Could not mirror landlord record to landlords table:', err);
+        }
+      }
+
+      const newRecord: LandlordRecord = {
+        id: createdId,
+        name,
+        phone: p,
+        address: finalAddress,
+        count: 0,
+        passportUrl: uploadedPassportUrl || passportPhoto?.previewUrl || null,
+        housePhotos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
+        gps: null,
+        ugLocation,
+      };
+
+      // 4. Save locally
+      try {
+        const storedKey = `welile_homes_landlords_${agentId}`;
+        const existingRaw = localStorage.getItem(storedKey);
+        const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+        const updatedList = [
+          newRecord,
+          ...existingList.filter((x: any) => `${(x.name || '').toLowerCase()}|${x.phone}` !== `${name.toLowerCase()}|${p}`),
+        ];
+        localStorage.setItem(storedKey, JSON.stringify(updatedList));
+      } catch {
+        // ignore storage error
+      }
+
+      // 5. Add to local state & select
+      setLandlords((prev) => [
+        newRecord,
+        ...prev.filter((x) => `${x.name.toLowerCase()}|${x.phone}` !== `${name.toLowerCase()}|${p}`),
+      ]);
+
+      setLandlordName(name);
+      setLandlordPhone(p);
+      setSelectedLandlordRecord(newRecord);
+
+      toast({
+        title: 'Landlord registered successfully 🏡',
+        description: `${name} has been enrolled with house details. Now enter tenant details to proceed.`,
+      });
+      setStep('tenant');
     } catch (err: any) {
-      console.warn('Could not mirror landlord record to landlords table:', err);
+      toast({
+        title: 'Registration saved locally',
+        description: err.message || 'Proceeding to tenant details.',
+      });
+      setStep('tenant');
     } finally {
       setSavingLandlord(false);
     }
-
-    // Save locally so they persist and are immediately discoverable for THIS AGENT in Welile Homes
-    try {
-      const storedKey = `welile_homes_landlords_${agentId}`;
-      const existingRaw = localStorage.getItem(storedKey);
-      const existingList = existingRaw ? JSON.parse(existingRaw) : [];
-      const updatedList = [
-        { id: createdId, name, phone: p, address: addr, count: 0 },
-        ...existingList.filter((x: any) => `${(x.name || '').toLowerCase()}|${x.phone}` !== `${name.toLowerCase()}|${p}`),
-      ];
-      localStorage.setItem(storedKey, JSON.stringify(updatedList));
-    } catch {
-      // ignore storage error
-    }
-
-    // Add to local state so they appear immediately in list
-    setLandlords((prev) => {
-      const key = `${name.toLowerCase()}|${p}`;
-      if (prev.some((x) => `${x.name.toLowerCase()}|${x.phone}` === key)) return prev;
-      return [{ id: createdId, name, phone: p, address: addr, count: 0 }, ...prev];
-    });
-
-    setLandlordName(name);
-    setLandlordPhone(p);
-    toast({ title: 'Landlord registered for Welile Homes 🤣', description: `${name} selected. Now enter tenant details.` });
-    setStep('tenant');
   };
 
   const findTenant = async () => {
@@ -1913,10 +2158,19 @@ function EnrollDialog({
         p_payout_day: parseInt(payoutDay) || 5,
         p_has_smartphone: hasPhone,
         p_landlord_uses_wallet: landlordUsesWallet,
-        p_landlord_id: null,
+        p_landlord_id: selectedLandlordRecord?.id || null,
         p_landlord_name: landlordName || null,
         p_landlord_phone: landlordPhone || null,
-        p_notes: null,
+        p_notes: JSON.stringify({
+          welile_homes: true,
+          landlord_name: landlordName,
+          landlord_phone: landlordPhone,
+          property_address: selectedLandlordRecord?.address || null,
+          ug_location: selectedLandlordRecord?.ugLocation || null,
+          gps: selectedLandlordRecord?.gps || null,
+          house_photos: selectedLandlordRecord?.housePhotos || [],
+          landlord_passport: selectedLandlordRecord?.passportUrl || null,
+        }),
       });
       if (error) throw error;
       const res = data as any;
@@ -2071,19 +2325,37 @@ function EnrollDialog({
                               : 'hover:bg-muted/60'
                             }`}
                         >
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-foreground truncate flex items-center gap-1.5">
-                              {l.name}
-                              {isSelected && (
-                                <Badge variant="default" className="text-[9px] h-4 px-1 py-0 font-normal">
-                                  Selected
-                                </Badge>
-                              )}
-                            </p>
-                            <p className="text-muted-foreground truncate text-[11px]">
-                              {l.phone || 'No phone'}
-                              {l.address ? ` · ${l.address}` : ''}
-                            </p>
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            {l.passportUrl ? (
+                              <img
+                                src={l.passportUrl}
+                                alt={l.name}
+                                className="h-9 w-9 rounded-full object-cover border border-primary/30 shrink-0"
+                              />
+                            ) : (
+                              <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
+                                {l.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-foreground truncate flex items-center gap-1.5">
+                                {l.name}
+                                {isSelected && (
+                                  <Badge variant="default" className="text-[9px] h-4 px-1 py-0 font-normal">
+                                    Selected
+                                  </Badge>
+                                )}
+                                {l.gps && (
+                                  <span className="text-[9px] font-normal text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded shrink-0">
+                                    📍 GPS
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-muted-foreground truncate text-[11px]">
+                                {l.phone || 'No phone'}
+                                {l.address ? ` · ${l.address}` : ''}
+                              </p>
+                            </div>
                           </div>
                           <div className="shrink-0 flex items-center gap-1.5">
                             {l.count > 0 ? (
@@ -2157,54 +2429,292 @@ function EnrollDialog({
               </TabsContent>
 
               {/* REGISTER NEW LANDLORD */}
-              <TabsContent value="register" className="space-y-3 pt-2">
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
-                  <div>
-                    <Label className="text-xs">Landlord Full Name *</Label>
-                    <Input
-                      value={newLandlordName}
-                      onChange={(e) => setNewLandlordName(e.target.value)}
-                      placeholder="e.g. Chemayek Abraham"
-                      className="mt-1"
-                    />
+              <TabsContent value="register" className="space-y-4 pt-2">
+                {/* Hidden File Inputs */}
+                <input
+                  ref={passportCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePassportFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={passportGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePassportFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={houseCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleHouseFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={houseGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleHouseFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+
+                {/* 1. Landlord Identity & Passport Photo */}
+                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span>Landlord Information</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      Step 1 of 2
+                    </Badge>
                   </div>
-                  <div>
-                    <Label className="text-xs">Landlord Phone Number *</Label>
-                    <Input
-                      value={newLandlordPhone}
-                      onChange={(e) => setNewLandlordPhone(e.target.value)}
-                      placeholder="e.g. 0772 123 456"
-                      className="mt-1"
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Landlord Full Name *</Label>
+                      <Input
+                        value={newLandlordName}
+                        onChange={(e) => setNewLandlordName(e.target.value)}
+                        placeholder="e.g. Chemayek Abraham"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Landlord Phone Number *</Label>
+                      <Input
+                        value={newLandlordPhone}
+                        onChange={(e) => setNewLandlordPhone(e.target.value)}
+                        placeholder="e.g. 0772 123 456"
+                        className="mt-1"
+                      />
+                    </div>
                   </div>
+
+                  {/* Landlord Passport Photo */}
+                  <div className="pt-1 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs flex items-center gap-1.5 font-medium">
+                        <span>🪪 Landlord Passport / Face Photo</span>
+                        {passportPhoto && (
+                          <span className="text-[10px] text-emerald-600 font-normal">✓ Photo attached</span>
+                        )}
+                      </Label>
+                    </div>
+
+                    {passportPhoto ? (
+                      <div className="flex items-center gap-3 p-2.5 rounded-lg border bg-muted/30">
+                        <div className="relative h-20 w-16 rounded-md overflow-hidden border border-border shrink-0 shadow-xs">
+                          <img
+                            src={passportPhoto.previewUrl}
+                            alt="Landlord Passport"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemovePassportPhoto}
+                            className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <p className="text-xs font-medium text-foreground">Landlord photo captured</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight">
+                            Passport headshot saved. Used for Landlord Ops identity verification.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 gap-1"
+                              onClick={() => passportCameraRef.current?.click()}
+                              disabled={optimizingImage}
+                            >
+                              <Camera className="h-3 w-3" /> Retake
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 text-destructive hover:bg-destructive/10"
+                              onClick={handleRemovePassportPhoto}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg border border-dashed bg-muted/20 space-y-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          Take a clear live photo of the landlord or upload their passport photo headshot.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 flex-1"
+                            onClick={() => passportCameraRef.current?.click()}
+                            disabled={optimizingImage}
+                          >
+                            <Camera className="h-3.5 w-3.5 text-primary" />
+                            <span>Take Live Photo</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 flex-1"
+                            onClick={() => passportGalleryRef.current?.click()}
+                            disabled={optimizingImage}
+                          >
+                            <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Upload Photo</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Official Location of the House (District -> Village) */}
+                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span>House Location (Uganda Hierarchy)</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">District → Village</span>
+                  </div>
+
+                  <UgLocationPicker
+                    value={ugLocation}
+                    onChange={setUgLocation}
+                    defaultMode="cascade"
+                    label="Official House Location"
+                  />
+
                   <div>
-                    <Label className="text-xs">Property Address / Location (optional)</Label>
+                    <Label className="text-xs">Plot / Landmark / House Number (optional)</Label>
                     <Input
                       value={newLandlordAddress}
                       onChange={(e) => setNewLandlordAddress(e.target.value)}
-                      placeholder="e.g. Kansanga, Block 4"
+                      placeholder="e.g. Near Total Petrol Station, Plot 14, Blue Gate"
                       className="mt-1"
                     />
                   </div>
                 </div>
 
+                {/* 4. House / Property Photos */}
+                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <Home className="h-4 w-4 text-primary" />
+                      <span>House Photos ({housePhotos.length}/5)</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">Exterior / Entrance</span>
+                  </div>
+
+                  {housePhotos.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 snap-x">
+                      {housePhotos.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border shadow-xs"
+                        >
+                          <img
+                            src={item.previewUrl}
+                            alt={`House photo ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveHousePhoto(item.id)}
+                            className="absolute top-1 right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                          <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center py-0.5">
+                            Photo {idx + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 flex-1"
+                      onClick={() => houseCameraRef.current?.click()}
+                      disabled={housePhotos.length >= 5 || optimizingImage}
+                    >
+                      <Camera className="h-3.5 w-3.5 text-primary" />
+                      <span>Take Live Photo</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs gap-1.5 flex-1"
+                      onClick={() => houseGalleryRef.current?.click()}
+                      disabled={housePhotos.length >= 5 || optimizingImage}
+                    >
+                      <Upload className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>Upload Photos</span>
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Take live photos or upload pictures of the front facade, side views, or compound.
+                  </p>
+                </div>
+
                 <p className="text-[11px] text-muted-foreground">
-                  Once registered, this landlord will be saved to your landlords list and selected for tenant registration.
+                  Once registered, this landlord, location, GPS, and photos will be linked and saved for tenant registration.
                 </p>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-1">
                   <Button
                     type="button"
                     onClick={handleSaveNewLandlord}
                     disabled={savingLandlord || !newLandlordName.trim() || !newLandlordPhone.trim()}
-                    className="w-full gap-2"
+                    className="w-full gap-2 h-11"
                   >
                     {savingLandlord ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Saving Landlord & Uploading Photos...</span>
+                      </>
                     ) : (
-                      <UserCheck className="h-4 w-4" />
+                      <>
+                        <UserCheck className="h-4 w-4" />
+                        <span>Save Landlord & Continue to Tenant →</span>
+                      </>
                     )}
-                    <span>Save Landlord & Continue to Tenant →</span>
                   </Button>
                 </div>
               </TabsContent>
@@ -2218,13 +2728,31 @@ function EnrollDialog({
             {/* Selected Landlord Summary Banner */}
             <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Building2 className="h-4 w-4" />
-                </div>
+                {selectedLandlordRecord?.passportUrl ? (
+                  <img
+                    src={selectedLandlordRecord.passportUrl}
+                    alt={landlordName}
+                    className="h-10 w-10 shrink-0 rounded-full object-cover border border-primary/40 shadow-xs"
+                  />
+                ) : (
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                )}
                 <div className="min-w-0">
-                  <p className="text-[10px] uppercase font-semibold text-primary tracking-wider">Landlord</p>
+                  <p className="text-[10px] uppercase font-semibold text-primary tracking-wider flex items-center gap-1.5">
+                    <span>Landlord</span>
+                    {selectedLandlordRecord?.gps && (
+                      <span className="text-[9px] font-normal text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded">
+                        📍 GPS
+                      </span>
+                    )}
+                  </p>
                   <p className="text-sm font-bold text-foreground truncate">{landlordName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{landlordPhone || 'No phone on file'}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {landlordPhone || 'No phone on file'}
+                    {selectedLandlordRecord?.address ? ` · ${selectedLandlordRecord.address}` : ''}
+                  </p>
                 </div>
               </div>
               <Button
