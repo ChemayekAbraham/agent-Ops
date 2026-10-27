@@ -89,6 +89,7 @@ export function buildNexaPublicGuideReply(text: string, isAuthenticated = false)
   if (extractPhoneNumberFromText(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   if (isPromissoryNoteQuery(text)) return buildPromissoryNoteReminderReply();
   if (isWalletHowToQuery(text)) return buildWelileWalletGuideReply();
+  if (isMerchandiseQuery(text)) return buildMerchandiseGuideReply(isAuthenticated);
   if (isAccountOrBalanceQuery(text)) return buildAccountPhoneAndDashboardGuideReply(text);
   const link = (label: string, path: string) => `[${label}](${isAuthenticated ? path : toAuthGatedPath(path)})`;
   if (/\brequest(?:ing)? rent\b|\bget rent (?:help|support)\b/i.test(text)) {
