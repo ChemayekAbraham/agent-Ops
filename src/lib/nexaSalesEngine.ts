@@ -1,5 +1,6 @@
 import { calcFunderEarnings } from './funderEarnings';
 import { buildNexaPublicGuideReply, buildPromissoryNoteReminderReply, buildFinancialAccessFallbackReply, NEXA_ACTION_LINKS } from '../../supabase/functions/_shared/nexaGuides';
+export { NEXA_ACTION_LINKS } from '../../supabase/functions/_shared/nexaGuides';
 export { isFinancialAccessQuery, buildFinancialAccessFallbackReply } from '../../supabase/functions/_shared/nexaGuides';
 export { toAuthGatedPath, toAuthGatedUrl, extractPhoneNumberFromText, isAccountOrBalanceQuery, buildAccountPhoneAndDashboardGuideReply, isWalletHowToQuery, buildWelileWalletGuideReply, isPromissoryNoteQuery, buildPromissoryNoteReminderReply, buildNexaPublicGuideReply } from '../../supabase/functions/_shared/nexaGuides';
 export { isMerchandiseQuery, buildMerchandiseGuideReply } from '../../supabase/functions/_shared/nexaGuides';
