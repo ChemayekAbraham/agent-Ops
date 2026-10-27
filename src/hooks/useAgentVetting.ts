@@ -277,7 +277,7 @@ export function useAgentVetting() {
       run('next_of_kin', () =>
         callRpc(
           'agent_vetting_save_details',
-          nok.useParent
+          nok.useParent === true
             ? { p_nok_use_parent: true }
             : { p_nok_name: nok.name, p_nok_phone: nok.phone, p_nok_relationship: nok.relationship },
         ),
