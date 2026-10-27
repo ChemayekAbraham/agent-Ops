@@ -1,8 +1,8 @@
 import { useEffect, lazy, Suspense, useState } from 'react';
-import { ArrowLeft, ShieldCheck, Sparkles, Percent, Lock } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
+const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -573,7 +573,7 @@ export default function CFODashboardPage() {
                     </h1>
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                    Individually agreed advance terms with custom rates (daily or monthly basis), configurable terms (7, 14, 30 days or custom), and repayment schedules. Preview only — financial issuance is not connected.
+                    Individually agreed advance terms with custom rates (daily or monthly basis), configurable terms (7, 14, 30 days or custom), and repayment schedules. The CFO records, approves and pays out each advance; the server calculates every figure and issuance is controlled by a server switch.
                   </p>
                 </div>
                 <Button
@@ -586,40 +586,9 @@ export default function CFODashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className="border-border/60">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" /> CFO Sole Authority
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground leading-relaxed">
-                  Only the CFO role is authorized to configure and approve individually agreed terms. No secondary approval workflow is required.
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/60">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Percent className="h-4 w-4 text-primary" /> Approved Rate Options
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground leading-relaxed">
-                  1% per day (simple), 15% or 28% per month (prorated by days on short terms), or individually agreed custom rates with explicit daily/monthly basis.
-                </CardContent>
-              </Card>
-
-              <Card className="border-border/60">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-amber-600" /> Financial Safety Guard
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground leading-relaxed">
-                  Preview mode only. The server recalculates and enforces safeguards before any advance can be disbursed.
-                </CardContent>
-              </Card>
-            </div>
+            <Suspense fallback={<p className="py-6 text-center text-xs text-muted-foreground">Loading...</p>}>
+              <SpecialAdvancesPanel />
+            </Suspense>
           </div>
         );
       case 'advance-repayments':
