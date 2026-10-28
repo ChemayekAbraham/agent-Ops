@@ -74,14 +74,30 @@ describe('Agent KYC navigation and existing actions', () => {
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
-  it('resumes the first unfinished checklist group rather than marking skipped steps complete', () => {
+  it('shows already-filled steps instead of skipping them, then walks on with Continue', () => {
     state.value.vetting.phone.verified_at = new Date().toISOString();
     state.value.vetting.email.verified_at = new Date().toISOString();
     mount();
-    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Where you stay');
+    // Contact is confirmed already, yet it is still shown first rather than skipped.
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Contact');
+    expect(screen.getByText(/Confirmed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(state.value.vetting.residence.district).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Where you stay');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Identity document');
+  });
+
+  it('flags a step that is already filled so it only needs checking', () => {
+    state.value.vetting.phone.verified_at = new Date().toISOString();
+    state.value.vetting.email.verified_at = new Date().toISOString();
+    mount();
+    expect(screen.getByText(/^Already saved/)).toBeInTheDocument();
+  });
+
+  it('says nothing about checking a step that is still empty', () => {
+    mount();
+    expect(screen.queryByText(/^Already saved/)).toBeNull();
   });
 
   it('puts live location last, just before review, so its reading is still fresh at submit', () => {
@@ -124,9 +140,8 @@ describe('Agent KYC navigation and existing actions', () => {
   it('keeps Submit for review disabled and names what is still needed', () => {
     completeAll();
     state.value.vetting.next_of_kin.name = null;
-    mount(); // complete except next of kin, so the wizard opens at that step
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    mount(); // every step is shown, so walk all the way to review
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
     expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Next of kin' }));
@@ -137,6 +152,7 @@ describe('Agent KYC navigation and existing actions', () => {
     completeAll();
     state.value.submit = vi.fn().mockResolvedValue({ success: true, message: 'Sent for review' });
     mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     expect(state.value.submit).toHaveBeenCalledTimes(1);
   });
@@ -144,6 +160,7 @@ describe('Agent KYC navigation and existing actions', () => {
   it('still shows the server list when it refuses a record the wizard considers complete', async () => {
     completeAll();
     mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     const dialog = await screen.findByRole('dialog');
     expect(state.value.submit).toHaveBeenCalledTimes(1);
