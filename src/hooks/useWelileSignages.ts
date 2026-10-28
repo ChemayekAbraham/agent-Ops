@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { SignageRecord, SignageStatus, SIGNAGE_RATES } from '@/lib/welileSignages';
+import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
 
 const STORAGE_KEY = 'welile:signages:local_cache';
@@ -28,29 +29,30 @@ export function useMySignages() {
 
   return useQuery({
     queryKey: ['welile-signages', 'my', user?.id],
-    enabled: !!user?.id,
     queryFn: async (): Promise<SignageRecord[]> => {
       try {
-        const { data, error } = await (supabase as any)
-          .from('welile_signages')
-          .select('*')
-          .eq('agent_id', user!.id)
-          .order('created_at', { ascending: false });
+        if (user?.id) {
+          const { data, error } = await (supabase as any)
+            .from('welile_signages')
+            .select('*')
+            .eq('agent_id', user.id)
+            .order('created_at', { ascending: false });
 
-        if (!error && Array.isArray(data)) {
-          // Merge with any local pending entries
-          const locals = getLocalSignages().filter(r => r.agent_id === user!.id);
-          const map = new Map<string, SignageRecord>();
-          for (const item of data) map.set(item.id, item as SignageRecord);
-          for (const loc of locals) {
-            if (!map.has(loc.id)) map.set(loc.id, loc);
+          if (!error && Array.isArray(data)) {
+            // Merge with any local pending entries
+            const locals = getLocalSignages().filter(r => !r.agent_id || r.agent_id === user.id);
+            const map = new Map<string, SignageRecord>();
+            for (const item of data) map.set(item.id, item as SignageRecord);
+            for (const loc of locals) {
+              if (!map.has(loc.id)) map.set(loc.id, loc);
+            }
+            return Array.from(map.values());
           }
-          return Array.from(map.values());
         }
       } catch {
         // Fall back to local storage
       }
-      return getLocalSignages().filter(r => r.agent_id === user?.id);
+      return getLocalSignages().filter(r => !user?.id || !r.agent_id || r.agent_id === user.id);
     },
   });
 }
@@ -97,7 +99,7 @@ export function useSubmitSignage() {
       const now = new Date().toISOString();
 
       const newRecord: SignageRecord = {
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         reference_no,
         agent_id: user.id,
         agent_name: user.user_metadata?.full_name || user.email || 'Agent',
