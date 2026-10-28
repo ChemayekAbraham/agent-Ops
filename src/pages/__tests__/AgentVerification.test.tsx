@@ -46,9 +46,9 @@ describe('Agent KYC navigation and existing actions', () => {
     await waitFor(() => expect(state.value.sendEmailCode).toHaveBeenCalledWith('agent@example.com'));
     await screen.findByRole('textbox', { name: '6-digit code' });
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /^Back$/ }));
     fireEvent.change(screen.getByRole('textbox', { name: '6-digit code' }), { target: { value: '123456' } });
-    fireEvent.click(within(area).getByRole('button', { name: 'Confirm', exact: true }));
+    fireEvent.click(within(area).getByRole('button', { name: /^Confirm$/ }));
     await waitFor(() => expect(state.value.confirmEmailCode).toHaveBeenCalledWith('email-1', '123456'));
   });
 

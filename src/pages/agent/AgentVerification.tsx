@@ -100,7 +100,8 @@ export default function AgentVerification() {
     setSubmitResult(null);
     try {
       const result = await v.submit();
-      setSubmitResult(result.success ? { ok: true } : { ok: false, message: result.message, missing: result.missing });
+      if (result.success === true) setSubmitResult({ ok: true });
+      else if ('message' in result) setSubmitResult({ ok: false, message: result.message, missing: result.missing });
       if (result.success) setWizardOpen(false);
     } catch (e) { toast.error(errMsg(e)); }
   };
@@ -161,7 +162,7 @@ export default function AgentVerification() {
         </>}
       </div></footer>}
       <Dialog open={!!submitResult && !submitResult.ok} onOpenChange={open => { if (!open) setSubmitResult(null); }}>
-        <DialogContent className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg"><DialogHeader><DialogTitle>{submitResult?.message}</DialogTitle></DialogHeader><ul className="space-y-2">{(submitResult?.missing ?? []).map((message, index) => <li key={index}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const key = stepForMissing(message); const target = KYC_STEPS.findIndex(s => !!key && s.keys.includes(key)); if (target >= 0) { setSubmitResult(null); goTo(target); } }}><span>{message}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></DialogContent>
+        <DialogContent aria-describedby={undefined} className="max-h-[85dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-lg"><DialogHeader><DialogTitle>{submitResult?.message}</DialogTitle></DialogHeader><ul className="space-y-2">{(submitResult?.missing ?? []).map((message, index) => <li key={index}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const key = stepForMissing(message); const target = KYC_STEPS.findIndex(s => !!key && s.keys.includes(key)); if (target >= 0) { setSubmitResult(null); goTo(target); } }}><span>{message}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></DialogContent>
       </Dialog>
       <AlertDialog open={!!confirmAction} onOpenChange={open => { if (!open) setConfirmAction(null); }}><AlertDialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-lg"><AlertDialogHeader><AlertDialogTitle>Change your verified details?</AlertDialogTitle><AlertDialogDescription>Changing this sends your verification back to Agent Ops for review. You can't add tenants until they approve it again.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel><AlertDialogAction className="min-h-11" onClick={() => { const action = confirmAction; setConfirmAction(null); action?.(); }}>Continue</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
