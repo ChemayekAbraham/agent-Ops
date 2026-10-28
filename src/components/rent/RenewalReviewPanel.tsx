@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from 'react';
+import { Suspense, useState } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { AlertTriangle, ArrowRight, ExternalLink, History, Loader2, RefreshCw, Send } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';

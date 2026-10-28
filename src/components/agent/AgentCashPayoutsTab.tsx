@@ -67,6 +67,7 @@ import {
   removeFromQueuePage, withClaimUpserted,
   type ClaimOutcome, type ClaimRpcResponse, type ClaimStatusResponse, type ClaimedWithdrawal,
 } from '@/lib/merchantClaim';
+import { isUuid } from '@/lib/isUuid';
 
 // Aligned with FinOps dashboard (FinOpsWithdrawalVerification) so pending counts
 // match across dashboards. Sourced from the shared fence module, which mirrors the
@@ -317,7 +318,7 @@ async function attachProfiles(rows: any[]) {
   // name instead of "Unknown".
   const ids = Array.from(
     new Set(
-      rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(Boolean),
+      rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(isUuid),
     ),
   );
   if (ids.length === 0) return rows;

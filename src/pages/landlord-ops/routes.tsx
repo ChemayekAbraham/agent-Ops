@@ -1,4 +1,5 @@
-import { lazy, type LazyExoticComponent } from 'react';
+import { type LazyExoticComponent } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 
 /**
  * Landlord Ops child routes — one lazy chunk per destination.

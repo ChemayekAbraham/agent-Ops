@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -21,23 +22,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  User,
-  Phone,
-  MapPin,
+  ArrowLeft,
+  ArrowRight,
   Banknote,
-  Loader2,
-  CheckCircle2,
-  Shield,
-  Home,
-  Navigation,
-  Sparkles,
-  TrendingUp,
-  Zap,
-  Droplets,
-  UserPlus,
   Building2,
+  CheckCircle2,
+  Circle,
+  Copy,
+  Droplets,
+  Home,
+  Loader2,
+  MapPin,
+  Navigation,
+  Shield,
+  TrendingUp,
+  User,
+  UserPlus,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocations';
@@ -49,6 +53,103 @@ interface RegisterPropertyDialogProps {
 }
 
 type PropertyStatus = 'occupied' | 'empty';
+type Step = 1 | 2 | 3;
+
+/** Everything the landlord has typed. Kept in the browser so closing the dialog never loses it. */
+interface Draft {
+  step: Step;
+  address: string;
+  ugLoc: UgLocationSelection | null;
+  monthlyRent: string;
+  houses: string;
+  payoutDay: string;
+  status: PropertyStatus;
+  tenantName: string;
+  tenantPhone: string;
+  electricity: string;
+  water: string;
+  caretakerName: string;
+  caretakerPhone: string;
+  lat: number | null;
+  lng: number | null;
+  lc1Name: string;
+  lc1Phone: string;
+}
+
+const EMPTY_DRAFT: Draft = {
+  step: 1,
+  address: '',
+  ugLoc: null,
+  monthlyRent: '',
+  houses: '',
+  payoutDay: '',
+  status: 'empty',
+  tenantName: '',
+  tenantPhone: '',
+  electricity: '',
+  water: '',
+  caretakerName: '',
+  caretakerPhone: '',
+  lat: null,
+  lng: null,
+  lc1Name: '',
+  lc1Phone: '',
+};
+
+const PLATFORM_FEE_RATE = 0.1;
+
+const digits = (v: string) => v.replace(/\D/g, '');
+const phoneOk = (v: string) => digits(v).length >= 9;
+const ordinal = (d: number) => `${d}${d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}`;
+
+/** What the server function answers when it declines (it never half-saves). */
+const SERVER_ERRORS: Record<string, string> = {
+  address_required: 'Please enter the property address.',
+  location_required: 'Pick the official location (region → village) from the list.',
+  rent_invalid: 'Enter a monthly rent between UGX 1 and UGX 100,000,000.',
+  houses_invalid: 'Number of houses must be 1 or more.',
+  payout_day_invalid: 'Choose a payout day between the 1st and the 28th.',
+  tenant_phone_required: "Enter the tenant's phone number.",
+  proof_required: 'Add at least one way for us to verify the property (meter, GPS pin or a contact).',
+  profile_missing: 'We could not load your profile.',
+  profile_phone_required: 'Add your phone number to your profile first, then register.',
+  already_registered: 'You have already registered this property.',
+  too_many_registrations: 'You have registered several properties today. Please try again tomorrow.',
+};
+
+const draftKey = (userId: string) => `register-property-draft:${userId}`;
+
+function loadDraft(userId: string): Draft {
+  try {
+    const raw = localStorage.getItem(draftKey(userId));
+    if (!raw) return EMPTY_DRAFT;
+    return { ...EMPTY_DRAFT, ...(JSON.parse(raw) as Partial<Draft>) };
+  } catch {
+    return EMPTY_DRAFT;
+  }
+}
+
+function saveDraft(userId: string, draft: Draft) {
+  try {
+    localStorage.setItem(draftKey(userId), JSON.stringify(draft));
+  } catch {
+    // Private mode or storage blocked: the form still works, it just cannot be restored.
+  }
+}
+
+function clearDraft(userId: string) {
+  try {
+    localStorage.removeItem(draftKey(userId));
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+const STEP_TITLES: Record<Step, string> = {
+  1: 'Your property',
+  2: 'Who lives there',
+  3: 'Get verified',
+};
 
 export default function RegisterPropertyDialog({
   open,
@@ -56,246 +157,196 @@ export default function RegisterPropertyDialog({
   onSuccess,
 }: RegisterPropertyDialogProps) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [capturingLocation, setCapturingLocation] = useState(false);
+  const navigate = useNavigate();
+
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [restoredFor, setRestoredFor] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [capturingLocation, setCapturingLocation] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [needsPhone, setNeedsPhone] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
+  const [tenantLinked, setTenantLinked] = useState(false);
 
-  // Property details
-  const [propertyAddress, setPropertyAddress] = useState('');
-  const [numberOfHouses, setNumberOfHouses] = useState('');
-  const [monthlyRent, setMonthlyRent] = useState('');
-  const [electricityMeter, setElectricityMeter] = useState('');
-  const [waterMeter, setWaterMeter] = useState('');
-  const [payoutDate, setPayoutDate] = useState('');
-
-  // Caretaker
-  const [caretakerName, setCaretakerName] = useState('');
-  const [caretakerPhone, setCaretakerPhone] = useState('');
-
-  // Location
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-
-  // Tenant or empty
-  const [propertyStatus, setPropertyStatus] = useState<PropertyStatus>('empty');
-  const [tenantName, setTenantName] = useState('');
-  const [tenantPhone, setTenantPhone] = useState('');
-
-  // LC1
-  const [lc1Name, setLc1Name] = useState('');
-  const [lc1Phone, setLc1Phone] = useState('');
-
-  // Official Uganda location (region → village) from the shared ug_* dataset.
-  // Mandatory, and it also supplies the LC1 chairperson's village.
-  const [ugLoc, setUgLoc] = useState<UgLocationSelection | null>(null);
-  const [ugLocError, setUgLocError] = useState<string | null>(null);
-  const lc1Village = ugLoc?.village ?? '';
-
-  const platformFee = monthlyRent ? Math.round(parseInt(monthlyRent) * 0.10) : 0;
-
-  const resetForm = () => {
-    setPropertyAddress('');
-    setNumberOfHouses('');
-    setMonthlyRent('');
-    setElectricityMeter('');
-    setWaterMeter('');
-    setPayoutDate('');
-    setCaretakerName('');
-    setCaretakerPhone('');
-    setLatitude(null);
-    setLongitude(null);
-    setPropertyStatus('empty');
-    setTenantName('');
-    setTenantPhone('');
-    setLc1Name('');
-    setLc1Phone('');
-    setUgLoc(null);
-    setUgLocError(null);
-    setAcceptedTerms(false);
-    setSuccess(false);
+  const patch = (p: Partial<Draft>) => {
+    setError(null);
+    setDraft((d) => ({ ...d, ...p }));
   };
+
+  // Restore this landlord's unfinished form when the dialog opens.
+  useEffect(() => {
+    if (open && user && restoredFor !== user.id) {
+      setDraft(loadDraft(user.id));
+      setRestoredFor(user.id);
+    }
+  }, [open, user, restoredFor]);
+
+  // Keep the draft up to date while the form is being filled in.
+  useEffect(() => {
+    if (user && restoredFor === user.id && !reference) saveDraft(user.id, draft);
+  }, [draft, user, restoredFor, reference]);
+
+  const rent = parseInt(draft.monthlyRent, 10) || 0;
+  const platformFee = Math.round(rent * PLATFORM_FEE_RATE);
+  const youReceive = rent - platformFee;
+
+  const proofs = useMemo(
+    () => ({
+      meter: !!(draft.electricity.trim() || draft.water.trim()),
+      gps: draft.lat !== null && draft.lng !== null,
+      caretaker: phoneOk(draft.caretakerPhone),
+      lc1: phoneOk(draft.lc1Phone) && !!draft.lc1Name.trim(),
+    }),
+    [draft],
+  );
+  const proofCount = Object.values(proofs).filter(Boolean).length;
 
   const captureLocation = () => {
     if (!navigator.geolocation) {
-      toast.error('Geolocation is not supported by your browser');
+      toast.error('This device cannot share its location.');
       return;
     }
-
     setCapturingLocation(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude);
-        setLongitude(position.coords.longitude);
+      (pos) => {
+        patch({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setCapturingLocation(false);
-        toast.success('📍 Property location captured');
+        toast.success('Property location captured');
       },
-      (error) => {
+      () => {
         setCapturingLocation(false);
-        toast.error('Failed to capture location. Please allow location access.');
-        console.error('Geolocation error:', error);
+        toast.error('Could not get your location. Please allow location access and try again.');
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      { enableHighAccuracy: true, timeout: 15000 },
     );
+  };
+
+  /** Returns a message when the current step is not ready to leave, otherwise null. */
+  const validateStep = (step: Step): string | null => {
+    if (step === 1) {
+      if (draft.address.trim().length < 3) return 'Please enter the property address.';
+      if (!draft.ugLoc) return 'Pick the official location (region → village) from the list.';
+      if (rent <= 0) return 'Enter the total monthly rent for this property.';
+    }
+    if (step === 2 && draft.status === 'occupied' && !phoneOk(draft.tenantPhone)) {
+      return "Enter the tenant's phone number (at least 9 digits).";
+    }
+    if (step === 3) {
+      if (proofCount === 0) return 'Add at least one way for us to verify the property.';
+      if (draft.caretakerPhone.trim() && !proofs.caretaker) return 'The caretaker phone number looks too short.';
+      if (draft.lc1Phone.trim() && !phoneOk(draft.lc1Phone)) return 'The LC1 phone number looks too short.';
+      if (!acceptedTerms) return 'Please accept the Welile Guaranteed Rent terms.';
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const problem = validateStep(draft.step);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    patch({ step: (draft.step + 1) as Step });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
-    if (!propertyAddress.trim()) {
-      toast.error('Please provide the property address');
-      return;
+    if (!user || loading) return;
+    // Re-check every step so a restored draft cannot skip a requirement.
+    for (const s of [1, 2, 3] as Step[]) {
+      const problem = validateStep(s);
+      if (problem) {
+        setError(problem);
+        setDraft((d) => ({ ...d, step: s }));
+        return;
+      }
     }
-
-    if (!ugLoc) {
-      setUgLocError('Pick your official location (region → village) from the list.');
-      toast.error('Please select the official location of the property');
-      return;
-    }
-
-    if (!monthlyRent.trim()) {
-      toast.error('Please provide the monthly rent amount');
-      return;
-    }
-
-    if (!electricityMeter.trim() && !waterMeter.trim()) {
-      toast.error('Please provide at least one meter number (UEDCL or NWSC)');
-      return;
-    }
-
-    if (!acceptedTerms) {
-      toast.error('Please accept the Welile Guaranteed Rent terms');
-      return;
-    }
-
-    if (propertyStatus === 'occupied' && (!tenantName.trim() || !tenantPhone.trim())) {
-      toast.error('Please provide tenant name and phone');
-      return;
-    }
+    if (!draft.ugLoc) return;
 
     setLoading(true);
-
+    setError(null);
     try {
-      // Get landlord's profile
-      const { data: landlordProfile } = await supabase
-        .from('profiles')
-        .select('phone, full_name')
-        .eq('id', user.id)
-        .single();
+      // The function is newer than the generated database types, so call it through a narrow cast.
+      const rpc = supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+      };
+      const { data, error: rpcError } = await rpc.rpc('register_landlord_property', {
+        p_property_address: draft.address,
+        p_ug_village_id: draft.ugLoc.villageId,
+        p_region: draft.ugLoc.region,
+        p_district: draft.ugLoc.district,
+        p_county: draft.ugLoc.county,
+        p_subcounty: draft.ugLoc.subcounty,
+        p_village: draft.ugLoc.village,
+        p_monthly_rent: rent,
+        p_number_of_houses: draft.houses ? parseInt(draft.houses, 10) : null,
+        p_payout_day: draft.payoutDay ? parseInt(draft.payoutDay, 10) : null,
+        p_electricity_meter: draft.electricity,
+        p_water_meter: draft.water,
+        p_caretaker_name: draft.caretakerName,
+        p_caretaker_phone: draft.caretakerPhone,
+        p_latitude: draft.lat,
+        p_longitude: draft.lng,
+        p_property_status: draft.status,
+        p_tenant_name: draft.status === 'occupied' ? draft.tenantName : null,
+        p_tenant_phone: draft.status === 'occupied' ? draft.tenantPhone : null,
+        p_lc1_name: draft.lc1Name,
+        p_lc1_phone: draft.lc1Phone,
+      });
+      if (rpcError) throw rpcError;
 
-      if (!landlordProfile) {
-        toast.error('Could not load your profile');
+      const result = (data ?? {}) as { ok?: boolean; error?: string; reference?: string; tenant_linked?: boolean };
+      if (!result.ok) {
+        const code = result.error ?? '';
+        setNeedsPhone(code === 'profile_phone_required');
+        setError(SERVER_ERRORS[code] ?? 'We could not register the property. Please try again.');
         return;
       }
 
-      // Find tenant if occupied
-      let tenantProfileId: string | null = null;
-      if (propertyStatus === 'occupied' && tenantPhone.trim()) {
-        const { data: tenantProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('phone', tenantPhone.trim())
-          .maybeSingle();
-        tenantProfileId = tenantProfile?.id || null;
-      }
-
-      // Insert into landlords table
-      const { data: landlordRecord, error: landlordError } = await supabase.from('landlords').insert({
-        tenant_id: tenantProfileId,
-        name: landlordProfile.full_name || 'Landlord',
-        phone: landlordProfile.phone || '',
-        property_address: propertyAddress.trim(),
-        region: ugLoc.region ?? null,
-        district: ugLoc.district,
-        county: ugLoc.county,
-        sub_county: ugLoc.subcounty,
-        village: ugLoc.village,
-        ug_village_id: ugLoc.villageId,
-        monthly_rent: parseInt(monthlyRent),
-        number_of_houses: numberOfHouses ? parseInt(numberOfHouses) : null,
-        electricity_meter_number: electricityMeter.trim() || null,
-        water_meter_number: waterMeter.trim() || null,
-        caretaker_name: caretakerName.trim() || null,
-        caretaker_phone: caretakerPhone.trim() || null,
-        latitude,
-        longitude,
-        location_captured_at: latitude ? new Date().toISOString() : null,
-        location_captured_by: user.id,
-        registered_by: user.id,
-        desired_rent_from_welile: parseInt(monthlyRent),
-        ready_to_receive: false,
-      }).select('id').single();
-
-      if (landlordError) {
-        if (landlordError.code === '23505') {
-          toast.error('This property is already registered');
-        } else {
-          toast.error('Failed to register property');
-          console.error('Registration error:', landlordError);
-        }
-        return;
-      }
-
-      // Save LC1 chairperson if provided — a phone uniquely identifies one
-      // chairperson, so reuse the existing record instead of creating a duplicate.
-      if (lc1Name.trim() && lc1Phone.trim() && lc1Village.trim()) {
-        const { data: existingLc1 } = await supabase
-          .from('lc1_chairpersons')
-          .select('id')
-          .eq('phone', lc1Phone.trim())
-          .limit(1)
-          .maybeSingle();
-
-        if (!existingLc1) {
-          const { error: lc1InsertError } = await supabase.from('lc1_chairpersons').insert({
-            name: lc1Name.trim(),
-            phone: lc1Phone.trim(),
-            village: lc1Village.trim(),
-          });
-          // 23505 = phone already exists (a concurrent/normalized-format duplicate). Safe to ignore.
-          if (lc1InsertError && lc1InsertError.code !== '23505') {
-            console.error('LC1 save error:', lc1InsertError);
-          }
-        }
-      }
-
-      // If tenant has an account, create Welile Homes subscription
-      if (tenantProfileId) {
-        await supabase
-          .from('profiles')
-          .update({ monthly_rent: parseInt(monthlyRent) })
-          .eq('id', tenantProfileId);
-
-        await supabase
-          .from('welile_homes_subscriptions')
-          .insert({
-            tenant_id: tenantProfileId,
-            landlord_id: user.id,
-            monthly_rent: parseInt(monthlyRent),
-            subscription_status: 'active',
-            landlord_registered: true,
-            total_savings: 0,
-            months_enrolled: 0,
-            notes: `Guaranteed rent. Property: ${propertyAddress.trim()}. UEDCL: ${electricityMeter || 'N/A'}. NWSC: ${waterMeter || 'N/A'}.`,
-          });
-      }
-
-      setSuccess(true);
-      toast.success('Property registered for Guaranteed Rent!');
+      clearDraft(user.id);
+      setReference(result.reference ?? null);
+      setTenantLinked(!!result.tenant_linked);
+      toast.success('Property registered');
       onSuccess?.();
     } catch (err) {
-      toast.error('An unexpected error occurred');
-      console.error('Error:', err);
+      console.error('register_landlord_property failed:', err);
+      setError('Something went wrong and nothing was saved. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) resetForm();
-    onOpenChange(newOpen);
+  const startOver = () => {
+    if (user) clearDraft(user.id);
+    setDraft(EMPTY_DRAFT);
+    setAcceptedTerms(false);
+    setError(null);
+    setNeedsPhone(false);
   };
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next && reference) {
+      // Finished: leave a clean form behind for the next property.
+      setReference(null);
+      setDraft(EMPTY_DRAFT);
+      setAcceptedTerms(false);
+      setNeedsPhone(false);
+    }
+    onOpenChange(next);
+  };
+
+  const copyReference = async () => {
+    if (!reference) return;
+    try {
+      await navigator.clipboard.writeText(reference);
+      toast.success('Reference copied');
+    } catch {
+      toast.error('Could not copy. Please note it down.');
+    }
+  };
+
+  const hasDraftContent = !!(draft.address || draft.monthlyRent || draft.ugLoc);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -306,430 +357,430 @@ export default function RegisterPropertyDialog({
             Register Property
           </DialogTitle>
           <DialogDescription>
-            Register your property for Welile Guaranteed Monthly Rent
+            {reference ? 'Your property has been submitted' : 'Register your property for Welile Guaranteed Monthly Rent'}
           </DialogDescription>
         </DialogHeader>
 
-        {success ? (
-            <div className="py-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-success" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Property Registered!</h3>
-              <p className="text-muted-foreground text-sm mb-2">
-                A manager will verify your property to activate{' '}
-                <span className="font-semibold text-primary">Guaranteed Monthly Rent</span>.
-              </p>
-              <div className="text-xs text-muted-foreground space-y-1 mb-4">
-                <p>✅ Once verified, you receive guaranteed rent for 12 months</p>
-                <p>✅ Rent paid to your Welile Wallet on your selected date</p>
-                <p>✅ Welile replaces tenants who leave at no cost</p>
-              </div>
-              <Button onClick={() => handleOpenChange(false)}>Done</Button>
+        {reference ? (
+          <div className="py-4 text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/20">
+              <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5"
+            <div>
+              <h3 className="text-lg font-semibold">Property submitted</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                A manager will verify it. Keep this reference to ask about your property.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={copyReference}
+              className="mx-auto flex items-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-2 font-mono text-lg font-bold tracking-widest"
+              aria-label={`Copy reference ${reference}`}
             >
-              {/* Guaranteed Rent Banner */}
-              <div className="p-3 rounded-xl bg-gradient-to-r from-primary/10 via-purple-500/10 to-success/10 border border-primary/20">
-                <div className="flex items-start gap-2.5">
-                  <div className="p-1.5 rounded-lg bg-primary/15 shrink-0 mt-0.5">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">Guaranteed Monthly Rent</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                      Register your property, get verified by a manager, and receive guaranteed rent for 12 months — paid to your Welile Wallet.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Property Details */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Home className="h-4 w-4 text-primary" />
-                  Property Details
-                </h4>
-
-                <div className="space-y-1">
-                  <Label htmlFor="rp-address" className="text-xs flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> Property Address *
-                  </Label>
-                  <Input
-                    id="rp-address"
-                    value={propertyAddress}
-                    onChange={(e) => setPropertyAddress(e.target.value)}
-                    placeholder="e.g. Kira Road, Block 5"
-                    className="h-9"
-                    required
+              {reference}
+              <Copy className="h-4 w-4 text-muted-foreground" />
+            </button>
+            <ol className="mx-auto max-w-xs space-y-2 text-left text-sm">
+              <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-success" /> Registered</li>
+              <li className="flex items-center gap-2"><Circle className="h-4 w-4 text-primary" /> Under review by a manager <span className="text-xs text-muted-foreground">(about 5 days on average)</span></li>
+              <li className="flex items-center gap-2 text-muted-foreground"><Circle className="h-4 w-4" /> Verified: 12-month Guaranteed Monthly Rent starts</li>
+              <li className="flex items-center gap-2 text-muted-foreground"><Circle className="h-4 w-4" /> Rent paid to your Welile Wallet{draft.payoutDay ? ` on the ${ordinal(parseInt(draft.payoutDay, 10))}` : ''}</li>
+            </ol>
+            {draft.status === 'occupied' && (
+              <p className="text-xs text-muted-foreground">
+                {tenantLinked
+                  ? 'Your tenant already has a Welile account and has been linked to this property.'
+                  : 'Your tenant does not have a Welile account yet. Their details are saved with the property.'}
+              </p>
+            )}
+            <Button onClick={() => handleOpenChange(false)}>Done</Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Progress */}
+            <div aria-label={`Step ${draft.step} of 3: ${STEP_TITLES[draft.step]}`} className="space-y-2">
+              <div className="flex gap-1.5">
+                {([1, 2, 3] as Step[]).map((s) => (
+                  <div
+                    key={s}
+                    className={cn('h-1.5 flex-1 rounded-full transition-colors', s <= draft.step ? 'bg-primary' : 'bg-muted')}
                   />
-                </div>
+                ))}
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">
+                  <span className="text-muted-foreground">Step {draft.step} of 3 · </span>
+                  {STEP_TITLES[draft.step]}
+                </p>
+                {hasDraftContent && (
+                  <button type="button" onClick={startOver} className="text-xs text-muted-foreground underline">
+                    Start over
+                  </button>
+                )}
+              </div>
+            </div>
 
-                <UgLocationPicker
-                  value={ugLoc}
-                  onChange={(sel) => { setUgLoc(sel); setUgLocError(null); }}
-                  label="Official location (region → village)"
-                  required
-                  error={ugLocError}
-                />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={draft.step}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.15 }}
+                className="space-y-4"
+              >
+                {draft.step === 1 && (
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="rp-address" className="flex items-center gap-1 text-xs">
+                        <MapPin className="h-3 w-3" /> Property address or landmark *
+                      </Label>
+                      <Input
+                        id="rp-address"
+                        value={draft.address}
+                        onChange={(e) => patch({ address: e.target.value })}
+                        placeholder="e.g. Kira Road, Block 5"
+                        className="h-10"
+                        autoComplete="street-address"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-rent" className="text-xs flex items-center gap-1">
-                      <Banknote className="h-3 w-3" /> Monthly Rent (UGX) *
-                    </Label>
-                    <Input
-                      id="rp-rent"
-                      type="number"
-                      value={monthlyRent}
-                      onChange={(e) => setMonthlyRent(e.target.value)}
-                      placeholder="500000"
-                      className="h-9"
+                    <UgLocationPicker
+                      value={draft.ugLoc}
+                      onChange={(sel) => patch({ ugLoc: sel })}
+                      label="Official location (region → village)"
                       required
                     />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-houses" className="text-xs">
-                      Number of Houses
-                    </Label>
-                    <Input
-                      id="rp-houses"
-                      type="number"
-                      value={numberOfHouses}
-                      onChange={(e) => setNumberOfHouses(e.target.value)}
-                      placeholder="e.g. 5"
-                      className="h-9"
-                    />
-                  </div>
-                </div>
 
-                {/* Fee Breakdown */}
-                {monthlyRent && parseInt(monthlyRent) > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="p-3 rounded-lg bg-muted/50 border border-border/50 space-y-2"
-                  >
-                    <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                      <TrendingUp className="h-3.5 w-3.5 text-success" />
-                      Payout Breakdown
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="text-xs">
-                        <p className="text-muted-foreground">Monthly Rent</p>
-                        <p className="font-medium">{formatUGX(parseInt(monthlyRent))}</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="rp-rent" className="flex items-center gap-1 text-xs">
+                          <Banknote className="h-3 w-3" /> Total monthly rent (UGX) *
+                        </Label>
+                        <Input
+                          id="rp-rent"
+                          inputMode="numeric"
+                          value={draft.monthlyRent}
+                          onChange={(e) => patch({ monthlyRent: digits(e.target.value) })}
+                          placeholder="500000"
+                          className="h-10"
+                        />
+                        <p className="text-[10px] text-muted-foreground">For the whole property, all houses together</p>
                       </div>
-                      <div className="text-xs">
-                        <p className="text-muted-foreground">10% Platform Fee</p>
-                        <p className="font-medium text-primary">{formatUGX(platformFee)}</p>
-                      </div>
-                      <div className="text-xs">
-                        <p className="text-muted-foreground">You Receive</p>
-                        <p className="font-medium text-success">{formatUGX(parseInt(monthlyRent) - platformFee)}</p>
-                      </div>
-                      <div className="text-xs">
-                        <p className="text-muted-foreground">12-Month Total</p>
-                        <p className="font-medium text-foreground">{formatUGX((parseInt(monthlyRent) - platformFee) * 12)}</p>
+                      <div className="space-y-1">
+                        <Label htmlFor="rp-houses" className="text-xs">Number of houses</Label>
+                        <Input
+                          id="rp-houses"
+                          inputMode="numeric"
+                          value={draft.houses}
+                          onChange={(e) => patch({ houses: digits(e.target.value).slice(0, 4) })}
+                          placeholder="e.g. 5"
+                          className="h-10"
+                        />
                       </div>
                     </div>
-                  </motion.div>
-                )}
 
-                {/* Payout Date */}
-                <div className="space-y-1">
-                  <Label htmlFor="rp-payout-date" className="text-xs">
-                    Preferred Payout Date (monthly)
-                  </Label>
-                  <Select value={payoutDate} onValueChange={setPayoutDate}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Select day of month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
-                        <SelectItem key={day} value={String(day)}>
-                          {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'} of every month
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Verification Details (Meters) */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Shield className="h-4 w-4 text-primary" />
-                  Verification Details
-                </h4>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-uedcl" className="text-xs flex items-center gap-1">
-                      <Zap className="h-3 w-3 text-amber-500" /> UEDCL Meter No.
-                    </Label>
-                    <Input
-                      id="rp-uedcl"
-                      value={electricityMeter}
-                      onChange={(e) => setElectricityMeter(e.target.value)}
-                      placeholder="Electricity meter"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-nwsc" className="text-xs flex items-center gap-1">
-                      <Droplets className="h-3 w-3 text-blue-500" /> NWSC Meter No.
-                    </Label>
-                    <Input
-                      id="rp-nwsc"
-                      value={waterMeter}
-                      onChange={(e) => setWaterMeter(e.target.value)}
-                      placeholder="Water meter"
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-
-                <p className="text-[10px] text-muted-foreground">
-                  At least one meter number is required for property verification
-                </p>
-              </div>
-
-              {/* Caretaker Details */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <User className="h-4 w-4 text-primary" />
-                  Caretaker (Optional)
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-caretaker-name" className="text-xs">
-                      Caretaker Name
-                    </Label>
-                    <Input
-                      id="rp-caretaker-name"
-                      value={caretakerName}
-                      onChange={(e) => setCaretakerName(e.target.value)}
-                      placeholder="Name"
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="rp-caretaker-phone" className="text-xs">
-                      Caretaker Phone
-                    </Label>
-                    <Input
-                      id="rp-caretaker-phone"
-                      value={caretakerPhone}
-                      onChange={(e) => setCaretakerPhone(e.target.value)}
-                      placeholder="0783..."
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* GPS Location */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Navigation className="h-4 w-4 text-primary" />
-                  Google Map Location
-                </h4>
-                <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                  {latitude && longitude ? (
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-success font-medium">📍 Location captured</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {latitude.toFixed(5)}, {longitude.toFixed(5)}
-                        </p>
-                        <a
-                          href={`https://www.google.com/maps?q=${latitude},${longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary underline mt-1 inline-block"
-                        >
-                          View on Google Maps
-                        </a>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={captureLocation}
-                        disabled={capturingLocation}
+                    {rent > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="space-y-2 rounded-xl border border-border/50 bg-muted/50 p-3"
                       >
-                        Re-capture
-                      </Button>
+                        <p className="flex items-center gap-1.5 text-xs font-semibold">
+                          <TrendingUp className="h-3.5 w-3.5 text-success" /> What you receive
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground">Monthly rent</p>
+                            <p className="font-medium">{formatUGX(rent)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">10% Welile fee</p>
+                            <p className="font-medium text-primary">{formatUGX(platformFee)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">You receive</p>
+                            <p className="font-semibold text-success">{formatUGX(youReceive)}</p>
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Over 12 months: <span className="font-semibold text-foreground">{formatUGX(youReceive * 12)}</span>
+                        </p>
+                      </motion.div>
+                    )}
+
+                    <div className="space-y-1">
+                      <Label htmlFor="rp-payout-date" className="text-xs">Preferred payout day (optional)</Label>
+                      <Select value={draft.payoutDay} onValueChange={(v) => patch({ payoutDay: v })}>
+                        <SelectTrigger id="rp-payout-date" className="h-10">
+                          <SelectValue placeholder="Choose a day of the month" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                            <SelectItem key={day} value={String(day)}>
+                              {ordinal(day)} of every month
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full gap-2"
-                      onClick={captureLocation}
-                      disabled={capturingLocation}
-                    >
-                      {capturingLocation ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Capturing Location...
-                        </>
+                  </>
+                )}
+
+                {draft.step === 2 && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['occupied', 'empty'] as PropertyStatus[]).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          aria-pressed={draft.status === s}
+                          onClick={() => patch({ status: s })}
+                          className={cn(
+                            'rounded-xl border-2 p-3 text-left transition-all',
+                            draft.status === s ? 'border-primary bg-primary/5' : 'border-border hover:border-border/80',
+                          )}
+                        >
+                          {s === 'occupied' ? (
+                            <UserPlus className={cn('mb-1 h-5 w-5', draft.status === s ? 'text-primary' : 'text-muted-foreground')} />
+                          ) : (
+                            <Home className={cn('mb-1 h-5 w-5', draft.status === s ? 'text-primary' : 'text-muted-foreground')} />
+                          )}
+                          <p className="text-sm font-medium">{s === 'occupied' ? 'It has a tenant' : 'It is empty'}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {s === 'occupied' ? "I'll add their phone number" : 'Welile finds a tenant'}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+
+                    {draft.status === 'occupied' && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="grid grid-cols-2 gap-3"
+                      >
+                        <div className="space-y-1">
+                          <Label htmlFor="rp-tenant-phone" className="text-xs">Tenant phone *</Label>
+                          <Input
+                            id="rp-tenant-phone"
+                            type="tel"
+                            inputMode="tel"
+                            value={draft.tenantPhone}
+                            onChange={(e) => patch({ tenantPhone: e.target.value })}
+                            placeholder="0783..."
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="rp-tenant-name" className="text-xs">Tenant name (optional)</Label>
+                          <Input
+                            id="rp-tenant-name"
+                            value={draft.tenantName}
+                            onChange={(e) => patch({ tenantName: e.target.value })}
+                            placeholder="Full name"
+                            className="h-10"
+                          />
+                        </div>
+                        <p className="col-span-2 text-[11px] text-muted-foreground">
+                          If your tenant already has a Welile account we link them automatically.
+                        </p>
+                      </motion.div>
+                    )}
+                  </>
+                )}
+
+                {draft.step === 3 && (
+                  <>
+                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+                      <p className="flex items-center gap-1.5 text-sm font-semibold">
+                        <Shield className="h-4 w-4 text-primary" /> Add at least one way to verify
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        A manager checks one of these. {proofCount > 0 ? `${proofCount} added.` : 'None added yet.'}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/50 p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold">
+                        {proofs.meter ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                        Meter number
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="rp-uedcl" className="flex items-center gap-1 text-xs">
+                            <Zap className="h-3 w-3 text-amber-500" /> UEDCL (electricity)
+                          </Label>
+                          <Input
+                            id="rp-uedcl"
+                            value={draft.electricity}
+                            onChange={(e) => patch({ electricity: e.target.value })}
+                            placeholder="Meter number"
+                            className="h-10"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="rp-nwsc" className="flex items-center gap-1 text-xs">
+                            <Droplets className="h-3 w-3 text-blue-500" /> NWSC (water)
+                          </Label>
+                          <Input
+                            id="rp-nwsc"
+                            value={draft.water}
+                            onChange={(e) => patch({ water: e.target.value })}
+                            placeholder="Meter number"
+                            className="h-10"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/50 p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold">
+                        {proofs.gps ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                        GPS pin (stand at the property)
+                      </p>
+                      {proofs.gps ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs">
+                            <p className="font-medium text-success">Location captured</p>
+                            <a
+                              href={`https://www.google.com/maps?q=${draft.lat},${draft.lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline"
+                            >
+                              View on Google Maps
+                            </a>
+                          </div>
+                          <Button type="button" variant="outline" size="sm" onClick={captureLocation} disabled={capturingLocation}>
+                            Re-capture
+                          </Button>
+                        </div>
                       ) : (
-                        <>
-                          <Navigation className="h-4 w-4" />
-                          Capture Property Location
-                        </>
+                        <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={captureLocation} disabled={capturingLocation}>
+                          {capturingLocation ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Capturing location…</>
+                          ) : (
+                            <><Navigation className="h-4 w-4" /> Capture property location</>
+                          )}
+                        </Button>
                       )}
-                    </Button>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/50 p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold">
+                        {proofs.caretaker ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                        <User className="h-3 w-3" /> Caretaker contact
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          aria-label="Caretaker name"
+                          value={draft.caretakerName}
+                          onChange={(e) => patch({ caretakerName: e.target.value })}
+                          placeholder="Name"
+                          className="h-10"
+                        />
+                        <Input
+                          aria-label="Caretaker phone"
+                          type="tel"
+                          inputMode="tel"
+                          value={draft.caretakerPhone}
+                          onChange={(e) => patch({ caretakerPhone: e.target.value })}
+                          placeholder="0783..."
+                          className="h-10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 rounded-xl border border-border/50 p-3">
+                      <p className="flex items-center gap-1.5 text-xs font-semibold">
+                        {proofs.lc1 ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground" />}
+                        LC1 chairperson
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Input
+                          aria-label="LC1 chairperson name"
+                          value={draft.lc1Name}
+                          onChange={(e) => patch({ lc1Name: e.target.value })}
+                          placeholder="Name"
+                          className="h-10"
+                        />
+                        <Input
+                          aria-label="LC1 chairperson phone"
+                          type="tel"
+                          inputMode="tel"
+                          value={draft.lc1Phone}
+                          onChange={(e) => patch({ lc1Phone: e.target.value })}
+                          placeholder="0783..."
+                          className="h-10"
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Village: <span className="font-medium text-foreground">{draft.ugLoc ? ugLocationLabel(draft.ugLoc) : '—'}</span>
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="rp-terms"
+                          checked={acceptedTerms}
+                          onCheckedChange={(checked) => { setError(null); setAcceptedTerms(checked === true); }}
+                          className="mt-0.5"
+                        />
+                        <label htmlFor="rp-terms" className="cursor-pointer text-xs leading-relaxed text-muted-foreground">
+                          I agree to the <span className="font-semibold text-foreground">Welile Guaranteed Rent</span> terms:
+                          a <span className="font-semibold text-primary">10% platform fee</span> is deducted from each rent
+                          deposit, and once a manager verifies the property I receive{' '}
+                          <span className="font-semibold text-success">guaranteed monthly rent for 12 months</span> paid to my Welile Wallet.
+                        </label>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </motion.div>
+            </AnimatePresence>
+
+            {error && (
+              <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 text-xs text-destructive">
+                <p>{error}</p>
+                {needsPhone && (
+                  <Button type="button" size="sm" variant="outline" className="mt-2" onClick={() => navigate('/your-profile')}>
+                    Go to your profile
+                  </Button>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {draft.step > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={() => patch({ step: (draft.step - 1) as Step })}
+                  disabled={loading}
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back
+                </Button>
+              )}
+              {draft.step < 3 ? (
+                <Button type="button" className="flex-1 gap-1.5" onClick={goNext}>
+                  Continue <ArrowRight className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" className="flex-1" disabled={loading}>
+                  {loading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registering…</>
+                  ) : (
+                    <><Building2 className="mr-2 h-4 w-4" /> Register for Guaranteed Rent</>
                   )}
-                </div>
-              </div>
-
-              {/* Tenant Status */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <UserPlus className="h-4 w-4 text-primary" />
-                  Tenant Status
-                </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPropertyStatus('occupied')}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      propertyStatus === 'occupied' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-border/80'
-                    }`}
-                  >
-                    <UserPlus className={`h-5 w-5 mb-1 ${propertyStatus === 'occupied' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <p className="text-sm font-medium">Add Tenant</p>
-                    <p className="text-[10px] text-muted-foreground">Has a tenant</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPropertyStatus('empty')}
-                    className={`p-3 rounded-xl border-2 text-left transition-all ${
-                      propertyStatus === 'empty' 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-border/80'
-                    }`}
-                  >
-                    <Home className={`h-5 w-5 mb-1 ${propertyStatus === 'empty' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <p className="text-sm font-medium">Mark Empty</p>
-                    <p className="text-[10px] text-muted-foreground">Welile finds tenant</p>
-                  </button>
-                </div>
-
-                {propertyStatus === 'occupied' && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    className="grid grid-cols-2 gap-3"
-                  >
-                    <div className="space-y-1">
-                      <Label htmlFor="rp-tenant-name" className="text-xs">
-                        Tenant Name *
-                      </Label>
-                      <Input
-                        id="rp-tenant-name"
-                        value={tenantName}
-                        onChange={(e) => setTenantName(e.target.value)}
-                        placeholder="Full name"
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="rp-tenant-phone" className="text-xs">
-                        Tenant Phone *
-                      </Label>
-                      <Input
-                        id="rp-tenant-phone"
-                        value={tenantPhone}
-                        onChange={(e) => setTenantPhone(e.target.value)}
-                        placeholder="0783..."
-                        className="h-9"
-                      />
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* LC1 Chairperson */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Shield className="h-4 w-4 text-primary" />
-                  LC1 Chairperson
-                </h4>
-                <div className="p-3 rounded-lg bg-muted/50 border border-border/50 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="rp-lc1-name" className="text-xs">LC1 Name</Label>
-                      <Input
-                        id="rp-lc1-name"
-                        value={lc1Name}
-                        onChange={(e) => setLc1Name(e.target.value)}
-                        placeholder="Chairperson name"
-                        className="h-9"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="rp-lc1-phone" className="text-xs">LC1 Phone</Label>
-                      <Input
-                        id="rp-lc1-phone"
-                        value={lc1Phone}
-                        onChange={(e) => setLc1Phone(e.target.value)}
-                        placeholder="0783..."
-                        className="h-9"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Village / Zone:{' '}
-                    <span className="font-medium text-foreground">
-                      {ugLoc ? ugLocationLabel(ugLoc) : 'select the official location above'}
-                    </span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Terms Agreement */}
-              <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="rp-terms"
-                    checked={acceptedTerms}
-                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <label htmlFor="rp-terms" className="text-xs leading-relaxed text-muted-foreground cursor-pointer">
-                    I agree to the <span className="font-semibold text-foreground">Welile Guaranteed Rent</span> terms:
-                    A <span className="font-semibold text-primary">10% platform fee</span> is deducted from each rent deposit.
-                    Once verified by a manager, I will receive{' '}
-                    <span className="font-semibold text-success">guaranteed monthly rent for 12 months</span>{' '}
-                    paid to my Welile Wallet.
-                  </label>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading || !acceptedTerms}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Registering Property...
-                  </>
-                ) : (
-                  <>
-                    <Building2 className="h-4 w-4 mr-2" />
-                    Register for Guaranteed Rent
-                  </>
-                )}
-              </Button>
-            </form>
-          )}
+                </Button>
+              )}
+            </div>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

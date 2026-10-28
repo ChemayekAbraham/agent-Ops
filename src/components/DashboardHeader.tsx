@@ -300,14 +300,14 @@ const DashboardHeader = memo(function DashboardHeader({
               ) : (
                 <DropdownMenu onOpenChange={(open) => {
                   if (open) {
-                    void import('@/pages/YourProfile');
-                    void import('@/pages/Settings');
+                    void import('@/pages/YourProfile').catch(() => {});
+                    void import('@/pages/Settings').catch(() => {});
                     if (currentRole === 'agent') {
-                      void import('@/pages/AgentServiceCenter');
-                      void import('@/components/auth/ProxyAgentGuard');
-                      void import('@/pages/agent/ProxyPerformanceDashboard');
-                      void import('@/pages/AgentCommissionBenefits');
-                      void import('@/pages/MerchandiseStore');
+                      void import('@/pages/AgentServiceCenter').catch(() => {});
+                      void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+                      void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+                      void import('@/pages/AgentCommissionBenefits').catch(() => {});
+                      void import('@/pages/MerchandiseStore').catch(() => {});
                     }
                   }
                 }}>
@@ -316,11 +316,11 @@ const DashboardHeader = memo(function DashboardHeader({
                     variant="ghost" 
                     size="icon" 
                     onPointerEnter={() => {
-                      void import('@/pages/YourProfile');
+                      void import('@/pages/YourProfile').catch(() => {});
                       if (currentRole === 'agent') {
-                        void import('@/pages/AgentServiceCenter');
-                        void import('@/components/auth/ProxyAgentGuard');
-                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                        void import('@/pages/AgentServiceCenter').catch(() => {});
+                        void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+                        void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
                       }
                     }}
                     className="h-10 w-10 min-w-[44px] min-h-[44px] text-white/90 hover:text-white hover:bg-white/10 rounded-xl touch-manipulation"
@@ -334,8 +334,8 @@ const DashboardHeader = memo(function DashboardHeader({
                 >
                   <DropdownMenuItem
                     onClick={() => navigate('/your-profile')}
-                    onPointerEnter={() => void import('@/pages/YourProfile')}
-                    onTouchStart={() => void import('@/pages/YourProfile')}
+                    onPointerEnter={() => void import('@/pages/YourProfile').catch(() => {})}
+                    onTouchStart={() => void import('@/pages/YourProfile').catch(() => {})}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-primary/10">
@@ -361,8 +361,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/agent/service-center'); }}
-                      onPointerEnter={() => void import('@/pages/AgentServiceCenter')}
-                      onTouchStart={() => void import('@/pages/AgentServiceCenter')}
+                      onPointerEnter={() => void import('@/pages/AgentServiceCenter').catch(() => {})}
+                      onTouchStart={() => void import('@/pages/AgentServiceCenter').catch(() => {})}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-semibold touch-manipulation flex items-center justify-between bg-emerald-500/20 hover:bg-emerald-500/30 focus:bg-emerald-500/30 border border-emerald-500/40 text-emerald-950 dark:text-emerald-100 transition-colors shadow-xs"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -380,12 +380,12 @@ const DashboardHeader = memo(function DashboardHeader({
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/dashboard/agent/proxy'); }}
                       onPointerEnter={() => {
-                        void import('@/components/auth/ProxyAgentGuard');
-                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                        void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+                        void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
                       }}
                       onTouchStart={() => {
-                        void import('@/components/auth/ProxyAgentGuard');
-                        void import('@/pages/agent/ProxyPerformanceDashboard');
+                        void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+                        void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
                       }}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
@@ -573,8 +573,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => { hapticTap(); navigate('/agent/performance'); }}
-                      onPointerEnter={() => void import('@/pages/agent/AgentWeeklyPerformance')}
-                      onTouchStart={() => void import('@/pages/agent/AgentWeeklyPerformance')}
+                      onPointerEnter={() => void import('@/pages/agent/AgentWeeklyPerformance').catch(() => {})}
+                      onTouchStart={() => void import('@/pages/agent/AgentWeeklyPerformance').catch(() => {})}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -741,8 +741,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   {currentRole === 'agent' && (
                     <DropdownMenuItem
                       onClick={() => navigate('/agent-commission-benefits')}
-                      onPointerEnter={() => void import('@/pages/AgentCommissionBenefits')}
-                      onTouchStart={() => void import('@/pages/AgentCommissionBenefits')}
+                      onPointerEnter={() => void import('@/pages/AgentCommissionBenefits').catch(() => {})}
+                      onTouchStart={() => void import('@/pages/AgentCommissionBenefits').catch(() => {})}
                       className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                     >
                       <div className="p-1.5 rounded-lg" style={{ backgroundColor: 'rgba(114, 20, 201, 0.1)' }}>
@@ -789,8 +789,8 @@ const DashboardHeader = memo(function DashboardHeader({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => navigate('/settings')} 
-                    onPointerEnter={() => void import('@/pages/Settings')}
-                    onTouchStart={() => void import('@/pages/Settings')}
+                    onPointerEnter={() => void import('@/pages/Settings').catch(() => {})}
+                    onTouchStart={() => void import('@/pages/Settings').catch(() => {})}
                     className="gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation"
                   >
                     <div className="p-1.5 rounded-lg bg-muted">

@@ -2986,6 +2986,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at: string
+          currency: string
           description: string | null
           earning_type: string
           id: string
@@ -2996,6 +2997,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type: string
           id?: string
@@ -3006,6 +3008,7 @@ export type Database = {
           agent_id?: string
           amount?: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type?: string
           id?: string
@@ -8573,45 +8576,66 @@ export type Database = {
         Row: {
           action: string | null
           action_type: string
+          actor_id: string | null
+          audit_reason: string | null
           created_at: string | null
+          details: Json | null
           id: string
           ip_address: string | null
+          is_proxy: boolean | null
           metadata: Json | null
+          new_data: Json | null
           new_values: Json | null
           old_values: Json | null
+          performed_by: string | null
           reason: string | null
           record_id: string | null
           table_name: string | null
+          target_user_id: string | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action?: string | null
           action_type: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string | null
           action_type?: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
@@ -12719,6 +12743,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_lunch_reclass_log: {
+        Row: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string
+          correction_group_id?: string
+          original_leg_id?: string
+          posted_at?: string
+        }
+        Relationships: []
+      }
       cfo_reporting_cost_tags: {
         Row: {
           amount: number
@@ -13525,6 +13573,27 @@ export type Database = {
           ledger_group_id?: string | null
           run_id?: string
           status?: string
+        }
+        Relationships: []
+      }
+      company_receipt_dismissals: {
+        Row: {
+          dismissed_at: string
+          dismissed_by: string | null
+          gmail_transaction_id: string
+          reason: string
+        }
+        Insert: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          gmail_transaction_id: string
+          reason: string
+        }
+        Update: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          gmail_transaction_id?: string
+          reason?: string
         }
         Relationships: []
       }
@@ -35291,6 +35360,33 @@ export type Database = {
           id?: string
           note?: string | null
           rule_kind?: string
+        }
+        Relationships: []
+      }
+      merchant_desk_phone_numbers: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          phone9: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          phone9: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          phone9?: string
         }
         Relationships: []
       }
@@ -69298,6 +69394,10 @@ export type Database = {
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
+      _cfo_paid_lunch_correction_ok: {
+        Args: { p_amount: number; p_group: string; p_id: string; p_ts: string }
+        Returns: boolean
+      }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
@@ -69341,10 +69441,12 @@ export type Database = {
           ts: string
         }[]
       }
-      _cfo_received_category_for: {
-        Args: { p_category: string }
-        Returns: string
-      }
+      _cfo_received_category_for:
+        | { Args: { p_category: string }; Returns: string }
+        | {
+            Args: { p_category: string; p_source_table: string }
+            Returns: string
+          }
       _claim_return_cycle: {
         Args: {
           p_actor: string
@@ -75041,6 +75143,10 @@ export type Database = {
         }
         Returns: Json
       }
+      dismiss_company_receipt: {
+        Args: { p_gmail_transaction_id: string; p_reason: string }
+        Returns: Json
+      }
       dismiss_in_app_notification: {
         Args: { p_notification_id: string }
         Returns: boolean
@@ -77429,6 +77535,16 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_lunch_unlisted_recipients: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          full_name: string
+          payments: number
+          phone: string
+          user_id: string
+        }[]
+      }
       get_cfo_money_drilldown_totals: {
         Args: {
           p_from: string
@@ -77902,6 +78018,25 @@ export type Database = {
           cohort_date: string
           cohort_size: number
           period_number: number
+        }[]
+      }
+      get_company_receipts_to_place: {
+        Args: { p_days?: number }
+        Returns: {
+          amount: number
+          booked_agent_id: string
+          booked_agent_name: string
+          channel: string
+          counterparty: string
+          counterparty_name: string
+          excess_amount: number
+          gmail_transaction_id: string
+          kind: string
+          received_at: string
+          suggested_agent_id: string
+          suggested_agent_name: string
+          times_seen: number
+          transaction_id: string
         }[]
       }
       get_coo_command_center: { Args: never; Returns: Json }
@@ -78844,6 +78979,10 @@ export type Database = {
           taken_back: number
           used: number
         }[]
+      }
+      get_merchant_desk_statement: {
+        Args: { p_agent_id: string; p_day?: string }
+        Returns: Json
       }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
@@ -85479,6 +85618,15 @@ export type Database = {
         Args: { p_lookback_weeks?: number }
         Returns: Json
       }
+      place_company_receipt_as_float_return: {
+        Args: {
+          p_agent_id: string
+          p_gmail_transaction_id: string
+          p_note?: string
+          p_remember_number?: boolean
+        }
+        Returns: Json
+      }
       place_portfolio_return_hold: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
@@ -86802,6 +86950,10 @@ export type Database = {
         }
         Returns: Json
       }
+      register_merchant_desk_number: {
+        Args: { p_agent_id: string; p_label?: string; p_phone: string }
+        Returns: Json
+      }
       register_tenant_document: {
         Args: {
           p_bucket: string
@@ -86909,6 +87061,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_merchant_desk_number: { Args: { p_phone: string }; Returns: Json }
       renew_expired_rent_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json

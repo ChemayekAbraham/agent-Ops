@@ -334,24 +334,29 @@ export function SmartphoneOrderApprovalQueue({
   });
 
 
+  // Read through an RPC: row-level security on investor_portfolios hides the table from
+  // every reviewer except managers and the COO, which made this card say "none" for them.
   const { data: partnership } = useQuery({
     queryKey: ['smartphone-applicant-partnership', detailsTarget?.customer_id],
     enabled: !!detailsTarget?.customer_id,
     queryFn: async () => {
-      const { data, error } = await db
-        .from('investor_portfolios')
-        .select('investment_amount, roi_percentage, total_roi_earned, status')
-        .eq('investor_id', detailsTarget!.customer_id);
+      const { data, error } = await db.rpc('get_applicant_partnership', {
+        p_user_id: detailsTarget!.customer_id,
+      });
       if (error) throw error;
-      const active = (data || []).filter((p: any) => p.status === 'active');
-      const amount = active.reduce((s: number, p: any) => s + Number(p.investment_amount || 0), 0);
-      const earned = active.reduce((s: number, p: any) => s + Number(p.total_roi_earned || 0), 0);
-      const monthly = active.reduce(
-        (s: number, p: any) => s + (Number(p.investment_amount || 0) * Number(p.roi_percentage || 0)) / 100,
-        0,
-      );
-      const rate = amount > 0 ? (monthly / amount) * 100 : 0;
-      return { count: active.length, amount, earned, monthly, rate };
+      const d = (data || {}) as Record<string, number>;
+      const amount = Number(d.active_amount || 0);
+      const monthly = Number(d.active_monthly || 0);
+      return {
+        count: Number(d.active_count || 0),
+        amount,
+        earned: Number(d.active_earned || 0),
+        monthly,
+        rate: amount > 0 ? (monthly / amount) * 100 : 0,
+        pending: Number(d.pending_count || 0),
+        locked: Number(d.locked_count || 0),
+        redeemed: Number(d.redeemed_count || 0),
+      };
     },
   });
 
@@ -1043,7 +1048,13 @@ export function SmartphoneOrderApprovalQueue({
                           >
                             {partnership && partnership.count > 0
                               ? `Active portfolio${partnership.count > 1 ? 's' : ''} (${partnership.count})`
-                              : 'No active portfolio'}
+                              : partnership && partnership.pending > 0
+                                ? `Pending activation (${partnership.pending})`
+                                : partnership && partnership.locked > 0
+                                  ? `Locked portfolio${partnership.locked > 1 ? 's' : ''} (${partnership.locked})`
+                                  : partnership && partnership.redeemed > 0
+                                    ? 'Redeemed — no active portfolio'
+                                    : 'No active portfolio'}
                           </Badge>
                         </div>
                         {partnership && partnership.count > 0 && (

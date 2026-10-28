@@ -333,7 +333,20 @@ Deno.serve(async (req) => {
         const callTargets = [...worstByTenant.entries()]
           .sort((a, b) => Number(b[1].arrears_ugx || 0) - Number(a[1].arrears_ugx || 0))
           .slice(0, CALL_TASK_CAP);
+        // Tenants already on this cycle: skip them here so the insert is not
+        // refused with a duplicate-key error (one logged Postgres ERROR each).
+        const { data: queued } = await admin
+          .from("cc_cycle_rows")
+          .select("subject_id")
+          .eq("cycle_id", cycle.id)
+          .eq("subject_type", "tenant")
+          .in("subject_id", callTargets.map(([id]) => id));
+        const alreadyQueued = new Set((queued ?? []).map((q: { subject_id: string }) => q.subject_id));
         for (const [tenantId, r] of callTargets) {
+          if (!dryRun && alreadyQueued.has(tenantId)) {
+            summary.call_tasks_already_queued++;
+            continue;
+          }
           if (dryRun) {
             summary.preview.push({ kind: "call_task", to: nameOf(tenantId), message: `${r.days_behind} days behind, ${ugx(Number(r.arrears_ugx))}` });
             summary.call_tasks_raised++;

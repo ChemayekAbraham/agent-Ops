@@ -1,5 +1,6 @@
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft, Layers } from 'lucide-react';

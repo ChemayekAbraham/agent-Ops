@@ -17,3 +17,11 @@ For each entry the DPO records: containment, what data and whose, whether the Pe
 
 ## Notification decisions
 The Personal Data Protection Office has been / has not been notified: ______ (DPO to complete per entry).
+
+### Entry 8 update (2026-10-28 ~14:30 UTC): the restarts are continuing
+
+Four more database kills after the 09:05 UTC one: **11:25, 11:56, 13:51 and 14:26 UTC**, so eight today and nine in about 30 hours. Each shows 10-19 `the database system is not accepting connections` FATALs in a five-minute window and, in three of them, `automatic recovery` messages; API 5xx (520/521/522/525/503) follows for about a minute. Postgres logs no `terminated by signal` line, so the instance is being stopped from outside the database process, which is what an out-of-memory kill of the container looks like. Cause still unconfirmed.
+
+Evidence gathered, nothing changed: about 60 active cron jobs; at every `:15` four to six heavy jobs start together and run 26-35 s each (`repair-wallet-cache-drift`, `detect-credit-limit-drift`, `wallet-projection-drift`, `refresh-wallet-totals-cache`), `refresh-wallet-totals-cache` runs every 3 minutes (25-42 s) and `email-auto-create-deposits-24h` every 2 minutes (14-25 s). A `process-email-queue` run failed with `job startup timeout` at 13:49, just before the 13:51 restart. No single job was left unfinished at the restart times, so this is load shape, not a proven cause.
+
+Needed from Josh: open the Supabase support ticket (ask for the instance memory graph and the reason for each restart at the times above) and decide the compute upgrade. If cron load is to be reduced first, staggering the `:15` group is the lowest-risk change, but it was not made without his say-so.

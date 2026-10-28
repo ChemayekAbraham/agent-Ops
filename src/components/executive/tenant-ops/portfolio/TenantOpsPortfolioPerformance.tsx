@@ -1,4 +1,5 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import {
   Bar,
   BarChart,

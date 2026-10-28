@@ -398,3 +398,91 @@ Scan of all Postgres ERROR/WARNING lines (24h). Real server-side defects found, 
 5. Every user is asked to turn notifications on again (the existing `PushNotificationGate` re-subscribes when the stored subscription is rejected); expect a push-opt-in dip, and check the log for `webPushSend` errors dropping to zero.
 
 **Step 46b (2026-10-28):** after Josh replaced `VAPID_PRIVATE_KEY`, the log error changed from "expected valid PKCS#8 data" (key unreadable) to "Push failed for fcm / mozilla / apple" (key accepted, push services refuse because the code still signs with a public key that does not match). Change made: `supabase/functions/_shared/webPushSend.ts` now reads the public key from the `VAPID_PUBLIC_KEY` secret (old literal kept only as fallback), so the server side needs no code change for this or any later rotation; it takes effect when the push functions are redeployed. **Still open:** the browser side, `src/lib/webPush.ts`, holds the public key as a literal and must be set to the new public key (needs the value from Josh); until then new subscriptions are made against the old key and are refused. Also confirm the `VAPID_PUBLIC_KEY` secret in Supabase holds the NEW public key.
+
+## Step 47 (2026-10-28 ~13:00 UTC): second pass over the 24h Postgres errors, one at a time
+
+Scan of the last 24h: 411 statement timeouts, 380 "Not authorized", then a long tail. Triage:
+
+- **Statement timeouts (411): no change.** 134 fell in the 08:00 UTC hour right after the 07:53-09:05 restarts; since then 13-30 an hour. Query text is truncated in the log, so the RPCs could not be named. See steps 44-45 for the heavy jobs.
+- **"permission denied for function/table ..." (hundreds): no change.** Most stopped by 10-27 18:13 after the step 41 re-grants. The ones still logged at 11:30-11:36 today are for objects `authenticated` now holds grants on (checked with `has_function_privilege` / `has_table_privilege`), so they are signed-out or expired-session callers being refused correctly.
+- **"Not authorized", "Not authenticated", "Financial Ops only", role-guard messages: no change.** Guards working.
+- **47a FIXED `agent_subagents` RLS violation (41/day):** trigger `trg_auto_verify_subagent` turns a new row's status `pending` into `verified` before the row is checked, and the insert policy only accepted `pending`, so every sub-agent self-signup (`SelectRole.tsx`, source `link`) was refused. Reproduced as a normal agent in a rolled-back transaction; after the change the insert succeeds with status `verified`, and an insert linking two other people is still refused. Migration `20261028140000_agent_subagents_insert_policy_accept_auto_verified.sql`. Users refused earlier were never linked to their parent; Josh may want a list (parent via `localStorage referral_agent_id` is not stored server-side, so it cannot be rebuilt from the database).
+- **47b FIXED `login_phase_events` RLS violation (39/day):** the browser stamps a remembered `user_id` that can differ from the request token (sign-in, account switch), and the whole batch was refused. New before-insert trigger stores a `user_id` that is not the caller's as null. Tested: foreign id, own id and anon all insert. Migration `20261028150000_login_phase_events_null_foreign_user_id.sql`.
+- **47c FIXED `cc_cycle_rows` duplicate key (60/day):** `tenant-arrears-escalations` already counted code 23505 as "already queued", but each one was still logged as a Postgres ERROR. It now reads the tenants already on the cycle and skips them. Edge function change; takes effect on deploy.
+- **47d NOT FIXED, client-side: `invalid input syntax for type uuid: "null"` (43) and `"tenant"` (37):** a profile-name lookup (`profiles ... id = ANY(...)`) is called with the text "null" or "tenant" in the id list. 156 call sites select `id, full_name`; the log does not say which. For the UI owner: filter ids with a uuid check before `.in('id', ...)`.
+- **47e NOT FIXED, not found in this branch: `invalid column for filter user_id` (68, last 11:36):** a realtime subscription filters on `user_id` for a table without that column. Every `user_id=eq` subscription in this code targets a table that has the column, so the source is probably in Lovable's current code or built dynamically.
+
+## Step 48 (2026-10-28 ~13:40 UTC): next round of Postgres errors, one at a time
+
+Fixed (all applied to production by hand; each migration file is the record):
+
+- **48a `gmail_transactions_auto_match_method_check` (12):** the poller writes `merchant_float_sms_rpc` after crediting a merchant float SMS, and `relink_stuck_pending_deposits` writes `relink_job`; neither was allowed. The money was credited (the poller ignores the update error) but the SMS row was never marked matched, so it looked unclaimed afterwards. Both values added. Migration `20261028160000_gmail_transactions_auto_match_method_allow_poller_and_relink_values.sql`.
+- **48b `cash_deposit_verification_events_event_type_check` (4) and 48c `email_match_audit_log_action_check` (8):** `cash-deposit-verify-code` logs `confirmation_email_sent` / `confirmation_email_failed` / `confirmation_receipt_failed`, and the Email Transactions panel logs `tid_auto_credited`; none were allowed, so those audit rows were lost. Added to both lists (supersets, existing rows valid). Migration `20261028170000_allow_event_values_the_code_writes_cash_deposit_and_email_audit.sql`.
+- **48d `cannot execute INSERT in a read-only transaction` (5, `get_partner_wallet_hub`):** four functions declared STABLE (`get_partner_wallet_hub`, `get_withdraw_context`, `get_phantom_correction_drift`, `get_phantom_correction_drift_detail`) call the VOLATILE `get_user_wallet_view`, which rebuilds the user's `wallet_balances_projection` row when it is stale. PostgREST runs STABLE functions read-only, so the rebuild failed and the screen got an error. Marked VOLATILE; results and grants unchanged; partner hub tested. This does not loosen any refresh rule. Migration `20261028180000_wallet_read_functions_volatile_because_they_refresh_the_projection.sql`.
+
+Checked, already fixed live, no change: `column reference "amount" is ambiguous` in `get_cfo_paid_by_category_totals` (last 10:13; runs clean now) and `CREATE TABLE is not allowed in a non-volatile function` in `get_cfo_paid_by_category_page` (last 10:40; runs clean in a read-only transaction now).
+
+Checked, working as designed: `withdrawal_release_events_withdrawal_id_key` (one release row per withdrawal), `LC1_DUPLICATE`, `NOTE_ALREADY_APPROVED`, "This mobile money number is already linked to another Welile account", "Your access to the float figures has been turned off by management".
+
+**FOUND, needs Josh: repo migrations that production does not have.** `column staff_assistant_config.max_model_rounds does not exist` comes from the `staff-assistant` edge function on `lovable`, whose migration `20261027100000_staff_assistant_security_hardening.sql` (and others in the `staff_assistant_*` series, `special_advances_payout_repayment`, `special_advances_proof_storage_policies`, and more) is on `lovable` but not in this database's `schema_migrations`. They are Lovable's, large and unreviewed, so I did not apply them. Someone needs to decide, migration by migration, which to apply; applied names here are Lovable's generated slugs so a plain filename diff overstates the gap and each needs checking against the live schema.
+
+Still open from the client side (UI owner): `column rent_requests.user_id does not exist` (6), `gmail_transactions.raw_text` (4; the column is `raw_body`), `is_active` / `monthly_income` does not exist (3 each), and uuid errors from "Rent Management Pool" and "KxEPbv" being sent as ids.
+
+## Step 49 (2026-10-28 ~14:30 UTC): client-side errors traced to the line
+
+Method: failing query text from `postgres_logs`, request URL and referer from `edge_logs`, then the code on `origin/lovable` (the code production runs).
+
+**Fixed in code (this commit):**
+- **`wallet_transactions.type` does not exist (20):** `TenantDetailPanel.tsx:125` selected `type`. The table has no such column (`id, sender_id, recipient_id, amount, description, created_at`). The result (`walletTxns`) is built but never read in the file; removed `type` from the select so the query stops failing on every tenant panel open.
+- **`invalid input syntax for type uuid: "Rent Management Pool" / "tenant"` (37+):** `general_ledger.linked_party` is free text (5,361 rows say `tenant`, 449 say `Rent Management Pool`), but six screens send it to a `profiles .in('id', ...)` name lookup, which Postgres refuses as a whole. New `src/lib/isUuid.ts`; filtered at `AgentCashPayoutsTab.tsx`, `FloatTransactionHistory.tsx`, `CashoutPendingWithdrawalsDialog.tsx`, `ApprovedPartnerWithdrawals.tsx`, `categoryReportExport.ts` (`fetchPartyNames`), `fetchAgentWalletData.ts`.
+
+**Fixed in the database (applied by hand, migration `20261028190000_fix_agent_network_summary_and_daily_missions_missing_columns.sql`):**
+- **`column "is_active" does not exist` (3, `get_agent_network_summary`):** the staff check used `staff_permissions.is_active`; the table has `revoked_at`. Staff opening another agent's network summary got an error. Now `revoked_at IS NULL` (a revoked staff permission no longer passes). Tested: staff to agent, agent to self.
+- **`column "monthly_income" does not exist` (3, `get_agent_daily_missions`):** `profiles.monthly_income` is not in this schema and no income field exists anywhere, so the salary-proof gap is held at 0 (counting everyone would offer a daily 1,000 UGX mission to every agent). Tested.
+
+**Already fixed on `lovable` (commit `9eb3ca77bd`, 10-27 11:23), still arriving: stale browsers.** `rent_requests.user_id` (16, last 12:14 today, old `SuggestedHousesCard` query) and `house_listings.price` (8, last 10-27 19:54, old `RejectionAlertGate` query), and `welile_homes_subscriptions.funding_status` (4, code on `lovable` already says the column is absent). The errors come from browsers running a cached older bundle. Check that welileapp.com serves the latest published build; users on the old bundle stop erroring after a hard reload or the next service-worker refresh.
+
+**Not in any branch: `gmail_transactions.raw_text` (4).** The column is `raw_body`. Callers were a Deno edge function, a Chrome browser and `curl`. Nothing in `lovable` or the dev branches contains `raw_text`, so it is either code deployed outside git or a hand-run test. Not changed.
+
+**Not fixed, needs the UI owner: `invalid input syntax for type uuid: "null"` (43).** Same lookup shape (`select=id,full_name&id=in.(null,...)`), but the id list comes from a nullable column with no filter. A scan found 190 such lookups; full list in `docs/HANDOVER/247-appendix-unfiltered-profile-id-lookups-2026-10-28.md`. The shared client `src/integrations/supabase/client.ts` is generated ("do not edit"), so a central guard was not added. Fix per site is `ids.filter(isUuid)`.
+
+**Not fixed, source not found: `invalid column for filter user_id` (realtime, 68, last 11:36).** Every `user_id=eq` realtime filter in `lovable` is on a table that has the column; the caller is not in git.
+
+## Step 50 (2026-10-28 ~14:30 UTC): scan for more errors
+
+**Fixed:**
+- **50a `install_attempt_events` RLS refusal (2):** same cause as step 47b; before-insert trigger stores a mismatched `user_id` as null. Tested as anon.
+- **50b `update or delete on table "push_subscriptions" violates foreign key ...` (2):** removing an expired subscription was blocked by `tenant_notification_deliveries.push_subscription_id`, so dead endpoints were never removed and were retried on every send. FK is now `ON DELETE SET NULL` (column nullable; the 1,043 history rows keep everything else). Tested: delete of a subscription that has history succeeds.
+  Both in migration `20261028200000_install_attempt_events_null_foreign_user_and_push_delivery_fk_set_null.sql`.
+- **50c `HouseDetail.tsx` (house_reviews, 14 uuid errors "SR4Xgd", "KxEPbv", "ZpCeTK"):** the page passed the route parameter to `useHouseReviews`, and for a short-code link that is the short code, not the uuid. Now `useHouseReviews(listing?.id)`; the listing is already resolved by id or short_code on the same page. Short-code links showed no reviews before.
+- **50d `loginTelemetry.ts`, `value "4930851799" is out of range for type integer` (about 6 batches an hour):** the ring buffer kept in localStorage from an earlier visit anchored `ms_since_start` days in the past; PostgREST casts the JSON to int4 before any trigger runs, so a database clamp cannot catch it, and widening the 530 MB table to bigint was judged too heavy an operation while the database is restarting. Client now drops a ring older than an hour and caps the value at int4 max. Takes effect on deploy; note `lovable` has its own version of this file (see step 41/promotion), so this change needs a merge, not a blind cherry-pick.
+
+**Not changed, found:**
+- **`/rest/v1/rpc/ops_landlord_paid_unverified_count` returns 404 (332 in 90 minutes).** The function and its helper `_landlord_has_recorded_payout` do not exist in this database and are in no migration in git; only the `landlord-ops` edge function and `supabase/tests/landlord_paid_unverified.sql` reference them. The code already tolerates it (disables the "Paid · Not verified" chip), so nothing is broken for users, but the feature has never worked here. Lovable needs to supply the missing migration; not rebuilt from the test file.
+- **Database restarts continue (eight today).** See incident-log entry 8 update.
+- **Web push still 100% failing** (about 600 "Push failed" per 90 min across Mozilla, FCM and Apple endpoints): waiting on the new `VAPID_PUBLIC_KEY` in `src/lib/webPush.ts`.
+- `approve-withdrawal` WhatsApp `twilio_rejected_20003` (16): Twilio secrets, Josh.
+- Auth `/token` 400 (96) and `/user` 403 (21): wrong-password attempts and expired sessions; `get_receivables_total` 403 (20) and "Financial Ops only" (18) are role guards turning people away.
+
+## Step 51 (2026-10-28 ~15:30 UTC): third scan, silent write failures from edge functions
+
+**Method (reusable):** the API edge log shows `POST/PATCH /rest/v1/<table>` answered 400 from the Deno edge runtime with no matching Postgres error, which is PostgREST refusing an unknown column. Then every `.from(t).insert/upsert/update({...})` object literal in the `lovable` edge functions (1,804 table/key pairs) was compared with the live columns in one SQL statement. 16 tables had mismatches.
+
+**Fixed (migration `20261028210000_agent_earnings_currency_and_audit_logs_writer_columns.sql`, applied by hand, additive):**
+- **`agent_earnings.currency` (77 refusals in the window):** `approve-listing-bonus`, `credit-listing-bonus` and `disburse-rent-to-landlord` insert `currency: 'UGX'`; the column does not exist, PostgREST refused each insert, and the functions ignore the result. **Listing-bonus and rent-funded-bonus earnings history rows have not been written since the cutover (10-17).** Column added (default `'UGX'`), so new bonuses record. The missing history rows are NOT recreated; whether and how to backfill (the wallet credits themselves went through their own ledger path) is Josh's/finance's call.
+- **`audit_logs` (114 refusals in 12 hours, last 14:27):** twelve inserts send `new_data`, `performed_by`, `actor_id`, `details`, `target_user_id`, `is_proxy`, `audit_reason`. The biggest are `gmail-poll-transactions` (the withdrawal auto-approval trail, written every time a MoMo email auto-approves a withdrawal) and `approve-deposit`; also vendor login/receipts, admin identity edits, `recover-user-auth`, proxy funder registration. **Those audit rows were not stored.** Seven nullable columns added, and a before-insert default so a writer that sends `action` but not `action_type` (NOT NULL) is kept. Tested in a rolled-back transaction with the real shapes. Later clean-up: point the writers at `old_values` / `new_values` / `metadata` / `user_id`.
+
+**Found, not changed (needs a decision; each is code writing a column the table lacks):**
+
+| Table.column(s) | Writer | Effect |
+|---|---|---|
+| `profiles.registration_method` | `register-proxy-funder` | the profile upsert is refused; no repo migration defines the column |
+| `profiles.national_id_missing_notified_at` | `reject-unverified-payout-destinations` | defined by repo migration `20260915170000_reject_and_notify_no_id_payout_destinations.sql`, which (with its helper function) is not applied here; sweep would re-SMS the same users every run if it were scheduled |
+| `wallet_overdraw_events.attempted_by, attempted_amount, available_amount` | `wallet-cache-sweep` | over-request audit row lost (error swallowed) |
+| `system_events.actor_user_id` | `wallet-cache-sweep` | "constitution" state-change event lost (error swallowed); the column is `actor_id` |
+| `staff_requisitions.eyes` | `growth-commission-claim` | growth-commission requisition insert refused |
+| `loan_applications.approved_at, approved_by, rejected_reason` | `approve-loan-application` | approval update refused (loan feature likely retired) |
+| `staff_assistant_conversations.hidden_at, hidden_by_user, last_message_at`, `staff_assistant_messages.hidden_at, hidden_by_user` | `staff-assistant` | repo migrations `20261027100000` / `20261028110000` not applied (step 48) |
+| `wallet_withdrawal_otp_challenges.provider`, `vendors.pin`, `sms_delivery_log.code`, `notifications.Note/read`, `cash_deposit_verifications.stored`, `email_payout_match_attempts.debited`, `lending_audit_log.fee`, `finance_anomaly_scans.emails/phones`, `angel_pool_investments.groupId` | various | most are probably nested keys the scan mis-attributed (no matching 400s in the log); check before acting |
+
+Also found: `welile_signages` returns 404 (table does not exist; 2 calls), `process-email-queue` cron run failed with `job startup timeout` at 13:49 (just before the 13:51 restart), and an edge function PDF generation fails on a Hebrew character (`WinAnsi cannot encode "י"`; the standard PDF font has no non-Latin glyphs, so a name in another script breaks the document).

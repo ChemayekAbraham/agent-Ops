@@ -28,7 +28,7 @@ const TOTALS = [
   { category_key: 'partner', category_label: 'Partner Products and Services', nature: 'capital', sort_order: 1, amount: 1490187977, tx_count: 2600, pct: 90.51 },
   { category_key: 'land', category_label: 'Tenant Products and Services', nature: 'recovery', sort_order: 2, amount: 100180658, tx_count: 8100, pct: 6.08 },
   { category_key: 'agent', category_label: 'Agent Products and Services', nature: 'recovery', sort_order: 3, amount: 46325502, tx_count: 6087, pct: 2.81 },
-  { category_key: 'fees', category_label: 'Fees and Service Income', nature: 'income', sort_order: 4, amount: 9409016, tx_count: 6200, pct: 0.57 },
+  { category_key: 'fees', category_label: 'Revenue Collected', nature: 'income', sort_order: 4, amount: 9409016, tx_count: 6200, pct: 0.57 },
   { category_key: 'other_income', category_label: 'Other Income', nature: 'income', sort_order: 5, amount: 48000, tx_count: 2639, pct: 0.00 },
   { category_key: 'capital', category_label: 'Share Capital', nature: 'capital', sort_order: 6, amount: 290000, tx_count: 12, pct: 0.02 },
 ];
@@ -170,5 +170,48 @@ describe('ReceivedByCategory (Money In)', () => {
       expect.objectContaining({ p_category: 'land', p_type: null }),
     ));
     expect(screen.queryByRole('group', { name: 'Recovery type' })).toBeNull();
+  });
+
+  it('shows the server\'s own label for the fees category on its tile', async () => {
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
+      return Promise.resolve({ data: [], error: null });
+    });
+    totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
+    pageRpc.mockResolvedValue({ data: [ROW], error: null });
+    breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
+
+    renderReport();
+
+    // The tile carries the label the server reports for the fees category. If the
+    // component ever hardcodes a name again, this picks up the disagreement.
+    const tile = await screen.findByRole('button', { name: /Revenue Collected/ });
+    expect(within(tile).getByText(/9,409,016/)).toBeTruthy();
+    expect(screen.queryByText('Revenue', { exact: true })).toBeNull();
+  });
+
+  it('opens on All time as the default period', async () => {
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
+      return Promise.resolve({ data: [], error: null });
+    });
+    totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
+    pageRpc.mockResolvedValue({ data: [ROW], error: null });
+    breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
+
+    renderReport();
+
+    // All time is the pressed segment and, once the totals load, the period line says so.
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
+    await screen.findByText(/All time \(Kampala days\)/);
+    // The server read covers everything from the earliest ledger date.
+    expect(totalsRpc).toHaveBeenCalledWith(
+      'get_cfo_received_by_category_totals',
+      expect.objectContaining({ p_from: '2020-01-01' }),
+    );
   });
 });

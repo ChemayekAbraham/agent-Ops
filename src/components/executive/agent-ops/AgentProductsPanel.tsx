@@ -740,9 +740,19 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       in_field_amount: inFieldAmount,
       in_field_outstanding: inFieldOutstanding,
       in_field_repaid: inFieldRepaid,
+      in_field_repayable: inFieldRepaid + inFieldOutstanding,
     };
   }, [kpis, category, approvedBikeAgentIds, allRows]);
 
+  // Outstanding is the repayment-plan balance (markup included), so progress and the recovery
+  // rate are measured against what is owed (repaid + outstanding), not the phone price.
+  const repayableTotal = Number(
+    effectiveKpis?.in_field_repayable ??
+      Number(effectiveKpis?.in_field_repaid || 0) + Number(effectiveKpis?.in_field_outstanding || 0),
+  );
+  const recoveryPct = repayableTotal > 0
+    ? Math.round((Number(effectiveKpis?.in_field_repaid || 0) / repayableTotal) * 100)
+    : 0;
   const pendingApps = useMemo(() => data?.pending ?? [], [data?.pending]);
   const breakdown = useMemo(() => data?.breakdown ?? [], [data?.breakdown]);
   const activity = useMemo(() => data?.activity ?? [], [data?.activity]);
@@ -758,7 +768,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     [allRows],
   );
   const fullyPaidRows = useMemo(
-    () => allRows.filter((r) => Number(r.held_amount || 0) > 0 && Number(r.outstanding_amount || 0) <= 0),
+    () => allRows.filter((r) => Number(r.repaid_amount || 0) > 0 && Number(r.outstanding_amount || 0) <= 0),
     [allRows],
   );
   const drillRows = useMemo(() => {
@@ -1109,10 +1119,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
                       <span className="text-muted-foreground">Outstanding</span>
-                      <span className="font-medium tabular-nums">{formatUGX(Number(effectiveKpis.in_field_amount || 0))} total</span>
+                      <span className="font-medium tabular-nums">{formatUGX(repayableTotal)} total</span>
                     </div>
                     <Progress
-                      value={Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round(((Number(effectiveKpis.in_field_amount || 0) - Number(effectiveKpis.in_field_outstanding || 0)) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}
+                      value={recoveryPct}
                       className="h-1.5"
                     />
                   </div>
@@ -1131,7 +1141,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repayment Recovery Rate</p>
                       <p className="text-2xl font-bold tabular-nums">
-                        {Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round((Number(effectiveKpis.in_field_repaid || 0) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}%
+                        {recoveryPct}%
                       </p>
                     </div>
                     <div className="rounded-lg bg-info/10 p-2 text-info">
@@ -1140,7 +1150,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   </div>
                   <div className="space-y-1">
                     <Progress
-                      value={Number(effectiveKpis.in_field_amount || 0) > 0 ? Math.round((Number(effectiveKpis.in_field_repaid || 0) / Number(effectiveKpis.in_field_amount || 0)) * 100) : 0}
+                      value={recoveryPct}
                       className="h-1.5"
                     />
                     <p className="text-[11px] text-muted-foreground">{formatUGX(Number(effectiveKpis.in_field_repaid || 0))} repaid</p>

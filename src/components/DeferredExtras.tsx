@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState, useEffect, Component, ReactNode } from "react";
+import { Suspense, useState, useEffect, Component, ReactNode } from "react";
+import { lazyWithRetry as lazy } from "@/lib/lazyWithRetry";
 
 const IOSOptimizations = lazy(() => import("@/components/IOSOptimizations"));
 const IOSLinkHandler = lazy(() => import("@/components/IOSLinkHandler"));

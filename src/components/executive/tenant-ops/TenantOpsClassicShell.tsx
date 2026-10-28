@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useMemo } from 'react';
+import { Suspense, useCallback, useMemo } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';

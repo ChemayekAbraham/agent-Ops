@@ -102,8 +102,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     { icon: DoorOpen, label: 'Daily Rent Listings', badge: 'Daily Rent', separator: true, onClick: () => { hapticTap(); setShowListedHouses(true); } },
     { icon: Users, label: 'My Tenants', onClick: goTo('/landlord-tenants') },
     // Finances
-    { icon: Receipt, label: 'My Receipts', separator: true, onClick: goTo('/my-receipts') },
-    { icon: History, label: 'Payment History', onClick: goTo('/transactions') },
+    { icon: History, label: 'Payment History', separator: true, onClick: goTo('/transactions') },
     { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
     // Growth
     { icon: Gift, label: 'Invite & Earn', badge: 'UGX 100', separator: true, onClick: () => { hapticTap(); setInviteOpen(true); } },
