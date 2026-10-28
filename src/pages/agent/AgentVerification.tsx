@@ -557,11 +557,10 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
       const result = await v.savePassportPhoto(file);
       setCheckResult(result);
       toast.success('Passport photo saved');
-    } catch (e) {
-      setError(errMsg(e));
-      return;
-    } finally {
       clearPending();
+    } catch (e) {
+      // Keep the shot on screen so they can retry it or take another.
+      setError(errMsg(e));
     }
   };
 
