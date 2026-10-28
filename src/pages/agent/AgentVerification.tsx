@@ -152,7 +152,7 @@ export default function AgentVerification() {
           <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
         </div>
       </header>
-      <main className="mx-auto max-w-2xl px-5 py-6 sm:py-10">
+      <main className="mx-auto max-w-2xl px-5 py-4 sm:py-7">
         {v.isLoading ? <div className="space-y-5" aria-label="Loading verification"><Skeleton className="h-8 w-2/3" /><Skeleton className="h-2 w-full" /><Skeleton className="h-64 w-full rounded-lg" /></div>
           : v.error || !vetting ? <div className="space-y-4"><p className="text-sm">{v.error?.message ?? 'Could not load your verification.'}</p><Button className="min-h-11" onClick={() => v.refresh()}>Retry</Button></div>
           : statusScreen ? <VerificationStatus vetting={vetting} submitted={!!submitResult?.ok} onFix={() => openWizard()} onView={() => openWizard(true)} onEdit={() => guard(() => openWizard())} />
@@ -164,16 +164,16 @@ export default function AgentVerification() {
             ].map(([Icon, label]) => { const ItemIcon = Icon as typeof Smartphone; return <li key={String(label)} className="flex items-center gap-3 text-sm"><ItemIcon className="h-5 w-5 shrink-0 text-primary" />{String(label)}</li>; })}</ul></div>
             <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
-            <div className="mb-7 space-y-3">
+            <div className="mb-5 space-y-2">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
               <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / 7)} />
             </div>
-            <div className="mb-6 space-y-2"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
+            <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
-            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-6">{s.keys.map(key => {
+            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
-              return <div key={key} className="space-y-3">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{step.hint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{shortStepHint(key, step.hint, vetting)}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
