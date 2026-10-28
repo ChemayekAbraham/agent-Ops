@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { format, subDays } from 'date-fns';
+import { formatUGX } from '@/lib/creditFeeCalculations';
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc } }));
@@ -24,8 +25,16 @@ const estimateTotals = [
 ];
 const selectedTotals = estimateTotals.map(c => ({ ...c, amount: c.amount * 9, pct: 100 / 6 }));
 
-describe('scratch', () => {
-  it('dumps body text after 2s', async () => {
+function renderReport() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return render(<ReceivedByCategory />, { wrapper });
+}
+
+describe('scratch timing', () => {
+  it('finds the projected figure with a long timeout', async () => {
     vi.clearAllMocks();
     mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
       if (name === 'get_cfo_received_by_category_totals') {
@@ -34,14 +43,10 @@ describe('scratch', () => {
       if (name === 'get_cfo_received_by_category_page') return { data: [], error: null };
       return { data: [], error: null };
     });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
-    render(<ReceivedByCategory />, { wrapper });
-    await new Promise(r => setTimeout(r, 2000));
-    console.log('BODY>>>', JSON.stringify(document.body.textContent));
-    console.log('CALLS>>>', JSON.stringify(mocks.rpc.mock.calls.map(c => [c[0], c[1]])));
+    renderReport();
+    const t0 = Date.now();
+    await screen.findByText(formatUGX(700_000), {}, { timeout: 5000 });
+    console.log('FOUND AFTER ms>>>', Date.now() - t0);
     expect(true).toBe(true);
   });
 });
