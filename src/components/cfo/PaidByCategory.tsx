@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 /**
- * READ-ONLY "Paid by Category" report for the CFO dashboard.
+ * READ-ONLY "Money Out" report for the CFO dashboard (section id paid-by-category).
  *
  * Every figure comes from the server-side authoritative report
  * (`get_cfo_paid_by_category_totals` / `get_cfo_paid_by_category_page`) over
@@ -159,7 +159,7 @@ export function PaidByCategory() {
       <div className="rounded-md border border-border/70 bg-card p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <Coins className="h-4 w-4 text-primary shrink-0" />
-          <h2 className="text-sm font-semibold">Paid by Category</h2>
+          <h2 className="text-sm font-semibold">Money Out</h2>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           Where the company's money went — total paid, transaction count and share of total for each
@@ -206,7 +206,7 @@ export function PaidByCategory() {
       {/* Category tiles + grand total */}
       {totals.error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-xs text-destructive">
-          Could not load the paid-by-category breakdown. Try again shortly.
+          Could not load the Money Out breakdown. Try again shortly.
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
