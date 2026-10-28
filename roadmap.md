@@ -154,3 +154,4 @@
 - [x] CFO Received by Category report
 - [x] Promissory KPI trend tooltip now shows the percentage change against the previous period on both the in-period and cumulative figures (first period shows none); 3 new helper tests pass, preview build OK; tooltip output verified on an isolated chart page because the signed-in screen could not be opened here.
 - [x] Removed the "Projected Money Out — next 7 days" panel from the Money Out page (28 Oct 2026, Angwen Sarah), along with its estimate query; report tiles, filters and transaction table unchanged. 3 report tests and preview build pass; no database, financial or deployment changes.
+- [x] Renamed the visible receipts report to "Money In" (28 Oct 2026, Angwen Sarah): sidebar label, report heading, loading text and load-failure message. Section id, RPCs, hooks and files stay `received-by-category` so saved links keep working. Preview build passes; no database, financial or deployment changes.
