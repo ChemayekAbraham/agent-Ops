@@ -141,3 +141,7 @@
 
 ## AgentTenantsSheet stale-chunk guard (27 Oct 2026)
 - [x] Checked: both lazy imports (AgentDashboard, AgentDashboardBk) already use lazyNamed, which reloads once for a missing export and then shows "This section needs a refresh"; renders sit inside LazyModal/Suspense. No code change needed.
+
+## CFO paid-by-category breakdown (28 Oct 2026, Angwen Sarah)
+- [ ] Add reporting-only paid-by-category breakdown to CFO dashboard: Operational Expenses, Landlord Float, Agent Commissions, Partner Products & Services, Land Products & Services, Marketing Expenses, Product R&D — each with total paid, transaction count, % of total paid, date + relevant filters, grand total, and a detailed paginated transaction table. Source of truth: existing payables/payment records; no wallet/balance/ledger/payment changes.
+- [ ] Add period filter (Past 7 days / Last month / Custom) to the Received by / Paid by source breakdowns on Cash Position (user chose this before the larger request; fold into the same work where sensible).
