@@ -6976,9 +6976,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -6991,6 +6994,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -7014,9 +7023,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7029,6 +7041,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -7052,9 +7070,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7067,6 +7088,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -68935,9 +68962,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -68950,6 +68980,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -68966,6 +69002,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_vetting_id_details: { Args: { p_uid: string }; Returns: Json }
       _agent_vetting_id_status: {
         Args: { p_source: string; p_uid: string }
         Returns: Json
@@ -68974,12 +69011,21 @@ export type Database = {
         Args: { p_agent: string; p_detail?: Json; p_event: string }
         Returns: undefined
       }
+      _agent_vetting_name_on_id: { Args: { p_uid: string }; Returns: string }
       _agent_vetting_parent: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_photo_uploaded_at: {
+        Args: { p_path: string }
+        Returns: string
+      }
       _agent_vetting_reopen: {
         Args: { p_uid: string; p_what: string }
         Returns: undefined
       }
       _agent_vetting_require_agent: { Args: never; Returns: string }
+      _agent_vetting_take_id_snapshot: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
