@@ -157,3 +157,4 @@
 - [x] Renamed the visible receipts report to "Money In" (28 Oct 2026, Angwen Sarah): sidebar label, report heading, loading text and load-failure message. Section id, RPCs, hooks and files stay `received-by-category` so saved links keep working. Preview build passes; no database, financial or deployment changes.
 - [x] Agent KYC passport step: 'Take passport photo' / 'Take again' button now uses the pale primary (soft) tint instead of plain outline.
 - [x] Agent KYC National ID step: 'Add my National ID' button now uses the pale primary (soft) tint to match the passport photo button.
+- [x] Added a "Projected Money In — next 7 days" panel to the Money In page (28 Oct 2026, Angwen Sarah): per-category and grand-total estimates from the last 28 complete Kampala days (daily average x 7), read-only through the existing totals RPC. 3 new tests pass (verified to fail when the maths is wrong), typecheck and all guards pass; no database, financial or deployment changes.
