@@ -48,7 +48,7 @@
 - Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
 - Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
-- Subdirectories have their own `AGENTS.md` to read before changing files there: `src/lib/` (and `src/lib/assetRegister/`), `src/components/requisitions/`, `src/components/executive/agent-ops/` (First 7 Days files maintained upstream — do not restyle) and `supabase/` (one named server function is the only definition; the client never recomputes it).
+- Read subdirectory `AGENTS.md` before edits: `src/lib/`, `src/lib/assetRegister/`, `src/pages/rd/`, `src/components/requisitions/`, `src/components/executive/agent-ops/` (First 7 Days maintained upstream), and `supabase/` (server functions own definitions; clients never recompute them).
 
 - Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
 - Supplementary budgets live only in `budget_supplements` and its `budget_supplement_*` RPCs; the original approved line is never edited, revised = original + CFO-approved supplements via `budget_revised_position`, and supplements never touch disbursements, ledger or wallets (keeps them separate from reallocations and money movement).
