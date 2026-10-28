@@ -1,0 +1,1 @@
+ALTER FUNCTION public._cfo_received_category_for(text) SET search_path = public;
