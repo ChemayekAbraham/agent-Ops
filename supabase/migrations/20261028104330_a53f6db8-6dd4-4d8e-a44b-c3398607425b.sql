@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_gl_paid_cashout_txdate ON public.general_ledger (transaction_date DESC, id) INCLUDE (category) WHERE direction = 'cash_out' AND classification IN ('production','legacy_real');
