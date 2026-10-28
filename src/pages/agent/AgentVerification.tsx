@@ -585,7 +585,7 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
               </Button>
             </div>
           ) : (
-            <Button variant="outline" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
+            <Button variant="soft" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
               {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
               {path ? 'Take again' : 'Take passport photo'}
             </Button>
