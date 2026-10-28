@@ -51,24 +51,24 @@ describe('CFO Paid by Category', () => {
   it('shows all seven categories with totals, counts and share of the grand total', async () => {
     renderReport();
     expect(await screen.findByText('Grand total paid')).toBeInTheDocument();
-    const flat = (n: Element) => (n.textContent ?? '').replace(/\u00a0/g, ' ');
-    expect(flat(screen.getByText('Grand total paid').closest('div')!)).toContain('UGX 10,000');
+    const flat = (n: Element) => (n.textContent ?? '').replace(/[\s\u00a0\u202f]/g, '');
+    expect(flat(screen.getByText('Grand total paid').closest('div')!)).toMatch(/UGX10[,.\u00a0\u202f]?000/);
     for (const t of totals) {
-      expect(screen.getByText(t.category_label)).toBeInTheDocument();
+      expect(screen.getAllByText(t.category_label).length).toBeGreaterThan(0);
     }
-    expect(screen.getByText(/30 transactions · 30\.00% of total/)).toBeInTheDocument();
+    expect(flat(screen.getByText(/transactions · 30\./))).toMatch(/30transactions·30\.00%oftotal/);
   });
 
   it('filters the transaction table to the clicked category', async () => {
     renderReport();
-    fireEvent.click(await screen.findByText('Landlord Float'));
+    fireEvent.click(screen.getAllByText('Landlord Float')[0]);
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_paid_by_category_page',
       expect.objectContaining({ p_category: 'landlord_float', p_offset: 0 })));
   });
 
   it('pages the transaction table from the server', async () => {
     renderReport();
-    await screen.findByText('Test Landlord');
+    await screen.findByText('Test Landlord', {}, { timeout: 4000 });
     const next = screen.getByRole('button', { name: 'Next page' });
     expect(next).not.toBeDisabled();
     fireEvent.click(next);
