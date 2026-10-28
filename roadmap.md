@@ -9,6 +9,8 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
+- [x] Correct Nearing Payout's pay-action check to honor a fresh CFO permission before rejecting an already-handled cycle; seven new preflight tests and all guards pass, preview build OK. Permission verified unused/unexpired read-only; no money moved. Existing returnCycleGuard suite has three unrelated stale crypto.randomUUID source assertions (35 other tests pass).
+- [ ] Verify Musa's payout queue flow in a live signed-in requester account — blocked: externally managed authentication has no restorable session; no payout attempted.
 - [x] Update agent own-ID summaries and Agent Ops previous/new comparison using existing hooks only; 34 tests and all guards pass, preview build OK; sample 360/375px and desktop summaries, comparison and enlargement verified without overflow. Live signed-in checks unavailable with external unmanaged authentication; protected files unchanged. Corrected one existing CFO undefined callback blocking compilation.
 - [ ] Implement and verify bike-first daily recovery waterfall across automatic advance paths, with separate contracts/accounts and truthful operations recovery-order display.
 - [x] Redesign agent verification as a seven-step KYC flow; 37 focused tests, all safety guards and automatic compilation pass. Isolated 360/375px and desktop layouts show no horizontal overflow; parent selection, missing-step navigation and verified-edit warning checked. Existing hooks, backend, enforcement and other verification screens unchanged; no deployment.
