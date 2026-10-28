@@ -30,7 +30,7 @@
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
 - CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
 - Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.
-- Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
+- Support capacity and its debit use operational float only, never withdrawable Returns.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
 - CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side. Wallet totals read `wallet_balances_projection` (one row), and `user_wallet_strict_for` only when that row is missing — never `v_user_wallet_strict` (recomputes every wallet).
