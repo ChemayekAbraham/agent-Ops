@@ -191,4 +191,28 @@ describe('ReceivedByCategory (Money In)', () => {
     expect(within(tile).getByText(/9,409,016/)).toBeTruthy();
     expect(screen.queryByText('Revenue', { exact: true })).toBeNull();
   });
+
+  it('opens on All time as the default period', async () => {
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
+      return Promise.resolve({ data: [], error: null });
+    });
+    totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
+    pageRpc.mockResolvedValue({ data: [ROW], error: null });
+    breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
+
+    renderReport();
+    await screen.findByText('All received transactions');
+
+    // All time is the pressed segment and the period line says so.
+    expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/All time \(Kampala days\)/)).toBeTruthy();
+    // The server read covers everything from the earliest ledger date.
+    expect(totalsRpc).toHaveBeenCalledWith(
+      'get_cfo_received_by_category_totals',
+      expect.objectContaining({ p_from: '2020-01-01' }),
+    );
+  });
 });
