@@ -1,4 +1,5 @@
-import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, Suspense, useCallback } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, Share, HelpCircle, X, Zap, Wifi, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';

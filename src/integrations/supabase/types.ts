@@ -12743,6 +12743,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_lunch_reclass_log: {
+        Row: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string
+          correction_group_id?: string
+          original_leg_id?: string
+          posted_at?: string
+        }
+        Relationships: []
+      }
       cfo_reporting_cost_tags: {
         Row: {
           amount: number
@@ -77457,6 +77481,16 @@ export type Database = {
           transaction_date: string
           user_id: string
           wallet_bucket: string
+        }[]
+      }
+      get_cfo_lunch_unlisted_recipients: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          full_name: string
+          payments: number
+          phone: string
+          user_id: string
         }[]
       }
       get_cfo_money_drilldown_totals: {

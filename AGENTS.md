@@ -21,12 +21,12 @@
 - Welile Schools gate registration stores only in `welile_schools` / `welile_school_profiles` (agents see their own profiles, `welile_schools_ops_ok()` roles see all, no deletes); offline profiles queue locally and retry idempotently via `client_ref`.
 - Welile Homes float requests move only through `src/lib/welileHomesFloat.ts` (`wh_request_float`/`wh_float_advance`) and CFO money only via `wh_cfo_disburse_float` (Merchant `agent_float_deposit` legs, no fallback); "funded" is set only by disbursement and Merchant desks exclude Welile Homes requests.
 - Welile Schools chat and classic registration share one page-owned draft and save handler, with Uganda hierarchy supplied by the shared location picker, so switching modes cannot fork registration data.
-- Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts`, built on recorded facts (subscription_status, funding_status, float-request link, collected dues), never float reason text; "Funded" requires funding_status = 'funded', a rejected float request is not a declined application, unknown collections lock Delete, and `delete_welile_home_subscription` refuses the same plans server-side (pending migration).
+- Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts`, using recorded facts (subscription/funding status, float link, collected dues), never reason text; Funded needs funding_status = 'funded', a rejected float request is not a declined application, unknown collections lock Delete, and `delete_welile_home_subscription` refuses the same server-side.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized client-side; only the server authorizes.
+- Requisition approval errors are normalized client-side; the server authorizes.
 - CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
 - CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
@@ -48,7 +48,7 @@
 - Tenant SMS campaigns send only via `tenant-campaign-sender`, unique `dedupe_key` per tenant, wave stops above 20% failures.
 - Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
-- Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
+- Sign-up client pre-checks run in parallel, capped at 1.5s, and fail open; only server checks enforce.
 - Subdirectories have their own `AGENTS.md` to read before changing files there: `src/lib/` (incl. `assetRegister/`), `src/components/requisitions/`, `src/components/executive/agent-ops/` (First 7 Days files maintained upstream — do not restyle) and `supabase/` (one named server function is the only definition; the client never recomputes it).
 
 - Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
@@ -62,4 +62,5 @@
 - My Space Calling & Pipeline Feedback reports (`/me/reports` for Jane, Winnie, Hanisha; `/me/staff-reports` for HR/Mark Bwayo) read only `staff_calling_detailed_report(p_from, p_to)` across Wednesday–Tuesday Kampala weeks and calendar months, unioning Tenant & Landlord Calling Centers and Rent Plan pipeline calls/reviews; financial state untouched.
 - CFO Asset Register rules (RPC-only access, server-issued codes/tags, append-only events, private evidence, QR grants nothing) live in `src/lib/assetRegister/AGENTS.md`; read it before touching any asset register code, page or migration.
 - Agent Verification screens use only the agent-vetting hooks and `src/lib/agentVetting.ts`; blocked creates go through `promptIfNotVetted` to one app-level dialog and the client never hides Add Tenant / Rent Plan buttons, because only the server decides verification.
-- CFO "Money Out"/"Received by Category" read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for` and the client never recomputes or re-labels, so each report stays one server definition that cannot double-count.
+- Lunch allowance reclasses are append-only pairs logged once in `cfo_lunch_reclass_log`; Money Out counts the reclass, not the original, to avoid double counting.
+- CFO Money Out/Money In read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for`; the client never recomputes or re-labels, so each report has one server definition.

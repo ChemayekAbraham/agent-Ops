@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { FinOpsScope } from './FinOpsScope';
-import { Component, useEffect, useState, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
+import { Component, useEffect, useState, Suspense, type ComponentType, type ReactNode } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 // Eagerly imported: only what's needed on the Home view.
 import { WalletOverviewCard } from './WalletOverviewCard';
 import { MomoFeedSilenceAlert } from './MomoFeedSilenceAlert';
