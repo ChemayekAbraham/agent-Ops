@@ -8,6 +8,7 @@
 - Nexa public catalog and internal-query firewall are shared between browser and server; public chat refuses internal questions before escalation or model calls, even for staff sessions, to prevent public-channel disclosure.
 - Tenant campaign progress reads the caller-checked `rent_access_limit_server` RPC; failed reads show unavailable rather than estimating from partial payment rows or changing financial rules.
 - Partner payout presentation reuses existing paid/outstanding reports and drill-downs; tiles keep original totals and due-by cutoff, never an invented next due date.
+- Nearing Payout checks fresh unused CFO cycle permissions before its friendly duplicate warning, attaches the permission to the existing payout request and retains requester/amount/queue checks; only the server authorizes and consumes it.
 - Standing order amount revisions use only `standing_order_set_amount` for locked configuration plus atomic audit, never the payer or lifecycle audit helper; authorized users may preview, but saves remain loopback-development-only until separately approved activation.
 - CFO loading separates authoritative summaries from optional detail reads; shared wallet responses retain distinct balance/float fields and reconciliation still waits for the full verification scan, so faster presentation cannot change financial definitions.
 - Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.

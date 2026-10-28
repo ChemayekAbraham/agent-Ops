@@ -547,7 +547,7 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
     ]);
 
     for (const n of nearingList) {
-      if (creditedPortfolioIds.has(n.portfolioId)) {
+      if (creditedPortfolioIds.has(n.portfolioId) && !overriddenPortfolioIds.has(n.portfolioId)) {
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'credited';
       } else if (pendingPortfolioIds.has(n.portfolioId)) {
