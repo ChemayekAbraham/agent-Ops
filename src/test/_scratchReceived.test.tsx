@@ -11,10 +11,8 @@ import { ReceivedByCategory } from '@/components/cfo/ReceivedByCategory';
 
 const kampalaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kampala' });
 const yesterday = () => format(subDays(new Date(`${kampalaToday()}T00:00:00Z`), 1), 'yyyy-MM-dd');
-
 const cat = (key: string, label: string, nature: string, amount: number, tx_count: number, sort_order: number) =>
   ({ category_key: key, category_label: label, nature, amount, tx_count, pct: 0, sort_order });
-
 const estimateTotals = [
   cat('partner', 'Partner Products and Services', 'capital', 2_800_000, 28, 1),
   cat('land', 'Land Products and Services', 'recovery', 1_400_000, 14, 2),
@@ -25,16 +23,10 @@ const estimateTotals = [
 ];
 const selectedTotals = estimateTotals.map(c => ({ ...c, amount: c.amount * 9, pct: 100 / 6 }));
 
-function renderReport() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
-  return render(<ReceivedByCategory />, { wrapper });
-}
+const codes = (s: string) => [...s].map(c => c.codePointAt(0)).join(',');
 
-describe('scratch timing', () => {
-  it('finds the projected figure with a long timeout', async () => {
+describe('scratch chars', () => {
+  it('compares expected and rendered money strings', async () => {
     vi.clearAllMocks();
     mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
       if (name === 'get_cfo_received_by_category_totals') {
@@ -43,10 +35,15 @@ describe('scratch timing', () => {
       if (name === 'get_cfo_received_by_category_page') return { data: [], error: null };
       return { data: [], error: null };
     });
-    renderReport();
-    const t0 = Date.now();
-    await screen.findByText(formatUGX(700_000), {}, { timeout: 5000 });
-    console.log('FOUND AFTER ms>>>', Date.now() - t0);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    render(<ReceivedByCategory />, { wrapper });
+    await new Promise(r => setTimeout(r, 1500));
+    console.log('EXPECTED>>>', JSON.stringify(formatUGX(700_000)), codes(formatUGX(700_000)));
+    const node = [...document.querySelectorAll('p')].find(p => (p.textContent ?? '').includes('700,000'));
+    console.log('RENDERED>>>', JSON.stringify(node?.textContent ?? 'MISSING'), codes(node?.textContent ?? ''));
     expect(true).toBe(true);
   });
 });
