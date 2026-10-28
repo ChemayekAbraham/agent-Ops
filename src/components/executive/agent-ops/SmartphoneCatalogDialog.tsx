@@ -5,6 +5,7 @@ import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check, ChevronDown, Imag
 import { SmartphoneProductImage } from '@/components/merchandise/SmartphoneProductImage';
 
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS } from '@/lib/profileTypeahead';
 import {
   Dialog,
   DialogContent,
@@ -247,7 +248,7 @@ export function SupplierPicker({
 
   const { data: results = [], isFetching } = useQuery({
     queryKey: staffOnly ? ['bike-supplier-search', q] : ['smartphone-supplier-search', q],
-    enabled: q.length >= 2 && !value,
+    enabled: q.length >= PROFILE_TYPEAHEAD_MIN_CHARS && !value,
     queryFn: async (): Promise<SupplierChoice[]> => {
       if (staffOnly) {
         const { data, error } = await db.rpc('search_bike_supplier_candidates', { p_search: q });
@@ -263,12 +264,13 @@ export function SupplierPicker({
       }
       // Match every typed word in any order ("Kalyango Timothy" finds
       // "TIMOTHY KALYANGO"); a phone typed as 07... also matches +2567...
-      const words = q.replace(/[,()%*]/g, ' ').split(/\s+/).filter(Boolean);
+      const words = q.replace(/[,()%*]/g, ' ').split(/\s+/).filter((w) => w.length >= PROFILE_TYPEAHEAD_MIN_CHARS);
       const digits = q.replace(/\D/g, '');
       let query = db.from('profiles').select('id, full_name, phone');
-      if (digits.length >= 4 && digits.length === q.replace(/[\s+-]/g, '').length) {
-        const local = digits.replace(/^(256|0)/, '');
-        query = query.ilike('phone', `%${local}%`);
+      if (digits.length >= 6 && digits.length === q.replace(/[\s+-]/g, '').length) {
+        query = query.ilike('phone', `%${digits.slice(-9)}`);
+      } else if (words.length === 0) {
+        return [];
       } else {
         for (const w of words) query = query.ilike('full_name', `%${w}%`);
       }
@@ -311,7 +313,7 @@ export function SupplierPicker({
         onChange={(e) => setTerm(e.target.value)}
         placeholder={staffOnly ? 'Search internal staff or ops member by name or phone' : 'Search supplier by name or phone'}
       />
-      {q.length >= 2 && (
+      {q.length >= PROFILE_TYPEAHEAD_MIN_CHARS && (
         <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border p-1">
           {isFetching ? (
             <p className="px-1.5 py-1 text-xs text-muted-foreground">Searching…</p>

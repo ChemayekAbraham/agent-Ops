@@ -636,6 +636,10 @@ Deno.serve(async (req) => {
     }
 
     let inserted = 0; let newestMs = lastMs;
+    let insertFailures = 0;
+    // Watermark cap that keeps the oldest failed insert inside the grace
+    // window. null when this tick had no retryable insert failure.
+    let insertFailureWatermarkCap: number | null = null;
     /** Advance the cutoff only with sane, non-future timestamps. */
     const advanceCutoff = (ms: number) => {
       if (!ms || !Number.isFinite(ms)) return;
@@ -645,12 +649,34 @@ Deno.serve(async (req) => {
       }
       if (ms > newestMs) newestMs = ms;
     };
+    // A failed INSERT rolls the gmail_transactions row back. The message is
+    // not in gmail_dedup_audit either, so the only thing that can drop it is
+    // this watermark: the next tick skips internalDate < watermark - 10 min.
+    // Gmail lists newest first, so a later success in the same batch must
+    // not push the failed message out of that window. Never rewind — a bank
+    // alert older than the grace window is exempt from the cutoff and is
+    // listed again by the sender search.
+    const noteInsertFailure = (ms: number) => {
+      insertFailures += 1;
+      if (!ms || !Number.isFinite(ms)) return;
+      if (skipBeforeMs && ms < skipBeforeMs) return;
+      const cap = ms + CUTOFF_GRACE_MS;
+      if (cap < lastMs) return;
+      if (insertFailureWatermarkCap === null || cap < insertFailureWatermarkCap) {
+        insertFailureWatermarkCap = cap;
+      }
+    };
     const debugReport: any[] = [];
     for (const m of messages) {
       const { data: existing } = await supabase
-        .from('gmail_transactions').select('id').eq('gmail_message_id', m.id).maybeSingle();
+        .from('gmail_transactions').select('id, internal_date').eq('gmail_message_id', m.id).maybeSingle();
       if (existing) {
         if (debug) debugReport.push({ id: m.id, decision: 'skipped', reason: 'already_in_db' });
+        // This Gmail id is already stored. Let the cutoff catch up after a
+        // previous tick held it back for a failed insert. A failure later
+        // in this same batch still caps the saved watermark.
+        const storedMs = existing.internal_date ? Date.parse(existing.internal_date) : 0;
+        advanceCutoff(storedMs);
         continue;
       }
 
@@ -746,7 +772,6 @@ Deno.serve(async (req) => {
           continue;
         }
       }
-      advanceCutoff(internalMs);
 
       const isParsed = !!(parsed.amount || parsed.transaction_id);
       const internalDateObj = internalMs ? new Date(internalMs) : null;
@@ -870,6 +895,11 @@ Deno.serve(async (req) => {
               }
             }
           }
+          // Settled: this Gmail id is a duplicate of a row already stored.
+          // Advance only here, not before the insert, so a failed insert is
+          // not treated as ingested. The dedup-audit row is what the next
+          // tick's already_judged_duplicate check recognizes.
+          advanceCutoff(internalMs);
           continue;
         }
       }
@@ -927,9 +957,22 @@ Deno.serve(async (req) => {
         balance: parsed.balance ?? null,
         dedup_hash: dedupHash,
       });
-      if (!error) inserted++;
-      else if ((error as any)?.code === '23505') {
-        // Race: another poll inserted this row between our check and insert. Safe to ignore.
+      if (!error) {
+        inserted++;
+        advanceCutoff(internalMs);
+      } else if ((error as any)?.code === '23505') {
+        // Race: another poll inserted this row between our check and insert.
+        advanceCutoff(internalMs);
+      } else {
+        // 57014 (statement timeout) and any other failure leave no row.
+        // Do not mark the Gmail message ingested; the next tick retries it.
+        console.warn(
+          '[gmail-poll] insert failed; will retry message',
+          m.id,
+          (error as any)?.code ?? '',
+          (error as any)?.message ?? error,
+        );
+        noteInsertFailure(internalMs);
       }
       if (!error) {
         await logDepositDecision(supabase, {
@@ -1014,9 +1057,17 @@ Deno.serve(async (req) => {
     }
 
     if (!debug) {
+      let persistedMs = newestMs || lastMs;
+      if (insertFailureWatermarkCap != null && persistedMs > insertFailureWatermarkCap) {
+        console.warn(
+          `[gmail-poll] holding cutoff at ${new Date(insertFailureWatermarkCap).toISOString()} ` +
+          `so ${insertFailures} failed insert(s) stay inside the retry window`,
+        );
+        persistedMs = insertFailureWatermarkCap;
+      }
       await supabase.from('gmail_poll_state').upsert({
         id: 1,
-        last_internal_date_ms: newestMs || lastMs,
+        last_internal_date_ms: persistedMs,
         last_polled_at: new Date().toISOString(),
         last_status: 'ok',
         last_error: null,
@@ -1050,6 +1101,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       ok: true, scanned: messages.length, inserted,
+      insert_failures: insertFailures,
       query: GMAIL_QUERY,
       rescan: rescan ? { from: new Date(rescanFromMs).toISOString(), to: new Date(rescanToMs).toISOString() } : undefined,
       last_cutoff: lastMs ? new Date(lastMs).toISOString() : null,

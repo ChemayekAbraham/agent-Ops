@@ -327,6 +327,7 @@ export function WalletBucketHoldersPanel({
   const trimmedSearch = search.trim();
   const merchantFloatGate = useMerchantFloatPositionsGate();
   const readingMerchantFloat = bucket === 'merchant_float';
+  const merchantFloatAllowed = readingMerchantFloat && merchantFloatGate.ready && merchantFloatGate.allowed;
   const { data, isLoading, error } = useQuery({
     queryKey: [
       'wallet-bucket-holders',
@@ -341,14 +342,17 @@ export function WalletBucketHoldersPanel({
       }
       return loadHolders(bucket, trimmedSearch);
     },
-    enabled: !readingMerchantFloat || merchantFloatGate.ready,
+    // Merchant float is disabled until a real enabled finance role is known.
+    // Other buckets keep their previous behaviour.
+    enabled: !readingMerchantFloat || merchantFloatAllowed,
     staleTime: 30_000,
     // App QueryClient retries twice. A Not authorized / dead-session failure
-    // must not use those retries — the same call will fail again.
+    // (400/403/P0001) must not use those retries — the same call will fail again.
     retry: (failureCount, err) => (
       stopMerchantFloatPositionsPoll(err) ? false : failureCount < 2
     ),
   });
+  const holdersLoading = isLoading || (readingMerchantFloat && !merchantFloatGate.ready);
 
 
   // Per-holder activity counters: how many withdrawals this person has taken and
@@ -614,7 +618,7 @@ export function WalletBucketHoldersPanel({
             </div>
           </div>
 
-          {isLoading ? (
+          {holdersLoading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin inline mr-2" /> Loading holders…
             </div>

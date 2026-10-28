@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,14 +53,13 @@ export function CTOLedgerExport() {
     }
     setSearching(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, email')
-        .or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`)
-        .limit(20);
-      if (error) throw error;
-      setMatches((data ?? []) as ProfileMatch[]);
-      if (!data?.length) toast({ title: 'No users found' });
+      const { rows, error } = await searchProfilesTypeahead(term, {
+        limit: 20,
+        columns: 'id, full_name, phone, email',
+      });
+      if (error) throw new Error(error);
+      setMatches(rows as ProfileMatch[]);
+      if (!rows.length) toast({ title: 'No users found' });
     } catch (e) {
       toast({ title: 'Search failed', description: (e as Error).message, variant: 'destructive' });
     } finally {

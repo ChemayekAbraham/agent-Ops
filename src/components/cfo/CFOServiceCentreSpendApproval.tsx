@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,14 +85,12 @@ export function CFOServiceCentreSpendApproval() {
     let cancelled = false;
     setSearching(true);
     const t = setTimeout(async () => {
-      const like = `%${term}%`;
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.${like},phone.ilike.${like}`)
-        .limit(8);
+      const { rows } = await searchProfilesTypeahead(term, {
+        limit: 8,
+        columns: 'id, full_name, phone',
+      });
       if (!cancelled) {
-        setMatches((data || []) as ProfileMatch[]);
+        setMatches(rows as ProfileMatch[]);
         setSearching(false);
       }
     }, 350);

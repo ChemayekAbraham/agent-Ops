@@ -101,7 +101,6 @@ const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsCont
 // Lazy load optional UI components
 const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
-const PendingCollectionsSync = optionalLazyWithRetry(() => import("@/components/agent/PendingCollectionsSync"), "PendingCollectionsSync");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
 const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/hr/HRBirthdayNoticeDialog"), "HRBirthdayNoticeDialog");
@@ -294,6 +293,7 @@ const MeConcernsPage = lazy(() => import('./pages/me/MyConcerns'));
 const MyReportsPage = lazy(() => import('./pages/me/MyReports'));
 const StaffReportsPage = lazy(() => import('./pages/me/StaffReports'));
 const ZoePage = lazy(() => import('./pages/me/Zoe'));
+const IdeasPage = lazy(() => import('./pages/me/IdeasPage'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
@@ -331,7 +331,10 @@ const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
 const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReviewPage = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
 const AgentWelileMedicinePage = lazy(() => import('./pages/agent/AgentWelileMedicine'));
+const AgentWelileSignagesPage = lazy(() => import('./pages/agent/AgentWelileSignages'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
 const ActiveUsersDetail = lazy(() => import('./pages/coo/ActiveUsersDetail'));
@@ -346,9 +349,6 @@ const RentCoverageDetail = lazy(() => import('./pages/coo/RentCoverageDetail'));
 const COOPartnerOpsReport = lazy(() => import('./pages/coo/reports/PartnerOpsReport'));
 const COOAgentOpsReport = lazy(() => import('./pages/coo/reports/AgentOpsReport'));
 const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsReport'));
-const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
-const AgentVerificationReview = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
-const NotVettedDialog = lazy(() => import('./components/agent-vetting/NotVettedDialog'));
 const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
@@ -471,7 +471,6 @@ function GlobalFloatingWidgets() {
   return (
     <>
       <FloatingToolbar />
-      <Suspense fallback={null}><NotVettedDialog /></Suspense>
       <MerchantDispatchListener />
       <GlobalInstallPrompt />
     </>
@@ -484,10 +483,9 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
-  // Staff prompt RPCs are granted to authenticated only. Mounting them for every
-  // visitor fired hr_pay_pending_prompt, staff_survey_pending, the requisition
-  // prompt/notice RPCs, pso_facilitation_pending_prompt and staff_loan_pending_prompt
-  // with the anon key (HTTP 401) on each page load, navigation and poll.
+  // Staff prompt RPCs, usage-report notices, National ID link requests and
+  // calling-centre concerns are granted to authenticated only. Mount them
+  // only for a real session so a signed-out page does not log Postgres 42501.
   const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
@@ -503,11 +501,11 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <RequisitionUsageReportGate />
-      <NationalIdLinkGate />
-      <ConcernAssignmentGate />
       {signedIn && (
         <>
+          <RequisitionUsageReportGate />
+          <NationalIdLinkGate />
+          <ConcernAssignmentGate />
           <FacilitationApprovalGate />
           <StaffLoanApprovalGate />
           <StaffRequisitionApprovalGate />
@@ -594,7 +592,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
-          <Route path="/dashboard/agent/verification" element={<AgentVerificationPage />} />
+          <Route path="/dashboard/agent/verification" element={<RoleGuard allowedRoles={['agent']}><AgentVerificationPage /></RoleGuard>} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -842,6 +840,7 @@ function AppRoutes() {
           <Route path="/me/reports" element={<HRSignedInRoute><MyReportsPage /></HRSignedInRoute>} />
           <Route path="/me/staff-reports" element={<HRSignedInRoute><StaffReportsPage /></HRSignedInRoute>} />
           <Route path="/me/zoe" element={<HRSignedInRoute><ZoePage /></HRSignedInRoute>} />
+          <Route path="/me/ideas" element={<HRSignedInRoute><IdeasPage /></HRSignedInRoute>} />
           <Route path="/approvals" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><ApprovalsPage /></RoleGuard>} />
           <Route path="/hr/dashboard/tasks" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRTasksPage /></RoleGuard>} />
           <Route path="/hr/people" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRPeoplePage /></RoleGuard>} />
@@ -889,7 +888,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
-          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['agent_ops' as any, 'ceo', 'cto', 'coo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentVerificationReview /></RoleGuard>} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'agent_ops' as AppRole]} requiredPermission="agent-ops"><AgentVerificationReviewPage /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -904,6 +903,7 @@ function AppRoutes() {
           <Route path="/agent/welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/agent/welile-schools" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSchoolsPage /></RoleGuard>} />
           <Route path="/agent/welile-medicine" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileMedicinePage /></RoleGuard>} />
+          <Route path="/agent/welile-signages" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSignagesPage /></RoleGuard>} />
           <Route path="/agent-welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
           <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />
@@ -1123,7 +1123,6 @@ const App = () => {
                           <GlobalFloatingWidgets />
                           <Toaster />
                           <SonnerToaster />
-                          <PendingCollectionsSync />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <DeviceStepUpGate />

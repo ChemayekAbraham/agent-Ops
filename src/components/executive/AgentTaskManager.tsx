@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,21 +73,26 @@ export function AgentTaskManager() {
     staleTime: 120000,
   });
 
+  const debouncedAgentSearch = useDebouncedValue(agentSearch, 300);
   // Agent search for assignment
   const { data: agentResults } = useQuery({
-    queryKey: ['task-agent-search', agentSearch],
+    queryKey: ['task-agent-search', debouncedAgentSearch],
     queryFn: async () => {
-      if (agentSearch.length < 2) return [];
-      const { data: roles } = await supabase.from('user_roles').select('user_id').eq('role', 'agent');
-      const ids = (roles || []).map(r => r.user_id);
-      const { data } = await supabase.from('profiles')
-        .select('id, full_name, phone')
-        .in('id', ids)
-        .or(`full_name.ilike.%${agentSearch}%,phone.ilike.%${agentSearch}%`)
-        .limit(10);
-      return data || [];
+      if (debouncedAgentSearch.trim().length < 3) return [];
+      const { rows, error } = await searchProfilesTypeahead(debouncedAgentSearch, {
+        limit: 10,
+        columns: 'id, full_name, phone',
+      });
+      if (error || rows.length === 0) return [];
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'agent')
+        .in('user_id', rows.map((r) => r.id));
+      const ids = new Set((roles || []).map(r => r.user_id));
+      return rows.filter((r) => ids.has(r.id));
     },
-    enabled: agentSearch.length >= 2,
+    enabled: debouncedAgentSearch.trim().length >= 3,
     staleTime: 30000,
   });
 

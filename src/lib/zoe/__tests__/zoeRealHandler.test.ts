@@ -387,8 +387,158 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     }
 
     // Also confirm STAFF_TOOLS and openAiToolsForRoles contain zero write tools
-    expect(STAFF_TOOLS.length).toBe(54);
-    expect(openAiToolsForRoles(["super_admin"]).length).toBe(61);
+    expect(STAFF_TOOLS.length).toBe(59);
+    expect(openAiToolsForRoles(["super_admin"]).length).toBe(67);
+  });
+
+  it("verifies Prompt 4 advisor insight tools are STABLE, write nothing, enforce finance/staff role gates, and draft_welile_idea creates a click-confirmed draft verified by checkDraftCardText", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const guardSource = fs.readFileSync(
+      path.resolve(process.cwd(), "scripts/guard-staff-assistant.mjs"),
+      "utf8",
+    );
+    const migrationSource = fs.readFileSync(
+      path.resolve(
+        process.cwd(),
+        "supabase/migrations/20261027150000_staff_assistant_prompt4_advisor_insights_and_ideas.sql",
+      ),
+      "utf8",
+    );
+
+    const advisorTools = [
+      {
+        name: "get_insight_desk_wait_times",
+        rpc: "assistant_staff_insight_desk_wait_times",
+        allowedRole: "tenant_ops",
+        deniedRole: "hr",
+      },
+      {
+        name: "get_insight_collection_coverage_trends",
+        rpc: "assistant_staff_insight_collection_coverage_trends",
+        allowedRole: "agent_ops",
+        deniedRole: "hr",
+      },
+      {
+        name: "get_insight_calling_reach_and_themes",
+        rpc: "assistant_staff_insight_calling_reach_and_themes",
+        allowedRole: "hr",
+        deniedRole: "financial_ops",
+      },
+      {
+        name: "get_insight_payout_delays",
+        rpc: "assistant_staff_insight_payout_delays",
+        allowedRole: "cfo",
+        deniedRole: "tenant_ops",
+      },
+      {
+        name: "get_insight_zoe_feedback_themes",
+        rpc: "assistant_staff_insight_zoe_feedback_themes",
+        allowedRole: "crm",
+        deniedRole: "tenant_ops",
+      },
+    ];
+
+    for (const item of advisorTools) {
+      const tool = findTool(item.name);
+      expect(tool).toBeDefined();
+      expect(tool?.rpc).toBe(item.rpc);
+      // Appears in guard-staff-assistant.mjs REQUIRED_ADVISOR_INSIGHT_RPCS
+      expect(guardSource).toContain(item.rpc);
+      // Declared STABLE in SQL migration
+      expect(migrationSource).toContain(`public.${item.rpc}`);
+    }
+
+    // Non-finance staff (tenant_ops) calling get_insight_payout_delays is refused
+    const deniedFinanceInsight = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Show me CFO payout delays insights.",
+      modelToolCalls: [{ name: "get_insight_payout_delays", args: { weeks: 4 } }],
+    });
+    expect(deniedFinanceInsight.outcome).toBe("not_staff");
+    expect(deniedFinanceInsight.reply).toBe(MSG.roleRestricted);
+
+    // Authorized advisor query + draft_welile_idea with exact figures succeeds and saves server draft
+    const validIdeaTurn = await executeZoeTurn({
+      callerRoles: ["coo"],
+      userMessage: "Where do Rent Plan requests wait longest and can we save that idea?",
+      modelToolCalls: [
+        { name: "get_insight_desk_wait_times", args: { weeks: 4 } },
+        {
+          name: "draft_welile_idea",
+          args: {
+            title: "Add 10:00 EAT Landlord Ops verification cut-off",
+            suggestion: "Review Landlord Ops queue twice daily to reduce average stage wait from 18.5 hours.",
+            evidence_summary: "Landlord Ops desk wait averaged 18.5 hours across 64 requests in the last 4 weeks.",
+            source_label: "rent_request_timing",
+            period_label: "2026-09-29 to 2026-10-26",
+            category: "desk_wait",
+            screen_path: "/coo-dashboard",
+            figures: { avg_wait_hours: 18.5, requests_count: 64 },
+          },
+        },
+      ],
+      rpcDataByTool: {
+        get_insight_desk_wait_times: {
+          source: "rent_request_timing",
+          period: { from: "2026-09-29", to: "2026-10-26" },
+          row_count: 1,
+          data: {
+            slowest_desk: "Landlord Ops",
+            avg_wait_hours: 18.5,
+            requests_count: 64,
+            anomaly_notes: [
+              {
+                title: "Landlord Ops wait time is 22% above 4-week average",
+                current_value: 18.5,
+                baseline_4w_avg: 15.1,
+              },
+            ],
+          },
+        },
+      },
+      modelFinalText:
+        "Landlord Ops wait times averaged 18.5 hours across 64 Rent Plan requests (versus the 4-week average of 15.1 hours). I have prepared an Idea for Welile draft card below — click Save Idea if you would like to add it to the list.",
+    });
+
+    expect(validIdeaTurn.outcome).toBe("answered");
+    expect(validIdeaTurn.savedDrafts).toHaveLength(1);
+    expect(validIdeaTurn.savedDrafts[0].kind).toBe("idea");
+    const actionDraft = (validIdeaTurn.reportPayload as Record<string, unknown>)
+      ?.action_draft as Record<string, unknown>;
+    expect(actionDraft?.action_type).toBe("idea");
+    expect(actionDraft?.title).toBe("Add 10:00 EAT Landlord Ops verification cut-off");
+
+    // Hallucinated figure inside draft_welile_idea is blocked by checkDraftCardText
+    const hallucinatedIdeaTurn = await executeZoeTurn({
+      callerRoles: ["coo"],
+      userMessage: "Save an idea for desk wait times",
+      modelToolCalls: [
+        { name: "get_insight_desk_wait_times", args: { weeks: 4 } },
+        {
+          name: "draft_welile_idea",
+          args: {
+            title: "Cut 999 hours of wait time",
+            suggestion: "Reduce wait time from 999 hours.",
+            evidence_summary: "999 requests waited 888 hours.",
+            source_label: "rent_request_timing",
+            period_label: "2026-09-29 to 2026-10-26",
+            category: "desk_wait",
+            screen_path: "/coo-dashboard",
+          },
+        },
+      ],
+      rpcDataByTool: {
+        get_insight_desk_wait_times: {
+          source: "rent_request_timing",
+          period: { from: "2026-09-29", to: "2026-10-26" },
+          row_count: 1,
+          data: { avg_wait_hours: 18.5, requests_count: 64 },
+        },
+      },
+    });
+    expect(hallucinatedIdeaTurn.outcome).toBe("blocked");
+    expect(hallucinatedIdeaTurn.savedDrafts).toHaveLength(0);
   });
 
   it("supports conversational replies without tools while blocking invented figures, plus safe compute and SSE streaming", async () => {

@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth, type AppRole } from '@/hooks/useAuth';
 
 /**
- * Shared gate for RPCs granted to `authenticated` only (not `anon`).
+ * Shared gate for session RPCs (staff prompts, and functions granted only to
+ * `authenticated`).
  *
  * PostgREST answers a missing or expired user JWT with HTTP 401 before the
- * function runs. These helpers keep signed-out visitors, signed-out tabs and
- * dead refresh tokens from ever issuing that request. The database function
- * still decides who, among signed-in users, actually receives a prompt.
+ * function runs. A function without anon EXECUTE also logs Postgres 42501.
+ * These helpers keep signed-out visitors, signed-out tabs and dead refresh
+ * tokens from ever issuing that request. The database function still decides
+ * who, among signed-in users, actually receives a prompt.
  */
 
 export class AuthRequiredError extends Error {
@@ -43,6 +45,15 @@ export async function hasUsableUserSession(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Stop a query before PostgREST. A dashboard that still holds a React user
+ * after the access token has expired otherwise calls authenticated-only RPCs
+ * with the anon key and logs Postgres 42501.
+ */
+export async function requireUserSession(): Promise<void> {
+  if (!(await hasUsableUserSession())) throw new AuthRequiredError();
 }
 
 /** PostgREST / GoTrue failures that mean "no usable user JWT", including anon-key calls. */

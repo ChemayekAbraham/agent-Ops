@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays, ShoppingCart, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -183,10 +184,12 @@ export function EmptyHouseOpportunitiesSheet({
 
   };
 
+  const signedIn = useAuthenticatedAudience();
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort],
-    enabled: open,
+    enabled: open && signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: PAGE_SIZE,

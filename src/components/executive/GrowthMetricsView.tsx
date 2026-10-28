@@ -1,4 +1,7 @@
 import { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { DonutChart } from '@/components/ui/donut-chart';
+import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from './KPICard';
@@ -27,9 +30,6 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
 } from 'recharts';
 import {
   format,
@@ -67,89 +67,132 @@ function rangeBounds(r: Range): { start: Date; end: Date; granularity: 'day' | '
   }
 }
 
+/** 'funder-onboarding' / 'tenant_ops' -> 'Funder onboarding' / 'Tenant ops'. */
+const humanize = (v: string) => {
+  const t = v.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
+};
+
+// Organic keeps the green used for Organic on the other CMO charts; every other source gets its own
+// colour (the old list repeated purple, so two sources could look identical).
+const ORGANIC_COLOR = 'hsl(142 71% 45%)';
 const SOURCE_COLORS = [
   'hsl(var(--primary))',
   'hsl(24 95% 53%)',
-  'hsl(142 71% 45%)',
-  'hsl(262 83% 58%)',
-  'hsl(46 96% 53%)',
   'hsl(199 89% 48%)',
+  'hsl(46 96% 53%)',
   'hsl(340 82% 52%)',
+  'hsl(173 80% 36%)',
+  'hsl(231 70% 60%)',
+  'hsl(215 16% 47%)',
 ];
 
 export function GrowthMetricsView() {
   const [range, setRange] = useState<Range>('90d');
+  const [hoveredSource, setHoveredSource] = useState<string | null>(null);
   const { start, end, granularity } = useMemo(() => rangeBounds(range), [range]);
 
+  // The days actually shown. Query keys use this so a range refreshes after midnight instead of
+  // serving yesterday's cached window.
+  const rangeKey = `${range}_${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}`;
+
   // ── 1. Signup trend (daily or monthly buckets) ──
-  const { data: signupTrend, isLoading: loadingTrend } = useQuery({
-    queryKey: ['growth-signup-trend', range],
+  // One server call (live accounts only, Kampala days) instead of two requests per day/month; the
+  // 90-day view used to fire ~180 sequential requests and counted deleted bot accounts.
+  const { data: signupTrend, isLoading: loadingTrend, isError: trendError } = useQuery({
+    queryKey: ['growth-signup-trend-v2', rangeKey],
     queryFn: async () => {
+      const [{ data, error }, { count: before, error: beforeError }] = await Promise.all([
+        supabase.rpc('get_daily_signups', { p_start: start.toISOString(), p_end: end.toISOString() }),
+        // Users who already existed when the range began: the starting point of the cumulative curve.
+        supabase.from('profiles').select('id', { count: 'exact', head: true })
+          .is('deleted_at', null).lt('created_at', start.toISOString()),
+      ]);
+      if (error) throw error;
+      if (beforeError) throw beforeError;
+
+      const keyOf = (d: Date) => format(d, granularity === 'day' ? 'yyyy-MM-dd' : 'yyyy-MM');
       const buckets = granularity === 'day'
         ? eachDayOfInterval({ start, end })
         : eachMonthOfInterval({ start, end });
-
-      const rows = [] as { label: string; signups: number; referred: number; organic: number }[];
-      let cumulative = 0;
-      const withCumulative: { label: string; signups: number; referred: number; organic: number; cumulative: number }[] = [];
-
-      for (const b of buckets) {
-        const s = granularity === 'day' ? startOfDay(b) : startOfMonth(b);
-        const e = granularity === 'day' ? endOfDay(b) : endOfMonth(b);
-
-        const [{ count: total }, { count: referred }] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', s.toISOString())
-            .lte('created_at', e.toISOString()),
-          supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .gte('created_at', s.toISOString())
-            .lte('created_at', e.toISOString())
-            .not('referrer_id', 'is', null),
-        ]);
-
-        const signups = total || 0;
-        const ref = referred || 0;
-        cumulative += signups;
-        withCumulative.push({
-          label: format(s, granularity === 'day' ? 'dd MMM' : 'MMM yy'),
-          signups,
-          referred: ref,
-          organic: Math.max(0, signups - ref),
-          cumulative,
-        });
+      const sums = new Map<string, { signups: number; referred: number }>();
+      buckets.forEach((b) => sums.set(keyOf(b), { signups: 0, referred: 0 }));
+      for (const r of data || []) {
+        const day = String(r.day).slice(0, 10);
+        const cur = sums.get(granularity === 'day' ? day : day.slice(0, 7));
+        if (!cur) continue;
+        cur.signups += Number(r.signups) || 0;
+        cur.referred += Number(r.referred) || 0;
       }
-      return withCumulative;
+
+      let cumulative = before || 0;
+      return buckets.map((b) => {
+        const v = sums.get(keyOf(b))!;
+        cumulative += v.signups;
+        return {
+          label: format(b, granularity === 'day' ? 'dd MMM' : 'MMM yy'),
+          signups: v.signups,
+          referred: v.referred,
+          organic: Math.max(0, v.signups - v.referred),
+          cumulative,
+        };
+      });
     },
     staleTime: 300000,
   });
 
-  // ── 2+3+4. Live KPIs, source mix and roles from one role-gated server function ──
+  // ── 2+3. Platform snapshot and source mix: two role-gated server functions ──
   // (daily_platform_stats stopped updating in April 2026 and is not readable by CMO.)
-  const { data: live, isLoading: loadingLive } = useQuery({
-    queryKey: ['growth-live', range],
+  // The snapshot does not depend on the range, so it is fetched once and kept for 5 minutes:
+  // clicking a range button only refetches the signups and the (cheap) source mix. Previously one
+  // function recomputed everything, ~1 s, on every click.
+  type GrowthSnapshot = {
+    total_users: number; total_users_prev: number; new_users_today: number;
+    referral_pct: number | null; referral_pct_prev: number | null;
+    active_users_30d: number; retention_pct: number | null;
+    users_by_role: Record<string, number>; computed_at: string;
+  };
+  // The functions are newer than the generated database types, so call them through a narrow cast.
+  const rpc = supabase as unknown as {
+    rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+  };
+  const { data: live, isLoading: loadingSnap, isError: snapError } = useQuery({
+    queryKey: ['growth-snapshot'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_growth_metrics_live', {
+      const { data, error } = await rpc.rpc('get_growth_snapshot_live');
+      if (error) throw error;
+      return data as GrowthSnapshot;
+    },
+    staleTime: 300000,
+  });
+  const { data: sourcesData, isLoading: loadingSources, isError: sourcesError } = useQuery({
+    queryKey: ['growth-sources', rangeKey],
+    queryFn: async () => {
+      const { data, error } = await rpc.rpc('get_growth_sources_live', {
         p_start: start.toISOString(),
         p_end: end.toISOString(),
       });
       if (error) throw error;
-      return data as any;
+      return (data ?? []) as { name: string; value: number }[];
     },
     staleTime: 300000,
   });
-  const loadingSnap = loadingLive;
-  const loadingSources = loadingLive;
-  const sourceBreakdown = (live?.sources ?? []) as { name: string; value: number }[];
+  const sourceBreakdown = useMemo(() => {
+    let next = 0;
+    return (sourcesData ?? []).map((x) => ({
+      label: humanize(x.name),
+      value: Number(x.value) || 0,
+      color: x.name.toLowerCase() === 'organic' ? ORGANIC_COLOR : SOURCE_COLORS[next++ % SOURCE_COLORS.length],
+    }));
+  }, [sourcesData]);
+  const sourceTotal = sourceBreakdown.reduce((sum, x) => sum + x.value, 0);
+  const activeSource = sourceBreakdown.find((x) => x.label === hoveredSource);
 
   const roleData = useMemo(() => {
     const raw = live?.users_by_role;
     if (!raw || typeof raw !== 'object') return [];
     return Object.entries(raw as Record<string, number>)
-      .map(([name, value]) => ({ name, value: Number(value) || 0 }))
+      .map(([name, value]) => ({ name: humanize(name), value: Number(value) || 0 }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
   }, [live]);
@@ -158,10 +201,9 @@ export function GrowthMetricsView() {
   const totalUsers = Number(live?.total_users ?? 0);
   const totalUsersPrev = Number(live?.total_users_prev ?? 0);
   const active30 = Number(live?.active_users_30d ?? 0);
-  // Sign-in history keeps only the latest sign-in, so a 30-days-ago active figure cannot be rebuilt.
-  const active30Prev = active30;
+  // Sign-in history keeps only the latest sign-in, so a 30-days-ago active/retention figure cannot
+  // be rebuilt. Those two cards therefore show no trend rather than a made-up "0%".
   const retention = Number(live?.retention_pct ?? 0);
-  const retentionPrev = retention;
   const referralPct = Number(live?.referral_pct ?? 0);
   const referralPctPrev = Number(live?.referral_pct_prev ?? 0);
   const newToday = Number(live?.new_users_today ?? 0);
@@ -170,9 +212,7 @@ export function GrowthMetricsView() {
     prev <= 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
 
   const usersGrowth = pct(totalUsers, totalUsersPrev);
-  const activeGrowth = pct(active30, active30Prev);
-  const retentionDelta = Math.round(retention - retentionPrev);
-  const referralPctDelta = Math.round(referralPct - referralPctPrev);
+  const referralPctDelta = Math.round((referralPct - referralPctPrev) * 10) / 10;
 
   const rangeSignups = (signupTrend || []).reduce((s, r) => s + r.signups, 0);
   const rangeReferred = (signupTrend || []).reduce((s, r) => s + r.referred, 0);
@@ -203,6 +243,7 @@ export function GrowthMetricsView() {
               key={opt.value}
               size="sm"
               variant={range === opt.value ? 'default' : 'outline'}
+              aria-pressed={range === opt.value}
               onClick={() => setRange(opt.value)}
               className="text-xs"
             >
@@ -211,6 +252,12 @@ export function GrowthMetricsView() {
           ))}
         </div>
       </div>
+
+      {(trendError || snapError || sourcesError) && (
+        <p className="text-xs text-red-500">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
+      )}
 
       {/* Row 1: platform-wide KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
@@ -227,7 +274,7 @@ export function GrowthMetricsView() {
           icon={Activity}
           loading={loadingSnap}
           color="bg-green-500/10 text-green-600"
-          trend={{ value: activeGrowth, label: 'vs 30d ago' }}
+          subtitle="signed in within 30 days"
         />
         <KPICard
           title="Retention"
@@ -235,7 +282,7 @@ export function GrowthMetricsView() {
           icon={Repeat}
           loading={loadingSnap}
           color="bg-blue-500/10 text-blue-600"
-          trend={{ value: retentionDelta, label: 'pts vs 30d ago' }}
+          subtitle="joined 30+ days ago, still signing in"
         />
         <KPICard
           title="Referral Share"
@@ -290,6 +337,9 @@ export function GrowthMetricsView() {
             {peak.signups.toLocaleString()} signups
           </span>
         </div>
+        {loadingTrend ? (
+          <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">Loading…</div>
+        ) : (
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={signupTrend || []}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -306,13 +356,17 @@ export function GrowthMetricsView() {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
 
       {/* Referred vs organic + source pie */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 lg:col-span-2">
           <h3 className="text-sm font-semibold mb-3">Referred vs organic signups</h3>
-          <ResponsiveContainer width="100%" height={240}>
+          {loadingTrend ? (
+          <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">Loading…</div>
+        ) : (
+        <ResponsiveContainer width="100%" height={240}>
             <BarChart data={signupTrend || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
@@ -330,11 +384,12 @@ export function GrowthMetricsView() {
                 dataKey="organic"
                 stackId="a"
                 name="Organic"
-                fill="hsl(var(--primary))"
+                fill="hsl(142 71% 45%)"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>
           </ResponsiveContainer>
+        )}
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-4">
@@ -343,35 +398,70 @@ export function GrowthMetricsView() {
             <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
               Loading…
             </div>
-          ) : (sourceBreakdown || []).length === 0 ? (
+          ) : sourceBreakdown.length === 0 ? (
             <div className="h-[240px] flex items-center justify-center text-xs text-muted-foreground">
               No signups in this range.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie
-                  data={sourceBreakdown || []}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={45}
-                  outerRadius={80}
-                  paddingAngle={2}
-                >
-                  {(sourceBreakdown || []).map((_, i) => (
-                    <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend
-                  layout="horizontal"
-                  align="center"
-                  verticalAlign="bottom"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 11 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col items-center gap-4">
+              <DonutChart
+                data={sourceBreakdown}
+                size={190}
+                strokeWidth={26}
+                animationDuration={1}
+                activeLabel={hoveredSource}
+                onSegmentHover={(seg) => setHoveredSource(seg?.label ?? null)}
+                centerContent={
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeSource?.label ?? 'total'}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.18, ease: 'circOut' }}
+                      className="flex flex-col items-center text-center"
+                    >
+                      <p className="max-w-[110px] truncate text-xs font-medium text-muted-foreground">
+                        {activeSource?.label ?? 'Signups'}
+                      </p>
+                      <p className="text-3xl font-bold tabular-nums leading-tight">
+                        {(activeSource?.value ?? sourceTotal).toLocaleString()}
+                      </p>
+                      {activeSource && sourceTotal > 0 && (
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {Math.round((activeSource.value / sourceTotal) * 100)}%
+                        </p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                }
+              />
+              <div className="w-full space-y-0.5 border-t border-border pt-3">
+                {sourceBreakdown.map((seg, i) => (
+                  <motion.div
+                    key={seg.label}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + i * 0.07, duration: 0.3 }}
+                    className={cn(
+                      'flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+                      hoveredSource === seg.label && 'bg-muted',
+                    )}
+                    onMouseEnter={() => setHoveredSource(seg.label)}
+                    onMouseLeave={() => setHoveredSource(null)}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+                      <span className="truncate font-medium">{seg.label}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground">{seg.value.toLocaleString()}</span>
+                      {sourceTotal > 0 && ` · ${Math.round((seg.value / sourceTotal) * 100)}%`}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -386,7 +476,7 @@ export function GrowthMetricsView() {
         </div>
         {roleData.length === 0 ? (
           <div className="h-[200px] flex items-center justify-center text-xs text-muted-foreground">
-            No role snapshot available.
+            {loadingSnap ? 'Loading…' : 'No role snapshot available.'}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(220, roleData.length * 30)}>
@@ -402,23 +492,11 @@ export function GrowthMetricsView() {
       </div>
 
       {/* Insight strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs">
         <InsightCard
           label="Total user growth"
           delta={usersGrowth}
           suffix="%"
-          hint="vs 30 days ago"
-        />
-        <InsightCard
-          label="Active-user growth"
-          delta={activeGrowth}
-          suffix="%"
-          hint="30-day cohort"
-        />
-        <InsightCard
-          label="Retention shift"
-          delta={retentionDelta}
-          suffix=" pts"
           hint="vs 30 days ago"
         />
         <InsightCard

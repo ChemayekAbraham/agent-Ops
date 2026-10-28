@@ -1,5 +1,8 @@
-import { useEffect, lazy, Suspense } from 'react';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { useEffect, lazy, Suspense, useState } from 'react';
+import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
+const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -142,6 +145,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount();
+  const [specialAdvanceOpen, setSpecialAdvanceOpen] = useState(false);
 
 
   const goToOffset = (delta: number) => {
@@ -504,12 +508,22 @@ export default function CFODashboardPage() {
       case 'advances':
         return (
           <div className="space-y-6">
-            <div>
-              <h1 className="text-xl font-bold">💵 Advance Requests</h1>
-              <p className="text-sm text-muted-foreground">
-                Review, edit and approve agent &amp; business advance requests, then disburse in one step.
-                Track what&apos;s been disbursed under <strong>Disbursed Advances</strong> and repayments under <strong>Advance Repayments</strong>.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-bold">💵 Advance Requests</h1>
+                <p className="text-sm text-muted-foreground">
+                  Review, edit and approve agent &amp; business advance requests, then disburse in one step.
+                  Track what&apos;s been disbursed under <strong>Disbursed Advances</strong> and repayments under <strong>Advance Repayments</strong>.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSpecialAdvanceOpen(true)}
+                className="gap-1.5 shrink-0"
+              >
+                <Sparkles className="h-4 w-4 text-primary" /> Special Advance
+              </Button>
             </div>
             <CFOAdvanceRequestPayments onViewDisbursed={() => setActiveTab('advances-disbursed')} />
             <div className="pt-4 border-t">
@@ -542,6 +556,39 @@ export default function CFODashboardPage() {
             <div id="cfo-disbursed-advances" className="scroll-mt-24">
               <DisbursedAdvancesRegister />
             </div>
+          </div>
+        );
+      case 'special-advances':
+        return (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card to-muted/20 p-5 sm:p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Sparkles className="h-4 w-4" />
+                    </span>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                      Special Advances
+                    </h1>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Individually agreed advance terms with custom rates (daily or monthly basis), configurable terms (7, 14, 30 days or custom), and repayment schedules. The CFO records, approves and pays out each advance; the server calculates every figure and issuance is controlled by a server switch.
+                  </p>
+                </div>
+                <Button
+                  id="open-special-advance-modal-btn"
+                  onClick={() => setSpecialAdvanceOpen(true)}
+                  className="gap-2 shrink-0 self-start sm:self-auto"
+                >
+                  <Sparkles className="h-4 w-4" /> Open Special Advance Calculator
+                </Button>
+              </div>
+            </div>
+
+            <Suspense fallback={<p className="py-6 text-center text-xs text-muted-foreground">Loading...</p>}>
+              <SpecialAdvancesPanel />
+            </Suspense>
           </div>
         );
       case 'advance-repayments':
@@ -726,6 +773,7 @@ export default function CFODashboardPage() {
       <div {...(isMobile ? swipeHandlers : {})} className="min-h-[60vh]">
         {renderContent()}
       </div>
+      <SpecialAdvanceModal open={specialAdvanceOpen} onOpenChange={setSpecialAdvanceOpen} />
     </ExecutiveDashboardLayout>
   );
 }

@@ -1,10 +1,16 @@
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ZoeChatSurface } from '../ZoeChatSurface';
+import { ZoeWeeklyLookAtCard } from '../ZoeWeeklyLookAtCard';
 import type { ZoeMessage } from '../useZoeAssistant';
-import type { ZoeMorningBriefPayload } from '@/lib/zoe';
+import type {
+  ZoeIdeasListResponse,
+  ZoeMorningBriefPayload,
+  ZoeWeeklyLookAtSummary,
+} from '@/lib/zoe';
 
 describe('Zoe Action Drafts, Schedules & Reminders List, and 07:30 Morning Brief', () => {
   it('renders a reminder draft card without saving until Save Reminder is clicked', async () => {
@@ -380,5 +386,170 @@ describe('Zoe Action Drafts, Schedules & Reminders List, and 07:30 Morning Brief
     expect(
       screen.getByTestId('zoe-brief-source-cfo_treasury_cash_position'),
     ).toHaveTextContent('Source: get_treasury_cash_position · 2026-10-26');
+  });
+
+  it('renders an Idea for Welile draft card and saves only when Save Idea is clicked', async () => {
+    const onConfirmIdea = vi.fn().mockResolvedValue({ ok: true });
+    const messages: ZoeMessage[] = [
+      {
+        id: 'msg-idea-1',
+        role: 'assistant',
+        content:
+          'Landlord Ops wait times averaged 18.5 hours across 64 requests. Click Save Idea if you would like to add this suggestion to Ideas for Welile. Source: rent_request_timing · Period: Last 4 weeks',
+        source: 'rent_request_timing',
+        period: 'Last 4 weeks',
+        reportPayload: {
+          action_draft: {
+            draft_id: 'idea-draft-99',
+            action_type: 'idea',
+            status: 'ready',
+            title: 'Add 10:00 EAT Landlord Ops verification cut-off',
+            suggestion:
+              'Review the Landlord Ops verification queue at 10:00 EAT and 15:00 EAT daily to reduce wait times.',
+            evidence_summary:
+              'Landlord Ops desk wait averaged 18.5 hours across 64 requests over the last 4 weeks.',
+            figures: { avg_wait_hours: 18.5, requests_count: 64 },
+            source_label: 'rent_request_timing',
+            period_label: 'Last 4 weeks',
+            category: 'desk_wait',
+            screen_path: '/coo-dashboard',
+          },
+        },
+      },
+    ];
+
+    render(
+      <MemoryRouter>
+        <ZoeChatSurface
+          messages={messages}
+          activeConversationId="conv-1"
+          isLoading={false}
+          onSendMessage={vi.fn()}
+          onFeedback={vi.fn()}
+          onClearHistory={vi.fn()}
+          onConfirmIdea={onConfirmIdea}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('zoe-action-draft-card-idea')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-idea-title')).toHaveTextContent(
+      'Add 10:00 EAT Landlord Ops verification cut-off',
+    );
+    expect(screen.getByTestId('zoe-idea-evidence')).toHaveTextContent('18.5 hours across 64 requests');
+    expect(onConfirmIdea).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('zoe-action-draft-confirm-idea'));
+
+    await waitFor(() => {
+      expect(onConfirmIdea).toHaveBeenCalledTimes(1);
+    });
+    expect(onConfirmIdea).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draft_id: 'idea-draft-99',
+        rebind_draft: false,
+        title: 'Add 10:00 EAT Landlord Ops verification cut-off',
+        source_label: 'rent_request_timing',
+        category: 'desk_wait',
+        screen_path: '/coo-dashboard',
+        conversation_id: 'conv-1',
+        message_id: 'msg-idea-1',
+      }),
+    );
+    expect(await screen.findByTestId('zoe-action-draft-confirmed-idea')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-idea-confirmed-link')).toHaveAttribute('href', '/me/ideas');
+  });
+
+  it('renders the Monday What to look at this week card for managers/COO/CEO and hides it for non-managers', () => {
+    const queryClient = new QueryClient();
+    const sampleWeekly: ZoeWeeklyLookAtSummary = {
+      source: 'staff_assistant_weekly_look_at_summary',
+      week_start: '2026-10-26',
+      as_of: '2026-10-26',
+      is_monday: true,
+      in_app_only: true,
+      new_ideas_count: 3,
+      issues: [
+        {
+          rank: 1,
+          category: 'desk_wait',
+          title: 'Landlord Ops desk wait time is highest this week',
+          evidence: 'Average wait is 18.5 hours across 64 Rent Plan requests.',
+          metric_label: '18.5h avg wait',
+          source: 'rent_request_timing',
+          screen_path: '/coo-dashboard',
+          screen_label: 'Open COO Dashboard',
+        },
+        {
+          rank: 2,
+          category: 'collections',
+          title: 'Wakiso collection coverage dropped week on week',
+          evidence: 'Coverage in Wakiso is 14% below its 4-week average.',
+          metric_label: '-14% vs 4w avg',
+          source: 'assistant_staff_insight_collection_coverage_trends',
+          screen_path: '/tenant-ops/workspace',
+          screen_label: 'Open Tenant Ops Workspace',
+        },
+        {
+          rank: 3,
+          category: 'calling',
+          title: 'Calling Center reach rate needs follow-up on unreached numbers',
+          evidence: 'Reach rate is 68% across 310 calls this week.',
+          metric_label: '68% reach rate',
+          source: 'staff_calling_detailed_report',
+          screen_path: '/me/staff-reports',
+          screen_label: 'Open Staff Reports',
+        },
+        {
+          rank: 4,
+          category: 'payouts',
+          title: 'Funded Rent Plans awaiting landlord payout verification',
+          evidence: '9 funded plans have waited more than 24 hours for payout.',
+          metric_label: '9 plans >24h',
+          source: 'am_uncovered_plans',
+          screen_path: '/financial-ops',
+          screen_label: 'Open Financial Ops',
+        },
+        {
+          rank: 5,
+          category: 'zoe_quality',
+          title: 'Top unanswered Zoe questions from staff this week',
+          evidence: '4 questions asked about regional sub-agent targets.',
+          metric_label: '4 unanswered',
+          source: 'staff_assistant_unanswered_questions',
+          screen_path: '/crm/dashboard',
+          screen_label: 'Open CRM Dashboard',
+        },
+      ],
+    };
+
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ZoeWeeklyLookAtCard roles={['employee']} summary={sampleWeekly} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Non-manager sees nothing
+    expect(screen.queryByTestId('zoe-weekly-look-at-card')).not.toBeInTheDocument();
+
+    // COO / Manager sees the top 5 issues with evidence and screen links
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <ZoeWeeklyLookAtCard roles={['coo']} summary={sampleWeekly} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId('zoe-weekly-look-at-card')).toBeInTheDocument();
+    expect(screen.getByText('What to look at this week')).toBeInTheDocument();
+    expect(screen.getByText('In-app only')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-weekly-ideas-link')).toHaveTextContent('Ideas for Welile (3 new)');
+    for (let rank = 1; rank <= 5; rank++) {
+      expect(screen.getByTestId(`zoe-weekly-issue-${rank}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`zoe-weekly-issue-link-${rank}`)).toBeInTheDocument();
+    }
   });
 });

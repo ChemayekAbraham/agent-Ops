@@ -4,6 +4,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Search, SlidersHorizontal, Share2, Eye, FilePlus2, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,14 +43,17 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [detail, setDetail] = useState<HouseOpportunity | null>(null);
+  const signedIn = useAuthenticatedAudience();
 
   useEffect(() => { const t = setTimeout(() => { setDebounced(search.trim()); setPage(0); }, 300); return () => clearTimeout(t); }, [search]);
 
   const q = useQuery({
     queryKey: ['proxy-dash-houses', debounced, sort, minRent, maxRent, near, page, pageSize],
+    enabled: signedIn,
     staleTime: 60_000,
     placeholderData: (p) => p,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: pageSize,

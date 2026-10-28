@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Search, Loader2, UserPlus, Building2, Users, Smartphone, SmartphoneNfc, Phone, Check } from 'lucide-react';
@@ -53,7 +54,7 @@ export function AssignPersonDialog({ open, onClose, listingId, listingTitle, per
   };
 
   const handleSearch = async () => {
-    if (!query.trim() || query.trim().length < 2) return;
+    if (!query.trim() || query.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) return;
     setSearching(true);
     try {
       if (personType === 'landlord') {
@@ -83,11 +84,11 @@ export function AssignPersonDialog({ open, onClose, listingId, listingTitle, per
           })),
         );
       } else {
-        const { data } = await supabase.from('profiles')
-          .select('id, full_name, phone')
-          .or(`full_name.ilike.%${query.trim()}%,phone.ilike.%${query.trim()}%`)
-          .limit(10);
-        setResults((data || []).map(d => ({ id: d.id, name: d.full_name || 'Unknown', phone: d.phone || '' })));
+        const { rows } = await searchProfilesTypeahead(query.trim(), {
+          limit: 10,
+          columns: 'id, full_name, phone',
+        });
+        setResults(rows.map(d => ({ id: d.id, name: d.full_name || 'Unknown', phone: d.phone || '' })));
       }
     } catch {
       toast.error('Search failed');
@@ -237,7 +238,7 @@ export function AssignPersonDialog({ open, onClose, listingId, listingTitle, per
                 onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="flex-1"
               />
-              <Button size="sm" onClick={handleSearch} disabled={searching || query.trim().length < 2}>
+              <Button size="sm" onClick={handleSearch} disabled={searching || query.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS}>
                 {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </div>
@@ -266,7 +267,7 @@ export function AssignPersonDialog({ open, onClose, listingId, listingTitle, per
                 ))}
               </div>
             )}
-            {results.length === 0 && query.trim().length >= 2 && !searching && (
+            {results.length === 0 && query.trim().length >= 3 && !searching && (
               <p className="text-xs text-muted-foreground text-center py-4">No results found. {personType === 'landlord' && 'Try "Register New" tab.'}</p>
             )}
           </div>

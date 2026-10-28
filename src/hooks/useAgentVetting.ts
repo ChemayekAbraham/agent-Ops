@@ -8,10 +8,16 @@
  * Each confirm is followed by an RPC that stamps the step once the server can
  * see the code was accepted.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AGENT_VETTING_NOT_APPLICABLE,
+  agentVettingApplicability,
+  useAgentVettingGate,
+  type AgentVettingApplicability,
+} from '@/hooks/agentVettingAccess';
 import { useEmailVerification } from '@/hooks/useEmailVerification';
 import { uploadIdentityPhoto } from '@/hooks/useIdentityPhotos';
 import { captureGps } from '@/lib/captureGps';
@@ -80,13 +86,23 @@ export const agentVettingKey = (userId: string | undefined) => ['agent-vetting',
 
 export function useAgentVetting() {
   const { user } = useAuth();
+  // The RPC is granted to every signed-in user and then raises
+  // "Agent verification is only for agents." for anyone without an enabled
+  // `agent` row. The agent dashboard mounts this hook for the synthetic
+  // agent role too, so the query stays disabled until `enabledRoles`
+  // contains `agent`. Nothing is asked while roles are still loading.
+  // The client `roles` list is not used.
+  const gate = useAgentVettingGate();
+  const applicability: AgentVettingApplicability = agentVettingApplicability(gate);
+  const allowedRef = useRef(false);
+  allowedRef.current = gate.allowed;
   const qc = useQueryClient();
   const email = useEmailVerification();
   const [busy, setBusy] = useState<string | null>(null);
 
   const query = useQuery({
     queryKey: agentVettingKey(user?.id),
-    enabled: !!user?.id,
+    enabled: gate.allowed,
     staleTime: 15_000,
     refetchOnWindowFocus: true,
     queryFn: async (): Promise<AgentVetting> => {
@@ -104,6 +120,7 @@ export function useAgentVetting() {
   /** Runs one action with a busy flag and refetches the record afterwards, success or not. */
   const run = useCallback(
     async <T,>(name: string, fn: () => Promise<T>): Promise<T> => {
+      if (!allowedRef.current) throw new Error(AGENT_VETTING_NOT_APPLICABLE);
       setBusy(name);
       try {
         return await fn();
@@ -119,6 +136,7 @@ export function useAgentVetting() {
   // The code goes to the phone on the profile. A different number goes through
   // the phone-change flow first; vetting never adopts a new number itself.
   const sendPhoneCode = useCallback(async () => {
+    if (!allowedRef.current) throw new Error(AGENT_VETTING_NOT_APPLICABLE);
     const phone = query.data?.phone.value;
     if (!phone) throw new Error('Add a phone number to your profile first.');
     setBusy('phone_send');
@@ -150,16 +168,10 @@ export function useAgentVetting() {
 
   // ---- Email ---------------------------------------------------------------
   // email-verify-confirm adopts the address on the profile; the RPC then stamps it.
-  // An address already on the profile is confirmed in place (email-verify-request
-  // otherwise refuses it as "already your email address").
-  const currentEmail = query.data?.email.value ?? null;
-  const sendEmailCode = useCallback(
-    (address: string) =>
-      email.requestCode(address, {
-        confirmCurrent: !!currentEmail && address.trim().toLowerCase() === currentEmail.trim().toLowerCase(),
-      }),
-    [email, currentEmail],
-  );
+  const sendEmailCode = useCallback((address: string) => {
+    if (!allowedRef.current) return Promise.reject(new Error(AGENT_VETTING_NOT_APPLICABLE));
+    return email.requestCode(address);
+  }, [email]);
 
   const confirmEmailCode = useCallback(
     (challengeId: string, code: string) =>
@@ -212,7 +224,7 @@ export function useAgentVetting() {
 
   const parentIdLink = useQuery({
     queryKey: ['agent-vetting-parent-id-link', user?.id],
-    enabled: !!user?.id && !!query.data?.parent_agent,
+    enabled: gate.allowed && !!query.data?.parent_agent,
     staleTime: 10_000,
     // While waiting on the parent, check now and then so the screen moves on by itself.
     refetchInterval: (q) => {
@@ -320,10 +332,17 @@ export function useAgentVetting() {
     [run],
   );
 
+  const showing = applicability === 'ready';
   return {
-    vetting: query.data,
-    isLoading: query.isLoading,
-    error: query.error as Error | null,
+    /**
+     * `loading` while the real role list is unknown, `not_applicable` for
+     * anyone without an enabled agent role (neutral — not an error), `ready`
+     * for a real agent.
+     */
+    applicability,
+    vetting: showing ? query.data : undefined,
+    isLoading: applicability === 'loading' || (showing && query.isLoading),
+    error: showing ? (query.error as Error | null) : null,
     refresh,
     /** Name of the action in flight, e.g. 'submit', or null. */
     busy,
@@ -336,7 +355,7 @@ export function useAgentVetting() {
     saveResidence,
     captureLocation,
     chooseIdSource,
-    parentIdLink: parentIdLink.data,
+    parentIdLink: showing ? parentIdLink.data : undefined,
     requestParentIdLink,
     confirmParentIdCode,
     savePassportPhoto,

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunicationAcknowledgement, useCommunicationInbox, readCommunication } from '@/hooks/useCrmCommunications';
-import { communicationDashboardRole, type Communication } from '@/lib/crmCommunications';
+import { communicationDashboardRole, communicationInboxAllowed, type Communication } from '@/lib/crmCommunications';
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
 import { OPEN_COMMUNICATION_EVENT } from './CommunicationsBellSection';
 
@@ -21,11 +21,11 @@ function markShown(uid: string | undefined, id: string) {
 
 /** Optional announcements yield to any existing modal without changing mandatory gates. */
 export default function CommunicationGate() {
-  const { user, role, loading, rolesResolved, roles } = useAuth();
+  const { user, role, loading, rolesResolved, enabledRoles } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const dashboardRole = communicationDashboardRole(location.pathname, role);
-  const eligible = !!user && !loading && rolesResolved && !!dashboardRole && roles.includes(dashboardRole);
+  const eligible = !!user && !loading && rolesResolved && communicationInboxAllowed(dashboardRole, enabledRoles);
   const query = useCommunicationInbox(dashboardRole, eligible);
   const acknowledge = useCommunicationAcknowledgement(dashboardRole);
   const [active, setActive] = useState<Communication | null>(null);

@@ -30,6 +30,18 @@ export interface CommunicationContent {
   id: string; revision_id: string; title: string; body: string; communication_type: CommunicationType;
   audiences: string[]; link_path: string; starts_at: string; expires_at: string; confirm_everyone: boolean;
 }
+/**
+ * True when `dashboardRole` is one the signed-in user actually has enabled.
+ * The client role list also contains a synthetic `agent` so the agent
+ * dashboard stays reachable; that value must not be sent to
+ * `crm_communication_inbox`.
+ */
+export function communicationInboxAllowed(
+  dashboardRole: string | null,
+  enabledRoles: readonly string[] | null | undefined,
+): boolean {
+  return !!dashboardRole && !!enabledRoles?.includes(dashboardRole);
+}
 export function communicationDashboardRole(path: string, activeRole: AppRole | null): AppRole | null {
   if (/^\/dashboard\/agent(?:-new|-bk)?(?:\/|$)/.test(path)) return 'agent';
   if (/^\/dashboard\/(?:funder-new|funders\/bk)(?:\/|$)/.test(path)) return 'supporter';

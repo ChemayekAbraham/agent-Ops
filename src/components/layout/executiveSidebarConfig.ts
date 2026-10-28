@@ -6,6 +6,7 @@ import {
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
   Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
+  Sparkles,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -140,6 +141,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Advances Overview', icon: BarChart3, id: 'advances-analytics' },
         { label: 'Advance Requests', icon: HandCoins, id: 'advances' },
+        { label: 'Special Advances', icon: Sparkles, id: 'special-advances' },
         { label: 'Disbursed Advances', icon: Banknote, id: 'advances-disbursed' },
         { label: 'Advance Repayments', icon: Receipt, id: 'advance-repayments' },
         {

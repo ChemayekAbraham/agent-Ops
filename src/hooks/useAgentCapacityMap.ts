@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentDailyEligibility } from '@/lib/agentDailyEligibilityBatch';
 
 export const ACTIVE_RENT_STATUSES = [
   'pending', 'agent_verified', 'tenant_ops_approved',
@@ -383,10 +384,9 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // `agent_collections`). The browser no longer slices days locally —
       // that previously failed on TZ drift and on the
       // `repayments` ↔ `agent_collections` split.
-      const { data: eligRows, error: eligErr } = await supabase.rpc(
-        'get_agent_daily_eligibility',
-        { p_agent_ids: agentIds },
-      );
+      // At most 25 ids per call. The server computes only that list; one
+      // fleet-sized call was the statement that hit the 8s timeout.
+      const { rows: eligRows, error: eligErr } = await fetchAgentDailyEligibility(agentIds);
       const eligibilityRpcSucceeded = !eligErr;
       if (eligErr) {
         // Only use client fallback target math when the server source itself

@@ -20,6 +20,7 @@
 - Welile Schools gate registration stores only in `welile_schools` / `welile_school_profiles` (agents see their own profiles, `welile_schools_ops_ok()` roles see all, no deletes); offline profiles queue locally and retry idempotently via `client_ref`.
 - Welile Homes float requests move only through `src/lib/welileHomesFloat.ts` (`wh_request_float` / `wh_float_advance`, guarded legacy fallback until the pending migration is applied) and CFO money moves only via `wh_cfo_disburse_float` (Merchant `agent_float_deposit` legs, no fallback; CFO approved 2026-10-26); requests link subscriptions, approval requires links, "funded" is set only by disbursement, and Merchant desks exclude Welile Homes requests so no stage can be skipped.
 - Welile Schools chat and classic registration share one page-owned draft and save handler, with Uganda hierarchy supplied by the shared location picker, so switching modes cannot fork registration data.
+- Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts`, built on recorded facts (subscription_status, funding_status, `welile_homes_float_request_items` link, collected dues), never float reason text; "Funded" requires funding_status = 'funded', a rejected float request is not a declined application, unknown collections lock Delete, and `delete_welile_home_subscription` refuses the same plans server-side (`docs/pending-migrations/welile_homes_delete_guard.sql`, pending).
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
@@ -32,7 +33,7 @@
 - Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
-- CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side.
+- CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side. Wallet totals read `wallet_balances_projection` (one row), and `user_wallet_strict_for` only when that row is missing — never `v_user_wallet_strict`, which recomputes every wallet.
 - CFO TIN/NSSF list derives per paid payroll run (`cfo_statutory_consent_list`).
 - CFO correction/evidence tooling (Correction Center, `cfo_s12_save_evidence`, Stage 14 `fin_s14_*`, `cfo_s14b1r/b1w_execute`) is append-only, role-gated and scoped, so review never moves money or touches other users.
 - Fingerprinted CFO packages (`cfo_bucket_a_post`, `cfo_corr_5300000_post`) post only via their own function: approver allowlist, own fresh preflight (<30 min), frozen lines, atomic.

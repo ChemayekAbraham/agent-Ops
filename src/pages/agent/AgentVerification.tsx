@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Check, Circle, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocations';
 import VettingMap from '@/components/agent-vetting/VettingMap';
+import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
 import {
   VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress,
   type AgentVetting, type VettingStepKey,
@@ -96,6 +97,9 @@ export default function AgentVerification() {
   const scrollTo = (k: VettingStepKey | null) => {
     if (k) cardRefs.current[k]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const redirectTo = agentVettingRedirect(v.applicability);
+  if (redirectTo) return <Navigate to={redirectTo} replace />;
 
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-8">
@@ -310,8 +314,8 @@ function EmailStep({ v, vetting, editable, guard, act }: BodyProps) {
 function ResidenceStep({ v, vetting, editable, guard, act }: BodyProps) {
   const r = vetting.residence;
   const [loc, setLoc] = useState<UgLocationSelection | null>(null);
-  const [town, setTown] = useState(r.town ?? '');
-  const [city, setCity] = useState(r.city ?? '');
+  const town = r.town ?? '';
+  const city = r.city ?? '';
   const saved = [r.village, r.parish, r.sub_county, r.district, r.region].filter(Boolean).join(', ');
   return (
     <div className="space-y-2">
@@ -320,10 +324,6 @@ function ResidenceStep({ v, vetting, editable, guard, act }: BodyProps) {
         <>
           <UgLocationPicker value={loc} onChange={setLoc} label="District to village" required />
           {loc && <p className="text-sm text-muted-foreground">{ugLocationLabel(loc)}</p>}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input placeholder="Town (optional)" value={town} onChange={(e) => setTown(e.target.value)} className="min-h-11" />
-            <Input placeholder="City (optional)" value={city} onChange={(e) => setCity(e.target.value)} className="min-h-11" />
-          </div>
           <Button className="min-h-11" disabled={!loc || v.busy === 'residence'}
             onClick={() => loc && guard(() => act(() => v.saveResidence({
               region: loc.region, district: loc.district, sub_county: loc.subcounty,

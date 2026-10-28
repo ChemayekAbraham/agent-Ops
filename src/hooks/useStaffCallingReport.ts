@@ -125,6 +125,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
   wrong_number: 'Wrong number',
   callback_booked: 'Callback booked',
   call_back_later: 'Callback booked',
+  call_back: 'Callback booked',
   refused: 'Refused',
   'not reached': 'Not reached',
   'review recorded': 'Pipeline review',
@@ -183,15 +184,23 @@ export interface EnrichedStaffCallingRow extends RawStaffCallingRow {
 export function feedbackText(r: Pick<RawStaffCallingRow, 'source' | 'extra' | 'feedback' | 'outcome'>): string {
   const parts: string[] = [];
   const srcClean = cleanAscii(r.source);
-  if (srcClean.includes('Awareness call')) {
+  if (srcClean.includes('Awareness call') || srcClean.includes('Calling Hub')) {
     const x = r.extra || {};
     const bits: string[] = [];
     if (x.aware_30m) bits.push(`30M: ${AWARE_MAP[x.aware_30m] || cleanAscii(x.aware_30m)}`);
     if (x.merchant_codes) bits.push(`Merchant codes: ${AWARE_MAP[x.merchant_codes] || cleanAscii(x.merchant_codes)}`);
     if (x.explained) bits.push(`Explained: ${YN_MAP[x.explained] || cleanAscii(x.explained)}`);
     if (x.landlord_consent) bits.push(`Consent: ${cleanAscii(x.landlord_consent).replace(/_/g, ' ')}`);
-    if (x.payout_otp) bits.push(`Payout code: ${cleanAscii(x.payout_otp).replace(/_/g, ' ')}`);
+    const otpVal = x.payout_otp || x.aware_payout_otp;
+    if (otpVal) bits.push(`Payout code: ${cleanAscii(otpVal).replace(/_/g, ' ')}`);
     if (bits.length) parts.push(bits.join('  -  '));
+    if (srcClean.includes('Calling Hub') && (x.category || x.feedback_category)) {
+      const catStr = cleanAscii(x.category || x.feedback_category);
+      const fbClean = cleanAscii(r.feedback);
+      if (catStr && (!fbClean || !fbClean.includes(catStr))) {
+        parts.push(x.severity ? `${catStr} (${cleanAscii(x.severity)})` : catStr);
+      }
+    }
   }
   if (r.feedback) {
     parts.push(cleanAscii(r.feedback));
@@ -776,9 +785,12 @@ export function buildTeamCallingReportData(
       byStaff: themeBy.get(label) || {},
     }));
 
-  // Calling Center structured categories
+  // Calling Center & Calling Hub structured categories
   const cc = all.filter(
-    (r) => r.src.includes('Calling Center') && !r.src.includes('Inbound') && r.feedback && r.outcome === 'engaged',
+    (r) =>
+      ((r.src.includes('Calling Center') && !r.src.includes('Inbound') && r.outcome === 'engaged') ||
+        (r.src.includes('Calling Hub') && r.outcome === 'answered')) &&
+      r.feedback,
   );
   const cats = new Map<string, { n: number; high: number; by: Record<string, number> }>();
   cc.forEach((r) => {
@@ -800,11 +812,13 @@ export function buildTeamCallingReportData(
       byStaff: v.by,
     }));
 
-  // Awareness calls breakdown
-  const aw = all.filter((r) => r.src.includes('Awareness call'));
+  // Awareness calls breakdown (includes Landlord Calling Hub awareness checks)
+  const aw = all.filter((r) => r.src.includes('Awareness call') || r.src.includes('Calling Hub'));
   const awAnswered = aw.filter((r) => r.answered);
   const T = awAnswered.length;
-  const cnt = (f: string, v: string) => awAnswered.filter((r) => r.extra[f] === v).length;
+  const cnt = (f: string, v: string) =>
+    awAnswered.filter((r) => (f === 'payout_otp' ? (r.extra.payout_otp || r.extra.aware_payout_otp) === v : r.extra[f] === v))
+      .length;
   const pctStr = (n: number, d: number) => (d ? `${Math.round((n / d) * 100)}%` : '0%');
 
   const awareness = {

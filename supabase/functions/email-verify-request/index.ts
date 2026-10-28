@@ -88,14 +88,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (profErr || !profile) return json({ error: "profile_not_found" }, 404);
 
+    // The current address may be re-sent: Agent Verification asks people to
+    // prove they own the email already on their profile, and the code itself
+    // is the proof. Refusing it left those agents unable to finish.
     const oldEmail = String(profile.email ?? "").trim().toLowerCase();
-    // purpose 'confirm_current': prove the inbox for the address already on the
-    // profile (agent vetting). Confirming it rewrites the same address, so
-    // nothing changes except that it is now known to receive mail.
-    const confirmCurrent = body?.purpose === "confirm_current";
-    if (oldEmail === newEmail && !confirmCurrent) {
-      return json({ error: "unchanged", message: "That is already your email address." }, 400);
-    }
 
     // One live account per address.
     const { data: taken } = await admin

@@ -81,11 +81,6 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
     const referenceId = `LOAN-${applicationId.slice(0, 8)}`;
 
-    // Ensure borrower wallet exists
-    await supabase
-      .from('wallets')
-      .upsert({ user_id: application.applicant_id, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
     // Atomic double-entry: agent wallet cash_out → borrower wallet cash_in
     const { error: rpcError } = await supabase.rpc('create_ledger_transaction', {
       entries: [

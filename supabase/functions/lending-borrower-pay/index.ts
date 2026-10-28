@@ -161,11 +161,6 @@ Deno.serve(async (req) => {
         return json({ error: msg }, 400);
       }
 
-      await admin.from("wallets").upsert(
-        { user_id: loan.lender_agent_id, balance: 0 },
-        { onConflict: "user_id", ignoreDuplicates: true },
-      );
-
       const ref = `LBP-${loan.id.slice(0, 8)}-${requestId}`;
       const borrowerLabel = loan.borrower_display_name || loan.borrower_ai_id || "Borrower";
       const now = new Date().toISOString();
@@ -261,7 +256,6 @@ Deno.serve(async (req) => {
       const lenderLabel = lp?.full_name || "Lending agent";
       const loanId = crypto.randomUUID();
       const now = new Date().toISOString();
-      await admin.from("wallets").upsert({ user_id: borrowerId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
       const base = { amount: principal, category: "wallet_transfer", ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loanId, currency: "UGX", transaction_date: now, reference_id: ref, recipient_type: isFloatSrc ? "operational_wallet" : "user" };
       const tag = isFloatSrc ? " float_usage=lending_float_loan" : "";
       const { error: lErr } = await admin.rpc("create_ledger_transaction", {
@@ -342,10 +336,6 @@ Deno.serve(async (req) => {
         if (extra > available) {
           return json({ error: `Not enough ${isFloat ? "operational float" : "money in your wallet"}. You have UGX ${available.toLocaleString("en-US")}` }, 400);
         }
-        await admin.from("wallets").upsert(
-          { user_id: loan.borrower_user_id, balance: 0 },
-          { onConflict: "user_id", ignoreDuplicates: true },
-        );
         const { data: lender } = await admin.from("profiles").select("full_name").eq("id", userId).maybeSingle();
         const lenderLabel = lender?.full_name || "Lending agent";
         const { error: ledgerError } = await admin.rpc("create_ledger_transaction", {

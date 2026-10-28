@@ -43,16 +43,12 @@ export function useEmailVerification() {
   const [confirming, setConfirming] = useState(false);
   const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
 
-  /** `confirmCurrent`: send a code to the address already on the profile, to prove the inbox. */
-  const requestCode = useCallback(async (email: string, opts?: { confirmCurrent?: boolean }): Promise<RequestCodeResult> => {
+  const requestCode = useCallback(async (email: string): Promise<RequestCodeResult> => {
     setSending(true);
     setAttemptsLeft(null);
     try {
       const { data, error } = await supabase.functions.invoke('email-verify-request', {
-        body: {
-          email: email.trim().toLowerCase(),
-          ...(opts?.confirmCurrent ? { purpose: 'confirm_current' } : {}),
-        },
+        body: { email: email.trim().toLowerCase() },
       });
       if (error) {
         const body = await readError(error, 'Could not send the code.');

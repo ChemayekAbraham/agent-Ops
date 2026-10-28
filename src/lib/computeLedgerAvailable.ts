@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 /**
  * Returns the user's TRUE withdrawable balance using the strict
@@ -25,6 +26,7 @@ export async function computeLedgerAvailable(userId: string): Promise<{
   withdrawableCached: number;
   pendingHolds: number;
 }> {
+  await requireUserSession();
   const { data, error } = await supabase.rpc('get_user_wallet_view', {
     p_user_id: userId,
   });

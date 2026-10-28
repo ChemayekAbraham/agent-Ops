@@ -6,6 +6,7 @@ import {
   AuthRequiredError,
   hasUsableUserSession,
   isUnauthenticatedRpcError,
+  requireUserSession,
   sessionHasUsableAccessToken,
   useAuthenticatedPoll,
 } from '@/hooks/useAuthenticatedPoll';
@@ -75,6 +76,11 @@ describe('hasUsableUserSession', () => {
       error: null,
     });
     await expect(hasUsableUserSession()).resolves.toBe(true);
+  });
+
+  it('requireUserSession throws before an RPC when the user JWT is missing', async () => {
+    getSession.mockResolvedValue({ data: { session: null }, error: null });
+    await expect(requireUserSession()).rejects.toBeInstanceOf(AuthRequiredError);
   });
 });
 

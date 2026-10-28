@@ -119,7 +119,8 @@ async function computeCapacities(admin: Admin, agentIds: string[]): Promise<Map<
 
   // 1) Server-side daily eligibility (Africa/Kampala TZ).
   const elig = new Map<string, { active_count: number; expected_daily: number; paid_today: number; paid_yesterday: number; today_pct: number; effective_pct: number }>();
-  for (const ids of chunk(agentIds, 200)) {
+  // Same 25-id cap as the app. Each call computes only those agents.
+  for (const ids of chunk(agentIds, 25)) {
     const { data, error } = await admin.rpc("get_agent_daily_eligibility", { p_agent_ids: ids });
     if (error) { console.error("[send-agent-capacity-card] eligibility RPC failed", error); continue; }
     (data || []).forEach((r: any) => elig.set(r.agent_id, {
