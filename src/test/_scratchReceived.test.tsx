@@ -31,17 +31,8 @@ function renderReport() {
   return render(<ReceivedByCategory />, { wrapper });
 }
 
-const settled = (n: number) => {
-  try {
-    screen.getByText(formatUGX(n));
-    return 'FOUND';
-  } catch {
-    return 'missing';
-  }
-};
-
-describe('scratch settle', () => {
-  it('reports when the figure becomes queryable', async () => {
+describe('scratch truth', () => {
+  it('reports body presence and the exact query error', async () => {
     vi.clearAllMocks();
     mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
       if (name === 'get_cfo_received_by_category_totals') {
@@ -51,9 +42,12 @@ describe('scratch settle', () => {
       return { data: [], error: null };
     });
     renderReport();
-    for (const ms of [0, 20, 100, 300, 1000]) {
+    for (const ms of [0, 300, 1200]) {
       await new Promise(r => setTimeout(r, ms));
-      console.log('SETTLE>>>', ms, settled(700_000));
+      const body = document.body.textContent ?? '';
+      let err = 'OK';
+      try { screen.getByText(formatUGX(700_000)); } catch (e) { err = String(e).slice(0, 90); }
+      console.log('TRUTH>>>', ms, 'bodyHas700=' + body.includes('700,000'), 'query=' + err);
     }
     expect(true).toBe(true);
   });
