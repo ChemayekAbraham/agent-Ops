@@ -49,6 +49,11 @@ function renderReport() {
 
 const flat = (n: Element) => (n.textContent ?? '').replace(/[\s\u00a0\u202f]/g, '');
 
+/** Today, as seen in Kampala — the same clock the report uses. */
+const kampalaToday = () =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+
+
 describe('CFO Paid by Category', () => {
   it('shows all seven categories with totals, counts and share of the grand total', async () => {
     renderReport();
@@ -95,4 +100,20 @@ describe('CFO Paid by Category', () => {
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_paid_by_category_page',
       expect.objectContaining({ p_offset: 50 })));
   });
+  it('reads the breakdown once, for the picked period only — no estimate or payables read', async () => {
+    renderReport();
+    await screen.findByTitle('Partner Products and Services');
+    const reads = mocks.rpc.mock.calls.filter(c => c[0] === 'get_cfo_paid_by_category_totals');
+    expect(reads).toHaveLength(1);
+    // The single read is the period the user picked: this month, Kampala dates.
+    const today = kampalaToday();
+    expect(reads[0][1]).toEqual({ p_from: `${today.slice(0, 7)}-01`, p_to: today });
+    // Nothing else asks for a 28-day average window (the removed next-7-days estimate).
+    const windows = reads.map(c => `${c[1].p_from}..${c[1].p_to}`);
+    expect(windows).toEqual([`${today.slice(0, 7)}-01..${today}`]);
+    // The payables schedule that fed the removed panel is never read either.
+    expect(mocks.rpc).not.toHaveBeenCalledWith('get_payables_due_range', expect.anything());
+    expect(screen.queryByText(/expected out — next 7 days/)).not.toBeInTheDocument();
+  });
 });
+
