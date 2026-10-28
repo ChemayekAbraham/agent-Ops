@@ -687,7 +687,7 @@ export default function CFODashboardPage() {
         return <ExpenseReportPanel />;
       case 'paid-by-category':
         return (
-          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading paid-by-category report…</div>}>
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money Out report…</div>}>
             <PaidByCategory />
           </Suspense>
         );
