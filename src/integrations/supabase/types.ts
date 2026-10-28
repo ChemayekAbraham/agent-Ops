@@ -69317,6 +69317,14 @@ export type Database = {
           ts: string
         }[]
       }
+      _cfo_received_agent_product_for: {
+        Args: {
+          p_category: string
+          p_is_bike_lease: boolean
+          p_source_table: string
+        }
+        Returns: string
+      }
       _cfo_received_base: {
         Args: {
           p_from: string
@@ -77702,6 +77710,7 @@ export type Database = {
           p_offset?: number
           p_search?: string
           p_to: string
+          p_type?: string
         }
         Returns: {
           amount: number

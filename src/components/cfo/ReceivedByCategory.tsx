@@ -66,6 +66,19 @@ const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
+/**
+ * Recovery kinds inside "Agent Products and Services". The server decides which kind a
+ * payment is (`_cfo_received_agent_product_for`), so the same rule drives the tile split
+ * and this filter — the two can never disagree.
+ */
+type ProductTypeKey = 'all' | 'smartphone' | 'bike' | 'advance';
+
+const PRODUCT_TYPES: { key: Exclude<ProductTypeKey, 'all'>; label: string }[] = [
+  { key: 'smartphone', label: 'Smartphone recoveries' },
+  { key: 'bike', label: 'Bike recoveries' },
+  { key: 'advance', label: 'Agent advance repayments' },
+];
+
 export function resolveReceivedWindow(kind: PresetKey, from: string, to: string): { from: string; to: string; label: string } {
   const today = kampalaDate();
   switch (kind) {
@@ -99,6 +112,7 @@ export function ReceivedByCategory() {
     from: monthStart(), to: kampalaDate(),
   }));
   const [appliedCategory, setAppliedCategory] = useState<string>('all');
+  const [appliedType, setAppliedType] = useState<ProductTypeKey>('all');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
   const [offset, setOffset] = useState(0);
@@ -138,12 +152,13 @@ export function ReceivedByCategory() {
   });
 
   const page = useQuery({
-    queryKey: ['cfo-received-by-category-page', applied.from, applied.to, appliedCategory, appliedSearch, offset],
+    queryKey: ['cfo-received-by-category-page', applied.from, applied.to, appliedCategory, appliedType, appliedSearch, offset],
     queryFn: async () => {
       const { data, error } = await (supabase.rpc as any)('get_cfo_received_by_category_page', {
         p_from: applied.from, p_to: applied.to,
         p_category: appliedCategory === 'all' ? null : appliedCategory,
         p_search: appliedSearch.trim() ? appliedSearch.trim() : null,
+        p_type: appliedType === 'all' ? null : appliedType,
         p_offset: offset, p_limit: PAGE,
       });
       if (error) throw error;
@@ -244,7 +259,7 @@ export function ReceivedByCategory() {
           </div>
           {rows.map(r => (
             <button key={r.category_key} type="button"
-              onClick={() => { setAppliedCategory(r.category_key); setOffset(0); }}
+              onClick={() => { setAppliedCategory(r.category_key); setAppliedType('all'); setOffset(0); }}
               aria-pressed={appliedCategory === r.category_key}
               className={`rounded-md border p-4 text-left shadow-sm transition-colors ${
                 appliedCategory === r.category_key
@@ -301,7 +316,7 @@ export function ReceivedByCategory() {
             </p>
             {appliedCategory !== 'all' && (
               <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px]"
-                onClick={() => { setAppliedCategory('all'); setOffset(0); }}>
+                onClick={() => { setAppliedCategory('all'); setAppliedType('all'); setOffset(0); }}>
                 Show all
               </Button>
             )}
@@ -316,6 +331,31 @@ export function ReceivedByCategory() {
             <Button type="submit" size="sm" variant="outline" className="h-8 px-3 text-xs">Search</Button>
           </form>
         </div>
+
+        {appliedCategory === 'agent' && (
+          <div className="flex flex-wrap items-center gap-1.5 px-3 py-2" role="group" aria-label="Recovery type">
+            <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recovery type</span>
+            {([{ key: 'all' as ProductTypeKey, label: 'All types' }, ...PRODUCT_TYPES]).map(t => {
+              const count = t.key === 'all'
+                ? agentSplit.data?.reduce((n, d) => n + Number(d.tx_count), 0)
+                : agentSplit.data?.find(d => d.product_key === t.key)?.tx_count;
+              const active = appliedType === t.key;
+              return (
+                <button key={t.key} type="button"
+                  onClick={() => { setAppliedType(t.key); setOffset(0); }}
+                  aria-pressed={active}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+                  }`}>
+                  {t.label}
+                  {count !== undefined && count !== null
+                    ? <span className="ml-1 tabular-nums opacity-70">{Number(count).toLocaleString()}</span>
+                    : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-xs">
