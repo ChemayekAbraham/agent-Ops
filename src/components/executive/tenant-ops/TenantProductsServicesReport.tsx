@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { lazyNamed } from '@/lib/lazyWithRetry';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, startOfMonth } from 'date-fns';
