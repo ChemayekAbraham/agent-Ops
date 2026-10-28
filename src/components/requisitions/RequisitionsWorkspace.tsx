@@ -1,5 +1,4 @@
 import { useState, Suspense } from 'react';
-import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

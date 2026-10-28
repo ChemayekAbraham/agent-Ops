@@ -1,6 +1,5 @@
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Suspense, useCallback, useState } from 'react';
-import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';

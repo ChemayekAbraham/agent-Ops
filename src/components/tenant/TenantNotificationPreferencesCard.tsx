@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { lazyNamed } from '@/lib/lazyWithRetry';
 import {
   useTenantNotificationPreferences,
