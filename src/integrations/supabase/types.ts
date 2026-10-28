@@ -69341,10 +69341,12 @@ export type Database = {
           ts: string
         }[]
       }
-      _cfo_received_category_for: {
-        Args: { p_category: string }
-        Returns: string
-      }
+      _cfo_received_category_for:
+        | { Args: { p_category: string }; Returns: string }
+        | {
+            Args: { p_category: string; p_source_table: string }
+            Returns: string
+          }
       _claim_return_cycle: {
         Args: {
           p_actor: string
