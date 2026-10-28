@@ -150,7 +150,16 @@ export function useAgentVetting() {
 
   // ---- Email ---------------------------------------------------------------
   // email-verify-confirm adopts the address on the profile; the RPC then stamps it.
-  const sendEmailCode = useCallback((address: string) => email.requestCode(address), [email]);
+  // An address already on the profile is confirmed in place (email-verify-request
+  // otherwise refuses it as "already your email address").
+  const currentEmail = query.data?.email.value ?? null;
+  const sendEmailCode = useCallback(
+    (address: string) =>
+      email.requestCode(address, {
+        confirmCurrent: !!currentEmail && address.trim().toLowerCase() === currentEmail.trim().toLowerCase(),
+      }),
+    [email, currentEmail],
+  );
 
   const confirmEmailCode = useCallback(
     (challengeId: string, code: string) =>

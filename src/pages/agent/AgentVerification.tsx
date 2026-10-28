@@ -49,6 +49,7 @@ export default function AgentVerification() {
   const [submitResult, setSubmitResult] = useState<{ ok: boolean; message?: string; missing?: string[] } | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | (() => void)>(null);
   const cardRefs = useRef<Partial<Record<VettingStepKey, HTMLDivElement | null>>>({});
+  const missingRef = useRef<HTMLDivElement | null>(null);
 
   const vetting = v.vetting;
   const steps = useMemo(() => (vetting ? vettingChecklist(vetting) : []), [vetting]);
@@ -77,11 +78,20 @@ export default function AgentVerification() {
     try {
       const r = await v.submit();
       if (r.success === true) setSubmitResult({ ok: true });
-      else { const f = r as { message: string; missing: string[] }; setSubmitResult({ ok: false, message: f.message, missing: f.missing }); }
+      else {
+        const f = r as { message: string; missing: string[] };
+        setSubmitResult({ ok: false, message: f.message, missing: f.missing });
+      }
     } catch (e) {
       toast.error(errMsg(e));
     }
   };
+
+  // On phones the missing-steps list renders below the last step, out of sight of
+  // the bottom Submit bar; bring it into view (after it renders) so the tap visibly does something.
+  useEffect(() => {
+    if (submitResult && !submitResult.ok) missingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [submitResult]);
 
   const scrollTo = (k: VettingStepKey | null) => {
     if (k) cardRefs.current[k]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -133,7 +143,7 @@ export default function AgentVerification() {
             {editable && (
               <aside className="md:sticky md:top-20 md:self-start">
                 {submitResult && !submitResult.ok && (
-                  <div className="mt-3 md:mt-0 rounded-xl border border-border bg-card p-3 space-y-2">
+                  <div ref={missingRef} className="mt-3 md:mt-0 rounded-xl border border-border bg-card p-3 space-y-2">
                     <p className="text-sm font-semibold">{submitResult.message}</p>
                     <ul className="space-y-1">
                       {(submitResult.missing ?? []).map((m, i) => (
