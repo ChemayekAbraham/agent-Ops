@@ -517,7 +517,7 @@ export default function CFODashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSpecialAdvanceOpen(true)}
+                onClick={() => setActiveTab('special-advances')}
                 className="gap-1.5 shrink-0"
               >
                 <Sparkles className="h-4 w-4 text-primary" /> Special Advance
