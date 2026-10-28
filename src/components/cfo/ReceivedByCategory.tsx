@@ -153,6 +153,43 @@ export function ReceivedByCategory() {
     staleTime: 60_000,
   });
 
+  // ---- Next 7 days projection -------------------------------------------------
+  // Estimate only: the average received per day over the last 28 complete Kampala
+  // days (yesterday back 28 days), multiplied by 7. It deliberately ignores the
+  // date period picked above so the estimate stays steady, and it cannot see money
+  // that is already on its way or expected.
+  const projBase = useMemo(() => {
+    const today = new Date(`${kampalaDate()}T00:00:00Z`);
+    return {
+      from: format(subDays(today, 28), 'yyyy-MM-dd'),
+      to: format(subDays(today, 1), 'yyyy-MM-dd'),
+    };
+  }, []);
+
+  const projection = useQuery({
+    queryKey: ['cfo-received-projection-7d', projBase.from, projBase.to],
+    queryFn: async (): Promise<CategoryRow[]> => {
+      const { data, error } = await (supabase.rpc as any)('get_cfo_received_by_category_totals', {
+        p_from: projBase.from, p_to: projBase.to,
+      });
+      if (error) throw error;
+      return (data ?? []) as CategoryRow[];
+    },
+    retry: cfoReportRetry,
+    staleTime: 60_000,
+  });
+
+  const projRows = useMemo(
+    () => (projection.data ?? []).map(r => ({
+      ...r,
+      perDay: Math.round(r.amount / 28),
+      next7: Math.round((r.amount / 28) * 7),
+    })),
+    [projection.data],
+  );
+  const projTotal = projRows.reduce((s, r) => s + r.next7, 0);
+  const projIncome = projRows.filter(r => r.nature === 'income').reduce((s, r) => s + r.next7, 0);
+
   const rows = totals.data ?? [];
   const grand = rows.reduce((s, r) => s + r.amount, 0);
   const grandCount = rows.reduce((s, r) => s + r.tx_count, 0);
@@ -249,6 +286,42 @@ export function ReceivedByCategory() {
           ))}
         </div>
       )}
+
+      {/* Next 7 days projection — estimate from the last 28 complete Kampala days */}
+      <div className="rounded-md border border-border/70 bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-primary" />
+            <h3 className="text-sm font-semibold">Projected Money In — next 7 days</h3>
+          </div>
+          <p className="text-lg font-bold tabular-nums">
+            {projection.isLoading ? '…' : projection.error ? 'Unavailable' : formatUGX(projTotal)}
+          </p>
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {projection.isLoading
+            ? 'Loading…'
+            : projection.error
+              ? 'Could not load the estimate'
+              : `Average received ${fmtDay(projBase.from)} – ${fmtDay(projBase.to)} (Kampala days) × 7 · genuine income about ${formatUGX(projIncome)}`}
+        </p>
+        {!projection.isLoading && !projection.error && (
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {projRows.map(r => (
+              <div key={r.category_key} className="rounded-md border border-border/60 bg-background p-2.5">
+                <p className="truncate text-[11px] font-medium text-muted-foreground">{r.category_label}</p>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">{formatUGX(r.next7)}</p>
+                <p className="text-[10px] text-muted-foreground">about {formatUGX(r.perDay)} a day</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Estimate only: the average received per day over the last 28 days, multiplied by 7. It does not look at
+          money that is already on its way or expected, so actual receipts may differ, and it stays the same
+          whichever date period you pick above. Reporting only: nothing here moves money.
+        </p>
+      </div>
 
       {/* Transaction table */}
       <div className="rounded-md border border-border/70 bg-card shadow-sm">
