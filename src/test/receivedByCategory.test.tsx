@@ -50,10 +50,10 @@ const ROW = {
 
 describe('ReceivedByCategory (Money In)', () => {
   it('asks the server once for the chosen period and never invents a projection read', async () => {
-    rpc.mockImplementation((name: string) => {
-      if (name === 'get_cfo_received_by_category_totals') return totalsRpc();
-      if (name === 'get_cfo_received_by_category_page') return pageRpc();
-      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc();
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
       return Promise.resolve({ data: [], error: null });
     });
     totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
@@ -88,10 +88,10 @@ describe('ReceivedByCategory (Money In)', () => {
   });
 
   it('sends the chosen category, with no product type until one is picked', async () => {
-    rpc.mockImplementation((name: string) => {
-      if (name === 'get_cfo_received_by_category_totals') return totalsRpc();
-      if (name === 'get_cfo_received_by_category_page') return pageRpc();
-      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc();
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
       return Promise.resolve({ data: [], error: null });
     });
     totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
@@ -109,10 +109,10 @@ describe('ReceivedByCategory (Money In)', () => {
   });
 
   it('filters the agent list by recovery type and shows the server counts', async () => {
-    rpc.mockImplementation((name: string) => {
-      if (name === 'get_cfo_received_by_category_totals') return totalsRpc();
-      if (name === 'get_cfo_received_by_category_page') return pageRpc();
-      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc();
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
       return Promise.resolve({ data: [], error: null });
     });
     totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
@@ -144,10 +144,10 @@ describe('ReceivedByCategory (Money In)', () => {
   });
 
   it('drops the type filter when another category is chosen', async () => {
-    rpc.mockImplementation((name: string) => {
-      if (name === 'get_cfo_received_by_category_totals') return totalsRpc();
-      if (name === 'get_cfo_received_by_category_page') return pageRpc();
-      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc();
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
       return Promise.resolve({ data: [], error: null });
     });
     totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
