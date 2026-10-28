@@ -376,9 +376,12 @@ export function PaidByCategory() {
 
         <p className="mt-2 text-[11px] text-muted-foreground">
           The figure at the top is money already recorded as due in the next seven days, taken from the same
-          payables schedule the CFO daily report uses — it is not an estimate. The pace line is an estimate only:
-          the average paid per day over the last 28 days multiplied by 7, with no view of what is scheduled, so the
-          two will differ. Reporting only: nothing here moves money.
+          payables schedule the CFO daily report uses — it is not an estimate. It covers Supporter Returns due,
+          the weekly landlord float, landlord payouts approved outside a float, agent commission payouts,
+          departmental budgets and partner commissions; payroll runs, pending withdrawals and standing orders are
+          not part of that schedule. The pace line is an estimate only: the average paid per day over the last 28
+          days multiplied by 7, with no view of what is scheduled, so the two will differ.
+          Reporting only: nothing here moves money.
         </p>
       </div>
 
