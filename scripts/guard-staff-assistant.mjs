@@ -157,20 +157,45 @@ export function auditSqlMigration(fileLabel, rawSql, functionMap = null) {
     const { name, args, header, body } = def;
     const where = `${fileLabel}: ${name}()`;
     functionsFound.push(name);
+    const isAnalystRunQuery = name === 'assistant_staff_run_query';
 
     // 1. Must be STABLE (never VOLATILE or IMMUTABLE)
     if (!/\bSTABLE\b/i.test(header) || /\b(VOLATILE|IMMUTABLE)\b/i.test(header)) {
       errs.push(`${where} must be STABLE (read-only).`);
     }
 
-    // 2. Must be SECURITY DEFINER
+    // 2. Security context: all assistant_staff_* functions must be SECURITY DEFINER
+    //    (so authenticated can read zoe_ro views over base tables without direct grants,
+    //     while assistant_staff_run_query enforces zoe_ro_require_area + statement_timeout = '5s' + transaction_read_only).
     if (!/\bSECURITY\s+DEFINER\b/i.test(header)) {
       errs.push(`${where} must be SECURITY DEFINER.`);
     }
-
-    // 3. Must pin search_path = public
-    if (!/\bSET\s+search_path\s*=\s*public\b/i.test(header)) {
-      errs.push(`${where} must set search_path = public.`);
+    if (isAnalystRunQuery) {
+      if (!/\bSET\s+search_path\s*=\s*public\s*,\s*zoe_ro\b/i.test(header)) {
+        errs.push(`${where} must set search_path = public, zoe_ro.`);
+      }
+      if (!/\bSET\s+statement_timeout\s*=\s*'5s'/i.test(header)) {
+        errs.push(`${where} must set statement_timeout = '5s'.`);
+      }
+      if (
+        !/\bSET\s+default_transaction_read_only\s*=\s*on\b/i.test(header) ||
+        !/\bSET\s+LOCAL\s+transaction_read_only\s*=\s*on\b/i.test(body)
+      ) {
+        errs.push(`${where} must enforce transaction_read_only = on.`);
+      }
+      if (!/\bzoe_ro_validate_query\s*\(/i.test(body)) {
+        errs.push(`${where} must validate SQL via public.zoe_ro_validate_query().`);
+      }
+      if (!/\bzoe_ro_require_area\s*\(/i.test(body)) {
+        errs.push(`${where} must check caller role area via public.zoe_ro_require_area().`);
+      }
+      if (!/\bLIMIT\s+501\b/i.test(body) || !/\b500\b/.test(body)) {
+        errs.push(`${where} must enforce the 500-row cap and truncation detection.`);
+      }
+    } else {
+      if (!/\bSET\s+search_path\s*=\s*public\b/i.test(header)) {
+        errs.push(`${where} must set search_path = public.`);
+      }
     }
 
     // 4. Must NOT accept any user-id or other identity parameter
@@ -192,7 +217,10 @@ export function auditSqlMigration(fileLabel, rawSql, functionMap = null) {
 
     // 6. Body must be strictly read-only (no INSERT/UPDATE/DELETE/TRUNCATE/COPY/ALTER/DROP/CREATE/GRANT/EXECUTE)
     const bodyWithoutLiterals = stripSqlSingleQuotedStrings(body);
-    const writeHit = bodyWithoutLiterals.match(WRITE_OR_DDL_SQL_RE);
+    const bodyToCheckForWrite = isAnalystRunQuery
+      ? bodyWithoutLiterals.replace(/\bEXECUTE\s+v_wrapped_sql\s+INTO\b/gi, '/* validated_select */')
+      : bodyWithoutLiterals;
+    const writeHit = bodyToCheckForWrite.match(WRITE_OR_DDL_SQL_RE);
     if (writeHit) {
       errs.push(
         `${where} contains a write, DDL, or dynamic SQL statement ("${writeHit[0]}"). All assistant_staff_* tools must be strictly read-only.`,
@@ -251,6 +279,9 @@ export function auditSqlMigration(fileLabel, rawSql, functionMap = null) {
         ].map((m) => m[1].toLowerCase());
 
         for (const callee of new Set(callees)) {
+          if (isAnalystRunQuery && callee === 'staff_assistant_log_query') {
+            continue;
+          }
           const chainStr = [...current.chain, callee].join(' -> ');
           const target = functionMap.get(callee);
           if (!target) continue;
@@ -301,6 +332,10 @@ export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
     'staff_assistant_drafts',
     'staff_assistant_insights',
     'staff_assistant_ideas',
+    'staff_assistant_notes',
+    'staff_assistant_glossary',
+    'staff_assistant_data_catalog',
+    'staff_assistant_queries',
   ];
 
   for (const tbl of lockedTablesSelectOnly) {
@@ -387,6 +422,46 @@ export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
     }
   }
 
+  // Audit zoe_ro read-only views (Prompt 3 item 1 & 4)
+  const viewRe =
+    /CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+zoe_ro\.([a-z0-9_]+)\s*([\s\S]*?)\bAS\b([\s\S]*?);/gi;
+  for (const vm of combinedClean.matchAll(viewRe)) {
+    const viewName = vm[1].toLowerCase();
+    const viewOpts = vm[2];
+    const viewBody = vm[3];
+    if (!/\bsecurity_invoker\s*=\s*true\b/i.test(viewOpts)) {
+      errs.push(
+        `View zoe_ro.${viewName} must specify WITH (security_invoker = true) so caller permissions and MFA policies apply.`,
+      );
+    }
+    if (!/\bzoe_ro_require_area\s*\(/i.test(viewBody)) {
+      errs.push(
+        `View zoe_ro.${viewName} must enforce caller role-area access via public.zoe_ro_require_area().`,
+      );
+    }
+    if (
+      viewName === 'finance_treasury_cash_position' &&
+      !/\bget_treasury_cash_position\s*\(/i.test(viewBody)
+    ) {
+      errs.push(
+        `View zoe_ro.${viewName} must read platform treasury cash exclusively from public.get_treasury_cash_position().`,
+      );
+    }
+  }
+
+  const badZoeRoGrantRe =
+    /\bGRANT\s+([^;]+?)\s+ON\s+(?:TABLE\s+|ALL\s+TABLES\s+IN\s+SCHEMA\s+)?zoe_ro(?:\.[a-z0-9_]+)?\s+TO\s+([^;]+);/gi;
+  for (const gm of combinedClean.matchAll(badZoeRoGrantRe)) {
+    const privs = gm[1].toUpperCase();
+    const roles = gm[2].toLowerCase();
+    if (/\b(anon|public)\b/.test(roles)) {
+      errs.push(`zoe_ro view grant "${gm[0].trim()}" grants access to anon or PUBLIC; grant SELECT to authenticated only.`);
+    }
+    if (/\b(INSERT|UPDATE|DELETE|TRUNCATE|ALL)\b/.test(privs)) {
+      errs.push(`zoe_ro view grant "${gm[0].trim()}" grants write privileges; zoe_ro views must grant SELECT only.`);
+    }
+  }
+
   return errs;
 }
 
@@ -456,6 +531,7 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
       'staff_assistant_check_email_budget',
       'staff_assistant_hide_my_history',
       'assistant_staff_my_profile',
+      'assistant_staff_get_glossary',
     ]);
     for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
       if (!ALLOWED_DIRECT_RPCS.has(m[1])) {
@@ -752,6 +828,49 @@ export function runSelfTests() {
     /forges 'aal', 'aal2'/i,
   );
 
+  // Broken 14: assistant_staff_run_query missing statement_timeout = '5s' or zoe_ro_validate_query
+  const brokenAnalystTimeout = `
+    CREATE OR REPLACE FUNCTION public.assistant_staff_run_query(p_sql text, p_question text DEFAULT NULL)
+    RETURNS jsonb
+    LANGUAGE plpgsql
+    STABLE
+    SECURITY DEFINER
+    SET search_path = public, zoe_ro
+    SET default_transaction_read_only = on
+    AS $$
+    DECLARE
+      v_validation jsonb;
+      v_wrapped_sql text;
+    BEGIN
+      IF auth.uid() IS NULL OR NOT public.staff_assistant_has_access() OR NOT public.can_view_staff_reports(auth.uid()) THEN
+        RAISE EXCEPTION 'Not authorized' USING ERRCODE = '42501';
+      END IF;
+      v_validation := public.zoe_ro_validate_query(p_sql);
+      PERFORM public.zoe_ro_require_area('operations');
+      SET LOCAL transaction_read_only = on;
+      v_wrapped_sql := 'SELECT 1 LIMIT 501 -- 500';
+      RETURN '{}'::jsonb;
+    END;
+    $$;
+    REVOKE ALL ON FUNCTION public.assistant_staff_run_query(text, text) FROM PUBLIC, anon, service_role;
+    GRANT EXECUTE ON FUNCTION public.assistant_staff_run_query(text, text) TO authenticated;
+  `;
+  expectError(
+    "assistant_staff_run_query must set statement_timeout = '5s'",
+    auditSqlMigration('broken-analyst-timeout.sql', brokenAnalystTimeout).errors,
+    /must set statement_timeout = '5s'/i,
+  );
+
+  // Broken 15: zoe_ro view missing WITH (security_invoker = true)
+  expectError(
+    'zoe_ro view missing security_invoker = true',
+    auditCumulativeSqlSecurity(`
+      CREATE OR REPLACE VIEW zoe_ro.operations_demo AS
+      SELECT 1 AS c WHERE public.zoe_ro_require_area('operations');
+    `),
+    /must specify WITH \(security_invoker = true\)/i,
+  );
+
   // Valid send-email function that calls staff_assistant_is_staff_email passes
   const validEmailErrs = auditStaffEmailFunction(
     'supabase/functions/staff-assistant-email/index.ts',
@@ -775,7 +894,7 @@ export function runSelfTests() {
 const errors = [];
 const fail = (msg) => errors.push(msg);
 const seen = {
-  selfTests: 14,
+  selfTests: 16,
   edgeSources: 0,
   toolRpcs: 0,
   sqlFunctions: 0,
@@ -893,10 +1012,39 @@ if (existsSync(MIGRATIONS_DIR)) {
     'assistant_staff_insight_calling_reach_and_themes',
     'assistant_staff_insight_payout_delays',
     'assistant_staff_insight_zoe_feedback_themes',
+    'assistant_staff_get_glossary',
+    'assistant_staff_data_catalog',
+    'assistant_staff_run_query',
   ];
   for (const reqFn of REQUIRED_ADVISOR_INSIGHT_RPCS) {
     if (!allFound.has(reqFn)) {
-      fail(`Missing required advisor insight function public.${reqFn}() in supabase/migrations.`);
+      fail(`Missing required advisor/analyst function public.${reqFn}() in supabase/migrations.`);
+    }
+  }
+
+  const analystSecurityTestPath = join(ROOT, 'supabase', 'tests', 'zoe_analyst_lane_security_test.sql');
+  if (!existsSync(analystSecurityTestPath)) {
+    fail('Missing required database test file supabase/tests/zoe_analyst_lane_security_test.sql.');
+  } else {
+    const testSql = readFileSync(analystSecurityTestPath, 'utf8');
+    for (const requiredPattern of [
+      /\bINSERT\s+INTO\b/i,
+      /\bUPDATE\b/i,
+      /\bDELETE\s+FROM\b/i,
+      /\bDROP\s+VIEW\b/i,
+      /\bTRUNCATE\s+TABLE\b/i,
+      /\bCOPY\b/i,
+      /\bSET\s+ROLE\b/i,
+      /\bpg_sleep\s*\(\s*30\s*\)/i,
+      /\bCROSS\s+JOIN\b/i,
+      /\bzoe_ro\.finance_treasury_cash_position\b/i,
+      /\baal2\b/i,
+    ]) {
+      if (!requiredPattern.test(testSql)) {
+        fail(
+          `supabase/tests/zoe_analyst_lane_security_test.sql is missing required test pattern ${requiredPattern}.`,
+        );
+      }
     }
   }
 

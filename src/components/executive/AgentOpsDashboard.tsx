@@ -1,5 +1,6 @@
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
-import { useEffect, useRef, useState, lazy, Suspense, useMemo } from 'react';
+import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -158,6 +159,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'subagent-commission-whitelist', icon: ShieldCheck, label: 'Sub-Agent Commission Whitelist', color: 'bg-emerald-700', priority: true },
   { key: 'promote-tenant', icon: ArrowLeftRight, label: 'Tenant → Sub-Agent', color: 'bg-fuchsia-600', priority: true },
   { key: 'directory', icon: Search, label: 'Directory', color: 'bg-blue-500', priority: true },
+  { key: 'agent-verification', icon: ShieldCheck, label: 'Agent Verification', color: 'bg-blue-600', priority: true },
   { key: 'rent-capacity', icon: Gauge, label: 'Rent Capacity', color: 'bg-cyan-500', priority: true },
   { key: 'rent-behaviour', icon: Clock3, label: 'Rent Behaviour', color: 'bg-teal-600', priority: true },
   { key: 'tasks', icon: ClipboardList, label: 'Tasks', color: 'bg-emerald-500', priority: true },
@@ -569,12 +571,22 @@ export function AgentOpsDashboard() {
       navigate('/agent-ops/products/motor-bikes');
       return;
     }
+    // Agent vetting review lives on its own page, not as an inline view.
+    if (key === 'agent-verification') {
+      navigate('/agent-ops/agent-verification');
+      return;
+    }
     setActiveView(key);
   };
 
   const handleOpenSection = (key: string) => {
     if (key === 'agents-bikes') {
       navigate('/agent-ops/products/motor-bikes');
+      return;
+    }
+    // Agent vetting review lives on its own page, not as an inline view.
+    if (key === 'agent-verification') {
+      navigate('/agent-ops/agent-verification');
       return;
     }
     const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
@@ -584,7 +596,7 @@ export function AgentOpsDashboard() {
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: "Agents' Space", keys: ['agents-space'] },
-    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
+    { title: 'Agents', keys: ['directory', 'agent-verification', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
@@ -1225,7 +1237,7 @@ function AgentOpsSideNav({
   // below Priority and is open by default (this dashboard is agent-centric).
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
-    { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
+    { title: 'Agents', defaultOpen: false, keys: ['directory', 'agent-verification', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },

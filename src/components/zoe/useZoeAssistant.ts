@@ -30,6 +30,37 @@ export interface ZoeConversationListItem {
   created_at: string;
 }
 
+export interface ZoeNoteItem {
+  id: string;
+  note_text: string;
+  created_at: string;
+}
+
+export interface ZoeGlossaryEntry {
+  slug: string;
+  term: string;
+  category: string;
+  plain_definition: string;
+  measurement_gotcha: string;
+  official_source: string;
+  screen_path: string;
+  keywords?: string[];
+  updated_at?: string;
+}
+
+export interface ZoeGlossaryUpsertInput {
+  slug: string;
+  term: string;
+  category: string;
+  plain_definition: string;
+  measurement_gotcha?: string;
+  official_source?: string;
+  screen_path?: string;
+  keywords?: string[];
+  is_active?: boolean;
+}
+
+
 export interface ZoeMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -131,6 +162,8 @@ export interface UseZoeAssistantReturn {
   conversations: ZoeConversationListItem[];
   activeConversationId: string | null;
   morningBrief: ZoeMorningBriefPayload | null;
+  notes: ZoeNoteItem[];
+  glossaryEntries: ZoeGlossaryEntry[];
   isLoading: boolean;
   isHistoryLoading: boolean;
   streamingText: string | null;
@@ -147,6 +180,9 @@ export interface UseZoeAssistantReturn {
   selectConversation: (conversationId: string) => Promise<void>;
   startNewChat: () => Promise<void>;
   renameConversation: (conversationId: string, title: string) => Promise<void>;
+  addNote: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
+  deleteNote: (noteId: string) => Promise<{ ok: boolean }>;
+  saveGlossaryEntry: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
@@ -155,6 +191,8 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const [conversations, setConversations] = useState<ZoeConversationListItem[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [morningBrief, setMorningBrief] = useState<ZoeMorningBriefPayload | null>(null);
+  const [notes, setNotes] = useState<ZoeNoteItem[]>([]);
+  const [glossaryEntries, setGlossaryEntries] = useState<ZoeGlossaryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
@@ -167,6 +205,8 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const inFlightRef = useRef(false);
   const generationRef = useRef(0);
   const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
 
   const clearStreamTimer = useCallback(() => {
     if (streamTimerRef.current) {
@@ -269,6 +309,36 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         /* ignore brief load error */
       });
 
+    // Load per-person Zoe notes (up to 20 short preferences)
+    supabase.functions
+      .invoke<{ notes?: ZoeNoteItem[] }>('staff-assistant', {
+        body: { action: 'list_notes' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.notes)) {
+          setNotes(data.notes);
+        }
+      })
+      .catch(() => {
+        /* ignore notes load error */
+      });
+
+    // Load Welile glossary entries
+    supabase.functions
+      .invoke<{ rows?: ZoeGlossaryEntry[] }>('staff-assistant', {
+        body: { action: 'list_glossary' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.rows)) {
+          setGlossaryEntries(data.rows);
+        }
+      })
+      .catch(() => {
+        /* ignore glossary load error */
+      });
+
     return () => {
       cancelled = true;
       clearStreamTimer();
@@ -277,12 +347,17 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
 
   const stopGenerating = useCallback(() => {
     generationRef.current += 1;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     clearStreamTimer();
     inFlightRef.current = false;
     setIsLoading(false);
     setStreamingText(null);
     setStatusLine(null);
   }, [clearStreamTimer]);
+
 
   const sendMessage = useCallback(
     async (rawText: string) => {
@@ -568,11 +643,113 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
       });
   }, [user?.id, clearStreamTimer]);
 
+  const addNote = useCallback(
+    async (noteText: string): Promise<{ ok: boolean; error?: string }> => {
+      const cleaned = noteText.trim();
+      if (!cleaned || !user?.id) {
+        return { ok: false, error: 'Please enter a short preference note (2–240 characters).' };
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          ok?: boolean;
+          error?: string;
+          notes?: ZoeNoteItem[];
+        }>('staff-assistant', {
+          body: { action: 'add_note', note_text: cleaned },
+        });
+        const res = await readEdgeResponse(data, error);
+        if (Array.isArray((data as { notes?: ZoeNoteItem[] } | null)?.notes)) {
+          setNotes((data as { notes: ZoeNoteItem[] }).notes);
+        }
+        if ((data as { ok?: boolean } | null)?.ok === false || error) {
+          return {
+            ok: false,
+            error:
+              res.error ||
+              'Zoe notes may only store short preferences and must never contain business figures or personal data.',
+          };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Could not save Zoe note right now.' };
+      }
+    },
+    [user?.id],
+  );
+
+  const deleteNote = useCallback(
+    async (noteId: string): Promise<{ ok: boolean }> => {
+      if (!noteId || !user?.id) return { ok: false };
+      setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      try {
+        const { data } = await supabase.functions.invoke<{
+          ok?: boolean;
+          notes?: ZoeNoteItem[];
+        }>('staff-assistant', {
+          body: { action: 'delete_note', note_id: noteId },
+        });
+        if (Array.isArray(data?.notes)) {
+          setNotes(data.notes);
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    },
+    [user?.id],
+  );
+
+  const saveGlossaryEntry = useCallback(
+    async (input: ZoeGlossaryUpsertInput): Promise<{ ok: boolean; error?: string }> => {
+      if (!user?.id) return { ok: false, error: 'Not signed in.' };
+      try {
+        const { data, error } = await supabase.rpc(
+          'zoe_glossary_upsert_entry' as never,
+          {
+            p_slug: input.slug,
+            p_term: input.term,
+            p_category: input.category,
+            p_plain_definition: input.plain_definition,
+            p_measurement_gotcha: input.measurement_gotcha ?? '',
+            p_official_source: input.official_source ?? '',
+            p_screen_path: input.screen_path ?? '/me',
+            p_keywords: input.keywords ?? [],
+            p_is_active: input.is_active ?? true,
+          } as never,
+        );
+        if (error) {
+          return { ok: false, error: error.message };
+        }
+        const entry = (data as { entry?: ZoeGlossaryEntry } | null)?.entry;
+        if (entry) {
+          setGlossaryEntries((prev) => {
+            const idx = prev.findIndex((e) => e.slug === entry.slug);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = entry;
+              return next;
+            }
+            return [...prev, entry];
+          });
+        }
+        return { ok: true };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Could not save glossary entry.',
+        };
+      }
+    },
+    [user?.id],
+  );
+
   return {
     messages,
     conversations,
     activeConversationId,
     morningBrief,
+    notes,
+    glossaryEntries,
     isLoading,
     isHistoryLoading,
     streamingText,
@@ -589,5 +766,9 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     selectConversation,
     startNewChat,
     renameConversation,
+    addNote,
+    deleteNote,
+    saveGlossaryEntry,
   };
 }
+

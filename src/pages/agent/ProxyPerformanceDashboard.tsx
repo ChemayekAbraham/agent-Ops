@@ -116,7 +116,7 @@ export default function ProxyPerformanceDashboard() {
             size="sm"
             className="hidden h-9 md:inline-flex"
             onClick={() => setHowOpen(true)}
-            onPointerEnter={() => void import('@/components/proxy-dashboard/ProxyHowItWorksDialog')}
+            onPointerEnter={() => void import('@/components/proxy-dashboard/ProxyHowItWorksDialog').catch(() => {})}
           >
             How it works
           </Button>
@@ -135,8 +135,8 @@ export default function ProxyPerformanceDashboard() {
             className="h-9 w-[80%] sm:w-auto"
             onClick={startNote}
             onPointerEnter={() => {
-              void import('@/components/agent/SupportModeChooserDialog');
-              void import('@/components/agent/PromissoryNoteDialog');
+              void import('@/components/agent/SupportModeChooserDialog').catch(() => {});
+              void import('@/components/agent/PromissoryNoteDialog').catch(() => {});
             }}
           >
             <FilePlus2 className="mr-1 h-4 w-4" />

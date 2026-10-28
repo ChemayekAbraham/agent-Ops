@@ -56,7 +56,15 @@ UPDATE public.staff_assistant_config
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.staff_assistant_conversations
   ADD COLUMN IF NOT EXISTS hidden_by_user boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS hidden_at timestamptz;
+  ADD COLUMN IF NOT EXISTS hidden_at timestamptz,
+  ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS last_message_at timestamptz NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+
+UPDATE public.staff_assistant_conversations
+   SET created_at = COALESCE(started_at, created_at, now()),
+       last_message_at = COALESCE(last_active_at, started_at, last_message_at, now()),
+       updated_at = COALESCE(last_active_at, started_at, updated_at, now());
 
 ALTER TABLE public.staff_assistant_messages
   ADD COLUMN IF NOT EXISTS hidden_by_user boolean NOT NULL DEFAULT false,

@@ -1,11 +1,17 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
 import {
-  buildIdeaDraft,
+   buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
 } from "./actionDrafts.ts";
+import {
+  canCallerAccessZoeRoArea,
+  ensureAdHocCertificationNotice,
+  validateAnalystSqlQuery,
+  type ZoeRoRoleArea as ZoeRoArea,
+} from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
@@ -29,31 +35,49 @@ import {
   appendMemoryEntries,
   buildFollowUpSuggestions,
   buildMemoryEntryFromToolResult,
+  buildRollingConversationSummary,
   ConversationMemorySummary,
   extractChartFromReportPayload,
   formatConversationMemoryForPrompt,
+  formatZoeNotesForPrompt,
   MemoryToolEntry,
   parseConversationMemory,
   statusLineForTool,
+  synthesizePartialStepLimitReply,
   ZoeChartPayload,
+  ZoeNoteRecord,
 } from "./memory.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
-import { AiGatewayError, chatCompletion, ChatMessage, classifyText, OpenAiTool } from "./openai.ts";
+import {
+  AiGatewayError,
+  chatCompletion,
+  ChatMessage,
+  ChatUsage,
+  classifyText,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  OpenAiTool,
+  selectModelTier,
+} from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
 import {
+  addUserNote,
   BudgetCheckResult,
   checkQuestionBudget,
   clearUserHistory,
   ConversationListItem,
   createNewConversation,
+  deleteUserNote,
   getAdminClientForMfa,
   getOrCreateConversation,
   listUserConversations,
+  listUserNotes,
   loadConversationHistory,
   loadLatestReportPayload,
   loadRecentTurns,
+  logAnalystQuery,
   recordTurn,
   recordUnanswered,
   renameUserConversation,
@@ -62,6 +86,7 @@ import {
   TurnOutcome,
   UnansweredReason,
 } from "./store.ts";
+
 import {
   canUseTool,
   ClarificationArgsSchema,
@@ -84,7 +109,7 @@ export const corsHeaders = {
 };
 
 const MAX_MODEL_ROUNDS = 4;
-const MAX_CALLS_PER_ROUND = 3;
+const MAX_CALLS_PER_ROUND = 4;
 const MAX_TOOL_CALLS = 6;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 
@@ -143,9 +168,12 @@ export interface StaffAssistantAiClient {
   chatCompletion: (opts: {
     messages: ChatMessage[];
     tools?: OpenAiTool[];
+    model?: string;
+    temperature?: number;
     maxTokens?: number;
     timeoutMs?: number;
-  }) => Promise<{ message: ChatMessage; model: string }>;
+    signal?: AbortSignal;
+  }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
 }
 
 export interface StaffAssistantStoreDeps {
@@ -154,7 +182,12 @@ export interface StaffAssistantStoreDeps {
     userId: string,
     conversationId: string | undefined,
     meta: SessionMeta,
-  ) => Promise<{ id: string; status: string; memory?: ConversationMemorySummary }>;
+  ) => Promise<{
+    id: string;
+    status: string;
+    memory?: ConversationMemorySummary;
+    rollingSummary?: string;
+  }>;
   loadRecentTurns: (userId: string, conversationId: string) => Promise<ChatMessage[]>;
   loadLatestReportPayload: (
     userId: string,
@@ -176,6 +209,19 @@ export interface StaffAssistantStoreDeps {
     conversationId: string,
     title: string,
   ) => Promise<{ ok: boolean; title: string }>;
+  listUserNotes?: (userId: string) => Promise<ZoeNoteRecord[]>;
+  addUserNote?: (
+    userId: string,
+    noteText: string,
+  ) => Promise<
+    | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+    | { ok: false; reason: string; error: string }
+  >;
+  deleteUserNote?: (
+    userId: string,
+    noteId: string,
+  ) => Promise<{ ok: boolean; notes: ZoeNoteRecord[] }>;
+  logAnalystQuery?: typeof logAnalystQuery;
 }
 
 export interface StaffAssistantHandlerDeps {
@@ -203,6 +249,10 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   listUserConversations,
   createNewConversation,
   renameUserConversation,
+  listUserNotes,
+  addUserNote,
+  deleteUserNote,
+  logAnalystQuery,
 };
 
 /**
@@ -211,10 +261,11 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
  */
 async function saveServerDraft(
   userClient: SupabaseClient,
-  kind: "email" | "reminder" | "notification" | "schedule",
+  kind: "email" | "reminder" | "notification" | "schedule" | "idea",
   payload: Record<string, unknown>,
   conversationId: string,
 ): Promise<string | null> {
+
   const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
     p_kind: kind,
     p_payload: payload,
@@ -446,6 +497,48 @@ export async function handleStaffAssistantRequest(
     return json(200, { ok: true, morning_brief: brief });
   }
 
+  // Prompt 2 item (5): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
+  if (body.action === "list_notes") {
+    const notes = store.listUserNotes ? await store.listUserNotes(user.id) : [];
+    return json(200, { ok: true, notes });
+  }
+
+  if (body.action === "add_note") {
+    if (!store.addUserNote) {
+      return json(400, { ok: false, error: MSG.invalidRequest });
+    }
+    const res = await store.addUserNote(user.id, body.note_text);
+    if (!res.ok) {
+      return json(400, { ok: false, reason: res.reason, error: res.error });
+    }
+    return json(200, { ok: true, note: res.note, notes: res.notes });
+  }
+
+  if (body.action === "delete_note") {
+    const res = store.deleteUserNote
+      ? await store.deleteUserNote(user.id, body.note_id)
+      : { ok: true, notes: [] };
+    return json(200, { ok: res.ok, notes: res.notes });
+  }
+
+  // Prompt 2 item (6): Read-only Welile Glossary lookup (`assistant_staff_get_glossary`)
+  if (body.action === "list_glossary") {
+    const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
+      p_search: body.search ?? null,
+      p_category: body.category ?? null,
+    });
+    if (error) {
+      return json(200, { ok: false, rows: [], error: error.message });
+    }
+    const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+    return json(200, {
+      ok: true,
+      source: payload.source ?? "staff_assistant_glossary",
+      rows: Array.isArray(payload.rows) ? payload.rows : [],
+    });
+  }
+
+
   // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
   const budget = await store.checkQuestionBudget(user.id);
   if (!budget.allowed) {
@@ -477,6 +570,17 @@ export async function handleStaffAssistantRequest(
   const statusSteps: string[] = [];
   const userText = body.message;
   const wantsStream = body.stream === true;
+  let updatedRollingSummary = conv.rollingSummary ?? "";
+  let totalQuestionCostUsd = 0;
+  let cachedPromptTokens = 0;
+
+  const selectedTier = selectModelTier(userText, {
+    maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
+    maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
+    maxDeepModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
+    maxDeepToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+    ...(budget.modelConfig ?? {}),
+  });
 
   const finish = async (
     reply: string,
@@ -533,6 +637,7 @@ export async function handleStaffAssistantRequest(
       periodLabel: opts?.periodLabel ?? null,
       reportPayload: enrichedReportPayload,
       conversationSummary: updatedMemory,
+      rollingSummary: updatedRollingSummary,
       model: opts?.model,
       latencyMs: Date.now() - startedAt,
     });
@@ -560,6 +665,9 @@ export async function handleStaffAssistantRequest(
       chart: chart ?? null,
       follow_up_suggestions: followUpSuggestions,
       status_steps: statusSteps,
+      model_tier: selectedTier.tier,
+      estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
+      cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
       remaining_questions_today: budget.remainingToday,
     };
@@ -579,16 +687,38 @@ export async function handleStaffAssistantRequest(
       });
     }
 
-    // ---- 8. Tool-calling loop (20-turn memory, conversation summary, safe calculator) --------
-    const history = await store.loadRecentTurns(user.id, conv.id);
+    // ---- 8. Tool-calling loop (whole-conversation memory, Zoe notes, safe calculator) --------
+    const [history, userNotes] = await Promise.all([
+      store.loadRecentTurns(user.id, conv.id),
+      store.listUserNotes ? store.listUserNotes(user.id) : Promise.resolve([]),
+    ]);
     const today = kampalaToday();
     const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
+    const zoeNotesBlock = formatZoeNotesForPrompt(userNotes);
+
+    // Keep whole conversation: condense older turns into a rolling summary when long (> 12 messages)
+    const activeTurnWindow = history.length > 16 ? history.slice(-16) : history;
+    if (history.length > 16) {
+      updatedRollingSummary = buildRollingConversationSummary(
+        history.slice(0, history.length - 16),
+        conv.rollingSummary ?? "",
+      );
+    }
+    const rollingSummaryBlock = updatedRollingSummary
+      ? `EARLIER CONVERSATION ROLLING SUMMARY:\n${updatedRollingSummary}`
+      : "";
+
     const messages: ChatMessage[] = [
       {
         role: "system",
-        content: buildSystemPrompt(today, callerRoles, toolDescriptions, memoryBlock),
+        content: buildSystemPrompt(today, callerRoles, toolDescriptions, {
+          conversationMemoryBlock: memoryBlock,
+          zoeNotesBlock,
+          rollingSummaryBlock,
+          modelTier: selectedTier.tier,
+        }),
       },
-      ...history,
+      ...activeTurnWindow,
       { role: "user", content: userText },
     ];
 
@@ -608,18 +738,33 @@ export async function handleStaffAssistantRequest(
     const sourcesUsed: string[] = [];
     const periodsUsed: string[] = [];
     let lastReportPayload: Record<string, unknown> | null = null;
-    let lastModel = "";
+    let lastModel = selectedTier.model;
     let finalText: string | null = null;
+    let hitStepOrCostLimit = false;
 
-    const maxModelRounds = budget.maxModelRounds ?? MAX_MODEL_ROUNDS;
-    const maxToolCalls = budget.maxToolCalls ?? MAX_TOOL_CALLS;
+    const maxModelRounds = selectedTier.maxModelRounds;
+    const maxToolCalls = selectedTier.maxToolCalls;
+    const maxCostUsd = selectedTier.maxCostUsdPerQuestion;
 
     for (let round = 0; round < maxModelRounds; round++) {
-      const { message, model } = await ai.chatCompletion({
+      if (round > 0 && totalQuestionCostUsd >= maxCostUsd) {
+        hitStepOrCostLimit = true;
+        break;
+      }
+
+      const { message, model, usage } = await ai.chatCompletion({
         messages,
         tools: allowedOpenAiTools,
+        model: selectedTier.model,
+        temperature: selectedTier.temperature,
+        maxTokens: selectedTier.maxTokens,
+        signal: req.signal,
       });
       lastModel = model;
+      if (usage) {
+        totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
+        cachedPromptTokens += usage.cachedTokens ?? 0;
+      }
 
       if (!message.tool_calls || message.tool_calls.length === 0) {
         finalText = (message.content ?? "").trim();
@@ -631,12 +776,10 @@ export async function handleStaffAssistantRequest(
 
       for (const call of calls) {
         if (toolsCalled.length >= maxToolCalls) {
-          return await finish(MSG.unmatched, "unmatched", {
-            tools: toolsCalled,
-            model: lastModel,
-            unansweredReason: "unmatched",
-          });
+          hitStepOrCostLimit = true;
+          break;
         }
+
 
         const stepText = statusLineForTool(call.function.name);
         if (!statusSteps.includes(stepText)) {
@@ -1560,6 +1703,111 @@ export async function handleStaffAssistantRequest(
           });
         }
 
+        // Prompt 3 item (3): Analyst Lane pre-flight validation & role-area/MFA checks
+        let validatedAnalystSql: {
+          cleanSql: string;
+          executedSql: string;
+          roleAreas: ZoeRoArea[];
+        } | null = null;
+
+        if (tool.name === "get_data_catalog") {
+          const areaArg = String((args.data as Record<string, unknown>).area ?? "all")
+            .trim()
+            .toLowerCase();
+          if (areaArg !== "" && areaArg !== "all") {
+            if (!canCallerAccessZoeRoArea(areaArg as ZoeRoArea, callerRoles, user.id)) {
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+        }
+
+        if (tool.name === "run_analyst_query") {
+          const queryStartedAt = Date.now();
+          const candidateQuery = String((args.data as Record<string, unknown>).sql ?? "");
+          const queryQuestion = String(
+            (args.data as Record<string, unknown>).question ?? userText,
+          );
+          const sqlCheck = validateAnalystSqlQuery(candidateQuery);
+          if (!sqlCheck.ok) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: queryQuestion,
+              sqlText: candidateQuery,
+              executedSql: candidateQuery,
+              roleAreas: [],
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - queryStartedAt,
+              status: "refused",
+              errorMessage: sqlCheck.reason,
+            });
+            return await finish(
+              `I cannot run that Analyst query: ${sqlCheck.reason}`,
+              "blocked",
+              {
+                tools: [...toolsCalled, "run_analyst_query"],
+                model: lastModel,
+                unansweredReason: "error",
+              },
+            );
+          }
+
+          for (const area of sqlCheck.roleAreas) {
+            if (!canCallerAccessZoeRoArea(area, callerRoles, user.id)) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: `Role not authorized for zoe_ro area: ${area}`,
+              });
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          if (sqlCheck.requiresAal2) {
+            const mfaGate = await checkMfa(token, user.id);
+            if (!mfaGate.ok) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: "MFA aal2 required for sensitive zoe_ro area",
+              });
+              return await finish(MSG.mfaRequired, "blocked", {
+                tools: toolsCalled,
+                model: lastModel,
+                mfaRequired: true,
+              });
+            }
+          }
+
+          validatedAnalystSql = {
+            cleanSql: sqlCheck.cleanSql,
+            executedSql: sqlCheck.executedSql,
+            roleAreas: sqlCheck.roleAreas,
+          };
+        }
+
         // Requirement (g): Sensitive tools require AAL2 MFA via requireStaffAal2
         if (tool.sensitive) {
           const mfaGate = await checkMfa(token, user.id);
@@ -1574,9 +1822,27 @@ export async function handleStaffAssistantRequest(
 
         // Requirement (c): Call `assistant_staff_*` with the caller's OWN JWT (`userClient`)
         const rpcArgs = tool.toRpcArgs(args.data);
+        if (tool.name === "run_analyst_query" && !rpcArgs.p_question) {
+          rpcArgs.p_question = userText;
+        }
+        const rpcStartedAt = Date.now();
         const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
         if (error) {
           console.error(`[staff-assistant] tool ${tool.rpc} error:`, error.code, error.message);
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText: validatedAnalystSql.cleanSql,
+              executedSql: validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - rpcStartedAt,
+              status: error.code === "42501" ? "refused" : "error",
+              errorMessage: error.message,
+            });
+          }
           if (error.code === "42501") {
             return await finish(MSG.roleRestricted, "not_staff", {
               tools: toolsCalled,
@@ -1614,6 +1880,31 @@ export async function handleStaffAssistantRequest(
           if (pLabel && !periodsUsed.includes(pLabel)) {
             periodsUsed.push(pLabel);
           }
+
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText:
+                typeof payload.sql === "string" ? payload.sql : validatedAnalystSql.cleanSql,
+              executedSql:
+                typeof payload.executed_sql === "string"
+                  ? payload.executed_sql
+                  : validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount:
+                typeof payload.row_count === "number"
+                  ? payload.row_count
+                  : prepared.totalRows ?? 0,
+              truncated: Boolean(payload.truncated),
+              durationMs:
+                typeof payload.duration_ms === "number"
+                  ? payload.duration_ms
+                  : Date.now() - rpcStartedAt,
+              status: "ok",
+            });
+          }
+
           lastReportPayload = {
             ...payload,
             tool: tool.name,
@@ -1625,6 +1916,24 @@ export async function handleStaffAssistantRequest(
             row_count: payload.row_count ?? prepared.totalRows,
             rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
+            ...(tool.adHoc
+              ? {
+                  ad_hoc: true,
+                  certification: "Ad hoc, not certified",
+                  ...(validatedAnalystSql
+                    ? {
+                        sql:
+                          typeof payload.sql === "string"
+                            ? payload.sql
+                            : validatedAnalystSql.cleanSql,
+                        executed_sql:
+                          typeof payload.executed_sql === "string"
+                            ? payload.executed_sql
+                            : validatedAnalystSql.executedSql,
+                      }
+                    : {}),
+                }
+              : {}),
             ...(prepared.truncationNote ? { rows_note: prepared.truncationNote } : {}),
           };
 
@@ -1640,6 +1949,35 @@ export async function handleStaffAssistantRequest(
         }
 
         messages.push({ role: "tool", tool_call_id: call.id, content: prepared.modelContent });
+      }
+      if (hitStepOrCostLimit) {
+        break;
+      }
+    }
+
+    // Prompt 2 item (3): When the multi-step loop reaches its round, tool-call, or cost ceiling
+    // after gathering partial tool results, synthesize a clear grounded summary of what Zoe has so far.
+    if (!finalText && newMemoryEntries.length > 0) {
+      const partialReply = synthesizePartialStepLimitReply(
+        newMemoryEntries,
+        MSG.stepLimitReachedPrefix,
+      );
+      const sourceLabel =
+        sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : toolsCalled.join(" + ");
+      const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
+      const partialGuard = checkAnswer(
+        partialReply,
+        [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
+        userText,
+      );
+      if (partialGuard.ok) {
+        return await finish(partialReply, "answered", {
+          tools: toolsCalled,
+          model: lastModel,
+          sourceLabel,
+          periodLabel,
+          reportPayload: lastReportPayload,
+        });
       }
     }
 
@@ -1674,11 +2012,11 @@ export async function handleStaffAssistantRequest(
       });
     }
 
-    // Prompt 3 item (1): Zoe may reply without a tool when no business figures are involved
-    // (greetings, thanks, "what can you do", "explain that", "how do I…" from staff manuals & docs/).
-    // The number check still applies to any figure.
+    // Prompt 2 item (2) & Prompt 3 item (1): Zoe answers greetings, explanations, drafting,
+    // brainstorming, general work help, and transparent data-unavailable guidance directly
+    // without canned UNMATCHED/OUT_OF_SCOPE scripts, while still enforcing checkAnswer on any figure.
     if (toolsCalled.length === 0) {
-      if (!isConversationalPromptAllowedWithoutTool(userText)) {
+      if (!isConversationalPromptAllowedWithoutTool(userText, finalText)) {
         return await finish(MSG.unmatched, "unmatched", {
           model: lastModel,
           unansweredReason: "missing_tool",
@@ -1708,6 +2046,7 @@ export async function handleStaffAssistantRequest(
       });
     }
 
+
     const sourceLabel =
       sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : toolsCalled.join(" + ");
     const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
@@ -1718,10 +2057,23 @@ export async function handleStaffAssistantRequest(
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
     }
 
+    // Prompt 3 item (3): Ensure every ad-hoc Analyst query answer carries "Ad hoc, not certified"
+    const usedAdHocAnalyst = toolsCalled.includes("run_analyst_query");
+    if (usedAdHocAnalyst) {
+      answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
+    }
+
     // Requirement (d): Deterministic post-generation guard against tool results
     const guard = checkAnswer(
       answerWithCitation,
-      [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
+      [
+        ...rawToolOutputs,
+        JSON.stringify({
+          source: sourceLabel,
+          period: periodLabel,
+          ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+        }),
+      ],
       userText,
     );
     if (!guard.ok) {

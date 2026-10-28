@@ -125,23 +125,49 @@ export function useDeviceStepUp(userId: string | undefined) {
     };
   }, [check, userId]);
 
+  /** Fresh token for the current account, refreshed once if near expiry; null when signed out. */
+  const freshToken = useCallback(async (): Promise<string | null> => {
+    try {
+      let { data } = await supabase.auth.getSession();
+      let s = data?.session;
+      if (!s?.access_token || !s.expires_at || s.expires_at * 1000 <= Date.now() + 30_000) {
+        ({ data } = await supabase.auth.refreshSession());
+        s = data?.session;
+      }
+      if (!s?.access_token || (userId && s.user.id !== userId)) return null;
+      return s.access_token;
+    } catch {
+      return null;
+    }
+  }, [userId]);
+
+  const notSignedIn = { data: null, error: new Error('Your session has ended. Please sign in again.') };
+
   const requestCode = useCallback(async () => {
+    const token = await freshToken();
+    if (!token) return notSignedIn as { data: null; error: Error };
     const fp = await deviceFp();
     return invokeEdgeFunction<{ phone_masked?: string; required?: boolean }>('device-step-up', {
+      headers: { Authorization: `Bearer ${token}` },
       body: { action: 'request', device_fp: fp },
       errorTitle: 'Could not send the code',
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshToken]);
 
   const verifyCode = useCallback(async (code: string) => {
+    const token = await freshToken();
+    if (!token) return notSignedIn as { data: null; error: Error };
     const fp = await deviceFp();
     const res = await invokeEdgeFunction('device-step-up', {
+      headers: { Authorization: `Bearer ${token}` },
       body: { action: 'verify', code, device_fp: fp },
       errorTitle: 'Verification failed',
     });
     if (!res.error) setState((s) => ({ ...s, required: false }));
     return res;
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freshToken]);
 
   return { ...state, check, requestCode, verifyCode };
 }

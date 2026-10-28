@@ -56,6 +56,8 @@ const ZoePage: React.FC = () => {
             roles={roles}
             generatedBy={generatedBy}
             morningBrief={assistant.morningBrief}
+            notes={assistant.notes}
+            glossaryEntries={assistant.glossaryEntries}
             isLoading={assistant.isLoading}
             isHistoryLoading={assistant.isHistoryLoading}
             streamingText={assistant.streamingText}
@@ -71,6 +73,9 @@ const ZoePage: React.FC = () => {
             onRetry={assistant.retryLastMessage}
             onFeedback={assistant.submitFeedback}
             onClearHistory={assistant.clearHistory}
+            onAddNote={assistant.addNote}
+            onDeleteNote={assistant.deleteNote}
+            onSaveGlossaryEntry={assistant.saveGlossaryEntry}
           />
         </div>
       )}

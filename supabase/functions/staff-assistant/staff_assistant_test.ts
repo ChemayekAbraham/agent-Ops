@@ -40,7 +40,8 @@ import {
 } from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { cleanMessage, MAX_MESSAGE_CHARS, RequestSchema } from "./schemas.ts";
-import { RECENT_HISTORY_MESSAGES } from "./store.ts";
+import { RECENT_HISTORY_MESSAGES, recordTurn } from "./store.ts";
+import { renderZoeReportPdf } from "../_shared/zoeReportPdf.ts";
 import {
   canUseTool,
   findTool,
@@ -58,9 +59,9 @@ import {
 
 // ---- provider settings ----------------------------------------------------------------------
 
-Deno.test("provider: uses Lovable AI Gateway and google/gemini-3-flash-preview", () => {
+Deno.test("provider: uses Lovable AI Gateway and configured model tiers (google/gemini-2.5-flash fast, google/gemini-2.5-pro deep)", () => {
   assertEquals(AI_GATEWAY_URL, "https://ai.gateway.lovable.dev/v1");
-  assertEquals(DEFAULT_ZOE_MODEL, "google/gemini-3-flash-preview");
+  assertEquals(DEFAULT_ZOE_MODEL, "google/gemini-2.5-flash");
 });
 
 // ---- output guard ---------------------------------------------------------------------------
@@ -251,8 +252,8 @@ Deno.test("request: bad ids, empty and oversized messages are rejected", () => {
 
 // ---- tool registry & role filtering ---------------------------------------------------------
 
-Deno.test("tools: all 59 assistant_staff_* tools are registered", () => {
-  assertEquals(STAFF_TOOLS.length, 59);
+Deno.test("tools: all 60 assistant_staff_* tools are registered", () => {
+  assertEquals(STAFF_TOOLS.length, 60);
   for (const t of STAFF_TOOLS) {
     assert(/^assistant_staff_[a-z_]+$/.test(t.rpc), `${t.name} -> ${t.rpc}`);
   }
@@ -260,6 +261,9 @@ Deno.test("tools: all 59 assistant_staff_* tools are registered", () => {
   const cashTool = findTool("get_cfo_treasury_cash_position")!;
   assertEquals(cashTool.rpc, "assistant_staff_cfo_treasury_cash_position");
   assert(cashTool.description.includes("get_treasury_cash_position"));
+  // Glossary tool must map to assistant_staff_get_glossary
+  const glossaryTool = findTool("get_welile_glossary")!;
+  assertEquals(glossaryTool.rpc, "assistant_staff_get_glossary");
 });
 
 Deno.test("tools: no tool exposes an identity parameter", () => {
@@ -274,16 +278,17 @@ Deno.test("tools: no tool exposes an identity parameter", () => {
 });
 
 Deno.test("tools: role filtering offers only tools permitted for the caller's roles", () => {
-  // Employee with no department ops role gets only the 11 personal My Space tools
+  // Employee with no department ops role gets the 11 personal My Space tools + get_welile_glossary (12 total)
   const employeeTools = toolsForRoles(["employee"]).map((t) => t.name);
-  assertEquals(employeeTools.length, 11);
-  assert(employeeTools.every((name) => name.startsWith("get_my_")));
+  assertEquals(employeeTools.length, 12);
+  assert(employeeTools.every((name) => name.startsWith("get_my_") || name === "get_welile_glossary"));
   assert(employeeTools.includes("get_my_reminders_and_schedules"));
   assert(employeeTools.includes("get_my_calls"));
+  assert(employeeTools.includes("get_welile_glossary"));
 
-  // Tenant Ops staff gets 11 My Space + 12 Tenant Ops + silent collectors + calling detailed report + 3 advisor tools (28 total)
+  // Tenant Ops staff gets 11 My Space + glossary + 12 Tenant Ops + silent collectors + calling detailed report + 3 advisor tools (29 total)
   const topsTools = toolsForRoles(["tenant_ops"]).map((t) => t.name);
-  assertEquals(topsTools.length, 28);
+  assertEquals(topsTools.length, 29);
   assert(topsTools.includes("get_tops_arrears_ageing"));
   assert(topsTools.includes("get_aops_silent_collectors"));
   assert(topsTools.includes("get_hr_calling_detailed_report"));
@@ -294,9 +299,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(!topsTools.includes("get_lops_paid_lists"));
   assert(!topsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Landlord Ops staff gets 11 My Space + 6 Landlord Ops + calling detailed report + 2 advisor tools (20 total)
+  // Landlord Ops staff gets 11 My Space + glossary + 6 Landlord Ops + calling detailed report + 2 advisor tools (21 total)
   const lopsTools = toolsForRoles(["landlord_ops"]).map((t) => t.name);
-  assertEquals(lopsTools.length, 20);
+  assertEquals(lopsTools.length, 21);
   assert(lopsTools.includes("get_lops_home_range"));
   assert(lopsTools.includes("get_lops_paid_lists"));
   assert(lopsTools.includes("get_lops_principal_comparison"));
@@ -305,9 +310,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(!lopsTools.includes("get_tops_arrears_ageing"));
   assert(!lopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Agent Ops staff gets 11 My Space + 5 Agent Ops + 2 advisor tools (18 total)
+  // Agent Ops staff gets 11 My Space + glossary + 5 Agent Ops + 2 advisor tools (19 total)
   const aopsTools = toolsForRoles(["agent_ops"]).map((t) => t.name);
-  assertEquals(aopsTools.length, 18);
+  assertEquals(aopsTools.length, 19);
   assert(aopsTools.includes("get_aops_metrics_totals"));
   assert(aopsTools.includes("get_aops_metrics_agents"));
   assert(aopsTools.includes("get_aops_listing_quality_and_risk"));
@@ -316,18 +321,18 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(aopsTools.includes("get_insight_collection_coverage_trends"));
   assert(!aopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Partner Ops staff gets 11 My Space + 6 Partner Ops / PSO tools (17 total)
+  // Partner Ops staff gets 11 My Space + glossary + 6 Partner Ops / PSO tools (18 total)
   const popsTools = toolsForRoles(["partner_ops"]).map((t) => t.name);
-  assertEquals(popsTools.length, 17);
+  assertEquals(popsTools.length, 18);
   assert(popsTools.includes("get_pops_pending_summary"));
   assert(popsTools.includes("get_pops_report_overview"));
   assert(popsTools.includes("get_pops_search_supporters"));
   assert(popsTools.includes("get_pso_cohort_performance"));
   assert(!popsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Financial Ops staff gets 11 My Space + principal comparison + partner report + 6 finance tools + payout delays insight (20 total)
+  // Financial Ops staff gets 11 My Space + glossary + principal comparison + partner report + 6 finance tools + payout delays insight (21 total)
   const fopsTools = toolsForRoles(["financial_ops"]).map((t) => t.name);
-  assertEquals(fopsTools.length, 20);
+  assertEquals(fopsTools.length, 21);
   assert(fopsTools.includes("get_cfo_treasury_cash_position"));
   assert(fopsTools.includes("get_cfo_receivables_and_payables"));
   assert(fopsTools.includes("get_cfo_seven_day_expenses"));
@@ -335,9 +340,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(fopsTools.includes("get_insight_payout_delays"));
   assert(!fopsTools.includes("get_cfo_money_flow_summary"));
 
-  // HR staff gets 11 My Space + 2 Landlord CC + PSO + 3 HR tools + calling insight (18 total)
+  // HR staff gets 11 My Space + glossary + 2 Landlord CC + PSO + 3 HR tools + calling insight (19 total)
   const hrTools = toolsForRoles(["hr"]).map((t) => t.name);
-  assertEquals(hrTools.length, 18);
+  assertEquals(hrTools.length, 19);
   assert(hrTools.includes("get_lops_calling_summary"));
   assert(hrTools.includes("get_hr_calling_detailed_report"));
   assert(hrTools.includes("get_hr_contracts_and_birthdays"));
@@ -347,7 +352,7 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
 
   // OpenAI tool list includes ask_clarification + manual_help + compute + 5 draft tools + role-filtered tools
   const employeeOpenAiTools = openAiToolsForRoles(["employee"]);
-  assertEquals(employeeOpenAiTools.length, 19);
+  assertEquals(employeeOpenAiTools.length, 20);
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_report_email"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_reminder"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_staff_notification"));
@@ -609,9 +614,9 @@ Deno.test("security: AI tool list contains zero tools that write or send directl
   ];
   const openAiTools = openAiToolsForRoles(allRoles);
 
-  // 54 read-only report tools + compute + get_staff_manual_help + ask_clarification + 4 draft-only tools = 61
-  assertEquals(STAFF_TOOLS.length, 54);
-  assertEquals(openAiTools.length, 61);
+  // 60 read-only report tools + compute + get_staff_manual_help + ask_clarification + 5 draft-only tools = 68
+  assertEquals(STAFF_TOOLS.length, 60);
+  assertEquals(openAiTools.length, 68);
 
   const forbiddenWritePrefixes = /^(create|insert|update|delete|drop|alter|approve|reject|send|transfer|post|debit|credit|cancel|write|mutate)_/i;
 
@@ -1493,4 +1498,168 @@ Deno.test("prompt 4: all 5 advisor insight tools exist, map to STABLE assistant_
     callerRoles: ["coo"],
   });
   assert(followUps.some((q) => q.includes("Ideas for Welile")));
+});
+
+Deno.test("prompt 1 live fixes: recordTurn sets tools_called=[] on user row, conversational greetings ('yoo wassup'), relaxed PeriodArgsSchema, guard bucket sums & expected-collected diff, and server PDF builder", async () => {
+  // 1. recordTurn sets tools_called: [] on userRow so PostgREST batch insert never violates NOT NULL
+  const insertedBatches: Array<Array<Record<string, unknown>>> = [];
+  const fakeAdmin = {
+    from: (table: string) => {
+      if (table === "staff_assistant_messages") {
+        return {
+          insert: async (rows: Array<Record<string, unknown>>) => {
+            insertedBatches.push(rows);
+            return { error: null };
+          },
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { id: "c-1", title: "New chat", message_count: 0 } }),
+          }),
+        }),
+        update: () => ({
+          eq: async () => ({ error: null }),
+        }),
+      };
+    },
+  };
+
+  await recordTurn(fakeAdmin, {
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    userId: "22222222-2222-4222-8222-222222222222",
+    callerRoles: ["tenant_ops"],
+    userMessage: "Show Tenant Ops arrears ageing",
+    assistantContent: "Total arrears is UGX 1,450,000.",
+    outcome: "answered",
+    toolsCalled: ["get_tops_arrears_ageing"],
+    sourceLabel: "tops_arrears_ageing_amclock",
+    periodLabel: "as of 2026-10-26",
+    reportPayload: { rows: [] },
+    tokensIn: 120,
+    tokensOut: 80,
+    latencyMs: 350,
+    model: DEFAULT_ZOE_MODEL,
+  });
+
+  assertEquals(insertedBatches.length, 1);
+  assertEquals(insertedBatches[0].length, 2);
+  assertEquals(insertedBatches[0][0].role, "user");
+  assertEquals(insertedBatches[0][0].tools_called, []);
+  assertEquals(insertedBatches[0][1].role, "assistant");
+  assertEquals(insertedBatches[0][1].tools_called, ["get_tops_arrears_ageing"]);
+
+  // 2. Casual greetings ("yoo wassup", "wassup", "howdy") allowed without a tool call
+  assertEquals(isConversationalPromptAllowedWithoutTool("yoo wassup"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("wassup Zoe"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("What is the arrears total?"), false);
+
+  // 3. Relaxed PeriodArgsSchema accepts both `period` and `from`/`to` simultaneously
+  const firstSevenTool = findTool("get_tops_first_seven_summary")!;
+  const parsedArgs = firstSevenTool.schema.safeParse({
+    period: "custom",
+    from: "2026-10-14",
+    to: "2026-10-20",
+  });
+  assertEquals(parsedArgs.success, true);
+
+  // 4. Guards ground bucket map sums (`summary` object) and `expected - collected` difference, and scrub "30+" / "Day 1..7"
+  const arrearsOut = JSON.stringify({
+    source: "tops_arrears_ageing_amclock",
+    as_of: "2026-10-26",
+    summary: {
+      "1-7": { count: 119, arrears_ugx: 15292479 },
+      "8-14": { count: 29, arrears_ugx: 4227928 },
+      "15-30": { count: 29, arrears_ugx: 11432009 },
+      "30+": { count: 22, arrears_ugx: 10948013 },
+    },
+  });
+  // Sum of counts = 199, sum of arrears_ugx = 41,900,429, plus "30+" bucket label
+  assertEquals(
+    checkAnswer(
+      "Across 199 overdue Rent Plans, total arrears is UGX 41,900,429, including 22 plans in the 30+ bucket (UGX 10,948,013).",
+      [arrearsOut],
+      "Show Tenant Ops arrears ageing",
+    ).ok,
+    true,
+  );
+
+  const f7dOut = JSON.stringify({
+    source: "tops_first_seven_summary",
+    from: "2026-10-01",
+    to: "2026-10-26",
+    summary: {
+      expected: 27770349,
+      collected: 8673041,
+      uncollected: 19097308,
+    },
+  });
+  assertEquals(
+    checkAnswer(
+      "For Days 1 to 7 (Day 1 through Day 7), expected was UGX 27,770,349, collected was UGX 8,673,041, and uncollected was UGX 19,097,308.",
+      [f7dOut],
+      "How did First 7 Days perform?",
+    ).ok,
+    true,
+  );
+
+  // 5. Server PDF builder (`renderZoeReportPdf`) renders landscape for >=6 columns, selects <=8 columns, and preserves accented characters
+  const pdfBytes = await renderZoeReportPdf({
+    report_title: "Tenant Ops Repayments & Collection Rate Report",
+    source: "get_tenant_ops_repayments",
+    period_label: "2026-10-01 to 2026-10-26",
+    generated_at: "26 Oct 2026, 09:30 EAT",
+    sender_name: "René Élodie Niyonkuru",
+    sender_email: "rene@welile.com",
+    summary_lines: [
+      "Tenant Ops recorded 2 Rent Plan repayment rows for 2026-10-01 to 2026-10-26.",
+      "Total Rent Amount is UGX 2,050,000 and Collected Total is UGX 1,750,000.",
+      "Figures come directly from get_tenant_ops_repayments.",
+    ],
+    headers: [
+      "Tenant Name",
+      "Phone",
+      "District",
+      "Region",
+      "Agent Name",
+      "Rent Amount",
+      "Collected Total",
+      "Outstanding",
+      "Due Date",
+      "Stage",
+    ],
+    rows: [
+      [
+        "René Élodie Niyonkuru",
+        "256701***111",
+        "Kampala",
+        "Central",
+        "François Mugisha",
+        1250000,
+        950000,
+        300000,
+        "2026-10-25",
+        "repaying",
+      ],
+      [
+        "Zoë Chloé Nabwire",
+        "256772***222",
+        "Wakiso",
+        "Central",
+        "André Byaruhanga",
+        800000,
+        800000,
+        0,
+        "2026-10-20",
+        "completed",
+      ],
+    ],
+  });
+  assert(pdfBytes instanceof Uint8Array);
+  assert(pdfBytes.byteLength > 1500);
+
+  // 6. System prompt enforces FILES ONLY WHEN ASKED
+  const sysPrompt = buildSystemPrompt(["tenant_ops"], "2026-10-26");
+  assert(sysPrompt.includes("FILES ONLY WHEN ASKED"));
 });

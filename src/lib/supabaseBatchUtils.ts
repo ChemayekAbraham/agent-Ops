@@ -483,6 +483,7 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
     const creditedPortfolioIds = new Set<string>();
     const pendingPortfolioIds = new Set<string>();
     const claimedPortfolioIds = new Set<string>();
+    const overriddenPortfolioIds = new Set<string>();
 
     const chunk = <T,>(arr: T[], size: number) => {
       const out: T[][] = [];
@@ -526,16 +527,33 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
           }
         }
       }),
+      ...chunk(portfolioIds, 200).map(async (batch) => {
+        // A CFO-authorised, unused override (e.g. an approved compound reversal)
+        // lets this month's Return be paid once more; the database still
+        // enforces the override when the payout is submitted.
+        const { data } = await supabase
+          .from('portfolio_return_cycle_overrides' as never)
+          .select('portfolio_id, cycle_month')
+          .in('portfolio_id', batch)
+          .is('consumed_at', null)
+          .is('revoked_at', null)
+          .gt('expires_at', new Date().toISOString());
+        for (const r of ((data as unknown) as Array<{ portfolio_id: string; cycle_month: string }> | null) || []) {
+          if (cycleMonthByPortfolio.get(r.portfolio_id) === String(r.cycle_month).slice(0, 10)) {
+            overriddenPortfolioIds.add(r.portfolio_id);
+          }
+        }
+      }),
     ]);
 
     for (const n of nearingList) {
-      if (creditedPortfolioIds.has(n.portfolioId)) {
+      if (creditedPortfolioIds.has(n.portfolioId) && !overriddenPortfolioIds.has(n.portfolioId)) {
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'credited';
       } else if (pendingPortfolioIds.has(n.portfolioId)) {
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'pending';
-      } else if (claimedPortfolioIds.has(n.portfolioId)) {
+      } else if (claimedPortfolioIds.has(n.portfolioId) && !overriddenPortfolioIds.has(n.portfolioId)) {
         // Reserved by a Return already posted (payout, compound or split) for this month.
         n.alreadyProcessedThisCycle = true;
         n.processedState = 'credited';

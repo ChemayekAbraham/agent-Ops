@@ -23,6 +23,12 @@ export interface StaffTool {
    * `requireStaffAal2` from `../_shared/staffMfa.ts` before calling the RPC.
    */
   sensitive?: boolean;
+  /**
+   * When true, marks this tool as belonging to the flexible Analyst lane ("ad hoc, not certified").
+   * Certified lookups must always be preferred when one exists; Analyst lane results are
+   * explicitly labelled "Ad hoc, not certified" with the SQL shown under "Show the data".
+   */
+  adHoc?: boolean;
   parameters: Record<string, unknown>;
   schema: z.ZodType<Record<string, unknown>>;
   toRpcArgs: (parsed: Record<string, unknown>) => Record<string, unknown>;
@@ -30,16 +36,15 @@ export interface StaffTool {
 
 const EmptySchema = z.object({}).strict();
 
+const PeriodField = z.enum([...PERIODS, "custom"] as const).optional();
+
 const PeriodArgsSchema = z
   .object({
-    period: z.enum(PERIODS).optional(),
+    period: PeriodField,
     from: z.string().regex(ISO_DATE).optional(),
     to: z.string().regex(ISO_DATE).optional(),
   })
-  .strict()
-  .refine((v) => !(v.period && (v.from || v.to)), {
-    message: "Provide either `period` or `from`/`to`, not both.",
-  });
+  .strict();
 
 const periodProperties = {
   period: {
@@ -53,15 +58,15 @@ const periodProperties = {
 };
 
 function rangeArgs(parsed: Record<string, unknown>, defaultPeriod: Period = "last_30_days") {
-  if (typeof parsed.period === "string") {
-    const r = resolvePeriod(parsed.period as Period);
-    return { p_from: r.from, p_to: r.to };
-  }
   if (typeof parsed.from === "string" || typeof parsed.to === "string") {
     const today = kampalaToday();
     const from = (parsed.from as string | undefined) ?? (parsed.to as string);
     const to = (parsed.to as string | undefined) ?? today;
     return { p_from: from, p_to: to };
+  }
+  if (typeof parsed.period === "string" && parsed.period !== "custom") {
+    const r = resolvePeriod(parsed.period as Period);
+    return { p_from: r.from, p_to: r.to };
   }
   const r = resolvePeriod(defaultPeriod);
   return { p_from: r.from, p_to: r.to };
@@ -449,15 +454,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         frequency: z.enum(["daily", "weekly", "monthly"]).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_frequency: (p.frequency as string | undefined) ?? null,
@@ -739,15 +741,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         week_start: z.string().regex(ISO_DATE).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_7_days"),
       p_week_start: (p.week_start as string | undefined) ?? currentWednesdayWeekStart(),
@@ -804,15 +803,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         min_expected: z.number().min(0).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_min_expected: (p.min_expected as number | undefined) ?? 50000,
@@ -880,7 +876,7 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         search: SearchField.optional(),
@@ -901,10 +897,7 @@ export const STAFF_TOOLS: StaffTool[] = [
         scope: z.enum(["qualifying", "linked", "all"]).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_search: (p.search as string | undefined) ?? null,
@@ -935,15 +928,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         limit: z.number().int().min(1).max(100).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_limit: (p.limit as number | undefined) ?? 50,
@@ -1215,8 +1205,8 @@ export const STAFF_TOOLS: StaffTool[] = [
         ...periodProperties,
         days: {
           type: "integer",
-          minimum: 3,
-          maximum: 60,
+          minimum: 1,
+          maximum: 180,
           description: "Trailing window in days when explicit dates are not passed (default 14).",
         },
       },
@@ -1227,14 +1217,11 @@ export const STAFF_TOOLS: StaffTool[] = [
         period: z.enum(PERIODS).optional(),
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
-        days: z.number().int().min(3).max(60).optional(),
+        days: z.number().int().min(1).max(180).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => {
-      const days = (p.days as number | undefined) ?? 14;
+      const days = Math.min(Math.max((p.days as number | undefined) ?? 14, 3), 60);
       if (p.period || p.from || p.to) {
         return { p_days: days, ...rangeArgs(p, "last_30_days") };
       }
@@ -1538,15 +1525,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_limit: (p.limit as number | undefined) ?? 50,
@@ -1786,7 +1770,188 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_days: (p.days as number | undefined) ?? 28,
     }),
   },
+
+  // ===========================================================================
+  // GROUP J — WELILE GLOSSARY & MEASUREMENT GOTCHAS (PROMPT 2 ITEM 6)
+  // ===========================================================================
+  {
+    name: "get_welile_glossary",
+    rpc: "assistant_staff_get_glossary",
+    description:
+      "Read-only Welile glossary & measurement gotchas (stored in staff_assistant_glossary, editable by managers on screen). Defines official Welile terms and measurement rules: Expected vs Collected Rent (daily bill vs receipt book, on-schedule vs arrears, capped vs uncapped), Treasury Cash Position (A1+A5) vs Agent Float (A2), Active Rent Plan & Repayment Clock (am_plan_clock), Agent vs Sub-Agent attribution & 20% eligibility, Wallet buckets (withdrawable, float, advance, locked), regulatory wording (Rent Plan, Supporter, Returns), Landlord payout verification, and Calling Center Wednesday-to-Tuesday Kampala weeks & 15-minute deduplication.",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description:
+            "Optional keyword search (e.g. 'expected vs collected', 'treasury cash', 'repayment clock', 'agent vs sub-agent', 'wallet buckets').",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ],
+          description: "Optional glossary category filter.",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField.optional(),
+        category: z
+          .enum([
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: (p.search as string | undefined) ?? null,
+      p_category: (p.category as string | undefined) ?? null,
+    }),
+  },
+
+  // ===========================================================================
+  // GROUP K — THE ANALYST LANE (PROMPT 3: AD-HOC READ-ONLY `zoe_ro` QUERIES)
+  // ===========================================================================
+  {
+    name: "get_data_catalog",
+    rpc: "assistant_staff_data_catalog",
+    description:
+      "[Ad hoc — Analyst lane] Read the approved zoe_ro.* view and column catalog (plain-language descriptions, official sources, and 'use this for / do not use this for' notes) before writing an ad-hoc SELECT query with run_analyst_query. Only views permitted for the caller's role area are returned.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        area: {
+          type: "string",
+          enum: [
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ],
+          description:
+            "Role area of zoe_ro views to inspect (default 'all' returns all views the caller is authorized to read).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        area: z
+          .enum([
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_area: (p.area as string | undefined) ?? "all",
+    }),
+  },
+  {
+    name: "run_analyst_query",
+    rpc: "assistant_staff_run_query",
+    description:
+      "[Ad hoc — Analyst lane] Run a single read-only SELECT (or WITH ... SELECT) query against approved zoe_ro.* views when no certified lookup covers the question. Enforces a 5-second timeout, read-only transaction, 500-row cap, strict SQL function allow-list, and role-area + two-step login checks. Always say 'Ad hoc, not certified' and note that the SQL is shown under 'Show the data'.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        sql: {
+          type: "string",
+          description:
+            "Exactly one read-only SELECT (or WITH ... SELECT) query reading exclusively from approved zoe_ro.<view> views. No comments (-- or /* */), no semicolons, no base tables, and no functions outside the SQL allow-list.",
+        },
+        question: {
+          type: "string",
+          description: "Optional plain-language question being answered (recorded in staff_assistant_queries).",
+        },
+      },
+      required: ["sql"],
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        sql: z.string().trim().min(10).max(4000),
+        question: z.string().trim().max(1000).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_sql: p.sql as string,
+      p_question: (p.question as string | undefined) ?? null,
+    }),
+  },
 ];
+
 
 /**
  * Pseudo-tool handled in the edge function (never calls the database): lets the model ask
@@ -2124,7 +2289,9 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
 /** Human-readable tool summary lines injected into Zoe's system prompt for this caller. */
 export function describeToolsForRoles(callerRoles: readonly string[]): string[] {
   return [
-    ...toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`),
+    ...toolsForRoles(callerRoles).map(
+      (t) => `${t.name} (${t.rpc})${t.adHoc ? " [ad hoc]" : ""}: ${t.description}`,
+    ),
     "compute (safe calculator): Deterministic calculator (sum, difference, pct_change, share, average, rank) on figures already returned by tools in this conversation.",
     "get_staff_manual_help (staff manual): Look up 'how do I…', 'where do I find…', and workflow explanations from Welile staff manuals and docs/.",
     "draft_welile_idea (Ideas for Welile draft card): Prepare a click-confirmed improvement idea draft card with evidence, figures, and source (never acts or changes business data).",
