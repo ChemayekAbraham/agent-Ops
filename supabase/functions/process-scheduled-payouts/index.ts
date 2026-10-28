@@ -162,6 +162,9 @@ Deno.serve(async (req) => {
           marketing_expenses: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
           research_development: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
           operational_expense: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
+          // Staff lunch allowance is a payroll cost (Operational Expenses, X1),
+          // matching manually posted lunch payments; the wallet leg is unchanged.
+          lunch_allowance: { walletCat: 'wallet_deposit', platformCat: 'payroll_expense', impact: 'expense' },
           correction_credit: { walletCat: 'system_balance_correction', platformCat: 'system_balance_correction', impact: 'neutral' },
           wallet_transfer_out: { walletCat: 'wallet_transfer', platformCat: 'wallet_transfer', impact: 'neutral' },
         };
