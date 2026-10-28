@@ -1,6 +1,6 @@
 import {
   BarChart3, Shield, Banknote, ClipboardList, BookOpen, Server, Code, Lock, Wrench,
-  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2,
+  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2, Coins,
   MessageSquare, HeadphonesIcon, AlertTriangle, Scale, UserCheck, FileText, Wallet,
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
@@ -236,6 +236,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Expense Report', icon: FileText, id: 'expense-report' },
         { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
         { label: 'Payout Reports', icon: Banknote, id: 'payout-reports' },
+        { label: 'Paid by Category', icon: Coins, id: 'paid-by-category' },
         { label: 'All Advances Report', icon: HandCoins, id: 'advances-report' },
         { label: 'House Listing Commission', icon: Home, id: 'house-listing-commission' },
         { label: 'Safety Buffer', icon: Shield, id: 'solvency' },

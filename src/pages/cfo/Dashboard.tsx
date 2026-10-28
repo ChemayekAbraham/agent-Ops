@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
+const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -684,6 +685,12 @@ export default function CFODashboardPage() {
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
+      case 'paid-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading paid-by-category report…</div>}>
+            <PaidByCategory />
+          </Suspense>
+        );
       case 'sms-otp-costs':
         return <SmsOtpCostsPanel />;
       case 'payout-reports':

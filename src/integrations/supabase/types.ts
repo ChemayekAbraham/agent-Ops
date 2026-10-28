@@ -69297,6 +69297,7 @@ export type Database = {
       }
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
+      _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
@@ -77620,6 +77621,44 @@ export type Database = {
           receipt_type: string
           received_at: string
           status: string
+        }[]
+      }
+      get_cfo_paid_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+        }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_paid_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          pct: number
+          sort_order: number
+          tx_count: number
         }[]
       }
       get_cfo_period_breakdown: {
