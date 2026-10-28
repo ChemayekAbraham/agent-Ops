@@ -463,3 +463,26 @@ Method: failing query text from `postgres_logs`, request URL and referer from `e
 - **Web push still 100% failing** (about 600 "Push failed" per 90 min across Mozilla, FCM and Apple endpoints): waiting on the new `VAPID_PUBLIC_KEY` in `src/lib/webPush.ts`.
 - `approve-withdrawal` WhatsApp `twilio_rejected_20003` (16): Twilio secrets, Josh.
 - Auth `/token` 400 (96) and `/user` 403 (21): wrong-password attempts and expired sessions; `get_receivables_total` 403 (20) and "Financial Ops only" (18) are role guards turning people away.
+
+## Step 51 (2026-10-28 ~15:30 UTC): third scan, silent write failures from edge functions
+
+**Method (reusable):** the API edge log shows `POST/PATCH /rest/v1/<table>` answered 400 from the Deno edge runtime with no matching Postgres error, which is PostgREST refusing an unknown column. Then every `.from(t).insert/upsert/update({...})` object literal in the `lovable` edge functions (1,804 table/key pairs) was compared with the live columns in one SQL statement. 16 tables had mismatches.
+
+**Fixed (migration `20261028210000_agent_earnings_currency_and_audit_logs_writer_columns.sql`, applied by hand, additive):**
+- **`agent_earnings.currency` (77 refusals in the window):** `approve-listing-bonus`, `credit-listing-bonus` and `disburse-rent-to-landlord` insert `currency: 'UGX'`; the column does not exist, PostgREST refused each insert, and the functions ignore the result. **Listing-bonus and rent-funded-bonus earnings history rows have not been written since the cutover (10-17).** Column added (default `'UGX'`), so new bonuses record. The missing history rows are NOT recreated; whether and how to backfill (the wallet credits themselves went through their own ledger path) is Josh's/finance's call.
+- **`audit_logs` (114 refusals in 12 hours, last 14:27):** twelve inserts send `new_data`, `performed_by`, `actor_id`, `details`, `target_user_id`, `is_proxy`, `audit_reason`. The biggest are `gmail-poll-transactions` (the withdrawal auto-approval trail, written every time a MoMo email auto-approves a withdrawal) and `approve-deposit`; also vendor login/receipts, admin identity edits, `recover-user-auth`, proxy funder registration. **Those audit rows were not stored.** Seven nullable columns added, and a before-insert default so a writer that sends `action` but not `action_type` (NOT NULL) is kept. Tested in a rolled-back transaction with the real shapes. Later clean-up: point the writers at `old_values` / `new_values` / `metadata` / `user_id`.
+
+**Found, not changed (needs a decision; each is code writing a column the table lacks):**
+
+| Table.column(s) | Writer | Effect |
+|---|---|---|
+| `profiles.registration_method` | `register-proxy-funder` | the profile upsert is refused; no repo migration defines the column |
+| `profiles.national_id_missing_notified_at` | `reject-unverified-payout-destinations` | defined by repo migration `20260915170000_reject_and_notify_no_id_payout_destinations.sql`, which (with its helper function) is not applied here; sweep would re-SMS the same users every run if it were scheduled |
+| `wallet_overdraw_events.attempted_by, attempted_amount, available_amount` | `wallet-cache-sweep` | over-request audit row lost (error swallowed) |
+| `system_events.actor_user_id` | `wallet-cache-sweep` | "constitution" state-change event lost (error swallowed); the column is `actor_id` |
+| `staff_requisitions.eyes` | `growth-commission-claim` | growth-commission requisition insert refused |
+| `loan_applications.approved_at, approved_by, rejected_reason` | `approve-loan-application` | approval update refused (loan feature likely retired) |
+| `staff_assistant_conversations.hidden_at, hidden_by_user, last_message_at`, `staff_assistant_messages.hidden_at, hidden_by_user` | `staff-assistant` | repo migrations `20261027100000` / `20261028110000` not applied (step 48) |
+| `wallet_withdrawal_otp_challenges.provider`, `vendors.pin`, `sms_delivery_log.code`, `notifications.Note/read`, `cash_deposit_verifications.stored`, `email_payout_match_attempts.debited`, `lending_audit_log.fee`, `finance_anomaly_scans.emails/phones`, `angel_pool_investments.groupId` | various | most are probably nested keys the scan mis-attributed (no matching 400s in the log); check before acting |
+
+Also found: `welile_signages` returns 404 (table does not exist; 2 calls), `process-email-queue` cron run failed with `job startup timeout` at 13:49 (just before the 13:51 restart), and an edge function PDF generation fails on a Hebrew character (`WinAnsi cannot encode "י"`; the standard PDF font has no non-Latin glyphs, so a name in another script breaks the document).
