@@ -55,7 +55,8 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
 
-// The progress fill travels primary -> secondary -> green across the seven steps.
+// The progress fill travels primary -> orange -> green across the seven steps.
+const ORANGE: Hsl = [28, 90, 55];
 type Hsl = [number, number, number];
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
@@ -70,12 +71,11 @@ const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => [
 ];
 const progressFill = (ratio: number): CSSProperties | undefined => {
   const primary = readHsl('--primary');
-  const secondary = readHsl('--secondary');
   const success = readHsl('--success');
-  if (!primary || !secondary || !success) return undefined;
+  if (!primary || !success) return undefined;
   const mixed = ratio <= 0.5
-    ? blendHsl(primary, secondary, ratio / 0.5)
-    : blendHsl(secondary, success, (ratio - 0.5) / 0.5);
+    ? blendHsl(primary, ORANGE, ratio / 0.5)
+    : blendHsl(ORANGE, success, (ratio - 0.5) / 0.5);
   return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
 };
 
