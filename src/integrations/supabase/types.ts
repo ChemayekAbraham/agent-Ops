@@ -77459,6 +77459,16 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_lunch_unlisted_recipients: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          full_name: string
+          payments: number
+          phone: string
+          user_id: string
+        }[]
+      }
       get_cfo_money_drilldown_totals: {
         Args: {
           p_from: string
