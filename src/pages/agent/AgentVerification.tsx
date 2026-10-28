@@ -141,7 +141,7 @@ export default function AgentVerification() {
             <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
             <div className="mb-7 space-y-3">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant="secondary">{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
+              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
               <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" />
               <nav className="grid grid-cols-7 gap-0.5" aria-label="Verification steps">{KYC_STEPS.map((s, index) => <Button key={s.title} variant={index === current ? 'default' : 'ghost'} size="icon" className="h-11 w-full min-w-0 rounded-md" disabled={busy} aria-label={`Step ${index + 1}: ${s.title}${done(index) ? ', complete' : ''}`} aria-current={index === current ? 'step' : undefined} onClick={() => goTo(index)}>{done(index) ? <Check className="h-4 w-4" /> : <span className="text-sm">{index + 1}</span>}</Button>)}</nav>
             </div>
@@ -175,7 +175,7 @@ function VerificationStatus({ vetting, submitted, onFix, onView, onEdit }: { vet
   const Icon = reviewing ? Clock3 : verified ? ShieldCheck : AlertTriangle;
   return <div className="mx-auto flex max-w-md flex-col items-center py-8 text-center">
     <div className="mb-7 flex h-28 w-28 items-center justify-center rounded-full border border-primary/20 bg-primary/5"><Icon className="h-12 w-12 text-primary" strokeWidth={1.5} /></div>
-    <Badge variant="secondary" className="mb-4">{reviewing ? VETTING_STATUS_LABEL.submitted : VETTING_STATUS_LABEL[vetting.status]}</Badge>
+    <Badge variant={reviewing ? 'secondary' : vetting.status === 'unverified' ? 'destructive' : 'secondary'} className="mb-4">{reviewing ? VETTING_STATUS_LABEL.submitted : VETTING_STATUS_LABEL[vetting.status]}</Badge>
     <h1 className="text-3xl font-semibold">{reviewing ? 'Verification in review' : verified ? "You're verified" : 'Action needed'}</h1>
     <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{reviewing ? "Agent Ops is checking your details. We'll let you know." : verified ? 'Your identity has been verified by Welile Agent Ops.' : 'Check the note from Agent Ops and update your details.'}</p>
     {!reviewing && !verified && vetting.review_note && <div className="mt-6 w-full rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-left"><p className="text-sm font-semibold text-destructive">Agent Ops review note</p><p className="mt-2 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
