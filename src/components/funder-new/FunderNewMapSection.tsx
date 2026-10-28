@@ -127,7 +127,7 @@ export function FunderNewMapSection({
             Use my location
           </Button>
         ) : !device && location.permission === 'denied' ? (
-          <p className="text-xs text-muted-foreground">Location is off \u2014 search an area instead</p>
+          <p className="text-xs text-muted-foreground">Location is off — search an area instead</p>
         ) : null}
       </div>
 
