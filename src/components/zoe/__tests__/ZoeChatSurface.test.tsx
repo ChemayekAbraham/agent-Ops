@@ -473,4 +473,89 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(screen.getByTestId('zoe-conv-rename-save-conv-1'));
     expect(onRenameConversation).toHaveBeenCalledWith('conv-1', 'October Stage Breakdown');
   });
+
+  it('renders Zoe notes drawer (view, add, reject figures/PII error, delete) and Glossary drawer with manager-only editor', async () => {
+    const onAddNote = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        error: 'Zoe notes can only store short personal preferences (no UGX figures).',
+      })
+      .mockResolvedValueOnce({ ok: true });
+    const onDeleteNote = vi.fn().mockResolvedValue({ ok: true });
+    const onSaveGlossaryEntry = vi.fn().mockResolvedValue({ ok: true });
+
+    const { unmount } = renderSurface({
+      messages: [],
+      roles: ['employee'],
+      notes: [
+        {
+          id: 'note-1',
+          noteText: 'Show Kampala West first',
+          createdAt: '2026-10-28T08:00:00Z',
+        },
+      ],
+      onAddNote,
+      onDeleteNote,
+      onSaveGlossaryEntry,
+    });
+
+    // Open Zoe notes drawer
+    fireEvent.click(screen.getByTestId('zoe-notes-toggle'));
+    expect(screen.getByTestId('zoe-notes-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-note-item-note-1')).toHaveTextContent('Show Kampala West first');
+
+    // Attempt to add a note rejected by the guard
+    fireEvent.change(screen.getByTestId('zoe-note-input'), {
+      target: { value: 'Target UGX 5,000,000' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-note-add-button'));
+    expect(await screen.findByTestId('zoe-note-error')).toHaveTextContent(
+      'Zoe notes can only store short personal preferences',
+    );
+
+    // Add a valid note
+    fireEvent.change(screen.getByTestId('zoe-note-input'), {
+      target: { value: 'Keep summaries under 5 bullet points' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-note-add-button'));
+    expect(onAddNote).toHaveBeenCalledWith('Keep summaries under 5 bullet points');
+
+    // Delete existing note
+    fireEvent.click(screen.getByTestId('zoe-note-delete-note-1'));
+    expect(onDeleteNote).toHaveBeenCalledWith('note-1');
+
+    // Open Glossary drawer as regular employee -> sees definitions & measurement gotchas, but NO manager form
+    fireEvent.click(screen.getByTestId('zoe-glossary-toggle'));
+    expect(screen.getByTestId('zoe-glossary-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-glossary-item-expected_vs_collected')).toBeInTheDocument();
+    expect(screen.queryByTestId('zoe-glossary-manager-form')).not.toBeInTheDocument();
+    unmount();
+
+    // Render as manager -> sees manager glossary editor and can save a term
+    renderSurface({
+      messages: [],
+      roles: ['manager'],
+      onSaveGlossaryEntry,
+    });
+    fireEvent.click(screen.getByTestId('zoe-glossary-toggle'));
+    expect(screen.getByTestId('zoe-glossary-manager-form')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('zoe-glossary-key-input'), {
+      target: { value: 'custom_term' },
+    });
+    fireEvent.change(screen.getByTestId('zoe-glossary-title-input'), {
+      target: { value: 'Custom Operational Term' },
+    });
+    fireEvent.change(screen.getByTestId('zoe-glossary-definition-input'), {
+      target: { value: 'Official definition for staff operations.' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-glossary-save-button'));
+    expect(onSaveGlossaryEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        termKey: 'custom_term',
+        termTitle: 'Custom Operational Term',
+        definition: 'Official definition for staff operations.',
+      }),
+    );
+  });
 });

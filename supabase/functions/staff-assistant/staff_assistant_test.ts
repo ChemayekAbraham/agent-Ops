@@ -59,9 +59,9 @@ import {
 
 // ---- provider settings ----------------------------------------------------------------------
 
-Deno.test("provider: uses Lovable AI Gateway and google/gemini-3-flash-preview", () => {
+Deno.test("provider: uses Lovable AI Gateway and configured model tiers (google/gemini-2.5-flash fast, google/gemini-2.5-pro deep)", () => {
   assertEquals(AI_GATEWAY_URL, "https://ai.gateway.lovable.dev/v1");
-  assertEquals(DEFAULT_ZOE_MODEL, "google/gemini-3-flash-preview");
+  assertEquals(DEFAULT_ZOE_MODEL, "google/gemini-2.5-flash");
 });
 
 // ---- output guard ---------------------------------------------------------------------------
@@ -252,8 +252,8 @@ Deno.test("request: bad ids, empty and oversized messages are rejected", () => {
 
 // ---- tool registry & role filtering ---------------------------------------------------------
 
-Deno.test("tools: all 59 assistant_staff_* tools are registered", () => {
-  assertEquals(STAFF_TOOLS.length, 59);
+Deno.test("tools: all 60 assistant_staff_* tools are registered", () => {
+  assertEquals(STAFF_TOOLS.length, 60);
   for (const t of STAFF_TOOLS) {
     assert(/^assistant_staff_[a-z_]+$/.test(t.rpc), `${t.name} -> ${t.rpc}`);
   }
@@ -261,6 +261,9 @@ Deno.test("tools: all 59 assistant_staff_* tools are registered", () => {
   const cashTool = findTool("get_cfo_treasury_cash_position")!;
   assertEquals(cashTool.rpc, "assistant_staff_cfo_treasury_cash_position");
   assert(cashTool.description.includes("get_treasury_cash_position"));
+  // Glossary tool must map to assistant_staff_get_glossary
+  const glossaryTool = findTool("get_welile_glossary")!;
+  assertEquals(glossaryTool.rpc, "assistant_staff_get_glossary");
 });
 
 Deno.test("tools: no tool exposes an identity parameter", () => {
@@ -275,16 +278,17 @@ Deno.test("tools: no tool exposes an identity parameter", () => {
 });
 
 Deno.test("tools: role filtering offers only tools permitted for the caller's roles", () => {
-  // Employee with no department ops role gets only the 11 personal My Space tools
+  // Employee with no department ops role gets the 11 personal My Space tools + get_welile_glossary (12 total)
   const employeeTools = toolsForRoles(["employee"]).map((t) => t.name);
-  assertEquals(employeeTools.length, 11);
-  assert(employeeTools.every((name) => name.startsWith("get_my_")));
+  assertEquals(employeeTools.length, 12);
+  assert(employeeTools.every((name) => name.startsWith("get_my_") || name === "get_welile_glossary"));
   assert(employeeTools.includes("get_my_reminders_and_schedules"));
   assert(employeeTools.includes("get_my_calls"));
+  assert(employeeTools.includes("get_welile_glossary"));
 
-  // Tenant Ops staff gets 11 My Space + 12 Tenant Ops + silent collectors + calling detailed report + 3 advisor tools (28 total)
+  // Tenant Ops staff gets 11 My Space + glossary + 12 Tenant Ops + silent collectors + calling detailed report + 3 advisor tools (29 total)
   const topsTools = toolsForRoles(["tenant_ops"]).map((t) => t.name);
-  assertEquals(topsTools.length, 28);
+  assertEquals(topsTools.length, 29);
   assert(topsTools.includes("get_tops_arrears_ageing"));
   assert(topsTools.includes("get_aops_silent_collectors"));
   assert(topsTools.includes("get_hr_calling_detailed_report"));
@@ -295,9 +299,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(!topsTools.includes("get_lops_paid_lists"));
   assert(!topsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Landlord Ops staff gets 11 My Space + 6 Landlord Ops + calling detailed report + 2 advisor tools (20 total)
+  // Landlord Ops staff gets 11 My Space + glossary + 6 Landlord Ops + calling detailed report + 2 advisor tools (21 total)
   const lopsTools = toolsForRoles(["landlord_ops"]).map((t) => t.name);
-  assertEquals(lopsTools.length, 20);
+  assertEquals(lopsTools.length, 21);
   assert(lopsTools.includes("get_lops_home_range"));
   assert(lopsTools.includes("get_lops_paid_lists"));
   assert(lopsTools.includes("get_lops_principal_comparison"));
@@ -306,9 +310,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(!lopsTools.includes("get_tops_arrears_ageing"));
   assert(!lopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Agent Ops staff gets 11 My Space + 5 Agent Ops + 2 advisor tools (18 total)
+  // Agent Ops staff gets 11 My Space + glossary + 5 Agent Ops + 2 advisor tools (19 total)
   const aopsTools = toolsForRoles(["agent_ops"]).map((t) => t.name);
-  assertEquals(aopsTools.length, 18);
+  assertEquals(aopsTools.length, 19);
   assert(aopsTools.includes("get_aops_metrics_totals"));
   assert(aopsTools.includes("get_aops_metrics_agents"));
   assert(aopsTools.includes("get_aops_listing_quality_and_risk"));
@@ -317,18 +321,18 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(aopsTools.includes("get_insight_collection_coverage_trends"));
   assert(!aopsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Partner Ops staff gets 11 My Space + 6 Partner Ops / PSO tools (17 total)
+  // Partner Ops staff gets 11 My Space + glossary + 6 Partner Ops / PSO tools (18 total)
   const popsTools = toolsForRoles(["partner_ops"]).map((t) => t.name);
-  assertEquals(popsTools.length, 17);
+  assertEquals(popsTools.length, 18);
   assert(popsTools.includes("get_pops_pending_summary"));
   assert(popsTools.includes("get_pops_report_overview"));
   assert(popsTools.includes("get_pops_search_supporters"));
   assert(popsTools.includes("get_pso_cohort_performance"));
   assert(!popsTools.includes("get_cfo_treasury_cash_position"));
 
-  // Financial Ops staff gets 11 My Space + principal comparison + partner report + 6 finance tools + payout delays insight (20 total)
+  // Financial Ops staff gets 11 My Space + glossary + principal comparison + partner report + 6 finance tools + payout delays insight (21 total)
   const fopsTools = toolsForRoles(["financial_ops"]).map((t) => t.name);
-  assertEquals(fopsTools.length, 20);
+  assertEquals(fopsTools.length, 21);
   assert(fopsTools.includes("get_cfo_treasury_cash_position"));
   assert(fopsTools.includes("get_cfo_receivables_and_payables"));
   assert(fopsTools.includes("get_cfo_seven_day_expenses"));
@@ -336,9 +340,9 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
   assert(fopsTools.includes("get_insight_payout_delays"));
   assert(!fopsTools.includes("get_cfo_money_flow_summary"));
 
-  // HR staff gets 11 My Space + 2 Landlord CC + PSO + 3 HR tools + calling insight (18 total)
+  // HR staff gets 11 My Space + glossary + 2 Landlord CC + PSO + 3 HR tools + calling insight (19 total)
   const hrTools = toolsForRoles(["hr"]).map((t) => t.name);
-  assertEquals(hrTools.length, 18);
+  assertEquals(hrTools.length, 19);
   assert(hrTools.includes("get_lops_calling_summary"));
   assert(hrTools.includes("get_hr_calling_detailed_report"));
   assert(hrTools.includes("get_hr_contracts_and_birthdays"));
@@ -348,7 +352,7 @@ Deno.test("tools: role filtering offers only tools permitted for the caller's ro
 
   // OpenAI tool list includes ask_clarification + manual_help + compute + 5 draft tools + role-filtered tools
   const employeeOpenAiTools = openAiToolsForRoles(["employee"]);
-  assertEquals(employeeOpenAiTools.length, 19);
+  assertEquals(employeeOpenAiTools.length, 20);
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_report_email"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_reminder"));
   assert(employeeOpenAiTools.some((t) => t.function.name === "draft_staff_notification"));
@@ -610,9 +614,9 @@ Deno.test("security: AI tool list contains zero tools that write or send directl
   ];
   const openAiTools = openAiToolsForRoles(allRoles);
 
-  // 54 read-only report tools + compute + get_staff_manual_help + ask_clarification + 4 draft-only tools = 61
-  assertEquals(STAFF_TOOLS.length, 54);
-  assertEquals(openAiTools.length, 61);
+  // 60 read-only report tools + compute + get_staff_manual_help + ask_clarification + 5 draft-only tools = 68
+  assertEquals(STAFF_TOOLS.length, 60);
+  assertEquals(openAiTools.length, 68);
 
   const forbiddenWritePrefixes = /^(create|insert|update|delete|drop|alter|approve|reject|send|transfer|post|debit|credit|cancel|write|mutate)_/i;
 
