@@ -233,38 +233,60 @@ export async function getOrCreateConversation(
   };
 
   if (conversationId) {
-    const { data } = await db
+    let { data, error: selErr } = await db
       .from("staff_assistant_conversations")
       .select("id, status, conversation_summary")
       .eq("id", conversationId)
       .eq("user_id", userId)
       .maybeSingle();
+    if (selErr) {
+      const fallback = await db
+        .from("staff_assistant_conversations")
+        .select("id, status")
+        .eq("id", conversationId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      data = fallback.data ? { ...fallback.data, conversation_summary: null } : null;
+    }
     if (data) {
       await db.from("staff_assistant_conversations").update(sessionPatch).eq("id", data.id);
       return {
         id: data.id,
         status: data.status,
-        memory: parseConversationMemory(data.conversation_summary),
+        memory: parseConversationMemory(
+          (data as Record<string, unknown>).conversation_summary ?? null,
+        ),
       };
     }
   }
 
-  const { data, error } = await db
+  let { data, error } = await db
     .from("staff_assistant_conversations")
     .insert({ user_id: userId, persona: "staff", ...sessionPatch })
     .select("id, status, conversation_summary")
     .single();
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_conversations")
+      .insert({ user_id: userId, persona: "staff", ...sessionPatch })
+      .select("id, status")
+      .single();
+    data = fallback.data ? { ...fallback.data, conversation_summary: null } : null;
+    error = fallback.error;
+  }
   if (error || !data) throw new Error(`could not create conversation: ${error?.message}`);
   return {
     id: data.id,
     status: data.status,
-    memory: parseConversationMemory(data.conversation_summary),
+    memory: parseConversationMemory(
+      (data as Record<string, unknown>).conversation_summary ?? null,
+    ),
   };
 }
 
 export async function loadRecentTurns(userId: string, conversationId: string): Promise<ChatMessage[]> {
   const db = admin();
-  const { data } = await db
+  let { data, error } = await db
     .from("staff_assistant_messages")
     .select("role, content")
     .eq("conversation_id", conversationId)
@@ -272,6 +294,17 @@ export async function loadRecentTurns(userId: string, conversationId: string): P
     .eq("hidden_by_user", false)
     .order("created_at", { ascending: false })
     .limit(RECENT_HISTORY_MESSAGES);
+
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_messages")
+      .select("role, content")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(RECENT_HISTORY_MESSAGES);
+    data = fallback.data;
+  }
 
   return (data ?? [])
     .reverse()
@@ -283,7 +316,7 @@ export async function loadLatestReportPayload(
   conversationId: string,
 ): Promise<Record<string, unknown> | null> {
   const db = admin();
-  const { data } = await db
+  let { data, error } = await db
     .from("staff_assistant_messages")
     .select("report_payload")
     .eq("conversation_id", conversationId)
@@ -293,6 +326,19 @@ export async function loadLatestReportPayload(
     .not("report_payload", "is", null)
     .order("created_at", { ascending: false })
     .limit(5);
+
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_messages")
+      .select("report_payload")
+      .eq("conversation_id", conversationId)
+      .eq("user_id", userId)
+      .eq("role", "assistant")
+      .not("report_payload", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    data = fallback.data;
+  }
 
   for (const row of data ?? []) {
     const rp = row?.report_payload;
@@ -306,45 +352,62 @@ export async function loadLatestReportPayload(
   return null;
 }
 
-export async function recordTurn(args: {
-  conversationId: string;
-  userId: string;
-  userMessage: string;
-  assistantMessage: string;
-  outcome: TurnOutcome;
-  toolsCalled?: string[];
-  sourceLabel?: string | null;
-  periodLabel?: string | null;
-  reportPayload?: Record<string, unknown> | null;
-  conversationSummary?: ConversationMemorySummary | null;
-  model?: string;
-  latencyMs?: number;
-}): Promise<{ userMessageId: string | null; assistantMessageId: string | null }> {
-  const db = admin();
-  const { data: inserted } = await db
+export async function recordTurn(
+  args: {
+    conversationId: string;
+    userId: string;
+    userMessage: string;
+    assistantMessage: string;
+    outcome: TurnOutcome;
+    toolsCalled?: string[];
+    sourceLabel?: string | null;
+    periodLabel?: string | null;
+    reportPayload?: Record<string, unknown> | null;
+    conversationSummary?: ConversationMemorySummary | null;
+    model?: string;
+    latencyMs?: number;
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<{ userMessageId: string | null; assistantMessageId: string | null }> {
+  const db = dbOverride ?? admin();
+  const userRow = {
+    conversation_id: args.conversationId,
+    user_id: args.userId,
+    role: "user" as const,
+    content: args.userMessage.slice(0, 8000),
+    outcome: null,
+    tools_called: [] as string[],
+    source_label: null,
+    period_label: null,
+    report_payload: null,
+    model: null,
+    latency_ms: null,
+  };
+  const assistantRow = {
+    conversation_id: args.conversationId,
+    user_id: args.userId,
+    role: "assistant" as const,
+    content: args.assistantMessage.slice(0, 8000),
+    outcome: args.outcome,
+    tools_called: args.toolsCalled ?? [],
+    source_label: args.sourceLabel ? args.sourceLabel.slice(0, 240) : null,
+    period_label: args.periodLabel ? args.periodLabel.slice(0, 120) : null,
+    report_payload: args.reportPayload ?? null,
+    model: args.model ? args.model.slice(0, 120) : null,
+    latency_ms: args.latencyMs ?? null,
+  };
+
+  let { data: inserted, error: insertErr } = await db
     .from("staff_assistant_messages")
-    .insert([
-      {
-        conversation_id: args.conversationId,
-        user_id: args.userId,
-        role: "user",
-        content: args.userMessage.slice(0, 8000),
-      },
-      {
-        conversation_id: args.conversationId,
-        user_id: args.userId,
-        role: "assistant",
-        content: args.assistantMessage.slice(0, 8000),
-        outcome: args.outcome,
-        tools_called: args.toolsCalled ?? [],
-        source_label: args.sourceLabel ? args.sourceLabel.slice(0, 240) : null,
-        period_label: args.periodLabel ? args.periodLabel.slice(0, 120) : null,
-        report_payload: args.reportPayload ?? null,
-        model: args.model ? args.model.slice(0, 120) : null,
-        latency_ms: args.latencyMs ?? null,
-      },
-    ])
+    .insert([userRow, assistantRow])
     .select("id, role");
+
+  if (insertErr || !inserted || inserted.length === 0) {
+    const uRes = await db.from("staff_assistant_messages").insert(userRow).select("id, role");
+    const aRes = await db.from("staff_assistant_messages").insert(assistantRow).select("id, role");
+    inserted = [...(uRes.data ?? []), ...(aRes.data ?? [])];
+  }
 
   const { data: conv } = await db
     .from("staff_assistant_conversations")
@@ -354,7 +417,7 @@ export async function recordTurn(args: {
 
   const nextTitle = conv?.title ?? args.userMessage.slice(0, 120);
   const nowIso = new Date().toISOString();
-  await db
+  const { error: convUpdateErr } = await db
     .from("staff_assistant_conversations")
     .update({
       last_active_at: nowIso,
@@ -364,6 +427,17 @@ export async function recordTurn(args: {
       ...(args.conversationSummary ? { conversation_summary: args.conversationSummary } : {}),
     })
     .eq("id", args.conversationId);
+
+  if (convUpdateErr) {
+    await db
+      .from("staff_assistant_conversations")
+      .update({
+        last_active_at: nowIso,
+        message_count: (conv?.message_count ?? 0) + 2,
+        title: nextTitle,
+      })
+      .eq("id", args.conversationId);
+  }
 
   const userMsg = (inserted ?? []).find((r) => r.role === "user");
   const assistantMsg = (inserted ?? []).find((r) => r.role === "assistant");
@@ -446,7 +520,7 @@ export async function loadConversationHistory(
   let targetId = conversationId ?? null;
 
   if (!targetId) {
-    const { data: conv } = await db
+    let { data: conv, error: convErr } = await db
       .from("staff_assistant_conversations")
       .select("id")
       .eq("user_id", userId)
@@ -455,12 +529,23 @@ export async function loadConversationHistory(
       .order("last_active_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (convErr) {
+      const fallback = await db
+        .from("staff_assistant_conversations")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("status", "open")
+        .order("last_active_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      conv = fallback.data;
+    }
     targetId = conv?.id ?? null;
   }
 
   if (!targetId) return { conversation_id: null, messages: [] };
 
-  const { data: rows } = await db
+  let { data: rows, error: rowsErr } = await db
     .from("staff_assistant_messages")
     .select(
       "id, role, content, outcome, tools_called, source_label, period_label, report_payload, created_at",
@@ -470,6 +555,19 @@ export async function loadConversationHistory(
     .eq("hidden_by_user", false)
     .order("created_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 50));
+
+  if (rowsErr) {
+    const fallback = await db
+      .from("staff_assistant_messages")
+      .select(
+        "id, role, content, outcome, tools_called, source_label, period_label, report_payload, created_at",
+      )
+      .eq("conversation_id", targetId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 50));
+    rows = fallback.data;
+  }
 
   return {
     conversation_id: targetId,
@@ -482,21 +580,39 @@ export async function listUserConversations(
   limit = 25,
 ): Promise<ConversationListItem[]> {
   const db = admin();
-  const { data } = await db
+  let { data, error } = await db
     .from("staff_assistant_conversations")
-    .select("id, title, message_count, last_active_at, created_at")
+    .select("id, title, message_count, last_active_at, started_at, created_at")
     .eq("user_id", userId)
     .eq("hidden_by_user", false)
     .order("last_active_at", { ascending: false })
     .limit(Math.min(Math.max(limit, 1), 40));
 
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    title: (typeof row.title === "string" && row.title.trim() ? row.title.trim() : "New chat"),
-    message_count: typeof row.message_count === "number" ? row.message_count : 0,
-    last_active_at: (row.last_active_at as string) ?? (row.created_at as string),
-    created_at: row.created_at as string,
-  }));
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_conversations")
+      .select("id, title, message_count, last_active_at, started_at")
+      .eq("user_id", userId)
+      .order("last_active_at", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 40));
+    data = (fallback.data ?? []).map((r) => ({ ...r, created_at: r.started_at }));
+  }
+
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    const createdAt =
+      (typeof r.created_at === "string" && r.created_at) ||
+      (typeof r.started_at === "string" && r.started_at) ||
+      (typeof r.last_active_at === "string" && r.last_active_at) ||
+      new Date().toISOString();
+    return {
+      id: r.id as string,
+      title: typeof r.title === "string" && r.title.trim() ? r.title.trim() : "New chat",
+      message_count: typeof r.message_count === "number" ? r.message_count : 0,
+      last_active_at: (r.last_active_at as string) ?? createdAt,
+      created_at: createdAt,
+    };
+  });
 }
 
 export async function createNewConversation(
@@ -508,7 +624,7 @@ export async function createNewConversation(
   const ua = parseUserAgent(meta.userAgent, meta.clientContext);
   const nowIso = new Date().toISOString();
   const cleanTitle = title?.trim() ? title.trim().slice(0, 120) : "New chat";
-  const { data, error } = await db
+  let { data, error } = await db
     .from("staff_assistant_conversations")
     .insert({
       user_id: userId,
@@ -522,15 +638,39 @@ export async function createNewConversation(
       device_browser: ua.browser,
       device_os: ua.os,
     })
-    .select("id, title, message_count, last_active_at, created_at")
+    .select("id, title, message_count, last_active_at, started_at, created_at")
     .single();
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_conversations")
+      .insert({
+        user_id: userId,
+        persona: "staff",
+        title: cleanTitle,
+        last_active_at: nowIso,
+        ip_address: meta.ipAddress?.slice(0, 64) ?? null,
+        user_agent: meta.userAgent?.slice(0, 512) ?? null,
+        device_class: ua.deviceClass,
+        device_browser: ua.browser,
+        device_os: ua.os,
+      })
+      .select("id, title, message_count, last_active_at, started_at")
+      .single();
+    data = fallback.data ? { ...fallback.data, created_at: fallback.data.started_at } : null;
+    error = fallback.error;
+  }
   if (error || !data) throw new Error(`could not create conversation: ${error?.message}`);
+  const row = data as Record<string, unknown>;
+  const createdAt =
+    (typeof row.created_at === "string" && row.created_at) ||
+    (typeof row.started_at === "string" && row.started_at) ||
+    nowIso;
   return {
-    id: data.id as string,
-    title: (data.title as string) ?? cleanTitle,
-    message_count: (data.message_count as number) ?? 0,
-    last_active_at: (data.last_active_at as string) ?? nowIso,
-    created_at: (data.created_at as string) ?? nowIso,
+    id: row.id as string,
+    title: (row.title as string) ?? cleanTitle,
+    message_count: (row.message_count as number) ?? 0,
+    last_active_at: (row.last_active_at as string) ?? nowIso,
+    created_at: createdAt,
   };
 }
 

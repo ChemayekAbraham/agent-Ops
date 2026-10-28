@@ -146,6 +146,32 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
     }
     if (val && typeof val === "object") {
       const obj = val as Record<string, unknown>;
+      if (typeof obj.expected === "number" && typeof obj.collected === "number") {
+        addNum(Math.max(0, obj.expected - obj.collected));
+      }
+      // If `obj` is a bucket map (e.g. `summary: { "1-7": { arrears_ugx, count }, ... }`),
+      // register the sum of bucket `arrears_ugx` and `count` across sibling buckets.
+      const childObjects = Object.values(obj).filter(
+        (v): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v)),
+      );
+      if (childObjects.length >= 2) {
+        let sumArrears = 0;
+        let hasArrears = false;
+        let sumCount = 0;
+        let hasCount = false;
+        for (const child of childObjects) {
+          if (typeof child.arrears_ugx === "number") {
+            sumArrears += child.arrears_ugx;
+            hasArrears = true;
+          }
+          if (typeof child.count === "number") {
+            sumCount += child.count;
+            hasCount = true;
+          }
+        }
+        if (hasArrears) addNum(sumArrears);
+        if (hasCount) addNum(sumCount);
+      }
       for (const [k, v] of Object.entries(obj)) {
         for (const m of k.matchAll(INTEGER_RE)) {
           addNum(Number(m[0].replace(/,/g, "")));
@@ -228,9 +254,10 @@ function scrubStructuralTokens(text: string): string {
     .replace(/\+?256\s*7[•*xX\d\s-]{6,14}\b/g, " ")
     .replace(/\b[A-Z]{2,5}-[A-Z0-9-]+\b/g, " ")
     .replace(/\b(?:A1|A5|A10|A19|A21|A22|L1|L9|X4|LC1|AAL1|AAL2|v\d+)\b/gi, " ")
-    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus)\b/gi, " ")
+    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus|30\+)\b/gi, " ")
     .replace(/\bfirst\s+7\s+days\b/gi, " ")
-    .replace(/\bweek[-_\s]?1\b/gi, " ")
+    .replace(/\b(?:week|wk)[-_\s]?\d+\b/gi, " ")
+    .replace(/\bday\s+[1-7]\b/gi, " ")
     .replace(/^\s*\d+[.)]\s+/gm, " ");
 }
 

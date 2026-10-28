@@ -30,16 +30,15 @@ export interface StaffTool {
 
 const EmptySchema = z.object({}).strict();
 
+const PeriodField = z.enum([...PERIODS, "custom"] as const).optional();
+
 const PeriodArgsSchema = z
   .object({
-    period: z.enum(PERIODS).optional(),
+    period: PeriodField,
     from: z.string().regex(ISO_DATE).optional(),
     to: z.string().regex(ISO_DATE).optional(),
   })
-  .strict()
-  .refine((v) => !(v.period && (v.from || v.to)), {
-    message: "Provide either `period` or `from`/`to`, not both.",
-  });
+  .strict();
 
 const periodProperties = {
   period: {
@@ -53,15 +52,15 @@ const periodProperties = {
 };
 
 function rangeArgs(parsed: Record<string, unknown>, defaultPeriod: Period = "last_30_days") {
-  if (typeof parsed.period === "string") {
-    const r = resolvePeriod(parsed.period as Period);
-    return { p_from: r.from, p_to: r.to };
-  }
   if (typeof parsed.from === "string" || typeof parsed.to === "string") {
     const today = kampalaToday();
     const from = (parsed.from as string | undefined) ?? (parsed.to as string);
     const to = (parsed.to as string | undefined) ?? today;
     return { p_from: from, p_to: to };
+  }
+  if (typeof parsed.period === "string" && parsed.period !== "custom") {
+    const r = resolvePeriod(parsed.period as Period);
+    return { p_from: r.from, p_to: r.to };
   }
   const r = resolvePeriod(defaultPeriod);
   return { p_from: r.from, p_to: r.to };
@@ -449,15 +448,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         frequency: z.enum(["daily", "weekly", "monthly"]).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_frequency: (p.frequency as string | undefined) ?? null,
@@ -739,15 +735,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         week_start: z.string().regex(ISO_DATE).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_7_days"),
       p_week_start: (p.week_start as string | undefined) ?? currentWednesdayWeekStart(),
@@ -804,15 +797,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         min_expected: z.number().min(0).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_min_expected: (p.min_expected as number | undefined) ?? 50000,
@@ -880,7 +870,7 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         search: SearchField.optional(),
@@ -901,10 +891,7 @@ export const STAFF_TOOLS: StaffTool[] = [
         scope: z.enum(["qualifying", "linked", "all"]).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_search: (p.search as string | undefined) ?? null,
@@ -935,15 +922,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         limit: z.number().int().min(1).max(100).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_limit: (p.limit as number | undefined) ?? 50,
@@ -1215,8 +1199,8 @@ export const STAFF_TOOLS: StaffTool[] = [
         ...periodProperties,
         days: {
           type: "integer",
-          minimum: 3,
-          maximum: 60,
+          minimum: 1,
+          maximum: 180,
           description: "Trailing window in days when explicit dates are not passed (default 14).",
         },
       },
@@ -1227,14 +1211,11 @@ export const STAFF_TOOLS: StaffTool[] = [
         period: z.enum(PERIODS).optional(),
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
-        days: z.number().int().min(3).max(60).optional(),
+        days: z.number().int().min(1).max(180).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => {
-      const days = (p.days as number | undefined) ?? 14;
+      const days = Math.min(Math.max((p.days as number | undefined) ?? 14, 3), 60);
       if (p.period || p.from || p.to) {
         return { p_days: days, ...rangeArgs(p, "last_30_days") };
       }
@@ -1538,15 +1519,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_limit: (p.limit as number | undefined) ?? 50,

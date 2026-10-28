@@ -40,7 +40,8 @@ import {
 } from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { cleanMessage, MAX_MESSAGE_CHARS, RequestSchema } from "./schemas.ts";
-import { RECENT_HISTORY_MESSAGES } from "./store.ts";
+import { RECENT_HISTORY_MESSAGES, recordTurn } from "./store.ts";
+import { renderZoeReportPdf } from "../_shared/zoeReportPdf.ts";
 import {
   canUseTool,
   findTool,
@@ -1493,4 +1494,168 @@ Deno.test("prompt 4: all 5 advisor insight tools exist, map to STABLE assistant_
     callerRoles: ["coo"],
   });
   assert(followUps.some((q) => q.includes("Ideas for Welile")));
+});
+
+Deno.test("prompt 1 live fixes: recordTurn sets tools_called=[] on user row, conversational greetings ('yoo wassup'), relaxed PeriodArgsSchema, guard bucket sums & expected-collected diff, and server PDF builder", async () => {
+  // 1. recordTurn sets tools_called: [] on userRow so PostgREST batch insert never violates NOT NULL
+  const insertedBatches: Array<Array<Record<string, unknown>>> = [];
+  const fakeAdmin = {
+    from: (table: string) => {
+      if (table === "staff_assistant_messages") {
+        return {
+          insert: async (rows: Array<Record<string, unknown>>) => {
+            insertedBatches.push(rows);
+            return { error: null };
+          },
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { id: "c-1", title: "New chat", message_count: 0 } }),
+          }),
+        }),
+        update: () => ({
+          eq: async () => ({ error: null }),
+        }),
+      };
+    },
+  };
+
+  await recordTurn(fakeAdmin, {
+    conversationId: "11111111-1111-4111-8111-111111111111",
+    userId: "22222222-2222-4222-8222-222222222222",
+    callerRoles: ["tenant_ops"],
+    userMessage: "Show Tenant Ops arrears ageing",
+    assistantContent: "Total arrears is UGX 1,450,000.",
+    outcome: "answered",
+    toolsCalled: ["get_tops_arrears_ageing"],
+    sourceLabel: "tops_arrears_ageing_amclock",
+    periodLabel: "as of 2026-10-26",
+    reportPayload: { rows: [] },
+    tokensIn: 120,
+    tokensOut: 80,
+    latencyMs: 350,
+    model: DEFAULT_ZOE_MODEL,
+  });
+
+  assertEquals(insertedBatches.length, 1);
+  assertEquals(insertedBatches[0].length, 2);
+  assertEquals(insertedBatches[0][0].role, "user");
+  assertEquals(insertedBatches[0][0].tools_called, []);
+  assertEquals(insertedBatches[0][1].role, "assistant");
+  assertEquals(insertedBatches[0][1].tools_called, ["get_tops_arrears_ageing"]);
+
+  // 2. Casual greetings ("yoo wassup", "wassup", "howdy") allowed without a tool call
+  assertEquals(isConversationalPromptAllowedWithoutTool("yoo wassup"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("wassup Zoe"), true);
+  assertEquals(isConversationalPromptAllowedWithoutTool("What is the arrears total?"), false);
+
+  // 3. Relaxed PeriodArgsSchema accepts both `period` and `from`/`to` simultaneously
+  const firstSevenTool = findTool("get_tops_first_seven_summary")!;
+  const parsedArgs = firstSevenTool.schema.safeParse({
+    period: "custom",
+    from: "2026-10-14",
+    to: "2026-10-20",
+  });
+  assertEquals(parsedArgs.success, true);
+
+  // 4. Guards ground bucket map sums (`summary` object) and `expected - collected` difference, and scrub "30+" / "Day 1..7"
+  const arrearsOut = JSON.stringify({
+    source: "tops_arrears_ageing_amclock",
+    as_of: "2026-10-26",
+    summary: {
+      "1-7": { count: 119, arrears_ugx: 15292479 },
+      "8-14": { count: 29, arrears_ugx: 4227928 },
+      "15-30": { count: 29, arrears_ugx: 11432009 },
+      "30+": { count: 22, arrears_ugx: 10948013 },
+    },
+  });
+  // Sum of counts = 199, sum of arrears_ugx = 41,900,429, plus "30+" bucket label
+  assertEquals(
+    checkAnswer(
+      "Across 199 overdue Rent Plans, total arrears is UGX 41,900,429, including 22 plans in the 30+ bucket (UGX 10,948,013).",
+      [arrearsOut],
+      "Show Tenant Ops arrears ageing",
+    ).ok,
+    true,
+  );
+
+  const f7dOut = JSON.stringify({
+    source: "tops_first_seven_summary",
+    from: "2026-10-01",
+    to: "2026-10-26",
+    summary: {
+      expected: 27770349,
+      collected: 8673041,
+      uncollected: 19097308,
+    },
+  });
+  assertEquals(
+    checkAnswer(
+      "For Days 1 to 7 (Day 1 through Day 7), expected was UGX 27,770,349, collected was UGX 8,673,041, and uncollected was UGX 19,097,308.",
+      [f7dOut],
+      "How did First 7 Days perform?",
+    ).ok,
+    true,
+  );
+
+  // 5. Server PDF builder (`renderZoeReportPdf`) renders landscape for >=6 columns, selects <=8 columns, and preserves accented characters
+  const pdfBytes = await renderZoeReportPdf({
+    report_title: "Tenant Ops Repayments & Collection Rate Report",
+    source: "get_tenant_ops_repayments",
+    period_label: "2026-10-01 to 2026-10-26",
+    generated_at: "26 Oct 2026, 09:30 EAT",
+    sender_name: "René Élodie Niyonkuru",
+    sender_email: "rene@welile.com",
+    summary_lines: [
+      "Tenant Ops recorded 2 Rent Plan repayment rows for 2026-10-01 to 2026-10-26.",
+      "Total Rent Amount is UGX 2,050,000 and Collected Total is UGX 1,750,000.",
+      "Figures come directly from get_tenant_ops_repayments.",
+    ],
+    headers: [
+      "Tenant Name",
+      "Phone",
+      "District",
+      "Region",
+      "Agent Name",
+      "Rent Amount",
+      "Collected Total",
+      "Outstanding",
+      "Due Date",
+      "Stage",
+    ],
+    rows: [
+      [
+        "René Élodie Niyonkuru",
+        "256701***111",
+        "Kampala",
+        "Central",
+        "François Mugisha",
+        1250000,
+        950000,
+        300000,
+        "2026-10-25",
+        "repaying",
+      ],
+      [
+        "Zoë Chloé Nabwire",
+        "256772***222",
+        "Wakiso",
+        "Central",
+        "André Byaruhanga",
+        800000,
+        800000,
+        0,
+        "2026-10-20",
+        "completed",
+      ],
+    ],
+  });
+  assert(pdfBytes instanceof Uint8Array);
+  assert(pdfBytes.byteLength > 1500);
+
+  // 6. System prompt enforces FILES ONLY WHEN ASKED
+  const sysPrompt = buildSystemPrompt(["tenant_ops"], "2026-10-26");
+  assert(sysPrompt.includes("FILES ONLY WHEN ASKED"));
 });

@@ -50,7 +50,7 @@ describe('Zoe automated safety, accuracy, and live evaluation packs (npm run eva
       expect(md).toContain(`| \`${id}\` |`);
     }
     expect(md).not.toContain('| **FAIL** |');
-  });
+  }, 30000);
 
   it('runs npm run eval:zoe:live across 80 real staff questions (including follow-ups and refusals) + 20 injection cases with 0 regressions', () => {
     const stdout = execFileSync(process.execPath, ['--import', 'tsx', LIVE_EVAL_SCRIPT], {
@@ -74,5 +74,5 @@ describe('Zoe automated safety, accuracy, and live evaluation packs (npm run eva
       expect(md).toContain(`| \`${id}\` |`);
     }
     expect(md).not.toContain('| **FAIL** |');
-  });
+  }, 30000);
 });

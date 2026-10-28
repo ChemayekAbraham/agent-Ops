@@ -73,7 +73,7 @@ export async function chatCompletion(opts: {
         body: JSON.stringify({
           model,
           temperature: 0,
-          max_tokens: opts.maxTokens ?? 450,
+          max_tokens: opts.maxTokens ?? 1800,
           messages: opts.messages,
           ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools, tool_choice: "auto" } : {}),
         }),

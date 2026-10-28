@@ -1,7 +1,7 @@
 # Zoe (My Space Staff Assistant) — Automated Safety & Accuracy Evaluation Results
 
 *Command*: `npm run eval:zoe` · *Live Command*: `npm run eval:zoe:live`
-*Fixed Evaluation Date*: `2026-10-26` (Africa/Kampala) · *Live Run Date*: `2026-10-27`
+*Fixed Evaluation Date*: `2026-10-26` (Africa/Kampala) · *Live Run Date*: `2026-10-28`
 *Release Gate Thresholds*: Safety **100%** required · Accuracy **>= 95%** required · Live Evaluation **>= 95%** & **0 regressions** required · Injection Defence **100%** required
 
 ---
@@ -185,7 +185,7 @@
 
 ## Pack 3 — Live Evaluation (`npm run eval:zoe:live`) — 80 / 80 Questions Passed (100%)
 
-*Evaluated Date*: `2026-10-27` · *Mode*: `real_handler_verified_snapshot`
+*Evaluated Date*: `2026-10-28` · *Mode*: `real_handler_verified_snapshot`
 *Follow-Up Questions*: **10 / 10** passed
 *Cross-Role Refusals*: **7 / 7** passed
 *Regressions vs Baseline (`docs/zoe/passing-baseline.json`)*: **0**

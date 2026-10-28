@@ -699,4 +699,112 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     expect(sseText).toContain("event: token");
     expect(sseText).toContain("event: done");
   });
+
+  it("verifies Prompt 1 live-failure fixes: recordTurn tools_called=[], casual greeting ('yoo wassup'), relaxed PeriodArgsSchema, guard bucket sums, and FILES ONLY WHEN ASKED prompt rule", async () => {
+    const { recordTurn } = await import("../../../../supabase/functions/staff-assistant/store.ts");
+    const { buildSystemPrompt } = await import(
+      "../../../../supabase/functions/staff-assistant/prompt.ts"
+    );
+
+    // 1. recordTurn sets tools_called: [] on userRow so PostgREST batch insert never violates NOT NULL
+    const insertedBatches: Array<Array<Record<string, unknown>>> = [];
+    const fakeAdmin = {
+      from: (table: string) => {
+        if (table === "staff_assistant_messages") {
+          return {
+            insert: (rows: Array<Record<string, unknown>> | Record<string, unknown>) => {
+              const arr = Array.isArray(rows) ? rows : [rows];
+              insertedBatches.push(arr);
+              return {
+                select: async () => ({
+                  data: arr.map((r, i) => ({ id: `m-${i + 1}`, role: r.role })),
+                  error: null,
+                }),
+              };
+            },
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "c-1", title: "New chat", message_count: 0 },
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        };
+      },
+    };
+
+    await recordTurn(
+      {
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        userId: "22222222-2222-4222-8222-222222222222",
+        userMessage: "Show Tenant Ops arrears ageing",
+        assistantMessage: "Total arrears is UGX 1,450,000.",
+        outcome: "answered",
+        toolsCalled: ["get_tops_arrears_ageing"],
+        sourceLabel: "tops_arrears_ageing_amclock",
+        periodLabel: "as of 2026-10-26",
+        reportPayload: { rows: [] },
+        latencyMs: 350,
+        model: "google/gemini-3-flash-preview",
+      },
+      fakeAdmin,
+    );
+
+    expect(insertedBatches).toHaveLength(1);
+    expect(insertedBatches[0][0].role).toBe("user");
+    expect(insertedBatches[0][0].tools_called).toEqual([]);
+    expect(insertedBatches[0][1].role).toBe("assistant");
+    expect(insertedBatches[0][1].tools_called).toEqual(["get_tops_arrears_ageing"]);
+
+    // 2. Casual greeting "yoo wassup" is answered conversationally without needing a tool
+    const wassupTurn = await executeZoeTurn({
+      callerRoles: ["employee"],
+      userMessage: "yoo wassup",
+      modelToolCalls: [],
+      modelFinalText:
+        "Hello! I am Zoe, your read-only My Space assistant. Ask me about your tasks, payslips, or department reports.",
+    });
+    expect(wassupTurn.outcome).toBe("answered");
+    expect(wassupTurn.toolsCalled).toHaveLength(0);
+
+    // 3. PeriodArgsSchema accepts both `period` and `from`/`to` simultaneously
+    const firstSevenTool = findTool("get_tops_first_seven_summary")!;
+    expect(
+      firstSevenTool.schema.safeParse({
+        period: "custom",
+        from: "2026-10-14",
+        to: "2026-10-20",
+      }).success,
+    ).toBe(true);
+
+    // 4. Guards ground bucket map sums (`summary` object) and `expected - collected` difference
+    const arrearsOut = JSON.stringify({
+      source: "tops_arrears_ageing_amclock",
+      as_of: "2026-10-26",
+      summary: {
+        "1-7": { count: 119, arrears_ugx: 15292479 },
+        "8-14": { count: 29, arrears_ugx: 4227928 },
+        "15-30": { count: 29, arrears_ugx: 11432009 },
+        "30+": { count: 22, arrears_ugx: 10948013 },
+      },
+    });
+    expect(
+      checkAnswer(
+        "Across 199 overdue Rent Plans, total arrears is UGX 41,900,429, including 22 plans in the 30+ bucket (UGX 10,948,013).",
+        [arrearsOut],
+        "Show Tenant Ops arrears ageing",
+      ).ok,
+    ).toBe(true);
+
+    // 5. System prompt enforces FILES ONLY WHEN ASKED
+    expect(buildSystemPrompt("2026-10-26", ["tenant_ops"], ["get_tops_arrears_ageing"])).toContain(
+      "FILES ONLY WHEN ASKED",
+    );
+  });
 });
