@@ -236,6 +236,7 @@ function PassportThumbnail({ path }: { path: string | null }) {
 
 function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']; compact?: boolean }) {
   const photos = useMyIdPhotos(id);
+  const locked = nationalIdOnFile(id).locked;
   const [zoom, setZoom] = useState<string | null>(null);
   return <div className="min-w-0 space-y-3">
     <div className="grid grid-cols-2 gap-2">
@@ -244,7 +245,7 @@ function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']
         return <div key={side} className="min-w-0">
           {url ? <Button variant="ghost" className={`h-auto min-h-11 w-full p-0 ${compact ? 'max-w-28' : ''}`} aria-label={`Enlarge National ID ${side}`} onClick={() => setZoom(url)}>
             <img src={url} alt={`National ID ${side}`} className="aspect-[1.586] w-full rounded-md border border-border object-contain" />
-          </Button> : <p className="flex min-h-11 items-center text-xs text-muted-foreground">{photos.isLoading ? 'Loading photo…' : id[`has_${side}`] ? `${side === 'front' ? 'Front' : 'Back'} photo saved${photos.isError ? ' · preview unavailable' : ''}` : `${side === 'front' ? 'Front' : 'Back'} photo missing`}</p>}
+          </Button> : <p className="flex min-h-11 items-center text-xs text-muted-foreground">{photos.isLoading ? 'Loading photo…' : id[`has_${side}`] ? `${side === 'front' ? 'Front' : 'Back'} photo saved${photos.isError ? ' · preview unavailable' : ''}` : (locked && side === 'back' ? 'Back photo not required' : `${side === 'front' ? 'Front' : 'Back'} photo missing`)}</p>}
         </div>;
       })}
     </div>
@@ -438,10 +439,11 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       {!usingParent ? (
         <div className="space-y-4">
           {onFile.state !== 'none' ? <section className="space-y-3 rounded-lg border border-primary/30 bg-card p-3">
-            <h2 className="text-sm font-semibold">National ID on file</h2>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">National ID on file</h2>{onFile.locked && <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Verified</Badge>}</div>
             <OwnIdSummary id={id} />
-            {onFile.state === 'partial' && <ul className="space-y-1 text-sm text-warning">{onFile.missing.map(part => <li key={part}>{part === 'number' ? 'Your National ID number is missing' : part === 'front' ? 'Front photo missing' : 'Back photo missing'}</li>)}</ul>}
-            {editable && <><Button variant="outline" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
+            {onFile.locked && <p className="text-sm leading-relaxed text-muted-foreground">Your National ID has already been verified by Admin. It can't be changed here; contact support if your details are wrong.</p>}
+            {!onFile.locked && onFile.state === 'partial' && <ul className="space-y-1 text-sm text-warning">{onFile.missing.map(part => <li key={part}>{part === 'number' ? 'Your National ID number is missing' : part === 'front' ? 'Front photo missing' : 'Back photo missing'}</li>)}</ul>}
+            {editable && !onFile.locked && <><Button variant="outline" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
           </section> : <>
           <div className="mx-auto flex aspect-[1.586] w-full max-w-sm flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-primary/40 bg-muted/30 px-3">
             <CreditCard className="h-10 w-10 text-primary" strokeWidth={1.5} />
