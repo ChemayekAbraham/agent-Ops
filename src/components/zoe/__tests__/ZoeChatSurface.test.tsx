@@ -491,8 +491,8 @@ describe('ZoeChatSurface', () => {
       notes: [
         {
           id: 'note-1',
-          noteText: 'Show Kampala West first',
-          createdAt: '2026-10-28T08:00:00Z',
+          note_text: 'Show Kampala West first',
+          created_at: '2026-10-28T08:00:00Z',
         },
       ],
       onAddNote,
@@ -552,9 +552,9 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(screen.getByTestId('zoe-glossary-save-button'));
     expect(onSaveGlossaryEntry).toHaveBeenCalledWith(
       expect.objectContaining({
-        termKey: 'custom_term',
-        termTitle: 'Custom Operational Term',
-        definition: 'Official definition for staff operations.',
+        slug: 'custom_term',
+        term: 'Custom Operational Term',
+        plain_definition: 'Official definition for staff operations.',
       }),
     );
   });

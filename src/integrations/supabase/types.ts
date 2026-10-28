@@ -77685,6 +77685,15 @@ export type Database = {
           pool: string
         }[]
       }
+      get_cfo_received_agent_products_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          product_key: string
+          product_label: string
+          tx_count: number
+        }[]
+      }
       get_cfo_received_by_category_page: {
         Args: {
           p_category?: string

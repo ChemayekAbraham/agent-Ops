@@ -71,54 +71,59 @@ const GLOSSARY_MANAGER_ROLES = new Set([
 
 export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
   {
-    termKey: 'expected_vs_collected',
-    termTitle: 'Expected vs Collected Repayments',
+    slug: 'expected_vs_collected',
+    term: 'Expected vs Collected Repayments',
     category: 'measurement_gotcha',
-    definition:
+    plain_definition:
       'Expected is the contractual daily or period repayment due on active Rent Plans; Collected is verified cash/wallet inflows posted to the general ledger.',
-    measurementGotcha:
+    measurement_gotcha:
       'Never subtract Collected from Total Disbursed to compute arrears; compare Collected against Expected Due to date on active plans.',
-    sourceNote: 'assistant_staff_tenant_ops_overview · assistant_staff_cfo_collections_summary',
+    official_source: 'assistant_staff_tenant_ops_overview · assistant_staff_cfo_collections_summary',
+    screen_path: "",
   },
   {
-    termKey: 'treasury_cash_vs_wallet_liability',
-    termTitle: 'Treasury Cash vs Wallet Liability',
+    slug: 'treasury_cash_vs_wallet_liability',
+    term: 'Treasury Cash vs Wallet Liability',
     category: 'measurement_gotcha',
-    definition:
+    plain_definition:
       'Treasury cash is physical/bank/mobile-money cash held by Welile (A1–A3), whereas wallet balances are liabilities owed to users or earmarked operational float.',
-    measurementGotcha:
+    measurement_gotcha:
       'A high wallet balance total is not free company cash; check Cash Position and CFO Overview for net available liquidity.',
-    sourceNote: 'assistant_staff_cfo_cash_and_wallets · Cash Position',
+    official_source: 'assistant_staff_cfo_cash_and_wallets · Cash Position',
+    screen_path: "",
   },
   {
-    termKey: 'active_rent_plan_clock',
-    termTitle: 'Active Rent Plan & Repayment Clock',
+    slug: 'active_rent_plan_clock',
+    term: 'Active Rent Plan & Repayment Clock',
     category: 'measurement_gotcha',
-    definition:
+    plain_definition:
       'A Rent Plan is in live repayment when status is funded or disbursed. Pre-disbursement stages (pending, tenant_ops_approved, landlord_ops_approved, coo_approved) are pipeline.',
-    measurementGotcha:
+    measurement_gotcha:
       'The daily repayment clock starts the day after landlord payout disbursement, not on the application date.',
-    sourceNote: 'assistant_staff_rent_pipeline_summary · assistant_staff_tenant_ops_overview',
+    official_source: 'assistant_staff_rent_pipeline_summary · assistant_staff_tenant_ops_overview',
+    screen_path: "",
   },
   {
-    termKey: 'agent_vs_sub_agent',
-    termTitle: 'Field Agent vs Sub-Agent',
+    slug: 'agent_vs_sub_agent',
+    term: 'Field Agent vs Sub-Agent',
     category: 'operations',
-    definition:
+    plain_definition:
       'Field agents onboard tenants and landlords directly; sub-agents are recruited under a parent agent and share a split on registration/commission pools.',
-    measurementGotcha:
+    measurement_gotcha:
       'Agent lending uses agents own capital and is excluded from company Receivables.',
-    sourceNote: 'assistant_staff_agent_ops_overview · assistant_staff_agent_commission_detail',
+    official_source: 'assistant_staff_agent_ops_overview · assistant_staff_agent_commission_detail',
+    screen_path: "",
   },
   {
-    termKey: 'regulatory_terminology',
-    termTitle: 'Mandatory Regulatory Terminology',
+    slug: 'regulatory_terminology',
+    term: 'Mandatory Regulatory Terminology',
     category: 'definition',
-    definition:
+    plain_definition:
       'Welile facilitates Rent Plans backed by Supporters who earn Returns.',
-    measurementGotcha:
+    measurement_gotcha:
       'Never use banned lending terms in staff or external copy; always use Rent Plan, Supporter, and Returns.',
-    sourceNote: 'Welile Compliance Policy',
+    official_source: 'Welile Compliance Policy',
+    screen_path: "",
   },
 ];
 
@@ -317,12 +322,12 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     if (!onSaveGlossaryEntry || !canManageGlossary) return;
     setGlossarySaveStatus(null);
     const res = await onSaveGlossaryEntry({
-      termKey: glossaryTermKey.trim(),
-      termTitle: glossaryTermTitle.trim(),
+      slug: glossaryTermKey.trim(),
+      term: glossaryTermTitle.trim(),
       category: glossaryCategory,
-      definition: glossaryDefinition.trim(),
-      measurementGotcha: glossaryGotcha.trim(),
-      sourceNote: glossarySourceNote.trim(),
+      plain_definition: glossaryDefinition.trim(),
+      measurement_gotcha: glossaryGotcha.trim(),
+      official_source: glossarySourceNote.trim(),
     });
     if (res.ok) {
       setGlossarySaveStatus('Saved glossary entry.');
@@ -524,11 +529,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   data-testid={`zoe-note-item-${n.id}`}
                   className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
                 >
-                  <span className="min-w-0 flex-1 break-words">{n.noteText}</span>
+                  <span className="min-w-0 flex-1 break-words">{n.note_text}</span>
                   {onDeleteNote && (
                     <button
                       type="button"
-                      aria-label={`Delete note ${n.noteText}`}
+                      aria-label={`Delete note ${n.note_text}`}
                       data-testid={`zoe-note-delete-${n.id}`}
                       onClick={() => void onDeleteNote(n.id)}
                       className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border bg-background px-2 text-xs text-muted-foreground hover:text-destructive"
@@ -561,21 +566,21 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           <div className="max-h-56 space-y-2 overflow-y-auto">
             {activeGlossaryEntries.map((entry) => (
               <div
-                key={entry.termKey}
-                data-testid={`zoe-glossary-item-${entry.termKey}`}
+                key={entry.slug}
+                data-testid={`zoe-glossary-item-${entry.slug}`}
                 className="rounded-lg border border-border bg-background p-2.5 text-xs space-y-1"
               >
                 <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <span className="font-semibold text-foreground">{entry.termTitle}</span>
+                  <span className="font-semibold text-foreground">{entry.term}</span>
                   <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                     {entry.category.replace(/_/g, ' ')}
                   </span>
                 </div>
-                <p className="text-foreground leading-relaxed">{entry.definition}</p>
-                {entry.measurementGotcha && (
+                <p className="text-foreground leading-relaxed">{entry.plain_definition}</p>
+                {entry.measurement_gotcha && (
                   <p className="text-muted-foreground leading-relaxed">
                     <span className="font-semibold text-foreground">Measurement gotcha: </span>
-                    {entry.measurementGotcha}
+                    {entry.measurement_gotcha}
                   </p>
                 )}
               </div>
