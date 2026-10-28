@@ -80907,7 +80907,12 @@ export type Database = {
         Returns: Json
       }
       get_withdrawal_history: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_roi_only?: boolean
+          p_search?: string
+        }
         Returns: {
           amount: number
           balance_after: number
@@ -80915,6 +80920,7 @@ export type Database = {
           bank_account_number: string
           bank_name: string
           created_at: string
+          is_roi_payout: boolean
           mobile_money_number: string
           mobile_money_provider: string
           payout_method: string
