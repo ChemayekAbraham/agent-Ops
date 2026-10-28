@@ -23,10 +23,25 @@ const estimateTotals = [
 ];
 const selectedTotals = estimateTotals.map(c => ({ ...c, amount: c.amount * 9, pct: 100 / 6 }));
 
-const codes = (s: string) => [...s].map(c => c.codePointAt(0)).join(',');
+function renderReport() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return render(<ReceivedByCategory />, { wrapper });
+}
 
-describe('scratch chars', () => {
-  it('compares expected and rendered money strings', async () => {
+const settled = (n: number) => {
+  try {
+    screen.getByText(formatUGX(n));
+    return 'FOUND';
+  } catch {
+    return 'missing';
+  }
+};
+
+describe('scratch settle', () => {
+  it('reports when the figure becomes queryable', async () => {
     vi.clearAllMocks();
     mocks.rpc.mockImplementation(async (name: string, args: any = {}) => {
       if (name === 'get_cfo_received_by_category_totals') {
@@ -35,15 +50,11 @@ describe('scratch chars', () => {
       if (name === 'get_cfo_received_by_category_page') return { data: [], error: null };
       return { data: [], error: null };
     });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-    const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    );
-    render(<ReceivedByCategory />, { wrapper });
-    await new Promise(r => setTimeout(r, 1500));
-    console.log('EXPECTED>>>', JSON.stringify(formatUGX(700_000)), codes(formatUGX(700_000)));
-    const node = [...document.querySelectorAll('p')].find(p => (p.textContent ?? '').includes('700,000'));
-    console.log('RENDERED>>>', JSON.stringify(node?.textContent ?? 'MISSING'), codes(node?.textContent ?? ''));
+    renderReport();
+    for (const ms of [0, 20, 100, 300, 1000]) {
+      await new Promise(r => setTimeout(r, ms));
+      console.log('SETTLE>>>', ms, settled(700_000));
+    }
     expect(true).toBe(true);
   });
 });
