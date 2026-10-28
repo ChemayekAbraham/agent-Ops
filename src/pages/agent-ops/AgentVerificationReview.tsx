@@ -80,7 +80,8 @@ export default function AgentVerificationReview() {
         </Tabs>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
+          {/* [&_input]:!pl-9 outranks index.css's ≤360px `.px-4 { padding-left … !important }`, which otherwise puts the text under the icon. */}
+          <div className="relative flex-1 [&_input]:!pl-9">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="min-h-11 pl-9" placeholder="Search name or phone" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
           </div>
