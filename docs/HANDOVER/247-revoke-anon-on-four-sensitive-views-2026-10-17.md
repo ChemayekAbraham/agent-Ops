@@ -447,3 +447,19 @@ Method: failing query text from `postgres_logs`, request URL and referer from `e
 **Not fixed, needs the UI owner: `invalid input syntax for type uuid: "null"` (43).** Same lookup shape (`select=id,full_name&id=in.(null,...)`), but the id list comes from a nullable column with no filter. A scan found 190 such lookups; full list in `docs/HANDOVER/247-appendix-unfiltered-profile-id-lookups-2026-10-28.md`. The shared client `src/integrations/supabase/client.ts` is generated ("do not edit"), so a central guard was not added. Fix per site is `ids.filter(isUuid)`.
 
 **Not fixed, source not found: `invalid column for filter user_id` (realtime, 68, last 11:36).** Every `user_id=eq` realtime filter in `lovable` is on a table that has the column; the caller is not in git.
+
+## Step 50 (2026-10-28 ~14:30 UTC): scan for more errors
+
+**Fixed:**
+- **50a `install_attempt_events` RLS refusal (2):** same cause as step 47b; before-insert trigger stores a mismatched `user_id` as null. Tested as anon.
+- **50b `update or delete on table "push_subscriptions" violates foreign key ...` (2):** removing an expired subscription was blocked by `tenant_notification_deliveries.push_subscription_id`, so dead endpoints were never removed and were retried on every send. FK is now `ON DELETE SET NULL` (column nullable; the 1,043 history rows keep everything else). Tested: delete of a subscription that has history succeeds.
+  Both in migration `20261028200000_install_attempt_events_null_foreign_user_and_push_delivery_fk_set_null.sql`.
+- **50c `HouseDetail.tsx` (house_reviews, 14 uuid errors "SR4Xgd", "KxEPbv", "ZpCeTK"):** the page passed the route parameter to `useHouseReviews`, and for a short-code link that is the short code, not the uuid. Now `useHouseReviews(listing?.id)`; the listing is already resolved by id or short_code on the same page. Short-code links showed no reviews before.
+- **50d `loginTelemetry.ts`, `value "4930851799" is out of range for type integer` (about 6 batches an hour):** the ring buffer kept in localStorage from an earlier visit anchored `ms_since_start` days in the past; PostgREST casts the JSON to int4 before any trigger runs, so a database clamp cannot catch it, and widening the 530 MB table to bigint was judged too heavy an operation while the database is restarting. Client now drops a ring older than an hour and caps the value at int4 max. Takes effect on deploy; note `lovable` has its own version of this file (see step 41/promotion), so this change needs a merge, not a blind cherry-pick.
+
+**Not changed, found:**
+- **`/rest/v1/rpc/ops_landlord_paid_unverified_count` returns 404 (332 in 90 minutes).** The function and its helper `_landlord_has_recorded_payout` do not exist in this database and are in no migration in git; only the `landlord-ops` edge function and `supabase/tests/landlord_paid_unverified.sql` reference them. The code already tolerates it (disables the "Paid · Not verified" chip), so nothing is broken for users, but the feature has never worked here. Lovable needs to supply the missing migration; not rebuilt from the test file.
+- **Database restarts continue (eight today).** See incident-log entry 8 update.
+- **Web push still 100% failing** (about 600 "Push failed" per 90 min across Mozilla, FCM and Apple endpoints): waiting on the new `VAPID_PUBLIC_KEY` in `src/lib/webPush.ts`.
+- `approve-withdrawal` WhatsApp `twilio_rejected_20003` (16): Twilio secrets, Josh.
+- Auth `/token` 400 (96) and `/user` 403 (21): wrong-password attempts and expired sessions; `get_receivables_total` 403 (20) and "Financial Ops only" (18) are role guards turning people away.

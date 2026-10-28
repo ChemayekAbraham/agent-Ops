@@ -162,7 +162,7 @@ export default function HouseDetail() {
   const [copied, setCopied] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   
-  const { reviews, summary, myReview, loading: reviewsLoading, refetch: refetchReviews } = useHouseReviews(id);
+  const { reviews, summary, myReview, loading: reviewsLoading, refetch: refetchReviews } = useHouseReviews(listing?.id);
 
   useEffect(() => {
     if (!id) return;
