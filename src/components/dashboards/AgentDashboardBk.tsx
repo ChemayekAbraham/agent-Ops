@@ -984,13 +984,13 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
-      void import('@/pages/YourProfile');
-      void import('@/pages/AgentServiceCenter');
-      void import('@/components/auth/ProxyAgentGuard');
-      void import('@/pages/agent/ProxyPerformanceDashboard');
-      void import('@/pages/AgentCommissionBenefits');
-      void import('@/pages/MerchandiseStore');
-      void import('@/pages/Settings');
+      void import('@/pages/YourProfile').catch(() => {});
+      void import('@/pages/AgentServiceCenter').catch(() => {});
+      void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+      void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+      void import('@/pages/AgentCommissionBenefits').catch(() => {});
+      void import('@/pages/MerchandiseStore').catch(() => {});
+      void import('@/pages/Settings').catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -1115,14 +1115,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       icon: ShoppingBag,
       label: 'Buy Merchandise',
       onClick: () => { hapticTap(); navigate('/merchandise'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
   ];
 
