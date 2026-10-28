@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -153,7 +153,7 @@ export default function AgentVerification() {
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => navigate('/dashboard/agent')} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex-1"><p className="text-sm font-semibold">Welile KYC</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
-          <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
+          <Fingerprint className="h-6 w-6 text-primary" aria-hidden="true" />
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-5 py-4 sm:py-7">
