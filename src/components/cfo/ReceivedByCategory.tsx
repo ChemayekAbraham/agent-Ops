@@ -66,6 +66,19 @@ const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'custom', label: 'Custom' },
 ];
 
+/**
+ * Recovery kinds inside "Agent Products and Services". The server decides which kind a
+ * payment is (`_cfo_received_agent_product_for`), so the same rule drives the tile split
+ * and this filter — the two can never disagree.
+ */
+type ProductTypeKey = 'all' | 'smartphone' | 'bike' | 'advance';
+
+const PRODUCT_TYPES: { key: Exclude<ProductTypeKey, 'all'>; label: string }[] = [
+  { key: 'smartphone', label: 'Smartphone recoveries' },
+  { key: 'bike', label: 'Bike recoveries' },
+  { key: 'advance', label: 'Agent advance repayments' },
+];
+
 export function resolveReceivedWindow(kind: PresetKey, from: string, to: string): { from: string; to: string; label: string } {
   const today = kampalaDate();
   switch (kind) {
