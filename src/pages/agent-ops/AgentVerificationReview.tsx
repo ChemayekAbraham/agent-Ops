@@ -197,9 +197,9 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
 
   const Photo = ({ url, alt }: { url: string | null | undefined; alt: string }) =>
     url ? (
-      <button onClick={() => setZoom(url)} className="block">
+      <Button variant="ghost" aria-label={`Enlarge ${alt}`} onClick={() => setZoom(url)} className="block h-auto min-h-11 w-full min-w-0 p-0">
         <img src={url} alt={alt} className="h-32 w-full rounded-lg border border-border object-cover" />
-      </button>
+      </Button>
     ) : <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">No {alt.toLowerCase()}</div>;
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
