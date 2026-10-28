@@ -552,9 +552,9 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(screen.getByTestId('zoe-glossary-save-button'));
     expect(onSaveGlossaryEntry).toHaveBeenCalledWith(
       expect.objectContaining({
-        termKey: 'custom_term',
-        termTitle: 'Custom Operational Term',
-        definition: 'Official definition for staff operations.',
+        slug: 'custom_term',
+        term: 'Custom Operational Term',
+        plain_definition: 'Official definition for staff operations.',
       }),
     );
   });
