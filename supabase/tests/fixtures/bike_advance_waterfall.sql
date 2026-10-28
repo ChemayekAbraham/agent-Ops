@@ -1,5 +1,9 @@
 -- Isolated PostgreSQL fixture only. Never load this schema into a connected project.
-CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+DO $$ BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated; END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role; END IF;
+END $$;
 CREATE SCHEMA auth; CREATE SCHEMA net; CREATE SCHEMA vault;
 CREATE TABLE vault.decrypted_secrets(name text,decrypted_secret text);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('test.user',true),'')::uuid $$;
