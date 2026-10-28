@@ -61,7 +61,7 @@ describe('CFO Paid by Category', () => {
       const grandTile = screen.getByText('Grand total paid').closest('div')!;
       expect(flat(grandTile)).toMatch(/UGX10[,.\u00a0\u202f]?000/);
     });
-    const landlordTile = screen.getByTitle('Landlord Float');
+    const landlordTile = screen.getByTitle('Landlord Float').closest('button')!;
     expect(flat(landlordTile)).toMatch(/30transactions·30\.00%oftotal/);
   });
 
@@ -75,8 +75,8 @@ describe('CFO Paid by Category', () => {
   it('pages the transaction table from the server', async () => {
     renderReport();
     await screen.findByTitle('Landlord Float');
-    const landlordRow = await screen.findByText('Test Landlord', {}, { timeout: 4000 });
-    expect(landlordRow).toBeInTheDocument();
+    const landlordRows = await screen.findAllByText('Test Landlord', {}, { timeout: 4000 });
+    expect(landlordRows.length).toBe(2);
     const next = screen.getByRole('button', { name: 'Next page' });
     expect(next).not.toBeDisabled();
     fireEvent.click(next);
