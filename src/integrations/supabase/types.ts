@@ -8576,45 +8576,66 @@ export type Database = {
         Row: {
           action: string | null
           action_type: string
+          actor_id: string | null
+          audit_reason: string | null
           created_at: string | null
+          details: Json | null
           id: string
           ip_address: string | null
+          is_proxy: boolean | null
           metadata: Json | null
+          new_data: Json | null
           new_values: Json | null
           old_values: Json | null
+          performed_by: string | null
           reason: string | null
           record_id: string | null
           table_name: string | null
+          target_user_id: string | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action?: string | null
           action_type: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string | null
           action_type?: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
