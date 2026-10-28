@@ -79,6 +79,7 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     measurement_gotcha:
       'Never subtract Collected from Total Disbursed to compute arrears; compare Collected against Expected Due to date on active plans.',
     official_source: 'assistant_staff_tenant_ops_overview · assistant_staff_cfo_collections_summary',
+    screen_path: "",
   },
   {
     slug: 'treasury_cash_vs_wallet_liability',
@@ -89,6 +90,7 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     measurement_gotcha:
       'A high wallet balance total is not free company cash; check Cash Position and CFO Overview for net available liquidity.',
     official_source: 'assistant_staff_cfo_cash_and_wallets · Cash Position',
+    screen_path: "",
   },
   {
     slug: 'active_rent_plan_clock',
@@ -99,6 +101,7 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     measurement_gotcha:
       'The daily repayment clock starts the day after landlord payout disbursement, not on the application date.',
     official_source: 'assistant_staff_rent_pipeline_summary · assistant_staff_tenant_ops_overview',
+    screen_path: "",
   },
   {
     slug: 'agent_vs_sub_agent',
@@ -109,6 +112,7 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     measurement_gotcha:
       'Agent lending uses agents own capital and is excluded from company Receivables.',
     official_source: 'assistant_staff_agent_ops_overview · assistant_staff_agent_commission_detail',
+    screen_path: "",
   },
   {
     slug: 'regulatory_terminology',
@@ -119,6 +123,7 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     measurement_gotcha:
       'Never use banned lending terms in staff or external copy; always use Rent Plan, Supporter, and Returns.',
     official_source: 'Welile Compliance Policy',
+    screen_path: "",
   },
 ];
 
