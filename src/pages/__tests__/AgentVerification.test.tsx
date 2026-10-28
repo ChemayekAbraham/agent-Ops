@@ -55,7 +55,7 @@ describe('Agent KYC navigation and existing actions', () => {
   it('uses existing submit and opens missing requirements immediately with step navigation', async () => {
     state.value.vetting.residence.district = 'Wakiso';
     mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Step 7: Review and submit' }));
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     const dialog = await screen.findByRole('dialog');
     expect(state.value.submit).toHaveBeenCalledTimes(1);
