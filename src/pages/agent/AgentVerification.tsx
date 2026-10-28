@@ -81,9 +81,9 @@ const progressFill = (ratio: number): CSSProperties | undefined => {
   const primary = readHsl('--primary');
   const success = readHsl('--success');
   if (!primary || !success) return undefined;
-  const mixed = ratio <= 0.5
-    ? blendHsl(primary, ORANGE, ratio / 0.5)
-    : blendHsl(ORANGE, success, (ratio - 0.5) / 0.5);
+  const mixed = ratio <= ORANGE_AT
+    ? blendHsl(primary, ORANGE, ratio / ORANGE_AT)
+    : blendHsl(ORANGE, success, (ratio - ORANGE_AT) / (1 - ORANGE_AT));
   return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
 };
 
