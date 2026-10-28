@@ -562,6 +562,16 @@ export function PromissoryNotesQueue({
 
   const notes = report.notes;
   const kpis = report.kpis;
+  // Fulfilment % is measured only over notes whose partner came in (promised vs collected on those notes).
+  const cameInFulfilledPct = (() => {
+    let promised = 0; let collected = 0;
+    for (const n of report.notes as any[]) {
+      if (!n.came_in) continue;
+      promised += Number(n.amount) || 0;
+      collected += Number(n.total_collected) || 0;
+    }
+    return promised > 0 ? Math.round((collected / promised) * 100) : 0;
+  })();
 
   const agentNoteCounts = useMemo(() => {
     const map = new Map<string, number>();
@@ -857,7 +867,7 @@ export function PromissoryNotesQueue({
     { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200', metric: 'partners_came_in' },
     { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200', metric: 'partners_with_portfolio' },
     { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200', metric: 'receivable' },
-    { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${Math.round(Number(kpis.promised_total) > 0 ? (Number(kpis.fulfilled_total) / Number(kpis.promised_total)) * 100 : 0)}%`, tone: 'bg-sky-50 border-sky-200', metric: 'promised_total' },
+    { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${cameInFulfilledPct}% of notes that came in`, tone: 'bg-sky-50 border-sky-200', metric: 'promised_total' },
     { label: 'Proxy agents', value: kpis.proxy_agents, hint: `${kpis.proxies_approved} approved`, tone: 'bg-violet-50 border-violet-200', metric: 'proxy_agents' },
     { label: 'Lead attachments', value: kpis.lead_attachments, hint: 'active proxy attachments', tone: 'bg-muted/40 border-border', metric: 'lead_attachments' },
     { label: 'Pending commission', value: <CompactAmount value={Number(kpis.pending_commission)} />, hint: `${kpis.pending_commission_count} requests`, tone: 'bg-amber-50 border-amber-200', metric: 'pending_commission' },
