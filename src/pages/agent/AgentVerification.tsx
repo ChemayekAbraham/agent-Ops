@@ -64,11 +64,15 @@ const readHsl = (token: string): Hsl | null => {
   const parts = raw.match(/^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
   return parts ? [Number(parts[1]), Number(parts[2]), Number(parts[3])] : null;
 };
-const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => [
-  from[0] + (to[0] - from[0]) * t,
-  from[1] + (to[1] - from[1]) * t,
-  from[2] + (to[2] - from[2]) * t,
-];
+const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => {
+  // Take the short way round the colour wheel, so purple -> orange runs through red.
+  const hueDelta = (((to[0] - from[0] + 540) % 360) - 180) * t;
+  return [
+    (from[0] + hueDelta + 720) % 360,
+    from[1] + (to[1] - from[1]) * t,
+    from[2] + (to[2] - from[2]) * t,
+  ];
+};
 const progressFill = (ratio: number): CSSProperties | undefined => {
   const primary = readHsl('--primary');
   const success = readHsl('--success');
