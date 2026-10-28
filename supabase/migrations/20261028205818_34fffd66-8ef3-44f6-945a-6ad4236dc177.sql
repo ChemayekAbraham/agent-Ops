@@ -1,8 +1,3 @@
--- PENDING — not applied. Reporting-only: Money Out classifies agent bonuses,
--- rewards and commissions recorded as marketing_expense under Agent Products
--- and Services ('agent'). Referral bonuses move only when the recipient holds
--- the agent role. The partner rule stays first, so nothing is counted twice.
--- No ledger, wallet or payment records are touched.
 DO $mig$
 DECLARE
   v_old constant text := $o$OR g.description LIKE 'Marketing expense: Partner repeat fund-in commission%') THEN 'partner'$o$;
