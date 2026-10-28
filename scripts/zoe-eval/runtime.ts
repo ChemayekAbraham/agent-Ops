@@ -31,6 +31,7 @@ import {
   GuardResult,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  validateZoeNoteText,
 } from "../../supabase/functions/staff-assistant/guards.ts";
 import {
   handleStaffAssistantRequest,
@@ -38,6 +39,14 @@ import {
   StaffAssistantHandlerDeps,
   StaffAssistantStoreDeps,
 } from "../../supabase/functions/staff-assistant/index.ts";
+import { isConversationalPromptAllowedWithoutTool } from "../../supabase/functions/staff-assistant/manualHelp.ts";
+import {
+  buildRollingConversationSummary,
+  formatZoeNotesForPrompt,
+  MAX_ZOE_NOTES_PER_USER,
+  synthesizePartialStepLimitReply,
+  ZoeUserNote,
+} from "../../supabase/functions/staff-assistant/memory.ts";
 import { MSG } from "../../supabase/functions/staff-assistant/messages.ts";
 import {
   buildMorningBriefForCaller,
@@ -46,8 +55,25 @@ import {
   MorningBriefPayload,
   selectRoleBriefToolNames,
 } from "../../supabase/functions/staff-assistant/morningBrief.ts";
-import type { ChatMessage, OpenAiTool } from "../../supabase/functions/staff-assistant/openai.ts";
-import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "../../supabase/functions/staff-assistant/prompt.ts";
+import {
+  type ChatMessage,
+  DEFAULT_CHAT_MAX_TOKENS,
+  DEFAULT_CHAT_TEMPERATURE,
+  DEFAULT_MAX_COST_USD_PER_QUESTION,
+  DEFAULT_ZOE_MODEL_DEEP,
+  DEFAULT_ZOE_MODEL_FAST,
+  estimateCallCostUsd,
+  isDeepQuestion,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  type OpenAiTool,
+  selectModelTier,
+} from "../../supabase/functions/staff-assistant/openai.ts";
+import {
+  buildSystemPrompt,
+  SCOPE_CHECK_PROMPT,
+  STATIC_SYSTEM_PROMPT_PREFIX,
+} from "../../supabase/functions/staff-assistant/prompt.ts";
 import { cleanMessage, RequestSchema } from "../../supabase/functions/staff-assistant/schemas.ts";
 import type { BudgetCheckResult } from "../../supabase/functions/staff-assistant/store.ts";
 import {
@@ -84,6 +110,7 @@ export {
   buildReminderDraft,
   buildReportEmailDraft,
   buildReportScheduleDraft,
+  buildRollingConversationSummary,
   buildStaffNotificationDraft,
   buildSystemPrompt,
   canUseTool,
@@ -94,15 +121,24 @@ export {
   containsPromptOrSecretLeak,
   currentWednesdayWeekStart,
   deduplicatePayloadArrays,
+  DEFAULT_CHAT_MAX_TOKENS,
+  DEFAULT_CHAT_TEMPERATURE,
+  DEFAULT_MAX_COST_USD_PER_QUESTION,
   DEFAULT_MAX_EMAILS_PER_DAY,
+  DEFAULT_ZOE_MODEL_DEEP,
+  DEFAULT_ZOE_MODEL_FAST,
   describeToolsForRoles,
   DraftReportEmailArgsSchema,
+  estimateCallCostUsd,
   extractRecipientQuery,
   extractReportTableFromFreshRpc,
   findTool,
   formatPeriodLabel,
+  formatZoeNotesForPrompt,
   handleStaffAssistantRequest,
   handleStaffAssistantSendEmail,
+  isConversationalPromptAllowedWithoutTool,
+  isDeepQuestion,
   isDirectPromptInjection,
   isEmailFromToolData,
   isHistoryMessageAllowedForRoles,
@@ -110,6 +146,9 @@ export {
   isValueFromToolDataOnly,
   isWriteMutationIntent,
   kampalaToday,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  MAX_ZOE_NOTES_PER_USER,
   MORNING_BRIEF_CANDIDATE_TOOLS,
   MSG,
   normalizeStaffRecipients,
@@ -121,9 +160,13 @@ export {
   sanitizeUntrustedFreeText,
   sanitizeWelileTermsServer,
   SCOPE_CHECK_PROMPT,
+  selectModelTier,
   selectRoleBriefToolNames,
   STAFF_TOOLS,
+  STATIC_SYSTEM_PROMPT_PREFIX,
+  synthesizePartialStepLimitReply,
   toolsForRoles,
+  validateZoeNoteText,
   ZOE_REPORT_EMAIL_DISPLAY_NAME,
   ZOE_REPORT_EMAIL_TEMPLATE,
 };
@@ -147,6 +190,7 @@ export type {
   ZoeNotificationDraft,
   ZoeReminderDraft,
   ZoeScheduleDraft,
+  ZoeUserNote,
 };
 
 /**
@@ -197,10 +241,12 @@ export interface ExecuteZoeTurnInput {
   requestExtraFields?: Record<string, unknown>;
   scopeClassification?: "in_scope" | "out_of_scope";
   modelToolCalls?: SimulatedToolCall[];
+  modelToolCallRounds?: SimulatedToolCall[][];
   modelFinalText?: string;
   rpcDataByTool?: Record<string, Record<string, unknown> | { errorCode: string; message: string }>;
   staffDirectory?: StaffEmailRecipient[];
   recentTurns?: ChatMessage[];
+  userNotes?: ZoeUserNote[];
   latestReportPayload?: Record<string, unknown> | null;
   budgetCheckResult?: BudgetCheckResult;
   recipientCanReadReport?: boolean;
@@ -229,6 +275,8 @@ export interface ExecuteZoeTurnResult {
   emailsSentCount: number;
   modelMessagesSeen: ChatMessage[][];
   savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }>;
+  modelTier?: "fast" | "deep";
+  statusSteps?: string[];
 }
 
 const ENABLED_STAFF_ROLES = new Set([
@@ -369,15 +417,20 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           toolsOfferedFromRound = opts.tools.map((t) => t.function.name);
         }
         const currentRound = chatRound++;
-        const configuredCalls = input.modelToolCalls ?? [];
-        if (currentRound === 0 && configuredCalls.length > 0) {
+        const roundsList =
+          input.modelToolCallRounds ??
+          (input.modelToolCalls && input.modelToolCalls.length > 0
+            ? [input.modelToolCalls]
+            : []);
+        const configuredCalls = roundsList[currentRound] ?? [];
+        if (configuredCalls.length > 0) {
           return {
-            model: "google/gemini-3-flash-preview",
+            model: opts.model ?? "google/gemini-2.5-flash",
             message: {
               role: "assistant",
               content: null,
               tool_calls: configuredCalls.map((c, idx) => ({
-                id: `call_${idx + 1}`,
+                id: `call_r${currentRound + 1}_${idx + 1}`,
                 type: "function" as const,
                 function: {
                   name: c.name,
@@ -388,7 +441,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           };
         }
         return {
-          model: "google/gemini-3-flash-preview",
+          model: opts.model ?? "google/gemini-2.5-flash",
           message: {
             role: "assistant",
             content: input.modelFinalText ?? "",
@@ -405,12 +458,21 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           maxQuestionsPerDay: 50,
           maxModelRounds: 4,
           maxToolCalls: 6,
+          maxDeepModelRounds: 8,
+          maxDeepToolCalls: 12,
+          modelFast: "google/gemini-2.5-flash",
+          modelDeep: "google/gemini-2.5-pro",
+          temperature: 0.2,
+          maxTokens: 3200,
+          maxCostUsdPerQuestion: 0.08,
         },
       getOrCreateConversation: async (_uid, convId) => ({
         id: convId ?? "11111111-2222-4333-8444-555555555555",
         status: "open",
+        rollingSummary: null,
       }),
       loadRecentTurns: async () => input.recentTurns ?? [],
+      listUserNotes: async () => input.userNotes ?? [],
       loadLatestReportPayload: async () => input.latestReportPayload ?? null,
       recordTurn: async (args) => {
         recordedToolsCalled = args.toolsCalled ?? [];
@@ -486,6 +548,13 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
       emailsSentCount: 0,
       modelMessagesSeen,
       savedDrafts,
+      modelTier:
+        resBody.model_tier === "deep" || resBody.model_tier === "fast"
+          ? resBody.model_tier
+          : undefined,
+      statusSteps: Array.isArray(resBody.status_steps)
+        ? (resBody.status_steps as string[])
+        : undefined,
     };
   });
 }

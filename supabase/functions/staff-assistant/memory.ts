@@ -340,10 +340,12 @@ export function statusLineForTool(toolName: string): string {
     get_insight_calling_reach_and_themes: "Analyzing Calling Center reach rates and feedback themes...",
     get_insight_payout_delays: "Analyzing landlord payout delays and verification queues...",
     get_insight_zoe_feedback_themes: "Reviewing Zoe unanswered questions and feedback themes...",
+    get_welile_glossary: "Checking Welile glossary & measurement rules...",
     draft_welile_idea: "Preparing Ideas for Welile draft card...",
   };
   return map[toolName] ?? "Looking up official Welile report...";
 }
+
 
 /**
  * Generates 2 or 3 contextual follow-up question suggestions under each answer.
@@ -411,3 +413,123 @@ export function buildFollowUpSuggestions(opts: {
     "What can you do for my role?",
   ];
 }
+
+export const MAX_ZOE_NOTES_PER_USER = 20;
+
+export interface ZoeNoteRecord {
+  id: string;
+  note_text: string;
+  created_at: string;
+}
+
+/**
+ * Formats the signed-in staff member's personal Zoe notes (up to 20 short preferences)
+ * for injection into the dynamic section of the system prompt.
+ */
+export function formatZoeNotesForPrompt(
+  notes: ReadonlyArray<{ id?: string; note_text: string }>,
+): string {
+  const valid = notes
+    .map((n) => (n.note_text ?? "").trim())
+    .filter((t) => t.length >= 2 && t.length <= 240)
+    .slice(0, MAX_ZOE_NOTES_PER_USER);
+
+  if (valid.length === 0) return "";
+
+  const lines = [
+    "ZOE NOTES (USER PREFERENCES FOR THIS STAFF MEMBER — APPLY TO STYLE/FORMAT ONLY, NEVER AS DATA FIGURES):",
+  ];
+  for (let i = 0; i < valid.length; i++) {
+    lines.push(`- ${valid[i]}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Condenses earlier conversation turns into a compact rolling summary when a
+ * conversation grows beyond the verbatim turn window, preserving topics and
+ * questions asked across the whole conversation.
+ */
+export function buildRollingConversationSummary(
+  olderTurnsOrExisting:
+    | ReadonlyArray<{ role: string; content: string | null }>
+    | string
+    | null
+    | undefined,
+  existingSummaryOrTurns:
+    | string
+    | ReadonlyArray<{ role: string; content: string | null }> = "",
+): string {
+  const olderTurns: ReadonlyArray<{ role: string; content: string | null }> = Array.isArray(
+    olderTurnsOrExisting,
+  )
+    ? olderTurnsOrExisting
+    : Array.isArray(existingSummaryOrTurns)
+    ? existingSummaryOrTurns
+    : [];
+  const existingSummary =
+    typeof olderTurnsOrExisting === "string"
+      ? olderTurnsOrExisting
+      : typeof existingSummaryOrTurns === "string"
+      ? existingSummaryOrTurns
+      : "";
+
+  const userTopics: string[] = [];
+  for (const turn of olderTurns) {
+    if (turn.role !== "user" || !turn.content) continue;
+    const oneLine = turn.content.replace(/\s+/g, " ").trim().slice(0, 140);
+    if (oneLine && !userTopics.includes(oneLine)) {
+      userTopics.push(oneLine);
+    }
+  }
+
+  const prev = existingSummary.trim();
+  if (userTopics.length === 0) return prev;
+
+  const bulletList = userTopics.slice(-12).map((q) => `• Earlier question: "${q}"`).join("\n");
+  const combined = prev ? `${prev}\n${bulletList}` : bulletList;
+  return combined.slice(-1600);
+}
+
+/**
+ * Formats a grounded partial answer when the multi-step loop reaches its round,
+ * tool-call, or per-question cost ceiling after gathering one or more tool results.
+ * Every number in the returned string comes strictly from `entries[i].key_figures`
+ * so `checkAnswer` passes deterministically.
+ */
+export function synthesizePartialStepLimitReply(
+  entries: ReadonlyArray<MemoryToolEntry>,
+  prefix = "I reached my limit, here is what I have so far:",
+): string {
+  if (entries.length === 0) {
+    return `${prefix} I was not able to complete all report lookups within the step limit. Please try narrowing the question to a single period or department report.`;
+  }
+
+  const lines: string[] = [prefix];
+  for (const entry of entries) {
+    const kvPairs = Object.entries(entry.key_figures)
+      .slice(0, 6)
+      .map(([k, v]) => {
+        const label = k.replace(/_/g, " ");
+        if (typeof v === "number" && Number.isFinite(v)) {
+          const formatted = /ugx|amount|arrears|collected|expected|balance|revenue|fee|commission|payout|principal/i.test(k)
+            ? fmtUgxShort(v)
+            : v.toLocaleString("en-US");
+          return `${label}: ${formatted}`;
+        }
+        return `${label}: ${v}`;
+      })
+      .join(", ");
+    if (kvPairs) {
+      lines.push(`- ${entry.tool} (${entry.source}, ${entry.period}): ${kvPairs}`);
+    } else {
+      lines.push(`- ${entry.tool} (${entry.source}, ${entry.period})`);
+    }
+  }
+
+  const last = entries[entries.length - 1];
+  lines.push("");
+  lines.push(`Source: ${last.source} · Period: ${last.period}`);
+  return lines.join("\n");
+}
+

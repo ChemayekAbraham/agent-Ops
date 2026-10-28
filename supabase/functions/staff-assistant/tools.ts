@@ -1764,7 +1764,68 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_days: (p.days as number | undefined) ?? 28,
     }),
   },
+
+  // ===========================================================================
+  // GROUP J — WELILE GLOSSARY & MEASUREMENT GOTCHAS (PROMPT 2 ITEM 6)
+  // ===========================================================================
+  {
+    name: "get_welile_glossary",
+    rpc: "assistant_staff_get_glossary",
+    description:
+      "Read-only Welile glossary & measurement gotchas (stored in staff_assistant_glossary, editable by managers on screen). Defines official Welile terms and measurement rules: Expected vs Collected Rent (daily bill vs receipt book, on-schedule vs arrears, capped vs uncapped), Treasury Cash Position (A1+A5) vs Agent Float (A2), Active Rent Plan & Repayment Clock (am_plan_clock), Agent vs Sub-Agent attribution & 20% eligibility, Wallet buckets (withdrawable, float, advance, locked), regulatory wording (Rent Plan, Supporter, Returns), Landlord payout verification, and Calling Center Wednesday-to-Tuesday Kampala weeks & 15-minute deduplication.",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description:
+            "Optional keyword search (e.g. 'expected vs collected', 'treasury cash', 'repayment clock', 'agent vs sub-agent', 'wallet buckets').",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ],
+          description: "Optional glossary category filter.",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField.optional(),
+        category: z
+          .enum([
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: (p.search as string | undefined) ?? null,
+      p_category: (p.category as string | undefined) ?? null,
+    }),
+  },
 ];
+
 
 /**
  * Pseudo-tool handled in the edge function (never calls the database): lets the model ask
