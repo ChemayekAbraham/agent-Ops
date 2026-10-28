@@ -84,7 +84,7 @@ describe('ReceivedByCategory (Money In)', () => {
     expect(screen.queryByText(/Projected Money In/i)).toBeNull();
     expect(screen.getByText(/All received transactions/i)).toBeTruthy();
     // Genuine income is reported separately from the grand total.
-    expect(screen.getByText(/genuine income/i)).toBeTruthy();
+    expect(screen.getAllByText(/genuine income/i).length).toBeGreaterThan(0);
   });
 
   it('sends the chosen category, with no product type until one is picked', async () => {
@@ -100,7 +100,7 @@ describe('ReceivedByCategory (Money In)', () => {
 
     renderReport();
     await screen.findByText('All received transactions');
-    fireEvent.click(screen.getByRole('button', { name: /Agent Products and Services/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Agent Products and Services/ }));
 
     await waitFor(() => expect(pageRpc).toHaveBeenCalledWith(
       'get_cfo_received_by_category_page',
@@ -125,7 +125,7 @@ describe('ReceivedByCategory (Money In)', () => {
     // No type control while every category is shown.
     expect(screen.queryByRole('group', { name: 'Recovery type' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /Agent Products and Services/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Agent Products and Services/ }));
 
     const bar = await screen.findByRole('group', { name: 'Recovery type' });
     // Counts come from the server split, so the pills and the tile always agree.
@@ -156,7 +156,7 @@ describe('ReceivedByCategory (Money In)', () => {
 
     renderReport();
     await screen.findByText('All received transactions');
-    fireEvent.click(screen.getByRole('button', { name: /Agent Products and Services/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Agent Products and Services/ }));
     const bar = await screen.findByRole('group', { name: 'Recovery type' });
     fireEvent.click(within(bar).getByRole('button', { name: /Smartphone recoveries/ }));
     await waitFor(() => expect(pageRpc).toHaveBeenCalledWith(
@@ -164,7 +164,7 @@ describe('ReceivedByCategory (Money In)', () => {
       expect.objectContaining({ p_type: 'smartphone' }),
     ));
 
-    fireEvent.click(screen.getByRole('button', { name: /Land Products and Services/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Land Products and Services/ }));
     await waitFor(() => expect(pageRpc).toHaveBeenCalledWith(
       'get_cfo_received_by_category_page',
       expect.objectContaining({ p_category: 'land', p_type: null }),
