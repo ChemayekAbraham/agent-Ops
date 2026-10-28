@@ -360,9 +360,15 @@ Deno.serve(async (req) => {
       // Peer wallet_transfer credits are shielded from advance sweep.
       // `get_agent_sweepable_withdrawable` returns strict withdrawable minus any
       // untouched peer-to-peer transfer inflows since the oldest active advance.
+      // This server-owned transaction collects the bike quota first. Posting below
+      // rechecks the same priority under its lock, so a stale snapshot cannot debit it.
       const { data: availRaw, error: availErr } = await supabase
-        .rpc('get_agent_sweepable_withdrawable', { p_user_id: advance.agent_id });
-      if (availErr) console.error(`[process-agent-advance-deductions] sweepable_withdrawable error for agent ${advance.agent_id}:`, availErr);
+        .rpc('_prepare_bike_priority', { p_agent: advance.agent_id });
+      if (availErr) {
+        console.error(`[process-agent-advance-deductions] bike priority unavailable for agent ${advance.agent_id}:`, availErr);
+        skipped.push(advance.id);
+        continue;
+      }
       const withdrawableSnapshot = Math.max(0, Number(availRaw ?? 0));
 
       // emit repayment_attempted
@@ -486,6 +492,7 @@ Deno.serve(async (req) => {
         // Nothing was written, so the advance is simply skipped, exactly as it
         // was when the daybook insert was a separate call.
         const guardRejected = msg.includes('ADVANCE_LEDGER_STALE_OPENING')
+          || msg.includes('BIKE_PRIORITY_RECALCULATE')
           || msg.includes('ADVANCE_LEDGER_OVER_COLLECTION')
           || msg.includes('ADVANCE_LEDGER_DAILY_CAP');
         console.error(

@@ -73,6 +73,9 @@ DO $patch$
 DECLARE d text; old text; new text;
 BEGIN
  d := pg_get_functiondef('public.recover_merchandise_from_wallets(uuid,date)'::regprocedure);
+ old := 'v_amount := floor(LEAST(v_due, v_cap_remaining, v_avail, v_plan.outstanding_balance));';
+ new := E'SELECT x.bike INTO v_amount FROM public._bike_priority_split(floor(v_avail),v_cap_remaining,0,LEAST(v_due,v_plan.outstanding_balance)) x;';
+ IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Bike amount drift'; END IF; d := replace(d,old,new);
  old := 'AND CASE WHEN p_test_agent IS NULL THEN NOT COALESCE(pr.is_test, false) ELSE p.customer_id = p_test_agent END';
  new := old || E'\n      AND (NULLIF(current_setting(''welile.bike_priority_agent'',true),'''') IS NULL OR p.customer_id::text=current_setting(''welile.bike_priority_agent'',true))';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Bike scope drift'; END IF; d := replace(d,old,new);
@@ -114,7 +117,7 @@ BEGIN
 
  d := pg_get_functiondef('public.record_advance_deduction_atomic(uuid,uuid,date,numeric,numeric,numeric,numeric,text,text,numeric,text,numeric,text,jsonb,text,jsonb)'::regprocedure);
  old := E'  INSERT INTO public.agent_advance_ledger';
- new := E'  PERFORM public._prepare_bike_priority(p_agent_id);\n  PERFORM 1 FROM public.agent_advances WHERE id=p_advance_id AND agent_id=p_agent_id FOR UPDATE;\n  IF COALESCE(p_amount_deducted,0)>public._prepare_bike_priority(p_agent_id) THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Bike payment has priority; refresh recovery amounts'' USING ERRCODE=''40001'';\n  END IF;\n  INSERT INTO public.agent_advance_ledger';
+ new := E'  PERFORM public._prepare_bike_priority(p_agent_id);\n  PERFORM 1 FROM public.agent_advances WHERE id=p_advance_id AND agent_id=p_agent_id FOR UPDATE;\n  IF NOT FOUND THEN RAISE EXCEPTION ''Advance owner mismatch'' USING ERRCODE=''42501''; END IF;\n  IF COALESCE(p_amount_deducted,0)>public._prepare_bike_priority(p_agent_id) THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Bike payment has priority; refresh recovery amounts'' USING ERRCODE=''40001'';\n  END IF;\n  INSERT INTO public.agent_advance_ledger';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Atomic deduction drift'; END IF;
  d := replace(d,old,new); EXECUTE d;
 END $patch$;
