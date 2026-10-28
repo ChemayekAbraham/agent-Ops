@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentVetting } from '@/hooks/useAgentVetting';
+import { useMyIdPhotos } from '@/hooks/useMyIdPhotos';
 import { identityPhotoUrl } from '@/hooks/useIdentityPhotos';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
@@ -21,7 +22,7 @@ import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocation
 import VettingMap from '@/components/agent-vetting/VettingMap';
 import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
 import {
-  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress,
+  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress, nationalIdOnFile,
   type AgentVetting, type VettingStepKey,
 } from '@/lib/agentVetting';
 
@@ -233,13 +234,41 @@ function PassportThumbnail({ path }: { path: string | null }) {
   return url ? <img src={url} alt="Passport photo" className="h-24 w-20 rounded-md border border-border object-cover" /> : <p>{path ? 'Passport photo saved' : 'Not added'}</p>;
 }
 
+function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']; compact?: boolean }) {
+  const photos = useMyIdPhotos(id);
+  const [zoom, setZoom] = useState<string | null>(null);
+  return <div className="min-w-0 space-y-3">
+    <div className="grid grid-cols-2 gap-2">
+      {(['front', 'back'] as const).map(side => {
+        const url = photos.data?.[side];
+        return <div key={side} className="min-w-0">
+          {url ? <Button variant="ghost" className={`h-auto min-h-11 w-full p-0 ${compact ? 'max-w-28' : ''}`} aria-label={`Enlarge National ID ${side}`} onClick={() => setZoom(url)}>
+            <img src={url} alt={`National ID ${side}`} className="aspect-[1.586] w-full rounded-md border border-border object-contain" />
+          </Button> : <p className="flex min-h-11 items-center text-xs text-muted-foreground">{photos.isLoading ? 'Loading photo…' : id[`has_${side}`] ? `${side === 'front' ? 'Front' : 'Back'} photo saved${photos.isError ? ' · preview unavailable' : ''}` : `${side === 'front' ? 'Front' : 'Back'} photo missing`}</p>}
+        </div>;
+      })}
+    </div>
+    <div className="space-y-1 break-words text-sm">
+      <p>Name on ID: {id.name_on_id ?? 'Not on file'}</p>
+      <p className="font-mono">NIN: {id.nin_masked ?? 'Not on file'}</p>
+      {id.front_uploaded_at && <p className="text-xs text-muted-foreground">Uploaded {fmt(id.front_uploaded_at)}</p>}
+    </div>
+    <Dialog open={!!zoom} onOpenChange={open => { if (!open) setZoom(null); }}>
+      <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-lg">
+        <DialogHeader><DialogTitle>National ID photo</DialogTitle></DialogHeader>
+        {zoom && <img src={zoom} alt="Enlarged National ID" className="max-h-[70dvh] w-full object-contain" />}
+      </DialogContent>
+    </Dialog>
+  </div>;
+}
+
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
   const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
     <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
-    <div className="space-y-1"><p>{v.national_id.source === 'parent' ? "Parent agent's National ID" : 'Own National ID'}</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div>,
+    v.national_id.source === 'parent' ? <div className="space-y-1"><p>Parent agent's National ID</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div> : <OwnIdSummary id={v.national_id} compact />,
     <PassportThumbnail path={v.passport_photo.path} />,
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
     <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
@@ -385,6 +414,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
   const link = v.parentIdLink;
   const [captureOpen, setCaptureOpen] = useState(false);
   const usingParent = id.source === 'parent';
+  const onFile = nationalIdOnFile(id);
   const parentName = parent?.name ?? 'your parent agent';
 
   const openCapture = () => guard(() => setCaptureOpen(true));
@@ -407,6 +437,12 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       {usingParent && id.reason && <p className="text-sm">{id.reason}</p>}
       {!usingParent ? (
         <div className="space-y-4">
+          {onFile.state !== 'none' ? <section className="space-y-3 rounded-lg border border-primary/30 bg-card p-3">
+            <h2 className="text-sm font-semibold">National ID on file</h2>
+            <OwnIdSummary id={id} />
+            {onFile.state === 'partial' && <ul className="space-y-1 text-sm text-warning">{onFile.missing.map(part => <li key={part}>{part === 'number' ? 'Your National ID number is missing' : part === 'front' ? 'Front photo missing' : 'Back photo missing'}</li>)}</ul>}
+            {editable && <><Button variant="outline" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
+          </section> : <>
           <div className="mx-auto flex aspect-[1.586] w-full max-w-sm flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-primary/40 bg-muted/30 px-3">
             <CreditCard className="h-10 w-10 text-primary" strokeWidth={1.5} />
             <p className="text-sm font-medium">{id.has_front ? 'Back of National ID' : 'Front of National ID'}</p>
@@ -421,6 +457,8 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
               </p>
             </>
           ) : null}
+          {editable && <Button variant="outline" className="min-h-11" onClick={openCapture}><Camera className="h-4 w-4 mr-2" />Add my National ID</Button>}
+          </>}
           {id.linked_to && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
               {id.reason && <p className="text-sm">{id.reason}</p>}
@@ -431,11 +469,6 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
                 </Button>
               )}
             </div>
-          )}
-          {editable && (
-            <Button variant="outline" className="min-h-11" onClick={openCapture}>
-              <Camera className="h-4 w-4 mr-2" />{id.nin_masked ? 'Re-upload ID photos' : 'Add my National ID'}
-            </Button>
           )}
         </div>
       ) : (
@@ -471,7 +504,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       )}
 
       <Dialog open={captureOpen} onOpenChange={(o) => !o && closeCapture()}>
-        <DialogContent className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_#nid-nin]:[-webkit-text-security:disc] [&_button]:min-h-11">
+        <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_button]:min-h-11">
           <DialogHeader><DialogTitle>National ID photos</DialogTitle></DialogHeader>
           <IdentityPhotoCapture />
           <Button variant="outline" className="min-h-11 w-full" onClick={closeCapture}>Done</Button>

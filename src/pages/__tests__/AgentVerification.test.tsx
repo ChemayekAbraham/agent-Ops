@@ -7,6 +7,7 @@ import { parseAgentVetting } from '@/lib/agentVetting';
 const state = vi.hoisted(() => ({ value: {} as Record<string, any> }));
 vi.mock('@/hooks/useAgentVetting', () => ({ useAgentVetting: () => state.value }));
 vi.mock('@/hooks/useIdentityPhotos', () => ({ identityPhotoUrl: vi.fn().mockResolvedValue(null) }));
+vi.mock('@/hooks/useMyIdPhotos', () => ({ useMyIdPhotos: () => ({ data: { front: '/test-front.png', back: '/test-back.png' } }) }));
 vi.mock('@/components/wallet/IdentityPhotoCapture', () => ({ default: () => null }));
 vi.mock('@/components/location/UgLocationPicker', () => ({ UgLocationPicker: () => null }));
 vi.mock('@/components/agent-vetting/VettingMap', () => ({ default: () => null }));
@@ -26,6 +27,53 @@ beforeEach(() => {
 });
 
 describe('Agent KYC navigation and existing actions', () => {
+  const identityStep = () => {
+    state.value.vetting.residence.district = 'Wakiso';
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  };
+
+  it('shows the complete on-file ID and opens the existing replacement dialog', () => {
+    Object.assign(state.value.vetting.national_id, { source: 'own', has_front: true, has_back: true, nin_masked: 'CM0*******QTOE', name_on_id: 'Example Agent', front_uploaded_at: '2026-10-27T10:00:00Z' });
+    identityStep();
+    expect(screen.getByText('Name on ID: Example Agent')).toBeInTheDocument();
+    expect(screen.getByText('NIN: CM0*******QTOE')).toBeInTheDocument();
+    expect(screen.queryByText('Flat surface')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add my National ID' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Replace ID photos' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('lets a partial ID upload missing parts without inline identifier edits', () => {
+    Object.assign(state.value.vetting.national_id, { source: 'own', has_front: true, has_back: false, nin_masked: null });
+    identityStep();
+    expect(screen.getByText('Your National ID number is missing')).toBeInTheDocument();
+    expect(screen.getAllByText('Back photo missing').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('textbox', { name: /NIN|Name on ID/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Upload missing photos' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('enlarges own ID photos without replacing or submitting anything', () => {
+    Object.assign(state.value.vetting.national_id, { has_front: true, has_back: true, nin_masked: 'CM0*******QTOE' });
+    identityStep();
+    fireEvent.click(screen.getByRole('button', { name: 'Enlarge National ID front' }));
+    expect(screen.getByRole('img', { name: 'Enlarged National ID' })).toHaveAttribute('src', '/test-front.png');
+    expect(state.value.submit).not.toHaveBeenCalled();
+  });
+
+  it('confirms before replacing a verified ID', () => {
+    state.value.vetting.status = 'verified';
+    Object.assign(state.value.vetting.national_id, { has_front: true, has_back: true, nin_masked: 'CM0*******QTOE' });
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit details' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Continue' }));
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Replace ID photos' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('resumes the first unfinished checklist group rather than marking skipped steps complete', () => {
     state.value.vetting.phone.verified_at = new Date().toISOString();
     state.value.vetting.email.verified_at = new Date().toISOString();

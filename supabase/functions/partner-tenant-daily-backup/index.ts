@@ -46,18 +46,17 @@ const FROM = "Welile Backups <reports@welile.com>";
 
 configure({ useWebWorkers: false });
 
-type Source = { table: string; label: string; rpc: string };
+type Source = { table: string; label: string; rpc?: string };
 
-// Every table is read through a SQL function that keeps only tenants with a
-// Rent Plan (funded/repaying/completed) and Supporters with an active,
-// redeemed or locked portfolio (migration 20261029160000).
+// profiles and wallets are filtered to Supporters and tenants by SQL functions;
+// the other four tables only hold their rows, so they are exported whole.
 const SOURCES: Source[] = [
   { table: "profiles", label: "Profiles (Supporters and tenants)", rpc: "partner_tenant_backup_profiles" },
   { table: "wallets", label: "Wallets", rpc: "partner_tenant_backup_wallets" },
-  { table: "investor_portfolios", label: "Supporter portfolios", rpc: "partner_tenant_backup_portfolios" },
-  { table: "rent_requests", label: "Rent Plans", rpc: "partner_tenant_backup_rent_plans" },
-  { table: "repayments", label: "Repayments", rpc: "partner_tenant_backup_repayments" },
-  { table: "agent_collections", label: "Agent collections", rpc: "partner_tenant_backup_collections" },
+  { table: "investor_portfolios", label: "Supporter portfolios" },
+  { table: "rent_requests", label: "Rent Plans" },
+  { table: "repayments", label: "Repayments" },
+  { table: "agent_collections", label: "Agent collections" },
 ];
 
 type Manifest = {
@@ -84,10 +83,18 @@ type VerifyJob = {
 };
 
 function pageUrl(base: string, src: Source, select: string, after: string | null, through: string | null): string {
-  const q = new URLSearchParams({ select, p_limit: String(PAGE) });
-  if (after) q.set("p_after", after);
-  if (through) q.set("p_through", through);
-  return `${base}/rest/v1/rpc/${src.rpc}?${q}`;
+  const q = new URLSearchParams({ select });
+  if (src.rpc) {
+    q.set("p_limit", String(PAGE));
+    if (after) q.set("p_after", after);
+    if (through) q.set("p_through", through);
+    return `${base}/rest/v1/rpc/${src.rpc}?${q}`;
+  }
+  q.set("order", "id.asc");
+  q.set("limit", String(PAGE));
+  if (after) q.append("id", `gt.${after}`);
+  if (through) q.append("id", `lte.${through}`);
+  return `${base}/rest/v1/${src.table}?${q}`;
 }
 
 async function fetchOk(url: string, serviceKey: string, accept: string): Promise<Response> {
@@ -239,8 +246,7 @@ async function exportStage(ctx: Ctx, runId: string, startedAt: Date, recipients:
       ``,
       ...results.map((r) => `${r.table}.csv  ${r.written} rows (${r.label})`),
       ``,
-      `Tenants = people with a Rent Plan (funded, repaying or completed). Supporters = people with an active, redeemed or locked portfolio.`,
-      `Every file holds only those people's rows; rent_requests.csv holds only the Rent Plans themselves.`,
+      `profiles.csv and wallets.csv hold only Supporters and tenants. The other files are whole tables.`,
       `investor_portfolios.portfolio_pin and activation_token are left out on purpose.`,
       `Restore a table with: \\copy public.<table> (<header columns>) FROM '<table>.csv' WITH (FORMAT csv, HEADER true)`,
     ].join("\n");
