@@ -18,6 +18,8 @@ import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReport
 import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -301,6 +303,25 @@ export default function RDDashboard() {
   const [exporting, setExporting] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordProject, setRecordProject] = useState('');
+  const [recordDate, setRecordDate] = useState('');
+  const [recordText, setRecordText] = useState('');
+  const choosePeriod = (id: RdReportPeriod) => {
+    setReportPeriod(id);
+    if (id === 'last' || id === 'next') {
+      setRecordProject(CARD_PROJECTS[0]?.name ?? '');
+      setRecordDate(rdNewUpdateDate(id));
+      setRecordText('');
+      setRecordOpen(true);
+    }
+  };
+  const saveRecord = () => {
+    if (!recordProject || !recordText.trim()) return;
+    editUpdates(recordProject, [...(projectUpdates[recordProject] ?? []), { id: safeUUID(), date: recordDate, text: recordText.trim() }]);
+    setRecordOpen(false);
+    toast({ title: 'Update recorded' });
+  };
   const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
   const periodRange = rdPeriodRange(reportPeriod);
   const rangeLabel = periodRange ? `${periodRange.start} – ${periodRange.end}` : '';
@@ -388,7 +409,7 @@ export default function RDDashboard() {
             {REPORT_PERIODS.map((r) => (
               <Button key={r.id} size="sm" variant={reportPeriod === r.id ? 'default' : 'outline'}
                 className="h-7 px-2.5 text-xs" aria-pressed={reportPeriod === r.id}
-                onClick={() => setReportPeriod(r.id)}>
+                onClick={() => choosePeriod(r.id)}>
                 {r.label}
               </Button>
             ))}
@@ -405,6 +426,31 @@ export default function RDDashboard() {
         <div className="grid gap-4">
           {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} period={reportPeriod} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
+        <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Record an update · {periodLabel}</DialogTitle>
+              <DialogDescription>{rangeLabel ? `Dated inside ${rangeLabel}.` : ''}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="block space-y-1 text-xs font-medium text-foreground">Project
+                <select className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={recordProject} onChange={(e) => setRecordProject(e.target.value)}>
+                  {CARD_PROJECTS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1 text-xs font-medium text-foreground">Date
+                <Input type="date" value={recordDate} min={periodRange?.start} max={periodRange?.end} onChange={(e) => setRecordDate(e.target.value)} />
+              </label>
+              <label className="block space-y-1 text-xs font-medium text-foreground">Update
+                <Textarea rows={4} value={recordText} onChange={(e) => setRecordText(e.target.value)} placeholder="What happened or what is planned?" />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRecordOpen(false)}>Cancel</Button>
+                <Button disabled={!recordProject || !recordText.trim() || !recordDate} onClick={saveRecord}>Save update</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
         <div>
