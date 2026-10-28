@@ -58,6 +58,8 @@ export const ZoeFloatingLauncher: React.FC = () => {
               activeConversationId={assistant.activeConversationId}
               roles={roles}
               generatedBy={generatedBy}
+              notes={assistant.notes}
+              glossaryEntries={assistant.glossaryEntries}
               isLoading={assistant.isLoading}
               isHistoryLoading={assistant.isHistoryLoading}
               streamingText={assistant.streamingText}
@@ -73,6 +75,9 @@ export const ZoeFloatingLauncher: React.FC = () => {
               onRetry={assistant.retryLastMessage}
               onFeedback={assistant.submitFeedback}
               onClearHistory={assistant.clearHistory}
+              onAddNote={assistant.addNote}
+              onDeleteNote={assistant.deleteNote}
+              onSaveGlossaryEntry={assistant.saveGlossaryEntry}
               headerSlot={
                 <Link
                   to="/me/zoe"

@@ -14,7 +14,6 @@ import {
   readyPlanTitle,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
-import { getFunderHouseCompleteness } from '@/lib/funderHouseSort';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -135,11 +134,6 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
-        {getFunderHouseCompleteness(item).complete && (
-          <span className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-success/20 bg-success/10 px-2 py-1 text-xs font-medium text-success">
-            <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> Verified: Tenant + Landlord + GPS
-          </span>
-        )}
         <div className="min-w-0">
           <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground">
             {title} <span className="font-medium text-muted-foreground">in</span> {place}

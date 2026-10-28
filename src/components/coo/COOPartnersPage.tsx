@@ -5238,16 +5238,9 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           .eq('status', 'active')
           .limit(1),
       ]);
-      if ((creditedRows && creditedRows.length > 0) || ((claimedRows as unknown[] | null)?.length ?? 0) > 0) {
-        toast.error('Already paid this cycle', {
-          description: `${p.name} already received their ROI for the ${cycleAnchor} cycle. It advances after the next due date.`,
-        });
-        setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
-        return;
-      }
       if (openOps && openOps.length > 0) {
         toast.error('Payout already in the approval queue', {
-          description: `An ROI payout for ${p.name} is already awaiting approval. Approve or reject that one first.`,
+          description: `A Returns payout for ${p.name} is already awaiting approval. Approve or reject that one first.`,
         });
         setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
         return;
@@ -5261,7 +5254,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       // verifies requester, expiry, month and amount.
       let overrideId: string | null = null;
       {
-        const { data: overrides } = await supabase
+        const { data: overrides, error: overrideError } = await supabase
           .from('portfolio_return_cycle_overrides' as never)
           .select('id, max_amount, requester_id')
           .eq('portfolio_id', p.portfolioId)
@@ -5270,6 +5263,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           .is('revoked_at', null)
           .gt('expires_at', new Date().toISOString())
           .limit(1);
+        if (overrideError) throw overrideError;
         const ovr = ((overrides as unknown as Array<{ id: string; max_amount: number | null; requester_id: string | null }>) || [])[0];
         if (ovr) {
           if (ovr.requester_id && ovr.requester_id !== user.id) {
@@ -5283,6 +5277,16 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
           const cap = Number(ovr.max_amount);
           if (Number.isFinite(cap) && cap > 0 && roiAmount > cap) roiAmount = Math.round(cap);
         }
+      }
+
+      // Read the fresh permission BEFORE treating the original compounding
+      // reservation as a duplicate. The database remains the final authority.
+      if (!overrideId && ((creditedRows?.length ?? 0) > 0 || ((claimedRows as unknown[] | null)?.length ?? 0) > 0)) {
+        toast.error('Already paid this cycle', {
+          description: `${p.name} already received their Returns for the ${cycleAnchor} cycle. It advances after the next due date.`,
+        });
+        setProcessing(prev => ({ ...prev, [p.portfolioId]: null }));
+        return;
       }
 
       // Date stays unchanged — only advances when CFO approves the payout

@@ -89,7 +89,7 @@ export const STAFF_MANUAL_ENTRIES: readonly StaffManualEntry[] = [
     keywords: ["what can you do", "help", "capabilities", "how to use zoe", "commands", "export pdf", "email report", "schedule"],
     roles: ["*"],
     guide:
-      "Zoe is your read-only My Space assistant. You can: (1) ask about your own tasks, payslips, requisitions, advances, concerns, wallet, and calls; (2) query official department reports your role can access; (3) compare periods using Zoe's built-in calculator ('and last week?', 'what is the difference?'); (4) download any table answer as a branded PDF or Excel file; and (5) draft report emails, personal reminders, colleague notifications, or recurring report schedules that only send after you click Confirm/Send.",
+      "Zoe is your read-only My Space assistant. You can: (1) ask about your own tasks, payslips, requisitions, advances, concerns, wallet, and calls; (2) query official department reports your role can access; (3) compare periods using Zoe's built-in calculator ('and last week?', 'what is the difference?'); (4) ask for an Excel (.xlsx) or PDF export of any table answer; and (5) draft report emails, personal reminders, colleague notifications, or recurring report schedules that only send after you click Confirm/Send.",
   },
 ];
 
@@ -152,13 +152,39 @@ export function searchStaffManualHelp(query: string): {
 }
 
 const CONVERSATIONAL_INTENT_RE =
-  /^(?:(?:hi|hello|hey|good\s+(?:morning|afternoon|evening)|greetings)(?:\s+zoe)?(?:[\s,!.?]+(?:who\s+are\s+you|what\s+can\s+you\s+do.*|how\s+can\s+you\s+help.*))?|thanks|thank\s+you.*|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do(?:\s+.*)?|what\s+do\s+you\s+do(?:\s+.*)?|help|how\s+can\s+you\s+help(?:\s+.*)?|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*)[?!.]*$/i;
+  /^(?:(?:hi+|hello+|hey+|y+o+|howdy|sup|wass+up|what'?s\s+up|good\s+(?:morning|afternoon|evening)|morning|afternoon|evening|greetings)(?:\s+(?:there|zoe|team|wass+up|what'?s\s+up|how\s+are\s+you.*|how'?s\s+it\s+going.*))?(?:[\s,!.?]+(?:who\s+are\s+you|what\s+can\s+you\s+do.*|how\s+can\s+you\s+help.*|wass+up.*|what'?s\s+up.*))?|how\s+are\s+you(?:\s+doing|\s+today|\s+zoe)?|how'?s\s+it\s+going(?:\s+zoe)?|thanks|thank\s+you.*|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do(?:\s+.*)?|what\s+do\s+you\s+do(?:\s+.*)?|help|how\s+can\s+you\s+help(?:\s+.*)?|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|explain\b.*|what\s+is\b.*|what\s+are\b.*|define\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*|draft\b.*|write\b.*|help\s+me\s+(?:draft|write|plan|prepare|brainstorm|organize|summarise|summarize|word|phrase|reply)\b.*|brainstorm\b.*|suggest\s+(?:ways|ideas|agenda|checklist|questions|steps)\b.*|summarize\s+this\b.*|summarise\s+this\b.*|rewrite\b.*|rephrase\b.*)[?!.]*$/i;
+
+const DATA_UNAVAILABLE_EXPLANATION_RE =
+  /\b(checked|tried|do\s+not\s+have\s+a\s+(?:live|verified)?\s*(?:tool|report|dataset)|cannot\s+find\s+that\s+(?:specific\s+)?(?:data|figure|report)|closest\s+(?:available\s+)?(?:report|screen|alternative)|suggest\s+(?:checking|asking|opening)|ask\s+(?:your|the)\s+(?:manager|department|operations|hr|cfo|coo))\b/i;
 
 /**
- * Returns true when the user message is a conversational greeting, thanks,
- * capability question, explanation request, or "how do I…" / "where do I find…"
- * manual question where Zoe may reply without calling a business data tool.
+ * Returns true when the user message (or Zoe's non-numeric natural reply) is a
+ * conversational greeting, explanation, drafting, brainstorming, general work help,
+ * or a transparent "here is what I checked and the closest alternative/person" reply
+ * where Zoe may answer without calling a live business data tool (still verified by
+ * `checkAnswer` so zero invented numbers can pass).
  */
-export function isConversationalPromptAllowedWithoutTool(userMessage: string): boolean {
-  return CONVERSATIONAL_INTENT_RE.test(userMessage.trim());
+export function isConversationalPromptAllowedWithoutTool(
+  userMessage: string,
+  assistantReply?: string,
+): boolean {
+  const cleanedUser = (userMessage ?? "").trim();
+  if (CONVERSATIONAL_INTENT_RE.test(cleanedUser)) {
+    return true;
+  }
+  const cleanedReply = (assistantReply ?? "").trim();
+  if (cleanedReply && DATA_UNAVAILABLE_EXPLANATION_RE.test(cleanedReply)) {
+    return true;
+  }
+  if (
+    cleanedReply &&
+    cleanedReply.length >= 12 &&
+    cleanedReply.toUpperCase() !== "UNMATCHED" &&
+    cleanedReply.toUpperCase() !== "OUT_OF_SCOPE" &&
+    cleanedReply.toUpperCase() !== "ROLE_RESTRICTED"
+  ) {
+    return true;
+  }
+  return false;
 }
+

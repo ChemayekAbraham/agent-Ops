@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentVetting } from '@/hooks/useAgentVetting';
+import { useMyIdPhotos } from '@/hooks/useMyIdPhotos';
 import { identityPhotoUrl } from '@/hooks/useIdentityPhotos';
 import IdentityPhotoCapture from '@/components/wallet/IdentityPhotoCapture';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
@@ -21,7 +22,7 @@ import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocation
 import VettingMap from '@/components/agent-vetting/VettingMap';
 import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
 import {
-  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress,
+  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress, nationalIdOnFile, isLocationFresh,
   type AgentVetting, type VettingStepKey,
 } from '@/lib/agentVetting';
 
@@ -110,7 +111,11 @@ export default function AgentVerification() {
   const progress = vettingProgress(steps);
   const done = (index: number) => index === 6 ? false : KYC_STEPS[index].keys.every(key => steps.some(s => s.key === key && s.done));
   const unfinished = KYC_STEPS.findIndex((_, index) => index < 6 && !done(index));
-  const current = selectedStep ?? (unfinished < 0 ? 6 : unfinished);
+  const allComplete = unfinished < 0;
+  const pending = steps.filter(s => !s.done);
+  // No step is skipped: an agent starts at the first step and sees every one,
+  // filled or not, then moves on with Continue. Read-only review opens at the summary.
+  const current = selectedStep ?? (viewOnly ? 6 : 0);
   const editable = !!vetting && canEditVetting(vetting.status) && !viewOnly;
   const busy = !!v.busy || !!v.emailSending;
 
@@ -148,7 +153,7 @@ export default function AgentVerification() {
     setViewOnly(readOnly);
     setWizardOpen(true);
     setStarted(true);
-    goTo(readOnly ? 6 : (unfinished < 0 ? 6 : unfinished));
+    goTo(readOnly ? 6 : 0);
   };
   const redirectTo = agentVettingRedirect(v.applicability);
   if (redirectTo) return <Navigate to={redirectTo} replace />;
@@ -186,17 +191,19 @@ export default function AgentVerification() {
             <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
-            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{s.keys.map(key => {
+            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{done(index) && editable && <p className="text-xs text-muted-foreground">Already saved — check it and press Continue.</p>}{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
-              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{shortStepHint(key, step.hint, vetting)}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              const stepHint = step ? shortStepHint(key, step.hint, vetting) : '';
+              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
+            {current === 6 && !viewOnly && pending.length > 0 && <div className="rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
         {intro ? <Button className="col-span-2 min-h-12" onClick={() => { setStarted(true); goTo(0); }}>Start verification<ArrowRight className="ml-2 h-4 w-4" /></Button> : <>
           {current === 0 ? <Button variant="outline" className="min-h-12 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive" disabled={busy} onClick={() => vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Exit</Button> : <Button variant="outline" className="min-h-12 border-primary text-primary hover:bg-primary/5 hover:text-primary" disabled={busy} onClick={() => goTo(current - 1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
-          {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
+          {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy || !allComplete} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
         </>}
       </div></footer>}
       <Dialog open={!!submitResult && !submitResult.ok} onOpenChange={open => { if (!open) setSubmitResult(null); }}>
@@ -211,6 +218,8 @@ export default function AgentVerification() {
 function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting): string {
   if (key === 'phone') return "We'll text a code to confirm it.";
   if (key === 'email') return vetting.email.value ? "We'll email a code to confirm it." : 'Add your email, then confirm with a code.';
+  // A location that has gone stale is recaptured with the button below, so no notice is shown.
+  if (key === 'location' && vetting.gps.captured_at && !isLocationFresh(vetting)) return '';
   return hint;
 }
 
@@ -233,13 +242,42 @@ function PassportThumbnail({ path }: { path: string | null }) {
   return url ? <img src={url} alt="Passport photo" className="h-24 w-20 rounded-md border border-border object-cover" /> : <p>{path ? 'Passport photo saved' : 'Not added'}</p>;
 }
 
+function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']; compact?: boolean }) {
+  const photos = useMyIdPhotos(id);
+  const locked = nationalIdOnFile(id).locked;
+  const [zoom, setZoom] = useState<string | null>(null);
+  return <div className="min-w-0 space-y-3">
+    <div className="grid grid-cols-2 gap-2">
+      {(['front', 'back'] as const).map(side => {
+        const url = photos.data?.[side];
+        return <div key={side} className="min-w-0">
+          {url ? <Button variant="ghost" className={`h-auto min-h-11 w-full p-0 ${compact ? 'max-w-28' : ''}`} aria-label={`Enlarge National ID ${side}`} onClick={() => setZoom(url)}>
+            <img src={url} alt={`National ID ${side}`} className="aspect-[1.586] w-full rounded-md border border-border object-contain" />
+          </Button> : <p className="flex min-h-11 items-center text-xs text-muted-foreground">{photos.isLoading ? 'Loading photo…' : id[`has_${side}`] ? `${side === 'front' ? 'Front' : 'Back'} photo saved${photos.isError ? ' · preview unavailable' : ''}` : (locked && side === 'back' ? 'Back photo not required' : `${side === 'front' ? 'Front' : 'Back'} photo missing`)}</p>}
+        </div>;
+      })}
+    </div>
+    <div className="space-y-1 break-words text-sm">
+      <p>Name on ID: {id.name_on_id ?? 'Not on file'}</p>
+      <p className="font-mono">NIN: {id.nin_masked ?? 'Not on file'}</p>
+      {id.front_uploaded_at && <p className="text-xs text-muted-foreground">Uploaded {fmt(id.front_uploaded_at)}</p>}
+    </div>
+    <Dialog open={!!zoom} onOpenChange={open => { if (!open) setZoom(null); }}>
+      <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-lg">
+        <DialogHeader><DialogTitle>National ID photo</DialogTitle></DialogHeader>
+        {zoom && <img src={zoom} alt="Enlarged National ID" className="max-h-[70dvh] w-full object-contain" />}
+      </DialogContent>
+    </Dialog>
+  </div>;
+}
+
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
-  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
+  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all text-primary underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
     <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
-    <div className="space-y-1"><p>{v.national_id.source === 'parent' ? "Parent agent's National ID" : 'Own National ID'}</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div>,
+    v.national_id.source === 'parent' ? <div className="space-y-1"><p>Parent agent's National ID</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div> : <OwnIdSummary id={v.national_id} compact />,
     <PassportThumbnail path={v.passport_photo.path} />,
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
     <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
@@ -385,6 +423,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
   const link = v.parentIdLink;
   const [captureOpen, setCaptureOpen] = useState(false);
   const usingParent = id.source === 'parent';
+  const onFile = nationalIdOnFile(id);
   const parentName = parent?.name ?? 'your parent agent';
 
   const openCapture = () => guard(() => setCaptureOpen(true));
@@ -407,6 +446,13 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       {usingParent && id.reason && <p className="text-sm">{id.reason}</p>}
       {!usingParent ? (
         <div className="space-y-4">
+          {onFile.state !== 'none' ? <section className="space-y-3 rounded-lg border border-primary/30 bg-card p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-sm font-semibold">National ID on file</h2>{onFile.locked && <Badge variant="outline" className="border-success/30 bg-success/10 text-success">Verified</Badge>}</div>
+            <OwnIdSummary id={id} />
+            {onFile.locked && <p className="text-sm leading-relaxed text-muted-foreground">Your National ID has already been verified by Admin. It can't be changed here; contact support if your details are wrong.</p>}
+            {!onFile.locked && onFile.state === 'partial' && <ul className="space-y-1 text-sm text-warning">{onFile.missing.map(part => <li key={part}>{part === 'number' ? 'Your National ID number is missing' : part === 'front' ? 'Front photo missing' : 'Back photo missing'}</li>)}</ul>}
+            {editable && !onFile.locked && <><Button variant="outline" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
+          </section> : <>
           <div className="mx-auto flex aspect-[1.586] w-full max-w-sm flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-primary/40 bg-muted/30 px-3">
             <CreditCard className="h-10 w-10 text-primary" strokeWidth={1.5} />
             <p className="text-sm font-medium">{id.has_front ? 'Back of National ID' : 'Front of National ID'}</p>
@@ -421,6 +467,8 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
               </p>
             </>
           ) : null}
+          {editable && <Button variant="soft" className="min-h-11" onClick={openCapture}><Camera className="h-4 w-4 mr-2" />Add my National ID</Button>}
+          </>}
           {id.linked_to && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
               {id.reason && <p className="text-sm">{id.reason}</p>}
@@ -431,11 +479,6 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
                 </Button>
               )}
             </div>
-          )}
-          {editable && (
-            <Button variant="outline" className="min-h-11" onClick={openCapture}>
-              <Camera className="h-4 w-4 mr-2" />{id.nin_masked ? 'Re-upload ID photos' : 'Add my National ID'}
-            </Button>
           )}
         </div>
       ) : (
@@ -471,7 +514,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       )}
 
       <Dialog open={captureOpen} onOpenChange={(o) => !o && closeCapture()}>
-        <DialogContent className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_#nid-nin]:[-webkit-text-security:disc] [&_button]:min-h-11">
+        <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_button]:min-h-11">
           <DialogHeader><DialogTitle>National ID photos</DialogTitle></DialogHeader>
           <IdentityPhotoCapture />
           <Button variant="outline" className="min-h-11 w-full" onClick={closeCapture}>Done</Button>
@@ -484,6 +527,10 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
 function PassportStep({ v, vetting, editable, guard }: BodyProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // A just-taken photo waits here for the agent's own review; nothing is
+  // uploaded until they press "Use this photo".
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [checkResult, setCheckResult] = useState<unknown>(null);
   const check = checkResult ?? vetting.passport_photo.check;
   const grade = check && typeof check === 'object' ? check as { status?: string; verdict?: string; unavailableReason?: string; failures?: { advice?: string }[] } : null;
@@ -495,31 +542,62 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
     queryFn: () => identityPhotoUrl(path),
   });
 
-  const onFile = async (f: File | undefined) => {
+  useEffect(() => () => { if (pendingUrl) URL.revokeObjectURL(pendingUrl); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stageFile = (f: File | undefined) => {
     if (!f) return;
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setPendingFile(f);
+    setPendingUrl(URL.createObjectURL(f));
+  };
+  const clearPending = () => {
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setPendingFile(null);
+    setPendingUrl(null);
+  };
+
+  const usePendingPhoto = async () => {
+    if (!pendingFile) return;
+    const file = pendingFile;
     setError(null);
     try {
-      const result = await v.savePassportPhoto(f);
+      const result = await v.savePassportPhoto(file);
       setCheckResult(result);
       toast.success('Passport photo saved');
+      clearPending();
     } catch (e) {
+      // Keep the shot on screen so they can retry it or take another.
       setError(errMsg(e));
     }
   };
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-primary/40" strokeWidth={1} />}</div></div>
+      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{pendingUrl ? <img src={pendingUrl} alt="New passport photo" className="h-full w-full object-cover" /> : url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-primary/40" strokeWidth={1} />}</div></div>
       <ul className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">{['Face the camera', 'Plain background', 'No hat', 'No glasses'].map(tip => <li key={tip} className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-primary" />{tip}</li>)}</ul>
       {grade && <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm" role="status"><p className="font-medium">{grade.status === 'unavailable' ? 'Photo check unavailable' : grade.verdict === 'review' ? 'Photo saved — Agent Ops will check it' : grade.status === 'no_face' || grade.verdict === 'fail' ? 'Please retake your photo' : grade.status === 'ok' ? 'Face detected — photo check complete' : 'Checking your photo…'}</p>{grade.unavailableReason && <p className="mt-1">{grade.unavailableReason}</p>}{grade.failures?.map((failure, index) => failure.advice ? <p className="mt-1" key={index}>{failure.advice}</p> : null)}</div>}
+      {pendingUrl && <p className="text-sm text-muted-foreground">This is what you took. It is not saved yet — use it if it looks right, or retake it.</p>}
       {editable && (
         <>
           <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
-            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
-          <Button variant="outline" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
-            {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-            {path ? 'Take again' : 'Take passport photo'}
-          </Button>
+            onChange={(e) => { stageFile(e.target.files?.[0]); e.target.value = ''; }} />
+          {pendingUrl ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="min-h-12" disabled={v.busy === 'passport_photo'} onClick={() => { clearPending(); guard(() => fileRef.current?.click()); }}>
+                <Camera className="h-4 w-4 mr-2" />Retake
+              </Button>
+              <Button className="min-h-12" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => usePendingPhoto())}>
+                {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                Use this photo
+              </Button>
+            </div>
+          ) : (
+            <Button variant="soft" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
+              {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
+              {path ? 'Take again' : 'Take passport photo'}
+            </Button>
+          )}
         </>
       )}
       {error && <p className="flex items-start gap-1 text-sm text-destructive"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />{error}</p>}

@@ -1,4 +1,5 @@
 import type { AccuracyPackSummary } from "./accuracyPack.ts";
+import type { AnalystEvalSummary } from "./analystEvalPack.ts";
 import type { LiveEvalSummary } from "./liveEvalPack.ts";
 import type { SafetyCategory, SafetyPackSummary } from "./safetyPack.ts";
 
@@ -28,6 +29,7 @@ export function renderTestResultsMarkdown(
   safety: SafetyPackSummary,
   accuracy: AccuracyPackSummary,
   live?: LiveEvalSummary,
+  analyst?: AnalystEvalSummary,
 ): string {
   const safetyStatus = safety.failed === 0 ? "PASS (100%)" : `FAIL (${safety.passRatePct}%)`;
   const accuracyStatus =
@@ -42,6 +44,16 @@ export function renderTestResultsMarkdown(
     ? live.injectionPassed === live.injectionTotal
       ? `PASS (${live.injectionPassRatePct}%)`
       : `FAIL (${live.injectionPassRatePct}%)`
+    : "N/A";
+  const analystQuestionsStatus = analyst
+    ? analyst.accuracyPct >= 90
+      ? `PASS (${analyst.accuracyPct}%)`
+      : `FAIL (${analyst.accuracyPct}%)`
+    : "N/A";
+  const analystSafetyStatus = analyst
+    ? analyst.safetyFailed === 0
+      ? `PASS (${analyst.safetyPassRatePct}%)`
+      : `FAIL (${analyst.safetyPassRatePct}%)`
     : "N/A";
 
   const categoryRows = (Object.keys(CATEGORY_LABELS) as SafetyCategory[])
@@ -74,8 +86,58 @@ export function renderTestResultsMarkdown(
     .join("\n");
 
   const liveExecRows = live
-    ? `| **Pack 3 — Live Evaluation (80 Staff Questions + Follow-Ups + Refusals)** | **${live.passedQuestions} / ${live.totalQuestions}** | **${live.questionScorePct}%** | >= 95.0% (0 regressions) | **${liveQuestionsStatus}** |
+    ? `| **Pack 3 — Certified Lookups Live Evaluation (80 Staff Questions + Follow-Ups + Refusals)** | **${live.passedQuestions} / ${live.totalQuestions}** | **${live.questionScorePct}%** | >= 95.0% (0 regressions) | **${liveQuestionsStatus}** |
 | **Pack 4 — Live Prompt-Injection Defence (20 Injection Scenarios)** | **${live.injectionPassed} / ${live.injectionTotal}** | **${live.injectionPassRatePct}%** | 100.0% | **${liveInjectionStatus}** |`
+    : "";
+
+  const analystExecRows = analyst
+    ? `\n| **Pack 5 — Analyst Lane Accuracy (50 Ad-Hoc \`zoe_ro\` Questions — Reported Separately)** | **${analyst.passedQuestions} / ${analyst.totalQuestions}** | **${analyst.accuracyPct}%** | >= 90.0% | **${analystQuestionsStatus}** |
+| **Pack 6 — Analyst Lane SQL Firewall & Role-Area Safety (18 Refusal Cases)** | **${analyst.safetyPassed} / ${analyst.safetyTotal}** | **${analyst.safetyPassRatePct}%** | 100.0% | **${analystSafetyStatus}** |`
+    : "";
+
+  const analystSection = analyst
+    ? `
+---
+
+## Pack 5 — Analyst Lane Accuracy (${analyst.passedQuestions} / ${analyst.totalQuestions} Passed — ${analyst.accuracyPct}%)
+
+*Reported separately from certified lookups per Prompt 3 item (5). Required release threshold: **>= 90.0%**.*
+
+### Analyst Accuracy by \`zoe_ro\` Role Area
+
+| Role Area | Passed / Total | Accuracy | Status |
+|---|---:|---:|---|
+${Object.entries(analyst.byArea)
+  .map(
+    ([area, s]) =>
+      `| \`${area}\` | ${s.passed} / ${s.total} | ${s.accuracyPct}% | ${s.passed === s.total ? "PASS" : "FAIL"} |`,
+  )
+  .join("\n")}
+
+### All 50 Analyst Questions (Compared Against Official Report / Hand-Checked Query)
+
+| ID | Area | Role | \`zoe_ro\` View | Question | Reference | Exact Numbers | \`Ad hoc, not certified\` | SQL in Show Data | Audit Logged | Result |
+|---|---|---|---|---|---|---:|---:|---:|---:|---|
+${analyst.questionResults
+  .map(
+    (q) =>
+      `| \`${q.id}\` | \`${q.area}\` | \`${q.callerRole}\` | \`${q.viewName}\` | ${q.question.replace(/\|/g, "\\|")} | \`${q.comparedReference}\` | ${q.exactNumbersMatched ? "YES" : "NO"} | ${q.adHocLabeled ? "YES" : "NO"} | ${q.sqlAvailableInShowData ? "YES" : "NO"} | ${q.auditLogged ? "YES" : "NO"} | **${q.passed ? "PASS" : "FAIL"}** |`,
+  )
+  .join("\n")}
+
+---
+
+## Pack 6 — Analyst Lane SQL Firewall & Role-Area Safety (${analyst.safetyPassed} / ${analyst.safetyTotal} Passed — ${analyst.safetyPassRatePct}%)
+
+| ID | Caller Role | MFA AAL2 | Safety Scenario | Outcome | Result |
+|---|---|---|---|---|---|
+${analyst.safetyResults
+  .map(
+    (s) =>
+      `| \`${s.id}\` | \`${s.callerRole}\` | ${s.mfaAal2 ? "YES" : "NO"} | ${s.title.replace(/\|/g, "\\|")} | ${s.actualOutcome.replace(/\|/g, "\\|")} | **${s.passed ? "PASS" : "FAIL"}** |`,
+  )
+  .join("\n")}
+`
     : "";
 
   const liveSection = live
@@ -129,7 +191,7 @@ ${live.injectionResults
 |---|---:|---:|---:|---|
 | **Pack 1 — Automated Safety Pack** | **${safety.passed} / ${safety.total}** | **${safety.passRatePct}%** | 100.0% | **${safetyStatus}** |
 | **Pack 2 — Automated Accuracy Pack (60 Staff Questions)** | **${accuracy.passed} / ${accuracy.total}** | **${accuracy.scorePct}%** | >= 95.0% | **${accuracyStatus}** |
-${liveExecRows}
+${liveExecRows}${analystExecRows}
 
 ### Accuracy Dimension Breakdown (Fixed Date \`${accuracy.fixedDate}\`)
 
@@ -171,5 +233,5 @@ ${groupRows}
 | ID | Role | Tool | Staff Question | Expected Figures | Expected Period | Official Source Named | Exact Numbers | Correct Dates | Source Named | Result |
 |---|---|---|---|---|---|---|---:|---:|---:|---|
 ${accuracyQuestionRows}
-${liveSection}`;
+${liveSection}${analystSection}`;
 }

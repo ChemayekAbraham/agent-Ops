@@ -133,6 +133,31 @@ export const RequestSchema = z.discriminatedUnion("action", [
       force: z.boolean().optional(),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal("list_notes"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("add_note"),
+      note_text: z.string().trim().min(2).max(240),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("delete_note"),
+      note_id: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("list_glossary"),
+      search: z.string().trim().max(80).optional(),
+      category: z.string().trim().max(40).optional(),
+    })
+    .strict(),
 ]);
 
 export type RequestBody = z.infer<typeof RequestSchema>;
+

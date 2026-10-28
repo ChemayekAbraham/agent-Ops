@@ -1,0 +1,60 @@
+# Zoe Prompt 1 Results — Files Only When Asked, Real Excel, Clean PDFs, and Live Failure Fixes
+
+**Date**: 28 October 2026  
+**Scope**: Prompt 1 from `docs/ZOE_BRILLIANT_ASSISTANT_PROPOSAL.md`
+
+---
+
+## 1. Live Failure Diagnosis & Fixes (`staff_assistant_unanswered` & `staff_assistant_messages`)
+
+Full root-cause analysis and migration deployment audit are documented in [`docs/zoe/live-failures.md`](./live-failures.md).
+
+| Live Issue | Root Cause | Code / SQL Fix | Automated Test Proving It |
+| --- | --- | --- | --- |
+| `staff_assistant_messages` had `0` rows despite `3` conversations (`message_count = 34, 4, 4`) | Live `staff_assistant_messages` has `NOT NULL` constraint on `tools_called` (no column default), and `store.ts` omitted `tools_called` on `userRow`. Additionally, live `staff_assistant_conversations` was missing `created_at`, `last_message_at`, and `updated_at`. | 1. [`supabase/functions/staff-assistant/store.ts`](../../supabase/functions/staff-assistant/store.ts): Added `tools_called: []` to `userRow` in `recordTurn` and fallback selects in `loadHistory` / `listConversations`.<br/>2. [`supabase/migrations/20261027100000_staff_assistant_security_hardening.sql`](../../supabase/migrations/20261027100000_staff_assistant_security_hardening.sql) & [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Added missing timestamp columns and `DEFAULT '[]'::jsonb` on `tools_called`. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` (`persists user and assistant turns with tools_called array`) |
+| `missing_tool`: `"Give me the calling report for October"` (`hr`) | `assistant_staff_hr_calling_detailed_report` from `20261026180000` was not deployed live and passed `date` instead of `timestamptz` to `staff_calling_detailed_report(timestamptz, timestamptz)`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Defined `assistant_staff_hr_calling_detailed_report` converting Kampala date bounds to `timestamptz`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`HR calling report for October routes to get_hr_calling_detailed_report`) |
+| `missing_tool`: `"Show Tenant Ops arrears ageing today"` (`operations`) | `assistant_staff_tops_arrears_ageing` was not deployed live and referenced non-existent columns on `rent_requests` instead of `tops_arrears_ageing_amclock()`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Wrapped `public.tops_arrears_ageing_amclock()` in `assistant_staff_tops_arrears_ageing`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`Tenant Ops arrears ageing routes to get_tops_arrears_ageing`) |
+| `unmatched`: `"yoo wassup"` (`operations`) | `CONVERSATIONAL_INTENT_RE` did not match informal greetings (`"yoo wassup"`, `"wassup"`, `"yo"`, `"sup"`). | [`supabase/functions/staff-assistant/manualHelp.ts`](../../supabase/functions/staff-assistant/manualHelp.ts): Added informal greeting patterns to `CONVERSATIONAL_INTENT_RE`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`recognizes informal greetings like "yoo wassup" as conversational intent`) |
+| `error`: `"What are total Receivables and Payables with the 30/60/90 day forecast?"` (`cfo`) | `get_payables_predictive_forecast()` takes ~7.1s live, exceeding the 5s default statement timeout inside `assistant_staff_cfo_receivables_and_payables`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Set function-scoped `SET statement_timeout = '25s'` on `assistant_staff_cfo_receivables_and_payables`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`CFO Receivables & Payables 30/60/90 forecast tool and guard check`) |
+| `error`: `"How is First 7 Days performance this week?"` (`operations`) | Live `tops_first_seven_summary` returns `totals.{expected, collected}` without an `uncollected` field; when Zoe reported the difference (`expected - collected`) or `Day 1..7` labels, `verifyNumbersAgainstToolResults` rejected the response as ungrounded. | [`supabase/functions/staff-assistant/guards.ts`](../../supabase/functions/staff-assistant/guards.ts): Grounded `expected - collected` and bucket map sums in `collectAllowedNumbers`, and scrubbed `Day 1..7`, `30+`, `Wk \d+` before numeric verification. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` & `supabase/functions/staff-assistant/staff_assistant_test.ts` |
+| `error`: `"Compare this week and last week collections and disbursements"` & `"Give me the COO overview for this month"` (`coo`) | 1. `PeriodArgsSchema` rejected tool calls when the model supplied both `period` and explicit `from`/`to` dates.<br/>2. `maxTokens = 450` in `openai.ts` truncated multi-row tool-call JSON arguments mid-stream. | 1. [`supabase/functions/staff-assistant/tools.ts`](../../supabase/functions/staff-assistant/tools.ts): Relaxed `PeriodArgsSchema` and `get_coo_overview` schema.<br/>2. [`supabase/functions/staff-assistant/openai.ts`](../../supabase/functions/staff-assistant/openai.ts): Raised default `maxTokens` from `450` to `1800`. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` & `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` |
+
+---
+
+## 2. Files Only When Asked (No Unrequested Report Cards)
+
+| Requirement | Implementation | Automated Test Proving It |
+| --- | --- | --- |
+| Remove automatic `ZoeReportCard` from every data answer | [`src/components/zoe/ZoeChatSurface.tsx`](../../src/components/zoe/ZoeChatSurface.tsx): A file (`ZoeReportCard` in `"Download ready"` state) is rendered only when `userAskedForFile(precedingUserPrompt)` is `true` OR the user clicks one of the two small offer chips (`Excel (.xlsx)` / `PDF`). | `src/components/zoe/__tests__/ZoeChatSurface.test.tsx` (`renders small Excel (.xlsx) and PDF offer chips for tabular answers without auto-mounting the Download ready card, then reveals Download ready on chip click`) |
+| Stop `extractZoeExportableReport` building `"period_summary"` reports out of loose scalar fields or markdown tables | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): Removed scalar `summaryToTable` (`period_summary`) fallback and markdown table scraping. Only real tabular arrays (`rows`, `items`, `records`, `landlords`, `tenants`, `agents`, `calls`, `buckets`, `days`, `weeks`, `breakdown`, `by_category`, `forecast_windows`) qualify as exportable tables. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`returns null for scalar summary payloads with no tabular rows (never invents period_summary)`) |
+| Prompt rule for Zoe | [`supabase/functions/staff-assistant/prompt.ts`](../../supabase/functions/staff-assistant/prompt.ts): Added `FILES ONLY WHEN ASKED` rule to `SYSTEM_PROMPT`. | `supabase/functions/staff-assistant/staff_assistant_test.ts` |
+| Deterministic 30 / 10 file-request test | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): Implemented `userAskedForFile(question)` and `shouldCreateZoeReportFile({ userQuestion, message, chipRequestedFormat })`. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`enforces the deterministic 30 no-file / 10 file-request rule`) |
+
+---
+
+## 3. Real `.xlsx` Excel Workbooks
+
+| Requirement | Implementation | Automated Test Proving It |
+| --- | --- | --- |
+| Every download ends in `.xlsx` | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts) (`ensureXlsxFileName`) & [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts) (`buildZoeReportFilename`). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`ensures every Excel filename ends in .xlsx`) |
+| Numeric cells with UGX format (`"UGX "#,##0`) for money and date format (`yyyy-mm-dd`) for dates | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts): Added OpenXML `numFmts` (`numFmtId="164"` `"UGX "#,##0` and `numFmtId="165"` `yyyy-mm-dd`) and cell styles (`s="1"`..`s="8"`), writing numeric `<c t="n"><v>...</v></c>` cells for money and numbers. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`builds a valid multi-sheet .xlsx ZIP with UGX number formats, frozen auto-filtered headers, totals row, and About this report sheet`) |
+| Human column headers & hidden internal IDs | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): `isInternalIdColumn` strips `id`, `*_id`, `uuid`, and UUID-valued columns; `humanizeColumnHeader` formats clean human headers. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`strips internal ID columns while keeping human columns`) |
+| Frozen & auto-filtered header row, sensible column widths, wrapped text, totals row, and final `"About this report"` sheet | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts) & [`src/lib/zoe/zoeReportXlsx.ts`](../../src/lib/zoe/zoeReportXlsx.ts): Generates `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>`, `<autoFilter ref="..."/>`, `<cols>` widths, `wrapText="1"`, bold purple totals row (`s="6"`/`s="7"`/`s="8"`), and Sheet 2 `"About this report"` (question, period, official source, who asked, generated time, how counted). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (unzips `.xlsx` bytes and asserts `xl/workbook.xml`, `xl/styles.xml`, `xl/worksheets/sheet1.xml`, and `xl/worksheets/sheet2.xml`) |
+
+---
+
+## 4. Redesigned Client & Server PDFs + 5 Visual Samples
+
+| Requirement | Implementation | Automated Test / Visual Proof |
+| --- | --- | --- |
+| Shared design across client (`src/lib/zoe/zoeReportPdf.ts`) and edge function (`supabase/functions/_shared/zoeReportPdf.ts`) | Both builders render: Welile purple header (`#6C21C4`) with gold accent bar (`#EFB02E`) and logo badge; 3–5 line verified executive summary box; `"How this was counted"` strip; importance-ranked table (`<= 8` columns per page width, automatic landscape when `>= 6` columns, explicit column widths, wrapped text, right-aligned numbers, `"UGX 1,234"` formatting, repeated header on every page, bold totals row); and `"Page X of Y"` footer with source and timestamps. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`renders clean HTML and PDF bytes with Welile header, 3-5 summary lines, importance-selected columns (<= 8), landscape orientation when >= 6 columns, and preserved accents`) |
+| Preserve accented characters & shilling text (no ASCII stripping) | Removed `toAsciiSafe` stripping in both [`src/lib/zoe/zoeReportPdf.ts`](../../src/lib/zoe/zoeReportPdf.ts) and [`supabase/functions/_shared/zoeReportPdf.ts`](../../supabase/functions/_shared/zoeReportPdf.ts) (`normalizePdfText` preserves `René Élodie Niyonkuru`, `Zoë Chloé`, `François`, `UGX 1,500,000`). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` & `docs/zoe/pdf-samples/sample-5-landlord-ops-paid-repaying.png` |
+| 5 real report sample PDFs rendered to PNG images and visually inspected | Stored in [`docs/zoe/pdf-samples/`](./pdf-samples/):<br/>1. `sample-1-calling-report-october.png`<br/>2. `sample-2-tenant-ops-arrears-ageing.png`<br/>3. `sample-3-cfo-receivables-payables.png`<br/>4. `sample-4-first-7-days-performance.png`<br/>5. `sample-5-landlord-ops-paid-repaying.png` | Visual inspection of all 5 rendered PNGs in [`docs/zoe/pdf-samples/`](./pdf-samples/) |
+
+---
+
+## 5. Mobile-First UI (360px & Dark Mode)
+
+| Requirement | Implementation | Automated Test / Visual Proof |
+| --- | --- | --- |
+| Two small offer chips (`Excel (.xlsx)` / `PDF`) when a table is present, and `"Download ready"` row when requested | [`src/components/zoe/ZoeChatSurface.tsx`](../../src/components/zoe/ZoeChatSurface.tsx) & [`src/components/zoe/ZoeReportCard.tsx`](../../src/components/zoe/ZoeReportCard.tsx): Uses `text-xs` minimum font size, `min-h-[44px]` tap targets, semantic tokens (`bg-card`, `text-foreground`, `border-border`, `bg-muted`), and zero emojis. | `src/components/zoe/__tests__/ZoeChatSurface.test.tsx` & [`docs/zoe/pdf-samples/ui-360px-light-and-dark.png`](./pdf-samples/ui-360px-light-and-dark.png) |

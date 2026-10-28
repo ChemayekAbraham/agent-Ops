@@ -362,6 +362,11 @@ export function SmartphoneOrderApprovalQueue({
       if (error) throw error;
       return (data || []) as SmartphoneOrderRow[];
     },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const invalidate = () => {

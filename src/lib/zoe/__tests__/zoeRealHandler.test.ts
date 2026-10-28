@@ -387,8 +387,8 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     }
 
     // Also confirm STAFF_TOOLS and openAiToolsForRoles contain zero write tools
-    expect(STAFF_TOOLS.length).toBe(59);
-    expect(openAiToolsForRoles(["super_admin"]).length).toBe(67);
+    expect(STAFF_TOOLS.length).toBe(62);
+    expect(openAiToolsForRoles(["super_admin"]).length).toBe(70);
   });
 
   it("verifies Prompt 4 advisor insight tools are STABLE, write nothing, enforce finance/staff role gates, and draft_welile_idea creates a click-confirmed draft verified by checkDraftCardText", async () => {
@@ -698,5 +698,304 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     expect(sseText).toContain("event: status");
     expect(sseText).toContain("event: token");
     expect(sseText).toContain("event: done");
+  });
+
+  it("verifies Prompt 1 live-failure fixes: recordTurn tools_called=[], casual greeting ('yoo wassup'), relaxed PeriodArgsSchema, guard bucket sums, and FILES ONLY WHEN ASKED prompt rule", async () => {
+    const { recordTurn } = await import("../../../../supabase/functions/staff-assistant/store.ts");
+    const { buildSystemPrompt } = await import(
+      "../../../../supabase/functions/staff-assistant/prompt.ts"
+    );
+
+    // 1. recordTurn sets tools_called: [] on userRow so PostgREST batch insert never violates NOT NULL
+    const insertedBatches: Array<Array<Record<string, unknown>>> = [];
+    const fakeAdmin = {
+      from: (table: string) => {
+        if (table === "staff_assistant_messages") {
+          return {
+            insert: (rows: Array<Record<string, unknown>> | Record<string, unknown>) => {
+              const arr = Array.isArray(rows) ? rows : [rows];
+              insertedBatches.push(arr);
+              return {
+                select: async () => ({
+                  data: arr.map((r, i) => ({ id: `m-${i + 1}`, role: r.role })),
+                  error: null,
+                }),
+              };
+            },
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "c-1", title: "New chat", message_count: 0 },
+              }),
+            }),
+          }),
+          update: () => ({
+            eq: async () => ({ error: null }),
+          }),
+        };
+      },
+    };
+
+    await recordTurn(
+      {
+        conversationId: "11111111-1111-4111-8111-111111111111",
+        userId: "22222222-2222-4222-8222-222222222222",
+        userMessage: "Show Tenant Ops arrears ageing",
+        assistantMessage: "Total arrears is UGX 1,450,000.",
+        outcome: "answered",
+        toolsCalled: ["get_tops_arrears_ageing"],
+        sourceLabel: "tops_arrears_ageing_amclock",
+        periodLabel: "as of 2026-10-26",
+        reportPayload: { rows: [] },
+        latencyMs: 350,
+        model: "google/gemini-3-flash-preview",
+      },
+      fakeAdmin,
+    );
+
+    expect(insertedBatches).toHaveLength(1);
+    expect(insertedBatches[0][0].role).toBe("user");
+    expect(insertedBatches[0][0].tools_called).toEqual([]);
+    expect(insertedBatches[0][1].role).toBe("assistant");
+    expect(insertedBatches[0][1].tools_called).toEqual(["get_tops_arrears_ageing"]);
+
+    // 2. Casual greeting "yoo wassup" is answered conversationally without needing a tool
+    const wassupTurn = await executeZoeTurn({
+      callerRoles: ["employee"],
+      userMessage: "yoo wassup",
+      modelToolCalls: [],
+      modelFinalText:
+        "Hello! I am Zoe, your read-only My Space assistant. Ask me about your tasks, payslips, or department reports.",
+    });
+    expect(wassupTurn.outcome).toBe("answered");
+    expect(wassupTurn.toolsCalled).toHaveLength(0);
+
+    // 3. PeriodArgsSchema accepts both `period` and `from`/`to` simultaneously
+    const firstSevenTool = findTool("get_tops_first_seven_summary")!;
+    expect(
+      firstSevenTool.schema.safeParse({
+        period: "custom",
+        from: "2026-10-14",
+        to: "2026-10-20",
+      }).success,
+    ).toBe(true);
+
+    // 4. Guards ground bucket map sums (`summary` object) and `expected - collected` difference
+    const arrearsOut = JSON.stringify({
+      source: "tops_arrears_ageing_amclock",
+      as_of: "2026-10-26",
+      summary: {
+        "1-7": { count: 119, arrears_ugx: 15292479 },
+        "8-14": { count: 29, arrears_ugx: 4227928 },
+        "15-30": { count: 29, arrears_ugx: 11432009 },
+        "30+": { count: 22, arrears_ugx: 10948013 },
+      },
+    });
+    expect(
+      checkAnswer(
+        "Across 199 overdue Rent Plans, total arrears is UGX 41,900,429, including 22 plans in the 30+ bucket (UGX 10,948,013).",
+        [arrearsOut],
+        "Show Tenant Ops arrears ageing",
+      ).ok,
+    ).toBe(true);
+
+    // 5. System prompt enforces FILES ONLY WHEN ASKED
+    expect(buildSystemPrompt("2026-10-26", ["tenant_ops"], ["get_tops_arrears_ageing"])).toContain(
+      "FILES ONLY WHEN ASKED",
+    );
+  });
+
+  it("verifies Prompt 2 stronger brain: model tiers (fast vs deep), prefix-cached system prompt, natural conversation, 8-round/12-tool deep loop with partial synthesis, Zoe notes PII/figure guard, and get_welile_glossary", async () => {
+    const {
+      selectModelTier,
+      isDeepQuestion,
+      DEFAULT_ZOE_MODEL_FAST,
+      DEFAULT_ZOE_MODEL_DEEP,
+      DEFAULT_CHAT_TEMPERATURE,
+      DEFAULT_CHAT_MAX_TOKENS,
+      DEFAULT_MAX_COST_USD_PER_QUESTION,
+      MAX_DEEP_MODEL_ROUNDS,
+      MAX_DEEP_TOOL_CALLS,
+      STATIC_SYSTEM_PROMPT_PREFIX,
+      validateZoeNoteText,
+      formatZoeNotesForPrompt,
+      buildRollingConversationSummary,
+      synthesizePartialStepLimitReply,
+    } = await import("../../../../scripts/zoe-eval/runtime.ts");
+
+    // 1. Model tiers & configuration defaults
+    expect(DEFAULT_ZOE_MODEL_FAST).toBe("google/gemini-2.5-flash");
+    expect(DEFAULT_ZOE_MODEL_DEEP).toBe("google/gemini-2.5-pro");
+    expect(DEFAULT_CHAT_TEMPERATURE).toBe(0.2);
+    expect(DEFAULT_CHAT_MAX_TOKENS).toBe(3200);
+    expect(DEFAULT_MAX_COST_USD_PER_QUESTION).toBe(0.08);
+    expect(MAX_DEEP_MODEL_ROUNDS).toBe(8);
+    expect(MAX_DEEP_TOOL_CALLS).toBe(12);
+
+    expect(isDeepQuestion("Show my pending tasks")).toBe(false);
+    expect(isDeepQuestion("Why did Tenant Ops collection rate drop compared to last week and what do you recommend?")).toBe(true);
+
+    const fastTier = selectModelTier("Show my recent payslips");
+    expect(fastTier.tier).toBe("fast");
+    expect(fastTier.model).toBe("google/gemini-2.5-flash");
+    expect(fastTier.maxModelRounds).toBe(4);
+    expect(fastTier.maxToolCalls).toBe(6);
+
+    const deepTier = selectModelTier("Compare this week with last week and explain why collections changed");
+    expect(deepTier.tier).toBe("deep");
+    expect(deepTier.model).toBe("google/gemini-2.5-pro");
+    expect(deepTier.maxModelRounds).toBe(8);
+    expect(deepTier.maxToolCalls).toBe(12);
+
+    // 2. Prefix caching: fixed instructions appear at the very start of buildSystemPrompt
+    const { buildSystemPrompt } = await import(
+      "../../../../supabase/functions/staff-assistant/prompt.ts"
+    );
+    const builtPrompt = buildSystemPrompt("2026-10-28", ["cfo"], ["get_cfo_overview"], {
+      modelTier: "deep",
+      zoeNotesBlock: formatZoeNotesForPrompt([
+        { id: "n-1", note_text: "Show Kampala West first", created_at: "2026-10-28T08:00:00Z" },
+      ]),
+      rollingSummaryBlock: "Earlier conversation summary:\n- Asked about CFO overview",
+    });
+    expect(builtPrompt.startsWith(STATIC_SYSTEM_PROMPT_PREFIX)).toBe(true);
+    expect(builtPrompt).toContain("Show Kampala West first");
+    expect(builtPrompt).toContain("ACTIVE REASONING TIER: deep");
+
+    // 3. Natural conversation: drafting / brainstorming / general work help works without canned UNMATCHED script,
+    //    while ungrounded Welile numbers without a tool call are still blocked by checkAnswer.
+    const draftHelpTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Help me draft a polite follow-up message to a field agent about submitting landlord verification photos on time.",
+      modelToolCalls: [],
+      modelFinalText:
+        "Here is a short message you can send:\n\nHi team, please remember to upload clear landlord verification photos on the Rent Plan card in Tenant Ops so we can complete stage reviews on time.",
+    });
+    expect(draftHelpTurn.outcome).toBe("answered");
+    expect(draftHelpTurn.reply).toContain("landlord verification photos");
+
+    const ungroundedFigureTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Help me draft a summary of our collections today",
+      modelToolCalls: [],
+      modelFinalText: "Today we collected UGX 14,500,000 across 42 Rent Plans.",
+    });
+    // Must be blocked because UGX 14,500,000 was not grounded in any tool call
+    expect(ungroundedFigureTurn.outcome).toBe("blocked");
+
+    // Write/mutation refusal names the screen to use
+    const mutationTurn = await executeZoeTurn({
+      callerRoles: ["cfo"],
+      userMessage: "Approve requisition REQ-1024 right now",
+    });
+    expect(mutationTurn.outcome).toBe("out_of_scope");
+    expect(mutationTurn.reply).toContain("/me/requisitions");
+
+    // 4. Multi-step deep loop: runs across multiple rounds (e.g. 3 rounds, 3 tool calls) and synthesizes partial results if step limit is reached
+    const multiStepTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      userMessage: "Why did Tenant Ops arrears change compared to collections this month?",
+      modelToolCallRounds: [
+        [{ name: "get_welile_glossary", args: { search: "expected vs collected" } }],
+        [{ name: "get_tops_first_seven_summary", args: {} }],
+        [{ name: "get_tops_arrears_ageing", args: {} }],
+      ],
+      rpcDataByTool: {
+        get_welile_glossary: {
+          source: "staff_assistant_glossary",
+          as_of: "2026-10-26",
+          row_count: 1,
+          rows: [{ term_key: "expected_vs_collected", term_title: "Expected vs Collected Repayments" }],
+        },
+        get_tops_first_seven_summary: {
+          source: "tops_first_seven_summary",
+          period: { as_of: "2026-10-26" },
+          active_rent_plans: 815,
+          overdue_plans_count: 199,
+        },
+        get_tops_arrears_ageing: {
+          source: "tops_arrears_ageing_amclock",
+          period: { as_of: "2026-10-26" },
+          overdue_total_ugx: 41900429,
+        },
+      },
+      modelFinalText:
+        "Based on the Welile glossary and Tenant Ops reports, there are 815 active Rent Plans with 199 overdue plans totalling UGX 41,900,429 as of 2026-10-26.\n\nSource: tops_arrears_ageing_amclock · Period: as of 2026-10-26",
+    });
+    expect(multiStepTurn.outcome).toBe("answered");
+    expect(multiStepTurn.modelTier).toBe("deep");
+    expect(multiStepTurn.toolsCalled).toEqual([
+      "get_welile_glossary",
+      "get_tops_first_seven_summary",
+      "get_tops_arrears_ageing",
+    ]);
+
+    // Step-limit reached with partial tool results returns "I reached my limit, here is what I have so far:"
+    const partialLimitTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      mfaAal2: true,
+      userMessage: "Why did arrears change across every stage?",
+      budgetCheckResult: {
+        allowed: true,
+        remainingToday: 40,
+        maxQuestionsPerDay: 50,
+        maxModelRounds: 1,
+        maxToolCalls: 1,
+        maxDeepModelRounds: 1,
+        maxDeepToolCalls: 1,
+      },
+      modelToolCallRounds: [
+        [
+          { name: "get_tops_arrears_ageing", args: {} },
+          { name: "get_tops_first_seven_summary", args: {} },
+        ],
+      ],
+      rpcDataByTool: {
+        get_tops_arrears_ageing: {
+          source: "tops_arrears_ageing_amclock",
+          period: { as_of: "2026-10-26" },
+          overdue_total_ugx: 41900429,
+          overdue_count: 199,
+        },
+      },
+    });
+    expect(partialLimitTurn.outcome).toBe("answered");
+    expect(partialLimitTurn.reply).toContain("I reached my limit, here is what I have so far:");
+    expect(partialLimitTurn.reply).toContain("UGX 41,900,429");
+
+    // 5. Zoe notes validation: blocks UGX figures, numbers >= 100, phone numbers, emails, and banned terms
+    expect(validateZoeNoteText("Always show Kampala West first").ok).toBe(true);
+    expect(validateZoeNoteText("Keep my summaries under 5 bullet points").ok).toBe(true);
+    expect(validateZoeNoteText("My target is UGX 5,000,000").ok).toBe(false);
+    expect(validateZoeNoteText("Call 0772123456 every morning").ok).toBe(false);
+    expect(validateZoeNoteText("Send to jane@welile.com").ok).toBe(false);
+    expect(validateZoeNoteText("Track loan interest rate").ok).toBe(false);
+
+    // 6. Rolling summary builder summarizes older turns cleanly without crashing
+    const summary = buildRollingConversationSummary(
+      [
+        { role: "user", content: "Show Tenant Ops overview" },
+        { role: "assistant", content: "Active Rent Plans: 815." },
+      ],
+      "",
+    );
+    expect(summary).toContain("Show Tenant Ops overview");
+    expect(
+      synthesizePartialStepLimitReply([
+        {
+          tool: "get_tops_arrears_ageing",
+          rpc: "assistant_staff_tops_arrears_ageing",
+          source: "tops_arrears_ageing_amclock",
+          period: "as of 2026-10-26",
+          args: { p_as_of: "2026-10-26" },
+          key_figures: { overdue_total_ugx: 41900429, overdue_count: 199 },
+          rows_preview: [],
+          recorded_at: "2026-10-28T07:30:00Z",
+        },
+      ]),
+    ).toContain("I reached my limit, here is what I have so far:");
   });
 });

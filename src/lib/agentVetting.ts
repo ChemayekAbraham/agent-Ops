@@ -44,6 +44,19 @@ export type VettingNationalId = {
   /** Set when the NIN is already held by another account. */
   linked_to: { first_name: string | null; phone_masked: string | null } | null;
   accounts_on_id: number | null;
+  /** The agent's own ID on file, for the summary (never the full NIN). */
+  name_on_id: string | null;
+  /** Storage paths of the agent's own ID photos (sign with identityPhotoUrl to show them). */
+  front_path: string | null;
+  back_path: string | null;
+  front_uploaded_at: string | null;
+  back_uploaded_at: string | null;
+  /**
+   * The account's identity is already verified (identity_already_verified): the ID
+   * and selfie on file are final and cannot be sent again, so the step passes as it
+   * is and there is no "Replace ID photos".
+   */
+  identity_verified: boolean;
 };
 
 export type AgentVetting = {
@@ -137,6 +150,12 @@ export function parseAgentVetting(raw: unknown): AgentVetting {
       can_use_parent: id.can_use_parent === true,
       linked_to: linked ? { first_name: str(linked.first_name), phone_masked: str(linked.phone_masked) } : null,
       accounts_on_id: num(id.accounts_on_id),
+      name_on_id: str(id.name_on_id),
+      front_path: str(id.front_path),
+      back_path: str(id.back_path),
+      front_uploaded_at: str(id.front_uploaded_at),
+      back_uploaded_at: str(id.back_uploaded_at),
+      identity_verified: id.identity_verified === true,
     },
     passport_photo: { path: str(photo.path), check: photo.check ?? null },
     next_of_kin: {
@@ -206,6 +225,58 @@ export function vettingProgress(steps: VettingStep[]) {
 /** Agents can edit while unverified or rejected; editing a verified record sends it back for review. */
 export function canEditVetting(status: VettingStatus): boolean {
   return status !== 'submitted';
+}
+
+export type IdOnFilePart = 'number' | 'front' | 'back';
+
+/**
+ * What the agent's own National ID on file looks like, for the Identity step:
+ * `complete` shows the summary, `partial` shows the summary plus an upload for
+ * each missing part, `none` shows the capture flow. Changing details means
+ * uploading new photos; the number and name are read from the card.
+ * `locked`: the identity is already verified, so the ID on file is final; show
+ * the summary as verified, with no upload or replace (and nothing "missing").
+ */
+export function nationalIdOnFile(id: VettingNationalId): { state: 'complete' | 'partial' | 'none'; missing: IdOnFilePart[]; locked: boolean } {
+  if (id.identity_verified) return { state: 'complete', missing: [], locked: true };
+  const missing: IdOnFilePart[] = [];
+  if (!id.nin_masked) missing.push('number');
+  if (!id.has_front) missing.push('front');
+  if (!id.has_back) missing.push('back');
+  const state = missing.length === 0 ? 'complete' : missing.length === 3 ? 'none' : 'partial';
+  return { state, missing, locked: false };
+}
+
+export type IdSnapshot = {
+  source: 'own' | 'parent' | null;
+  nin_masked: string | null;
+  name: string | null;
+  front_path: string | null;
+  back_path: string | null;
+  captured_at: string | null;
+};
+
+/**
+ * The ID Agent Ops is reviewing and, when the agent replaced it, the one Agent
+ * Ops last decided on (agent_vetting.prev_id_*), from agent_vetting_detail.
+ */
+export function idComparison(detail: Record<string, unknown> | null | undefined): {
+  current: IdSnapshot;
+  previous: IdSnapshot | null;
+  changed_at: string | null;
+} {
+  const d = obj(detail);
+  const snap = (p: '' | 'prev_'): IdSnapshot => ({
+    source: idSource(d[`${p}id_source`]),
+    nin_masked: str(d[`${p}id_nin_masked`]),
+    name: str(d[`${p}id_name`]),
+    front_path: str(d[`${p}id_front_path`]),
+    back_path: str(d[`${p}id_back_path`]),
+    captured_at: str(d[`${p}id_captured_at`]),
+  });
+  const previous = snap('prev_');
+  const hasPrevious = !!(previous.nin_masked || previous.front_path || previous.back_path);
+  return { current: snap(''), previous: hasPrevious ? previous : null, changed_at: hasPrevious ? str(d.id_changed_at) : null };
 }
 
 export const VETTING_STATUS_LABEL: Record<VettingStatus, string> = {

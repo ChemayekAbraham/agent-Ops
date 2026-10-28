@@ -248,6 +248,17 @@ export function BikeLeaseDetailDialog({
   });
 
   // Check if applicant currently has an active running advance (to flag deduction collision risk)
+  const { data: bikePriority } = useQuery({
+    queryKey: ['agent-bike-advance-priority', order?.customer_id],
+    enabled: !!order?.customer_id,
+    retry: false,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('agent_bike_advance_priority', { p_agent_id: order!.customer_id });
+      if (error) throw error;
+      return data as { protected: boolean; bike_daily: number; bike_paid_today: number; bike_remaining_today: number; advance_outstanding: number } | null;
+    },
+  });
+
   const { data: applicantActiveAdvance } = useQuery({
     queryKey: ['bike-applicant-active-advance-dossier', order?.customer_id],
     enabled: !!order?.customer_id && open,
@@ -600,10 +611,10 @@ export function BikeLeaseDetailDialog({
               {hasApplicantActiveAdvance ? (
                 <Badge
                   variant="outline"
-                  className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] font-semibold"
+                  className="bg-primary/10 text-primary border-primary/30 text-[10px] font-semibold"
                 >
                   <AlertCircle className="h-3 w-3 mr-1" />
-                  Running Advance: {formatUGX(Number(applicantActiveAdvance.outstanding_balance))} (Collision Risk)
+                  Running Advance: {formatUGX(Number(applicantActiveAdvance.outstanding_balance))} (paid after bike)
                 </Badge>
               ) : (
                 <Badge
@@ -651,20 +662,20 @@ export function BikeLeaseDetailDialog({
               )}
             </div>
 
-            {/* Deduction collision warning if agent has a running advance */}
+            {/* Recovery order: bike daily payment first, advance from surplus only (enforced on the server). */}
             {hasApplicantActiveAdvance && (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 space-y-1 text-xs">
-                <div className="flex items-center gap-1.5 font-semibold text-destructive">
+              <div className={cn('rounded-lg border p-2.5 space-y-1.5 text-xs', bikePriority?.protected === false ? 'border-amber-500/40 bg-amber-500/10' : 'border-emerald-500/40 bg-emerald-500/10')}>
+                <div className={cn('flex items-center gap-1.5 font-semibold', bikePriority?.protected === false ? 'text-amber-600' : 'text-emerald-600')}>
                   <ShieldAlert className="h-4 w-4 shrink-0" />
-                  <span>Deduction Collision Warning: Running Advance Active</span>
+                  <span>{bikePriority?.protected === false ? 'Bike recovery is switched off — order applies once it is on' : 'Waterfall Recovery Protected'}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  This applicant currently has a running advance with an outstanding balance of{' '}
-                  <strong className="text-foreground font-semibold">
-                    {formatUGX(Number(applicantActiveAdvance.outstanding_balance))}
-                  </strong>
-                  . Both advance repayments and bike lease recoveries sweep daily from the agent's withdrawable wallet earnings; simultaneous deductions can collide and lead to immediate default.
+                  Agent has an active advance. Daily bike recovery (Priority 1) is collected first; only surplus commission services the running advance (Priority 2).
                 </p>
+                <ol className="space-y-0.5 text-[11px]">
+                  <li><strong className="text-foreground">Priority 1:</strong> Bike daily payment{bikePriority?.bike_daily ? ` — ${formatUGX(Number(bikePriority.bike_daily))}/day` : ''}{bikePriority ? ` (paid today ${formatUGX(Number(bikePriority.bike_paid_today || 0))})` : ''}</li>
+                  <li><strong className="text-foreground">Priority 2:</strong> Running advance — {formatUGX(Number(bikePriority?.advance_outstanding ?? applicantActiveAdvance.outstanding_balance))} from surplus commission</li>
+                </ol>
               </div>
             )}
 

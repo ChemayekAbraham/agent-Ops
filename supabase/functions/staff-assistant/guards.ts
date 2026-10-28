@@ -146,6 +146,32 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
     }
     if (val && typeof val === "object") {
       const obj = val as Record<string, unknown>;
+      if (typeof obj.expected === "number" && typeof obj.collected === "number") {
+        addNum(Math.max(0, obj.expected - obj.collected));
+      }
+      // If `obj` is a bucket map (e.g. `summary: { "1-7": { arrears_ugx, count }, ... }`),
+      // register the sum of bucket `arrears_ugx` and `count` across sibling buckets.
+      const childObjects = Object.values(obj).filter(
+        (v): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v)),
+      );
+      if (childObjects.length >= 2) {
+        let sumArrears = 0;
+        let hasArrears = false;
+        let sumCount = 0;
+        let hasCount = false;
+        for (const child of childObjects) {
+          if (typeof child.arrears_ugx === "number") {
+            sumArrears += child.arrears_ugx;
+            hasArrears = true;
+          }
+          if (typeof child.count === "number") {
+            sumCount += child.count;
+            hasCount = true;
+          }
+        }
+        if (hasArrears) addNum(sumArrears);
+        if (hasCount) addNum(sumCount);
+      }
       for (const [k, v] of Object.entries(obj)) {
         for (const m of k.matchAll(INTEGER_RE)) {
           addNum(Number(m[0].replace(/,/g, "")));
@@ -228,9 +254,10 @@ function scrubStructuralTokens(text: string): string {
     .replace(/\+?256\s*7[•*xX\d\s-]{6,14}\b/g, " ")
     .replace(/\b[A-Z]{2,5}-[A-Z0-9-]+\b/g, " ")
     .replace(/\b(?:A1|A5|A10|A19|A21|A22|L1|L9|X4|LC1|AAL1|AAL2|v\d+)\b/gi, " ")
-    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus)\b/gi, " ")
+    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus|30\+)\b/gi, " ")
     .replace(/\bfirst\s+7\s+days\b/gi, " ")
-    .replace(/\bweek[-_\s]?1\b/gi, " ")
+    .replace(/\b(?:week|wk)[-_\s]?\d+\b/gi, " ")
+    .replace(/\bday\s+[1-7]\b/gi, " ")
     .replace(/^\s*\d+[.)]\s+/gm, " ");
 }
 
@@ -389,3 +416,81 @@ export function checkDraftCardText(
   }
   return { ok: true };
 }
+
+export type ZoeNoteValidationResult =
+  | { ok: true; cleaned: string }
+  | {
+      ok: false;
+      reason:
+        | "empty"
+        | "too_long"
+        | "business_figure"
+        | "pii_phone"
+        | "pii_email"
+        | "pii_uuid"
+        | "pii_nin"
+        | "terminology";
+    };
+
+const EMAIL_IN_NOTE_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
+const UG_NIN_RE = /\bC[MF][A-Z0-9]{12}\b/i;
+const GENERIC_PHONE_IN_NOTE_RE = /(?:\+?\d[\d\s()-]{7,15}\d)/;
+const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\b/i;
+
+/**
+ * Deterministic validator for per-person `staff_assistant_notes` ("Zoe notes").
+ * Enforces Prompt 2 item (5):
+ *   - Up to 240 characters per note
+ *   - Never contains business figures (UGX amounts, percentages, shorthand 1.2M/500k, or numbers >= 100)
+ *   - Never contains personal data about others (phone numbers, email addresses, UUIDs, NINs)
+ *   - Never contains banned regulatory terms (loan, lender, ROI, interest)
+ */
+export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
+  // deno-lint-ignore no-control-regex
+  const cleaned = (rawNote ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length < 2) {
+    return { ok: false, reason: "empty" };
+  }
+  if (cleaned.length > 240) {
+    return { ok: false, reason: "too_long" };
+  }
+  if (BANNED_TERMS.test(cleaned) || containsPromptOrSecretLeak(cleaned)) {
+    return { ok: false, reason: "terminology" };
+  }
+  UUID_RE.lastIndex = 0;
+  if (UUID_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_uuid" };
+  }
+  if (EMAIL_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_email" };
+  }
+  if (UG_NIN_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_nin" };
+  }
+  PHONE_RE.lastIndex = 0;
+  if (PHONE_RE.test(cleaned) || GENERIC_PHONE_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_phone" };
+  }
+  SHORTHAND_RE.lastIndex = 0;
+  PERCENT_RE.lastIndex = 0;
+  if (
+    UGX_AMOUNT_IN_NOTE_RE.test(cleaned) ||
+    SHORTHAND_RE.test(cleaned) ||
+    PERCENT_RE.test(cleaned)
+  ) {
+    return { ok: false, reason: "business_figure" };
+  }
+
+  // Strip HH:MM clock times (e.g. "07:30") before checking for numbers >= 100
+  const withoutClock = cleaned.replace(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g, " ");
+  INTEGER_RE.lastIndex = 0;
+  for (const m of withoutClock.matchAll(INTEGER_RE)) {
+    const n = Number(m[0].replace(/,/g, ""));
+    if (Number.isFinite(n) && Math.abs(n) >= 100) {
+      return { ok: false, reason: "business_figure" };
+    }
+  }
+
+  return { ok: true, cleaned };
+}
+

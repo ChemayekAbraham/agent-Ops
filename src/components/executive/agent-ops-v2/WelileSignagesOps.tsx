@@ -142,7 +142,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
   };
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto pb-16">
+    <div className="space-y-4 w-full pb-16">
       {/* Top Header */}
       <div className="flex items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
         <div className="flex items-center gap-3">

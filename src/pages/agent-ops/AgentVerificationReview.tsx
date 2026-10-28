@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,7 +20,7 @@ import {
   useAgentVettingQueue, useAgentVettingDetail, useAgentVettingPhotos, useDecideAgentVetting,
   type AgentVettingDetail,
 } from '@/hooks/useAgentVettingQueue';
-import { VETTING_STATUS_LABEL, type VettingStatus } from '@/lib/agentVetting';
+import { VETTING_STATUS_LABEL, idComparison, type VettingStatus, type IdSnapshot } from '@/lib/agentVetting';
 import VettingMap, { type MapPoint } from '@/components/agent-vetting/VettingMap';
 
 const TABS: { value: VettingStatus; label: string }[] = [
@@ -133,7 +133,7 @@ export default function AgentVerificationReview() {
       </main>
 
       <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full overflow-y-auto sm:max-w-xl">
           {openId && <ReviewPanel agentId={openId} onDone={() => setOpenId(null)} />}
         </SheetContent>
       </Sheet>
@@ -148,6 +148,7 @@ const EVENT_LABEL: Record<string, string> = {
   phone_confirmed: 'Phone confirmed',
   email_confirmed: 'Email confirmed',
   parent_id_link_requested: "Asked to use parent's ID",
+  id_replaced: 'Replaced National ID',
 };
 
 function eventLabel(e: AgentVettingDetail['events'][number]) {
@@ -194,20 +195,31 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
       onError: (e) => { toast.error((e as Error).message); detailQ.refetch(); },
     });
 
-  const Photo = ({ url, alt }: { url: string | null | undefined; alt: string }) =>
+  const idVerified = (d as { identity_verified?: boolean }).identity_verified === true;
+  const Photo = ({ url, alt, missingText }: { url: string | null | undefined; alt: string; missingText?: string }) =>
     url ? (
-      <button onClick={() => setZoom(url)} className="block">
+      <Button variant="ghost" aria-label={`Enlarge ${alt}`} onClick={() => setZoom(url)} className="block h-auto min-h-11 w-full min-w-0 p-0">
         <img src={url} alt={alt} className="h-32 w-full rounded-lg border border-border object-cover" />
-      </button>
-    ) : <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">No {alt.toLowerCase()}</div>;
+      </Button>
+    ) : <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">{missingText ?? `No ${alt.toLowerCase()}`}</div>;
 
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  const Section = ({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) => (
     <section className="space-y-2 border-t border-border pt-3">
-      <h3 className="text-sm font-semibold">{title}</h3>{children}
+      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{title}</h3>{badge}</div>{children}
     </section>
   );
 
   const events = [...(d.events ?? [])].sort((a, b) => (a.at < b.at ? 1 : -1));
+  const comparison = idComparison(d);
+  const IdCard = ({ snapshot, previous = false }: { snapshot: IdSnapshot; previous?: boolean }) => <div className="min-w-0 space-y-2">
+    <div className="grid grid-cols-2 gap-2">
+      <Photo url={previous ? photos.data?.prev_id_front : photos.data?.id_front} alt={previous ? 'Previous ID front' : 'ID front'} />
+      <Photo url={previous ? photos.data?.prev_id_back : photos.data?.id_back} alt={previous ? 'Previous ID back' : 'ID back'} missingText={idVerified && !previous ? 'Back photo not required' : undefined} />
+    </div>
+    <p className={`break-words text-sm ${comparison.previous && comparison.current.name !== comparison.previous.name ? 'rounded border border-warning/30 bg-warning/10 p-2 text-warning' : ''}`}>Name on ID: {snapshot.name ?? 'Not on file'}</p>
+    <p className={`break-all font-mono text-sm ${comparison.previous && comparison.current.nin_masked !== comparison.previous.nin_masked ? 'rounded border border-warning/30 bg-warning/10 p-2 text-warning' : ''}`}>NIN: {snapshot.nin_masked ?? 'Not on file'}</p>
+    {snapshot.captured_at && <p className="text-xs text-muted-foreground">Uploaded {abs(snapshot.captured_at)}</p>}
+  </div>;
 
   return (
     <div className="space-y-4 pb-24">
@@ -225,12 +237,14 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
         </div>
       </Section>
 
-      <Section title="National ID">
-        <div className="grid grid-cols-2 gap-2">
-          <Photo url={photos.data?.id_front} alt="ID front" />
-          <Photo url={photos.data?.id_back} alt="ID back" />
-        </div>
-        {d.id_nin_masked && <p className="font-mono text-sm">{d.id_nin_masked}</p>}
+      <Section title="National ID" badge={idVerified ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">ID verified by Admin</Badge> : undefined}>
+        {comparison.previous ? <>
+          <Badge variant="outline" className="h-auto whitespace-normal border-warning/30 bg-warning/10 text-warning">Changed {abs(comparison.changed_at) || 'date unavailable'}</Badge>
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2"><h4 className="text-sm font-semibold">Previous</h4><IdCard snapshot={comparison.previous} previous /></div>
+            <div className="min-w-0 space-y-2"><h4 className="text-sm font-semibold">New</h4><IdCard snapshot={comparison.current} /></div>
+          </div>
+        </> : <IdCard snapshot={comparison.current} />}
         <p className="text-sm">
           {d.id_source === 'parent'
             ? `Using ${d.id_holder?.name ?? 'parent agent'}'s ID (${d.id_holder?.phone ?? ''})`
@@ -308,7 +322,7 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
       </AlertDialog>
 
       <Dialog open={!!zoom} onOpenChange={(o) => !o && setZoom(null)}>
-        <DialogContent className="max-w-3xl p-2">{zoom && <img src={zoom} alt="Zoomed photo" className="w-full rounded" />}</DialogContent>
+        <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto p-3"><DialogTitle className="sr-only">ID photo</DialogTitle>{zoom && <img src={zoom} alt="Zoomed photo" className="max-h-[80dvh] w-full rounded object-contain" />}</DialogContent>
       </Dialog>
     </div>
   );

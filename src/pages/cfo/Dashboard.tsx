@@ -2,6 +2,8 @@ import { useEffect, lazy, Suspense } from 'react';
 import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
+const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
+const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -517,7 +519,7 @@ export default function CFODashboardPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSpecialAdvanceOpen(true)}
+                onClick={() => setActiveTab('special-advances')}
                 className="gap-1.5 shrink-0"
               >
                 <Sparkles className="h-4 w-4 text-primary" /> Special Advance
@@ -684,6 +686,18 @@ export default function CFODashboardPage() {
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
+      case 'paid-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money Out report…</div>}>
+            <PaidByCategory />
+          </Suspense>
+        );
+      case 'received-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money In report…</div>}>
+            <ReceivedByCategory />
+          </Suspense>
+        );
       case 'sms-otp-costs':
         return <SmsOtpCostsPanel />;
       case 'payout-reports':

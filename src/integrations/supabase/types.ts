@@ -6976,9 +6976,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -6991,6 +6994,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -7014,9 +7023,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7029,6 +7041,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -7052,9 +7070,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7067,6 +7088,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -68935,9 +68962,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -68950,6 +68980,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -68966,6 +69002,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_vetting_id_details: { Args: { p_uid: string }; Returns: Json }
       _agent_vetting_id_status: {
         Args: { p_source: string; p_uid: string }
         Returns: Json
@@ -68974,12 +69011,21 @@ export type Database = {
         Args: { p_agent: string; p_detail?: Json; p_event: string }
         Returns: undefined
       }
+      _agent_vetting_name_on_id: { Args: { p_uid: string }; Returns: string }
       _agent_vetting_parent: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_photo_uploaded_at: {
+        Args: { p_path: string }
+        Returns: string
+      }
       _agent_vetting_reopen: {
         Args: { p_uid: string; p_what: string }
         Returns: undefined
       }
       _agent_vetting_require_agent: { Args: never; Returns: string }
+      _agent_vetting_take_id_snapshot: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
@@ -69185,6 +69231,26 @@ export type Database = {
         Args: { p: Json; p_partial: boolean }
         Returns: Json
       }
+      _bike_advance_priority_active: {
+        Args: { p_agent: string }
+        Returns: boolean
+      }
+      _bike_priority_remaining: {
+        Args: { p_agent: string; p_day: string }
+        Returns: number
+      }
+      _bike_priority_split: {
+        Args: {
+          p_available: number
+          p_outstanding: number
+          p_paid: number
+          p_quota: number
+        }
+        Returns: {
+          bike: number
+          surplus: number
+        }[]
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -69231,6 +69297,7 @@ export type Database = {
       }
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
+      _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
@@ -69250,6 +69317,14 @@ export type Database = {
           ts: string
         }[]
       }
+      _cfo_received_agent_product_for: {
+        Args: {
+          p_category: string
+          p_is_bike_lease: boolean
+          p_source_table: string
+        }
+        Returns: string
+      }
       _cfo_received_base: {
         Args: {
           p_from: string
@@ -69265,6 +69340,10 @@ export type Database = {
           status: string
           ts: string
         }[]
+      }
+      _cfo_received_category_for: {
+        Args: { p_category: string }
+        Returns: string
       }
       _claim_return_cycle: {
         Args: {
@@ -69515,6 +69594,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
       _renewal_advice_core: {
         Args: {
           p_as_at: string
@@ -70128,6 +70208,10 @@ export type Database = {
       }
       agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_bike_advance_priority: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }
@@ -77124,6 +77208,7 @@ export type Database = {
           run_date: string
         }[]
       }
+      get_applicant_partnership: { Args: { p_user_id: string }; Returns: Json }
       get_approximate_user_count: { Args: never; Returns: number }
       get_approximate_user_count__impl: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
@@ -77551,6 +77636,45 @@ export type Database = {
           status: string
         }[]
       }
+      get_cfo_paid_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+        }
+        Returns: {
+          amount: number
+          approved_by: string
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_paid_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          pct: number
+          sort_order: number
+          tx_count: number
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -77567,6 +77691,56 @@ export type Database = {
           category: string
           direction: string
           pool: string
+        }[]
+      }
+      get_cfo_received_agent_products_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          product_key: string
+          product_label: string
+          tx_count: number
+        }[]
+      }
+      get_cfo_received_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          approved_by: string
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_received_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          nature: string
+          pct: number
+          sort_order: number
+          tx_count: number
         }[]
       }
       get_cfo_rent_fee_collections: {
@@ -80836,7 +81010,12 @@ export type Database = {
         Returns: Json
       }
       get_withdrawal_history: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_roi_only?: boolean
+          p_search?: string
+        }
         Returns: {
           amount: number
           balance_after: number
@@ -80844,6 +81023,7 @@ export type Database = {
           bank_account_number: string
           bank_name: string
           created_at: string
+          is_roi_payout: boolean
           mobile_money_number: string
           mobile_money_provider: string
           payout_method: string

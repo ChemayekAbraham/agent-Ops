@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -36,6 +36,7 @@ import { UgLocationPicker } from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { captureGps, type CapturedGps } from '@/lib/captureGps';
 import { optimizeImage } from '@/lib/imageOptimizer';
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
 
 // Shared client-side validation for the core enrollment fields. Kept strict so
 // agents cannot submit invalid or internally conflicting values (e.g. decimal
@@ -1408,6 +1409,15 @@ function RequestFloatDialog({
 }
 
 // ---------------- Enroll dialog ----------------
+export interface LandlordGpsRecord {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  captured_at?: string;
+  ip_address?: string | null;
+  source?: 'gps' | 'ip_fallback';
+}
+
 interface LandlordRecord {
   id?: string;
   name: string;
@@ -1416,7 +1426,7 @@ interface LandlordRecord {
   count: number;
   passportUrl?: string | null;
   housePhotos?: string[];
-  gps?: CapturedGps | null;
+  gps?: LandlordGpsRecord | null;
   ugLocation?: UgLocationSelection | null;
 }
 
@@ -1462,6 +1472,15 @@ function EnrollDialog({
   const [housePhotos, setHousePhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
   const [ugLocation, setUgLocation] = useState<UgLocationSelection | null>(null);
   const [optimizingImage, setOptimizingImage] = useState(false);
+
+  // Live GPS & IP fallback state for mandatory location verification
+  const [gpsLat, setGpsLat] = useState<number | null>(null);
+  const [gpsLng, setGpsLng] = useState<number | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [gpsCapturedAt, setGpsCapturedAt] = useState<string | null>(null);
+  const [capturedIp, setCapturedIp] = useState<string | null>(null);
+  const [locationSource, setLocationSource] = useState<'gps' | 'ip_fallback' | null>(null);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
 
   // Selected landlord details
   const [landlordName, setLandlordName] = useState('');
@@ -1674,6 +1693,124 @@ function EnrollDialog({
     housePhotos.forEach((h) => URL.revokeObjectURL(h.previewUrl));
     setHousePhotos([]);
     setUgLocation(null);
+    setGpsLat(null);
+    setGpsLng(null);
+    setGpsAccuracy(null);
+    setGpsCapturedAt(null);
+    setCapturedIp(null);
+    setLocationSource(null);
+    setIsCapturingLocation(false);
+  };
+
+  const fetchClientIp = async (): Promise<string | null> => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ip) return String(data.ip);
+      }
+    } catch {
+      // try fallback
+    }
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api64.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ip) return String(data.ip);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const handleCaptureLocation = async () => {
+    setIsCapturingLocation(true);
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast({
+        title: 'GPS not supported on device',
+        description: 'Capturing client IP address as mandatory verification fallback...',
+      });
+      const ip = await fetchClientIp();
+      if (ip) {
+        setCapturedIp(ip);
+        setGpsLat(null);
+        setGpsLng(null);
+        setGpsAccuracy(null);
+        setGpsCapturedAt(new Date().toISOString());
+        setLocationSource('ip_fallback');
+        toast({
+          title: 'IP Address Verified',
+          description: `Device IP (${ip}) captured as mandatory location fallback.`,
+        });
+      } else {
+        toast({
+          title: 'Location capture failed',
+          description: 'Could not access GPS or network IP. Please check device internet connection.',
+          variant: 'destructive',
+        });
+      }
+      setIsCapturingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setGpsLat(latitude);
+        setGpsLng(longitude);
+        setGpsAccuracy(accuracy);
+        setGpsCapturedAt(new Date().toISOString());
+        setLocationSource('gps');
+
+        // Opportunistically also capture IP in background for complete audit
+        fetchClientIp().then((ip) => {
+          if (ip) setCapturedIp(ip);
+        });
+
+        setIsCapturingLocation(false);
+        toast({
+          title: 'Live GPS Coordinates Verified',
+          description: `${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`,
+        });
+      },
+      async (err) => {
+        console.warn('GPS location unavailable, capturing IP address fallback:', err);
+        toast({
+          title: 'GPS disabled or unavailable',
+          description: 'Capturing device IP address as mandatory verification fallback...',
+        });
+
+        const ip = await fetchClientIp();
+        if (ip) {
+          setCapturedIp(ip);
+          setGpsLat(null);
+          setGpsLng(null);
+          setGpsAccuracy(null);
+          setGpsCapturedAt(new Date().toISOString());
+          setLocationSource('ip_fallback');
+          toast({
+            title: 'IP Address Verified',
+            description: `GPS was disabled. Client IP (${ip}) recorded as mandatory verification fallback.`,
+          });
+        } else {
+          toast({
+            title: 'Location verification failed',
+            description: 'GPS is disabled and IP address could not be resolved. Please enable GPS or connect to internet.',
+            variant: 'destructive',
+          });
+        }
+        setIsCapturingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
   };
 
   const handlePassportFile = async (file?: File) => {
@@ -1949,6 +2086,14 @@ function EnrollDialog({
       toast({ title: 'Enter landlord phone', description: 'Please provide a valid phone number.', variant: 'destructive' });
       return;
     }
+    if (!gpsLat && !capturedIp) {
+      toast({
+        title: 'Location verification required',
+        description: 'Mandatory live GPS capture (or verified IP fallback if GPS is disabled) is required before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSavingLandlord(true);
     let createdId: string | undefined;
@@ -1998,12 +2143,22 @@ function EnrollDialog({
       ].filter(Boolean);
       const finalAddress = addressParts.join(', ') || 'Welile Homes Property';
 
+      const capturedGpsObj: LandlordGpsRecord | null = (gpsLat && gpsLng) || capturedIp ? {
+        latitude: gpsLat,
+        longitude: gpsLng,
+        accuracy: gpsAccuracy,
+        captured_at: gpsCapturedAt || new Date().toISOString(),
+        ip_address: capturedIp || null,
+        source: (gpsLat && gpsLng ? 'gps' : 'ip_fallback') as 'gps' | 'ip_fallback',
+      } : null;
+
       const metadataObj = {
         welile_homes: true,
         passport_photo: uploadedPassportUrl || passportPhoto?.previewUrl || null,
         house_photos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
         ug_location: ugLocation,
         landmark: landmark || null,
+        gps: capturedGpsObj,
         registered_at: new Date().toISOString(),
       };
 
@@ -2021,10 +2176,10 @@ function EnrollDialog({
               village: ugLocation?.village || null,
               region: ugLocation?.region || null,
               ug_village_id: ugLocation?.villageId || null,
-              latitude: null,
-              longitude: null,
-              location_captured_at: null,
-              location_captured_by: null,
+              latitude: gpsLat ?? null,
+              longitude: gpsLng ?? null,
+              location_captured_at: gpsCapturedAt || (capturedGpsObj ? new Date().toISOString() : null),
+              location_captured_by: agentId,
               registered_by: agentId,
               managed_by_agent_id: agentId,
               is_agent_managed: true,
@@ -2056,7 +2211,7 @@ function EnrollDialog({
         count: 0,
         passportUrl: uploadedPassportUrl || passportPhoto?.previewUrl || null,
         housePhotos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
-        gps: null,
+        gps: capturedGpsObj,
         ugLocation,
       };
 
@@ -2101,16 +2256,36 @@ function EnrollDialog({
   };
 
   const findTenant = async () => {
-    const p = phone.trim();
-    if (!p) return;
+    const raw = phone.trim();
+    if (!raw) return;
     setSearching(true);
     setTenant(null);
     try {
+      const digits = raw.replace(/\D/g, '');
+      const last9 = digits.slice(-9);
+      if (last9.length === 9) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .ilike('phone', `%${last9}`)
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          setTenant(data as any);
+          return;
+        }
+      }
       const { data } = await supabase
-        .from('profiles').select('id, full_name, phone')
-        .ilike('phone', `%${p.replace(/\s/g, '')}%`).limit(1).maybeSingle();
+        .from('profiles')
+        .select('id, full_name, phone')
+        .ilike('phone', `%${raw.replace(/\s/g, '')}%`)
+        .limit(1)
+        .maybeSingle();
       if (data) setTenant(data as any);
-    } finally { setSearching(false); setSearched(true); }
+    } finally {
+      setSearching(false);
+      setSearched(true);
+    }
   };
 
   const submit = async () => {
@@ -2135,8 +2310,27 @@ function EnrollDialog({
     setSubmitting(true);
     try {
       let tenantId = tenant?.id;
+
+      // 1. If tenant is not set in state, check if a profile already exists by normalized phone
       if (!tenantId) {
-        const { data: reg, error: regErr } = await supabase.functions.invoke('register-tenant', {
+        const digits = phone.replace(/\D/g, '');
+        const last9 = digits.slice(-9);
+        if (last9.length === 9) {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone')
+            .ilike('phone', `%${last9}`)
+            .limit(1)
+            .maybeSingle();
+          if (existingProfile?.id) {
+            tenantId = existingProfile.id;
+          }
+        }
+      }
+
+      // 2. If brand-new tenant, call register-tenant edge function with full error parsing & vetting check
+      if (!tenantId) {
+        const res = await supabase.functions.invoke('register-tenant', {
           body: {
             full_name: newName.trim(),
             phone: phone.trim(),
@@ -2144,11 +2338,42 @@ function EnrollDialog({
             telemetry: await collectAgentSignupTelemetry('/agent/welile-homes', 'tenant'),
           },
         });
-        if (regErr) throw new Error(regErr.message || 'Could not create tenant account');
-        if ((reg as any)?.error) throw new Error((reg as any).error);
-        tenantId = (reg as any)?.user_id;
+
+        let parsedBody: Record<string, unknown> | null = null;
+        if (res.error?.context) {
+          try {
+            parsedBody = (await res.error.context.clone().json()) as Record<string, unknown>;
+          } catch {
+            try {
+              parsedBody = (await res.error.context.json()) as Record<string, unknown>;
+            } catch {
+              parsedBody = null;
+            }
+          }
+        }
+        if (!parsedBody && res.data) {
+          parsedBody = res.data as Record<string, unknown>;
+        }
+
+        // Check if agent is unvetted -> prompts universal verification modal
+        if (promptIfNotVetted(parsedBody, res.error)) {
+          return;
+        }
+
+        if (res.error || !parsedBody || (parsedBody as any)?.error) {
+          const detail =
+            (typeof parsedBody?.error === 'string' && parsedBody.error) ||
+            (typeof parsedBody?.message === 'string' && parsedBody.message) ||
+            (res.error?.message && res.error.message !== 'Edge Function returned a non-2xx status code'
+              ? res.error.message
+              : 'Could not create tenant account. Please check the phone number and name.');
+          throw new Error(detail);
+        }
+
+        tenantId = (parsedBody as any)?.user_id;
         if (!tenantId) throw new Error('Could not create tenant account');
       }
+
       const { data, error } = await supabase.rpc('enroll_welile_home_tenant', {
         p_tenant_id: tenantId,
         p_agent_id: agentId,
@@ -2170,7 +2395,11 @@ function EnrollDialog({
           landlord_passport: selectedLandlordRecord?.passportUrl || null,
         }),
       });
-      if (error) throw error;
+
+      if (error) {
+        if (promptIfNotVetted(error)) return;
+        throw error;
+      }
       const res = data as any;
       if (!res?.success) throw new Error(res?.error || 'Enrollment failed');
       toast({
@@ -2181,8 +2410,11 @@ function EnrollDialog({
       onOpenChange(false);
       onDone();
     } catch (err: any) {
+      if (promptIfNotVetted(err)) return;
       toast({ title: 'Enrollment failed', description: err.message, variant: 'destructive' });
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -2344,8 +2576,11 @@ function EnrollDialog({
                                   </Badge>
                                 )}
                                 {l.gps && (
-                                  <span className="text-[9px] font-normal text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded shrink-0">
-                                    📍 GPS
+                                  <span className={cn(
+                                    "text-[9px] font-normal px-1 py-0.2 rounded shrink-0",
+                                    l.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
+                                  )}>
+                                    {l.gps.latitude ? "📍 GPS" : "🌐 IP Verified"}
                                   </span>
                                 )}
                               </p>
@@ -2624,6 +2859,117 @@ function EnrollDialog({
                   </div>
                 </div>
 
+                {/* 3. Mandatory Live GPS Location (Compulsory, with IP fallback if GPS disabled) */}
+                <Card className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <CardHeader className="p-0 pb-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Navigation className="h-4 w-4 text-primary" />
+                        <span>3. Mandatory Live GPS Location</span>
+                      </div>
+                      <Badge
+                        variant={locationSource === 'gps' ? 'default' : locationSource === 'ip_fallback' ? 'secondary' : 'destructive'}
+                        className={cn(
+                          'text-[10px] font-bold',
+                          locationSource === 'gps' && 'bg-primary text-primary-foreground',
+                          locationSource === 'ip_fallback' && 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
+                        )}
+                      >
+                        {locationSource === 'gps'
+                          ? 'GPS Captured'
+                          : locationSource === 'ip_fallback'
+                          ? 'IP Captured'
+                          : 'Required'}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-[11px] leading-tight text-muted-foreground">
+                      You must physically stand at the property to capture live coordinates. Manual pins are not accepted.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 pt-1 space-y-2">
+                    <div className="p-3.5 rounded-xl border border-dashed border-border bg-muted/20 text-center space-y-2">
+                      {locationSource === 'gps' && gpsLat && gpsLng ? (
+                        <div className="space-y-2">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-semibold">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Coordinates Verified (±{Math.round(gpsAccuracy ?? 0)}m)</span>
+                          </div>
+                          <div className="text-xs font-mono font-bold text-foreground">
+                            {gpsLat.toFixed(6)}, {gpsLng.toFixed(6)}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Captured at {gpsCapturedAt ? new Date(gpsCapturedAt).toLocaleTimeString() : 'Just now'}
+                            {capturedIp ? ` · IP: ${capturedIp}` : ''}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="h-8 text-xs rounded-lg gap-1.5"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isCapturingLocation ? 'animate-spin' : ''}`} />
+                            <span>Re-capture GPS</span>
+                          </Button>
+                        </div>
+                      ) : locationSource === 'ip_fallback' && capturedIp ? (
+                        <div className="space-y-2">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            <span>GPS Disabled · IP Address Verified</span>
+                          </div>
+                          <div className="text-xs font-mono font-bold text-foreground">
+                            IP: {capturedIp}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Captured at {gpsCapturedAt ? new Date(gpsCapturedAt).toLocaleTimeString() : 'Just now'} · Fallback location audit
+                          </p>
+                          <p className="text-[10px] text-amber-600/90 dark:text-amber-400/90 max-w-sm mx-auto">
+                            Device GPS is disabled or unavailable. IP address recorded for security &amp; verification audit.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="h-8 text-xs rounded-lg gap-1.5"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isCapturingLocation ? 'animate-spin' : ''}`} />
+                            <span>Retry GPS Lock</span>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 py-2">
+                          <MapPin className="h-8 w-8 text-muted-foreground/60 mx-auto animate-pulse" />
+                          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                            Stand in front of the house and tap the button below. Live coordinates (or verified IP fallback) are mandatory.
+                          </p>
+                          <Button
+                            type="button"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="rounded-xl px-5 h-10 text-xs font-bold gap-2"
+                          >
+                            {isCapturingLocation ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Acquiring Location &amp; IP...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Navigation className="h-4 w-4" />
+                                <span>Capture Live Location</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* 4. House / Property Photos */}
                 <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
                   <div className="flex items-center justify-between border-b pb-2">
@@ -2695,11 +3041,16 @@ function EnrollDialog({
                   Once registered, this landlord, location, GPS, and photos will be linked and saved for tenant registration.
                 </p>
 
-                <div className="flex gap-2 pt-1">
+                <div className="flex flex-col gap-1.5 pt-1">
+                  {!gpsLat && !capturedIp && (
+                    <p className="text-[11px] text-destructive text-center font-medium">
+                      ⚠️ Live GPS or verified IP fallback is required to save this landlord.
+                    </p>
+                  )}
                   <Button
                     type="button"
                     onClick={handleSaveNewLandlord}
-                    disabled={savingLandlord || !newLandlordName.trim() || !newLandlordPhone.trim()}
+                    disabled={savingLandlord || !newLandlordName.trim() || !newLandlordPhone.trim() || (!gpsLat && !capturedIp)}
                     className="w-full gap-2 h-11"
                   >
                     {savingLandlord ? (
@@ -2741,8 +3092,11 @@ function EnrollDialog({
                   <p className="text-[10px] uppercase font-semibold text-primary tracking-wider flex items-center gap-1.5">
                     <span>Landlord</span>
                     {selectedLandlordRecord?.gps && (
-                      <span className="text-[9px] font-normal text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded">
-                        📍 GPS
+                      <span className={cn(
+                        "text-[9px] font-normal px-1 py-0.2 rounded",
+                        selectedLandlordRecord.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
+                      )}>
+                        {selectedLandlordRecord.gps.latitude ? "📍 GPS" : "🌐 IP Verified"}
                       </span>
                     )}
                   </p>
