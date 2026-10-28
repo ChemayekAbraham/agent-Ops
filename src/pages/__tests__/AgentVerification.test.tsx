@@ -152,4 +152,18 @@ describe('Agent KYC navigation and existing actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use this photo' }));
     await waitFor(() => expect(state.value.savePassportPhoto).toHaveBeenCalledWith(file));
   });
+
+  it('drops the stale-location notice, leaving recapture one tap away', () => {
+    Object.assign(state.value.vetting.gps, { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: '2026-10-27T09:00:00Z' });
+    mount();
+    // Every step body stays mounted, so the notice would be in the DOM if it were shown.
+    expect(screen.queryByText(/too old/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Capture again', hidden: true })).toBeInTheDocument();
+  });
+
+  it('still explains the location step before anything is captured', () => {
+    state.value.vetting.residence.district = 'Wakiso'; // a touched record opens the wizard
+    mount();
+    expect(screen.getByText(/Capture my location" where you are\./)).toBeInTheDocument();
+  });
 });
