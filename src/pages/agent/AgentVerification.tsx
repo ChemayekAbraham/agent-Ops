@@ -192,6 +192,13 @@ export default function AgentVerification() {
   );
 }
 
+/** Shorter contact-step wording shown on the wizard; the shared checklist text is left untouched. */
+function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting): string {
+  if (key === 'phone') return "We'll text a code to confirm it.";
+  if (key === 'email') return vetting.email.value ? "We'll email a code to confirm it." : 'Add your email, then confirm with a code.';
+  return hint;
+}
+
 function VerificationStatus({ vetting, submitted, onFix, onView, onEdit }: { vetting: AgentVetting; submitted: boolean; onFix: () => void; onView: () => void; onEdit: () => void }) {
   const reviewing = submitted || vetting.status === 'submitted';
   const verified = !reviewing && vetting.status === 'verified';
