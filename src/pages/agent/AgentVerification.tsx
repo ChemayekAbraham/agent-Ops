@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace } from 'lucide-react';
@@ -54,6 +54,30 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
   { title: 'Next of kin', description: 'Confirm who we can contact as your next of kin.', keys: ['next_of_kin'], icon: Users },
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
+
+// The progress fill travels primary -> secondary -> green across the seven steps.
+type Hsl = [number, number, number];
+const readHsl = (token: string): Hsl | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  const parts = raw.match(/^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+  return parts ? [Number(parts[1]), Number(parts[2]), Number(parts[3])] : null;
+};
+const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => [
+  from[0] + (to[0] - from[0]) * t,
+  from[1] + (to[1] - from[1]) * t,
+  from[2] + (to[2] - from[2]) * t,
+];
+const progressFill = (ratio: number): CSSProperties | undefined => {
+  const primary = readHsl('--primary');
+  const secondary = readHsl('--secondary');
+  const success = readHsl('--success');
+  if (!primary || !secondary || !success) return undefined;
+  const mixed = ratio <= 0.5
+    ? blendHsl(primary, secondary, ratio / 0.5)
+    : blendHsl(secondary, success, (ratio - 0.5) / 0.5);
+  return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
+};
 
 export default function AgentVerification() {
   const v = useAgentVetting();
@@ -142,7 +166,7 @@ export default function AgentVerification() {
           </div> : showWizard ? <>
             <div className="mb-7 space-y-3">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
-              <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" />
+              <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / 7)} />
             </div>
             <div className="mb-6 space-y-2"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
