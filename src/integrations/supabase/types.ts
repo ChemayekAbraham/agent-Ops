@@ -77200,6 +77200,7 @@ export type Database = {
           run_date: string
         }[]
       }
+      get_applicant_partnership: { Args: { p_user_id: string }; Returns: Json }
       get_approximate_user_count: { Args: never; Returns: number }
       get_approximate_user_count__impl: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
