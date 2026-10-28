@@ -9,7 +9,7 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
-- [ ] Update agent own-ID summaries and Agent Ops previous/new comparison using existing hooks only; verify masks, replacement guard, photos and phone layouts.
+- [x] Update agent own-ID summaries and Agent Ops previous/new comparison using existing hooks only; 34 tests and all guards pass, preview build OK; sample 360/375px and desktop summaries, comparison and enlargement verified without overflow. Live signed-in checks unavailable with external unmanaged authentication; protected files unchanged. Corrected one existing CFO undefined callback blocking compilation.
 - [ ] Implement and verify bike-first daily recovery waterfall across automatic advance paths, with separate contracts/accounts and truthful operations recovery-order display.
 - [x] Redesign agent verification as a seven-step KYC flow; 37 focused tests, all safety guards and automatic compilation pass. Isolated 360/375px and desktop layouts show no horizontal overflow; parent selection, missing-step navigation and verified-edit warning checked. Existing hooks, backend, enforcement and other verification screens unchanged; no deployment.
 - [ ] Verify the KYC flow with a live signed-in agent and real phone/email/camera/submission — blocked: externally managed authentication provides no restorable browser session; isolated checks do not establish live verification success.
