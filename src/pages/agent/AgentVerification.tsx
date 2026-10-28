@@ -504,7 +504,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
       )}
 
       <Dialog open={captureOpen} onOpenChange={(o) => !o && closeCapture()}>
-        <DialogContent className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_button]:min-h-11">
+        <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-1rem)] max-w-lg overflow-y-auto rounded-lg [&_button]:min-h-11">
           <DialogHeader><DialogTitle>National ID photos</DialogTitle></DialogHeader>
           <IdentityPhotoCapture />
           <Button variant="outline" className="min-h-11 w-full" onClick={closeCapture}>Done</Button>

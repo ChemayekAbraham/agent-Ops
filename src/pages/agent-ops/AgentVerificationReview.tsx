@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -133,7 +133,7 @@ export default function AgentVerificationReview() {
       </main>
 
       <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="right" aria-describedby={undefined} className="w-full overflow-y-auto sm:max-w-xl">
           {openId && <ReviewPanel agentId={openId} onDone={() => setOpenId(null)} />}
         </SheetContent>
       </Sheet>
@@ -321,7 +321,7 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
       </AlertDialog>
 
       <Dialog open={!!zoom} onOpenChange={(o) => !o && setZoom(null)}>
-        <DialogContent className="max-w-3xl p-2">{zoom && <img src={zoom} alt="Zoomed photo" className="w-full rounded" />}</DialogContent>
+        <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto p-3"><DialogTitle className="sr-only">ID photo</DialogTitle>{zoom && <img src={zoom} alt="Zoomed photo" className="max-h-[80dvh] w-full rounded object-contain" />}</DialogContent>
       </Dialog>
     </div>
   );
