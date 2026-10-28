@@ -154,6 +154,20 @@ export function ReceivedByCategory() {
     staleTime: 60_000,
   });
 
+  // Server-owned split of "Agent Products and Services" (smartphone / bike / advance recoveries).
+  const agentSplit = useQuery({
+    queryKey: ['cfo-received-agent-products', applied.from, applied.to],
+    queryFn: async (): Promise<{ product_key: string; product_label: string; amount: number; tx_count: number }[]> => {
+      const { data, error } = await (supabase.rpc as any)('get_cfo_received_agent_products_breakdown', {
+        p_from: applied.from, p_to: applied.to,
+      });
+      if (error) throw error;
+      return ((data ?? []) as any[]).map(d => ({ ...d, amount: Number(d.amount), tx_count: Number(d.tx_count) }));
+    },
+    retry: cfoReportRetry,
+    staleTime: 60_000,
+  });
+
   const rows = totals.data ?? [];
   const grand = rows.reduce((s, r) => s + r.amount, 0);
   const grandCount = rows.reduce((s, r) => s + r.tx_count, 0);
@@ -246,6 +260,26 @@ export function ReceivedByCategory() {
               <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
                 <span className="block h-full rounded-full bg-primary/70" style={{ width: `${Math.min(r.pct, 100)}%` }} />
               </span>
+              {r.category_key === 'agent' && (
+                <span className="mt-2 block space-y-0.5 border-t border-border/60 pt-2" data-testid="agent-products-split">
+                  {agentSplit.error ? (
+                    <span className="block text-[11px] text-muted-foreground">Breakdown unavailable</span>
+                  ) : agentSplit.isLoading ? (
+                    <span className="block text-[11px] text-muted-foreground">Loading breakdown…</span>
+                  ) : (
+                    ['smartphone', 'bike', 'advance'].map(k => {
+                      const s = agentSplit.data?.find(d => d.product_key === k);
+                      const label = k === 'smartphone' ? 'Smartphone recoveries' : k === 'bike' ? 'Bike recoveries' : 'Agent advance repayments';
+                      return (
+                        <span key={k} className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="text-muted-foreground">{label} ({(s?.tx_count ?? 0).toLocaleString()})</span>
+                          <span className="font-medium tabular-nums">{formatUGX(s?.amount ?? 0)}</span>
+                        </span>
+                      );
+                    })
+                  )}
+                </span>
+              )}
             </button>
           ))}
         </div>
