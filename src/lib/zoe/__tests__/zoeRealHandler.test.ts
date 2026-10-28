@@ -387,8 +387,8 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     }
 
     // Also confirm STAFF_TOOLS and openAiToolsForRoles contain zero write tools
-    expect(STAFF_TOOLS.length).toBe(60);
-    expect(openAiToolsForRoles(["super_admin"]).length).toBe(68);
+    expect(STAFF_TOOLS.length).toBe(62);
+    expect(openAiToolsForRoles(["super_admin"]).length).toBe(70);
   });
 
   it("verifies Prompt 4 advisor insight tools are STABLE, write nothing, enforce finance/staff role gates, and draft_welile_idea creates a click-confirmed draft verified by checkDraftCardText", async () => {
