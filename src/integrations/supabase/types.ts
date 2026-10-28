@@ -78909,6 +78909,10 @@ export type Database = {
           used: number
         }[]
       }
+      get_merchant_desk_statement: {
+        Args: { p_agent_id: string; p_day?: string }
+        Returns: Json
+      }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
         Returns: Json
