@@ -25,10 +25,10 @@
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized client-side only; the server alone authorizes.
+- Requisition approval errors are normalized client-side; only the server authorizes.
 - CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
-- CFO 7-day reporting uses Kampala days via `src/lib/kampalaDays.ts`, matching the RPCs.
+- CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
 - Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.
 - Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
