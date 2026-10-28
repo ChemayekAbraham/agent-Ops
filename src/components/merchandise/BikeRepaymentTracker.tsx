@@ -4,6 +4,7 @@ import { CheckCircle2, Receipt } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useBikeLeaseRepayment } from '@/hooks/useBikeLeaseRepayment';
+import { BikeAdvanceRecoveryOrder } from './BikeAdvanceRecoveryOrder';
 
 interface Props {
   userId?: string;
@@ -57,6 +58,8 @@ export default function BikeRepaymentTracker({ userId, saleId }: Props) {
           ) : null}
         </div>
       </div>
+
+      {!cleared && <BikeAdvanceRecoveryOrder agentId={userId} />}
 
       <div className="space-y-1">
         <p className="text-[11px] font-semibold text-muted-foreground">
