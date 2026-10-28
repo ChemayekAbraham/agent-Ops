@@ -148,7 +148,7 @@ export default function AgentVerification() {
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => navigate('/dashboard/agent')} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
-          <div className="flex-1"><p className="text-sm font-semibold">Welile</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
+          <div className="flex-1"><p className="text-sm font-semibold">Welile KYC (Know Your Agent)</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
           <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
         </div>
       </header>
