@@ -27,10 +27,19 @@ const estimateTotals = [
   cat('capital', 'Share Capital', 'capital', 0, 0, 6),
 ];
 
-// A clearly different figure for the period actually selected on screen (9x), so
-// a panel that reused the on-screen totals instead of its own 28-day window fails.
+// A clearly different figure for the period actually selected on screen (9x), so a
+// panel that reused the on-screen totals instead of its own 28-day window fails.
 const selectedTotals = estimateTotals.map(c => ({ ...c, amount: c.amount * 9, pct: 100 / 6 }));
 
+/**
+ * formatUGX separates "UGX" from the figure with a non-breaking space, and the
+ * text queries normalize the page but not the expected string, so amounts are
+ * matched with a regex built from the same formatter.
+ */
+const money = (n: number) =>
+  new RegExp('^' + formatUGX(n).replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$');
+const perDay = (n: number) =>
+  new RegExp('^about ' + formatUGX(n).replace(/\s+/g, ' ').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' a day$');
 const flat = (s: string) => s.replace(/[\s\u00a0\u202f]/g, '');
 
 beforeEach(() => {
@@ -58,31 +67,31 @@ describe('CFO Money In — next 7 days projection', () => {
   it('projects each category as its 28-day daily average multiplied by seven', async () => {
     renderReport();
     // Partner: 2,800,000 over 28 days = 100,000 a day -> 700,000 across seven days.
-    await screen.findByText(formatUGX(700_000));
+    await screen.findByText(money(700_000));
 
     const cards = within(panel());
-    expect(cards.getByText('about ' + formatUGX(100_000) + ' a day')).toBeInTheDocument();
-    expect(cards.getByText(formatUGX(350_000))).toBeInTheDocument(); // land 1,400,000/28*7
-    expect(cards.getByText(formatUGX(140_000))).toBeInTheDocument(); // fees 560,000/28*7
-    expect(cards.getByText(formatUGX(70_000))).toBeInTheDocument();  // agent 280,000/28*7
-    expect(cards.getByText('about ' + formatUGX(10_000) + ' a day')).toBeInTheDocument();
+    expect(cards.getByText(perDay(100_000))).toBeInTheDocument();
+    expect(cards.getByText(money(350_000))).toBeInTheDocument(); // land 1,400,000/28*7
+    expect(cards.getByText(money(140_000))).toBeInTheDocument(); // fees 560,000/28*7
+    expect(cards.getByText(money(70_000))).toBeInTheDocument();  // agent 280,000/28*7
+    expect(cards.getByText(perDay(10_000))).toBeInTheDocument();
   });
 
   it('shows the projected grand total from the estimate window, not the selected period', async () => {
     renderReport();
     // 1,260,000 is the estimate-window grand total; the selected period is 9x (36,360,000).
-    await screen.findByText(formatUGX(1_260_000));
+    await screen.findByText(money(1_260_000));
 
     const text = flat(panel().textContent ?? '');
     expect(text).toContain(flat(formatUGX(1_260_000)));
     expect(text).not.toContain(flat(formatUGX(36_360_000)));
     // Genuine income (fees only) is called out on its own line.
-    expect(text).toContain('genuine income about ' + flat(formatUGX(140_000)));
+    expect(text).toContain('genuineincomeabout' + flat(formatUGX(140_000)));
   });
 
   it('states that the figure is an estimate that ignores the selected date period', async () => {
     renderReport();
-    await screen.findByText(formatUGX(700_000));
+    await screen.findByText(money(700_000));
     const note = screen.getByText(/^Estimate only:/).textContent ?? '';
     expect(note).toContain('average received per day over the last 28 days');
     expect(note).toContain('does not look at');
