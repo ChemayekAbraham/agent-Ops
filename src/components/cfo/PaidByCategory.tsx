@@ -86,8 +86,12 @@ export function resolvePaidByCategoryWindow(kind: PresetKey, from: string, to: s
 const when = (r: PaidRow) =>
   new Date(r.transaction_date ?? r.created_at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala' });
 
+const LEDGER_TYPE_LABELS: Record<string, string> = {
+  agent_commission_payable: 'Agent Commission',
+};
+
 const prettyLedgerCategory = (c: string) =>
-  c.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  LEDGER_TYPE_LABELS[c] ?? c.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 const fmtDay = (d: string) => (d ? format(new Date(`${d}T00:00:00Z`), 'd MMM yyyy') : '');
 
