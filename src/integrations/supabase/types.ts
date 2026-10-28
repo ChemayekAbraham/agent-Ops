@@ -439,6 +439,54 @@ export type Database = {
           },
         ]
       }
+      agent_advance_payment_requests: {
+        Row: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at: string
+          expected_paid_today: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Insert: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Update: {
+          advance_id?: string
+          agent_id?: string
+          amount?: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key?: string
+          pay_date?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       agent_advance_requests: {
         Row: {
           access_fee: number
@@ -30993,6 +31041,7 @@ export type Database = {
           name: string
           number_of_houses: number | null
           number_of_rooms: number | null
+          payout_day: number | null
           phone: string
           property_address: string
           ready_to_receive: boolean | null
@@ -31019,6 +31068,8 @@ export type Database = {
           service_center_status: string
           sub_county: string | null
           tenant_id: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
           tin: string | null
           town_council: string | null
           ug_village_id: number | null
@@ -31071,6 +31122,7 @@ export type Database = {
           name: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone: string
           property_address: string
           ready_to_receive?: boolean | null
@@ -31097,6 +31149,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -31149,6 +31203,7 @@ export type Database = {
           name?: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone?: string
           property_address?: string
           ready_to_receive?: boolean | null
@@ -31175,6 +31230,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -68791,6 +68848,10 @@ export type Database = {
       }
     }
     Functions: {
+      _advance_day_figures: {
+        Args: { p_advance_id: string }
+        Returns: Record<string, unknown>
+      }
       _agent_collections_app_error_included: {
         Args: {
           p_component_stack: string
@@ -69974,6 +70035,20 @@ export type Database = {
           p_principal: number
         }
         Returns: number
+      }
+      advance_pay_now: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_expected_paid_today?: number
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      advance_pay_now_preview: {
+        Args: { p_advance_id: string; p_agent_id: string }
+        Returns: Json
       }
       advance_period_days: { Args: { _frequency: string }; Returns: number }
       advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
@@ -84688,7 +84763,111 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_collections: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          agent_id: string
+          amount: number
+          arrears_amount: number | null
+          client_ref: string | null
+          collection_channel: string
+          created_at: string
+          deposit_request_id: string | null
+          expected_amount: number | null
+          float_after: number
+          float_before: number
+          id: string
+          initiated_by: string | null
+          is_partial: boolean
+          location_name: string | null
+          momo_payer_name: string | null
+          momo_phone: string | null
+          momo_provider: string | null
+          momo_transaction_id: string | null
+          notes: string | null
+          partial_reason: string | null
+          payment_method: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight: number
+          rent_request_id: string | null
+          reversed_at: string | null
+          shortfall_amount: number | null
+          sms_sent_agent: boolean | null
+          sms_sent_tenant: boolean | null
+          tenant_id: string
+          token_id: string | null
+          total_due_amount: number | null
+          tracking_id: string | null
+          visit_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_collections"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_partner_ids: { Args: never; Returns: string[] }
+      partner_tenant_backup_portfolios: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          account_name: string | null
+          account_number: string | null
+          activation_token: string
+          agent_id: string
+          allocation_note: string | null
+          auto_reinvest: boolean
+          bank_account_name: string | null
+          bank_name: string | null
+          cfo_rejection_reason: string | null
+          cfo_verified: boolean | null
+          cfo_verified_at: string | null
+          cfo_verified_by: string | null
+          created_at: string
+          display_currency: string
+          duration_months: number
+          houses_claimed_count: number
+          id: string
+          investment_amount: number
+          investment_reference: string | null
+          investor_id: string | null
+          invite_id: string | null
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          locked_from_portfolio_id: string | null
+          maturity_alert_30d: boolean
+          maturity_alert_7d: boolean
+          maturity_date: string | null
+          mobile_money_number: string | null
+          mobile_network: string | null
+          next_roi_date: string | null
+          payment_method: string | null
+          payout_day: number | null
+          pending_renewal_duration_months: number | null
+          pending_renewal_effective_date: string | null
+          pending_renewal_request_id: string | null
+          plans_claimed_count: number
+          pool_eligible: boolean
+          pool_origin: string | null
+          portfolio_code: string
+          portfolio_pin: string
+          principal_allocated: number
+          principal_unallocated: number
+          receipt_file_url: string | null
+          return_fields_edit_token: string | null
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "investor_portfolios"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_profiles: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -84817,6 +84996,183 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      partner_tenant_backup_rent_plans: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          access_fee: number
+          agent_guarantor_consent: boolean
+          agent_guarantor_consent_at: string | null
+          agent_guarantor_consent_version: string | null
+          agent_id: string | null
+          agent_liability_amount: number | null
+          agent_liability_reason: string | null
+          agent_liability_triggered: boolean
+          agent_liability_triggered_at: string | null
+          agent_ops_comment: string | null
+          agent_ops_reviewed_at: string | null
+          agent_ops_reviewed_by: string | null
+          agent_payment_status: string
+          agent_payment_status_reason: string | null
+          agent_payment_status_set_at: string | null
+          agent_payment_status_set_by: string | null
+          agent_verified: boolean | null
+          agent_verified_at: string | null
+          agent_verified_by: string | null
+          amount_repaid: number
+          approval_comment: string | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_agent_id: string | null
+          cfo_reviewed_at: string | null
+          cfo_reviewed_by: string | null
+          collection_lock_days: number | null
+          collection_locked_at: string | null
+          collection_locked_reason: string | null
+          coo_reviewed_at: string | null
+          coo_reviewed_by: string | null
+          created_at: string
+          daily_repayment: number
+          disbursed_at: string | null
+          duration_days: number
+          fund_recipient_id: string | null
+          fund_recipient_name: string | null
+          fund_recipient_type: string | null
+          fund_routed_at: string | null
+          funded_at: string | null
+          funder_visibility_decided_at: string | null
+          funder_visibility_decided_by: string | null
+          funder_visibility_reason: string | null
+          funder_visible: boolean
+          house_category: string | null
+          house_image_urls: string[] | null
+          house_listing_id: string | null
+          id: string
+          initial_outstanding_balance: number | null
+          landlord_acknowledged: boolean | null
+          landlord_call_notes: string | null
+          landlord_called: boolean | null
+          landlord_id: string
+          landlord_ops_comment: string | null
+          landlord_ops_reviewed_at: string | null
+          landlord_ops_reviewed_by: string | null
+          landlord_payout_day: number | null
+          landlord_payout_enabled: boolean
+          landlord_payout_last_run_at: string | null
+          landlord_payout_next_run_at: string | null
+          landlord_verification_method: string | null
+          last_payment_amount: number | null
+          last_payment_recipient_name: string | null
+          last_payment_recipient_role: string | null
+          last_resubmitted_at: string | null
+          latest_rent_receipt_uploaded_at: string | null
+          latest_rent_receipt_url: string | null
+          lc_letter_bucket: string | null
+          lc_letter_path: string | null
+          lc1_id: string | null
+          manager_verified: boolean | null
+          manager_verified_at: string | null
+          manager_verified_by: string | null
+          next_roi_due_date: string | null
+          nin_photo_bucket: string | null
+          nin_photo_path: string | null
+          number_of_payments: number | null
+          outstanding_at_end: number | null
+          outstanding_grace_days: number | null
+          partner_ops_comment: string | null
+          partner_ops_reviewed_at: string | null
+          partner_ops_reviewed_by: string | null
+          payout_method: string | null
+          payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
+          preferred_language: string | null
+          proxy_agent_id: string | null
+          registration_type: string
+          rejected_at: string | null
+          rejected_at_stage: string | null
+          rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
+          rent_amount: number
+          reopen_count: number
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          repayment_frequency: string
+          repayment_frequency_locked: boolean
+          repayment_starts_on: string | null
+          request_city: string | null
+          request_country: string | null
+          request_fee: number
+          request_latitude: number | null
+          request_longitude: number | null
+          resubmission_count: number
+          resubmitted_at: string | null
+          resubmitted_note: string | null
+          returned_at: string | null
+          roi_payments_count: number | null
+          schedule_status: string | null
+          self_funding_line_id: string | null
+          self_funding_partner_id: string | null
+          service_center_comment: string | null
+          service_center_manager_id: string | null
+          service_center_reviewed_at: string | null
+          service_center_reviewed_by: string | null
+          status: string | null
+          supporter_id: string | null
+          tenancy_continuity: string | null
+          tenancy_end_reason: string | null
+          tenancy_ended_at: string | null
+          tenancy_status: string
+          tenant_electricity_meter: string | null
+          tenant_id: string
+          tenant_no_smartphone: boolean
+          tenant_ops_comment: string | null
+          tenant_ops_reviewed_at: string | null
+          tenant_ops_reviewed_by: string | null
+          tenant_photo_url: string | null
+          tenant_self_applied: boolean
+          tenant_water_meter: string | null
+          total_repayment: number
+          total_roi_paid: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rent_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_repayments: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          deposit_request_id: string | null
+          external_reference: string | null
+          id: string
+          initiated_by: string | null
+          paid_by: string | null
+          payment_method: string | null
+          rent_request_id: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "repayments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_tenant_ids: { Args: never; Returns: string[] }
       partner_tenant_backup_wallets: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -86227,6 +86583,32 @@ export type Database = {
       refresh_wallet_totals_cache: { Args: never; Returns: undefined }
       refund_agent_float_for_payout: {
         Args: { p_payout_id: string; p_reason: string }
+        Returns: Json
+      }
+      register_landlord_property: {
+        Args: {
+          p_caretaker_name?: string
+          p_caretaker_phone?: string
+          p_county: string
+          p_district: string
+          p_electricity_meter?: string
+          p_latitude?: number
+          p_lc1_name?: string
+          p_lc1_phone?: string
+          p_longitude?: number
+          p_monthly_rent: number
+          p_number_of_houses?: number
+          p_payout_day?: number
+          p_property_address: string
+          p_property_status?: string
+          p_region: string
+          p_subcounty: string
+          p_tenant_name?: string
+          p_tenant_phone?: string
+          p_ug_village_id: number
+          p_village: string
+          p_water_meter?: string
+        }
         Returns: Json
       }
       register_login_device: {

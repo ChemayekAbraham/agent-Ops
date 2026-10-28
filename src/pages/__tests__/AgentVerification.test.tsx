@@ -33,7 +33,18 @@ describe('Agent KYC navigation and existing actions', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Where you stay');
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(state.value.vetting.residence.district).toBeNull();
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Identity document');
+  });
+
+  it('puts live location last, just before review, so its reading is still fresh at submit', () => {
+    state.value.vetting.residence.district = 'Wakiso';
+    mount();
+    // Opens at Contact; Contact -> Where you stay -> Identity -> Selfie -> Next of kin -> Live location
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Contact');
+    for (let step = 0; step < 5; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Live location');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
   });
 
   it('reconfirms an existing email and retains its challenge when visiting other steps', async () => {

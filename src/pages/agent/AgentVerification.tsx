@@ -48,10 +48,12 @@ function stepForMissing(text: string): VettingStepKey | null {
 const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; icon: typeof Smartphone }[] = [
   { title: 'Contact', description: 'Confirm your phone and email with a code.', keys: ['phone', 'email'], icon: Smartphone },
   { title: 'Where you stay', description: 'Choose your district, parish and village.', keys: ['residence'], icon: Home },
-  { title: 'Live location', description: 'Capture your location where you are staying.', keys: ['location'], icon: MapPin },
   { title: 'Identity document', description: "Use your own National ID or your parent agent's ID.", keys: ['national_id'], icon: CreditCard },
   { title: 'Selfie / passport photo', description: 'Take a clear photo of your face.', keys: ['passport_photo'], icon: ScanFace },
   { title: 'Next of kin', description: 'Confirm who we can contact as your next of kin.', keys: ['next_of_kin'], icon: Users },
+  // Last before Review: submit rejects a capture older than gps_rules.max_age_minutes (10), so
+  // capturing it early sent agents back here after the ID and selfie steps.
+  { title: 'Live location', description: 'Capture your location where you are staying, just before you submit.', keys: ['location'], icon: MapPin },
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
 
@@ -237,10 +239,10 @@ function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting;
   const values = [
     <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
-    <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
     <div className="space-y-1"><p>{v.national_id.source === 'parent' ? "Parent agent's National ID" : 'Own National ID'}</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div>,
     <PassportThumbnail path={v.passport_photo.path} />,
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
+    <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
   ];
   return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-primary/30 bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
 }
