@@ -685,6 +685,12 @@ export default function CFODashboardPage() {
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
+      case 'paid-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading paid-by-category report…</div>}>
+            <PaidByCategory />
+          </Suspense>
+        );
       case 'sms-otp-costs':
         return <SmsOtpCostsPanel />;
       case 'payout-reports':
