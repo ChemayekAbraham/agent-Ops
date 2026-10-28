@@ -93,6 +93,9 @@ BEGIN
  EXECUTE d;
 
  d := pg_get_functiondef('public.sweep_agent_advance_recovery()'::regprocedure);
+ old := E'AND COALESCE(recovery_source, ''wallet_daily'') <> ''roi''\n  LOOP';
+ IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Advance agent ordering drift'; END IF;
+ d := replace(d,old,E'AND COALESCE(recovery_source, ''wallet_daily'') <> ''roi''\n    ORDER BY agent_id\n  LOOP');
  old := 'v_avail := COALESCE(public.get_agent_sweepable_withdrawable(v_agent.agent_id), 0);';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Advance sweep drift'; END IF;
  d := replace(d,old,'v_avail := public._prepare_bike_priority(v_agent.agent_id);');
@@ -144,6 +147,11 @@ BEGIN
  WHERE agent_id=p_agent_id AND status IN ('active','overdue') AND outstanding_balance>0
    AND NOT COALESCE(deduction_paused,false) AND COALESCE(recovery_source,'wallet_daily')<>'roi';
  SELECT COALESCE(enabled,false) INTO v_enabled FROM public.treasury_controls WHERE control_key='merchandise_recovery_enabled';
+ IF EXISTS (SELECT 1 FROM public.treasury_controls WHERE
+   (control_key='credits_paused' AND enabled) OR
+   (control_key='maintenance_mode' AND enabled AND NOT EXISTS
+     (SELECT 1 FROM public.treasury_controls WHERE control_key='maintenance_until'
+       AND value IS NOT NULL AND value::timestamptz<=now()))) THEN v_enabled := false; END IF;
  RETURN jsonb_build_object('day',v_day,'protected',COALESCE(v_enabled,false),
    'bike_daily',v_daily,'bike_paid_today',v_paid,'bike_remaining_today',public._bike_priority_remaining(p_agent_id,v_day),
    'advance_outstanding',v_advance,'advance_from_surplus',true);
