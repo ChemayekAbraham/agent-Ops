@@ -278,7 +278,7 @@ export function PaidByCategory() {
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {projRows.map(r => (
               <div key={r.category_key} className="rounded-md border border-border/60 bg-muted/20 p-2.5">
-                <p className="truncate text-[11px] font-medium" title={r.category_label}>{r.category_label}</p>
+                <p className="truncate text-[11px] font-medium">{r.category_label}</p>
                 <p className="mt-0.5 text-xs font-bold tabular-nums">{formatUGX(Math.round(r.next7))}</p>
                 <p className="text-[10px] text-muted-foreground">≈ {formatUGX(Math.round(r.next7 / 7))} per day</p>
               </div>
