@@ -39,7 +39,9 @@ describe('Agent KYC navigation and existing actions', () => {
   it('puts live location last, just before review, so its reading is still fresh at submit', () => {
     state.value.vetting.residence.district = 'Wakiso';
     mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Step 6: Live location' }));
+    // Opens at Contact; Contact -> Where you stay -> Identity -> Selfie -> Next of kin -> Live location
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Contact');
+    for (let step = 0; step < 5; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Live location');
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
