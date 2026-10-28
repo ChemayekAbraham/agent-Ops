@@ -195,16 +195,17 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
       onError: (e) => { toast.error((e as Error).message); detailQ.refetch(); },
     });
 
-  const Photo = ({ url, alt }: { url: string | null | undefined; alt: string }) =>
+  const idVerified = (d as { identity_verified?: boolean }).identity_verified === true;
+  const Photo = ({ url, alt, missingText }: { url: string | null | undefined; alt: string; missingText?: string }) =>
     url ? (
       <Button variant="ghost" aria-label={`Enlarge ${alt}`} onClick={() => setZoom(url)} className="block h-auto min-h-11 w-full min-w-0 p-0">
         <img src={url} alt={alt} className="h-32 w-full rounded-lg border border-border object-cover" />
       </Button>
-    ) : <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">No {alt.toLowerCase()}</div>;
+    ) : <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">{missingText ?? `No ${alt.toLowerCase()}`}</div>;
 
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  const Section = ({ title, badge, children }: { title: string; badge?: React.ReactNode; children: React.ReactNode }) => (
     <section className="space-y-2 border-t border-border pt-3">
-      <h3 className="text-sm font-semibold">{title}</h3>{children}
+      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-semibold">{title}</h3>{badge}</div>{children}
     </section>
   );
 
@@ -213,7 +214,7 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
   const IdCard = ({ snapshot, previous = false }: { snapshot: IdSnapshot; previous?: boolean }) => <div className="min-w-0 space-y-2">
     <div className="grid grid-cols-2 gap-2">
       <Photo url={previous ? photos.data?.prev_id_front : photos.data?.id_front} alt={previous ? 'Previous ID front' : 'ID front'} />
-      <Photo url={previous ? photos.data?.prev_id_back : photos.data?.id_back} alt={previous ? 'Previous ID back' : 'ID back'} />
+      <Photo url={previous ? photos.data?.prev_id_back : photos.data?.id_back} alt={previous ? 'Previous ID back' : 'ID back'} missingText={idVerified && !previous ? 'Back photo not required' : undefined} />
     </div>
     <p className={`break-words text-sm ${comparison.previous && comparison.current.name !== comparison.previous.name ? 'rounded border border-warning/30 bg-warning/10 p-2 text-warning' : ''}`}>Name on ID: {snapshot.name ?? 'Not on file'}</p>
     <p className={`break-all font-mono text-sm ${comparison.previous && comparison.current.nin_masked !== comparison.previous.nin_masked ? 'rounded border border-warning/30 bg-warning/10 p-2 text-warning' : ''}`}>NIN: {snapshot.nin_masked ?? 'Not on file'}</p>
@@ -236,7 +237,7 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
         </div>
       </Section>
 
-      <Section title="National ID">
+      <Section title="National ID" badge={idVerified ? <Badge variant="outline" className="border-success/30 bg-success/10 text-success">ID verified by Admin</Badge> : undefined}>
         {comparison.previous ? <>
           <Badge variant="outline" className="h-auto whitespace-normal border-warning/30 bg-warning/10 text-warning">Changed {abs(comparison.changed_at) || 'date unavailable'}</Badge>
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
