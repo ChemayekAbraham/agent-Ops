@@ -82,7 +82,7 @@ BEGIN
  old := 'FOR UPDATE OF p SKIP LOCKED';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Bike lock drift'; END IF; d := replace(d,old,'');
  old := E'  LOOP\n    IF NOT public.merchandise_plan_recovery_eligible';
- new := E'  LOOP\n    PERFORM pg_advisory_xact_lock(hashtextextended(''bike_advance_waterfall:''||v_plan.customer_id::text,0));\n    SELECT p.*, pr.full_name AS agent_name INTO v_plan FROM public.merchandise_recovery_plans p JOIN public.profiles pr ON pr.id=p.customer_id WHERE p.id=v_plan.id FOR UPDATE OF p;\n    IF v_plan.status<>''active'' OR v_plan.outstanding_balance<=0 OR COALESCE(v_plan.recovery_hold,false) THEN CONTINUE; END IF;\n    IF NOT public.merchandise_plan_recovery_eligible';
+ new := E'  LOOP\n    IF NOT pg_try_advisory_xact_lock(hashtextextended(''bike_advance_waterfall:''||v_plan.customer_id::text,0)) THEN CONTINUE; END IF;\n    SELECT p.*, pr.full_name AS agent_name INTO v_plan FROM public.merchandise_recovery_plans p JOIN public.profiles pr ON pr.id=p.customer_id WHERE p.id=v_plan.id FOR UPDATE OF p;\n    IF v_plan.status<>''active'' OR v_plan.outstanding_balance<=0 OR COALESCE(v_plan.recovery_hold,false) THEN CONTINUE; END IF;\n    IF NOT public.merchandise_plan_recovery_eligible';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Bike refresh drift'; END IF; d := replace(d,old,new);
  old := 'v_cap_remaining := GREATEST(0, 2 * v_today_daily - v_taken_today);';
  new := E'v_cap_remaining := GREATEST(0, (CASE WHEN public._bike_advance_priority_active(v_plan.customer_id) THEN 1 ELSE 2 END) * v_today_daily - v_taken_today);';
@@ -119,8 +119,11 @@ BEGIN
  EXECUTE d;
 
  d := pg_get_functiondef('public.record_advance_deduction_atomic(uuid,uuid,date,numeric,numeric,numeric,numeric,text,text,numeric,text,numeric,text,jsonb,text,jsonb)'::regprocedure);
+ old := 'v_funding         jsonb;';
+ IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Atomic declaration drift'; END IF;
+ d := replace(d,old,old||E'\n  v_current public.agent_advances%ROWTYPE;');
  old := E'  INSERT INTO public.agent_advance_ledger';
- new := E'  PERFORM public._prepare_bike_priority(p_agent_id);\n  PERFORM 1 FROM public.agent_advances WHERE id=p_advance_id AND agent_id=p_agent_id FOR UPDATE;\n  IF NOT FOUND THEN RAISE EXCEPTION ''Advance owner mismatch'' USING ERRCODE=''42501''; END IF;\n  IF COALESCE(p_amount_deducted,0)>public._prepare_bike_priority(p_agent_id) THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Bike payment has priority; refresh recovery amounts'' USING ERRCODE=''40001'';\n  END IF;\n  INSERT INTO public.agent_advance_ledger';
+ new := E'  PERFORM public._prepare_bike_priority(p_agent_id);\n  SELECT * INTO v_current FROM public.agent_advances WHERE id=p_advance_id AND agent_id=p_agent_id FOR UPDATE;\n  IF NOT FOUND THEN RAISE EXCEPTION ''Advance owner mismatch'' USING ERRCODE=''42501''; END IF;\n  IF v_current.status NOT IN (''active'',''overdue'') OR COALESCE(v_current.deduction_paused,false) OR COALESCE(v_current.recovery_source,''wallet_daily'')=''roi'' THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Advance eligibility changed'' USING ERRCODE=''40001'';\n  END IF;\n  IF p_opening_balance IS DISTINCT FROM v_current.outstanding_balance OR\n    (p_repayment_meta ? ''expected_arrears'' AND (p_repayment_meta->>''expected_arrears'')::numeric IS DISTINCT FROM COALESCE(v_current.arrears_balance,0)) THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Advance changed; refresh recovery amounts'' USING ERRCODE=''40001'';\n  END IF;\n  IF COALESCE(p_amount_deducted,0)>public._prepare_bike_priority(p_agent_id) THEN\n    RAISE EXCEPTION ''BIKE_PRIORITY_RECALCULATE: Bike payment has priority; refresh recovery amounts'' USING ERRCODE=''40001'';\n  END IF;\n  INSERT INTO public.agent_advance_ledger';
  IF strpos(d,old)=0 THEN RAISE EXCEPTION 'Atomic deduction drift'; END IF;
  d := replace(d,old,new); EXECUTE d;
 END $patch$;
@@ -140,8 +143,9 @@ BEGIN
  LEFT JOIN LATERAL (SELECT sum(amount) paid FROM public.merchandise_recovery_deductions
    WHERE plan_id=p.id AND created_at>=v_day::timestamp AT TIME ZONE 'Africa/Kampala'
    AND created_at<(v_day+1)::timestamp AT TIME ZONE 'Africa/Kampala') d ON true
- WHERE p.customer_id=p_agent_id AND p.status='active' AND p.outstanding_balance>0
+ WHERE p.customer_id=p_agent_id AND (p.status='active' OR (p.status='completed' AND COALESCE(d.paid,0)>0))
    AND COALESCE(p.is_bike_lease,false) AND NOT COALESCE(p.recovery_hold,false)
+   AND (p.starts_on IS NULL OR p.starts_on<=v_day)
    AND b.active AND public.merchandise_plan_recovery_eligible(p.id);
  SELECT COALESCE(sum(outstanding_balance),0) INTO v_advance FROM public.agent_advances
  WHERE agent_id=p_agent_id AND status IN ('active','overdue') AND outstanding_balance>0
@@ -154,7 +158,7 @@ BEGIN
        AND value IS NOT NULL AND value::timestamptz<=now()))) THEN v_enabled := false; END IF;
  RETURN jsonb_build_object('day',v_day,'protected',COALESCE(v_enabled,false),
    'bike_daily',v_daily,'bike_paid_today',v_paid,'bike_remaining_today',public._bike_priority_remaining(p_agent_id,v_day),
-   'advance_outstanding',v_advance,'advance_from_surplus',true);
+   'advance_outstanding',v_advance,'advance_from_surplus',v_advance>0,'applicable',v_daily>0 AND v_advance>0);
 END $$;
 REVOKE ALL ON FUNCTION public.agent_bike_advance_priority(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.agent_bike_advance_priority(uuid) TO authenticated,service_role;

@@ -23,8 +23,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceKey) throw new Error('Recovery service configuration unavailable');
+    if (req.headers.get('authorization') !== `Bearer ${serviceKey}`) {
+      return new Response(JSON.stringify({ error: 'Not authorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Treasury guard: cron deductions must respect maintenance freeze
@@ -437,6 +443,7 @@ Deno.serve(async (req) => {
         source: 'cron_advance_deduction',
         advance_id: advance.id,
         withdrawable_snapshot: withdrawableSnapshot,
+        expected_arrears: arrearsBefore,
         bucket_intent: 'advance_balance_recovery',
       };
 
