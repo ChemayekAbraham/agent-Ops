@@ -1,6 +1,6 @@
 import {
   BarChart3, Shield, Banknote, ClipboardList, BookOpen, Server, Code, Lock, Wrench,
-  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2,
+  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2, Coins,
   MessageSquare, HeadphonesIcon, AlertTriangle, Scale, UserCheck, FileText, Wallet,
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone

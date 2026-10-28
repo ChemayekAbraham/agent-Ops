@@ -2,6 +2,7 @@ import { useEffect, lazy, Suspense } from 'react';
 import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
+const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
