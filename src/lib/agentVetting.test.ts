@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   agentNotVettedReason,
   canEditVetting,
+  idComparison,
   isLocationFresh,
+  nationalIdOnFile,
   parseAgentVetting,
   parseVettingQueue,
   vettingChecklist,
@@ -165,5 +167,42 @@ describe('parseVettingQueue', () => {
     expect(q.total).toBe(1);
     expect(q.rows[0]).toMatchObject({ agent_id: 'a1', status: 'submitted', id_source: 'parent', in_scope: true });
     expect(q.counts).toEqual({ unverified: 959, submitted: 1, verified: 0, rejected: 0 });
+  });
+});
+
+describe('National ID on file', () => {
+  const id = (o: Record<string, unknown>) => parseAgentVetting(raw({ national_id: o })).national_id;
+
+  it('reads the summary fields from get_my_agent_vetting', () => {
+    const n = id({ ok: true, source: 'own', nin_masked: 'CM0*******75YC', has_front: true, has_back: true,
+      name_on_id: 'OKELLO BRIAN', front_path: 'u1/national-id-1.jpg', back_path: 'u1/national-id-back-1.jpg',
+      front_uploaded_at: '2026-10-23T18:53:01Z', back_uploaded_at: '2026-10-23T18:53:03Z' });
+    expect(n).toMatchObject({ name_on_id: 'OKELLO BRIAN', front_path: 'u1/national-id-1.jpg', back_uploaded_at: '2026-10-23T18:53:03Z' });
+  });
+
+  it('is complete with number, front and back; partial lists what is missing; none when nothing is there', () => {
+    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: true }))).toEqual({ state: 'complete', missing: [] });
+    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: false }))).toEqual({ state: 'partial', missing: ['back'] });
+    expect(nationalIdOnFile(id({ has_front: true }))).toEqual({ state: 'partial', missing: ['number', 'back'] });
+    expect(nationalIdOnFile(id({}))).toEqual({ state: 'none', missing: ['number', 'front', 'back'] });
+  });
+});
+
+describe('idComparison', () => {
+  const current = { id_source: 'own', id_nin_masked: 'CM0*******NEW1', id_name: 'OKELLO BRIAN', id_front_path: 'u1/f2.jpg', id_back_path: 'u1/b2.jpg', id_captured_at: '2026-10-28T08:00:00Z' };
+
+  it('has no previous ID until the agent replaces one', () => {
+    expect(idComparison(current)).toMatchObject({ previous: null, changed_at: null, current: { nin_masked: 'CM0*******NEW1', front_path: 'u1/f2.jpg' } });
+  });
+
+  it('returns the ID Agent Ops last decided on next to the new one', () => {
+    const c = idComparison({ ...current, id_changed_at: '2026-10-28T08:01:00Z', prev_id_source: 'own', prev_id_nin_masked: 'CM0*******OLD1',
+      prev_id_name: 'OKELLO BRIAN E', prev_id_front_path: 'u1/f1.jpg', prev_id_back_path: 'u1/b1.jpg', prev_id_captured_at: '2026-10-20T08:00:00Z' });
+    expect(c.changed_at).toBe('2026-10-28T08:01:00Z');
+    expect(c.previous).toEqual({ source: 'own', nin_masked: 'CM0*******OLD1', name: 'OKELLO BRIAN E', front_path: 'u1/f1.jpg', back_path: 'u1/b1.jpg', captured_at: '2026-10-20T08:00:00Z' });
+  });
+
+  it('survives an empty detail', () => {
+    expect(idComparison(null)).toMatchObject({ previous: null, current: { source: null, nin_masked: null } });
   });
 });
