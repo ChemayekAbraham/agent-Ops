@@ -51,6 +51,12 @@ export type VettingNationalId = {
   back_path: string | null;
   front_uploaded_at: string | null;
   back_uploaded_at: string | null;
+  /**
+   * The account's identity is already verified (identity_already_verified): the ID
+   * and selfie on file are final and cannot be sent again, so the step passes as it
+   * is and there is no "Replace ID photos".
+   */
+  identity_verified: boolean;
 };
 
 export type AgentVetting = {
@@ -149,6 +155,7 @@ export function parseAgentVetting(raw: unknown): AgentVetting {
       back_path: str(id.back_path),
       front_uploaded_at: str(id.front_uploaded_at),
       back_uploaded_at: str(id.back_uploaded_at),
+      identity_verified: id.identity_verified === true,
     },
     passport_photo: { path: str(photo.path), check: photo.check ?? null },
     next_of_kin: {
@@ -227,14 +234,17 @@ export type IdOnFilePart = 'number' | 'front' | 'back';
  * `complete` shows the summary, `partial` shows the summary plus an upload for
  * each missing part, `none` shows the capture flow. Changing details means
  * uploading new photos; the number and name are read from the card.
+ * `locked`: the identity is already verified, so the ID on file is final; show
+ * the summary as verified, with no upload or replace (and nothing "missing").
  */
-export function nationalIdOnFile(id: VettingNationalId): { state: 'complete' | 'partial' | 'none'; missing: IdOnFilePart[] } {
+export function nationalIdOnFile(id: VettingNationalId): { state: 'complete' | 'partial' | 'none'; missing: IdOnFilePart[]; locked: boolean } {
+  if (id.identity_verified) return { state: 'complete', missing: [], locked: true };
   const missing: IdOnFilePart[] = [];
   if (!id.nin_masked) missing.push('number');
   if (!id.has_front) missing.push('front');
   if (!id.has_back) missing.push('back');
   const state = missing.length === 0 ? 'complete' : missing.length === 3 ? 'none' : 'partial';
-  return { state, missing };
+  return { state, missing, locked: false };
 }
 
 export type IdSnapshot = {

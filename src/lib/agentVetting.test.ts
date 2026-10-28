@@ -181,10 +181,17 @@ describe('National ID on file', () => {
   });
 
   it('is complete with number, front and back; partial lists what is missing; none when nothing is there', () => {
-    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: true }))).toEqual({ state: 'complete', missing: [] });
-    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: false }))).toEqual({ state: 'partial', missing: ['back'] });
-    expect(nationalIdOnFile(id({ has_front: true }))).toEqual({ state: 'partial', missing: ['number', 'back'] });
-    expect(nationalIdOnFile(id({}))).toEqual({ state: 'none', missing: ['number', 'front', 'back'] });
+    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: true }))).toEqual({ state: 'complete', missing: [], locked: false });
+    expect(nationalIdOnFile(id({ nin_masked: 'CM0*******75YC', has_front: true, has_back: false }))).toEqual({ state: 'partial', missing: ['back'], locked: false });
+    expect(nationalIdOnFile(id({ has_front: true }))).toEqual({ state: 'partial', missing: ['number', 'back'], locked: false });
+    expect(nationalIdOnFile(id({}))).toEqual({ state: 'none', missing: ['number', 'front', 'back'], locked: false });
+  });
+
+  it('is complete and locked when the identity is already verified, even without a back photo', () => {
+    const n = id({ ok: true, source: 'own', identity_verified: true, nin_masked: 'CM9*******EG66', has_front: true, has_back: false });
+    expect(n.identity_verified).toBe(true);
+    expect(nationalIdOnFile(n)).toEqual({ state: 'complete', missing: [], locked: true });
+    expect(nationalIdOnFile(id({ has_front: true })).locked).toBe(false);
   });
 });
 
