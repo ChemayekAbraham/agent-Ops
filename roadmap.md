@@ -166,5 +166,5 @@
 - [x] Removed the "Money expected out — next 7 days" panel from the Money Out page (28 Oct 2026, Angwen Sarah), with its payables-schedule read and 28-day estimate read; the page now reads only the picked period. 5 report tests pass (the new one verified to fail when the panel returns), typecheck clean, all guards pass. No database, financial or deployment changes.
 - [x] Money In "Agent Products and Services" recoveries can now be filtered by type (28 Oct 2026, Angwen Sarah): a "Recovery type" bar (All / Smartphone recoveries / Bike recoveries / Agent advance repayments, each with the server's count) appears when that category is selected and filters the paginated list server-side via the new `p_type` parameter on `get_cfo_received_by_category_page`. The split rule moved into one shared helper `public._cfo_received_agent_product_for` used by both the tile breakdown and the page filter, so tiles and filtered totals cannot disagree. 4 Money In tests pass (2 verified to fail when the filter or the control is removed), typecheck clean, all guards pass, preview build OK. Read-only reporting: no wallet, ledger, balance or payment change; live signed-in view not exercised here.
 
-- [ ] Money In: Landlord Products and Services tile (Welile Homes rent repayments)
-- [ ] Money In: rename Fees and Service Income to Revenue
+- [x] Money In: Landlord Products and Services tile (Welile Homes rent repayments)
+- [x] Money In: rename Fees and Service Income to Revenue
