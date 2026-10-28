@@ -61,6 +61,10 @@ describe('CFO Paid by Category', () => {
     for (const t of totals) {
       expect(screen.getByTitle(t.category_label)).toBeInTheDocument();
     }
+    // The agent category is "Agent Products and Services"; the old "Agent Commissions"
+    // wording must never come back from the server.
+    expect(screen.queryByTitle('Agent Commissions')).not.toBeInTheDocument();
+    expect(screen.queryByText('Agent Commissions')).not.toBeInTheDocument();
     await waitFor(() => {
       const grandTile = screen.getByText('Grand total paid').closest('div');
       if (!grandTile) throw new Error('Grand total tile missing');
