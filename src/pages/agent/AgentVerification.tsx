@@ -242,7 +242,10 @@ function PhoneStep({ v, vetting, editable, guard, act }: BodyProps) {
   const [sent, setSent] = useState(false);
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">{vetting.phone.value ?? 'No phone number on file'}</p>
+      <div className="flex items-center gap-3">
+        <p className="text-sm font-medium">{vetting.phone.value ?? 'No phone number on file'}</p>
+        <Link to="/settings" className="inline-flex items-center text-sm text-primary">Edit</Link>
+      </div>
       {vetting.phone.verified_at && <p className="text-sm text-muted-foreground">Confirmed {fmt(vetting.phone.verified_at)}</p>}
       {editable && !vetting.phone.verified_at && (
         <>
@@ -253,7 +256,6 @@ function PhoneStep({ v, vetting, editable, guard, act }: BodyProps) {
           {sent && <CodeRow busy={v.busy === 'phone_confirm'} onConfirm={(c) => act(() => v.confirmPhoneCode(c), 'Phone confirmed')} />}
         </>
       )}
-      <Link to="/settings" className="inline-block text-sm text-primary min-h-11 py-3">Change my number</Link>
     </div>
   );
 }
