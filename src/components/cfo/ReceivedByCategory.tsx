@@ -332,6 +332,31 @@ export function ReceivedByCategory() {
           </form>
         </div>
 
+        {appliedCategory === 'agent' && (
+          <div className="flex flex-wrap items-center gap-1.5 px-3 py-2" role="group" aria-label="Recovery type">
+            <span className="mr-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Recovery type</span>
+            {([{ key: 'all' as ProductTypeKey, label: 'All types' }, ...PRODUCT_TYPES]).map(t => {
+              const count = t.key === 'all'
+                ? agentSplit.data?.reduce((n, d) => n + Number(d.tx_count), 0)
+                : agentSplit.data?.find(d => d.product_key === t.key)?.tx_count;
+              const active = appliedType === t.key;
+              return (
+                <button key={t.key} type="button"
+                  onClick={() => { setAppliedType(t.key); setOffset(0); }}
+                  aria-pressed={active}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                    active ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted/50'
+                  }`}>
+                  {t.label}
+                  {count !== undefined && count !== null
+                    ? <span className="ml-1 tabular-nums opacity-70">{Number(count).toLocaleString()}</span>
+                    : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-left text-xs">
             <thead>
