@@ -156,3 +156,4 @@
 - [x] Removed the "Projected Money Out — next 7 days" panel from the Money Out page (28 Oct 2026, Angwen Sarah), along with its estimate query; report tiles, filters and transaction table unchanged. 3 report tests and preview build pass; no database, financial or deployment changes.
 - [x] Renamed the visible receipts report to "Money In" (28 Oct 2026, Angwen Sarah): sidebar label, report heading, loading text and load-failure message. Section id, RPCs, hooks and files stay `received-by-category` so saved links keep working. Preview build passes; no database, financial or deployment changes.
 - [x] Agent KYC passport step: 'Take passport photo' / 'Take again' button now uses the pale primary (soft) tint instead of plain outline.
+- [x] Agent KYC National ID step: 'Add my National ID' button now uses the pale primary (soft) tint to match the passport photo button.
