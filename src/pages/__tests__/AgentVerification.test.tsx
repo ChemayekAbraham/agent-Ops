@@ -162,6 +162,7 @@ describe('Agent KYC navigation and existing actions', () => {
   });
 
   it('still explains the location step before anything is captured', () => {
+    state.value.vetting.residence.district = 'Wakiso'; // a touched record opens the wizard
     mount();
     expect(screen.getByText(/Capture my location" where you are\./)).toBeInTheDocument();
   });
