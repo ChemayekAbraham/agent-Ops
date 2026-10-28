@@ -146,26 +146,6 @@ export function PaidByCategory() {
     staleTime: 60_000,
   });
 
-  // Next-7-days projection: average daily spend over the last 28 complete Kampala days × 7.
-  // An estimate from the same server totals; it does not read scheduled payments.
-  const projBase = useMemo(() => {
-    const today = new Date(`${kampalaDate()}T00:00:00Z`);
-    return { from: format(subDays(today, 28), 'yyyy-MM-dd'), to: format(subDays(today, 1), 'yyyy-MM-dd') };
-  }, []);
-  const projection = useQuery({
-    queryKey: ['cfo-paid-by-category-totals', projBase.from, projBase.to],
-    queryFn: async (): Promise<CategoryRow[]> => {
-      const { data, error } = await (supabase.rpc as any)('get_cfo_paid_by_category_totals', {
-        p_from: projBase.from, p_to: projBase.to,
-      });
-      if (error) throw error;
-      return (data ?? []) as CategoryRow[];
-    },
-    retry: cfoReportRetry,
-    staleTime: 5 * 60_000,
-  });
-  const projRows = (projection.data ?? []).map(r => ({ ...r, next7: (Number(r.amount) / 28) * 7 }));
-  const projTotal = projRows.reduce((s, r) => s + r.next7, 0);
 
   const rows = totals.data ?? [];
   const grand = rows.reduce((s, r) => s + r.amount, 0);
@@ -262,30 +242,6 @@ export function PaidByCategory() {
         </div>
       )}
 
-      {/* Next 7 days projection */}
-      <div className="rounded-md border border-border/70 bg-card p-4 shadow-sm">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3 className="text-xs font-semibold">Projected Money Out — next 7 days</h3>
-          <p className="text-sm font-bold tabular-nums text-primary">
-            {projection.isLoading ? '…' : projection.error ? 'Unavailable' : formatUGX(Math.round(projTotal))}
-          </p>
-        </div>
-        <p className="mt-0.5 text-[11px] text-muted-foreground">
-          Estimate: average daily payments from {fmtDay(projBase.from)} to {fmtDay(projBase.to)} (last 28 days) × 7.
-          Actual payments may differ.
-        </p>
-        {!projection.isLoading && !projection.error && (
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {projRows.map(r => (
-              <div key={r.category_key} className="rounded-md border border-border/60 bg-muted/20 p-2.5">
-                <p className="truncate text-[11px] font-medium">{r.category_label}</p>
-                <p className="mt-0.5 text-xs font-bold tabular-nums">{formatUGX(Math.round(r.next7))}</p>
-                <p className="text-[10px] text-muted-foreground">≈ {formatUGX(Math.round(r.next7 / 7))} per day</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
 
       {/* Transaction table */}
       <div className="rounded-md border border-border/70 bg-card shadow-sm">
