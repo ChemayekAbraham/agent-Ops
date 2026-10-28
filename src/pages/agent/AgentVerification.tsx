@@ -231,7 +231,7 @@ function CodeRow({ onConfirm, busy, label = 'Confirm' }: { onConfirm: (c: string
     <div className="flex flex-col gap-2 sm:flex-row">
       <Input inputMode="numeric" maxLength={6} aria-label="6-digit code" autoComplete="one-time-code" placeholder="6-digit code" value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} className="min-h-11" />
-      <Button className="min-h-11" disabled={busy || code.length !== 6} onClick={() => onConfirm(code)}>
+      <Button variant="soft" className="min-h-11" disabled={busy || code.length !== 6} onClick={() => onConfirm(code)}>
         <Spin on={busy} />{label}
       </Button>
     </div>
