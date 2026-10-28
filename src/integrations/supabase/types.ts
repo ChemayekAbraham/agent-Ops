@@ -6976,9 +6976,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -6991,6 +6994,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -7014,9 +7023,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7029,6 +7041,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -7052,9 +7070,12 @@ export type Database = {
           gps2_lat?: number | null
           gps2_lng?: number | null
           id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
           id_front_path?: string | null
           id_holder_id?: string | null
           id_link_request_id?: string | null
+          id_name?: string | null
           id_nin_masked?: string | null
           id_source?: string | null
           in_scope?: boolean
@@ -7067,6 +7088,12 @@ export type Database = {
           passport_photo_path?: string | null
           phone?: string | null
           phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
           residence?: Json | null
           review_note?: string | null
           reviewed_at?: string | null
@@ -68935,9 +68962,12 @@ export type Database = {
           gps2_lat: number | null
           gps2_lng: number | null
           id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
           id_front_path: string | null
           id_holder_id: string | null
           id_link_request_id: string | null
+          id_name: string | null
           id_nin_masked: string | null
           id_source: string | null
           in_scope: boolean
@@ -68950,6 +68980,12 @@ export type Database = {
           passport_photo_path: string | null
           phone: string | null
           phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
           residence: Json | null
           review_note: string | null
           reviewed_at: string | null
@@ -68966,6 +69002,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _agent_vetting_id_details: { Args: { p_uid: string }; Returns: Json }
       _agent_vetting_id_status: {
         Args: { p_source: string; p_uid: string }
         Returns: Json
@@ -68974,12 +69011,21 @@ export type Database = {
         Args: { p_agent: string; p_detail?: Json; p_event: string }
         Returns: undefined
       }
+      _agent_vetting_name_on_id: { Args: { p_uid: string }; Returns: string }
       _agent_vetting_parent: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_photo_uploaded_at: {
+        Args: { p_path: string }
+        Returns: string
+      }
       _agent_vetting_reopen: {
         Args: { p_uid: string; p_what: string }
         Returns: undefined
       }
       _agent_vetting_require_agent: { Args: never; Returns: string }
+      _agent_vetting_take_id_snapshot: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
@@ -69184,6 +69230,26 @@ export type Database = {
       _asset_register_validate: {
         Args: { p: Json; p_partial: boolean }
         Returns: Json
+      }
+      _bike_advance_priority_active: {
+        Args: { p_agent: string }
+        Returns: boolean
+      }
+      _bike_priority_remaining: {
+        Args: { p_agent: string; p_day: string }
+        Returns: number
+      }
+      _bike_priority_split: {
+        Args: {
+          p_available: number
+          p_outstanding: number
+          p_paid: number
+          p_quota: number
+        }
+        Returns: {
+          bike: number
+          surplus: number
+        }[]
       }
       _budget_supplement_log: {
         Args: {
@@ -69515,6 +69581,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
       _renewal_advice_core: {
         Args: {
           p_as_at: string
@@ -70128,6 +70195,10 @@ export type Database = {
       }
       agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_bike_advance_priority: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }
