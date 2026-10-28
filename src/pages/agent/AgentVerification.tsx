@@ -22,7 +22,7 @@ import { ugLocationLabel, type UgLocationSelection } from '@/hooks/useUgLocation
 import VettingMap from '@/components/agent-vetting/VettingMap';
 import { agentVettingRedirect } from '@/hooks/agentVettingAccess';
 import {
-  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress, nationalIdOnFile,
+  VETTING_STATUS_LABEL, canEditVetting, vettingChecklist, vettingProgress, nationalIdOnFile, isLocationFresh,
   type AgentVetting, type VettingStepKey,
 } from '@/lib/agentVetting';
 
@@ -189,7 +189,8 @@ export default function AgentVerification() {
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
             {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
-              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{shortStepHint(key, step.hint, vetting)}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              const stepHint = step ? shortStepHint(key, step.hint, vetting) : '';
+              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
@@ -212,6 +213,8 @@ export default function AgentVerification() {
 function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting): string {
   if (key === 'phone') return "We'll text a code to confirm it.";
   if (key === 'email') return vetting.email.value ? "We'll email a code to confirm it." : 'Add your email, then confirm with a code.';
+  // A location that has gone stale is recaptured with the button below, so no notice is shown.
+  if (key === 'location' && !isLocationFresh(vetting)) return '';
   return hint;
 }
 
