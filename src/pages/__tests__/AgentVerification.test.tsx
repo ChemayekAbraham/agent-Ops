@@ -140,9 +140,8 @@ describe('Agent KYC navigation and existing actions', () => {
   it('keeps Submit for review disabled and names what is still needed', () => {
     completeAll();
     state.value.vetting.next_of_kin.name = null;
-    mount(); // complete except next of kin, so the wizard opens at that step
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    mount(); // every step is shown, so walk all the way to review
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
     expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Next of kin' }));
@@ -153,6 +152,7 @@ describe('Agent KYC navigation and existing actions', () => {
     completeAll();
     state.value.submit = vi.fn().mockResolvedValue({ success: true, message: 'Sent for review' });
     mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     expect(state.value.submit).toHaveBeenCalledTimes(1);
   });
@@ -160,6 +160,7 @@ describe('Agent KYC navigation and existing actions', () => {
   it('still shows the server list when it refuses a record the wizard considers complete', async () => {
     completeAll();
     mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     const dialog = await screen.findByRole('dialog');
     expect(state.value.submit).toHaveBeenCalledTimes(1);
