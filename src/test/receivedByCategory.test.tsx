@@ -204,11 +204,10 @@ describe('ReceivedByCategory (Money In)', () => {
     breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
 
     renderReport();
-    await screen.findByText('All received transactions');
 
-    // All time is the pressed segment and the period line says so.
+    // All time is the pressed segment and, once the totals load, the period line says so.
     expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getAllByText(/All time \(Kampala days\)/).length).toBeGreaterThan(0);
+    await screen.findByText(/All time \(Kampala days\)/);
     // The server read covers everything from the earliest ledger date.
     expect(totalsRpc).toHaveBeenCalledWith(
       'get_cfo_received_by_category_totals',
