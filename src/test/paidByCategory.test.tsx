@@ -105,15 +105,33 @@ describe('CFO Paid by Category', () => {
     await screen.findByTitle('Partner Products and Services');
     const reads = mocks.rpc.mock.calls.filter(c => c[0] === 'get_cfo_paid_by_category_totals');
     expect(reads).toHaveLength(1);
-    // The single read is the period the user picked: this month, Kampala dates.
+    // The single read is the default period: All time, Kampala dates.
     const today = kampalaToday();
-    expect(reads[0][1]).toEqual({ p_from: `${today.slice(0, 7)}-01`, p_to: today });
+    expect(reads[0][1]).toEqual({ p_from: '2020-01-01', p_to: today });
     // Nothing else asks for a 28-day average window (the removed next-7-days estimate).
     const windows = reads.map(c => `${c[1].p_from}..${c[1].p_to}`);
-    expect(windows).toEqual([`${today.slice(0, 7)}-01..${today}`]);
+    expect(windows).toEqual([`2020-01-01..${today}`]);
     // The payables schedule that fed the removed panel is never read either.
     expect(mocks.rpc).not.toHaveBeenCalledWith('get_payables_due_range', expect.anything());
     expect(screen.queryByText(/expected out — next 7 days/)).not.toBeInTheDocument();
+  });
+
+  it('opens on All time and switches to a picked period', async () => {
+    renderReport();
+    await screen.findByTitle('Partner Products and Services');
+    // All time is the default, shown as the pressed segment.
+    const allTime = screen.getByRole('button', { name: 'All time' });
+    expect(allTime).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/All time \(Kampala days\)/)).toBeInTheDocument();
+
+    // Picking Last 7 days re-reads the same report for that window.
+    fireEvent.click(screen.getByRole('button', { name: 'Last 7 days' }));
+    const today = kampalaToday();
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_paid_by_category_totals',
+      expect.objectContaining({ p_to: today })));
+    const reads = mocks.rpc.mock.calls.filter(c => c[0] === 'get_cfo_paid_by_category_totals');
+    expect(reads.at(-1)?.[1].p_from).not.toBe('2020-01-01');
+    expect(allTime).toHaveAttribute('aria-pressed', 'false');
   });
 });
 

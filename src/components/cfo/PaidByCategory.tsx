@@ -50,10 +50,14 @@ type PaidRow = {
 
 const PAGE = 50;
 
-/** Kampala-day window presets, newest bound = today (Kampala). */
-type PresetKey = 'this_month' | '7d' | '30d' | '3m' | 'custom';
+/** Kampala-day window presets, newest bound = today (Kampala). Default: All time. */
+type PresetKey = 'all_time' | 'this_month' | '7d' | '30d' | '3m' | 'custom';
+
+/** Earliest date the ledger can hold; same floor the Custom picker falls back to. */
+const ALL_TIME_FROM = '2020-01-01';
 
 const PRESETS: { key: PresetKey; label: string }[] = [
+  { key: 'all_time', label: 'All time' },
   { key: 'this_month', label: 'This month' },
   { key: '7d', label: 'Last 7 days' },
   { key: '30d', label: 'Last 30 days' },
@@ -64,6 +68,8 @@ const PRESETS: { key: PresetKey; label: string }[] = [
 export function resolvePaidByCategoryWindow(kind: PresetKey, from: string, to: string): { from: string; to: string; label: string } {
   const today = kampalaDate();
   switch (kind) {
+    case 'all_time':
+      return { from: ALL_TIME_FROM, to: today, label: 'All time' };
     case 'this_month':
       return { from: monthStart(), to: today, label: `${monthStart()} – ${today}` };
     case '7d':
@@ -86,12 +92,12 @@ const prettyLedgerCategory = (c: string) =>
 const fmtDay = (d: string) => (d ? format(new Date(`${d}T00:00:00Z`), 'd MMM yyyy') : '');
 
 export function PaidByCategory() {
-  const [preset, setPreset] = useState<PresetKey>('this_month');
+  const [preset, setPreset] = useState<PresetKey>('all_time');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   // Applied filters: only these reach the server (form state stays local).
   const [applied, setApplied] = useState<{ from: string; to: string }>(() => ({
-    from: monthStart(), to: kampalaDate(),
+    from: ALL_TIME_FROM, to: kampalaDate(),
   }));
   const [appliedCategory, setAppliedCategory] = useState<string>('all');
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -203,7 +209,7 @@ export function PaidByCategory() {
           </div>
         )}
         <p className="mt-2 text-[11px] text-muted-foreground">
-          {totals.isLoading ? 'Loading…' : totals.error ? 'Could not load the period breakdown' : `${fmtDay(applied.from)} – ${fmtDay(applied.to)} (Kampala days)`}
+          {totals.isLoading ? 'Loading…' : totals.error ? 'Could not load the period breakdown' : preset === 'all_time' ? 'All time (Kampala days)' : `${fmtDay(applied.from)} – ${fmtDay(applied.to)} (Kampala days)`}
         </p>
       </div>
 
