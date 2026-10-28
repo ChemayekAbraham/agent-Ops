@@ -356,7 +356,7 @@ export function ReceivedByCategory() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-xs">
+          <table className="w-full min-w-[820px] text-left text-xs">
             <thead>
               <tr className="border-b border-border/60 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Date/time</th>
@@ -371,10 +371,10 @@ export function ReceivedByCategory() {
             </thead>
             <tbody className="divide-y divide-border/50">
               {page.isLoading && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Loading transactions…</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">Loading transactions…</td></tr>
               )}
               {page.error && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-destructive">Could not load transactions. Try again shortly.</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-destructive">Could not load transactions. Try again shortly.</td></tr>
               )}
               {!page.isLoading && !page.error && pageRows.map(r => (
                 <tr key={r.id} className="align-top">
@@ -399,7 +399,7 @@ export function ReceivedByCategory() {
                 </tr>
               ))}
               {!page.isLoading && !page.error && pageRows.length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No received transactions in this window.</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">No received transactions in this window.</td></tr>
               )}
             </tbody>
           </table>
