@@ -12,8 +12,9 @@ const totals = [
   { category_key: 'agent', category_label: 'Agent Products and Services', sort_order: 3, amount: 2000, tx_count: 20, pct: 20 },
   { category_key: 'partner', category_label: 'Partner Products and Services', sort_order: 4, amount: 4000, tx_count: 40, pct: 40 },
   { category_key: 'landlord', category_label: 'Landlord Products and Services', sort_order: 5, amount: 3000, tx_count: 30, pct: 30 },
-  { category_key: 'marketing', category_label: 'Marketing Expenses', sort_order: 6, amount: 0, tx_count: 0, pct: 0 },
-  { category_key: 'rnd', category_label: 'Product Research & Development', sort_order: 7, amount: 0, tx_count: 0, pct: 0 },
+  { category_key: 'tenant', category_label: 'Tenant Products and Services', sort_order: 6, amount: 0, tx_count: 0, pct: 0 },
+  { category_key: 'marketing', category_label: 'Marketing Expenses', sort_order: 7, amount: 0, tx_count: 0, pct: 0 },
+  { category_key: 'rnd', category_label: 'Product Research & Development', sort_order: 8, amount: 0, tx_count: 0, pct: 0 },
 ];
 
 const pageRows = (n: number, totalMatched: number) =>
@@ -54,7 +55,7 @@ const kampalaToday = () =>
 
 
 describe('CFO Paid by Category', () => {
-  it('shows the six server categories with totals, counts and share of the grand total', async () => {
+  it('shows the seven server categories with totals, counts and share of the grand total', async () => {
     renderReport();
     // Category tiles only render once the server totals load.
     await screen.findByTitle('Partner Products and Services');
