@@ -48,6 +48,7 @@ type PaidRow = {
   reference_id: string | null;
   counterparty: string | null;
   counterparty_phone: string | null;
+  approved_by: string | null;
   source_table: string | null;
   classification: string | null;
 };
@@ -364,6 +365,7 @@ export function ReceivedByCategory() {
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
                 <th className="px-3 py-2 font-medium">Received from</th>
+                <th className="px-3 py-2 font-medium">Approved by</th>
                 <th className="px-3 py-2 font-medium">Reference</th>
                 <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Record</th>
@@ -387,6 +389,7 @@ export function ReceivedByCategory() {
                       ? <span className="block">{r.counterparty}<span className="block text-[10px] text-muted-foreground">{r.counterparty_phone}</span></span>
                       : <span className="text-muted-foreground">—</span>}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.approved_by || '—'}</td>
                   <td className="px-3 py-2 break-words text-muted-foreground">{r.reference_id || '—'}</td>
                   <td className="max-w-[240px] px-3 py-2 break-words text-muted-foreground">{r.description || '—'}</td>
                   <td className="px-3 py-2">
