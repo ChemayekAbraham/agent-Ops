@@ -8,6 +8,9 @@ export interface AgentProductKpis {
   in_field_amount: number;
   in_field_outstanding: number;
   in_field_repaid: number;
+  /** Repaid + outstanding: what the plans add up to, markup included. */
+  in_field_repayable?: number;
+  in_field_fully_paid?: number;
   purchased_qty: number;
   purchased_value: number;
   stock_qty: number;
