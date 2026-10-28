@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { generatePartnerWithdrawalsPdf } from '@/lib/partnerWithdrawalsPdf';
 import { generatePartnerWithdrawalStatementPdf } from '@/lib/partnerWithdrawalStatementPdf';
 import { toast } from 'sonner';
+import { isUuid } from '@/lib/isUuid';
 
 interface WithdrawalRow {
   id: string;
@@ -78,7 +79,7 @@ export function ApprovedPartnerWithdrawals({ onBack }: Props) {
         if (r.linked_party) ids.add(r.linked_party);
         if (r.proxy_partner_id) ids.add(r.proxy_partner_id);
       });
-      const uniqueIds = [...ids].filter(Boolean);
+      const uniqueIds = [...ids].filter(isUuid);
       const map: Record<string, string> = {};
       for (let i = 0; i < uniqueIds.length; i += 500) {
         const { data: profileData } = await supabase

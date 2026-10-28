@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, Wallet, Smartphone, Building2, Banknote, Bell } from 'lucide-react';
 import { WithdrawalPayoutCard } from '@/components/withdrawals/WithdrawalPayoutCard';
+import { isUuid } from '@/lib/isUuid';
 
 interface Props {
   open: boolean;
@@ -30,7 +31,7 @@ export function CashoutPendingWithdrawalsDialog({ open, onOpenChange, agent }: P
       // Resolve both the requester and any linked partner (proxy partner
       // withdrawals) so the payout card shows the real partner name.
       const ids = Array.from(new Set(
-        rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(Boolean),
+        rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(isUuid),
       ));
       const { data: profs } = await supabase
         .from('profiles')

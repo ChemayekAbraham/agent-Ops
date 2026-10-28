@@ -427,3 +427,23 @@ Checked, working as designed: `withdrawal_release_events_withdrawal_id_key` (one
 **FOUND, needs Josh: repo migrations that production does not have.** `column staff_assistant_config.max_model_rounds does not exist` comes from the `staff-assistant` edge function on `lovable`, whose migration `20261027100000_staff_assistant_security_hardening.sql` (and others in the `staff_assistant_*` series, `special_advances_payout_repayment`, `special_advances_proof_storage_policies`, and more) is on `lovable` but not in this database's `schema_migrations`. They are Lovable's, large and unreviewed, so I did not apply them. Someone needs to decide, migration by migration, which to apply; applied names here are Lovable's generated slugs so a plain filename diff overstates the gap and each needs checking against the live schema.
 
 Still open from the client side (UI owner): `column rent_requests.user_id does not exist` (6), `gmail_transactions.raw_text` (4; the column is `raw_body`), `is_active` / `monthly_income` does not exist (3 each), and uuid errors from "Rent Management Pool" and "KxEPbv" being sent as ids.
+
+## Step 49 (2026-10-28 ~14:30 UTC): client-side errors traced to the line
+
+Method: failing query text from `postgres_logs`, request URL and referer from `edge_logs`, then the code on `origin/lovable` (the code production runs).
+
+**Fixed in code (this commit):**
+- **`wallet_transactions.type` does not exist (20):** `TenantDetailPanel.tsx:125` selected `type`. The table has no such column (`id, sender_id, recipient_id, amount, description, created_at`). The result (`walletTxns`) is built but never read in the file; removed `type` from the select so the query stops failing on every tenant panel open.
+- **`invalid input syntax for type uuid: "Rent Management Pool" / "tenant"` (37+):** `general_ledger.linked_party` is free text (5,361 rows say `tenant`, 449 say `Rent Management Pool`), but six screens send it to a `profiles .in('id', ...)` name lookup, which Postgres refuses as a whole. New `src/lib/isUuid.ts`; filtered at `AgentCashPayoutsTab.tsx`, `FloatTransactionHistory.tsx`, `CashoutPendingWithdrawalsDialog.tsx`, `ApprovedPartnerWithdrawals.tsx`, `categoryReportExport.ts` (`fetchPartyNames`), `fetchAgentWalletData.ts`.
+
+**Fixed in the database (applied by hand, migration `20261028190000_fix_agent_network_summary_and_daily_missions_missing_columns.sql`):**
+- **`column "is_active" does not exist` (3, `get_agent_network_summary`):** the staff check used `staff_permissions.is_active`; the table has `revoked_at`. Staff opening another agent's network summary got an error. Now `revoked_at IS NULL` (a revoked staff permission no longer passes). Tested: staff to agent, agent to self.
+- **`column "monthly_income" does not exist` (3, `get_agent_daily_missions`):** `profiles.monthly_income` is not in this schema and no income field exists anywhere, so the salary-proof gap is held at 0 (counting everyone would offer a daily 1,000 UGX mission to every agent). Tested.
+
+**Already fixed on `lovable` (commit `9eb3ca77bd`, 10-27 11:23), still arriving: stale browsers.** `rent_requests.user_id` (16, last 12:14 today, old `SuggestedHousesCard` query) and `house_listings.price` (8, last 10-27 19:54, old `RejectionAlertGate` query), and `welile_homes_subscriptions.funding_status` (4, code on `lovable` already says the column is absent). The errors come from browsers running a cached older bundle. Check that welileapp.com serves the latest published build; users on the old bundle stop erroring after a hard reload or the next service-worker refresh.
+
+**Not in any branch: `gmail_transactions.raw_text` (4).** The column is `raw_body`. Callers were a Deno edge function, a Chrome browser and `curl`. Nothing in `lovable` or the dev branches contains `raw_text`, so it is either code deployed outside git or a hand-run test. Not changed.
+
+**Not fixed, needs the UI owner: `invalid input syntax for type uuid: "null"` (43).** Same lookup shape (`select=id,full_name&id=in.(null,...)`), but the id list comes from a nullable column with no filter. A scan found 190 such lookups; full list in `docs/HANDOVER/247-appendix-unfiltered-profile-id-lookups-2026-10-28.md`. The shared client `src/integrations/supabase/client.ts` is generated ("do not edit"), so a central guard was not added. Fix per site is `ids.filter(isUuid)`.
+
+**Not fixed, source not found: `invalid column for filter user_id` (realtime, 68, last 11:36).** Every `user_id=eq` realtime filter in `lovable` is on a table that has the column; the caller is not in git.
