@@ -115,7 +115,7 @@ describe('CFO Money Out — next 7 days', () => {
       return { data: [], error: null };
     });
     renderReport();
-    await screen.findByText(/^The figure at the top/);
+    await within(panel()).findByText(money(700_000));
     const cards = panel();
     expect(within(cards).getByText('Unavailable')).toBeInTheDocument();
     expect(flat(cards.textContent ?? '')).not.toContain('UGX0');
@@ -128,7 +128,7 @@ describe('CFO Money Out — next 7 days', () => {
       return { data: [], error: null };
     });
     renderReport();
-    await screen.findByText(/^The figure at the top/);
+    await within(panel()).findByText(money(700_000));
     const cards = panel();
     expect(within(cards).getByText('Unavailable')).toBeInTheDocument();
     expect(flat(cards.textContent ?? '')).not.toContain('UGX0');
