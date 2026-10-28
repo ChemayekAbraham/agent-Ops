@@ -22,7 +22,7 @@ const pageRows = (n: number, totalMatched: number) =>
     id: `row-${i}`, transaction_date: '2026-10-28T09:00:00+00:00', created_at: '2026-10-28T09:00:00+00:00',
     category_key: 'landlord_float', category_label: 'Landlord Float', ledger_category: 'rent_disbursement',
     amount: 1000, description: 'Rent facilitation', reference_id: 'REF-1',
-    counterparty: 'Test Landlord', counterparty_phone: '0770000000',
+    counterparty: 'Test Landlord', counterparty_phone: '0770000000', approved_by: 'Sarah Approver',
     source_table: 'rent_requests', classification: 'production', total_matched: totalMatched,
   }));
 
@@ -70,6 +70,18 @@ describe('CFO Paid by Category', () => {
     fireEvent.click(await screen.findByTitle('Landlord Float'));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_paid_by_category_page',
       expect.objectContaining({ p_category: 'landlord_float', p_offset: 0 })));
+  });
+
+  it('shows the wallet recipient in Paid to and the staff approver in Approved by', async () => {
+    renderReport();
+    await screen.findByTitle('Landlord Float');
+    // The recipient keeps their own column…
+    const recipients = await screen.findAllByText('Test Landlord');
+    expect(recipients.length).toBe(2);
+    // …and the approver appears only under the new "Approved by" column.
+    expect(screen.getByText('Approved by')).toBeInTheDocument();
+    const approvers = await screen.findAllByText('Sarah Approver');
+    expect(approvers.length).toBe(2);
   });
 
   it('pages the transaction table from the server', async () => {
