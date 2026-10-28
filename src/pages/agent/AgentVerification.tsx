@@ -213,9 +213,9 @@ function PassportThumbnail({ path }: { path: string | null }) {
 
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
-  const confirmed = (value: string | null, at: string | null) => <div className="flex flex-wrap items-center gap-2"><span className="break-all">{value ?? 'Not added'}</span>{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
+  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
-    <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at)}{confirmed(v.email.value, v.email.verified_at)}</div>,
+    <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
     <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
     <div className="space-y-1"><p>{v.national_id.source === 'parent' ? "Parent agent's National ID" : 'Own National ID'}</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div>,
