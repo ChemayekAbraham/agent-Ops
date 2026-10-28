@@ -26,7 +26,7 @@
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized client-side; only the server authorizes.
+- Requisition approval errors are normalized client-side; the server authorizes.
 - CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
 - CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
@@ -48,7 +48,7 @@
 - Tenant SMS campaigns send only via `tenant-campaign-sender`, unique `dedupe_key` per tenant, wave stops above 20% failures.
 - Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
-- Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
+- Sign-up client pre-checks run in parallel, capped at 1.5s, and fail open; only server checks enforce.
 - Subdirectories have their own `AGENTS.md` to read before changing files there: `src/lib/` (incl. `assetRegister/`), `src/components/requisitions/`, `src/components/executive/agent-ops/` (First 7 Days files maintained upstream — do not restyle) and `supabase/` (one named server function is the only definition; the client never recomputes it).
 
 - Supporter agreement review text is transcribed from the approved partner contract asset; download and print open that original PDF so exports cannot substitute obsolete terms.
