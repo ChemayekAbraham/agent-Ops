@@ -14,7 +14,6 @@ import {
   readyPlanTitle,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
-import { getFunderHouseCompleteness } from '@/lib/funderHouseSort';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
