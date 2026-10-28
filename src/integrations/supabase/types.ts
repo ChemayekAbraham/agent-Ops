@@ -2986,6 +2986,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at: string
+          currency: string
           description: string | null
           earning_type: string
           id: string
@@ -2996,6 +2997,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type: string
           id?: string
@@ -3006,6 +3008,7 @@ export type Database = {
           agent_id?: string
           amount?: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type?: string
           id?: string
