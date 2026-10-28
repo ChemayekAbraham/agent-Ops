@@ -522,7 +522,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           question: entry.question,
           sqlText: entry.sqlText,
           executedSql: entry.executedSql,
-          roleAreas: entry.roleAreas,
+          roleAreas: [...entry.roleAreas],
           rowCount: entry.rowCount,
           truncated: entry.truncated,
           status: entry.status,

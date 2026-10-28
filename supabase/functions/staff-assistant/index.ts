@@ -10,7 +10,7 @@ import {
   canCallerAccessZoeRoArea,
   ensureAdHocCertificationNotice,
   validateAnalystSqlQuery,
-  ZoeRoArea,
+  type ZoeRoRoleArea as ZoeRoArea,
 } from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
