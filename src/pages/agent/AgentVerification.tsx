@@ -127,7 +127,7 @@ export default function AgentVerification() {
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => navigate('/dashboard/agent')} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
           <div className="flex-1"><p className="text-sm font-semibold">Welile</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
-          <LockKeyhole className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
         </div>
       </header>
       <main className="mx-auto max-w-2xl px-5 py-6 sm:py-10">
@@ -136,11 +136,11 @@ export default function AgentVerification() {
           : statusScreen ? <VerificationStatus vetting={vetting} submitted={!!submitResult?.ok} onFix={() => openWizard()} onView={() => openWizard(true)} onEdit={() => guard(() => openWizard())} />
           : intro ? <div className="space-y-7">
             <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-primary/20 bg-primary/5"><ShieldCheck className="h-8 w-8 text-primary" /></div>
-            <div className="space-y-3"><h1 className="text-3xl font-semibold">Verify your identity</h1><p className="text-sm leading-relaxed text-muted-foreground">Welile verifies every agent before they can add tenants or post Rent Plan requests.</p><p className="flex items-center gap-2 text-sm"><Clock3 className="h-4 w-4 text-muted-foreground" /> About 5 minutes</p></div>
+            <div className="space-y-3"><h1 className="text-3xl font-semibold">Verify your identity</h1><p className="text-sm leading-relaxed text-muted-foreground">Welile verifies every agent before they can add tenants or post Rent Plan requests.</p><p className="flex items-center gap-2 text-sm"><Clock3 className="h-4 w-4 text-primary" /> About 5 minutes</p></div>
             <div><h2 className="mb-4 text-sm font-semibold">What you'll need</h2><ul className="space-y-4">{[
               [Smartphone, 'Your phone and email'], [Home, 'Where you stay and your live location'], [CreditCard, 'National ID front and back'], [Camera, 'A passport photo'], [Users, 'Your next of kin'],
-            ].map(([Icon, label]) => { const ItemIcon = Icon as typeof Smartphone; return <li key={String(label)} className="flex items-center gap-3 text-sm"><ItemIcon className="h-5 w-5 shrink-0 text-muted-foreground" />{String(label)}</li>; })}</ul></div>
-            <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />Your details are only seen by Welile Agent Ops</p>
+            ].map(([Icon, label]) => { const ItemIcon = Icon as typeof Smartphone; return <li key={String(label)} className="flex items-center gap-3 text-sm"><ItemIcon className="h-5 w-5 shrink-0 text-primary" />{String(label)}</li>; })}</ul></div>
+            <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
             <div className="mb-7 space-y-3">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
@@ -152,7 +152,7 @@ export default function AgentVerification() {
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
             {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-6">{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
-              return <div key={key} className="space-y-3">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-muted-foreground" /> : <Mail className="h-4 w-4 text-muted-foreground" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{step.hint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              return <div key={key} className="space-y-3">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{step.hint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
@@ -201,7 +201,7 @@ function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting;
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
     <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
   ];
-  return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-border bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
+  return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-border bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
 }
 
 type BodyProps = {
@@ -466,7 +466,7 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-muted-foreground/50" strokeWidth={1} />}</div></div>
+      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-primary/40" strokeWidth={1} />}</div></div>
       <ul className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">{['Face the camera', 'Plain background', 'No hat', 'No glasses'].map(tip => <li key={tip} className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-primary" />{tip}</li>)}</ul>
       {grade && <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm" role="status"><p className="font-medium">{grade.status === 'unavailable' ? 'Photo check unavailable' : grade.verdict === 'review' ? 'Photo saved — Agent Ops will check it' : grade.status === 'no_face' || grade.verdict === 'fail' ? 'Please retake your photo' : grade.status === 'ok' ? 'Face detected — photo check complete' : 'Checking your photo…'}</p>{grade.unavailableReason && <p className="mt-1">{grade.unavailableReason}</p>}{grade.failures?.map((failure, index) => failure.advice ? <p className="mt-1" key={index}>{failure.advice}</p> : null)}</div>}
       {editable && (
