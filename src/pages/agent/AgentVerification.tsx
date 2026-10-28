@@ -55,9 +55,13 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
 
-// The progress fill travels primary -> orange -> green across the seven steps.
+// The progress fill travels primary -> orange -> green: primary eases into orange
+// by the middle of the flow, orange carries through the later steps, and green is
+// saved for the final step.
 type Hsl = [number, number, number];
 const ORANGE: Hsl = [28, 90, 55];
+const ORANGE_AT = 4 / 7; // orange is fully reached around step 4
+const GREEN_AT = 6 / 7; // green only begins after step 6
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
