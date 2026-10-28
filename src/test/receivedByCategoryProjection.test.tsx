@@ -59,7 +59,7 @@ describe('CFO Money In — next 7 days projection', () => {
     renderReport();
     await screen.findByText('Projected Money In — next 7 days');
 
-    await waitFor(() => expect(within(panel()).getByText(/UGX/)).toBeInTheDocument());
+    await screen.findByText('Projected Money In — next 7 days');
     console.log('PANELTEXT>>>', JSON.stringify(panel().textContent));
     // 2,800,000 / 28 = 100,000 a day -> 700,000 over seven days.
     await waitFor(() => expect(within(panel()).getByText(formatUGX(700_000))).toBeInTheDocument());
