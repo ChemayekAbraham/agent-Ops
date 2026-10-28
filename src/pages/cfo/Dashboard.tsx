@@ -3,6 +3,7 @@ import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
+const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -689,6 +690,12 @@ export default function CFODashboardPage() {
         return (
           <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money Out report…</div>}>
             <PaidByCategory />
+          </Suspense>
+        );
+      case 'received-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Received by Category report…</div>}>
+            <ReceivedByCategory />
           </Suspense>
         );
       case 'sms-otp-costs':

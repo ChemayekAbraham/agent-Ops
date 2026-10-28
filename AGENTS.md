@@ -7,7 +7,7 @@
 - Nexa schema proposals remain under docs/pending-migrations until applied through the approved migration workflow; Meta webhook requires a signed body and configured sender, with no duplicate fallback after uncertain delivery.
 - Nexa public catalog and internal-query firewall are shared between browser and server; public chat refuses internal questions before escalation or model calls, even for staff sessions, to prevent public-channel disclosure.
 - Tenant campaign progress reads the caller-checked `rent_access_limit_server` RPC; failed reads show unavailable rather than estimating from partial payment rows or changing financial rules.
-- Partner payout presentation reuses the existing paid/outstanding reports and record drill-downs; summary tiles preserve their original totals and due-by cutoff rather than inventing a next due date.
+- Partner payout presentation reuses existing paid/outstanding reports and drill-downs; tiles keep original totals and due-by cutoff, never an invented next due date.
 - Standing order amount revisions use only `standing_order_set_amount` for locked configuration plus atomic audit, never the payer or lifecycle audit helper; authorized users may preview, but saves remain loopback-development-only until separately approved activation.
 - CFO loading separates authoritative summaries from optional detail reads; shared wallet responses retain distinct balance/float fields and reconciliation still waits for the full verification scan, so faster presentation cannot change financial definitions.
 - Financial Ops presentation is opt-in through FinOpsScope and semantic scoped CSS; shared UI surface attributes carry React context through portals without changing other workspaces or any financial behavior.
@@ -18,19 +18,19 @@
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
 - Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown.
 - Welile Schools gate registration stores only in `welile_schools` / `welile_school_profiles` (agents see their own profiles, `welile_schools_ops_ok()` roles see all, no deletes); offline profiles queue locally and retry idempotently via `client_ref`.
-- Welile Homes float requests move only through `src/lib/welileHomesFloat.ts` (`wh_request_float` / `wh_float_advance`, guarded legacy fallback until the pending migration applies) and CFO money only via `wh_cfo_disburse_float` (Merchant `agent_float_deposit` legs, no fallback; CFO approved 2026-10-26); requests link subscriptions, approval requires links, "funded" is set only by disbursement, and Merchant desks exclude Welile Homes requests.
+- Welile Homes float requests move only through `src/lib/welileHomesFloat.ts` (`wh_request_float`/`wh_float_advance`) and CFO money only via `wh_cfo_disburse_float` (Merchant `agent_float_deposit` legs, no fallback); "funded" is set only by disbursement and Merchant desks exclude Welile Homes requests.
 - Welile Schools chat and classic registration share one page-owned draft and save handler, with Uganda hierarchy supplied by the shared location picker, so switching modes cannot fork registration data.
 - Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts`, built on recorded facts (subscription_status, funding_status, float-request link, collected dues), never float reason text; "Funded" requires funding_status = 'funded', a rejected float request is not a declined application, unknown collections lock Delete, and `delete_welile_home_subscription` refuses the same plans server-side (pending migration).
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized client-side only; the server alone authorizes.
+- Requisition approval errors are normalized client-side; only the server authorizes.
 - CRM Broadcast is the visible destination for the existing in-app communications publisher; its earlier section id remains an alias so saved links keep working.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
-- CFO 7-day reporting uses Kampala days via `src/lib/kampalaDays.ts`, matching the RPCs.
+- CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
 - Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.
-- Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
+- Support capacity and its debit use operational float only, never withdrawable Returns.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
 - CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side. Wallet totals read `wallet_balances_projection` (one row), and `user_wallet_strict_for` only when that row is missing — never `v_user_wallet_strict` (recomputes every wallet).
@@ -61,4 +61,4 @@
 - My Space Calling & Pipeline Feedback reports (`/me/reports` for Jane, Winnie, Hanisha; `/me/staff-reports` for HR/Mark Bwayo) read only `staff_calling_detailed_report(p_from, p_to)` across Wednesday–Tuesday Kampala weeks and calendar months, unioning Tenant & Landlord Calling Centers and Rent Plan pipeline calls/reviews; financial state untouched.
 - CFO Asset Register rules (RPC-only access, server-issued codes/tags, append-only events, private evidence, QR grants nothing) live in `src/lib/assetRegister/AGENTS.md`; read it before touching any asset register code, page or migration.
 - Agent Verification screens use only the agent-vetting hooks and `src/lib/agentVetting.ts`; blocked creates go through `promptIfNotVetted` to one app-level dialog and the client never hides Add Tenant / Rent Plan buttons, because only the server decides verification.
-- CFO "Paid by Category" reads only `get_cfo_paid_by_category_totals` / `get_cfo_paid_by_category_page`; the category map lives only in `_cfo_paid_category_for` (budget / landlord_float / agent / partner / landlord / marketing / rnd) and the client never recomputes amounts or re-labels categories, so the report stays one server-defined definition that cannot double-count.
+- CFO "Money Out"/"Received by Category" read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for` and the client never recomputes or re-labels, so each report stays one server definition that cannot double-count.
