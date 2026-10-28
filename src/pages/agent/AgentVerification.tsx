@@ -519,6 +519,10 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
 function PassportStep({ v, vetting, editable, guard }: BodyProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // A just-taken photo waits here for the agent's own review; nothing is
+  // uploaded until they press "Use this photo".
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingUrl, setPendingUrl] = useState<string | null>(null);
   const [checkResult, setCheckResult] = useState<unknown>(null);
   const check = checkResult ?? vetting.passport_photo.check;
   const grade = check && typeof check === 'object' ? check as { status?: string; verdict?: string; unavailableReason?: string; failures?: { advice?: string }[] } : null;
@@ -530,31 +534,63 @@ function PassportStep({ v, vetting, editable, guard }: BodyProps) {
     queryFn: () => identityPhotoUrl(path),
   });
 
-  const onFile = async (f: File | undefined) => {
+  useEffect(() => () => { if (pendingUrl) URL.revokeObjectURL(pendingUrl); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  const stageFile = (f: File | undefined) => {
     if (!f) return;
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setPendingFile(f);
+    setPendingUrl(URL.createObjectURL(f));
+  };
+  const clearPending = () => {
+    if (pendingUrl) URL.revokeObjectURL(pendingUrl);
+    setPendingFile(null);
+    setPendingUrl(null);
+  };
+
+  const usePendingPhoto = async () => {
+    if (!pendingFile) return;
+    const file = pendingFile;
     setError(null);
     try {
-      const result = await v.savePassportPhoto(f);
+      const result = await v.savePassportPhoto(file);
       setCheckResult(result);
       toast.success('Passport photo saved');
     } catch (e) {
       setError(errMsg(e));
+      return;
+    } finally {
+      clearPending();
     }
   };
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-primary/40" strokeWidth={1} />}</div></div>
+      <div className="flex justify-center py-5"><div className="relative flex h-56 w-44 items-center justify-center overflow-hidden rounded-[50%] border-2 border-dashed border-primary/40 bg-muted/30">{pendingUrl ? <img src={pendingUrl} alt="New passport photo" className="h-full w-full object-cover" /> : url ? <img src={url} alt="Passport photo" className="h-full w-full object-cover" /> : <UserRound className="h-24 w-24 text-primary/40" strokeWidth={1} />}</div></div>
       <ul className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">{['Face the camera', 'Plain background', 'No hat', 'No glasses'].map(tip => <li key={tip} className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 shrink-0 text-primary" />{tip}</li>)}</ul>
       {grade && <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm" role="status"><p className="font-medium">{grade.status === 'unavailable' ? 'Photo check unavailable' : grade.verdict === 'review' ? 'Photo saved — Agent Ops will check it' : grade.status === 'no_face' || grade.verdict === 'fail' ? 'Please retake your photo' : grade.status === 'ok' ? 'Face detected — photo check complete' : 'Checking your photo…'}</p>{grade.unavailableReason && <p className="mt-1">{grade.unavailableReason}</p>}{grade.failures?.map((failure, index) => failure.advice ? <p className="mt-1" key={index}>{failure.advice}</p> : null)}</div>}
+      {pendingUrl && <p className="text-sm text-muted-foreground">This is what you took. It is not saved yet — use it if it looks right, or retake it.</p>}
       {editable && (
         <>
           <input ref={fileRef} type="file" accept="image/*" capture="user" className="hidden"
-            onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
-          <Button variant="outline" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
-            {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
-            {path ? 'Take again' : 'Take passport photo'}
-          </Button>
+            onChange={(e) => { stageFile(e.target.files?.[0]); e.target.value = ''; }} />
+          {pendingUrl ? (
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" className="min-h-12" disabled={v.busy === 'passport_photo'} onClick={() => { clearPending(); guard(() => fileRef.current?.click()); }}>
+                <Camera className="h-4 w-4 mr-2" />Retake
+              </Button>
+              <Button className="min-h-12" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => usePendingPhoto())}>
+                {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Check className="h-4 w-4 mr-2" />}
+                Use this photo
+              </Button>
+            </div>
+          ) : (
+            <Button variant="outline" className="min-h-12 w-full" disabled={v.busy === 'passport_photo'} onClick={() => guard(() => fileRef.current?.click())}>
+              {v.busy === 'passport_photo' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Camera className="h-4 w-4 mr-2" />}
+              {path ? 'Take again' : 'Take passport photo'}
+            </Button>
+          )}
         </>
       )}
       {error && <p className="flex items-start gap-1 text-sm text-destructive"><AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />{error}</p>}
