@@ -1,6 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import ReceivedByCategory from "@/components/cfo/ReceivedByCategory";
+
+/** Each case gets a fresh cache, so reads from one test never leak into the next. */
+function renderReport() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+  );
+  return render(<ReceivedByCategory />, { wrapper });
+}
 
 const rpc = vi.fn();
 vi.mock("@/integrations/supabase/client", () => ({
@@ -47,7 +58,7 @@ describe('ReceivedByCategory (Money In)', () => {
     pageRpc.mockResolvedValue({ data: [ROW], error: null });
     breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
 
-    render(<ReceivedByCategory />);
+    renderReport();
 
     // The page reads the server's own breakdown for the period it shows.
     await waitFor(() => expect(totalsRpc).toHaveBeenCalledWith(
@@ -85,7 +96,7 @@ describe('ReceivedByCategory (Money In)', () => {
     pageRpc.mockResolvedValue({ data: [ROW], error: null });
     breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
 
-    render(<ReceivedByCategory />);
+    renderReport();
     await screen.findByText('All received transactions');
     fireEvent.click(screen.getByRole('button', { name: /Agent Products and Services/ }));
 
@@ -106,7 +117,7 @@ describe('ReceivedByCategory (Money In)', () => {
     pageRpc.mockResolvedValue({ data: [ROW], error: null });
     breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
 
-    render(<ReceivedByCategory />);
+    renderReport();
     await screen.findByText('All received transactions');
 
     // No type control while every category is shown.
@@ -141,7 +152,7 @@ describe('ReceivedByCategory (Money In)', () => {
     pageRpc.mockResolvedValue({ data: [ROW], error: null });
     breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
 
-    render(<ReceivedByCategory />);
+    renderReport();
     await screen.findByText('All received transactions');
     fireEvent.click(screen.getByRole('button', { name: /Agent Products and Services/ }));
     const bar = await screen.findByRole('group', { name: 'Recovery type' });
