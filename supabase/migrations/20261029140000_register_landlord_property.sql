@@ -62,7 +62,7 @@ DECLARE
   v_uid uuid := auth.uid();
   v_name text;
   v_phone text;
-  v_address text := btrim(COALESCE(p_property_address, ''));
+  v_address text := regexp_replace(btrim(COALESCE(p_property_address, '')), '\s+', ' ', 'g');
   v_meter_e text := NULLIF(btrim(COALESCE(p_electricity_meter, '')), '');
   v_meter_w text := NULLIF(btrim(COALESCE(p_water_meter, '')), '');
   v_care_name text := NULLIF(btrim(COALESCE(p_caretaker_name, '')), '');
