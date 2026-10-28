@@ -72,9 +72,7 @@ describe('CFO Money In — next 7 days projection', () => {
     await screen.findByText('Projected Money In — next 7 days');
     await waitFor(() => expect(panel().textContent).toContain(formatUGX(1_260_000)));
 
-    const selectedGrand = flat(
-      selectedTotals.reduce((s, c) => s + c.amount, 0).toLocaleString('en-US'),
-    );
+    const selectedGrand = flat(formatUGX(selectedTotals.reduce((s, c) => s + c.amount, 0)));
     expect(flat(panel().textContent)).not.toContain(selectedGrand);
     // Genuine income (fees only) is called out on its own line.
     expect(flat(panel().textContent)).toContain(flat(formatUGX(140_000)));
