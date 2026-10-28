@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { addDays, format, subDays, subMonths } from 'date-fns';
-import { ArrowDownLeft, ArrowUpRight, CalendarClock, ChevronLeft, ChevronRight, Coins, Info, Search } from 'lucide-react';
+import { format, subDays, subMonths } from 'date-fns';
+import { ArrowDownLeft, ArrowUpRight, ChevronLeft, ChevronRight, Coins, Info, Search } from 'lucide-react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { cfoReportRetry } from '@/hooks/cfoReportRetry';
 import { formatUGX } from '@/lib/creditFeeCalculations';
@@ -29,18 +30,6 @@ type CategoryRow = {
   pct: number;
 };
 
-/**
- * Shape returned by the server's authoritative payables schedule
- * (`get_payables_due_range`). Amounts are server-computed; the client only displays them.
- */
-type DueRange = {
-  due_in_range: number;
-  item_count: number;
-  overdue: number;
-  outstanding: number;
-  paid_in_range?: number;
-  business_date?: string;
-};
 
 type PaidRow = {
   id: string;
@@ -161,76 +150,6 @@ export function PaidByCategory() {
   });
 
 
-  // ---- Next 7 days: money already recorded as due ------------------------------
-  // Read from the server's authoritative payables definition (`get_payables_due_range`,
-  // the same one the CFO daily receivables/payables report uses, guarded by
-  // `payables_guard()`): payables whose recorded due date falls in the next seven
-  // Kampala days. Nothing is estimated or added up here — a refused or malformed read
-  // shows "Unavailable", never a reassuring UGX 0.
-  const dueWindow = useMemo(() => {
-    const today = new Date(`${kampalaDate()}T00:00:00Z`);
-    return { from: format(today, 'yyyy-MM-dd'), to: format(addDays(today, 7), 'yyyy-MM-dd') };
-  }, []);
-
-  const due = useQuery({
-    queryKey: ['cfo-payables-due-next7', dueWindow.from, dueWindow.to],
-    queryFn: async (): Promise<DueRange | null> => {
-      const { data, error } = await (supabase.rpc as any)('get_payables_due_range', {
-        p_from: dueWindow.from, p_to: dueWindow.to,
-      });
-      if (error) throw error;
-      return (data ?? null) as DueRange | null;
-    },
-    retry: cfoReportRetry,
-    staleTime: 60_000,
-  });
-
-  const dueFigures = useMemo(() => {
-    const d = due.data as DueRange | null;
-    if (!d || typeof d.due_in_range !== 'number' || typeof d.item_count !== 'number') return null;
-    return {
-      dueIn7: Math.round(d.due_in_range),
-      items: d.item_count,
-      overdue: typeof d.overdue === 'number' ? Math.round(d.overdue) : 0,
-      outstanding: typeof d.outstanding === 'number' ? Math.round(d.outstanding) : 0,
-    };
-  }, [due.data]);
-
-  // ---- Run-rate estimate (labelled as an estimate) -----------------------------
-  // Average paid per day over the last 28 complete Kampala days (yesterday back 28)
-  // × 7, from the same server totals. It deliberately ignores the period picked above
-  // so the estimate stays steady.
-  const projBase = useMemo(() => {
-    const today = new Date(`${kampalaDate()}T00:00:00Z`);
-    return {
-      from: format(subDays(today, 28), 'yyyy-MM-dd'),
-      to: format(subDays(today, 1), 'yyyy-MM-dd'),
-    };
-  }, []);
-
-  const projection = useQuery({
-    queryKey: ['cfo-paid-projection-7d', projBase.from, projBase.to],
-    queryFn: async (): Promise<CategoryRow[]> => {
-      const { data, error } = await (supabase.rpc as any)('get_cfo_paid_by_category_totals', {
-        p_from: projBase.from, p_to: projBase.to,
-      });
-      if (error) throw error;
-      return (data ?? []) as CategoryRow[];
-    },
-    retry: cfoReportRetry,
-    staleTime: 60_000,
-  });
-
-  const projRows = useMemo(
-    () => (projection.data ?? []).map(r => ({
-      ...r,
-      perDay: Math.round(r.amount / 28),
-      next7: Math.round((r.amount / 28) * 7),
-    })),
-    [projection.data],
-  );
-  const projTotal = projRows.reduce((s, r) => s + r.next7, 0);
-
   const rows = totals.data ?? [];
   const grand = rows.reduce((s, r) => s + r.amount, 0);
   const grandCount = rows.reduce((s, r) => s + r.tx_count, 0);
@@ -327,66 +246,8 @@ export function PaidByCategory() {
       )}
 
 
-      {/* Next 7 days — what we expect to pay */}
-      <div className="rounded-md border border-border/70 bg-card p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <CalendarClock className="h-4 w-4 shrink-0 text-primary" />
-            <h3 className="text-sm font-semibold">Money expected out — next 7 days</h3>
-          </div>
-          <p className="text-lg font-bold tabular-nums">
-            {due.isLoading ? '…' : !dueFigures ? 'Unavailable' : formatUGX(dueFigures.dueIn7)}
-          </p>
-        </div>
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {due.isLoading
-            ? 'Loading…'
-            : !dueFigures
-              ? 'Could not load the payables schedule for this window'
-              : `${dueFigures.items.toLocaleString()} commitments due ${fmtDay(dueWindow.from)} – ${fmtDay(dueWindow.to)} · ${formatUGX(dueFigures.overdue)} already overdue · ${formatUGX(dueFigures.outstanding)} outstanding in total`}
-        </p>
-
-        <div className="mt-3 border-t border-border/60 pt-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-              If the recent pace holds
-            </p>
-            <p className="text-sm font-bold tabular-nums">
-              {projection.isLoading ? '…' : projection.error ? 'Unavailable' : formatUGX(projTotal)}
-            </p>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {projection.isLoading
-              ? 'Loading…'
-              : projection.error
-                ? 'Could not load the estimate'
-                : `Average paid per day ${fmtDay(projBase.from)} – ${fmtDay(projBase.to)} (Kampala days) × 7`}
-          </p>
-          {!projection.isLoading && !projection.error && projRows.length > 0 && (
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {projRows.map(r => (
-                <div key={r.category_key} className="rounded-md border border-border/60 bg-background p-2.5">
-                  <p className="truncate text-[11px] font-medium text-muted-foreground">{r.category_label}</p>
-                  <p className="mt-0.5 text-sm font-semibold tabular-nums">{formatUGX(r.next7)}</p>
-                  <p className="text-[10px] text-muted-foreground">about {formatUGX(r.perDay)} a day</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          The figure at the top is money already recorded as due in the next seven days, taken from the same
-          payables schedule the CFO daily report uses — it is not an estimate. It covers Supporter Returns due,
-          the weekly landlord float, landlord payouts approved outside a float, agent commission payouts,
-          departmental budgets and partner commissions; payroll runs, pending withdrawals and standing orders are
-          not part of that schedule. The pace line is an estimate only: the average paid per day over the last 28
-          days multiplied by 7, with no view of what is scheduled, so the two will differ.
-          Reporting only: nothing here moves money.
-        </p>
-      </div>
-
       {/* Transaction table */}
+
       <div className="rounded-md border border-border/70 bg-card shadow-sm">
         <div className="flex flex-col gap-2 border-b border-border/60 p-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 min-w-0">
