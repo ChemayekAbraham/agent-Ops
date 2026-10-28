@@ -1,7 +1,3 @@
--- PENDING — not applied. Reporting-only: Money Out classifies managed proxy
--- portfolio activation (2%) and top-up (1%) commissions under Partnership
--- Products and Services instead of Marketing. No ledger, wallet or payment
--- records are touched; only the two report functions are redefined.
 DO $mig$
 DECLARE
   v_old constant text := $o$OR g.description = 'Marketing expense: lead partner growth override') THEN 'partner'$o$;
