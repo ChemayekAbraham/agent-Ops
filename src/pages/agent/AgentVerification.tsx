@@ -459,7 +459,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
               </p>
             </>
           ) : null}
-          {editable && <Button variant="outline" className="min-h-11" onClick={openCapture}><Camera className="h-4 w-4 mr-2" />Add my National ID</Button>}
+          {editable && <Button variant="soft" className="min-h-11" onClick={openCapture}><Camera className="h-4 w-4 mr-2" />Add my National ID</Button>}
           </>}
           {id.linked_to && (
             <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
