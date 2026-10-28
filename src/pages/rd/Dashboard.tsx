@@ -18,6 +18,7 @@ import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReport
 import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -276,7 +277,11 @@ export default function RDDashboard() {
       localStorage.setItem(RD_UPDATES_KEY, JSON.stringify(next));
       setProjectUpdates(next);
       setUpdateError('');
-    } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
+      return true;
+    } catch {
+      setUpdateError('The update could not be saved on this device. Please try again.');
+      return false;
+    }
   };
   const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
@@ -301,6 +306,18 @@ export default function RDDashboard() {
   const [exporting, setExporting] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
+  const [recordPeriodOpen, setRecordPeriodOpen] = useState(false);
+  const [recordProject, setRecordProject] = useState(CARD_PROJECTS[0]?.name ?? '');
+  const [recordDate, setRecordDate] = useState(rdNewUpdateDate('last'));
+  const [recordText, setRecordText] = useState('');
+  const selectReportPeriod = (period: RdReportPeriod) => {
+    setReportPeriod(period);
+    if (period === 'last' || period === 'next') {
+      setRecordDate(rdNewUpdateDate(period));
+      setRecordText('');
+      setRecordPeriodOpen(true);
+    }
+  };
   const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
   const periodRange = rdPeriodRange(reportPeriod);
   const rangeLabel = periodRange ? `${periodRange.start} – ${periodRange.end}` : '';
@@ -388,7 +405,7 @@ export default function RDDashboard() {
             {REPORT_PERIODS.map((r) => (
               <Button key={r.id} size="sm" variant={reportPeriod === r.id ? 'default' : 'outline'}
                 className="h-7 px-2.5 text-xs" aria-pressed={reportPeriod === r.id}
-                onClick={() => setReportPeriod(r.id)}>
+                onClick={() => selectReportPeriod(r.id)}>
                 {r.label}
               </Button>
             ))}
@@ -400,6 +417,37 @@ export default function RDDashboard() {
             <Download className="h-3 w-3" />{extracting ? 'Preparing…' : 'Extract report'}
           </Button>
         </div>
+
+        <Dialog open={recordPeriodOpen} onOpenChange={setRecordPeriodOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Record update · {periodLabel}</DialogTitle>
+              <DialogDescription>{rangeLabel}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="block space-y-1 text-sm">Project
+                <select aria-label="Update project" value={recordProject} onChange={(e) => setRecordProject(e.target.value)}
+                  className="h-11 w-full rounded-md border border-input bg-background px-3 text-foreground">
+                  {PROJECTS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1 text-sm">Date
+                <Input aria-label="Update date" type="date" value={recordDate} min={periodRange?.start} max={periodRange?.end}
+                  className="h-11" onChange={(e) => setRecordDate(e.target.value)} />
+              </label>
+              <label className="block space-y-1 text-sm">Update
+                <Input aria-label="Recorded update" autoFocus placeholder="Record an update…" value={recordText}
+                  className="h-11" onChange={(e) => setRecordText(e.target.value)} />
+              </label>
+              {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
+              <Button className="h-11 w-full gap-1.5" disabled={!recordText.trim() || !recordDate || !periodRange || recordDate < periodRange.start || recordDate > periodRange.end}
+                onClick={() => {
+                  const next = [...(projectUpdates[recordProject] ?? []), { id: safeUUID(), date: recordDate, text: recordText.trim() }];
+                  if (editUpdates(recordProject, next)) setRecordPeriodOpen(false);
+                }}><Plus className="h-4 w-4" />Save update</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Project cards are stacked one under the other, each full width. */}
         <div className="grid gap-4">

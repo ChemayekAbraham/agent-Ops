@@ -69231,6 +69231,26 @@ export type Database = {
         Args: { p: Json; p_partial: boolean }
         Returns: Json
       }
+      _bike_advance_priority_active: {
+        Args: { p_agent: string }
+        Returns: boolean
+      }
+      _bike_priority_remaining: {
+        Args: { p_agent: string; p_day: string }
+        Returns: number
+      }
+      _bike_priority_split: {
+        Args: {
+          p_available: number
+          p_outstanding: number
+          p_paid: number
+          p_quota: number
+        }
+        Returns: {
+          bike: number
+          surplus: number
+        }[]
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -69561,6 +69581,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
       _renewal_advice_core: {
         Args: {
           p_as_at: string
@@ -70174,6 +70195,10 @@ export type Database = {
       }
       agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_bike_advance_priority: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }

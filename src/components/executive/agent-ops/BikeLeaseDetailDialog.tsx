@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { BikeLeaseSupplierAssign } from './BikeLeaseSupplierAssign';
+import { BikeAdvanceRecoveryOrder } from '@/components/merchandise/BikeAdvanceRecoveryOrder';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -600,10 +601,10 @@ export function BikeLeaseDetailDialog({
               {hasApplicantActiveAdvance ? (
                 <Badge
                   variant="outline"
-                  className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] font-semibold"
+                  className="bg-primary/10 text-primary border-primary/30 text-[10px] font-semibold"
                 >
                   <AlertCircle className="h-3 w-3 mr-1" />
-                  Running Advance: {formatUGX(Number(applicantActiveAdvance.outstanding_balance))} (Collision Risk)
+                  Running Advance: {formatUGX(Number(applicantActiveAdvance.outstanding_balance))}
                 </Badge>
               ) : (
                 <Badge
@@ -653,19 +654,7 @@ export function BikeLeaseDetailDialog({
 
             {/* Deduction collision warning if agent has a running advance */}
             {hasApplicantActiveAdvance && (
-              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 space-y-1 text-xs">
-                <div className="flex items-center gap-1.5 font-semibold text-destructive">
-                  <ShieldAlert className="h-4 w-4 shrink-0" />
-                  <span>Deduction Collision Warning: Running Advance Active</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  This applicant currently has a running advance with an outstanding balance of{' '}
-                  <strong className="text-foreground font-semibold">
-                    {formatUGX(Number(applicantActiveAdvance.outstanding_balance))}
-                  </strong>
-                  . Both advance repayments and bike lease recoveries sweep daily from the agent's withdrawable wallet earnings; simultaneous deductions can collide and lead to immediate default.
-                </p>
-              </div>
+              <BikeAdvanceRecoveryOrder agentId={order.customer_id} enabled={open} />
             )}
 
             {/* 30-day performance summary */}
