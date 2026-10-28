@@ -1,8 +1,3 @@
--- PENDING (not applied). Reporting-only: Money Out lunch allowance classification.
--- Counts verified lunch corrections for recipients without an hr_staff record,
--- keeping the wallet-credit, amount, reversal and duplicate checks. Adds a
--- read-only list of those recipients so HR can verify them. No data changes.
-
 CREATE OR REPLACE FUNCTION public._cfo_paid_lunch_correction_ok(p_id uuid, p_group uuid, p_amount numeric, p_ts timestamptz)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public' AS $$
   SELECT EXISTS (
