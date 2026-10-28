@@ -56,8 +56,8 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
 ];
 
 // The progress fill travels primary -> orange -> green across the seven steps.
-const ORANGE: Hsl = [28, 90, 55];
 type Hsl = [number, number, number];
+const ORANGE: Hsl = [28, 90, 55];
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
