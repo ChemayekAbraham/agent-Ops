@@ -9,6 +9,7 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
+- [ ] Make R&D Last 7 days and Next 7 days open the existing update-recording form for the selected period, preserving saved reports and dates.
 - [ ] Implement and verify bike-first daily recovery waterfall across automatic advance paths, with separate contracts/accounts and truthful operations recovery-order display.
 - [x] Redesign agent verification as a seven-step KYC flow; 37 focused tests, all safety guards and automatic compilation pass. Isolated 360/375px and desktop layouts show no horizontal overflow; parent selection, missing-step navigation and verified-edit warning checked. Existing hooks, backend, enforcement and other verification screens unchanged; no deployment.
 - [ ] Verify the KYC flow with a live signed-in agent and real phone/email/camera/submission — blocked: externally managed authentication provides no restorable browser session; isolated checks do not establish live verification success.

@@ -23,8 +23,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceKey) throw new Error('Recovery service configuration unavailable');
+    if (req.headers.get('authorization') !== `Bearer ${serviceKey}`) {
+      return new Response(JSON.stringify({ error: 'Not authorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const supabase = createClient(supabaseUrl, serviceKey);
 
     // Treasury guard: cron deductions must respect maintenance freeze
@@ -360,9 +366,15 @@ Deno.serve(async (req) => {
       // Peer wallet_transfer credits are shielded from advance sweep.
       // `get_agent_sweepable_withdrawable` returns strict withdrawable minus any
       // untouched peer-to-peer transfer inflows since the oldest active advance.
+      // This server-owned transaction collects the bike quota first. Posting below
+      // rechecks the same priority under its lock, so a stale snapshot cannot debit it.
       const { data: availRaw, error: availErr } = await supabase
-        .rpc('get_agent_sweepable_withdrawable', { p_user_id: advance.agent_id });
-      if (availErr) console.error(`[process-agent-advance-deductions] sweepable_withdrawable error for agent ${advance.agent_id}:`, availErr);
+        .rpc('_prepare_bike_priority', { p_agent: advance.agent_id });
+      if (availErr) {
+        console.error(`[process-agent-advance-deductions] bike priority unavailable for agent ${advance.agent_id}:`, availErr);
+        skipped.push(advance.id);
+        continue;
+      }
       const withdrawableSnapshot = Math.max(0, Number(availRaw ?? 0));
 
       // emit repayment_attempted
@@ -431,6 +443,7 @@ Deno.serve(async (req) => {
         source: 'cron_advance_deduction',
         advance_id: advance.id,
         withdrawable_snapshot: withdrawableSnapshot,
+        expected_arrears: arrearsBefore,
         bucket_intent: 'advance_balance_recovery',
       };
 
@@ -486,6 +499,7 @@ Deno.serve(async (req) => {
         // Nothing was written, so the advance is simply skipped, exactly as it
         // was when the daybook insert was a separate call.
         const guardRejected = msg.includes('ADVANCE_LEDGER_STALE_OPENING')
+          || msg.includes('BIKE_PRIORITY_RECALCULATE')
           || msg.includes('ADVANCE_LEDGER_OVER_COLLECTION')
           || msg.includes('ADVANCE_LEDGER_DAILY_CAP');
         console.error(
