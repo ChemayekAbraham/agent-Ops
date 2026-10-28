@@ -285,7 +285,7 @@ export function AgentMenuDrawer({
       label: '🛠 Tools',
       items: [
         { icon: Store, label: 'Shop', description: 'Buy & sell', path: '/shop', accent: 'orange-500' },
-        { icon: Receipt, label: 'Receipts', description: 'Rewards paused', path: '/my-receipts', accent: 'teal-500' },
+        { icon: Receipt, label: 'Receipts', description: 'Scan to earn', path: '/my-receipts', accent: 'teal-500' },
         ...(isFinancialAgent ? [{ icon: FileText, label: 'Fund Requisition', description: 'Submit financial requests', onClick: onOpenRequisition, accent: 'primary', badge: 'FA' }] : []),
         { icon: Banknote, label: 'My Loans', description: 'View & manage', path: '/my-loans', accent: 'green-500' },
         { icon: Users, label: 'Loan Dashboard', description: 'Owed, due & overdue', path: '/loan-dashboard', accent: 'green-500' },

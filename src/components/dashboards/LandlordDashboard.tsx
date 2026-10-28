@@ -9,6 +9,7 @@ import {
   DoorOpen,
   BadgeCheck,
   ArrowRight,
+  Receipt,
   History,
   Users,
   Share2,
@@ -105,6 +106,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
     { icon: FileText, label: 'Financial Statement', onClick: goTo('/financial-statement') },
     // Growth
     { icon: Gift, label: 'Invite & Earn', badge: 'UGX 100', separator: true, onClick: () => { hapticTap(); setInviteOpen(true); } },
+    { icon: Receipt, label: 'Post Shopping Receipt', badge: 'Earn benefits', onClick: goTo('/my-receipts') },
     { icon: Share2, label: 'Share & Earn', onClick: goTo('/benefits') },
     // More
     { icon: ScrollText, label: 'Landlord Agreement', separator: true, onClick: goTo('/landlord-agreement') },

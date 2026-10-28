@@ -870,9 +870,12 @@ Trust me, you'll thank me later! 🙏`;
                   </div>
                   <div>
                     <p className="font-medium text-sm">Landlord Registered ✓</p>
-                    <p className="text-xs text-muted-foreground">Shopping receipt rewards are paused for now</p>
+                    <p className="text-xs text-muted-foreground">Upload receipts to earn rent discounts!</p>
                   </div>
                 </div>
+                <Button size="sm" variant="outline" onClick={() => navigate('/my-receipts')}>
+                  Add Receipts
+                </Button>
               </CardContent>
             </Card>
           </motion.div>

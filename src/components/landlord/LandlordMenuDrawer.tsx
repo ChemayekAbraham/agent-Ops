@@ -4,6 +4,7 @@ import { useDrawerTransition } from '@/hooks/useDrawerTransition';
 import { 
   X, 
   Home,
+  Receipt,
   Banknote,
   History,
   Users,
@@ -135,6 +136,14 @@ export function LandlordMenuDrawer({
     {
       title: 'Growth',
       items: [
+        { 
+          icon: Receipt, 
+          label: 'Post Shopping Receipt', 
+          description: 'Earn loan limits & rent discounts',
+          path: '/my-receipts',
+          color: 'text-orange-500',
+          badge: 'Earn benefits'
+        },
         { 
           icon: Users, 
           label: 'My Referrals', 
