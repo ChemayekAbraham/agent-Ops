@@ -131,4 +131,25 @@ describe('Agent KYC navigation and existing actions', () => {
     expect(screen.getByRole('alertdialog')).toBeTruthy();
     expect(state.value.submit).not.toHaveBeenCalled();
   });
+
+  it('shows the taken passport photo for review before saving it', async () => {
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:preview');
+    URL.revokeObjectURL = vi.fn();
+    state.value.savePassportPhoto = vi.fn().mockResolvedValue({ status: 'ok' });
+    identityStep();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Selfie / passport photo');
+
+    const file = new File(['photo'], 'selfie.png', { type: 'image/png' });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file] });
+    fireEvent.change(input);
+
+    // The capture is staged, not saved: preview shown, no upload yet.
+    expect(screen.getByRole('img', { name: 'New passport photo' })).toHaveAttribute('src', 'blob:preview');
+    expect(state.value.savePassportPhoto).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use this photo' }));
+    await waitFor(() => expect(state.value.savePassportPhoto).toHaveBeenCalledWith(file));
+  });
 });
