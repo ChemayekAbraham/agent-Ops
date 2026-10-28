@@ -277,7 +277,11 @@ export default function RDDashboard() {
       localStorage.setItem(RD_UPDATES_KEY, JSON.stringify(next));
       setProjectUpdates(next);
       setUpdateError('');
-    } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
+      return true;
+    } catch {
+      setUpdateError('The update could not be saved on this device. Please try again.');
+      return false;
+    }
   };
   const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
@@ -439,13 +443,7 @@ export default function RDDashboard() {
               <Button className="h-11 w-full gap-1.5" disabled={!recordText.trim() || !recordDate || !periodRange || recordDate < periodRange.start || recordDate > periodRange.end}
                 onClick={() => {
                   const next = [...(projectUpdates[recordProject] ?? []), { id: safeUUID(), date: recordDate, text: recordText.trim() }];
-                  try {
-                    const saved = { ...projectUpdates, [recordProject]: next };
-                    localStorage.setItem(RD_UPDATES_KEY, JSON.stringify(saved));
-                    setProjectUpdates(saved);
-                    setUpdateError('');
-                    setRecordPeriodOpen(false);
-                  } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
+                  if (editUpdates(recordProject, next)) setRecordPeriodOpen(false);
                 }}><Plus className="h-4 w-4" />Save update</Button>
             </div>
           </DialogContent>
