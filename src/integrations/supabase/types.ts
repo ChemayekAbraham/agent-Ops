@@ -69322,6 +69322,10 @@ export type Database = {
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
+      _cfo_paid_lunch_correction_ok: {
+        Args: { p_amount: number; p_group: string; p_id: string; p_ts: string }
+        Returns: boolean
+      }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
