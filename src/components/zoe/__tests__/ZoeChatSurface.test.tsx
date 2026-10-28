@@ -143,8 +143,8 @@ describe('ZoeChatSurface', () => {
     expect(onClearHistory).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the report card with title, dates, row count, metadata, and PDF/Excel buttons for table or period summary answers', () => {
-    const messages: ZoeMessage[] = [
+  it('shows only the two small offer chips (Excel / PDF) when a table answer has no file request, and shows Download ready when requested or tapped', async () => {
+    const unrequestedTableMessages: ZoeMessage[] = [
       { id: 'u-1', role: 'user', content: 'Show Tenant Ops repayments for October' },
       {
         id: 'a-1',
@@ -168,13 +168,38 @@ describe('ZoeChatSurface', () => {
       },
     ];
 
+    const { unmount } = renderSurface({
+      messages: unrequestedTableMessages,
+      roles: ['tenant_ops'],
+      generatedBy: 'Winfred Asiimwe (winnie@welile.com)',
+    });
+
+    // Unrequested table: shows the two small offer chips, NOT the Download ready card
+    expect(screen.getByTestId('zoe-file-offer-row')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-offer-excel-chip')).toHaveTextContent('Excel (.xlsx)');
+    expect(screen.getByTestId('zoe-offer-pdf-chip')).toHaveTextContent('PDF');
+    expect(screen.queryByTestId('zoe-report-card')).not.toBeInTheDocument();
+    unmount();
+
+    // Requested file ("Give me an Excel for Tenant Ops repayments"): shows Download ready row
+    const requestedMessages: ZoeMessage[] = [
+      {
+        id: 'u-2',
+        role: 'user',
+        content: 'Give me an Excel for Tenant Ops repayments in October',
+      },
+      unrequestedTableMessages[1],
+    ];
+
     renderSurface({
-      messages,
+      messages: requestedMessages,
       roles: ['tenant_ops'],
       generatedBy: 'Winfred Asiimwe (winnie@welile.com)',
     });
 
     expect(screen.getByTestId('zoe-report-card')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-download-ready-row')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-download-ready-badge')).toHaveTextContent('Download ready');
     expect(screen.getByTestId('zoe-report-title')).toHaveTextContent(
       'Tenant Ops Repayments & Collection Rate Report',
     );

@@ -21,9 +21,9 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  evaluateZoeFileRequest,
   extractZoeActionDraft,
   extractZoeEmailDraft,
-  extractZoeExportableReport,
   extractZoeRemindersAndSchedules,
   type ConfirmZoeActionResult,
   type ConfirmZoeIdeaInput,
@@ -456,7 +456,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
         ) : null}
 
         {/* Conversation turns */}
-        {messages.map((msg) => {
+        {messages.map((msg, msgIdx) => {
           if (msg.role === 'user') {
             return (
               <div
@@ -471,13 +471,25 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
             );
           }
 
+          const precedingUserPrompt =
+            messages
+              .slice(0, msgIdx)
+              .reverse()
+              .find((m) => m.role === 'user')?.content ?? '';
+
           const { bodyText, sourceLabel, periodLabel } = parseMessageBodyAndMeta(msg);
           const hasSourceMeta = Boolean(sourceLabel || periodLabel);
           const screenLink = hasSourceMeta ? resolveSourceScreenLink(sourceLabel) : null;
-          const exportableReport = extractZoeExportableReport(msg, {
-            generatedBy,
-            generatedAt: msg.createdAt,
+          const fileDecision = evaluateZoeFileRequest({
+            userPrompt: precedingUserPrompt,
+            assistantMessage: msg,
+            options: {
+              generatedBy,
+              generatedAt: msg.createdAt,
+              userQuestion: precedingUserPrompt,
+            },
           });
+          const exportableReport = fileDecision.report;
           const chartData = extractZoeChartFromMessage(msg.reportPayload);
           const rawRows = extractRawDataRows(msg.reportPayload);
           const isDataExpanded = Boolean(expandedDataIds[msg.id]);
@@ -504,7 +516,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 {chartData && <ZoeMiniChart chart={chartData} />}
 
                 {exportableReport && !remindersAndSchedules && (
-                  <ZoeReportCard report={exportableReport} />
+                  <ZoeReportCard
+                    report={exportableReport}
+                    initialFileReady={fileDecision.fileCreated}
+                    requestedFormat={fileDecision.requestedFormat}
+                  />
                 )}
                 {emailDraft && (
                   <ZoeEmailDraftCard
