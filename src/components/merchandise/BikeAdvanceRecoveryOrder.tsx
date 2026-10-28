@@ -1,4 +1,4 @@
-import { ShieldCheck, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useBikeAdvancePriority } from '@/hooks/useBikeAdvancePriority';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -8,12 +8,10 @@ export function BikeAdvanceRecoveryOrder({ agentId, enabled = true }: { agentId?
   if (isLoading || isError || !data) return <p role={isError ? 'alert' : undefined} className="text-xs text-muted-foreground">
     {isLoading ? 'Checking recovery order…' : 'Recovery order unavailable.'}
   </p>;
-  // A server flag alone cannot attest that every deployed recovery path is covered.
-  const protectedRecovery = false;
   return (
-    <div className={`rounded-lg border p-2.5 space-y-2 text-xs ${protectedRecovery ? 'border-success/30 bg-success/10' : 'border-warning/30 bg-warning/10'}`}>
-      <p className={`flex items-center gap-1.5 font-semibold ${protectedRecovery ? 'text-success' : 'text-warning'}`}>
-        {protectedRecovery ? <ShieldCheck className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+    <div className="rounded-lg border border-warning/30 bg-warning/10 p-2.5 space-y-2 text-xs">
+      <p className="flex items-center gap-1.5 font-semibold text-warning">
+        <AlertCircle className="h-4 w-4 shrink-0" />
         Recovery priority · verification pending
       </p>
       <dl className="grid gap-1.5 sm:grid-cols-2">
