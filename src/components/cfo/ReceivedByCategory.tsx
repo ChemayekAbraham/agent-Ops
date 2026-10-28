@@ -112,6 +112,7 @@ export function ReceivedByCategory() {
     from: monthStart(), to: kampalaDate(),
   }));
   const [appliedCategory, setAppliedCategory] = useState<string>('all');
+  const [appliedType, setAppliedType] = useState<ProductTypeKey>('all');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [searchDraft, setSearchDraft] = useState('');
   const [offset, setOffset] = useState(0);
@@ -151,12 +152,13 @@ export function ReceivedByCategory() {
   });
 
   const page = useQuery({
-    queryKey: ['cfo-received-by-category-page', applied.from, applied.to, appliedCategory, appliedSearch, offset],
+    queryKey: ['cfo-received-by-category-page', applied.from, applied.to, appliedCategory, appliedType, appliedSearch, offset],
     queryFn: async () => {
       const { data, error } = await (supabase.rpc as any)('get_cfo_received_by_category_page', {
         p_from: applied.from, p_to: applied.to,
         p_category: appliedCategory === 'all' ? null : appliedCategory,
         p_search: appliedSearch.trim() ? appliedSearch.trim() : null,
+        p_type: appliedType === 'all' ? null : appliedType,
         p_offset: offset, p_limit: PAGE,
       });
       if (error) throw error;
@@ -257,7 +259,7 @@ export function ReceivedByCategory() {
           </div>
           {rows.map(r => (
             <button key={r.category_key} type="button"
-              onClick={() => { setAppliedCategory(r.category_key); setOffset(0); }}
+              onClick={() => { setAppliedCategory(r.category_key); setAppliedType('all'); setOffset(0); }}
               aria-pressed={appliedCategory === r.category_key}
               className={`rounded-md border p-4 text-left shadow-sm transition-colors ${
                 appliedCategory === r.category_key
@@ -314,7 +316,7 @@ export function ReceivedByCategory() {
             </p>
             {appliedCategory !== 'all' && (
               <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-[11px]"
-                onClick={() => { setAppliedCategory('all'); setOffset(0); }}>
+                onClick={() => { setAppliedCategory('all'); setAppliedType('all'); setOffset(0); }}>
                 Show all
               </Button>
             )}
