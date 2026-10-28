@@ -41,12 +41,15 @@ const indicatorVariants = cva(
 export interface ProgressProps
   extends React.ComponentPropsWithoutRef<typeof ProgressPrimitive.Root>,
     VariantProps<typeof progressVariants>,
-    VariantProps<typeof indicatorVariants> {}
+    VariantProps<typeof indicatorVariants> {
+  /** Inline styles for the fill (e.g. a colour that tracks progress). */
+  indicatorStyle?: React.CSSProperties;
+}
 
 const Progress = React.forwardRef<
   React.ElementRef<typeof ProgressPrimitive.Root>,
   ProgressProps
->(({ className, value, size, variant, ...props }, ref) => (
+>(({ className, value, size, variant, indicatorStyle, ...props }, ref) => (
   <ProgressPrimitive.Root
     ref={ref}
     className={cn(progressVariants({ size }), className)}
@@ -54,7 +57,7 @@ const Progress = React.forwardRef<
   >
     <ProgressPrimitive.Indicator
       className={cn(indicatorVariants({ variant }))}
-      style={{ transform: `translateX(-${100 - (value || 0)}%)` }}
+      style={{ transform: `translateX(-${100 - (value || 0)}%)`, ...indicatorStyle }}
     />
   </ProgressPrimitive.Root>
 ));

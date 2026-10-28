@@ -439,6 +439,54 @@ export type Database = {
           },
         ]
       }
+      agent_advance_payment_requests: {
+        Row: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at: string
+          expected_paid_today: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Insert: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Update: {
+          advance_id?: string
+          agent_id?: string
+          amount?: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key?: string
+          pay_date?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       agent_advance_requests: {
         Row: {
           access_fee: number
@@ -30993,6 +31041,7 @@ export type Database = {
           name: string
           number_of_houses: number | null
           number_of_rooms: number | null
+          payout_day: number | null
           phone: string
           property_address: string
           ready_to_receive: boolean | null
@@ -31019,6 +31068,8 @@ export type Database = {
           service_center_status: string
           sub_county: string | null
           tenant_id: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
           tin: string | null
           town_council: string | null
           ug_village_id: number | null
@@ -31071,6 +31122,7 @@ export type Database = {
           name: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone: string
           property_address: string
           ready_to_receive?: boolean | null
@@ -31097,6 +31149,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -31149,6 +31203,7 @@ export type Database = {
           name?: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone?: string
           property_address?: string
           ready_to_receive?: boolean | null
@@ -31175,6 +31230,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -51534,6 +51591,276 @@ export type Database = {
         }
         Relationships: []
       }
+      special_advance_events: {
+        Row: {
+          actor_id: string
+          advance_id: string
+          created_at: string
+          details: Json | null
+          event_type: string
+          from_status: string | null
+          id: string
+          reason: string | null
+          to_status: string
+        }
+        Insert: {
+          actor_id: string
+          advance_id: string
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          to_status: string
+        }
+        Update: {
+          actor_id?: string
+          advance_id?: string
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_events_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_external_borrowers: {
+        Row: {
+          borrower_type: string
+          created_at: string
+          created_by: string
+          full_name: string
+          id: string
+          national_id: string | null
+          notes: string | null
+          organization: string | null
+          phone: string
+          registration_number: string | null
+        }
+        Insert: {
+          borrower_type: string
+          created_at?: string
+          created_by: string
+          full_name: string
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          organization?: string | null
+          phone: string
+          registration_number?: string | null
+        }
+        Update: {
+          borrower_type?: string
+          created_at?: string
+          created_by?: string
+          full_name?: string
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          organization?: string | null
+          phone?: string
+          registration_number?: string | null
+        }
+        Relationships: []
+      }
+      special_advance_instalments: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          amount: number
+          due_date: string | null
+          due_offset_days: number
+          id: string
+          number: number
+          principal: number
+          registration_fee: number
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          amount: number
+          due_date?: string | null
+          due_offset_days: number
+          id?: string
+          number: number
+          principal: number
+          registration_fee: number
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          amount?: number
+          due_date?: string | null
+          due_offset_days?: number
+          id?: string
+          number?: number
+          principal?: number
+          registration_fee?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_instalments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_settings: {
+        Row: {
+          id: boolean
+          issuance_enabled: boolean
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          issuance_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          issuance_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      special_advances: {
+        Row: {
+          access_fee: number
+          approved_at: string | null
+          approved_by: string | null
+          borrower_kind: string
+          borrower_user_id: string | null
+          calc_version: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          decision_reason: string | null
+          disbursed_at: string | null
+          disbursed_by: string | null
+          external_borrower_id: string | null
+          frequency: string
+          id: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date: string | null
+          planned_payout_date: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at: string | null
+          rejected_by: string | null
+          settled_at: string | null
+          status: string
+          term_days: number
+          total_repayable: number
+          updated_at: string
+        }
+        Insert: {
+          access_fee: number
+          approved_at?: string | null
+          approved_by?: string | null
+          borrower_kind: string
+          borrower_user_id?: string | null
+          calc_version: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by: string
+          decision_reason?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          external_borrower_id?: string | null
+          frequency: string
+          id?: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date?: string | null
+          planned_payout_date?: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          settled_at?: string | null
+          status?: string
+          term_days: number
+          total_repayable: number
+          updated_at?: string
+        }
+        Update: {
+          access_fee?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          borrower_kind?: string
+          borrower_user_id?: string | null
+          calc_version?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string
+          decision_reason?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          external_borrower_id?: string | null
+          frequency?: string
+          id?: string
+          idempotency_key?: string
+          instalment_amount?: number
+          instalments?: number
+          payout_date?: string | null
+          planned_payout_date?: string | null
+          principal?: number
+          purpose?: string
+          rate_basis?: string
+          rate_percent?: number
+          reference?: string
+          registration_fee?: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          settled_at?: string | null
+          status?: string
+          term_days?: number
+          total_repayable?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advances_external_borrower_id_fkey"
+            columns: ["external_borrower_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_external_borrowers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_access_attempts: {
         Row: {
           at: string
@@ -64978,9 +65305,11 @@ export type Database = {
       mv_landlord_hub_registry: {
         Row: {
           active_rent_plans: number | null
+          check_flags: string[] | null
           district: string | null
           full_name: string | null
           houses_count: number | null
+          is_flagged: boolean | null
           landlord_id: string | null
           landlord_key: string | null
           landlord_key_text: string | null
@@ -64988,13 +65317,21 @@ export type Database = {
           last_called_at: string | null
           last_caller_name: string | null
           last_payout_at: string | null
+          needs_check: boolean | null
           needs_review: boolean | null
           phones: string[] | null
           plan_rent_total: number | null
+          plan_stage: string | null
+          plans_live: number | null
+          plans_total: number | null
           region: string | null
           registered_at: string | null
+          registered_by: string | null
           registering_agent_id: string | null
           registering_agent_name: string | null
+          registrar_is_agent_now: boolean | null
+          service_center_status: string | null
+          tenants_count: number | null
           total_paid_out_ugx: number | null
           user_id: string | null
           verification_status: string | null
@@ -68511,6 +68848,10 @@ export type Database = {
       }
     }
     Functions: {
+      _advance_day_figures: {
+        Args: { p_advance_id: string }
+        Returns: Record<string, unknown>
+      }
       _agent_collections_app_error_included: {
         Args: {
           p_component_stack: string
@@ -68520,6 +68861,30 @@ export type Database = {
           p_route: string
         }
         Returns: boolean
+      }
+      _agent_daily_eligibility_for: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          active_count: number
+          agent_id: string
+          coverage_today: number
+          coverage_yesterday: number
+          effective_coverage: number
+          effective_pct: number
+          expected_daily: number
+          paid_today: number
+          paid_yesterday: number
+          raw_today_pct: number
+          raw_yesterday_pct: number
+          tenants_due: number
+          tenants_paid_today: number
+          tenants_paid_yesterday: number
+          today_pct: number
+          weekly_expected_week: number
+          weekly_lapsed_count: number
+          weekly_plan_count: number
+          yesterday_pct: number
+        }[]
       }
       _agent_expected_effective: {
         Args: { p_agent_ids: string[]; p_from: string; p_to: string }
@@ -69238,6 +69603,102 @@ export type Database = {
           user_id: string
         }[]
       }
+      _special_advance_allocate: {
+        Args: { p_amount: number; p_due: Json }
+        Returns: Json
+      }
+      _special_advance_eligibility: {
+        Args: {
+          p_exclude: string
+          p_kind: string
+          p_national_id: string
+          p_phone: string
+          p_registration_number: string
+          p_user: string
+        }
+        Returns: string[]
+      }
+      _special_advance_issuance_enabled: { Args: never; Returns: boolean }
+      _special_advance_json: { Args: { p_id: string }; Returns: Json }
+      _special_advance_kampala_today: { Args: never; Returns: string }
+      _special_advance_lock: {
+        Args: { p_expected_updated_at: string; p_id: string }
+        Returns: {
+          access_fee: number
+          approved_at: string | null
+          approved_by: string | null
+          borrower_kind: string
+          borrower_user_id: string | null
+          calc_version: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          decision_reason: string | null
+          disbursed_at: string | null
+          disbursed_by: string | null
+          external_borrower_id: string | null
+          frequency: string
+          id: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date: string | null
+          planned_payout_date: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at: string | null
+          rejected_by: string | null
+          settled_at: string | null
+          status: string
+          term_days: number
+          total_repayable: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "special_advances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _special_advance_norm_phone: { Args: { p: string }; Returns: string }
+      _special_advance_parse_borrower: { Args: { p: Json }; Returns: Json }
+      _special_advance_parse_terms: {
+        Args: { p: Json; p_start: string }
+        Returns: Json
+      }
+      _special_advance_reason: {
+        Args: { p: string; p_required: boolean }
+        Returns: string
+      }
+      _special_advance_require_cfo: { Args: never; Returns: string }
+      _special_advance_schedule: {
+        Args: {
+          p_frequency: string
+          p_principal: number
+          p_rate_basis: string
+          p_rate_percent: number
+          p_start_date: string
+          p_term_days: number
+        }
+        Returns: Json
+      }
+      _special_advance_term_errors: {
+        Args: {
+          p_frequency: string
+          p_principal: number
+          p_rate_basis: string
+          p_rate_percent: number
+          p_start_date: string
+          p_term_days: number
+        }
+        Returns: string[]
+      }
       _spiro_lease_fee_total: {
         Args: { p_base: number; p_term: number }
         Returns: number
@@ -69574,6 +70035,20 @@ export type Database = {
           p_principal: number
         }
         Returns: number
+      }
+      advance_pay_now: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_expected_paid_today?: number
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      advance_pay_now_preview: {
+        Args: { p_advance_id: string; p_agent_id: string }
+        Returns: Json
       }
       advance_period_days: { Args: { _frequency: string }; Returns: number }
       advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
@@ -71434,6 +71909,10 @@ export type Database = {
         Returns: {
           closed_count: number
         }[]
+      }
+      auto_create_deposit_from_gmail_row: {
+        Args: { p_gmail_transaction_id: string }
+        Returns: number
       }
       auto_create_deposits_from_gmail: {
         Args: { p_window_hours?: number }
@@ -77705,6 +78184,10 @@ export type Database = {
           value: string
         }[]
       }
+      get_install_funnel_summary: {
+        Args: { p_end: string; p_platform?: string; p_start: string }
+        Returns: Json
+      }
       get_kyc_effective_limits: {
         Args: { p_user_id: string }
         Returns: {
@@ -81453,6 +81936,16 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_hub_agents: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          is_agent_now: boolean
+          landlord_count: number
+          live_landlord_count: number
+        }[]
+      }
       landlord_hub_amend_call: {
         Args: { p_call_id: string; p_changes: Json; p_reason: string }
         Returns: Json
@@ -81468,6 +81961,8 @@ export type Database = {
           p_scope?: string
           p_search?: string
           p_sort?: string
+          p_stage?: string
+          p_status?: string
           p_tab?: string
           p_verified?: string
         }
@@ -81479,6 +81974,7 @@ export type Database = {
           being_called_since: string
           call_back_due_at: string
           call_back_overdue: boolean
+          check_flags: string[]
           district: string
           houses_count: number
           hub_status: string
@@ -81490,11 +81986,17 @@ export type Database = {
           last_caller_name: string
           last_result: string
           live_rent_plans: number
+          needs_check: boolean
           needs_review: boolean
           phone: string
           phone_masked: boolean
+          plan_stage: string
+          plans_total: number
           region: string
+          registrar_is_agent_now: boolean
           rent_plan_value: number
+          service_center_status: string
+          tenants_count: number
           total_count: number
           user_id: string
           verification_status: string
@@ -84261,7 +84763,111 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_collections: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          agent_id: string
+          amount: number
+          arrears_amount: number | null
+          client_ref: string | null
+          collection_channel: string
+          created_at: string
+          deposit_request_id: string | null
+          expected_amount: number | null
+          float_after: number
+          float_before: number
+          id: string
+          initiated_by: string | null
+          is_partial: boolean
+          location_name: string | null
+          momo_payer_name: string | null
+          momo_phone: string | null
+          momo_provider: string | null
+          momo_transaction_id: string | null
+          notes: string | null
+          partial_reason: string | null
+          payment_method: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight: number
+          rent_request_id: string | null
+          reversed_at: string | null
+          shortfall_amount: number | null
+          sms_sent_agent: boolean | null
+          sms_sent_tenant: boolean | null
+          tenant_id: string
+          token_id: string | null
+          total_due_amount: number | null
+          tracking_id: string | null
+          visit_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_collections"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_partner_ids: { Args: never; Returns: string[] }
+      partner_tenant_backup_portfolios: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          account_name: string | null
+          account_number: string | null
+          activation_token: string
+          agent_id: string
+          allocation_note: string | null
+          auto_reinvest: boolean
+          bank_account_name: string | null
+          bank_name: string | null
+          cfo_rejection_reason: string | null
+          cfo_verified: boolean | null
+          cfo_verified_at: string | null
+          cfo_verified_by: string | null
+          created_at: string
+          display_currency: string
+          duration_months: number
+          houses_claimed_count: number
+          id: string
+          investment_amount: number
+          investment_reference: string | null
+          investor_id: string | null
+          invite_id: string | null
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          locked_from_portfolio_id: string | null
+          maturity_alert_30d: boolean
+          maturity_alert_7d: boolean
+          maturity_date: string | null
+          mobile_money_number: string | null
+          mobile_network: string | null
+          next_roi_date: string | null
+          payment_method: string | null
+          payout_day: number | null
+          pending_renewal_duration_months: number | null
+          pending_renewal_effective_date: string | null
+          pending_renewal_request_id: string | null
+          plans_claimed_count: number
+          pool_eligible: boolean
+          pool_origin: string | null
+          portfolio_code: string
+          portfolio_pin: string
+          principal_allocated: number
+          principal_unallocated: number
+          receipt_file_url: string | null
+          return_fields_edit_token: string | null
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "investor_portfolios"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_profiles: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -84390,6 +84996,183 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      partner_tenant_backup_rent_plans: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          access_fee: number
+          agent_guarantor_consent: boolean
+          agent_guarantor_consent_at: string | null
+          agent_guarantor_consent_version: string | null
+          agent_id: string | null
+          agent_liability_amount: number | null
+          agent_liability_reason: string | null
+          agent_liability_triggered: boolean
+          agent_liability_triggered_at: string | null
+          agent_ops_comment: string | null
+          agent_ops_reviewed_at: string | null
+          agent_ops_reviewed_by: string | null
+          agent_payment_status: string
+          agent_payment_status_reason: string | null
+          agent_payment_status_set_at: string | null
+          agent_payment_status_set_by: string | null
+          agent_verified: boolean | null
+          agent_verified_at: string | null
+          agent_verified_by: string | null
+          amount_repaid: number
+          approval_comment: string | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_agent_id: string | null
+          cfo_reviewed_at: string | null
+          cfo_reviewed_by: string | null
+          collection_lock_days: number | null
+          collection_locked_at: string | null
+          collection_locked_reason: string | null
+          coo_reviewed_at: string | null
+          coo_reviewed_by: string | null
+          created_at: string
+          daily_repayment: number
+          disbursed_at: string | null
+          duration_days: number
+          fund_recipient_id: string | null
+          fund_recipient_name: string | null
+          fund_recipient_type: string | null
+          fund_routed_at: string | null
+          funded_at: string | null
+          funder_visibility_decided_at: string | null
+          funder_visibility_decided_by: string | null
+          funder_visibility_reason: string | null
+          funder_visible: boolean
+          house_category: string | null
+          house_image_urls: string[] | null
+          house_listing_id: string | null
+          id: string
+          initial_outstanding_balance: number | null
+          landlord_acknowledged: boolean | null
+          landlord_call_notes: string | null
+          landlord_called: boolean | null
+          landlord_id: string
+          landlord_ops_comment: string | null
+          landlord_ops_reviewed_at: string | null
+          landlord_ops_reviewed_by: string | null
+          landlord_payout_day: number | null
+          landlord_payout_enabled: boolean
+          landlord_payout_last_run_at: string | null
+          landlord_payout_next_run_at: string | null
+          landlord_verification_method: string | null
+          last_payment_amount: number | null
+          last_payment_recipient_name: string | null
+          last_payment_recipient_role: string | null
+          last_resubmitted_at: string | null
+          latest_rent_receipt_uploaded_at: string | null
+          latest_rent_receipt_url: string | null
+          lc_letter_bucket: string | null
+          lc_letter_path: string | null
+          lc1_id: string | null
+          manager_verified: boolean | null
+          manager_verified_at: string | null
+          manager_verified_by: string | null
+          next_roi_due_date: string | null
+          nin_photo_bucket: string | null
+          nin_photo_path: string | null
+          number_of_payments: number | null
+          outstanding_at_end: number | null
+          outstanding_grace_days: number | null
+          partner_ops_comment: string | null
+          partner_ops_reviewed_at: string | null
+          partner_ops_reviewed_by: string | null
+          payout_method: string | null
+          payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
+          preferred_language: string | null
+          proxy_agent_id: string | null
+          registration_type: string
+          rejected_at: string | null
+          rejected_at_stage: string | null
+          rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
+          rent_amount: number
+          reopen_count: number
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          repayment_frequency: string
+          repayment_frequency_locked: boolean
+          repayment_starts_on: string | null
+          request_city: string | null
+          request_country: string | null
+          request_fee: number
+          request_latitude: number | null
+          request_longitude: number | null
+          resubmission_count: number
+          resubmitted_at: string | null
+          resubmitted_note: string | null
+          returned_at: string | null
+          roi_payments_count: number | null
+          schedule_status: string | null
+          self_funding_line_id: string | null
+          self_funding_partner_id: string | null
+          service_center_comment: string | null
+          service_center_manager_id: string | null
+          service_center_reviewed_at: string | null
+          service_center_reviewed_by: string | null
+          status: string | null
+          supporter_id: string | null
+          tenancy_continuity: string | null
+          tenancy_end_reason: string | null
+          tenancy_ended_at: string | null
+          tenancy_status: string
+          tenant_electricity_meter: string | null
+          tenant_id: string
+          tenant_no_smartphone: boolean
+          tenant_ops_comment: string | null
+          tenant_ops_reviewed_at: string | null
+          tenant_ops_reviewed_by: string | null
+          tenant_photo_url: string | null
+          tenant_self_applied: boolean
+          tenant_water_meter: string | null
+          total_repayment: number
+          total_roi_paid: number | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rent_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_repayments: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          deposit_request_id: string | null
+          external_reference: string | null
+          id: string
+          initiated_by: string | null
+          paid_by: string | null
+          payment_method: string | null
+          rent_request_id: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "repayments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_tenant_ids: { Args: never; Returns: string[] }
       partner_tenant_backup_wallets: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -85800,6 +86583,32 @@ export type Database = {
       refresh_wallet_totals_cache: { Args: never; Returns: undefined }
       refund_agent_float_for_payout: {
         Args: { p_payout_id: string; p_reason: string }
+        Returns: Json
+      }
+      register_landlord_property: {
+        Args: {
+          p_caretaker_name?: string
+          p_caretaker_phone?: string
+          p_county: string
+          p_district: string
+          p_electricity_meter?: string
+          p_latitude?: number
+          p_lc1_name?: string
+          p_lc1_phone?: string
+          p_longitude?: number
+          p_monthly_rent: number
+          p_number_of_houses?: number
+          p_payout_day?: number
+          p_property_address: string
+          p_property_status?: string
+          p_region: string
+          p_subcounty: string
+          p_tenant_name?: string
+          p_tenant_phone?: string
+          p_ug_village_id: number
+          p_village: string
+          p_water_meter?: string
+        }
         Returns: Json
       }
       register_login_device: {
@@ -87258,6 +88067,26 @@ export type Database = {
           transaction_date: string
           transaction_group_id: string
         }[]
+      }
+      special_advance_approve: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
+        Returns: Json
+      }
+      special_advance_cancel: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason: string }
+        Returns: Json
+      }
+      special_advance_cfo_ok: { Args: never; Returns: boolean }
+      special_advance_create: { Args: { p_request: Json }; Returns: Json }
+      special_advance_get: { Args: { p_id: string }; Returns: Json }
+      special_advance_list: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
+      special_advance_quote: { Args: { p_request: Json }; Returns: Json }
+      special_advance_reject: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason: string }
+        Returns: Json
       }
       split_portfolio_principal: {
         Args: {
