@@ -9,7 +9,7 @@ import { PaidByCategory } from '@/components/cfo/PaidByCategory';
 
 const totals = [
   { category_key: 'budget', category_label: 'Operational Expenses', sort_order: 1, amount: 1000, tx_count: 10, pct: 10 },
-  { category_key: 'agent', category_label: 'Agent Commissions', sort_order: 3, amount: 2000, tx_count: 20, pct: 20 },
+  { category_key: 'agent', category_label: 'Agent Products and Services', sort_order: 3, amount: 2000, tx_count: 20, pct: 20 },
   { category_key: 'partner', category_label: 'Partner Products and Services', sort_order: 4, amount: 4000, tx_count: 40, pct: 40 },
   { category_key: 'landlord', category_label: 'Landlord Products and Services', sort_order: 5, amount: 3000, tx_count: 30, pct: 30 },
   { category_key: 'marketing', category_label: 'Marketing Expenses', sort_order: 6, amount: 0, tx_count: 0, pct: 0 },
