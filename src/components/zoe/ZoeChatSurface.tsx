@@ -201,6 +201,7 @@ function extractRawDataRows(reportPayload?: Record<string, unknown> | null): Arr
   if (!reportPayload || typeof reportPayload !== 'object') return [];
   const candidates = [
     reportPayload.rows,
+    reportPayload.views,
     reportPayload.by_stage,
     reportPayload.buckets,
     reportPayload.requisition_disbursements,
@@ -213,6 +214,35 @@ function extractRawDataRows(reportPayload?: Record<string, unknown> | null): Arr
     }
   }
   return [];
+}
+
+function extractAnalystMeta(reportPayload?: Record<string, unknown> | null): {
+  isAdHoc: boolean;
+  certification: string | null;
+  executedSql: string | null;
+  truncated: boolean;
+} {
+  if (!reportPayload || typeof reportPayload !== 'object') {
+    return { isAdHoc: false, certification: null, executedSql: null, truncated: false };
+  }
+  const isAdHoc =
+    reportPayload.ad_hoc === true ||
+    reportPayload.tool === 'run_analyst_query' ||
+    reportPayload.tool === 'get_data_catalog';
+  const certification =
+    typeof reportPayload.certification === 'string' && reportPayload.certification.trim()
+      ? reportPayload.certification.trim()
+      : isAdHoc
+      ? 'Ad hoc, not certified'
+      : null;
+  const executedSql =
+    typeof reportPayload.executed_sql === 'string' && reportPayload.executed_sql.trim()
+      ? reportPayload.executed_sql.trim()
+      : typeof reportPayload.sql === 'string' && reportPayload.sql.trim()
+      ? reportPayload.sql.trim()
+      : null;
+  const truncated = reportPayload.truncated === true;
+  return { isAdHoc, certification, executedSql, truncated };
 }
 
 export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
@@ -890,6 +920,8 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           const exportableReport = fileDecision.report;
           const chartData = extractZoeChartFromMessage(msg.reportPayload);
           const rawRows = extractRawDataRows(msg.reportPayload);
+          const analystMeta = extractAnalystMeta(msg.reportPayload);
+          const canShowData = rawRows.length > 0 || Boolean(analystMeta.executedSql);
           const isDataExpanded = Boolean(expandedDataIds[msg.id]);
           const emailDraft = extractZoeEmailDraft(msg);
           const actionDraft = extractZoeActionDraft(msg);
@@ -947,40 +979,70 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   />
                 )}
 
-                {/* Collapsible "Show the data" raw table view */}
-                {isDataExpanded && rawRows.length > 0 && (
+                {/* Collapsible "Show the data" raw table view + executed Analyst SQL */}
+                {isDataExpanded && canShowData && (
                   <div
-                    data-testid={`zoe-raw-data-table-${msg.id}`}
-                    className="my-2 max-h-64 overflow-auto rounded-lg border border-border bg-background"
+                    data-testid={`zoe-show-data-panel-${msg.id}`}
+                    className="my-2 space-y-2"
                   >
-                    <table className="w-full min-w-[280px] border-collapse text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-border bg-muted/60">
-                          {Object.keys(rawRows[0]).map((col) => (
-                            <th
-                              key={col}
-                              className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap"
-                            >
-                              {col.replace(/_/g, ' ')}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/70">
-                        {rawRows.slice(0, 50).map((r, rIdx) => (
-                          <tr key={rIdx} className="hover:bg-muted/30">
-                            {Object.keys(rawRows[0]).map((col) => (
-                              <td
-                                key={col}
-                                className="px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap"
-                              >
-                                {r[col] === null || r[col] === undefined ? '—' : String(r[col])}
-                              </td>
+                    {analystMeta.executedSql && (
+                      <div
+                        data-testid={`zoe-executed-sql-${msg.id}`}
+                        className="rounded-lg border border-border bg-background p-2.5 text-xs"
+                      >
+                        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-semibold text-foreground">
+                            Executed SQL (zoe_ro read-only)
+                          </span>
+                          <span
+                            data-testid={`zoe-adhoc-badge-${msg.id}`}
+                            className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                          >
+                            {analystMeta.certification ?? 'Ad hoc, not certified'}
+                            {analystMeta.truncated ? ' · truncated to 500 rows' : ''}
+                          </span>
+                        </div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded border border-border/60 bg-muted/40 p-2 font-mono text-xs text-foreground">
+                          <code>{analystMeta.executedSql}</code>
+                        </pre>
+                      </div>
+                    )}
+
+                    {rawRows.length > 0 && (
+                      <div
+                        data-testid={`zoe-raw-data-table-${msg.id}`}
+                        className="max-h-64 overflow-auto rounded-lg border border-border bg-background"
+                      >
+                        <table className="w-full min-w-[280px] border-collapse text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-border bg-muted/60">
+                              {Object.keys(rawRows[0]).map((col) => (
+                                <th
+                                  key={col}
+                                  className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap"
+                                >
+                                  {col.replace(/_/g, ' ')}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/70">
+                            {rawRows.slice(0, 50).map((r, rIdx) => (
+                              <tr key={rIdx} className="hover:bg-muted/30">
+                                {Object.keys(rawRows[0]).map((col) => (
+                                  <td
+                                    key={col}
+                                    className="px-2.5 py-1.5 text-xs text-foreground whitespace-nowrap"
+                                  >
+                                    {r[col] === null || r[col] === undefined ? '—' : String(r[col])}
+                                  </td>
+                                ))}
+                              </tr>
                             ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1079,7 +1141,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       </button>
                     )}
 
-                    {rawRows.length > 0 && (
+                    {canShowData && (
                       <button
                         type="button"
                         data-testid={`zoe-show-data-${msg.id}`}

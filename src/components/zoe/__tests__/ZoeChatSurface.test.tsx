@@ -558,4 +558,57 @@ describe('ZoeChatSurface', () => {
       }),
     );
   });
+
+  it('shows the executed SQL and "Ad hoc, not certified" badge inside the "Show the data" panel for Analyst Lane answers', () => {
+    const analystMessages: ZoeMessage[] = [
+      {
+        id: 'u-analyst-1',
+        role: 'user',
+        content: 'Compare Wakiso vs Mukono agent daily collections on 2026-10-26',
+      },
+      {
+        id: 'a-analyst-1',
+        role: 'assistant',
+        content:
+          'Wakiso collected UGX 5,355,000 on schedule (85%) and Mukono collected UGX 2,760,000 on schedule (80%) (Ad hoc, not certified).',
+        outcome: 'answered',
+        source: 'zoe_ro (zoe_ro.agents_daily_collections_by_region) — Ad hoc, not certified',
+        period: 'as of 2026-10-26',
+        reportPayload: {
+          tool: 'run_analyst_query',
+          rpc: 'assistant_staff_run_query',
+          ad_hoc: true,
+          certification: 'Ad hoc, not certified',
+          sql: "SELECT district, collected_on_schedule_ugx, on_schedule_coverage_pct FROM zoe_ro.agents_daily_collections_by_region WHERE collection_day = DATE '2026-10-26'",
+          executed_sql:
+            "SELECT * FROM (SELECT district, collected_on_schedule_ugx, on_schedule_coverage_pct FROM zoe_ro.agents_daily_collections_by_region WHERE collection_day = DATE '2026-10-26') AS _zoe_q LIMIT 500",
+          truncated: false,
+          row_count: 2,
+          rows: [
+            { district: 'Wakiso', collected_on_schedule_ugx: 5355000, on_schedule_coverage_pct: 85 },
+            { district: 'Mukono', collected_on_schedule_ugx: 2760000, on_schedule_coverage_pct: 80 },
+          ],
+        },
+      },
+    ];
+
+    renderSurface({
+      messages: analystMessages,
+      roles: ['agent_ops'],
+    });
+
+    const showDataBtn = screen.getByTestId('zoe-show-data-a-analyst-1');
+    expect(showDataBtn).toHaveTextContent('Show the data');
+
+    fireEvent.click(showDataBtn);
+
+    expect(screen.getByTestId('zoe-show-data-panel-a-analyst-1')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-adhoc-badge-a-analyst-1')).toHaveTextContent(
+      'Ad hoc, not certified',
+    );
+    expect(screen.getByTestId('zoe-executed-sql-a-analyst-1')).toHaveTextContent(
+      'SELECT * FROM (SELECT district, collected_on_schedule_ugx',
+    );
+    expect(screen.getByTestId('zoe-raw-data-table-a-analyst-1')).toBeInTheDocument();
+  });
 });
