@@ -55,12 +55,13 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
 
-// The progress fill travels primary -> orange -> green: primary eases into orange
-// by the middle of the flow, orange carries through the later steps, and green is
-// saved for the final step.
+// The progress fill travels primary -> orange -> green: the system purple holds
+// through the first steps, eases into orange by step 4, stays orange through the
+// later steps, and green is saved for the final step.
 type Hsl = [number, number, number];
 const ORANGE: Hsl = [28, 90, 55];
-const ORANGE_AT = 4 / 7; // orange is fully reached around step 4
+const PRIMARY_HOLD = 2 / 7; // the true system purple holds through step 2
+const ORANGE_AT = 4 / 7; // orange is fully reached at step 4
 const GREEN_AT = 6 / 7; // green only begins after step 6
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
@@ -81,11 +82,13 @@ const progressFill = (ratio: number): CSSProperties | undefined => {
   const primary = readHsl('--primary');
   const success = readHsl('--success');
   if (!primary || !success) return undefined;
-  const mixed = ratio <= ORANGE_AT
-    ? blendHsl(primary, ORANGE, ratio / ORANGE_AT)
-    : ratio <= GREEN_AT
-      ? ORANGE
-      : blendHsl(ORANGE, success, (ratio - GREEN_AT) / (1 - GREEN_AT));
+  const mixed = ratio <= PRIMARY_HOLD
+    ? primary
+    : ratio <= ORANGE_AT
+      ? blendHsl(primary, ORANGE, (ratio - PRIMARY_HOLD) / (ORANGE_AT - PRIMARY_HOLD))
+      : ratio <= GREEN_AT
+        ? ORANGE
+        : blendHsl(ORANGE, success, (ratio - GREEN_AT) / (1 - GREEN_AT));
   return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
 };
 
