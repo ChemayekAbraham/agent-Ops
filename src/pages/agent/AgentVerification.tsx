@@ -249,7 +249,7 @@ function PhoneStep({ v, vetting, editable, guard, act }: BodyProps) {
       {vetting.phone.verified_at && <p className="text-sm text-muted-foreground">Confirmed {fmt(vetting.phone.verified_at)}</p>}
       {editable && !vetting.phone.verified_at && (
         <>
-          <Button variant="outline" className="min-h-11" disabled={v.busy === 'phone_send'}
+          <Button variant="soft" className="min-h-11" disabled={v.busy === 'phone_send'}
             onClick={() => guard(async () => { if (await act(() => v.sendPhoneCode(), 'Code sent')) setSent(true); })}>
             <Spin on={v.busy === 'phone_send'} />{sent ? 'Send again' : 'Send code'}
           </Button>
@@ -270,7 +270,7 @@ function EmailStep({ v, vetting, editable, guard, act }: BodyProps) {
   return (
     <div className="space-y-2">
       <Input aria-label="Email address" type="email" placeholder="you@example.com" value={address} onChange={(e) => setAddress(e.target.value)} className="min-h-11" />
-      <Button variant="outline" className="min-h-11" disabled={v.emailSending || !address.trim()}
+      <Button variant="soft" className="min-h-11" disabled={v.emailSending || !address.trim()}
         onClick={() => guard(() => act(async () => {
           const r: any = await v.sendEmailCode(address.trim());
           if (r?.challengeId) setChallengeId(r.challengeId);
