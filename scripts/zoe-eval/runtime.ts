@@ -9,6 +9,19 @@ import {
   ZoeScheduleDraft,
 } from "../../supabase/functions/staff-assistant/actionDrafts.ts";
 import {
+  ALLOWED_ANALYST_SQL_FUNCTIONS,
+  type AnalystSqlValidationResult,
+  areaRequiresStaffAal2,
+  canCallerAccessZoeRoArea,
+  ensureAdHocCertificationNotice,
+  FORBIDDEN_ANALYST_PII_COLUMNS,
+  validateAnalystSqlQuery,
+  ZOE_RO_AREA_ROLES,
+  ZOE_RO_VIEWS_CATALOG,
+  type ZoeRoArea,
+  type ZoeRoViewCatalogEntry,
+} from "../../supabase/functions/staff-assistant/analyst.ts";
+import {
   currentWednesdayWeekStart,
   formatPeriodLabel,
   kampalaToday,
@@ -106,6 +119,8 @@ import {
 } from "../../supabase/functions/staff-assistant-send-email/handler.ts";
 
 export {
+  ALLOWED_ANALYST_SQL_FUNCTIONS,
+  areaRequiresStaffAal2,
   buildMorningBriefForCaller,
   buildReminderDraft,
   buildReportEmailDraft,
@@ -113,6 +128,7 @@ export {
   buildRollingConversationSummary,
   buildStaffNotificationDraft,
   buildSystemPrompt,
+  canCallerAccessZoeRoArea,
   canUseTool,
   checkAnswer,
   checkDraftCardText,
@@ -129,10 +145,12 @@ export {
   DEFAULT_ZOE_MODEL_FAST,
   describeToolsForRoles,
   DraftReportEmailArgsSchema,
+  ensureAdHocCertificationNotice,
   estimateCallCostUsd,
   extractRecipientQuery,
   extractReportTableFromFreshRpc,
   findTool,
+  FORBIDDEN_ANALYST_PII_COLUMNS,
   formatPeriodLabel,
   formatZoeNotesForPrompt,
   handleStaffAssistantRequest,
@@ -166,11 +184,15 @@ export {
   STATIC_SYSTEM_PROMPT_PREFIX,
   synthesizePartialStepLimitReply,
   toolsForRoles,
+  validateAnalystSqlQuery,
   validateZoeNoteText,
   ZOE_REPORT_EMAIL_DISPLAY_NAME,
   ZOE_REPORT_EMAIL_TEMPLATE,
+  ZOE_RO_AREA_ROLES,
+  ZOE_RO_VIEWS_CATALOG,
 };
 export type {
+  AnalystSqlValidationResult,
   BudgetCheckResult,
   ChatMessage,
   DraftEmailOutcome,
@@ -189,6 +211,8 @@ export type {
   ZoeActionDraft,
   ZoeNotificationDraft,
   ZoeReminderDraft,
+  ZoeRoArea,
+  ZoeRoViewCatalogEntry,
   ZoeScheduleDraft,
   ZoeUserNote,
 };
@@ -275,6 +299,16 @@ export interface ExecuteZoeTurnResult {
   emailsSentCount: number;
   modelMessagesSeen: ChatMessage[][];
   savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }>;
+  loggedAnalystQueries: Array<{
+    question: string;
+    sqlText: string;
+    executedSql: string;
+    roleAreas: string[];
+    rowCount: number;
+    truncated: boolean;
+    status: "ok" | "refused" | "error";
+    errorMessage?: string;
+  }>;
   modelTier?: "fast" | "deep";
   statusSteps?: string[];
 }
@@ -315,6 +349,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
     const modelMessagesSeen: ChatMessage[][] = [];
     const savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }> =
       [];
+    const loggedAnalystQueries: ExecuteZoeTurnResult["loggedAnalystQueries"] = [];
     let recordedToolsCalled: string[] = [];
     let toolsOfferedFromRound: string[] = [];
 
@@ -482,6 +517,18 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
         };
       },
       recordUnanswered: async () => {},
+      logAnalystQuery: async (entry) => {
+        loggedAnalystQueries.push({
+          question: entry.question,
+          sqlText: entry.sqlText,
+          executedSql: entry.executedSql,
+          roleAreas: entry.roleAreas,
+          rowCount: entry.rowCount,
+          truncated: entry.truncated,
+          status: entry.status,
+          errorMessage: entry.errorMessage,
+        });
+      },
     };
 
     const rawBody = {
@@ -548,6 +595,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
       emailsSentCount: 0,
       modelMessagesSeen,
       savedDrafts,
+      loggedAnalystQueries,
       modelTier:
         resBody.model_tier === "deep" || resBody.model_tier === "fast"
           ? resBody.model_tier
