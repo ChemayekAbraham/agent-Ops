@@ -82,6 +82,29 @@ describe('CFO Paid by Category', () => {
       expect.objectContaining({ p_category: 'landlord', p_offset: 0 })));
   });
 
+  it('shows agent commission payouts with Type "Agent Commission", never "Agent Commission Payable"', async () => {
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'get_cfo_paid_by_category_totals') return { data: totals, error: null };
+      if (name === 'get_cfo_paid_by_category_page') {
+        return {
+          data: [{
+            id: 'row-ac', transaction_date: '2026-10-28T09:00:00+00:00', created_at: '2026-10-28T09:00:00+00:00',
+            category_key: 'agent', category_label: 'Agent Products and Services', ledger_category: 'agent_commission_payable',
+            amount: 5000, description: 'Commission payout', reference_id: 'REF-AC',
+            counterparty: 'Test Agent', counterparty_phone: '0770000001', approved_by: null,
+            source_table: 'withdrawal_requests', classification: 'production', total_matched: 1,
+          }],
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+    renderReport();
+    await screen.findByTitle('Agent Products and Services');
+    expect(await screen.findByText('Agent Commission')).toBeInTheDocument();
+    expect(screen.queryByText('Agent Commission Payable')).not.toBeInTheDocument();
+  });
+
   it('shows the wallet recipient in Paid to and the staff approver in Approved by', async () => {
     renderReport();
     await screen.findByTitle('Landlord Products and Services');
