@@ -69333,6 +69333,10 @@ export type Database = {
           ts: string
         }[]
       }
+      _cfo_received_category_for: {
+        Args: { p_category: string }
+        Returns: string
+      }
       _claim_return_cycle: {
         Args: {
           p_actor: string
@@ -77677,6 +77681,45 @@ export type Database = {
           category: string
           direction: string
           pool: string
+        }[]
+      }
+      get_cfo_received_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+        }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_received_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          nature: string
+          pct: number
+          sort_order: number
+          tx_count: number
         }[]
       }
       get_cfo_rent_fee_collections: {
