@@ -214,7 +214,7 @@ function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting)
   if (key === 'phone') return "We'll text a code to confirm it.";
   if (key === 'email') return vetting.email.value ? "We'll email a code to confirm it." : 'Add your email, then confirm with a code.';
   // A location that has gone stale is recaptured with the button below, so no notice is shown.
-  if (key === 'location' && !isLocationFresh(vetting)) return '';
+  if (key === 'location' && vetting.gps.captured_at && !isLocationFresh(vetting)) return '';
   return hint;
 }
 
