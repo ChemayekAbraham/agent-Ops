@@ -9,7 +9,8 @@
 - [ ] Verify live signed-in personal answers — blocked: external unmanaged Supabase does not provide a restorable authenticated browser session; isolated routing/privacy tests pass.
 
 # Tasks
-- [ ] Merge Money Out Landlord Float into Landlord Products and Services; preserve records/grand totals, test classification and reconcile read-only.
+- [x] Merge Money Out Landlord Float into Landlord Products and Services; reporting-only migration applied, live definitions/grants/lunch safeguards checked, 3,350 transactions / UGX 1,451,420,147 reconciled; 18 report/classification tests and all guards pass, preview build OK. No accounting records or balances changed; no deployment.
+- [ ] Verify combined landlord category and filtering on live signed-in Money Out — blocked: external unmanaged Supabase has no restorable authorized browser session.
 - [x] Correct Nearing Payout's pay-action check to honor a fresh CFO permission before rejecting an already-handled cycle; seven new preflight tests and all guards pass, preview build OK. Permission verified unused/unexpired read-only; no money moved. Existing returnCycleGuard suite has three unrelated stale crypto.randomUUID source assertions (35 other tests pass).
 - [ ] Verify Musa's payout queue flow in a live signed-in requester account — blocked: externally managed authentication has no restorable session; no payout attempted.
 - [x] Update agent own-ID summaries and Agent Ops previous/new comparison using existing hooks only; 34 tests and all guards pass, preview build OK; sample 360/375px and desktop summaries, comparison and enlargement verified without overflow. Live signed-in checks unavailable with external unmanaged authentication; protected files unchanged. Corrected one existing CFO undefined callback blocking compilation.
