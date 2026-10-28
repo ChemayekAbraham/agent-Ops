@@ -77638,6 +77638,7 @@ export type Database = {
         }
         Returns: {
           amount: number
+          approved_by: string
           category_key: string
           category_label: string
           classification: string
@@ -77694,6 +77695,7 @@ export type Database = {
         }
         Returns: {
           amount: number
+          approved_by: string
           category_key: string
           category_label: string
           classification: string
