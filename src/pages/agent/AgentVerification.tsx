@@ -55,27 +55,31 @@ const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; i
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
 
-// The progress fill travels primary -> secondary -> green across the seven steps.
+// The progress fill travels primary -> orange -> green across the seven steps.
 type Hsl = [number, number, number];
+const ORANGE: Hsl = [28, 90, 55];
 const readHsl = (token: string): Hsl | null => {
   if (typeof window === 'undefined') return null;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
   const parts = raw.match(/^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
   return parts ? [Number(parts[1]), Number(parts[2]), Number(parts[3])] : null;
 };
-const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => [
-  from[0] + (to[0] - from[0]) * t,
-  from[1] + (to[1] - from[1]) * t,
-  from[2] + (to[2] - from[2]) * t,
-];
+const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => {
+  // Take the short way round the colour wheel, so purple -> orange runs through red.
+  const hueDelta = (((to[0] - from[0] + 540) % 360) - 180) * t;
+  return [
+    (from[0] + hueDelta + 720) % 360,
+    from[1] + (to[1] - from[1]) * t,
+    from[2] + (to[2] - from[2]) * t,
+  ];
+};
 const progressFill = (ratio: number): CSSProperties | undefined => {
   const primary = readHsl('--primary');
-  const secondary = readHsl('--secondary');
   const success = readHsl('--success');
-  if (!primary || !secondary || !success) return undefined;
+  if (!primary || !success) return undefined;
   const mixed = ratio <= 0.5
-    ? blendHsl(primary, secondary, ratio / 0.5)
-    : blendHsl(secondary, success, (ratio - 0.5) / 0.5);
+    ? blendHsl(primary, ORANGE, ratio / 0.5)
+    : blendHsl(ORANGE, success, (ratio - 0.5) / 0.5);
   return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
 };
 
