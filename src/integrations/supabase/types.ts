@@ -12743,6 +12743,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_lunch_reclass_log: {
+        Row: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string
+          correction_group_id?: string
+          original_leg_id?: string
+          posted_at?: string
+        }
+        Relationships: []
+      }
       cfo_reporting_cost_tags: {
         Row: {
           amount: number
