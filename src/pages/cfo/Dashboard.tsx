@@ -694,7 +694,7 @@ export default function CFODashboardPage() {
         );
       case 'received-by-category':
         return (
-          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Received by Category report…</div>}>
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money In report…</div>}>
             <ReceivedByCategory />
           </Suspense>
         );

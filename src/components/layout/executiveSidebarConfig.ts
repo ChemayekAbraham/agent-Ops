@@ -237,7 +237,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
         { label: 'Payout Reports', icon: Banknote, id: 'payout-reports' },
         { label: 'Money Out', icon: Coins, id: 'paid-by-category' },
-        { label: 'Received by Category', icon: Coins, id: 'received-by-category' },
+        { label: 'Money In', icon: Coins, id: 'received-by-category' },
         { label: 'All Advances Report', icon: HandCoins, id: 'advances-report' },
         { label: 'House Listing Commission', icon: Home, id: 'house-listing-commission' },
         { label: 'Safety Buffer', icon: Shield, id: 'solvency' },
