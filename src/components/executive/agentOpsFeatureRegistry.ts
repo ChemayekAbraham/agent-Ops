@@ -46,6 +46,7 @@ export type ActiveView =
   | 'general-activities'
   | 'agents-rent'
   | 'agents-bikes'
+  | 'agent-verification'
   | 'welile-merchandise'
   | 'shopping-advance'
   | 'business-advance'
