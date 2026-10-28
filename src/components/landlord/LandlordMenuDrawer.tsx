@@ -4,7 +4,6 @@ import { useDrawerTransition } from '@/hooks/useDrawerTransition';
 import { 
   X, 
   Home,
-  Receipt,
   Banknote,
   History,
   Users,
@@ -111,13 +110,6 @@ export function LandlordMenuDrawer({
       title: 'Finances',
       items: [
         { 
-          icon: Receipt, 
-          label: 'My Receipts', 
-          description: 'View payment receipts',
-          path: '/my-receipts',
-          color: 'text-teal-500'
-        },
-        { 
           icon: Banknote, 
           label: 'My Loans', 
           description: 'View & manage loans',
@@ -143,14 +135,6 @@ export function LandlordMenuDrawer({
     {
       title: 'Growth',
       items: [
-        { 
-          icon: Receipt, 
-          label: 'Post Shopping Receipt', 
-          description: 'Earn loan limits & rent discounts',
-          path: '/my-receipts',
-          color: 'text-orange-500',
-          badge: 'Earn benefits'
-        },
         { 
           icon: Users, 
           label: 'My Referrals', 

@@ -348,15 +348,8 @@ export default function RentDiscountHistory() {
                   <Receipt className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
                   <p className="text-muted-foreground">No discount history yet</p>
                   <p className="text-sm text-muted-foreground/70 mt-1">
-                    Start submitting receipts to earn discounts
+                    Shopping receipt rewards are paused for now
                   </p>
-                  <Button 
-                    className="mt-4 gap-2" 
-                    onClick={() => navigate('/my-receipts')}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    Add Receipt
-                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -488,15 +481,7 @@ export default function RentDiscountHistory() {
         </Card>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button 
-            variant="outline" 
-            className="gap-2"
-            onClick={() => navigate('/my-receipts')}
-          >
-            <Receipt className="h-4 w-4" />
-            Add Receipts
-          </Button>
+        <div className="grid grid-cols-1 gap-3">
           <Button 
             className="gap-2 bg-success hover:bg-success/90"
             onClick={() => navigate('/pay-landlord')}

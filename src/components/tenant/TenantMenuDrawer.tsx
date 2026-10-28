@@ -319,7 +319,7 @@ export function TenantMenuDrawer({
         { 
           icon: Receipt, 
           label: 'My Receipts', 
-          description: 'Earn rewards & rent discounts',
+          description: 'Shopping receipt rewards (paused)',
           path: '/my-receipts',
           color: 'text-teal-500',
         },
