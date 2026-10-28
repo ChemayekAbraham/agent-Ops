@@ -48,6 +48,7 @@ type PaidRow = {
   reference_id: string | null;
   counterparty: string | null;
   counterparty_phone: string | null;
+  approved_by: string | null;
   source_table: string | null;
   classification: string | null;
 };
@@ -356,7 +357,7 @@ export function ReceivedByCategory() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-xs">
+          <table className="w-full min-w-[820px] text-left text-xs">
             <thead>
               <tr className="border-b border-border/60 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Date/time</th>
@@ -364,6 +365,7 @@ export function ReceivedByCategory() {
                 <th className="px-3 py-2 font-medium">Type</th>
                 <th className="px-3 py-2 text-right font-medium">Amount</th>
                 <th className="px-3 py-2 font-medium">Received from</th>
+                <th className="px-3 py-2 font-medium">Approved by</th>
                 <th className="px-3 py-2 font-medium">Reference</th>
                 <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Record</th>
@@ -371,10 +373,10 @@ export function ReceivedByCategory() {
             </thead>
             <tbody className="divide-y divide-border/50">
               {page.isLoading && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Loading transactions…</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">Loading transactions…</td></tr>
               )}
               {page.error && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-destructive">Could not load transactions. Try again shortly.</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-destructive">Could not load transactions. Try again shortly.</td></tr>
               )}
               {!page.isLoading && !page.error && pageRows.map(r => (
                 <tr key={r.id} className="align-top">
@@ -387,6 +389,7 @@ export function ReceivedByCategory() {
                       ? <span className="block">{r.counterparty}<span className="block text-[10px] text-muted-foreground">{r.counterparty_phone}</span></span>
                       : <span className="text-muted-foreground">—</span>}
                   </td>
+                  <td className="px-3 py-2 text-muted-foreground">{r.approved_by || '—'}</td>
                   <td className="px-3 py-2 break-words text-muted-foreground">{r.reference_id || '—'}</td>
                   <td className="max-w-[240px] px-3 py-2 break-words text-muted-foreground">{r.description || '—'}</td>
                   <td className="px-3 py-2">
@@ -399,7 +402,7 @@ export function ReceivedByCategory() {
                 </tr>
               ))}
               {!page.isLoading && !page.error && pageRows.length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">No received transactions in this window.</td></tr>
+                <tr><td colSpan={9} className="px-3 py-6 text-center text-muted-foreground">No received transactions in this window.</td></tr>
               )}
             </tbody>
           </table>

@@ -111,7 +111,11 @@ export default function AgentVerification() {
   const progress = vettingProgress(steps);
   const done = (index: number) => index === 6 ? false : KYC_STEPS[index].keys.every(key => steps.some(s => s.key === key && s.done));
   const unfinished = KYC_STEPS.findIndex((_, index) => index < 6 && !done(index));
-  const current = selectedStep ?? (unfinished < 0 ? 6 : unfinished);
+  const allComplete = unfinished < 0;
+  const pending = steps.filter(s => !s.done);
+  // No step is skipped: an agent starts at the first step and sees every one,
+  // filled or not, then moves on with Continue. Read-only review opens at the summary.
+  const current = selectedStep ?? (viewOnly ? 6 : 0);
   const editable = !!vetting && canEditVetting(vetting.status) && !viewOnly;
   const busy = !!v.busy || !!v.emailSending;
 
@@ -149,7 +153,7 @@ export default function AgentVerification() {
     setViewOnly(readOnly);
     setWizardOpen(true);
     setStarted(true);
-    goTo(readOnly ? 6 : (unfinished < 0 ? 6 : unfinished));
+    goTo(readOnly ? 6 : 0);
   };
   const redirectTo = agentVettingRedirect(v.applicability);
   if (redirectTo) return <Navigate to={redirectTo} replace />;
@@ -187,18 +191,19 @@ export default function AgentVerification() {
             <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
-            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{s.keys.map(key => {
+            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{done(index) && editable && <p className="text-xs text-muted-foreground">Already saved — check it and press Continue.</p>}{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
               const stepHint = step ? shortStepHint(key, step.hint, vetting) : '';
               return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
+            {current === 6 && !viewOnly && pending.length > 0 && <div className="rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
         {intro ? <Button className="col-span-2 min-h-12" onClick={() => { setStarted(true); goTo(0); }}>Start verification<ArrowRight className="ml-2 h-4 w-4" /></Button> : <>
           {current === 0 ? <Button variant="outline" className="min-h-12 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive" disabled={busy} onClick={() => vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Exit</Button> : <Button variant="outline" className="min-h-12 border-primary text-primary hover:bg-primary/5 hover:text-primary" disabled={busy} onClick={() => goTo(current - 1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
-          {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
+          {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy || !allComplete} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
         </>}
       </div></footer>}
       <Dialog open={!!submitResult && !submitResult.ok} onOpenChange={open => { if (!open) setSubmitResult(null); }}>
@@ -268,7 +273,7 @@ function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']
 
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
-  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
+  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all text-primary underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
     <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
