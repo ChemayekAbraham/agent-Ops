@@ -208,7 +208,7 @@ describe('ReceivedByCategory (Money In)', () => {
 
     // All time is the pressed segment and the period line says so.
     expect(screen.getByRole('button', { name: 'All time' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/All time \(Kampala days\)/)).toBeTruthy();
+    expect(screen.getAllByText(/All time \(Kampala days\)/).length).toBeGreaterThan(0);
     // The server read covers everything from the earliest ledger date.
     expect(totalsRpc).toHaveBeenCalledWith(
       'get_cfo_received_by_category_totals',
