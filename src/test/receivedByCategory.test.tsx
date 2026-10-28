@@ -171,4 +171,24 @@ describe('ReceivedByCategory (Money In)', () => {
     ));
     expect(screen.queryByRole('group', { name: 'Recovery type' })).toBeNull();
   });
+
+  it('shows the server\'s own label for the fees category on its tile', async () => {
+    rpc.mockImplementation((name: string, args: unknown) => {
+      if (name === 'get_cfo_received_by_category_totals') return totalsRpc(name, args);
+      if (name === 'get_cfo_received_by_category_page') return pageRpc(name, args);
+      if (name === 'get_cfo_received_agent_products_breakdown') return breakdownRpc(name, args);
+      return Promise.resolve({ data: [], error: null });
+    });
+    totalsRpc.mockResolvedValue({ data: TOTALS, error: null });
+    pageRpc.mockResolvedValue({ data: [ROW], error: null });
+    breakdownRpc.mockResolvedValue({ data: SPLIT, error: null });
+
+    renderReport();
+
+    // The tile carries the label the server reports for the fees category. If the
+    // component ever hardcodes a name again, this picks up the disagreement.
+    const tile = await screen.findByRole('button', { name: /Revenue Collected/ });
+    expect(within(tile).getByText(/9,409,016/)).toBeTruthy();
+    expect(screen.queryByText('Revenue', { exact: true })).toBeNull();
+  });
 });
