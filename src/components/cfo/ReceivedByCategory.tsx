@@ -343,7 +343,7 @@ export function ReceivedByCategory() {
                 <tr key={r.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{when(r)}</td>
                   <td className="px-3 py-2 font-medium">{r.category_label}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{prettyLedgerCategory(r.ledger_category)}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{prettyLedgerCategory(r.ledger_category)}{r.category_key === 'agent' && r.source_table === 'merchandise_recovery_plans' && r.ledger_category !== 'bike_recovery_repayment' && /phone/i.test(r.description ?? '') && <span className="mt-0.5 block text-[10px] font-medium text-primary">Smartphone recovery</span>}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums">{formatUGX(r.amount)}</td>
                   <td className="px-3 py-2">
                     {r.counterparty
