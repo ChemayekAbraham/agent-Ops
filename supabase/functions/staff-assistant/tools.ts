@@ -23,6 +23,12 @@ export interface StaffTool {
    * `requireStaffAal2` from `../_shared/staffMfa.ts` before calling the RPC.
    */
   sensitive?: boolean;
+  /**
+   * When true, marks this tool as belonging to the flexible Analyst lane ("ad hoc, not certified").
+   * Certified lookups must always be preferred when one exists; Analyst lane results are
+   * explicitly labelled "Ad hoc, not certified" with the SQL shown under "Show the data".
+   */
+  adHoc?: boolean;
   parameters: Record<string, unknown>;
   schema: z.ZodType<Record<string, unknown>>;
   toRpcArgs: (parsed: Record<string, unknown>) => Record<string, unknown>;
@@ -1824,6 +1830,126 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_category: (p.category as string | undefined) ?? null,
     }),
   },
+
+  // ===========================================================================
+  // GROUP K — THE ANALYST LANE (PROMPT 3: AD-HOC READ-ONLY `zoe_ro` QUERIES)
+  // ===========================================================================
+  {
+    name: "get_data_catalog",
+    rpc: "assistant_staff_data_catalog",
+    description:
+      "[Ad hoc — Analyst lane] Read the approved zoe_ro.* view and column catalog (plain-language descriptions, official sources, and 'use this for / do not use this for' notes) before writing an ad-hoc SELECT query with run_analyst_query. Only views permitted for the caller's role area are returned.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        area: {
+          type: "string",
+          enum: [
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ],
+          description:
+            "Role area of zoe_ro views to inspect (default 'all' returns all views the caller is authorized to read).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        area: z
+          .enum([
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_area: (p.area as string | undefined) ?? "all",
+    }),
+  },
+  {
+    name: "run_analyst_query",
+    rpc: "assistant_staff_run_query",
+    description:
+      "[Ad hoc — Analyst lane] Run a single read-only SELECT (or WITH ... SELECT) query against approved zoe_ro.* views when no certified lookup covers the question. Enforces a 5-second timeout, read-only transaction, 500-row cap, strict SQL function allow-list, and role-area + two-step login checks. Always say 'Ad hoc, not certified' and note that the SQL is shown under 'Show the data'.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        sql: {
+          type: "string",
+          description:
+            "Exactly one read-only SELECT (or WITH ... SELECT) query reading exclusively from approved zoe_ro.<view> views. No comments (-- or /* */), no semicolons, no base tables, and no functions outside the SQL allow-list.",
+        },
+        question: {
+          type: "string",
+          description: "Optional plain-language question being answered (recorded in staff_assistant_queries).",
+        },
+      },
+      required: ["sql"],
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        sql: z.string().trim().min(10).max(4000),
+        question: z.string().trim().max(1000).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_sql: p.sql as string,
+      p_question: (p.question as string | undefined) ?? null,
+    }),
+  },
 ];
 
 
@@ -2163,7 +2289,9 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
 /** Human-readable tool summary lines injected into Zoe's system prompt for this caller. */
 export function describeToolsForRoles(callerRoles: readonly string[]): string[] {
   return [
-    ...toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`),
+    ...toolsForRoles(callerRoles).map(
+      (t) => `${t.name} (${t.rpc})${t.adHoc ? " [ad hoc]" : ""}: ${t.description}`,
+    ),
     "compute (safe calculator): Deterministic calculator (sum, difference, pct_change, share, average, rank) on figures already returned by tools in this conversation.",
     "get_staff_manual_help (staff manual): Look up 'how do I…', 'where do I find…', and workflow explanations from Welile staff manuals and docs/.",
     "draft_welile_idea (Ideas for Welile draft card): Prepare a click-confirmed improvement idea draft card with evidence, figures, and source (never acts or changes business data).",

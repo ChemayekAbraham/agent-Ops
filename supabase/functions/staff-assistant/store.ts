@@ -993,3 +993,46 @@ export async function deleteUserNote(
   return { ok: true, notes };
 }
 
+/**
+ * Append-only audit logger for Prompt 3 (`public.staff_assistant_queries`).
+ * Records caller, question, SQL, executed SQL, role areas, row count, and duration_ms.
+ */
+export async function logAnalystQuery(
+  args: {
+    userId: string;
+    question: string;
+    sqlText: string;
+    executedSql: string;
+    roleAreas: readonly string[];
+    rowCount: number;
+    truncated: boolean;
+    durationMs: number;
+    status: "ok" | "refused" | "error";
+    errorMessage?: string | null;
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<void> {
+  if (!dbOverride && (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL"))) {
+    return;
+  }
+  try {
+    const db = dbOverride ?? admin();
+    await db.from("staff_assistant_queries").insert({
+      user_id: args.userId,
+      question: (args.question ?? "").trim().slice(0, 1000),
+      sql_text: (args.sqlText ?? "").trim().slice(0, 4000),
+      executed_sql: (args.executedSql ?? args.sqlText ?? "").trim().slice(0, 4500),
+      role_areas: [...args.roleAreas],
+      row_count: Math.min(Math.max(Math.round(args.rowCount || 0), 0), 500),
+      truncated: Boolean(args.truncated),
+      duration_ms: Math.max(Math.round(args.durationMs || 0), 0),
+      status: args.status,
+      error_message: args.errorMessage ? args.errorMessage.slice(0, 500) : null,
+    });
+  } catch (err) {
+    console.warn("[staff-assistant] logAnalystQuery failed:", err);
+  }
+}
+
+

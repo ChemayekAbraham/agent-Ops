@@ -341,6 +341,8 @@ export function statusLineForTool(toolName: string): string {
     get_insight_payout_delays: "Analyzing landlord payout delays and verification queues...",
     get_insight_zoe_feedback_themes: "Reviewing Zoe unanswered questions and feedback themes...",
     get_welile_glossary: "Checking Welile glossary & measurement rules...",
+    get_data_catalog: "Reading approved zoe_ro data catalog...",
+    run_analyst_query: "Running read-only Analyst query on zoe_ro views...",
     draft_welile_idea: "Preparing Ideas for Welile draft card...",
   };
   return map[toolName] ?? "Looking up official Welile report...";
@@ -355,6 +357,14 @@ export function buildFollowUpSuggestions(opts: {
   callerRoles: readonly string[];
 }): string[] {
   const lastTool = opts.toolsCalled[opts.toolsCalled.length - 1] ?? "";
+
+  if (lastTool === "run_analyst_query" || lastTool === "get_data_catalog") {
+    return [
+      "Give me this breakdown in a table",
+      "Would you like this table as an Excel or PDF file?",
+      "Compare this with the official certified report",
+    ];
+  }
 
   if (lastTool.startsWith("get_insight_")) {
     return [

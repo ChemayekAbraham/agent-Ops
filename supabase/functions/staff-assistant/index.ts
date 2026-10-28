@@ -1,11 +1,17 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
 import {
-  buildIdeaDraft,
+   buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
 } from "./actionDrafts.ts";
+import {
+  canCallerAccessZoeRoArea,
+  ensureAdHocCertificationNotice,
+  validateAnalystSqlQuery,
+  ZoeRoArea,
+} from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
@@ -71,6 +77,7 @@ import {
   loadConversationHistory,
   loadLatestReportPayload,
   loadRecentTurns,
+  logAnalystQuery,
   recordTurn,
   recordUnanswered,
   renameUserConversation,
@@ -214,6 +221,7 @@ export interface StaffAssistantStoreDeps {
     userId: string,
     noteId: string,
   ) => Promise<{ ok: boolean; notes: ZoeNoteRecord[] }>;
+  logAnalystQuery?: typeof logAnalystQuery;
 }
 
 export interface StaffAssistantHandlerDeps {
@@ -244,6 +252,7 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   listUserNotes,
   addUserNote,
   deleteUserNote,
+  logAnalystQuery,
 };
 
 /**
@@ -1694,6 +1703,111 @@ export async function handleStaffAssistantRequest(
           });
         }
 
+        // Prompt 3 item (3): Analyst Lane pre-flight validation & role-area/MFA checks
+        let validatedAnalystSql: {
+          cleanSql: string;
+          executedSql: string;
+          roleAreas: ZoeRoArea[];
+        } | null = null;
+
+        if (tool.name === "get_data_catalog") {
+          const areaArg = String((args.data as Record<string, unknown>).area ?? "all")
+            .trim()
+            .toLowerCase();
+          if (areaArg !== "" && areaArg !== "all") {
+            if (!canCallerAccessZoeRoArea(areaArg as ZoeRoArea, callerRoles, user.id)) {
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+        }
+
+        if (tool.name === "run_analyst_query") {
+          const queryStartedAt = Date.now();
+          const candidateQuery = String((args.data as Record<string, unknown>).sql ?? "");
+          const queryQuestion = String(
+            (args.data as Record<string, unknown>).question ?? userText,
+          );
+          const sqlCheck = validateAnalystSqlQuery(candidateQuery);
+          if (!sqlCheck.ok) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: queryQuestion,
+              sqlText: candidateQuery,
+              executedSql: candidateQuery,
+              roleAreas: [],
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - queryStartedAt,
+              status: "refused",
+              errorMessage: sqlCheck.reason,
+            });
+            return await finish(
+              `I cannot run that Analyst query: ${sqlCheck.reason}`,
+              "blocked",
+              {
+                tools: [...toolsCalled, "run_analyst_query"],
+                model: lastModel,
+                unansweredReason: "error",
+              },
+            );
+          }
+
+          for (const area of sqlCheck.roleAreas) {
+            if (!canCallerAccessZoeRoArea(area, callerRoles, user.id)) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: `Role not authorized for zoe_ro area: ${area}`,
+              });
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          if (sqlCheck.requiresAal2) {
+            const mfaGate = await checkMfa(token, user.id);
+            if (!mfaGate.ok) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: "MFA aal2 required for sensitive zoe_ro area",
+              });
+              return await finish(MSG.mfaRequired, "blocked", {
+                tools: toolsCalled,
+                model: lastModel,
+                mfaRequired: true,
+              });
+            }
+          }
+
+          validatedAnalystSql = {
+            cleanSql: sqlCheck.cleanSql,
+            executedSql: sqlCheck.executedSql,
+            roleAreas: sqlCheck.roleAreas,
+          };
+        }
+
         // Requirement (g): Sensitive tools require AAL2 MFA via requireStaffAal2
         if (tool.sensitive) {
           const mfaGate = await checkMfa(token, user.id);
@@ -1708,9 +1822,27 @@ export async function handleStaffAssistantRequest(
 
         // Requirement (c): Call `assistant_staff_*` with the caller's OWN JWT (`userClient`)
         const rpcArgs = tool.toRpcArgs(args.data);
+        if (tool.name === "run_analyst_query" && !rpcArgs.p_question) {
+          rpcArgs.p_question = userText;
+        }
+        const rpcStartedAt = Date.now();
         const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
         if (error) {
           console.error(`[staff-assistant] tool ${tool.rpc} error:`, error.code, error.message);
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText: validatedAnalystSql.cleanSql,
+              executedSql: validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - rpcStartedAt,
+              status: error.code === "42501" ? "refused" : "error",
+              errorMessage: error.message,
+            });
+          }
           if (error.code === "42501") {
             return await finish(MSG.roleRestricted, "not_staff", {
               tools: toolsCalled,
@@ -1748,6 +1880,31 @@ export async function handleStaffAssistantRequest(
           if (pLabel && !periodsUsed.includes(pLabel)) {
             periodsUsed.push(pLabel);
           }
+
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText:
+                typeof payload.sql === "string" ? payload.sql : validatedAnalystSql.cleanSql,
+              executedSql:
+                typeof payload.executed_sql === "string"
+                  ? payload.executed_sql
+                  : validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount:
+                typeof payload.row_count === "number"
+                  ? payload.row_count
+                  : prepared.totalRows ?? 0,
+              truncated: Boolean(payload.truncated),
+              durationMs:
+                typeof payload.duration_ms === "number"
+                  ? payload.duration_ms
+                  : Date.now() - rpcStartedAt,
+              status: "ok",
+            });
+          }
+
           lastReportPayload = {
             ...payload,
             tool: tool.name,
@@ -1759,6 +1916,24 @@ export async function handleStaffAssistantRequest(
             row_count: payload.row_count ?? prepared.totalRows,
             rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
+            ...(tool.adHoc
+              ? {
+                  ad_hoc: true,
+                  certification: "Ad hoc, not certified",
+                  ...(validatedAnalystSql
+                    ? {
+                        sql:
+                          typeof payload.sql === "string"
+                            ? payload.sql
+                            : validatedAnalystSql.cleanSql,
+                        executed_sql:
+                          typeof payload.executed_sql === "string"
+                            ? payload.executed_sql
+                            : validatedAnalystSql.executedSql,
+                      }
+                    : {}),
+                }
+              : {}),
             ...(prepared.truncationNote ? { rows_note: prepared.truncationNote } : {}),
           };
 
@@ -1882,10 +2057,23 @@ export async function handleStaffAssistantRequest(
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
     }
 
+    // Prompt 3 item (3): Ensure every ad-hoc Analyst query answer carries "Ad hoc, not certified"
+    const usedAdHocAnalyst = toolsCalled.includes("run_analyst_query");
+    if (usedAdHocAnalyst) {
+      answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
+    }
+
     // Requirement (d): Deterministic post-generation guard against tool results
     const guard = checkAnswer(
       answerWithCitation,
-      [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
+      [
+        ...rawToolOutputs,
+        JSON.stringify({
+          source: sourceLabel,
+          period: periodLabel,
+          ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+        }),
+      ],
       userText,
     );
     if (!guard.ok) {
