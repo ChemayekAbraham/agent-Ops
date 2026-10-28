@@ -268,7 +268,7 @@ function OwnIdSummary({ id, compact = false }: { id: AgentVetting['national_id']
 
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
-  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
+  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all text-primary underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
     <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,

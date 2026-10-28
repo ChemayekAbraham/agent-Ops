@@ -166,4 +166,16 @@ describe('Agent KYC navigation and existing actions', () => {
     mount();
     expect(screen.getByText(/Capture my location" where you are\./)).toBeInTheDocument();
   });
+
+  it('shows the review contact details as primary-coloured tel/mailto links', () => {
+    state.value.vetting.residence.district = 'Wakiso';
+    mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    const phone = screen.getByRole('link', { name: '+256700000001' });
+    const email = screen.getByRole('link', { name: 'agent@example.com' });
+    expect(phone).toHaveAttribute('href', 'tel:+256700000001');
+    expect(email).toHaveAttribute('href', 'mailto:agent@example.com');
+    expect(phone).toHaveClass('text-primary');
+    expect(email).toHaveClass('text-primary');
+  });
 });
