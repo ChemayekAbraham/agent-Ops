@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, ShieldCheck, Camera, AlertTriangle, Clock3, LockKeyhole, Smartphone, Mail, Home, CreditCard, UserRound, Users, ScanFace, Fingerprint } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,12 +48,51 @@ function stepForMissing(text: string): VettingStepKey | null {
 const KYC_STEPS: { title: string; description: string; keys: VettingStepKey[]; icon: typeof Smartphone }[] = [
   { title: 'Contact', description: 'Confirm your phone and email with a code.', keys: ['phone', 'email'], icon: Smartphone },
   { title: 'Where you stay', description: 'Choose your district, parish and village.', keys: ['residence'], icon: Home },
-  { title: 'Live location', description: 'Capture your location where you are staying.', keys: ['location'], icon: MapPin },
   { title: 'Identity document', description: "Use your own National ID or your parent agent's ID.", keys: ['national_id'], icon: CreditCard },
   { title: 'Selfie / passport photo', description: 'Take a clear photo of your face.', keys: ['passport_photo'], icon: ScanFace },
   { title: 'Next of kin', description: 'Confirm who we can contact as your next of kin.', keys: ['next_of_kin'], icon: Users },
+  // Last before Review: submit rejects a capture older than gps_rules.max_age_minutes (10), so
+  // capturing it early sent agents back here after the ID and selfie steps.
+  { title: 'Live location', description: 'Capture your location where you are staying, just before you submit.', keys: ['location'], icon: MapPin },
   { title: 'Review and submit', description: 'Check your details before sending them to Agent Ops.', keys: [], icon: ShieldCheck },
 ];
+
+// The progress fill travels primary -> orange -> green: the system purple holds
+// through the first steps, eases into orange by step 4, stays orange through the
+// later steps, and green is saved for the final step.
+type Hsl = [number, number, number];
+const ORANGE: Hsl = [28, 90, 55];
+const PRIMARY_HOLD = 2 / 7; // the true system purple holds through step 2
+const ORANGE_AT = 4 / 7; // orange is fully reached at step 4
+const GREEN_AT = 6 / 7; // green only begins after step 6
+const readHsl = (token: string): Hsl | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
+  const parts = raw.match(/^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+  return parts ? [Number(parts[1]), Number(parts[2]), Number(parts[3])] : null;
+};
+const blendHsl = (from: Hsl, to: Hsl, t: number): Hsl => {
+  // Take the short way round the colour wheel, so purple -> orange runs through red.
+  const hueDelta = (((to[0] - from[0] + 540) % 360) - 180) * t;
+  return [
+    (from[0] + hueDelta + 720) % 360,
+    from[1] + (to[1] - from[1]) * t,
+    from[2] + (to[2] - from[2]) * t,
+  ];
+};
+const progressFill = (ratio: number): CSSProperties | undefined => {
+  const primary = readHsl('--primary');
+  const success = readHsl('--success');
+  if (!primary || !success) return undefined;
+  const mixed = ratio <= PRIMARY_HOLD
+    ? primary
+    : ratio <= ORANGE_AT
+      ? blendHsl(primary, ORANGE, (ratio - PRIMARY_HOLD) / (ORANGE_AT - PRIMARY_HOLD))
+      : ratio <= GREEN_AT
+        ? ORANGE
+        : blendHsl(ORANGE, success, (ratio - GREEN_AT) / (1 - GREEN_AT));
+  return { backgroundColor: `hsl(${mixed[0]} ${mixed[1]}% ${mixed[2]}%)` };
+};
 
 export default function AgentVerification() {
   const v = useAgentVetting();
@@ -124,11 +163,11 @@ export default function AgentVerification() {
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex max-w-2xl items-center gap-3 px-5 py-3">
           <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => navigate('/dashboard/agent')} aria-label="Back to dashboard"><ArrowLeft className="h-5 w-5" /></Button>
-          <div className="flex-1"><p className="text-sm font-semibold">Welile</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
-          <LockKeyhole className="h-5 w-5 text-primary" aria-hidden="true" />
+          <div className="flex-1"><p className="text-sm font-semibold">Welile KYC</p><p className="text-xs text-muted-foreground">Identity verification</p></div>
+          <Fingerprint className="h-6 w-6 text-primary" aria-hidden="true" />
         </div>
       </header>
-      <main className="mx-auto max-w-2xl px-5 py-6 sm:py-10">
+      <main className="mx-auto max-w-2xl px-5 py-4 sm:py-7">
         {v.isLoading ? <div className="space-y-5" aria-label="Loading verification"><Skeleton className="h-8 w-2/3" /><Skeleton className="h-2 w-full" /><Skeleton className="h-64 w-full rounded-lg" /></div>
           : v.error || !vetting ? <div className="space-y-4"><p className="text-sm">{v.error?.message ?? 'Could not load your verification.'}</p><Button className="min-h-11" onClick={() => v.refresh()}>Retry</Button></div>
           : statusScreen ? <VerificationStatus vetting={vetting} submitted={!!submitResult?.ok} onFix={() => openWizard()} onView={() => openWizard(true)} onEdit={() => guard(() => openWizard())} />
@@ -140,24 +179,23 @@ export default function AgentVerification() {
             ].map(([Icon, label]) => { const ItemIcon = Icon as typeof Smartphone; return <li key={String(label)} className="flex items-center gap-3 text-sm"><ItemIcon className="h-5 w-5 shrink-0 text-primary" />{String(label)}</li>; })}</ul></div>
             <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
-            <div className="mb-7 space-y-3">
+            <div className="mb-5 space-y-2">
               <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
-              <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" />
-              <nav className="grid grid-cols-7 gap-0.5" aria-label="Verification steps">{KYC_STEPS.map((s, index) => <Button key={s.title} variant={done(index) ? 'success' : index === current ? 'default' : 'ghost'} size="icon" className={`h-11 w-full min-w-0 rounded-md${index === current ? ' ring-2 ring-ring ring-offset-2 ring-offset-background' : ''}`} disabled={busy} aria-label={`Step ${index + 1}: ${s.title}${done(index) ? ', complete' : ''}`} aria-current={index === current ? 'step' : undefined} onClick={() => goTo(index)}>{done(index) ? <Check className="h-4 w-4" /> : <span className="text-sm">{index + 1}</span>}</Button>)}</nav>
+              <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / 7)} />
             </div>
-            <div className="mb-6 space-y-2"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
+            <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
             {vetting.status === 'rejected' && vetting.review_note && <div className="mb-5 rounded-lg border border-destructive/30 bg-destructive/5 p-3"><p className="text-sm font-semibold text-destructive">What to fix</p><p className="mt-1 whitespace-pre-wrap text-sm">{vetting.review_note}</p></div>}
             {/* Keep step bodies mounted so codes and unsaved inputs survive Back/Edit navigation. */}
-            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-6">{s.keys.map(key => {
+            {KYC_STEPS.slice(0, 6).map((s, index) => <section key={s.title} hidden={current !== index} className="space-y-4">{s.keys.map(key => {
               const step = steps.find(item => item.key === key);
-              return <div key={key} className="space-y-3">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{step.hint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
+              return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{step?.hint && <p className="text-sm text-muted-foreground">{shortStepHint(key, step.hint, vetting)}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
           </> : null}
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
         {intro ? <Button className="col-span-2 min-h-12" onClick={() => { setStarted(true); goTo(0); }}>Start verification<ArrowRight className="ml-2 h-4 w-4" /></Button> : <>
-          <Button variant="outline" className="min-h-12" disabled={busy} onClick={() => current > 0 ? goTo(current - 1) : vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
+          {current === 0 ? <Button variant="outline" className="min-h-12 border-destructive text-destructive hover:bg-destructive/5 hover:text-destructive" disabled={busy} onClick={() => vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Exit</Button> : <Button variant="outline" className="min-h-12 border-primary text-primary hover:bg-primary/5 hover:text-primary" disabled={busy} onClick={() => goTo(current - 1)}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>}
           {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
         </>}
       </div></footer>}
@@ -167,6 +205,13 @@ export default function AgentVerification() {
       <AlertDialog open={!!confirmAction} onOpenChange={open => { if (!open) setConfirmAction(null); }}><AlertDialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-lg"><AlertDialogHeader><AlertDialogTitle>Change your verified details?</AlertDialogTitle><AlertDialogDescription>Changing this sends your verification back to Agent Ops for review. You can't add tenants until they approve it again.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel className="min-h-11">Cancel</AlertDialogCancel><AlertDialogAction className="min-h-11" onClick={() => { const action = confirmAction; setConfirmAction(null); action?.(); }}>Continue</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
+}
+
+/** Shorter contact-step wording shown on the wizard; the shared checklist text is left untouched. */
+function shortStepHint(key: VettingStepKey, hint: string, vetting: AgentVetting): string {
+  if (key === 'phone') return "We'll text a code to confirm it.";
+  if (key === 'email') return vetting.email.value ? "We'll email a code to confirm it." : 'Add your email, then confirm with a code.';
+  return hint;
 }
 
 function VerificationStatus({ vetting, submitted, onFix, onView, onEdit }: { vetting: AgentVetting; submitted: boolean; onFix: () => void; onView: () => void; onEdit: () => void }) {
@@ -190,16 +235,16 @@ function PassportThumbnail({ path }: { path: string | null }) {
 
 function ReviewDetails({ vetting: v, onEdit, canEdit }: { vetting: AgentVetting; onEdit: (index: number) => void; canEdit: boolean }) {
   const address = [v.residence.village, v.residence.parish, v.residence.sub_county, v.residence.district, v.residence.region, v.residence.town, v.residence.city].filter(Boolean).join(', ');
-  const confirmed = (value: string | null, at: string | null) => <div className="flex flex-wrap items-center gap-2"><span className="break-all">{value ?? 'Not added'}</span>{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
+  const confirmed = (value: string | null, at: string | null, href?: string | null) => <div className="flex flex-wrap items-center gap-2">{value && href ? <a href={href} className="break-all underline underline-offset-4">{value}</a> : <span className="break-all">{value ?? 'Not added'}</span>}{at && <span className="inline-flex items-center gap-1 text-xs text-primary"><Check className="h-3.5 w-3.5" />Confirmed</span>}</div>;
   const values = [
-    <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at)}{confirmed(v.email.value, v.email.verified_at)}</div>,
+    <div className="space-y-2">{confirmed(v.phone.value, v.phone.verified_at, v.phone.value ? `tel:${v.phone.value}` : null)}{confirmed(v.email.value, v.email.verified_at, v.email.value ? `mailto:${v.email.value}` : null)}</div>,
     <p>{address || 'Not added'}</p>,
-    <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
     <div className="space-y-1"><p>{v.national_id.source === 'parent' ? "Parent agent's National ID" : 'Own National ID'}</p><p className="font-mono">{v.national_id.nin_masked ?? 'Not added'}</p><p className="text-xs text-muted-foreground">Front {v.national_id.has_front ? 'saved' : 'missing'} · Back {v.national_id.has_back ? 'saved' : 'missing'}</p></div>,
     <PassportThumbnail path={v.passport_photo.path} />,
     <div className="space-y-1"><p>{v.next_of_kin.name ?? 'Not added'}</p><p>{v.next_of_kin.phone}</p><p className="text-muted-foreground">{v.next_of_kin.source === 'parent_agent' ? 'Parent agent' : v.next_of_kin.relationship}</p></div>,
+    <div className="space-y-1"><p className="font-mono">{v.gps.lat !== null && v.gps.lng !== null ? `${v.gps.lat.toFixed(5)}, ${v.gps.lng.toFixed(5)}` : 'Not captured'}</p>{v.gps.accuracy_m != null && <p>Accuracy: {Math.round(v.gps.accuracy_m)} m</p>}{v.gps.captured_at && <p className="text-xs text-muted-foreground">{fmt(v.gps.captured_at)}</p>}</div>,
   ];
-  return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-border bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
+  return <div className="space-y-3">{values.map((value, index) => <section key={KYC_STEPS[index].title} className="rounded-lg border border-primary/30 bg-card px-3 py-3"><div className="mb-2 flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{KYC_STEPS[index].title}</h2>{canEdit && <Button variant="link" className="min-h-11 shrink-0 px-2" onClick={() => onEdit(index)} aria-label={`Edit ${KYC_STEPS[index].title}`}>Edit</Button>}</div><div className="break-words text-sm">{value}</div></section>)}<p className="flex items-start gap-2 py-3 text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops. Your location is checked again when you submit.</p></div>;
 }
 
 type BodyProps = {
@@ -231,7 +276,7 @@ function CodeRow({ onConfirm, busy, label = 'Confirm' }: { onConfirm: (c: string
     <div className="flex flex-col gap-2 sm:flex-row">
       <Input inputMode="numeric" maxLength={6} aria-label="6-digit code" autoComplete="one-time-code" placeholder="6-digit code" value={code}
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} className="min-h-11" />
-      <Button className="min-h-11" disabled={busy || code.length !== 6} onClick={() => onConfirm(code)}>
+      <Button variant="soft" className="min-h-11" disabled={busy || code.length !== 6} onClick={() => onConfirm(code)}>
         <Spin on={busy} />{label}
       </Button>
     </div>
@@ -249,7 +294,7 @@ function PhoneStep({ v, vetting, editable, guard, act }: BodyProps) {
       {vetting.phone.verified_at && <p className="text-sm text-muted-foreground">Confirmed {fmt(vetting.phone.verified_at)}</p>}
       {editable && !vetting.phone.verified_at && (
         <>
-          <Button variant="outline" className="min-h-11" disabled={v.busy === 'phone_send'}
+          <Button variant="soft" className="min-h-11" disabled={v.busy === 'phone_send'}
             onClick={() => guard(async () => { if (await act(() => v.sendPhoneCode(), 'Code sent')) setSent(true); })}>
             <Spin on={v.busy === 'phone_send'} />{sent ? 'Send again' : 'Send code'}
           </Button>
@@ -270,7 +315,7 @@ function EmailStep({ v, vetting, editable, guard, act }: BodyProps) {
   return (
     <div className="space-y-2">
       <Input aria-label="Email address" type="email" placeholder="you@example.com" value={address} onChange={(e) => setAddress(e.target.value)} className="min-h-11" />
-      <Button variant="outline" className="min-h-11" disabled={v.emailSending || !address.trim()}
+      <Button variant="soft" className="min-h-11" disabled={v.emailSending || !address.trim()}
         onClick={() => guard(() => act(async () => {
           const r: any = await v.sendEmailCode(address.trim());
           if (r?.challengeId) setChallengeId(r.challengeId);
