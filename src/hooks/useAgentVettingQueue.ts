@@ -76,18 +76,23 @@ export function useAgentVettingPhotos(detail: AgentVettingDetail | null | undefi
     id_front: detail?.id_front_path as string | null | undefined,
     id_back: detail?.id_back_path as string | null | undefined,
     passport: detail?.passport_photo_path as string | null | undefined,
+    // The ID Agent Ops last decided on, when the agent has since replaced it (see idComparison).
+    prev_id_front: detail?.prev_id_front_path as string | null | undefined,
+    prev_id_back: detail?.prev_id_back_path as string | null | undefined,
   };
   return useQuery({
-    queryKey: ['agent-vetting-photos', detail?.agent_id, paths.id_front, paths.id_back, paths.passport],
+    queryKey: ['agent-vetting-photos', detail?.agent_id, paths.id_front, paths.id_back, paths.passport, paths.prev_id_front, paths.prev_id_back],
     enabled: !!detail,
     staleTime: 4 * 60_000, // links last 5 minutes
     queryFn: async () => {
-      const [id_front, id_back, passport] = await Promise.all([
+      const [id_front, id_back, passport, prev_id_front, prev_id_back] = await Promise.all([
         identityPhotoUrl(paths.id_front),
         identityPhotoUrl(paths.id_back),
         identityPhotoUrl(paths.passport),
+        identityPhotoUrl(paths.prev_id_front),
+        identityPhotoUrl(paths.prev_id_back),
       ]);
-      return { id_front, id_back, passport };
+      return { id_front, id_back, passport, prev_id_front, prev_id_back };
     },
   });
 }
