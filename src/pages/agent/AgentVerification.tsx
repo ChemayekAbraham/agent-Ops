@@ -157,7 +157,7 @@ export default function AgentVerification() {
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
         {intro ? <Button className="col-span-2 min-h-12" onClick={() => { setStarted(true); goTo(0); }}>Start verification<ArrowRight className="ml-2 h-4 w-4" /></Button> : <>
-          <Button variant="outline" className="min-h-12" disabled={busy} onClick={() => current > 0 ? goTo(current - 1) : vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
+          <Button variant="outline" className="min-h-12 border-primary text-primary hover:bg-primary/5 hover:text-primary" disabled={busy} onClick={() => current > 0 ? goTo(current - 1) : vetting?.status !== 'unverified' ? setWizardOpen(false) : navigate('/dashboard/agent')}><ArrowLeft className="mr-2 h-4 w-4" />Back</Button>
           {current < 6 ? <Button className="min-h-12" disabled={busy} onClick={() => goTo(current + 1)}>Continue<ArrowRight className="ml-2 h-4 w-4" /></Button> : viewOnly ? <Button className="min-h-12" onClick={() => { setWizardOpen(false); setViewOnly(false); }}>Done</Button> : <Button className="min-h-12 whitespace-normal" disabled={busy} onClick={() => guard(onSubmit)}>{v.busy === 'submit' ? <><Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />Checking your location…</> : 'Submit for review'}</Button>}
         </>}
       </div></footer>}
