@@ -111,10 +111,39 @@ describe('Agent KYC navigation and existing actions', () => {
     await waitFor(() => expect(state.value.confirmEmailCode).toHaveBeenCalledWith('email-1', '123456'));
   });
 
-  it('uses existing submit and opens missing requirements immediately with step navigation', async () => {
-    state.value.vetting.residence.district = 'Wakiso';
+  const completeAll = () => {
+    Object.assign(state.value.vetting.phone, { verified_at: new Date().toISOString() });
+    Object.assign(state.value.vetting.email, { verified_at: new Date().toISOString() });
+    Object.assign(state.value.vetting.residence, { district: 'Wakiso', village: 'Kigungu' });
+    Object.assign(state.value.vetting.national_id, { ok: true, source: 'own', has_front: true, has_back: true, nin_masked: 'CM0*******QTOE' });
+    Object.assign(state.value.vetting.passport_photo, { path: 'kyc/passport.png' });
+    Object.assign(state.value.vetting.next_of_kin, { name: 'Kin Person', phone: '+256700000009' });
+    Object.assign(state.value.vetting.gps, { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: new Date().toISOString() });
+  };
+
+  it('keeps Submit for review disabled and names what is still needed', () => {
+    completeAll();
+    state.value.vetting.next_of_kin.name = null;
+    mount(); // complete except next of kin, so the wizard opens at that step
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
+    expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Next of kin' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Next of kin');
+  });
+
+  it('submits once every step is filled', () => {
+    completeAll();
+    state.value.submit = vi.fn().mockResolvedValue({ success: true, message: 'Sent for review' });
     mount();
-    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+    expect(state.value.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('still shows the server list when it refuses a record the wizard considers complete', async () => {
+    completeAll();
+    mount();
     fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
     const dialog = await screen.findByRole('dialog');
     expect(state.value.submit).toHaveBeenCalledTimes(1);
