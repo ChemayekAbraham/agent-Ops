@@ -301,6 +301,8 @@ export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
     'staff_assistant_drafts',
     'staff_assistant_insights',
     'staff_assistant_ideas',
+    'staff_assistant_notes',
+    'staff_assistant_glossary',
   ];
 
   for (const tbl of lockedTablesSelectOnly) {
@@ -456,6 +458,7 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
       'staff_assistant_check_email_budget',
       'staff_assistant_hide_my_history',
       'assistant_staff_my_profile',
+      'assistant_staff_get_glossary',
     ]);
     for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
       if (!ALLOWED_DIRECT_RPCS.has(m[1])) {
@@ -893,6 +896,7 @@ if (existsSync(MIGRATIONS_DIR)) {
     'assistant_staff_insight_calling_reach_and_themes',
     'assistant_staff_insight_payout_delays',
     'assistant_staff_insight_zoe_feedback_themes',
+    'assistant_staff_get_glossary',
   ];
   for (const reqFn of REQUIRED_ADVISOR_INSIGHT_RPCS) {
     if (!allFound.has(reqFn)) {

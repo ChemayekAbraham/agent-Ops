@@ -11,9 +11,11 @@ export const MSG = {
   mfaRequired:
     "This report contains sensitive figures and requires two-factor verification (MFA) before Zoe can read it. Please complete MFA verification and try again.",
   outOfScope:
-    "I can only answer read-only questions about your own My Space items (payslips, tasks, tickets, requisitions, advances, concerns, canteen, wallet) and the Welile department reports your role is allowed to view.",
+    "I am a read-only assistant and cannot change Welile data, approve requests, move money, or assist with harmful or unauthorized requests. To make changes or approvals, please use the appropriate Welile screen (such as /me/requisitions, /tenant-ops, /landlord-ops, or /cfo/dashboard).",
   unmatched:
-    "I don't have a verified report tool for that question yet. I've logged it so the team can add support. Try asking about your My Space items or your department's official summaries.",
+    "I checked your available My Space and department report tools, but I could not find a verified live dataset for that specific figure yet. Try checking the closest workspace screen (/tenant-ops, /landlord-ops, /executive-hub?tab=agent-ops, /cfo/dashboard, or /me/staff-reports) or ask your department manager or Operations team.",
+  stepLimitReachedPrefix:
+    "I reached my limit, here is what I have so far:",
   dailyLimitReached:
     "You've reached your daily Zoe question limit for today. Your quota resets tomorrow in Kampala time.",
   rateLimited:
@@ -36,6 +38,10 @@ export const MSG = {
     "Zoe's AI service is temporarily unavailable (service quota reached). The team has been notified — please try again shortly.",
   historyRoleRestricted:
     "This earlier answer used a report your current role no longer accesses.",
+  noteRejectedPiiOrFigures:
+    "Zoe notes may only store short work or formatting preferences (2–240 characters) and must never contain business figures (UGX amounts or large numbers), phone numbers, email addresses, IDs, or personal data about others.",
+  noteLimitReached:
+    "You already have the maximum of 20 Zoe notes. Please delete an older note before adding a new one.",
 } as const;
 
 /** Outcomes that should be recorded in `staff_assistant_unanswered` for coverage tracking. */

@@ -2,9 +2,28 @@
 // Every `assistant_staff_*` data tool RPC is called from `index.ts` with the caller's own JWT (`userClient`).
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { kampalaToday } from "./dates.ts";
-import { ConversationMemorySummary, parseConversationMemory } from "./memory.ts";
-import type { ChatMessage } from "./openai.ts";
+import { validateZoeNoteText } from "./guards.ts";
+import {
+  buildRollingConversationSummary,
+  ConversationMemorySummary,
+  MAX_ZOE_NOTES_PER_USER,
+  parseConversationMemory,
+  ZoeNoteRecord,
+} from "./memory.ts";
+import { MSG } from "./messages.ts";
+import {
+  ChatMessage,
+  DEFAULT_CHAT_MAX_TOKENS,
+  DEFAULT_CHAT_TEMPERATURE,
+  DEFAULT_MAX_COST_USD_PER_QUESTION,
+  DEFAULT_ZOE_MODEL_DEEP,
+  DEFAULT_ZOE_MODEL_FAST,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  ZoeModelTierConfig,
+} from "./openai.ts";
 import type { ClientContext } from "./schemas.ts";
+
 
 const MAX_MESSAGES_PER_MINUTE = 10;
 /** Prompt 3 item (2): Send the last 20 turns (40 messages). */
@@ -41,7 +60,15 @@ export interface StaffAssistantConfig {
   maxModelRounds: number;
   maxToolCalls: number;
   historyDays: number;
+  modelFast: string;
+  modelDeep: string;
+  temperature: number;
+  maxTokens: number;
+  maxDeepModelRounds: number;
+  maxDeepToolCalls: number;
+  maxCostUsdPerQuestion: number;
 }
+
 
 export interface ConversationListItem {
   id: string;
@@ -114,22 +141,89 @@ export function getAdminClientForMfa(): SupabaseClient {
 }
 
 export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> {
+  if (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL")) {
+    return {
+      enabled: true,
+      maxQuestionsPerDay: DEFAULT_MAX_QUESTIONS_PER_DAY,
+      maxEmailsPerDay: 30,
+      maxModelRounds: 4,
+      maxToolCalls: 6,
+      historyDays: 90,
+      modelFast: DEFAULT_ZOE_MODEL_FAST,
+      modelDeep: DEFAULT_ZOE_MODEL_DEEP,
+      temperature: DEFAULT_CHAT_TEMPERATURE,
+      maxTokens: DEFAULT_CHAT_MAX_TOKENS,
+      maxDeepModelRounds: MAX_DEEP_MODEL_ROUNDS,
+      maxDeepToolCalls: MAX_DEEP_TOOL_CALLS,
+      maxCostUsdPerQuestion: DEFAULT_MAX_COST_USD_PER_QUESTION,
+    };
+  }
   const db = admin();
-  const { data } = await db
+  let { data, error } = await db
     .from("staff_assistant_config")
     .select(
-      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days",
+      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days, model_fast, model_deep, temperature, max_tokens, max_deep_model_rounds, max_deep_tool_calls, max_cost_usd_per_question",
     )
     .eq("id", true)
     .maybeSingle();
 
+  if (error) {
+    const fallback = await db
+      .from("staff_assistant_config")
+      .select(
+        "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days",
+      )
+      .eq("id", true)
+      .maybeSingle();
+    data = fallback.data
+      ? {
+          ...fallback.data,
+          model_fast: DEFAULT_ZOE_MODEL_FAST,
+          model_deep: DEFAULT_ZOE_MODEL_DEEP,
+          temperature: DEFAULT_CHAT_TEMPERATURE,
+          max_tokens: DEFAULT_CHAT_MAX_TOKENS,
+          max_deep_model_rounds: MAX_DEEP_MODEL_ROUNDS,
+          max_deep_tool_calls: MAX_DEEP_TOOL_CALLS,
+          max_cost_usd_per_question: DEFAULT_MAX_COST_USD_PER_QUESTION,
+        }
+      : null;
+  }
+
+  const row = (data ?? {}) as Record<string, unknown>;
   return {
-    enabled: data?.enabled ?? true,
-    maxQuestionsPerDay: data?.max_questions_per_day ?? DEFAULT_MAX_QUESTIONS_PER_DAY,
-    maxEmailsPerDay: data?.max_emails_per_day ?? 30,
-    maxModelRounds: data?.max_model_rounds ?? 4,
-    maxToolCalls: data?.max_tool_calls ?? 6,
-    historyDays: data?.history_days ?? 90,
+    enabled: typeof row.enabled === "boolean" ? row.enabled : true,
+    maxQuestionsPerDay:
+      typeof row.max_questions_per_day === "number"
+        ? row.max_questions_per_day
+        : DEFAULT_MAX_QUESTIONS_PER_DAY,
+    maxEmailsPerDay: typeof row.max_emails_per_day === "number" ? row.max_emails_per_day : 30,
+    maxModelRounds: typeof row.max_model_rounds === "number" ? row.max_model_rounds : 4,
+    maxToolCalls: typeof row.max_tool_calls === "number" ? row.max_tool_calls : 6,
+    historyDays: typeof row.history_days === "number" ? row.history_days : 90,
+    modelFast:
+      typeof row.model_fast === "string" && row.model_fast.trim()
+        ? row.model_fast.trim()
+        : DEFAULT_ZOE_MODEL_FAST,
+    modelDeep:
+      typeof row.model_deep === "string" && row.model_deep.trim()
+        ? row.model_deep.trim()
+        : DEFAULT_ZOE_MODEL_DEEP,
+    temperature:
+      typeof row.temperature === "number" || typeof row.temperature === "string"
+        ? Number(row.temperature)
+        : DEFAULT_CHAT_TEMPERATURE,
+    maxTokens: typeof row.max_tokens === "number" ? row.max_tokens : DEFAULT_CHAT_MAX_TOKENS,
+    maxDeepModelRounds:
+      typeof row.max_deep_model_rounds === "number"
+        ? row.max_deep_model_rounds
+        : MAX_DEEP_MODEL_ROUNDS,
+    maxDeepToolCalls:
+      typeof row.max_deep_tool_calls === "number" ? row.max_deep_tool_calls : MAX_DEEP_TOOL_CALLS,
+    maxCostUsdPerQuestion:
+      typeof row.max_cost_usd_per_question === "number" ||
+      typeof row.max_cost_usd_per_question === "string"
+        ? Number(row.max_cost_usd_per_question)
+        : DEFAULT_MAX_COST_USD_PER_QUESTION,
   };
 }
 
@@ -140,6 +234,7 @@ export type BudgetCheckResult =
       maxQuestionsPerDay: number;
       maxModelRounds: number;
       maxToolCalls: number;
+      modelConfig?: ZoeModelTierConfig;
     }
   | { allowed: false; reason: "burst" | "daily_budget"; maxQuestionsPerDay: number };
 
@@ -153,6 +248,19 @@ export type BudgetCheckResult =
  */
 export async function checkQuestionBudget(userId: string): Promise<BudgetCheckResult> {
   const db = admin();
+  const cfg = await loadStaffAssistantConfig();
+  const modelConfig: ZoeModelTierConfig = {
+    modelFast: cfg.modelFast,
+    modelDeep: cfg.modelDeep,
+    temperature: cfg.temperature,
+    maxTokens: cfg.maxTokens,
+    maxCostUsdPerQuestion: cfg.maxCostUsdPerQuestion,
+    maxFastModelRounds: cfg.maxModelRounds,
+    maxFastToolCalls: cfg.maxToolCalls,
+    maxDeepModelRounds: cfg.maxDeepModelRounds,
+    maxDeepToolCalls: cfg.maxDeepToolCalls,
+  };
+
   const { data: atomicRes, error: atomicErr } = await db.rpc(
     "staff_assistant_check_question_rate_limit",
     { p_user_id: userId },
@@ -161,10 +269,10 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
   if (!atomicErr && atomicRes && typeof atomicRes === "object") {
     const r = atomicRes as Record<string, unknown>;
     const limitToday =
-      typeof r.limit_today === "number" ? r.limit_today : DEFAULT_MAX_QUESTIONS_PER_DAY;
+      typeof r.limit_today === "number" ? r.limit_today : cfg.maxQuestionsPerDay;
     const usedToday = typeof r.used_today === "number" ? r.used_today : 0;
-    const maxModelRounds = typeof r.max_model_rounds === "number" ? r.max_model_rounds : 4;
-    const maxToolCalls = typeof r.max_tool_calls === "number" ? r.max_tool_calls : 6;
+    const maxModelRounds = typeof r.max_model_rounds === "number" ? r.max_model_rounds : cfg.maxModelRounds;
+    const maxToolCalls = typeof r.max_tool_calls === "number" ? r.max_tool_calls : cfg.maxToolCalls;
     if (r.allowed === false) {
       return {
         allowed: false,
@@ -178,10 +286,9 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
       maxQuestionsPerDay: limitToday,
       maxModelRounds,
       maxToolCalls,
+      modelConfig,
     };
   }
-
-  const cfg = await loadStaffAssistantConfig();
 
   const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
   const { count: burstCount } = await db
@@ -214,14 +321,21 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
     maxQuestionsPerDay: cfg.maxQuestionsPerDay,
     maxModelRounds: cfg.maxModelRounds,
     maxToolCalls: cfg.maxToolCalls,
+    modelConfig,
   };
 }
+
 
 export async function getOrCreateConversation(
   userId: string,
   conversationId: string | undefined,
   meta: SessionMeta,
-): Promise<{ id: string; status: string; memory?: ConversationMemorySummary }> {
+): Promise<{
+  id: string;
+  status: string;
+  memory?: ConversationMemorySummary;
+  rollingSummary?: string;
+}> {
   const db = admin();
   const ua = parseUserAgent(meta.userAgent, meta.clientContext);
   const sessionPatch = {
@@ -235,27 +349,39 @@ export async function getOrCreateConversation(
   if (conversationId) {
     let { data, error: selErr } = await db
       .from("staff_assistant_conversations")
-      .select("id, status, conversation_summary")
+      .select("id, status, conversation_summary, rolling_summary")
       .eq("id", conversationId)
       .eq("user_id", userId)
       .maybeSingle();
     if (selErr) {
       const fallback = await db
         .from("staff_assistant_conversations")
-        .select("id, status")
+        .select("id, status, conversation_summary")
         .eq("id", conversationId)
         .eq("user_id", userId)
         .maybeSingle();
-      data = fallback.data ? { ...fallback.data, conversation_summary: null } : null;
+      if (fallback.error) {
+        const minimal = await db
+          .from("staff_assistant_conversations")
+          .select("id, status")
+          .eq("id", conversationId)
+          .eq("user_id", userId)
+          .maybeSingle();
+        data = minimal.data
+          ? { ...minimal.data, conversation_summary: null, rolling_summary: "" }
+          : null;
+      } else {
+        data = fallback.data ? { ...fallback.data, rolling_summary: "" } : null;
+      }
     }
     if (data) {
       await db.from("staff_assistant_conversations").update(sessionPatch).eq("id", data.id);
+      const rec = data as Record<string, unknown>;
       return {
         id: data.id,
         status: data.status,
-        memory: parseConversationMemory(
-          (data as Record<string, unknown>).conversation_summary ?? null,
-        ),
+        memory: parseConversationMemory(rec.conversation_summary ?? null),
+        rollingSummary: typeof rec.rolling_summary === "string" ? rec.rolling_summary : "",
       };
     }
   }
@@ -263,7 +389,7 @@ export async function getOrCreateConversation(
   let { data, error } = await db
     .from("staff_assistant_conversations")
     .insert({ user_id: userId, persona: "staff", ...sessionPatch })
-    .select("id, status, conversation_summary")
+    .select("id, status, conversation_summary, rolling_summary")
     .single();
   if (error) {
     const fallback = await db
@@ -271,18 +397,21 @@ export async function getOrCreateConversation(
       .insert({ user_id: userId, persona: "staff", ...sessionPatch })
       .select("id, status")
       .single();
-    data = fallback.data ? { ...fallback.data, conversation_summary: null } : null;
+    data = fallback.data
+      ? { ...fallback.data, conversation_summary: null, rolling_summary: "" }
+      : null;
     error = fallback.error;
   }
   if (error || !data) throw new Error(`could not create conversation: ${error?.message}`);
+  const rec = data as Record<string, unknown>;
   return {
     id: data.id,
     status: data.status,
-    memory: parseConversationMemory(
-      (data as Record<string, unknown>).conversation_summary ?? null,
-    ),
+    memory: parseConversationMemory(rec.conversation_summary ?? null),
+    rollingSummary: typeof rec.rolling_summary === "string" ? rec.rolling_summary : "",
   };
 }
+
 
 export async function loadRecentTurns(userId: string, conversationId: string): Promise<ChatMessage[]> {
   const db = admin();
@@ -364,6 +493,7 @@ export async function recordTurn(
     periodLabel?: string | null;
     reportPayload?: Record<string, unknown> | null;
     conversationSummary?: ConversationMemorySummary | null;
+    rollingSummary?: string | null;
     model?: string;
     latencyMs?: number;
   },
@@ -425,8 +555,12 @@ export async function recordTurn(
       message_count: (conv?.message_count ?? 0) + 2,
       title: nextTitle,
       ...(args.conversationSummary ? { conversation_summary: args.conversationSummary } : {}),
+      ...(typeof args.rollingSummary === "string" && args.rollingSummary.trim()
+        ? { rolling_summary: args.rollingSummary.trim().slice(0, 2000) }
+        : {}),
     })
     .eq("id", args.conversationId);
+
 
   if (convUpdateErr) {
     await db
@@ -731,3 +865,131 @@ export async function clearUserHistory(userId: string, conversationId?: string):
     .update({ hidden_by_user: true, hidden_at: nowIso })
     .eq("user_id", userId);
 }
+
+/**
+ * Lists up to 20 active "Zoe notes" (`staff_assistant_notes`) for the signed-in staff member.
+ */
+export async function listUserNotes(
+  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<ZoeNoteRecord[]> {
+  if (!dbOverride && (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL"))) {
+    return [];
+  }
+  const db = dbOverride ?? admin();
+  const { data, error } = await db
+    .from("staff_assistant_notes")
+    .select("id, note_text, created_at")
+    .eq("user_id", userId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: false })
+    .limit(MAX_ZOE_NOTES_PER_USER);
+
+  if (error || !Array.isArray(data)) {
+    return [];
+  }
+
+  return data
+    .filter((r) => r && typeof r.note_text === "string" && validateZoeNoteText(r.note_text).ok)
+    .map((r) => ({
+      id: String(r.id),
+      note_text: String(r.note_text).trim(),
+      created_at: typeof r.created_at === "string" ? r.created_at : new Date().toISOString(),
+    }));
+}
+
+/**
+ * Adds a short preference note to `staff_assistant_notes` for the signed-in staff member,
+ * enforcing:
+ *   1. Deterministic guard (`validateZoeNoteText`) — blocks business figures and PII.
+ *   2. Maximum of 20 active notes per person (`MAX_ZOE_NOTES_PER_USER`).
+ */
+export async function addUserNote(
+  userId: string,
+  noteText: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<
+  | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+  | { ok: false; reason: string; error: string }
+> {
+  const check = validateZoeNoteText(noteText);
+  if (!check.ok) {
+    return {
+      ok: false,
+      reason: check.reason,
+      error: MSG.noteRejectedPiiOrFigures,
+    };
+  }
+
+  const db = dbOverride ?? admin();
+  const existing = await listUserNotes(userId, db);
+  if (existing.length >= MAX_ZOE_NOTES_PER_USER) {
+    return {
+      ok: false,
+      reason: "limit_reached",
+      error: MSG.noteLimitReached,
+    };
+  }
+
+  const duplicate = existing.find(
+    (n) => n.note_text.toLowerCase() === check.cleaned.toLowerCase(),
+  );
+  if (duplicate) {
+    return { ok: true, note: duplicate, notes: existing };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: inserted, error } = await db
+    .from("staff_assistant_notes")
+    .insert({
+      user_id: userId,
+      note_text: check.cleaned,
+      is_deleted: false,
+      updated_at: nowIso,
+    })
+    .select("id, note_text, created_at")
+    .single();
+
+  if (error || !inserted) {
+    return {
+      ok: false,
+      reason: "db_error",
+      error: "Could not save Zoe note right now.",
+    };
+  }
+
+  const newNote: ZoeNoteRecord = {
+    id: String(inserted.id),
+    note_text: String(inserted.note_text),
+    created_at: typeof inserted.created_at === "string" ? inserted.created_at : nowIso,
+  };
+  return {
+    ok: true,
+    note: newNote,
+    notes: [newNote, ...existing].slice(0, MAX_ZOE_NOTES_PER_USER),
+  };
+}
+
+/**
+ * Soft-deletes a user's Zoe note (`is_deleted = true`) so `.delete()` is never called in `store.ts`.
+ */
+export async function deleteUserNote(
+  userId: string,
+  noteId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<{ ok: boolean; notes: ZoeNoteRecord[] }> {
+  const db = dbOverride ?? admin();
+  const nowIso = new Date().toISOString();
+  await db
+    .from("staff_assistant_notes")
+    .update({ is_deleted: true, updated_at: nowIso })
+    .eq("id", noteId)
+    .eq("user_id", userId);
+
+  const notes = await listUserNotes(userId, db);
+  return { ok: true, notes };
+}
+
