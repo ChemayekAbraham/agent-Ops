@@ -268,7 +268,7 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
             : 'Own ID'}
         </p>
         {(d.has_id_photos || d.id_front_path || d.id_back_path) && user?.id !== agentId && (
-          <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => setReuploadOpen(true)}>Ask agent to re-upload ID</Button>
+          <Button variant="warning" className="min-h-11 w-full sm:w-auto" onClick={() => setReuploadOpen(true)}><RefreshCw className="h-4 w-4" />Ask agent to re-upload ID</Button>
         )}
       </Section>
 
