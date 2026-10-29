@@ -1,6 +1,7 @@
 # Browser saved items
-- [ ] Add a hamburger Saved Items dialog backed by existing browser bookmarks.
-- [ ] Remove unavailable houses and Rent Plans using successful, unfiltered server reads; test persistence and cleanup.
+- [x] Add a hamburger Saved Items dialog backed by existing browser bookmarks.
+- [x] Remove unavailable houses and Rent Plans using successful, unfiltered server reads; test persistence and cleanup (31 focused tests passed).
+- [ ] Verify Saved Items with a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
 
 # Agent KYC command center
 - [x] Improve review-table design, selected-tab contrast, profile photos and recorded metadata.
