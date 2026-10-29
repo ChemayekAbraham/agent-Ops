@@ -1126,6 +1126,7 @@ export function extractZoeExportableReport(
 
   const payload = message.reportPayload ?? message.report_payload ?? null;
   if (!payload || !isRecordObject(payload)) return null;
+  if (payload.consultant_mode === true) return null;
 
   const structured = extractStructuredRows(payload);
   if (!structured || structured.rows.length === 0) {

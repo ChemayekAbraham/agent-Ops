@@ -13,6 +13,16 @@ import {
   type ZoeRoRoleArea as ZoeRoArea,
 } from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
+import {
+  CONSULTANT_FORBIDDEN_TOOLS,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
+  filterToolsForConsultantMode,
+  isConsultantQuestion,
+  ReadWebPageArgsSchema,
+  SearchWebArgsSchema,
+  WEB_RESEARCH_TOOL_NAMES,
+} from "./consultant.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
   buildReportEmailDraft,
@@ -468,6 +478,7 @@ export async function handleStaffAssistantRequest(
       messageId: body.message_id,
       userId: user.id,
       rating: body.rating,
+      reportKind: body.report_kind,
       comment: body.comment,
     });
     if (!res.ok) return json(404, { error: MSG.invalidRequest });
@@ -561,26 +572,48 @@ export async function handleStaffAssistantRequest(
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const callerRoles = await resolveCallerRoles(userClient, user.id);
-  const allowedOpenAiTools = openAiToolsForRoles(callerRoles);
-  const toolDescriptions = describeToolsForRoles(callerRoles);
+  const userText = body.message;
+  const consultantMode = isConsultantQuestion(userText);
+  const webResearchEnabled = consultantMode && budget.webResearchEnabled === true;
+  const baseOpenAiTools = openAiToolsForRoles(callerRoles);
+  const allowedOpenAiTools = consultantMode
+    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
+    : baseOpenAiTools;
+  const toolDescriptions = describeToolsForRoles(callerRoles).filter(
+    (line) => !consultantMode || !line.startsWith("draft_"),
+  );
+  if (webResearchEnabled) {
+    toolDescriptions.push(
+      "search_web [Consultant mode — Outside source]: Generic public web search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
+      "read_web_page [Consultant mode — Outside source]: Read a public https:// page returned by search_web. Label 'Outside source' with link and date; never mix with Welile totals.",
+    );
+  }
 
   const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
   const existingMemory = parseConversationMemory(conv.memory);
   const newMemoryEntries: MemoryToolEntry[] = [];
   const statusSteps: string[] = [];
-  const userText = body.message;
   const wantsStream = body.stream === true;
   let updatedRollingSummary = conv.rollingSummary ?? "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
 
-  const selectedTier = selectModelTier(userText, {
+  const baseTier = selectModelTier(userText, {
     maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
     maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
     maxDeepModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
     maxDeepToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
     ...(budget.modelConfig ?? {}),
   });
+  const selectedTier = consultantMode
+    ? {
+        ...baseTier,
+        tier: "deep" as const,
+        model: budget.modelConfig?.modelDeep ?? baseTier.model,
+        maxModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
+        maxToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+      }
+    : baseTier;
 
   const finish = async (
     reply: string,
@@ -617,13 +650,20 @@ export async function handleStaffAssistantRequest(
     const enrichedReportPayload = opts?.reportPayload
       ? {
           ...opts.reportPayload,
+          ...(consultantMode ? { consultant_mode: true } : {}),
           ...(chart ? { chart } : {}),
           ...(followUpSuggestions.length > 0
             ? { follow_up_suggestions: followUpSuggestions }
             : {}),
         }
       : chart
-      ? { chart, follow_up_suggestions: followUpSuggestions }
+      ? {
+          ...(consultantMode ? { consultant_mode: true } : {}),
+          chart,
+          follow_up_suggestions: followUpSuggestions,
+        }
+      : consultantMode
+      ? { consultant_mode: true }
       : null;
 
     const { assistantMessageId } = await store.recordTurn({
@@ -666,6 +706,7 @@ export async function handleStaffAssistantRequest(
       follow_up_suggestions: followUpSuggestions,
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
+      consultant_mode: consultantMode,
       estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
       cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
@@ -716,6 +757,8 @@ export async function handleStaffAssistantRequest(
           zoeNotesBlock,
           rollingSummaryBlock,
           modelTier: selectedTier.tier,
+          consultantMode,
+          webResearchEnabled,
         }),
       },
       ...activeTurnWindow,
@@ -908,6 +951,119 @@ export async function handleStaffAssistantRequest(
             content: preparedHelp.modelContent,
           });
           continue;
+        }
+
+        // Prompt 4 item (1): Consultant mode blocks all write/action/export draft tools
+        if (consultantMode && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+          return await finish(MSG.outOfScope, "blocked", {
+            tools: toolsCalled,
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+
+        // Prompt 4 item (3): Admin-switched Web Research (`search_web`, `read_web_page`)
+        // Available ONLY in the Consultant path when `staff_assistant_config.web_research_enabled === true`.
+        if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
+          if (!consultantMode || !webResearchEnabled) {
+            return await finish(
+              "Web research is currently disabled in staff_assistant_config (or outside Consultant mode).",
+              "blocked",
+              {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              },
+            );
+          }
+
+          if (call.function.name === "search_web") {
+            const parsedSearch = SearchWebArgsSchema.safeParse(rawArgs);
+            if (!parsedSearch.success) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "unmatched",
+              });
+            }
+            const webRes = await executeConsultantWebSearch(
+              parsedSearch.data.query,
+              rawToolOutputs,
+            );
+            if (!webRes.ok) {
+              return await finish(
+                `I cannot run that web search: ${webRes.error}`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "search_web"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                },
+              );
+            }
+            toolsCalled.push("search_web");
+            const webJson = JSON.stringify(webRes.payload);
+            rawToolOutputs.push(webJson);
+            if (!sourcesUsed.includes(webRes.payload.source)) {
+              sourcesUsed.push(webRes.payload.source);
+            }
+            if (!periodsUsed.includes(webRes.payload.period)) {
+              periodsUsed.push(webRes.payload.period);
+            }
+            const preparedWeb = prepareToolOutputForModel(webRes.payload, "search_web", {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: preparedWeb.modelContent,
+            });
+            continue;
+          }
+
+          if (call.function.name === "read_web_page") {
+            const parsedPage = ReadWebPageArgsSchema.safeParse(rawArgs);
+            if (!parsedPage.success) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "unmatched",
+              });
+            }
+            const pageRes = await executeConsultantReadWebPage(
+              parsedPage.data.url,
+              rawToolOutputs,
+            );
+            if (!pageRes.ok) {
+              return await finish(
+                `I cannot read that web page: ${pageRes.error}`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "read_web_page"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                },
+              );
+            }
+            toolsCalled.push("read_web_page");
+            const pageJson = JSON.stringify(pageRes.payload);
+            rawToolOutputs.push(pageJson);
+            if (!sourcesUsed.includes(pageRes.payload.source)) {
+              sourcesUsed.push(pageRes.payload.source);
+            }
+            if (!periodsUsed.includes(pageRes.payload.period)) {
+              periodsUsed.push(pageRes.payload.period);
+            }
+            const preparedPage = prepareToolOutputForModel(pageRes.payload, "read_web_page", {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: preparedPage.modelContent,
+            });
+            continue;
+          }
         }
 
         // Action tool: draft_report_email (NEVER sends; looks up recipient ONLY via staff_assistant_email_recipients)

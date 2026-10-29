@@ -75,6 +75,7 @@ export const RequestSchema = z.discriminatedUnion("action", [
       conversation_id: z.string().uuid(),
       message_id: z.string().uuid(),
       rating: z.enum(["up", "down"]),
+      report_kind: z.enum(["rating", "problem_report"]).optional(),
       comment: z
         .string()
         .transform(cleanMessage)
