@@ -194,10 +194,10 @@ export function vettingChecklist(v: AgentVetting, now: Date = new Date()): Vetti
   const residenceDone = !!v.residence.district && !!v.residence.village;
   const nokDone = !!v.next_of_kin.name && digits(v.next_of_kin.phone).length >= 9;
 
-  let locationHint = 'Press "Capture my location" where you are.';
-  if (v.gps.captured_at && !isLocationFresh(v, now)) {
-    locationHint = 'Your captured location is too old. Capture it again, then submit.';
-  }
+  // Done once captured. Submit takes its own reading and, when this capture is older
+  // than gps_rules.max_age_minutes, uses that reading instead, so age never blocks here.
+  // (Comparing ages against the phone's clock also failed when it ran behind the server.)
+  const locationDone = !!v.gps.captured_at && v.gps.lat !== null && v.gps.lng !== null;
 
   return [
     step('phone', 'Phone number', !!v.phone.verified_at, 'Confirm your phone number with the code we send.'),
@@ -210,7 +210,7 @@ export function vettingChecklist(v: AgentVetting, now: Date = new Date()): Vetti
         : 'Add your own email address and confirm it with the code we send.',
     ),
     step('residence', 'Where you stay', residenceDone, 'Add where you stay (at least district and village).'),
-    step('location', 'Live location', isLocationFresh(v, now), locationHint),
+    step('location', 'Live location', locationDone, 'Press "Capture my location" where you are.'),
     step('national_id', 'National ID', v.national_id.ok, v.national_id.reason ?? 'Add your National ID.'),
     step('passport_photo', 'Passport photo', !!v.passport_photo.path, 'Take your passport photo.'),
     step('next_of_kin', 'Next of kin', nokDone, "Add your next of kin's name and phone number."),
