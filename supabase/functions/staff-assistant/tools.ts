@@ -2241,7 +2241,7 @@ export const DraftIdeaArgsSchema = z
     screen_path: z.string().trim().max(120).optional(),
     source_label: z.string().trim().max(200).optional(),
     period_label: z.string().trim().max(120).optional(),
-    figures: z.record(z.unknown()).optional(),
+    figures: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 
