@@ -15,12 +15,12 @@ const order: StandingOrderRow = {
   created_at: '2026-10-01', next_run_at: '2026-10-24', last_run_at: '2026-10-23', last_run_status: 'completed', last_run_error: null,
   consecutive_failures: 0, health: 'ok',
 };
-function setup(previewOnly = false) {
+function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><StandingOrderAmountDialog order={order} previewOnly={previewOnly} onClose={vi.fn()} /></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><StandingOrderAmountDialog order={order} onClose={vi.fn()} /></QueryClientProvider>);
 }
-beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('VITE_SUPABASE_URL', 'http://localhost:54321'); });
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
+beforeEach(() => { vi.clearAllMocks(); });
+afterEach(() => { cleanup(); });
 
 describe('standing order amount confirmation and configuration-only save', () => {
   it.each(['Increase', 'Decrease'])('preview-only %s can be reviewed but cannot save even with a local destination', (direction) => {
