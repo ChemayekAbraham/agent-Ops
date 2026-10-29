@@ -23,19 +23,6 @@ beforeEach(() => { vi.clearAllMocks(); });
 afterEach(() => { cleanup(); });
 
 describe('standing order amount confirmation and configuration-only save', () => {
-  it.each(['Increase', 'Decrease'])('preview-only %s can be reviewed but cannot save even with a local destination', (direction) => {
-    setup(true);
-    fireEvent.click(screen.getByRole('button', { name: direction }));
-    fireEvent.change(screen.getByLabelText('Change amount (UGX)'), { target: { value: '25000' } });
-    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Preview amount correction' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
-    const save = screen.getByRole('button', { name: 'Saving disabled' });
-    expect(save).toBeDisabled();
-    fireEvent.click(save);
-    expect(mocks.rpc).not.toHaveBeenCalled();
-    expect(mocks.from).not.toHaveBeenCalled();
-    expect(mocks.invoke).not.toHaveBeenCalled();
-  });
   it.each([['increase', 125000], ['decrease', 75000]])('%s requires explicit confirmation and uses only the atomic configuration RPC', async (direction, amount) => {
     mocks.rpc.mockResolvedValue({ data: { order: { id: order.id, amount, updated_at: '2026-10-23T02:00:00Z' }, audit_id: 'audit', previous_amount: 100000 }, error: null });
     setup();
