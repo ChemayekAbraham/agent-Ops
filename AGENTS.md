@@ -21,7 +21,7 @@
 - Welile Schools gate registration stores only in `welile_schools` / `welile_school_profiles` (agents see their own profiles, `welile_schools_ops_ok()` roles see all, no deletes); offline profiles queue locally and retry idempotently via `client_ref`.
 - Welile Homes float requests move only through `src/lib/welileHomesFloat.ts` (`wh_request_float`/`wh_float_advance`) and CFO money only via `wh_cfo_disburse_float` (Merchant `agent_float_deposit` legs, no fallback); "funded" is set only by disbursement and Merchant desks exclude Welile Homes requests.
 - Welile Schools chat and classic registration share one page-owned draft and save handler, with Uganda hierarchy supplied by the shared location picker, so switching modes cannot fork registration data.
-- Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts`, using recorded facts (subscription/funding status, float link, collected dues), never reason text; Funded needs funding_status = 'funded', a rejected float request is not a declined application, unknown collections lock Delete, and `delete_welile_home_subscription` refuses the same server-side.
+- Welile Homes plan stage and Delete lock come only from `src/lib/welileHomesPlanStatus.ts` using recorded facts, never reason text; Funded needs funding_status = 'funded', unknown collections lock Delete, and `delete_welile_home_subscription` enforces the same.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
