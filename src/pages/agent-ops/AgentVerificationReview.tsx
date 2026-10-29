@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -26,6 +26,8 @@ import KycOverview from '@/components/agent-vetting/KycOverview';
 import KycIdentityConnections from '@/components/agent-vetting/KycIdentityConnections';
 import KycReviewTable from '@/components/agent-vetting/KycReviewTable';
 import { useUserAvatars } from '@/hooks/useUserAvatars';
+import { useAuth } from '@/hooks/useAuth';
+import { useRequestIdReupload } from '@/hooks/useAgentVettingQueue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const TABS: { value: VettingStatus; label: string }[] = [
@@ -150,6 +152,7 @@ const EVENT_LABEL: Record<string, string> = {
   email_confirmed: 'Email confirmed',
   parent_id_link_requested: "Asked to use parent's ID",
   id_replaced: 'Replaced National ID',
+  id_reupload_requested: 'Asked to re-upload ID',
 };
 
 function eventLabel(e: AgentVettingDetail['events'][number]) {
@@ -171,6 +174,21 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
   const [rejectOpen, setRejectOpen] = useState(false);
   const [note, setNote] = useState('');
   const [zoom, setZoom] = useState<string | null>(null);
+  const { user } = useAuth();
+  const reupload = useRequestIdReupload();
+  const [reuploadOpen, setReuploadOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const reasonOk = reason.trim().length >= 5;
+  const sendReupload = async () => {
+    try {
+      await reupload.mutateAsync({ agentId, reason: reason.trim() });
+      toast.success('Sent back to the agent');
+      setReuploadOpen(false);
+      setReason('');
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
 
   useEffect(() => { photos.refetch(); }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -249,6 +267,9 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
             ? `Using ${d.id_holder?.name ?? 'parent agent'}'s ID (${d.id_holder?.phone ?? ''})`
             : 'Own ID'}
         </p>
+        {(d.id_front_path || d.id_back_path) && user?.id !== agentId && (
+          <Button variant="outline" className="min-h-11 w-full sm:w-auto" onClick={() => setReuploadOpen(true)}>Ask agent to re-upload ID</Button>
+        )}
       </Section>
 
       <KycIdentityConnections key={agentId} agentId={agentId} onOpen={onOpenLinked} />
@@ -281,7 +302,7 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
 
       <Section title="History">
         <ul className="space-y-1">
-          {events.map((e, i) => <li key={i} className="text-sm"><span className="text-muted-foreground">{abs(e.at)}</span> · {eventLabel(e)}</li>)}
+          {events.map((e, i) => <li key={i} className="text-sm"><span className="text-muted-foreground">{abs(e.at)}</span> · {eventLabel(e)}{e.event === 'id_reupload_requested' && (e.detail as any)?.reason ? <span className="block break-words text-muted-foreground">{String((e.detail as any).reason)}</span> : null}</li>)}
           {events.length === 0 && <li className="text-sm text-muted-foreground">No history yet.</li>}
         </ul>
       </Section>
@@ -321,6 +342,20 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={reuploadOpen} onOpenChange={(o) => { if (!reupload.isPending) setReuploadOpen(o); }}>
+        <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto">
+          <DialogTitle>Ask agent to re-upload ID</DialogTitle>
+          <DialogDescription>The agent's ID photos will be removed and they will be asked to upload the correct National ID. Until they do, they cannot withdraw. The current ID stays on record for comparison.</DialogDescription>
+          <label htmlFor="reupload-reason" className="text-sm font-medium">Reason</label>
+          <Textarea id="reupload-reason" required value={reason} onChange={(e) => setReason(e.target.value)} placeholder="The NIN on the card does not match the number entered" />
+          {!reasonOk && <p className="text-xs text-muted-foreground">At least 5 characters.</p>}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button variant="outline" className="min-h-11" disabled={reupload.isPending} onClick={() => setReuploadOpen(false)}>Cancel</Button>
+            <Button className="min-h-11" disabled={!reasonOk || reupload.isPending} onClick={sendReupload}>{reupload.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Send back to agent</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!zoom} onOpenChange={(o) => !o && setZoom(null)}>
         <DialogContent aria-describedby={undefined} className="max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto p-3"><DialogTitle className="sr-only">ID photo</DialogTitle>{zoom && <img src={zoom} alt="Zoomed photo" className="max-h-[80dvh] w-full rounded object-contain" />}</DialogContent>
