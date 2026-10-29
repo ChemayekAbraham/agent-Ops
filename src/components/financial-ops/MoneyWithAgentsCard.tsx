@@ -15,6 +15,8 @@ import { MerchantReconcileDialog } from './MerchantReconcileDialog';
 import { useFinancialOpsEditAccess } from '@/hooks/useFinancialOpsEditAccess';
 import { MerchantFloatStatementDialog } from './MerchantFloatStatementDialog';
 import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
+import { MerchantDeskStatementDialog } from './MerchantDeskStatementDialog';
+import { CompanyReceiptsToPlacePanel } from './CompanyReceiptsToPlacePanel';
 import { MerchantDeskFundingSummaryCard } from './MerchantDeskFundingSummaryCard';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
@@ -45,6 +47,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const { data: variance } = useMerchantFloatLedgerVariance();
   const [reconciling, setReconciling] = useState<MerchantFloatPosition | null>(null);
   const [statementFor, setStatementFor] = useState<MerchantFloatPosition | null>(null);
+  const [deskSheetFor, setDeskSheetFor] = useState<MerchantFloatPosition | null>(null);
   const qc = useQueryClient();
   const [sweeping, setSweeping] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(false);
@@ -461,6 +464,15 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     >
                       {r.agentName || r.label || 'Merchant agent'}
                     </button>
+                    {r.agentId && (
+                      <button
+                        type="button"
+                        onClick={() => setDeskSheetFor(r)}
+                        className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:text-primary hover:border-primary"
+                      >
+                        Desk sheet
+                      </button>
+                    )}
                     {/* Mobile balance indicator displayed inline with name */}
                     <p
                       className={`sm:hidden font-mono text-sm font-bold tabular-nums shrink-0 whitespace-nowrap ${
@@ -742,6 +754,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         onOpenChange={(v) => !v && setStatementFor(null)}
       />
 
+      <MerchantDeskStatementDialog
+        position={deskSheetFor}
+        open={!!deskSheetFor}
+        onOpenChange={(v) => !v && setDeskSheetFor(null)}
+      />
+
       <MerchantDebtSettlementDialog
         open={debtsOpen}
         onOpenChange={setDebtsOpen}
@@ -781,6 +799,18 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
       />
 
 
+
+      <div className="mt-4">
+        <CompanyReceiptsToPlacePanel
+          desks={rows
+            .filter((r) => !!r.agentId)
+            .map((r) => ({
+              agentId: r.agentId as string,
+              name: r.agentName || r.label || 'Merchant agent',
+              float: Math.max(0, r.ledgerFloatHeld),
+            }))}
+        />
+      </div>
 
       <div className="mt-4">
         <MerchantOwnMoneyReviewPanel />
