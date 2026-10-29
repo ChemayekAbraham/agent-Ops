@@ -64,4 +64,3 @@
 - Agent Verification screens use only the agent-vetting hooks and `src/lib/agentVetting.ts`; blocked creates go through `promptIfNotVetted` to one app-level dialog and the client never hides Add Tenant / Rent Plan buttons, because only the server decides verification.
 - Lunch allowance reclasses are append-only pairs logged once in `cfo_lunch_reclass_log`; Money Out counts the reclass, not the original, to avoid double counting.
 - CFO Money Out/Money In read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for`; the client never recomputes or re-labels, so each report has one server definition.
-- New-plan 360-day pricing lives only in `src/lib/contractEngine360.ts` (mirrored by `compute_rent_repayment_v360` once applied); plans are versioned by `pricing_version` so legacy plans never reprice.
