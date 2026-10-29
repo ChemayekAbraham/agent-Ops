@@ -38,6 +38,7 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
         <p>{ACCESS_LIMIT_CAMPAIGN_COPY}</p>
         <div className="grid grid-cols-2 gap-2"><div><Label htmlFor="nexa-rent-amount">Rent (UGX)</Label><Input id="nexa-rent-amount" type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} /></div><div><Label htmlFor="nexa-rent-days">Days</Label><Input id="nexa-rent-days" type="number" min="7" max="364" value={days} onChange={e=>setDays(e.target.value)} /></div></div>
         {tenant && <p>Illustrative daily payment: <strong>{formatFixedUGX(tenant.dailyRepayment)}</strong>. Final approved terms apply.</p>}
+        {tenant?.v360NewQuoteExample && <p className="text-xs text-muted-foreground">{tenant.v360NewQuoteExample.sentence}</p>}
         <Button className="min-h-11" onClick={()=>onAsk('How can I grow my Rent Access Limit?')}><TrendingUp className="h-4 w-4" />Ask about rent access</Button>
       </TabsContent>
       <TabsContent value="growth" className="space-y-3"><p>{ACCESS_LIMIT_CAMPAIGN_COPY}</p><Button className="min-h-11" onClick={()=>onAsk('How can daily payments grow my Rent Access Limit up to UGX 30,000,000?')}><TrendingUp className="h-4 w-4" />Grow my rent access</Button></TabsContent>

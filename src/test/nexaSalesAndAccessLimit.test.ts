@@ -55,6 +55,7 @@ describe('Nexa projections and access campaign',()=>{
     expect(calculateTenantRentSalesProjection(100000,30)?.maxAccessLimitUgx).toBe(30000000);
     expect(calculateTenantRentSalesProjection(100000,30)?.dailyGrowthUgx).toBe(10000);
     expect(calculateTenantRentSalesProjection(100000,30)?.missedDayDropUgx).toBe(7000);
+    expect(calculateTenantRentSalesProjection(100000,30)?.v360NewQuoteExample).toMatchObject({ principal: 100000, gross: 142772, daily: 4760 });
   });
   it('sorts real complete opportunities first without fabricating records',()=>{
     const rows=[{id:'TEST_EMPTY'},{id:'TEST_READY',tenant_name:'TEST_TENANT',landlord_name:'TEST_LANDLORD',latitude:1,longitude:32}];

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { buildSignupLinks } from "../links";
 import { enforceRateLimit } from "../rateLimit";
 import { publicToolResult, pointRange, spanRange, ugx, type EstimateRange } from "../response";
+import { V360_MODEL_A_EXAMPLE } from "../../contractEngine360";
 
 // PUBLIC, no-auth tool. Returns an INDICATIVE rent-access ballpark so a
 // prospective tenant can get a real number inside a chat before signing up,
@@ -200,6 +201,14 @@ export default defineTool({
       data: {
         rent: roundedRent,
         monthly_rate_pct: MONTHLY_RATE * 100,
+        v360_new_quote_example: {
+          principal: V360_MODEL_A_EXAMPLE.principal,
+          gross: V360_MODEL_A_EXAMPLE.gross,
+          daily: V360_MODEL_A_EXAMPLE.daily,
+          partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
+          partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
+          note: "Illustrative 360-day example for a new quote. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
+        },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
           daily_repayment: p.dailyRepayment,
@@ -217,6 +226,7 @@ export default defineTool({
       },
       disclaimers: [
         "Line items are illustrative only — the service/access/agent-commission split is shown for transparency and does not change the total.",
+        `A separate illustrative 360-day example for rent ${ugx(V360_MODEL_A_EXAMPLE.principal)} is Gross ${ugx(V360_MODEL_A_EXAMPLE.gross)} and Daily ${ugx(V360_MODEL_A_EXAMPLE.daily)}. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.`,
         ...DISCLAIMERS,
       ],
       next_steps: [

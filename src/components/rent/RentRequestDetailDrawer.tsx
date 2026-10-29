@@ -13,6 +13,7 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { RenewalReviewPanel } from './RenewalReviewPanel';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 interface RentRequestDetailDrawerProps {
   requestId: string | null;
@@ -70,6 +71,7 @@ interface FullRequestDetail {
   renewal_change_reason_code?: string | null;
   renewal_change_explanation?: string | null;
   renewal_evidence_url?: string | null;
+  pricing_version?: string | null;
 }
 
 interface ProfileInfo {
@@ -368,6 +370,9 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
               <DetailRow label="Platform Fee" value={formatUGX(request.request_fee)} />
               <DetailRow label="Total Repayment" value={formatUGX(request.total_repayment)} bold />
               <DetailRow label="Daily Repayment" value={formatUGX(request.daily_repayment)} />
+              {request.pricing_version === 'v360' && (
+                <V360PlanCaptions rentRequestId={request.id} expectV360 />
+              )}
               <DetailRow
                 label="Repayment frequency"
                 value={(request.repayment_frequency || 'daily').replace(/_/g, ' ')}

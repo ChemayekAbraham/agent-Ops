@@ -44,6 +44,7 @@ import { useCreditAccessLimit, formatCreditAmount } from '@/hooks/useCreditAcces
 import { AgentAdvanceRequestForm } from './AgentAdvanceRequestForm';
 import { Sparkles, Zap, ArrowDownAZ, ListChecks, CheckSquare } from 'lucide-react';
 import { addEntry, newClientUuid, type FieldEntry } from '@/lib/fieldCollectStore';
+import { V360AgentDayActions } from '@/components/v360/V360AgentDayActions';
 
 interface Tenant {
   id: string;
@@ -75,6 +76,7 @@ interface TenantRentRequest {
   request_latitude?: number | null;
   request_longitude?: number | null;
   landlord?: { name: string; property_address: string; house_category?: string; latitude?: number; longitude?: number } | null;
+  pricing_version?: string | null;
 }
 
 interface AgentTenantsSheetProps {
@@ -740,7 +742,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
     try {
       const { data, error } = await supabase
         .from('rent_requests')
-        .select('id, rent_amount, total_repayment, duration_days, daily_repayment, amount_repaid, status, created_at, disbursed_at, registration_type, initial_outstanding_balance, outstanding_grace_days, landlord_id, lc1_id, house_category, tenant_no_smartphone, request_latitude, request_longitude, landlord:landlords(name, property_address, house_category, latitude, longitude)')
+        .select('id, rent_amount, total_repayment, duration_days, daily_repayment, amount_repaid, status, created_at, disbursed_at, registration_type, initial_outstanding_balance, outstanding_grace_days, landlord_id, lc1_id, house_category, tenant_no_smartphone, request_latitude, request_longitude, pricing_version, landlord:landlords(name, property_address, house_category, latitude, longitude)')
         .eq('tenant_id', tenantId)
         .or(TENANT_DETAIL_REQUEST_FILTER)
         .order('created_at', { ascending: false })
@@ -2806,6 +2808,14 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
                                     <AlertCircle className="h-4 w-4" />
                                     Mark not funded
                                   </button>
+                                  {req.pricing_version === 'v360' && (
+                                    <V360AgentDayActions
+                                      rentRequestId={req.id}
+                                      guestChoices={processedTenants
+                                        .filter((t) => t.id !== tenant.id)
+                                        .map((t) => ({ id: t.id, label: t.full_name }))}
+                                    />
+                                  )}
                                 </div>
                                 </div>
                               );

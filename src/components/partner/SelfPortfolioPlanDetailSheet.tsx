@@ -9,6 +9,7 @@ import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
 import { planShareDescription } from '@/lib/planShareLink';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 export interface PlanDetail {
   rent_request_id: string;
@@ -483,6 +484,10 @@ export function SelfPortfolioPlanDetailSheet({
               </div>
             );
           })()}
+
+          <div className="mt-4">
+            <V360PlanCaptions rentRequestId={plan.rent_request_id} />
+          </div>
 
           {/* Privacy notice band */}
           <div className="mt-4 -mx-5 bg-muted/50 px-5 py-3 flex items-start gap-2">

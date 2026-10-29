@@ -1,4 +1,5 @@
 import { OverdueVettingOpsCard } from '@/components/service-center/OverdueVettingOpsCard';
+import { V360NewPlansSwitch } from '@/components/v360/V360NewPlansSwitch';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
@@ -348,6 +349,7 @@ export default function COODashboardPage() {
       default:
         return (
           <div className="space-y-5">
+            <V360NewPlansSwitch />
             <OverdueVettingOpsCard />
             {/* HERO: Welile Operations — manage every user category */}
             <button

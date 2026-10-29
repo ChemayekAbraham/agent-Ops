@@ -47,3 +47,39 @@ export function useV360GuestTenant() {
     onSuccess: (_d, a) => qc.invalidateQueries({ queryKey: ['v360-summary', a.rentRequestId] }),
   });
 }
+
+export interface V360SettingsRow {
+  new_plans_enabled: boolean;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+/** Read-only. The row is inserted with new_plans_enabled = false. */
+export function useV360Settings(enabled = true) {
+  return useQuery({
+    queryKey: ['v360-settings'],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('v360_settings')
+        .select('new_plans_enabled, updated_at, updated_by')
+        .eq('id', true)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data as V360SettingsRow | null) ?? null;
+    },
+  });
+}
+
+/** CFO, COO, or super admin. Does not change the switch unless the caller passes a value. */
+export function useV360SetNewPlansEnabled() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const { data, error } = await supabase.rpc('v360_set_new_plans_enabled', { p_enabled: enabled });
+      if (error) throw new Error(error.message);
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['v360-settings'] }),
+  });
+}
