@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, ArrowUpRight, Check, ExternalLink, Fingerprint, Link2, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Check, ExternalLink, Fingerprint, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +24,9 @@ import { VETTING_STATUS_LABEL, idComparison, type VettingStatus, type IdSnapshot
 import VettingMap, { type MapPoint } from '@/components/agent-vetting/VettingMap';
 import KycOverview from '@/components/agent-vetting/KycOverview';
 import KycIdentityConnections from '@/components/agent-vetting/KycIdentityConnections';
+import KycReviewTable from '@/components/agent-vetting/KycReviewTable';
+import { useUserAvatars } from '@/hooks/useUserAvatars';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const TABS: { value: VettingStatus; label: string }[] = [
   { value: 'submitted', label: 'To review' },
@@ -36,7 +38,6 @@ const PAGE = 50;
 
 const abs = (s: string | null | undefined) =>
   s ? new Date(s).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' }) : '';
-const ago = (s: string | null | undefined) => (s ? formatDistanceToNow(new Date(s), { addSuffix: true }) : '');
 
 export default function AgentVerificationReview() {
   const navigate = useNavigate();
@@ -53,6 +54,7 @@ export default function AgentVerificationReview() {
 
   const q = useAgentVettingQueue({ status, search, inScopeOnly: inScope, page, pageSize: PAGE });
   const data = q.data;
+  const { avatarFor } = useUserAvatars(data?.rows.map((r) => r.agent_id) ?? []);
   const overview = useAgentKycOverview(days, inScope);
   const identities = useAgentKycIdentitySummary(data?.rows.map((r) => r.agent_id) ?? []);
   const from = data && data.total ? page * PAGE + 1 : 0;
@@ -83,10 +85,10 @@ export default function AgentVerificationReview() {
         <KycOverview data={overview.data} loading={overview.isLoading} error={!!overview.error} counts={data?.counts} status={status} onStatus={changeTab} days={days} onDays={setDays} onRetry={() => overview.refetch()} />
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 pt-7"><div><h2 className="text-lg font-semibold">Agent review queue</h2><p className="mt-1 text-xs text-muted-foreground">{data ? `${data.total.toLocaleString()} agents` : 'Loading agents'} · Oldest submissions first</p></div><Badge variant="outline" className="gap-1.5"><Fingerprint className="h-3.5 w-3.5" />National ID review</Badge></div>
         <Tabs value={status} onValueChange={changeTab}>
-          <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
+          <TabsList variant="underline" className="h-auto w-full justify-start gap-0 overflow-x-auto p-0">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="min-h-11 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-4 sm:text-sm">
-                {t.label}{data ? ` (${data.counts[t.value]})` : ''}
+              <TabsTrigger variant="underline" key={t.value} value={t.value} className="min-h-12 shrink-0 gap-2 px-3 py-3 text-xs sm:px-4 sm:text-sm">
+                {t.label}<span className="rounded-md bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground">{data?.counts[t.value] ?? '—'}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -115,17 +117,7 @@ export default function AgentVerificationReview() {
         ) : (
           <div className="border-y border-border">
             {identities.error && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">Identity-link counts unavailable. <Button variant="link" size="sm" onClick={() => identities.refetch()}>Retry</Button></p>}
-            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_130px_140px_44px] gap-4 border-b border-border bg-muted/40 px-3 py-3 text-xs font-medium text-muted-foreground lg:grid"><span>Agent</span><span>District</span><span>Verification</span><span>National ID</span><span>Submitted</span><span /></div>
-            {data.rows.map((r) => (
-              <div key={r.agent_id} className="grid items-center gap-3 border-b border-border px-3 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_130px_140px_44px] lg:gap-4">
-                <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">{(r.name ?? 'A').split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('')}</span><div className="min-w-0"><Button variant="link" className="h-auto min-h-6 max-w-full justify-start whitespace-normal p-0 text-left font-semibold text-foreground" onClick={() => openReview(r.agent_id)}>{r.name ?? 'Unknown'}</Button><p className="text-xs text-muted-foreground">{r.phone ?? 'No phone on file'}<span className="lg:hidden">{r.district ? ` · ${r.district}` : ''}</span></p></div></div>
-                <p className="hidden truncate text-sm text-muted-foreground lg:block">{r.district ?? '—'}</p>
-                <div><Badge variant="outline" className={r.status === 'verified' ? 'border-success/30 bg-success/10 text-success' : r.status === 'rejected' ? 'border-destructive/30 bg-destructive/10 text-destructive' : r.status === 'submitted' ? 'border-warning/30 bg-warning/10 text-warning' : ''}>{VETTING_STATUS_LABEL[r.status] ?? 'Not started'}</Badge></div>
-                <div className="flex flex-wrap items-center gap-2 text-xs lg:block"><span className="text-muted-foreground">{r.id_source === 'parent' ? "Parent's ID" : r.id_source === 'own' ? 'Own ID' : 'Not on file'}</span><div className="lg:mt-1">{identities.data && identities.data[r.agent_id] !== undefined ? identities.data[r.agent_id] > 0 ? <Button variant="link" size="sm" className="h-auto min-h-6 gap-1 p-0 text-xs" onClick={() => openReview(r.agent_id)} aria-label={`Review identity links for ${r.name ?? 'agent'}`}><Link2 className="h-3 w-3" />{identities.data[r.agent_id]} linked</Button> : <span className="text-muted-foreground">No other agents linked</span> : <span className="text-muted-foreground">Links {identities.isLoading ? 'loading…' : 'unavailable'}</span>}</div></div>
-                <span className="text-xs text-muted-foreground" title={abs(r.submitted_at)}>{r.submitted_at ? ago(r.submitted_at) : 'Not submitted'}</span>
-                <Button variant="ghost" size="icon" className="hidden h-11 w-11 lg:inline-flex" onClick={() => openReview(r.agent_id)} aria-label={`Open review for ${r.name ?? 'agent'}`} title="Open review"><ArrowUpRight className="h-4 w-4" /></Button>
-              </div>
-            ))}
+            <KycReviewTable rows={data.rows} links={identities.data} photos={Object.fromEntries(data.rows.map((r) => [r.agent_id, avatarFor(r.agent_id)]))} selectedId={openId} onOpen={openReview} />
           </div>
         )}
 
@@ -141,7 +133,7 @@ export default function AgentVerificationReview() {
       </main>
 
       <Sheet open={!!openId} onOpenChange={(o) => { if (!o) { setOpenId(null); setReviewTrail([]); } }}>
-        <SheetContent side="right" aria-describedby={undefined} className="w-full overflow-y-auto sm:max-w-xl">
+        <SheetContent side="center" aria-describedby={undefined} className="max-h-[88dvh] w-[calc(100vw-2rem)] overflow-y-auto rounded-lg p-5 sm:max-w-3xl lg:max-w-4xl xl:max-w-4xl">
           {reviewTrail.length > 0 && <Button variant="ghost" className="mb-2 gap-2" onClick={() => { const previous = reviewTrail[reviewTrail.length - 1]; if (previous) { setOpenId(previous); setReviewTrail((trail) => trail.slice(0, -1)); } }}><ArrowLeft className="h-4 w-4" />Back to previous agent</Button>}
           {openId && <ReviewPanel key={openId} agentId={openId} onDone={() => setOpenId(null)} onOpenLinked={(id) => { setReviewTrail((trail) => [...trail, openId]); setOpenId(id); }} />}
         </SheetContent>
@@ -232,10 +224,10 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
   </div>;
 
   return (
-    <div className="space-y-4 pb-24">
-      <SheetHeader>
-        <SheetTitle>{d.name ?? 'Agent'}</SheetTitle>
-        <Badge variant={d.status === 'rejected' ? 'destructive' : 'secondary'} className="w-fit">{VETTING_STATUS_LABEL[d.status]}</Badge>
+    <div className="space-y-5 pb-4">
+      <SheetHeader className="border-b border-border pb-5 text-left">
+        <p className="text-xs font-medium text-muted-foreground">AGENT DOSSIER</p>
+        <div className="flex items-center gap-4 pt-2"><Avatar className="h-16 w-16 border border-border"><AvatarImage src={d.avatar_url ?? undefined} alt={`${d.name ?? 'Agent'} profile photo`} /><AvatarFallback className="text-lg font-semibold">{(d.name ?? 'A').split(' ').filter(Boolean).slice(0, 2).map((s: string) => s[0]).join('')}</AvatarFallback></Avatar><div className="min-w-0"><SheetTitle className="break-words text-xl">{d.name ?? 'Agent'}</SheetTitle><p className="my-2 text-sm text-muted-foreground">{d.profile_phone ?? d.phone ?? 'No phone on file'}</p><Badge variant={d.status === 'rejected' ? 'destructive' : 'secondary'} className="w-fit whitespace-normal">{VETTING_STATUS_LABEL[d.status]}</Badge></div></div>
       </SheetHeader>
 
       <Section title="Identity">
@@ -298,7 +290,7 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
       </Section>
 
       {d.status === 'submitted' && (
-        <div className="sticky bottom-0 -mx-6 flex gap-2 border-t border-border bg-background p-3">
+        <div className="sticky bottom-0 flex gap-2 border-t border-border bg-background p-3">
           <Button variant="outline" className="min-h-11 flex-1" disabled={decide.isPending} onClick={() => setRejectOpen(true)}>Send back</Button>
           <Button className="min-h-11 flex-1" disabled={decide.isPending} onClick={() => setApproveOpen(true)}>
             {decide.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Approve
