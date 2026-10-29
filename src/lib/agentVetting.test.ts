@@ -112,9 +112,15 @@ describe('vettingChecklist', () => {
     expect(v.national_id.linked_to).toEqual({ first_name: 'Sarah', phone_masked: '****567' });
   });
 
-  it('tells the agent to recapture a stale location', () => {
-    const v = parseAgentVetting(raw({ gps: { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: '2026-10-27T09:00:00Z' } }));
-    expect(vettingChecklist(v, NOW).find((s) => s.key === 'location')?.hint).toMatch(/too old/);
+  it('counts a captured location as done however old it is (submit re-reads it)', () => {
+    const old = parseAgentVetting(raw({ gps: { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: '2026-10-27T09:00:00Z' } }));
+    expect(vettingChecklist(old, NOW).find((s) => s.key === 'location')?.done).toBe(true);
+    // Captured "after" the phone's clock (phone running behind the server) still counts.
+    const ahead = parseAgentVetting(raw({ gps: { lat: 0.35, lng: 32.58, accuracy_m: 20, captured_at: new Date(NOW.getTime() + 5_000).toISOString() } }));
+    expect(vettingChecklist(ahead, NOW).find((s) => s.key === 'location')?.done).toBe(true);
+    const none = vettingChecklist(parseAgentVetting(raw()), NOW).find((s) => s.key === 'location');
+    expect(none?.done).toBe(false);
+    expect(none?.hint).toMatch(/Capture my location/);
   });
 
   it('needs a next-of-kin phone with at least nine digits', () => {
