@@ -59,6 +59,10 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
         : Math.min(num, monthlyReturns)
       : null;
 
+  // Returns can only be switched on when the agent has an active portfolio to deduct from
+  // (the server refuses it otherwise). An existing setting can still be edited or switched off.
+  const returnsBlocked = data.active_portfolios === 0 && !data.returns_enabled;
+
   const methods = [
     {
       key: 'commission',
@@ -72,9 +76,10 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
       key: 'returns',
       on: useReturns,
       toggle: () => setUseReturns((v) => !v),
+      disabled: returnsBlocked,
       icon: TrendingUp,
       label: 'Partnership Returns',
-      hint: 'Deducted when Returns are paid',
+      hint: returnsBlocked ? 'Needs an active partnership portfolio' : 'Deducted when Returns are paid',
     },
   ];
 
@@ -93,7 +98,7 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
               key={m.key}
               type="button"
               aria-pressed={m.on}
-              disabled={!data.can_edit}
+              disabled={!data.can_edit || ('disabled' in m && m.disabled)}
               onClick={m.toggle}
               className={cn(
                 'flex items-start gap-2 rounded-lg border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70',
