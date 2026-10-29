@@ -1,4 +1,4 @@
--- SUPERSEDED by the next migration: self-requests are now always allowed (old ID kept for comparison).
+-- Allow a reviewer to ask for an ID re-upload on their OWN record, but only while their
 -- identity has not yet been verified for withdrawals. identity_already_verified__impl is
 -- the same test used everywhere else: a verified payout destination plus ID and selfie
 -- photos on file. Once that is true, the self-request stays blocked so a verified
