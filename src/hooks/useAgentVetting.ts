@@ -8,7 +8,7 @@
  * Each confirm is followed by an RPC that stamps the step once the server can
  * see the code was accepted.
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -227,9 +227,11 @@ export function useAgentVetting() {
     enabled: gate.allowed && !!query.data?.parent_agent,
     staleTime: 10_000,
     // While waiting on the parent, check now and then so the screen moves on by itself.
+    // The parent's approval ('owner_approved') is enough for vetting (20261029180000); the staff
+    // confirm after it is an audit, so polling stops there.
     refetchInterval: (q) => {
       const s = (q.state.data as ParentIdLinkState | undefined)?.status;
-      return s === 'awaiting_owner' || s === 'owner_approved' ? 15_000 : false;
+      return s === 'awaiting_owner' ? 15_000 : false;
     },
     queryFn: async (): Promise<ParentIdLinkState> => {
       const { data, error } = await rpc('agent_vetting_parent_id_link_state');
@@ -237,6 +239,14 @@ export function useAgentVetting() {
       return (data ?? { found: false, has_parent: false }) as ParentIdLinkState;
     },
   });
+
+  // The ID step is decided by the server; reload the record when the link's status moves.
+  const linkStatus = parentIdLink.data?.status;
+  const seenLinkStatus = useRef(linkStatus);
+  useEffect(() => {
+    if (seenLinkStatus.current !== undefined && seenLinkStatus.current !== linkStatus) refresh();
+    seenLinkStatus.current = linkStatus;
+  }, [linkStatus, refresh]);
 
   /** Opens the link request to the parent's ID and texts the parent a code. */
   const requestParentIdLink = useCallback(
