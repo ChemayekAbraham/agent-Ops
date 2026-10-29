@@ -24,7 +24,7 @@ export function useStandingOrderAmount() {
     retry: false,
     mutationFn: async ({ order, newAmount, reason }: StandingOrderAmountEdit): Promise<AmountEditResult> => {
       // The RPC is typed locally; the server reads/locks fresh data.
-      const rpc = supabase.rpc as unknown as (
+      const rpc = supabase.rpc.bind(supabase) as unknown as (
         name: 'standing_order_set_amount',
         args: { p_order_id: string; p_expected_amount: number; p_expected_updated_at: string; p_new_amount: number; p_reason: string },
       ) => Promise<{ data: AmountEditResult | null; error: { message: string } | null }>;
