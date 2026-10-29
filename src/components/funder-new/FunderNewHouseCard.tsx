@@ -1,4 +1,4 @@
-import { Bookmark, Check, CircleDollarSign, Home, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -184,7 +184,7 @@ export function FunderNewHouseCard({
             {selected ? (
               <Check className="h-4 w-4 text-white" aria-hidden />
             ) : (
-              <CircleDollarSign className="h-4 w-4" aria-hidden />
+              <Sprout className="h-4 w-4" aria-hidden />
             )}
             {selected ? 'Selected' : 'Fund this House'}
           </Button>
