@@ -117,3 +117,31 @@ export function useDecideAgentVetting() {
     },
   });
 }
+
+/**
+ * Agent Ops: unlock a wrongly entered National ID so the agent uploads the correct card.
+ * Works even when the ID is already verified for withdrawals (the agent cannot replace
+ * that one themselves). Clears the ID photos, keeps the old ID for comparison, and sends
+ * the vetting back to the agent with `reason`. Until the new photos are in, the agent's
+ * identity is not verified for withdrawals.
+ */
+export function useRequestIdReupload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { agentId: string; reason: string }) => {
+      const { data, error } = await rpc('agent_vetting_request_id_reupload', {
+        p_agent_id: args.agentId,
+        p_reason: args.reason.trim(),
+      });
+      if (error) throw new Error(error.message);
+      const r = (data ?? {}) as { success?: boolean; message?: string; status?: VettingStatus };
+      if (!r.success) throw new Error(r.message ?? 'Could not send the ID back to the agent.');
+      return r;
+    },
+    onSuccess: (_r, args) => {
+      qc.invalidateQueries({ queryKey: ['agent-vetting-queue'] });
+      qc.invalidateQueries({ queryKey: ['agent-vetting-detail', args.agentId] });
+      qc.invalidateQueries({ queryKey: ['agent-vetting-photos'] });
+    },
+  });
+}
