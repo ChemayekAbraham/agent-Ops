@@ -21,7 +21,6 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
 import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
-import { standingOrderAmountDevelopmentEnabled } from '@/hooks/useStandingOrderAmount';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
   type StandingOrderRow, type StandingOrderHealth,
@@ -465,7 +464,7 @@ export function StandingOrdersPanel() {
           )}
         </div>
       </div>
-      {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} previewOnly={!standingOrderAmountDevelopmentEnabled()} onClose={() => setEditingAmount(null)} />}
+      {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} onClose={() => setEditingAmount(null)} />}
       {deleting && <StandingOrderDeleteDialog key={deleting.id} order={deleting} onClose={() => setDeleting(null)} />}
     </TooltipProvider>
   );
