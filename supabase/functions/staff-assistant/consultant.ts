@@ -405,7 +405,7 @@ export function validateConsultantWebUrl(
       decodeURIComponent(parsed.search.slice(1)),
       rawToolOutputs,
     );
-    if (!queryCheck.ok) {
+    if (queryCheck.ok === false) {
       return {
         ok: false,
         reason: queryCheck.reason,
