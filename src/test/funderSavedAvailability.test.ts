@@ -5,7 +5,7 @@ vi.mock('@/hooks/useAuthenticatedPoll', () => ({ requireUserSession: vi.fn().moc
 import { loadFunderSavedItems } from '@/components/funder-new/loadFunderSavedItems';
 
 describe('saved opportunity availability', () => {
-  beforeEach(() => rpc.mockReset());
+  beforeEach(() => { rpc.mockReset(); });
   const signal = () => new AbortController().signal;
   const response = (data: unknown, error: unknown = null) => ({ abortSignal: () => Promise.resolve({ data, error }) });
   it('checks both saved types independently of the visible filters', async () => {

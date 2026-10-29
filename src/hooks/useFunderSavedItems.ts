@@ -21,10 +21,11 @@ function subscribe(listener: () => void) {
 function update(change: (current: FunderSavedState) => FunderSavedState) {
   const next = change(snapshot());
   if (next === cached) return;
+  const previousRaw = cachedRaw;
   cached = next;
   cachedRaw = JSON.stringify(next);
   try { window.localStorage.setItem(FUNDER_SAVED_KEY, cachedRaw); }
-  catch { cachedRaw = null; }
+  catch { cachedRaw = previousRaw; }
   notify();
 }
 export function useFunderSavedItems() {
