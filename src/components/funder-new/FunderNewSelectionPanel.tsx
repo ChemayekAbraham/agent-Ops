@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CircleDollarSign, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -60,8 +60,21 @@ export function FunderNewSelectionBar({
     // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
     // bottom inset (which the pill is already lifted by). The pill shows at
     // every breakpoint, so this offset is deliberately not responsive-gated.
-    <div className="fixed inset-x-0 bottom-0 z-[110] w-full max-w-full overflow-hidden border-t bg-card shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] pb-[env(safe-area-inset-bottom,0px)]">
-      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    <div className="funder-selection-sheet fixed inset-x-0 bottom-0 z-[110] w-full max-w-full overflow-hidden rounded-t-2xl border-t bg-card shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] pb-[env(safe-area-inset-bottom,0px)]">
+      <style>{`
+        @keyframes funderSheetUp {
+          0% { transform: translate3d(0,100%,0); }
+          60% { transform: translate3d(0,-6px,0); }
+          80% { transform: translate3d(0,2px,0); }
+          100% { transform: translate3d(0,0,0); }
+        }
+        .funder-selection-sheet { animation: funderSheetUp 520ms cubic-bezier(0.22,1,0.36,1) both; will-change: transform; }
+        @media (prefers-reduced-motion: reduce) { .funder-selection-sheet { animation: none; } }
+      `}</style>
+      <div className="flex justify-center pt-2" aria-hidden>
+        <span className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
+      </div>
+      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-2 px-4 pb-2.5 pt-1.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <p className="text-sm font-semibold">
@@ -82,7 +95,7 @@ export function FunderNewSelectionBar({
             Clear
           </Button>
           <Button className="h-11 min-w-0 flex-1 rounded-xl px-3 lg:flex-none lg:px-8" onClick={onReview}>
-            <CircleDollarSign className="h-4 w-4" aria-hidden />
+            <Sprout className="h-4 w-4" aria-hidden />
             Support {items.length} {items.length === 1 ? 'home' : 'homes'}
           </Button>
         </div>
@@ -154,8 +167,9 @@ export function FunderNewReviewDialog({
           </Button>
           <DialogHeader className="min-w-0 flex-1 space-y-0.5 pt-1 text-left">
             <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-              Check the homes you picked. Nothing is submitted from this screen.
+            {/* Screen readers keep a description; nothing shows on screen. */}
+            <DialogDescription className="sr-only">
+              Review the homes you picked. Nothing is submitted from this screen.
             </DialogDescription>
           </DialogHeader>
         </div>
