@@ -154,8 +154,9 @@ export function FunderNewReviewDialog({
           </Button>
           <DialogHeader className="min-w-0 flex-1 space-y-0.5 pt-1 text-left">
             <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
-              Check the homes you picked. Nothing is submitted from this screen.
+            {/* Screen readers keep a description; nothing shows on screen. */}
+            <DialogDescription className="sr-only">
+              Review the homes you picked. Nothing is submitted from this screen.
             </DialogDescription>
           </DialogHeader>
         </div>
