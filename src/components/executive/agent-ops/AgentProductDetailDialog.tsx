@@ -116,11 +116,17 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_agent_partnership_summary' as any, { p_agent_id: agentId });
       if (error) throw error;
-      const d = (data ?? {}) as { count?: number; amount?: number; earned?: number; monthly?: number };
+      const d = (data ?? {}) as {
+        count?: number; amount?: number; earned?: number; monthly?: number;
+        pending?: number; locked?: number; redeemed?: number;
+      };
       const amount = Number(d.amount || 0);
       const monthly = Number(d.monthly || 0);
       const rate = amount > 0 ? (monthly / amount) * 100 : 0;
-      return { count: Number(d.count || 0), amount, earned: Number(d.earned || 0), monthly, rate };
+      return {
+        count: Number(d.count || 0), amount, earned: Number(d.earned || 0), monthly, rate,
+        pending: Number(d.pending || 0), locked: Number(d.locked || 0), redeemed: Number(d.redeemed || 0),
+      };
     },
   });
 
@@ -263,7 +269,13 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                   <Badge variant={partnership && partnership.count > 0 ? 'default' : 'outline'} className="text-[10px]">
                     {partnership && partnership.count > 0
                       ? `Active portfolio${partnership.count > 1 ? 's' : ''} (${partnership.count})`
-                      : 'No active portfolio'}
+                      : partnership && partnership.pending > 0
+                        ? `Pending activation (${partnership.pending})`
+                        : partnership && partnership.locked > 0
+                          ? `Locked portfolio${partnership.locked > 1 ? 's' : ''} (${partnership.locked})`
+                          : partnership && partnership.redeemed > 0
+                            ? 'Redeemed — no active portfolio'
+                            : 'No active portfolio'}
                   </Badge>
                 </div>
                 {partnership && partnership.count > 0 && (
