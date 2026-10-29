@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { selectInChunks } from "../_shared/inChunks.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -45,11 +46,12 @@ Deno.serve(async (req) => {
     const tenantIds = [...new Set(activeRentRequests.map(r => r.tenant_id))];
 
     // Get today's repayments
-    const { data: todayRepayments, error: repaymentError } = await supabase
-      .from('repayments')
-      .select('tenant_id')
-      .eq('payment_date', today)
-      .in('tenant_id', tenantIds);
+    const { data: todayRepayments, error: repaymentError } = await selectInChunks(tenantIds, (chunk) =>
+      supabase
+        .from('repayments')
+        .select('tenant_id')
+        .eq('payment_date', today)
+        .in('tenant_id', chunk));
 
     if (repaymentError) {
       console.error('Error fetching repayments:', repaymentError);
@@ -67,10 +69,11 @@ Deno.serve(async (req) => {
     }
 
     // Get push subscriptions for unpaid tenants
-    const { data: subscriptions, error: subError } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .in('user_id', unpaidTenantIds);
+    const { data: subscriptions, error: subError } = await selectInChunks(unpaidTenantIds, (chunk) =>
+      supabase
+        .from('push_subscriptions')
+        .select('*')
+        .in('user_id', chunk));
 
     if (subError) {
       console.error('Error fetching subscriptions:', subError);
@@ -78,10 +81,11 @@ Deno.serve(async (req) => {
     }
 
     // Get tenant names for personalized messages
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .in('id', unpaidTenantIds);
+    const { data: profiles } = await selectInChunks(unpaidTenantIds, (chunk) =>
+      supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', chunk));
 
     const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
 
