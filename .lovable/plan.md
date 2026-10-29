@@ -1,40 +1,42 @@
-[FRAUD-SWEEP-2026-10-29]
+# Agent KYC Command Center
 
-# Read-only fraud sweep: 28 Oct 08:00 to 29 Oct 08:00 EAT
+## What will change
+Turn `/agent-ops/agent-verification` into a focused KYC workspace for reviewing agents, checking identity connections and monitoring verification progress.
 
-Strictly read-only. Only SELECT queries. No file edits, no migrations, no write functions, no row changes. No keys, tokens or passwords in the output. Every time shown in EAT (UTC+3). Every row includes the exact UGX amount, the transaction ID or reference, phone numbers, tenant, agent and approver.
+### Command overview
+- A clear **Agent KYC Command Center** heading with refresh and last-updated state.
+- Clickable totals for **Awaiting review**, **Verified**, **Sent back** and **Not started**, using actual server totals.
+- A line graph of daily submissions, approvals and sent-back decisions, with 7-day and 30-day views and Kampala dates.
+- A compact verification-status breakdown alongside the graph. Empty or unavailable data stays explicit; no invented trends or risk scores.
 
-Query window (UTC): `>= '2026-10-28 05:00+00' AND < '2026-10-29 05:00+00'`
+### Agent review queue
+- Preserve name/phone search, active-agent filtering, status tabs and pagination.
+- Use a scannable desktop table and compact mobile rows showing agent, district, status, ID source, identity-link count and submission age.
+- Keep the oldest submissions first, as today.
+- Make shared-ID connections visible without treating an approved parent-ID link as fraud.
 
-## 1. Landlord payouts
-- Every payout in the window from `agent_landlord_payouts` and the landlord float allocations: landlord name, payout phone, landlord verified (yes/no), tenant flags (unverified, @noapp, no phone), agent, transaction ID, and whether a CFO approval or withdrawal-history row exists. Payouts with no CFO approval are flagged.
-- Targeted checks: agent Ian Muhwezi (+256787725122), and recipients weyikilize Evalyn (0766305139), Namere Babra (0752559839), Mafabi Nasser (0750622590) and musawo (0705075331). Phone numbers are matched in all formats (07…, 2567…, +2567…).
-- Payout phones shared by more than one landlord.
-- Location clustering: tenants or landlords created in the window by the same agent at nearly the same spot (coordinates rounded to about 4 decimals, 3 or more records).
+### Identity connections and vetting
+- Opening an agent keeps the existing review drawer: photos, contact confirmations, residence, GPS map, next of kin and decision history.
+- Add **Agents linked to this National ID**, with the ID holder, linked agent names, contact details and verification statuses. Open a linked agent's review from that list and allow returning to the original agent.
+- Match recorded own-ID and linked-ID relationships using the existing server normalization, not masked-number guesses.
+- Keep National ID numbers masked in summaries. Preserve existing ID photo enlargement and previous-versus-current ID comparison.
+- Preserve individual Approve and Send back actions and confirmation dialogs. No bulk approvals, automatic decisions or changes to verification requirements.
 
-## 2. Money moved without proof
-- Wallet transfers, withdrawals, deposits, float top-ups and requisitions in the window where the transaction ID is missing, appears more than once, or matches no MTN/Airtel/ledger record.
-- Deposits and intakes approved by hand.
-- Self-approvals, where the approver is also the requester or owns the cash.
-- Receipts credited to deleted or inactive accounts.
-- Operational Float credits that came from email receipts.
-- Every action in the window by Nankambo sharimah (+256708269084), KATUSHABE GLORIOUS (+256705799857), Rachel Blessing Nabutiti and Joshua Wanda (+256704825473), taken from `audit_logs`, approval columns and the ledger's created-by field.
+## Visual direction
+A restrained operations desk: crisp typography, unframed page sections, strong table hierarchy, green verified states, amber review states and clear rejected states. Use existing semantic colors and controls, with balanced spacing and charts that remain legible on smaller screens.
 
-## 3. Held agents
-- Ian Muhwezi (+256787725122, and alias Muhwezi Ian Martine +256742000365), Watsala Enock (+256750223152), and every other agent currently marked held or frozen.
-- For each one: collections logged in the window (tenant, amount, transaction ID or "missing", time), any transfers, credits or float they received, and their current frozen or hold status.
+## Technical details
+- Keep all review reads and decisions in the existing agent-vetting hooks and helper layer.
+- The current queue provides totals but no identity groups or complete historical series. Add narrowly scoped **read-only reporting RPCs** for aggregate trends, queue identity-link summaries and a selected agent's identity group.
+- Reuse `is_agent_vetting_reviewer` for caller authorization, with explicit execution grants and `search_path = public`. Return only the fields needed by the workspace; never send full National ID values to the browser.
+- Do not reuse `national_id_group_view()` for staff review: it intentionally returns the signed-in user's own group, not the selected agent's group.
+- Derive graph history from recorded vetting events, not from the current 50-row queue or its latest status alone.
+- Keep group reads paginated and overview reads aggregated; scope caches to the signed-in account and refresh them after existing decisions.
+- No changes to payments, wallets, ledger entries, agent roles or verification enforcement. No publishing.
 
-## 4. Silent agents
-- Agents whose last remittance was 3 or more days ago but who still hold cash or float: agent, phone, days silent and balance (read from the wallet balance summary).
-- Named checks: Akampurira Onesmus, Nyanzi Lydia Eseri, Sharifu Kalule, James Katongole and Waswa.
-
-## 5. Reassignments and new database objects
-- Tenant-to-agent reassignments in the window (from the ops transfer function, the tenant-agent linker, or direct agent changes in audit and history tables): who did it, and whether a matching audit-log row exists.
-- Public tables and functions created in the window, taken from the migration history (`supabase_migrations.schema_migrations`) and the database catalogue (`pg_catalog`), with their names.
-
-## Output
-A short list of facts for each section, or "none" where nothing happened in the window. No fixes are proposed or made.
-
-## Technical notes
-- Before querying, check the real column names on the live database (`information_schema.columns`), because the migration files don't always match production.
-- Use parallel read-only queries, each with a time limit and a LIMIT.
+## Verification
+- Test ID-group matching, own/linked-ID membership deduplication, masking and reviewer authorization.
+- Test daily event aggregation, Kampala day boundaries and status totals against read-only source counts.
+- Run the existing Agent Ops review tests to preserve photo review and decisions.
+- Check search, filters, pagination, graph controls and linked-agent navigation in the browser at desktop and mobile sizes.
+- Authenticated end-to-end verification depends on an available authorized session; report any unavailable checks rather than claiming a signed-out screen proves the workflow.
