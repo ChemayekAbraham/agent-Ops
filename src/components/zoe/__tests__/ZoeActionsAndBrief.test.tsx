@@ -521,6 +521,34 @@ describe('Zoe Action Drafts, Schedules & Reminders List, and 07:30 Morning Brief
           screen_label: 'Open CRM Dashboard',
         },
       ],
+      unanswered_questions: [
+        {
+          question: 'deliver the calling report for october',
+          role: 'super_admin',
+          outcome: 'error',
+          ask_count: 1,
+        },
+        {
+          question: 'regional sub-agent targets for wakiso',
+          role: 'agent_ops',
+          outcome: 'missing_tool',
+          ask_count: 3,
+        },
+      ],
+      feedback_summary: {
+        thumbs_up_count: 24,
+        thumbs_down_count: 2,
+        problem_reports_count: 1,
+      },
+      anomaly_notes: [
+        {
+          category: 'desk_wait',
+          title: 'Landlord Ops desk wait hours',
+          summary: 'Wait time is +47% above its 4-week Kampala baseline.',
+          source_function: 'rent_request_timing',
+          period_label: 'Last 4 weeks',
+        },
+      ],
     };
 
     const { rerender } = render(
@@ -551,5 +579,22 @@ describe('Zoe Action Drafts, Schedules & Reminders List, and 07:30 Morning Brief
       expect(screen.getByTestId(`zoe-weekly-issue-${rank}`)).toBeInTheDocument();
       expect(screen.getByTestId(`zoe-weekly-issue-link-${rank}`)).toBeInTheDocument();
     }
+
+    // Weekly redacted "Questions Zoe could not answer" table + feedback summary + anomaly notes
+    expect(screen.getByTestId('zoe-weekly-unanswered-section')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-weekly-unanswered-table')).toHaveTextContent(
+      'deliver the calling report for october',
+    );
+    expect(screen.getByTestId('zoe-weekly-unanswered-table')).toHaveTextContent(
+      'regional sub-agent targets for wakiso',
+    );
+    expect(screen.getByTestId('zoe-weekly-feedback-counts')).toHaveTextContent('Helpful: 24');
+    expect(screen.getByTestId('zoe-weekly-feedback-counts')).toHaveTextContent('Not helpful: 2');
+    expect(screen.getByTestId('zoe-weekly-feedback-counts')).toHaveTextContent(
+      'Reported problems: 1',
+    );
+    expect(screen.getByTestId('zoe-weekly-anomaly-notes')).toHaveTextContent(
+      'Landlord Ops desk wait hours',
+    );
   });
 });

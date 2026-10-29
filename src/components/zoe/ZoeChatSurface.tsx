@@ -149,7 +149,11 @@ export interface ZoeChatSurfaceProps {
   onStartNewChat?: () => void | Promise<void>;
   onRenameConversation?: (conversationId: string, title: string) => void | Promise<void>;
   onRetry?: () => void | Promise<void>;
-  onFeedback: (messageId: string, rating: ZoeFeedbackRating) => void | Promise<void>;
+  onFeedback: (
+    messageId: string,
+    rating: ZoeFeedbackRating,
+    options?: { comment?: string; reportKind?: 'rating' | 'problem_report' },
+  ) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
   onAddNote?: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
   onDeleteNote?: (noteId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -305,6 +309,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   const [renameDraft, setRenameDraft] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [expandedDataIds, setExpandedDataIds] = useState<Record<string, boolean>>({});
+  const [activeFeedbackFormId, setActiveFeedbackFormId] = useState<string | null>(null);
+  const [feedbackReportKind, setFeedbackReportKind] = useState<'rating' | 'problem_report'>('rating');
+  const [feedbackCommentDraft, setFeedbackCommentDraft] = useState('');
+  const [submittedProblemIds, setSubmittedProblemIds] = useState<Record<string, boolean>>({});
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const suggestions: ZoeSuggestion[] = getSuggestionsForRoles(roles);
 
@@ -1160,7 +1168,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       aria-label="Helpful answer"
                       aria-pressed={msg.feedback === 'up'}
                       data-testid={`zoe-feedback-up-${msg.id}`}
-                      onClick={() => void onFeedback(msg.id, 'up')}
+                      onClick={() => {
+                        setActiveFeedbackFormId((prev) => (prev === msg.id ? null : prev));
+                        void onFeedback(msg.id, 'up');
+                      }}
                       className={cn(
                         'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         msg.feedback === 'up'
@@ -1175,7 +1186,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       aria-label="Not helpful answer"
                       aria-pressed={msg.feedback === 'down'}
                       data-testid={`zoe-feedback-down-${msg.id}`}
-                      onClick={() => void onFeedback(msg.id, 'down')}
+                      onClick={() => {
+                        setFeedbackReportKind('rating');
+                        setActiveFeedbackFormId(msg.id);
+                        void onFeedback(msg.id, 'down');
+                      }}
                       className={cn(
                         'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         msg.feedback === 'down'
@@ -1185,10 +1200,84 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     >
                       <ThumbsDown className="h-4 w-4" aria-hidden="true" />
                     </button>
+                    <button
+                      type="button"
+                      data-testid={`zoe-report-problem-${msg.id}`}
+                      onClick={() => {
+                        setFeedbackReportKind('problem_report');
+                        setActiveFeedbackFormId((prev) =>
+                          prev === msg.id && feedbackReportKind === 'problem_report'
+                            ? null
+                            : msg.id,
+                        );
+                      }}
+                      className={cn(
+                        'inline-flex min-h-[44px] items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        submittedProblemIds[msg.id]
+                          ? 'border-destructive bg-destructive/10 text-destructive'
+                          : 'border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                      )}
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>
+                        {submittedProblemIds[msg.id] ? 'Problem reported' : 'Report a problem'}
+                      </span>
+                    </button>
                   </div>
 
                   {renderMessageAction ? renderMessageAction(msg) : null}
                 </div>
+
+                {activeFeedbackFormId === msg.id && (
+                  <form
+                    data-testid={`zoe-feedback-form-${msg.id}`}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const trimmedComment = feedbackCommentDraft.trim();
+                      void onFeedback(msg.id, 'down', {
+                        comment: trimmedComment || undefined,
+                        reportKind: feedbackReportKind,
+                      });
+                      if (feedbackReportKind === 'problem_report') {
+                        setSubmittedProblemIds((prev) => ({ ...prev, [msg.id]: true }));
+                      }
+                      setFeedbackCommentDraft('');
+                      setActiveFeedbackFormId(null);
+                    }}
+                    className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-background p-2.5 text-xs"
+                  >
+                    <input
+                      type="text"
+                      value={feedbackCommentDraft}
+                      onChange={(e) => setFeedbackCommentDraft(e.target.value.slice(0, 500))}
+                      placeholder={
+                        feedbackReportKind === 'problem_report'
+                          ? 'Describe what went wrong or what figure/report was missing...'
+                          : 'Optional: tell managers what was missing or unhelpful...'
+                      }
+                      aria-label="Feedback comment"
+                      data-testid={`zoe-feedback-comment-input-${msg.id}`}
+                      className="min-h-[44px] min-w-[200px] flex-1 rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <button
+                      type="submit"
+                      data-testid={`zoe-feedback-submit-${msg.id}`}
+                      className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Send feedback
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeedbackCommentDraft('');
+                        setActiveFeedbackFormId(null);
+                      }}
+                      className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
           );
