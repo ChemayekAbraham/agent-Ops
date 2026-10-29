@@ -262,3 +262,19 @@ function contactFields(category: FunderNewCategory, item: FunderNewEmptyHouse | 
     lng: toNum(any.request_longitude),
   };
 }
+
+/**
+ * How many filters the funder has actually switched on. `sort` is an ordering,
+ * not a filter, so it is never counted — the Filters button badge shows this.
+ */
+export function countActiveFunderFilters(f: FunderNewFilters): number {
+  return [
+    f.search.trim() !== '',
+    f.location.trim() !== '',
+    f.amount !== 'all',
+    f.rentMin !== null,
+    f.rentMax !== null,
+    f.radiusKm !== 'all',
+    f.withinFloat,
+  ].filter(Boolean).length;
+}
