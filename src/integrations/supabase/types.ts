@@ -79376,6 +79376,18 @@ export type Database = {
         }[]
       }
       get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
+      get_landlord_payout_renewals: {
+        Args: never
+        Returns: {
+          is_renewal: boolean
+          new_days: number
+          new_rent: number
+          previous_days: number
+          previous_rent: number
+          tenant_name: string
+          withdrawal_id: string
+        }[]
+      }
       get_landlord_verification_actors: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
