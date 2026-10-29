@@ -8,7 +8,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { useStandingOrderAmount } from '@/hooks/useStandingOrderAmount';
 import type { StandingOrderRow } from '@/hooks/useStandingOrders';
 
-export function StandingOrderAmountDialog({ order, onClose, previewOnly = false }: { order: StandingOrderRow; onClose: () => void; previewOnly?: boolean }) {
+export function StandingOrderAmountDialog({ order, onClose }: { order: StandingOrderRow; onClose: () => void }) {
   const edit = useStandingOrderAmount();
   const [direction, setDirection] = useState<'increase' | 'decrease'>('increase');
   const [delta, setDelta] = useState('');
@@ -22,7 +22,7 @@ export function StandingOrderAmountDialog({ order, onClose, previewOnly = false 
     && newAmount > 0 && newAmount <= 500000000 && reason.trim().length >= 10 && reason.trim().length <= 1000;
 
   async function save() {
-    if (previewOnly || !valid || !confirming || edit.isPending) return;
+    if (!valid || !confirming || edit.isPending) return;
     setError('');
     try {
       const result = await edit.mutateAsync({ order, newAmount, reason });
@@ -39,7 +39,6 @@ export function StandingOrderAmountDialog({ order, onClose, previewOnly = false 
         <DialogTitle>{savedAmount !== null ? 'Standing order amount updated' : 'Change standing order amount'}</DialogTitle>
         <DialogDescription>{order.target_name || 'Recipient'} · Future scheduled payments only. Saving does not run a payment or change the schedule.</DialogDescription>
       </DialogHeader>
-      {previewOnly && <p role="note" className="text-sm text-muted-foreground">Preview only. Saving is disabled pending separate approval. Your standing order will not change.</p>}
       {savedAmount !== null ? <>
         <p className="text-lg font-semibold text-primary" role="status">Updated amount: {formatUGX(savedAmount)}</p>
         <Button onClick={onClose}>Done</Button>
@@ -64,7 +63,7 @@ export function StandingOrderAmountDialog({ order, onClose, previewOnly = false 
         {confirming && <p className="text-sm font-medium">Confirm {formatUGX(order.amount)} → {formatUGX(newAmount)}? An in-progress payment may use its previously captured amount.</p>}
         <div className="flex justify-end gap-2">
           <Button variant="outline" disabled={edit.isPending} onClick={() => confirming ? setConfirming(false) : onClose()}>{confirming ? 'Back' : 'Cancel'}</Button>
-          {confirming ? <Button disabled={previewOnly || !valid || edit.isPending} onClick={save}>{edit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{previewOnly ? 'Saving disabled' : 'Confirm amount change'}</Button>
+          {confirming ? <Button disabled={!valid || edit.isPending} onClick={save}>{edit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirm amount change</Button>
             : <Button disabled={!valid} onClick={() => setConfirming(true)}>Review change</Button>}
         </div>
       </>}
