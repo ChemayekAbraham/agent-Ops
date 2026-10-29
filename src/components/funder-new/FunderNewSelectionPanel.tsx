@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, CircleDollarSign, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck, Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +82,7 @@ export function FunderNewSelectionBar({
             Clear
           </Button>
           <Button className="h-11 min-w-0 flex-1 rounded-xl px-3 lg:flex-none lg:px-8" onClick={onReview}>
-            <CircleDollarSign className="h-4 w-4" aria-hidden />
+            <Sprout className="h-4 w-4" aria-hidden />
             Support {items.length} {items.length === 1 ? 'home' : 'homes'}
           </Button>
         </div>
