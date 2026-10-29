@@ -65,4 +65,14 @@ describe('Agent Ops ID review', () => {
     openPanel();
     expect(screen.queryByRole('button', { name: 'Ask agent to re-upload ID' })).toBeNull();
   });
+  it('offers re-upload for an agent with ID photos who never submitted', () => {
+    Object.assign(state.detail, { status: 'unverified', id_front_path: null, id_back_path: null, has_id_photos: true });
+    openPanel();
+    expect(screen.getByRole('button', { name: 'Ask agent to re-upload ID' })).toBeInTheDocument();
+  });
+  it('hides re-upload when the agent has no ID photos at all', () => {
+    Object.assign(state.detail, { status: 'unverified', id_front_path: null, id_back_path: null, has_id_photos: false });
+    openPanel();
+    expect(screen.queryByRole('button', { name: 'Ask agent to re-upload ID' })).toBeNull();
+  });
 });
