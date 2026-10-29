@@ -112,8 +112,8 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-primary" />
-              <h2 className="text-sm sm:text-base font-bold">Tenant Locations</h2>
-              <Badge variant="outline" className="text-[10px]">read-only test page</Badge>
+              <h2 className="text-sm sm:text-base font-bold">All Tenants</h2>
+              {/* <Badge variant="outline" className="text-[10px]">read-only test page</Badge> */}
             </div>
             <div className="flex items-center gap-1">
               {STATUS_TABS.map(t => (
