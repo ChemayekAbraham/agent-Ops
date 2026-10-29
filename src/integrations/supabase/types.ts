@@ -44142,6 +44142,108 @@ export type Database = {
           },
         ]
       }
+      protected_function_changes: {
+        Row: {
+          app_name: string | null
+          at: string
+          client_addr: string | null
+          command: string | null
+          db_user: string | null
+          detail: string | null
+          id: string
+          identity: string | null
+          jwt_role: string | null
+          jwt_sub: string | null
+          new_md5: string | null
+          notified: boolean
+          old_md5: string | null
+          outcome: string
+          session_usr: string | null
+        }
+        Insert: {
+          app_name?: string | null
+          at?: string
+          client_addr?: string | null
+          command?: string | null
+          db_user?: string | null
+          detail?: string | null
+          id?: string
+          identity?: string | null
+          jwt_role?: string | null
+          jwt_sub?: string | null
+          new_md5?: string | null
+          notified?: boolean
+          old_md5?: string | null
+          outcome: string
+          session_usr?: string | null
+        }
+        Update: {
+          app_name?: string | null
+          at?: string
+          client_addr?: string | null
+          command?: string | null
+          db_user?: string | null
+          detail?: string | null
+          id?: string
+          identity?: string | null
+          jwt_role?: string | null
+          jwt_sub?: string | null
+          new_md5?: string | null
+          notified?: boolean
+          old_md5?: string | null
+          outcome?: string
+          session_usr?: string | null
+        }
+        Relationships: []
+      }
+      protected_function_settings: {
+        Row: {
+          id: boolean
+          set_at: string | null
+          unlock_hash: string | null
+        }
+        Insert: {
+          id?: boolean
+          set_at?: string | null
+          unlock_hash?: string | null
+        }
+        Update: {
+          id?: boolean
+          set_at?: string | null
+          unlock_hash?: string | null
+        }
+        Relationships: []
+      }
+      protected_functions: {
+        Row: {
+          definition: string
+          definition_md5: string
+          func_name: string
+          identity: string
+          protected_at: string
+          schema_name: string
+          updated_at: string
+        }
+        Insert: {
+          definition: string
+          definition_md5: string
+          func_name: string
+          identity: string
+          protected_at?: string
+          schema_name: string
+          updated_at?: string
+        }
+        Update: {
+          definition?: string
+          definition_md5?: string
+          func_name?: string
+          identity?: string
+          protected_at?: string
+          schema_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       proxy_agent_assignments: {
         Row: {
           agent_id: string
@@ -70178,6 +70280,20 @@ export type Database = {
           existing_total: number
         }[]
       }
+      _pf_identity: { Args: { p_oid: unknown }; Returns: string }
+      _pf_log: {
+        Args: {
+          p_command: string
+          p_detail?: string
+          p_identity: string
+          p_new_md5: string
+          p_old_md5: string
+          p_outcome: string
+        }
+        Returns: string
+      }
+      _pf_restore: { Args: { p_definition: string }; Returns: undefined }
+      _pf_unlocked: { Args: never; Returns: boolean }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -86479,6 +86595,12 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: undefined
       }
+      protect_function: { Args: { p_name: string }; Returns: number }
+      protect_set_unlock_token: {
+        Args: { p_new: string; p_old?: string }
+        Returns: string
+      }
+      protected_functions_check: { Args: never; Returns: number }
       proxy_agent_partner_rows: {
         Args: { p_agent_id: string }
         Returns: {
@@ -91591,6 +91713,7 @@ export type Database = {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: Json
       }
+      unprotect_function: { Args: { p_name: string }; Returns: number }
       update_agent_advance_terms: {
         Args: {
           p_advance_id: string
