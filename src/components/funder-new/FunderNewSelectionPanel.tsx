@@ -77,7 +77,7 @@ export function FunderNewSelectionBar({
           </p>
         </div>
         <div className="flex min-w-0 gap-2">
-          <Button variant="ghost" className="h-11 flex-none rounded-xl px-3 text-destructive" onClick={onClear}>
+          <Button variant="ghost" className="h-11 flex-none rounded-xl border border-destructive px-3 text-destructive hover:border-destructive" onClick={onClear}>
             <X className="h-4 w-4" />
             Clear
           </Button>
