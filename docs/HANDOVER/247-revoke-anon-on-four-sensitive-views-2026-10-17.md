@@ -510,3 +510,13 @@ Stability: no database restart since 10-28 14:26 UTC (about 17 hours); the cause
 **Checked, working as designed:** `approve_promissory_note` refusals (`NOTE_ALREADY_APPROVED` 240, `EARLIER_NOTE_FIRST`; one bulk flow retrying about 6-12 times per name), `unique_subagent`, `uq_general_ledger_reference_dedupe`, `uq_sms_delivery_log_idempotency_key`, `get_merchant_float_positions` permission-denied bursts (signed-out sessions; `authenticated` holds execute), `GPS_REQUIRED`, `AGENT_NOT_VETTED`, `LC1_DUPLICATE`.
 
 **Still open, unchanged:** Twilio 20003 (10 in 3 h), `integer out of range` on `login_phase_events` (client fix not merged), `invalid column for filter user_id` (6), uuid `"null"` / `"tenant"` lookups (client), `crm-voice-capability-token` 400, push 403/400 until users reopen the app on the new key.
+
+## Step 54: rescan 10-29 11:25 UTC
+
+**Fixed: national ID submission timing out.** `submit_national_id_details` calls `national_id_name_twins`, which evaluates `person_name_key()` (two regexps) on `full_name` and `national_id_name` for every one of the ~97,800 profiles, with no index. Three calls hit the statement timeout (last 11:20 UTC), so the person's ID details were not saved. Migration `20261029120000_profiles_person_name_key_indexes.sql` adds two expression indexes (the function is IMMUTABLE); the lookup now plans as a BitmapOr and runs in 0.2 ms. Applied by hand.
+
+**Found, NOT changed:**
+- **Gateway outage 09:05-09:10 UTC.** About 1,160 requests got 503/520/521/522/525 from the API edge in one five-minute bucket (profiles, treasury_controls, login_devices and others). Postgres logged normally through those minutes (no restart, no gap), so this was the API gateway, not the database. One-off; none since.
+- **Statement timeouts (129 since 07:15):** `get_agent_ops_overview` (31) and `get_agent_active_breakdown` (29) stopped at 07:50; `cc_state_counts` (23, still happening, last 10:45), `get_agent_collections_command_center` (14, last 09:00), `get_tenant_ops_*`, `get_promissory_ops_report`, `get_cfo_received_by_category_*` (Lovable re-applied it at 10:58). `cc_state_counts` runs a dynamic query over `v_cc_call_queue`; the slow part is inside that view and needs its own plan analysis.
+- `assistant_staff_my_calls(p_from, p_to)` is missing (PGRST202): the unapplied `staff_assistant_*` Lovable migrations.
+- Push failures continue from old subscriptions (about 70 per endpoint per run), as expected until users reopen the app.
