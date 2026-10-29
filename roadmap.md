@@ -12,4 +12,6 @@
 # Unified 360-Day Contract Engine
 - [x] Pricing engine and tests (src/lib/contractEngine360.ts).
 - [x] Database proposal written (docs/pending-migrations/v360_contract_engine.sql).
-- [ ] Apply database changes, waterfall, Day-30 job, agent actions, dashboard bindings; blocked: the only connected database is production.
+- [x] Database engine applied (columns, pricing, schedules, daily split, Day-30 buffer cover, mark day, Guest Tenant, plan summary).
+- [x] Front-end hook useV360Plan.
+- [ ] Switch new Rent Plan creation to v360, agent buttons, dashboard figures, Nexa quotes, Day-30 daily job, buffer seed, ledger posting; waiting on Benjamin (see reply).
