@@ -1,3 +1,7 @@
+# Browser saved items
+- [ ] Add a hamburger Saved Items dialog backed by existing browser bookmarks.
+- [ ] Remove unavailable houses and Rent Plans using successful, unfiltered server reads; test persistence and cleanup.
+
 # Agent KYC command center
 - [x] Improve review-table design, selected-tab contrast, profile photos and recorded metadata.
 - [x] Keep agent review in a bounded dossier and check desktop/mobile interactions with isolated sample records.
