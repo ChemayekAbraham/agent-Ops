@@ -71374,6 +71374,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_vetting_request_id_reupload: {
+        Args: { p_agent_id: string; p_reason: string }
+        Returns: Json
+      }
       agent_vetting_request_parent_id_link: { Args: never; Returns: Json }
       agent_vetting_save_details: {
         Args: {
