@@ -231,11 +231,8 @@ function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDon
       </SheetHeader>
 
       <Section title="Identity">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1"><Photo url={photos.data?.passport} alt="Passport photo" />
-            {verdict && <Badge variant={verdict === 'fail' ? 'destructive' : verdict === 'review' ? 'outline' : 'default'}>Photo: {verdict}</Badge>}
-          </div>
-          <Photo url={d.avatar_url as string | undefined} alt="Profile photo" />
+        <div className="max-w-xs space-y-1"><Photo url={photos.data?.passport} alt="Passport photo" />
+          {verdict && <Badge variant={verdict === 'fail' ? 'destructive' : verdict === 'review' ? 'outline' : 'default'}>Photo: {verdict}</Badge>}
         </div>
       </Section>
 
