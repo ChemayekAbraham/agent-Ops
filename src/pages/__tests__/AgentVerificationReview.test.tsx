@@ -59,11 +59,22 @@ describe('Agent Ops ID review', () => {
     fireEvent.click(send);
     await waitFor(() => expect(state.reupload).toHaveBeenCalledWith({ agentId: 'fixture', reason: 'The NIN on the card does not match' }));
   });
-  it('hides the re-upload button for the signed-in agent', () => {
-    Object.assign(state.detail, { id_front_path: 'a/front' });
+  it('hides re-upload on your own record once your identity is verified for withdrawals', () => {
+    Object.assign(state.detail, { id_front_path: 'a/front', identity_verified: true });
     state.userId = 'fixture';
     openPanel();
     expect(screen.queryByRole('button', { name: 'Ask agent to re-upload ID' })).toBeNull();
+  });
+  it('offers re-upload on your own record while your identity is not yet verified', () => {
+    Object.assign(state.detail, { id_front_path: 'a/front', identity_verified: false });
+    state.userId = 'fixture';
+    openPanel();
+    expect(screen.getByRole('button', { name: 'Ask agent to re-upload ID' })).toBeInTheDocument();
+  });
+  it('still offers re-upload for another agent whose identity is verified', () => {
+    Object.assign(state.detail, { id_front_path: 'a/front', identity_verified: true });
+    openPanel();
+    expect(screen.getByRole('button', { name: 'Ask agent to re-upload ID' })).toBeInTheDocument();
   });
   it('offers re-upload for an agent with ID photos who never submitted', () => {
     Object.assign(state.detail, { status: 'unverified', id_front_path: null, id_back_path: null, has_id_photos: true });
