@@ -10,4 +10,6 @@
 - [x] Add "Ask agent to re-upload ID" button, dialog, history label and page test.
 
 # Unified 360-Day Contract Engine
-- [ ] Build engine, pending SQL and data bindings; waiting on Benjamin's answers (Rail floor 2500 vs 3500, Welile residual, buffer source, apply SQL or files only).
+- [x] Pricing engine and tests (src/lib/contractEngine360.ts).
+- [x] Database proposal written (docs/pending-migrations/v360_contract_engine.sql).
+- [ ] Apply database changes, waterfall, Day-30 job, agent actions, dashboard bindings; blocked: the only connected database is production.
