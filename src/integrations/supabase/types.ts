@@ -60740,6 +60740,27 @@ export type Database = {
           },
         ]
       }
+      v360_settings: {
+        Row: {
+          id: boolean
+          new_plans_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          new_plans_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          new_plans_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           active: boolean
@@ -70582,9 +70603,22 @@ export type Database = {
         }
         Returns: Json
       }
+      _v360_activate_core: {
+        Args: { p_rent_request_id: string; p_start: string }
+        Returns: Json
+      }
       _v360_maturity: {
         Args: { r: Database["public"]["Tables"]["rent_requests"]["Row"] }
         Returns: string
+      }
+      _v360_waterfall_core: {
+        Args: {
+          p_by: string
+          p_cash: number
+          p_paid_on: string
+          p_rent_request_id: string
+        }
+        Returns: Json
       }
       _wallet_strict_for_users_impl: {
         Args: { p_ids: string[] }
@@ -91676,6 +91710,10 @@ export type Database = {
         Returns: Json
       }
       v360_plan_summary: { Args: { p_rent_request_id: string }; Returns: Json }
+      v360_set_new_plans_enabled: {
+        Args: { p_enabled: boolean }
+        Returns: Json
+      }
       validate_and_record_collection: {
         Args: {
           p_agent_id: string
