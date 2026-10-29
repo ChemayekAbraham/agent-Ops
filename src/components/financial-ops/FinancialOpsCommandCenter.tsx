@@ -13,6 +13,7 @@ import { MerchantAgentFloatAllocationPanel } from './MerchantAgentFloatAllocatio
 import { MerchantBalanceDisputesPanel } from './MerchantBalanceDisputesPanel';
 import { PhonePlatformReconciliationCard } from './PhonePlatformReconciliationCard';
 import { AutoCreditSuccessRateTile } from './AutoCreditSuccessRateTile';
+import { V360NewPlansSwitch } from '@/components/v360/V360NewPlansSwitch';
 
 // Everything below is code-split — a panel's JS is only fetched when its
 // tool/view is opened. Keeps /admin/financial-ops first paint fast.
@@ -889,6 +890,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
 
         {!activeTool && view === 'home' && (
           <div className="mt-6 space-y-4">
+            <V360NewPlansSwitch />
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}

@@ -188,7 +188,7 @@ export function runSafeCompute(
       return { ok: false, error: "Provide non-empty `values` for operation='sum'." };
     }
     const check = areComputeInputsFromConversationTools(vals, rawToolOutputs);
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,
@@ -219,7 +219,7 @@ export function runSafeCompute(
       return { ok: false, error: "Provide `a` and `b` (or `current` and `previous`) for operation='difference'." };
     }
     const check = areComputeInputsFromConversationTools([a, b], rawToolOutputs);
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,
@@ -258,7 +258,7 @@ export function runSafeCompute(
       return { ok: false, error: "Provide `current` and `previous` for operation='pct_change'." };
     }
     const check = areComputeInputsFromConversationTools([current, previous], rawToolOutputs);
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,
@@ -303,7 +303,7 @@ export function runSafeCompute(
       return { ok: false, error: "Provide `part` and `total` for operation='share'." };
     }
     const check = areComputeInputsFromConversationTools([part, total], rawToolOutputs);
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,
@@ -333,7 +333,7 @@ export function runSafeCompute(
       return { ok: false, error: "Provide non-empty `values` for operation='average'." };
     }
     const check = areComputeInputsFromConversationTools(vals, rawToolOutputs);
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,
@@ -371,7 +371,7 @@ export function runSafeCompute(
       items.map((i) => i.value),
       rawToolOutputs,
     );
-    if (!check.ok) {
+    if (check.ok === false) {
       return {
         ok: false,
         error: `Input figure ${check.missingValue} was not returned by any tool in this conversation.`,

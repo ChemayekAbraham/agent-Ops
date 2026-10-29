@@ -994,6 +994,30 @@ export interface ZoeWeeklyLookAtIssue {
   screen_label: string;
 }
 
+export interface ZoeWeeklyUnansweredItem {
+  question: string;
+  role: string;
+  outcome: string;
+  ask_count: number;
+}
+
+export interface ZoeWeeklyFeedbackSummary {
+  thumbs_up_count: number;
+  thumbs_down_count: number;
+  problem_reports_count: number;
+}
+
+export interface ZoeWeeklyAnomalyNote {
+  category: string;
+  title: string;
+  summary: string;
+  pct_change: number;
+  direction: string;
+  source_function: string;
+  period_label: string;
+  screen_path: string;
+}
+
 export interface ZoeWeeklyLookAtSummary {
   source: string;
   week_start: string;
@@ -1002,6 +1026,9 @@ export interface ZoeWeeklyLookAtSummary {
   in_app_only: boolean;
   new_ideas_count: number;
   issues: ZoeWeeklyLookAtIssue[];
+  unanswered_questions?: ZoeWeeklyUnansweredItem[];
+  feedback_summary?: ZoeWeeklyFeedbackSummary;
+  anomaly_notes?: ZoeWeeklyAnomalyNote[];
 }
 
 /**
@@ -1041,6 +1068,51 @@ export async function fetchZoeWeeklyLookAtSummary(
       screen_label: String(it.screen_label ?? 'Open screen'),
     }));
 
+  const rawUnanswered = Array.isArray(raw.unanswered_questions) ? raw.unanswered_questions : [];
+  const unansweredQuestions: ZoeWeeklyUnansweredItem[] = rawUnanswered
+    .filter(
+      (u): u is Record<string, unknown> =>
+        Boolean(u) && typeof u === 'object' && !Array.isArray(u),
+    )
+    .map((u) => ({
+      question: sanitizeWelileTerms(String(u.question ?? '')),
+      role: String(u.role ?? 'staff'),
+      outcome: String(u.outcome ?? 'unmatched'),
+      ask_count: Number(u.ask_count ?? 1),
+    }))
+    .filter((u) => Boolean(u.question));
+
+  const rawFb =
+    raw.feedback_summary && typeof raw.feedback_summary === 'object' && !Array.isArray(raw.feedback_summary)
+      ? (raw.feedback_summary as Record<string, unknown>)
+      : {};
+  const feedbackSummary: ZoeWeeklyFeedbackSummary = {
+    thumbs_up_count: Number(rawFb.thumbs_up_count ?? 0),
+    thumbs_down_count: Number(rawFb.thumbs_down_count ?? 0),
+    problem_reports_count: Number(rawFb.problem_reports_count ?? 0),
+  };
+
+  const rawAnomalies = Array.isArray(raw.anomaly_notes) ? raw.anomaly_notes : [];
+  const anomalyNotes: ZoeWeeklyAnomalyNote[] = rawAnomalies
+    .filter(
+      (a): a is Record<string, unknown> =>
+        Boolean(a) && typeof a === 'object' && !Array.isArray(a),
+    )
+    .map((a) => ({
+      category: String(a.category ?? 'general'),
+      title: sanitizeWelileTerms(String(a.title ?? '')),
+      summary: sanitizeWelileTerms(String(a.summary ?? '')),
+      pct_change: Number(a.pct_change ?? 0),
+      direction: String(a.direction ?? 'flat'),
+      source_function: String(a.source_function ?? 'Official report'),
+      period_label: String(a.period_label ?? ''),
+      screen_path:
+        typeof a.screen_path === 'string' && a.screen_path.startsWith('/')
+          ? a.screen_path
+          : '/me',
+    }))
+    .filter((a) => Boolean(a.title));
+
   return {
     source: String(raw.source ?? 'staff_assistant_weekly_look_at_summary'),
     week_start: String(raw.week_start ?? ''),
@@ -1049,5 +1121,8 @@ export async function fetchZoeWeeklyLookAtSummary(
     in_app_only: true,
     new_ideas_count: Number(raw.new_ideas_count ?? 0),
     issues: issues.slice(0, 5),
+    unanswered_questions: unansweredQuestions,
+    feedback_summary: feedbackSummary,
+    anomaly_notes: anomalyNotes,
   };
 }
