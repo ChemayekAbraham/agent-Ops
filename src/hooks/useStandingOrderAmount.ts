@@ -14,25 +14,17 @@ interface AmountEditResult {
   previous_amount: number;
 }
 
-// The preview currently points at production. DEV alone is not isolation:
-// allow this unapplied feature only against an explicitly local backend.
-export function standingOrderAmountDevelopmentEnabled(): boolean {
-  if (!import.meta.env.DEV) return false;
-  try {
-    const url = new URL(import.meta.env.VITE_SUPABASE_URL);
-    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
-  } catch { return false; }
-}
-
+// Saving is activated for production (approved by the CFO): the server RPC is
+// the sole authority — it checks the CFO/super-admin role, staff MFA, locks the
+// row, and writes the audit atomically. Never fall back to a table update or
+// the best-effort lifecycle audit helper.
 export function useStandingOrderAmount() {
   const qc = useQueryClient();
   return useMutation({
     retry: false,
     mutationFn: async ({ order, newAmount, reason }: StandingOrderAmountEdit): Promise<AmountEditResult> => {
-      if (!standingOrderAmountDevelopmentEnabled()) throw new Error('Standing order amount changes are available only in the isolated development environment.');
-      // The not-yet-applied RPC is typed locally; never fall back to a table update
-      // or the best-effort lifecycle audit helper. The server reads/locks fresh data.
-      const rpc = supabase.rpc as unknown as (
+      // The RPC is typed locally; the server reads/locks fresh data.
+      const rpc = supabase.rpc.bind(supabase) as unknown as (
         name: 'standing_order_set_amount',
         args: { p_order_id: string; p_expected_amount: number; p_expected_updated_at: string; p_new_amount: number; p_reason: string },
       ) => Promise<{ data: AmountEditResult | null; error: { message: string } | null }>;

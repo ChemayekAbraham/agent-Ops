@@ -11,6 +11,7 @@
 // skips any deposit that already has one, so the verify-code path and the cron
 // sweep can both call it without double-emailing.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,40 +19,21 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const GMAIL_GATEWAY = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 const EXPIRY_REASON_MATCH = "%receipt code expired%";
 
-function b64url(input: string): string {
-  return btoa(unescape(encodeURIComponent(input)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
 async function sendGmail(to: string, subject: string, body: string) {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY");
-  if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-  if (!GOOGLE_MAIL_API_KEY) throw new Error("GOOGLE_MAIL_API_KEY is not configured (Gmail not connected)");
-  const raw = b64url(
-    [
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      'Content-Type: text/plain; charset="UTF-8"',
-      "",
-      body,
-    ].join("\r\n"),
-  );
-  const res = await fetch(`${GMAIL_GATEWAY}/users/me/messages/send`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ raw }),
-  });
+  // Name kept for the call sites; delivery is Mailgun, not Gmail.
+  const mime = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    "MIME-Version: 1.0",
+    'Content-Type: text/plain; charset="UTF-8"',
+    "",
+    body,
+  ].join("\r\n");
+  const res = await sendMimeViaMailgun(to, mime);
   if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Gmail send failed [${res.status}]: ${t}`);
+    throw new Error(`Mailgun send failed [${res.status}]: ${res.raw}`);
   }
 }
 

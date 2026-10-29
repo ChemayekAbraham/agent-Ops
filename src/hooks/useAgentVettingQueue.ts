@@ -56,7 +56,7 @@ export type AgentVettingDetail = Record<string, any> & {
 export function useAgentVettingDetail(agentId: string | null | undefined) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['agent-vetting-detail', agentId],
+    queryKey: ['agent-vetting-detail', agentId, user?.id],
     enabled: !!user?.id && !!agentId,
     staleTime: 15_000,
     queryFn: async (): Promise<AgentVettingDetail | null> => {
@@ -114,6 +114,93 @@ export function useDecideAgentVetting() {
     onSuccess: (_r, args) => {
       qc.invalidateQueries({ queryKey: ['agent-vetting-queue'] });
       qc.invalidateQueries({ queryKey: ['agent-vetting-detail', args.agentId] });
+      qc.invalidateQueries({ queryKey: ['agent-kyc'] });
+    },
+  });
+}
+
+export type KycOverview = {
+  generated_at: string;
+  days: number;
+  counts: Record<VettingStatus, number>;
+  series: { day: string; submitted: number; approved: number; rejected: number }[];
+};
+export type KycIdentityGroup = {
+  masked_nin: string | null;
+  total: number;
+  linked_count: number;
+  members: { agent_id: string; name: string | null; phone: string | null; status: VettingStatus | null; has_vetting: boolean; relation: 'own' | 'linked'; is_holder: boolean }[];
+};
+
+export function useAgentKycOverview(days: 7 | 30, inScope: boolean) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agent-kyc', 'overview', user?.id, days, inScope],
+    enabled: !!user?.id,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: async (): Promise<KycOverview> => {
+      const { data, error } = await rpc('agent_kyc_overview', { p_days: days, p_in_scope_only: inScope });
+      if (error) throw error;
+      return data as KycOverview;
+    },
+  });
+}
+
+export function useAgentKycIdentitySummary(agentIds: string[]) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agent-kyc', 'identity-summary', user?.id, agentIds],
+    enabled: !!user?.id && agentIds.length > 0,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await rpc('agent_kyc_identity_summary', { p_agent_ids: agentIds });
+      if (error) throw error;
+      return data as Record<string, number>;
+    },
+  });
+}
+
+export function useAgentKycIdentityGroup(agentId: string, page: number) {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ['agent-kyc', 'identity-group', user?.id, agentId, page],
+    enabled: !!user?.id && !!agentId,
+    staleTime: 30_000,
+    retry: false,
+    queryFn: async (): Promise<KycIdentityGroup> => {
+      const { data, error } = await rpc('agent_kyc_identity_group', { p_agent_id: agentId, p_limit: 50, p_offset: page * 50 });
+      if (error) throw error;
+      return data as KycIdentityGroup;
+    },
+  });
+}
+
+/**
+ * Agent Ops: unlock a wrongly entered National ID so the agent uploads the correct card.
+ * Works even when the ID is already verified for withdrawals (the agent cannot replace
+ * that one themselves). Clears the ID photos, keeps the old ID for comparison, and sends
+ * the vetting back to the agent with `reason`. Until the new photos are in, the agent's
+ * identity is not verified for withdrawals.
+ */
+export function useRequestIdReupload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { agentId: string; reason: string }) => {
+      const { data, error } = await rpc('agent_vetting_request_id_reupload', {
+        p_agent_id: args.agentId,
+        p_reason: args.reason.trim(),
+      });
+      if (error) throw new Error(error.message);
+      const r = (data ?? {}) as { success?: boolean; message?: string; status?: VettingStatus };
+      if (!r.success) throw new Error(r.message ?? 'Could not send the ID back to the agent.');
+      return r;
+    },
+    onSuccess: (_r, args) => {
+      qc.invalidateQueries({ queryKey: ['agent-vetting-queue'] });
+      qc.invalidateQueries({ queryKey: ['agent-vetting-detail', args.agentId] });
+      qc.invalidateQueries({ queryKey: ['agent-vetting-photos'] });
     },
   });
 }

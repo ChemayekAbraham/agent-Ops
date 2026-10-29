@@ -500,7 +500,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   }, [lastFailedPrompt, sendMessage]);
 
   const submitFeedback = useCallback(
-    async (messageId: string, rating: ZoeFeedbackRating) => {
+    async (
+      messageId: string,
+      rating: ZoeFeedbackRating,
+      options?: { comment?: string; reportKind?: 'rating' | 'problem_report' },
+    ) => {
       if (!user?.id) return;
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, feedback: rating } : m)),
@@ -516,6 +520,8 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
             conversation_id: convId,
             message_id: messageId,
             rating,
+            ...(options?.reportKind ? { report_kind: options.reportKind } : {}),
+            ...(options?.comment?.trim() ? { comment: options.comment.trim() } : {}),
           },
         })
         .catch(() => {

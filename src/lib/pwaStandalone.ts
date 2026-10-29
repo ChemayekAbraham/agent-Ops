@@ -99,6 +99,15 @@ export function detectStandalone(): boolean {
   return standalone;
 }
 
+/**
+ * True only while the page is actually running from the home screen right now (iOS
+ * navigator.standalone or a standalone display mode). Unlike detectStandalone() it ignores the
+ * sticky "ever installed" flag and the ?source=pwa launch param, so a Safari tab never counts.
+ */
+export function isRunningStandaloneNow(): boolean {
+  return isIOSStandalone() || isDisplayModeStandalone();
+}
+
 /** Persist a manual/confirmed install so the gate stays dismissed. */
 export function markInstalled(): void {
   try {

@@ -129,48 +129,157 @@ export const ZoeWeeklyLookAtCard: React.FC<ZoeWeeklyLookAtCardProps> = ({
       </div>
 
       {expanded && (
-        <ol
-          data-testid="zoe-weekly-look-at-list"
-          className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {activeSummary.issues.slice(0, 5).map((issue) => (
-            <li
-              key={`${issue.rank}-${issue.category}`}
-              data-testid={`zoe-weekly-issue-${issue.rank}`}
-              className="flex flex-col justify-between gap-2.5 rounded-lg border border-border/80 bg-muted/25 p-3 text-xs"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary">
-                    Priority #{issue.rank}
-                  </span>
-                  {issue.metric_label && (
-                    <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
-                      {issue.metric_label}
+        <>
+          <ol
+            data-testid="zoe-weekly-look-at-list"
+            className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {activeSummary.issues.slice(0, 5).map((issue) => (
+              <li
+                key={`${issue.rank}-${issue.category}`}
+                data-testid={`zoe-weekly-issue-${issue.rank}`}
+                className="flex flex-col justify-between gap-2.5 rounded-lg border border-border/80 bg-muted/25 p-3 text-xs"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                      Priority #{issue.rank}
                     </span>
-                  )}
+                    {issue.metric_label && (
+                      <span className="rounded-md border border-border bg-background px-2 py-0.5 font-mono text-xs font-semibold text-foreground">
+                        {issue.metric_label}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="font-semibold text-foreground leading-snug">{issue.title}</h3>
+                  <p className="leading-relaxed text-muted-foreground">{issue.evidence}</p>
                 </div>
 
-                <h3 className="font-semibold text-foreground leading-snug">{issue.title}</h3>
-                <p className="leading-relaxed text-muted-foreground">{issue.evidence}</p>
+                <div className="space-y-2 border-t border-border/60 pt-2">
+                  <p className="truncate font-mono text-xs text-muted-foreground">
+                    Source: {issue.source}
+                  </p>
+                  <Link
+                    to={issue.screen_path}
+                    data-testid={`zoe-weekly-issue-link-${issue.rank}`}
+                    className="inline-flex min-h-[44px] w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span>{issue.screen_label}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          {activeSummary.anomaly_notes && activeSummary.anomaly_notes.length > 0 && (
+            <div
+              data-testid="zoe-weekly-anomaly-notes"
+              className="mt-3 rounded-lg border border-border/80 bg-muted/20 p-3 text-xs"
+            >
+              <h3 className="font-semibold text-foreground">
+                4-week anomaly notes (proactive comparisons)
+              </h3>
+              <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                {activeSummary.anomaly_notes.slice(0, 4).map((note, idx) => (
+                  <li
+                    key={`${note.category}-${idx}`}
+                    data-testid={`zoe-weekly-anomaly-${idx}`}
+                    className="rounded-md border border-border/70 bg-background p-2.5"
+                  >
+                    <p className="font-medium text-foreground">{note.title}</p>
+                    <p className="mt-0.5 text-muted-foreground">{note.summary}</p>
+                    <p className="mt-1 font-mono text-xs text-muted-foreground">
+                      Source: {note.source_function}
+                      {note.period_label ? ` · ${note.period_label}` : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(Boolean(activeSummary.unanswered_questions?.length) ||
+            Boolean(activeSummary.feedback_summary)) && (
+            <div
+              data-testid="zoe-weekly-unanswered-section"
+              className="mt-3 rounded-lg border border-border/80 bg-muted/20 p-3 text-xs"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-foreground">
+                    Questions Zoe could not answer this week (redacted: question, role, outcome only)
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Used by managers to prioritize new certified lookups or glossary notes. Never shows answer text or figures.
+                  </p>
+                </div>
+                {activeSummary.feedback_summary && (
+                  <div
+                    data-testid="zoe-weekly-feedback-counts"
+                    className="flex flex-wrap items-center gap-1.5 font-mono text-xs"
+                  >
+                    <span className="rounded border border-border bg-background px-2 py-0.5 text-foreground">
+                      Helpful: {activeSummary.feedback_summary.thumbs_up_count}
+                    </span>
+                    <span className="rounded border border-border bg-background px-2 py-0.5 text-foreground">
+                      Not helpful: {activeSummary.feedback_summary.thumbs_down_count}
+                    </span>
+                    <span className="rounded border border-border bg-background px-2 py-0.5 text-foreground">
+                      Reported problems: {activeSummary.feedback_summary.problem_reports_count}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2 border-t border-border/60 pt-2">
-                <p className="truncate font-mono text-xs text-muted-foreground">
-                  Source: {issue.source}
-                </p>
-                <Link
-                  to={issue.screen_path}
-                  data-testid={`zoe-weekly-issue-link-${issue.rank}`}
-                  className="inline-flex min-h-[44px] w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              {activeSummary.unanswered_questions &&
+              activeSummary.unanswered_questions.length > 0 ? (
+                <div className="mt-2.5 overflow-x-auto rounded-md border border-border bg-background">
+                  <table
+                    data-testid="zoe-weekly-unanswered-table"
+                    className="w-full border-collapse text-left text-xs"
+                  >
+                    <thead>
+                      <tr className="border-b border-border bg-muted/40 text-muted-foreground">
+                        <th className="px-2.5 py-2 font-semibold">Question</th>
+                        <th className="px-2.5 py-2 font-semibold">Role</th>
+                        <th className="px-2.5 py-2 font-semibold">Outcome</th>
+                        <th className="px-2.5 py-2 text-right font-semibold">Count</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/60">
+                      {activeSummary.unanswered_questions.slice(0, 10).map((item, idx) => (
+                        <tr
+                          key={`${item.question}-${idx}`}
+                          data-testid={`zoe-weekly-unanswered-row-${idx}`}
+                        >
+                          <td className="px-2.5 py-2 text-foreground">{item.question}</td>
+                          <td className="px-2.5 py-2 font-mono text-muted-foreground">
+                            {item.role}
+                          </td>
+                          <td className="px-2.5 py-2 font-mono text-muted-foreground">
+                            {item.outcome}
+                          </td>
+                          <td className="px-2.5 py-2 text-right font-mono text-foreground">
+                            {item.ask_count}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p
+                  data-testid="zoe-weekly-unanswered-empty"
+                  className="mt-2 text-muted-foreground"
                 >
-                  <span>{issue.screen_label}</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                </Link>
-              </div>
-            </li>
-          ))}
-        </ol>
+                  No unanswered questions recorded in the last 7 days.
+                </p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

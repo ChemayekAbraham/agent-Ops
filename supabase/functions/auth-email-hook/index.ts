@@ -2,6 +2,7 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { parseEmailWebhookPayload } from 'npm:@lovable.dev/email-js'
 import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
+import { Webhook } from 'npm:standardwebhooks@1.0.0'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { SignupEmail } from '../_shared/email-templates/signup.tsx'
 import { InviteEmail } from '../_shared/email-templates/invite.tsx'
@@ -17,7 +18,7 @@ import {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, webhook-id, webhook-timestamp, webhook-signature, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 const EMAIL_SUBJECTS: Record<string, string> = {
@@ -232,6 +233,30 @@ async function handleWebhook(req: Request): Promise<Response> {
     newEmail: payload.data.new_email,
   }
 
+  const result = await renderAndEnqueue(emailType, payload.data.email, templateProps, run_id)
+  if (!result.ok) {
+    return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  return new Response(
+    JSON.stringify({ success: true, queued: true }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  )
+}
+
+// Render a template and put it on the auth_emails queue. process-email-queue
+// delivers it through Mailgun (MAILGUN_API_KEY / MAILGUN_DOMAIN).
+async function renderAndEnqueue(
+  emailType: string,
+  to: string,
+  templateProps: Record<string, unknown>,
+  run_id: string,
+): Promise<{ ok: boolean }> {
+  const EmailTemplate = EMAIL_TEMPLATES[emailType]
+
   // Render React Email to HTML and plain text
   const html = ensureWelileEmailHeader(await renderAsync(React.createElement(EmailTemplate, templateProps)))
   const text = ensureWelileEmailTextHeader(await renderAsync(React.createElement(EmailTemplate, templateProps), {
@@ -250,7 +275,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: emailType,
-    recipient_email: payload.data.email,
+    recipient_email: to,
     status: 'pending',
   })
 
@@ -259,7 +284,7 @@ async function handleWebhook(req: Request): Promise<Response> {
     payload: {
       run_id,
       message_id: messageId,
-      to: payload.data.email,
+      to,
       from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
       sender_domain: SENDER_DOMAIN,
       subject: EMAIL_SUBJECTS[emailType] || 'Notification',
@@ -276,22 +301,106 @@ async function handleWebhook(req: Request): Promise<Response> {
     await supabase.from('email_send_log').insert({
       message_id: messageId,
       template_name: emailType,
-      recipient_email: payload.data.email,
+      recipient_email: to,
       status: 'failed',
       error_message: 'Failed to enqueue email',
     })
-    return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return { ok: false }
+  }
+
+  console.log('Auth email enqueued', { emailType, email: to, run_id })
+  return { ok: true }
+}
+
+// Supabase Auth "Send Email" hook (Standard Webhooks signature). Since the move
+// off Lovable Cloud nothing sends Lovable-signed auth webhooks, so without this
+// path Supabase falls back to its built-in mailer and its few-per-hour quota
+// ("email rate limit exceeded"). Configure the hook in the dashboard with this
+// function's URL and store its secret as SEND_EMAIL_HOOK_SECRET.
+const SUPABASE_ACTION_TO_TEMPLATE: Record<string, string> = {
+  signup: 'signup',
+  invite: 'invite',
+  magiclink: 'magiclink',
+  email: 'magiclink',
+  recovery: 'recovery',
+  email_change: 'email_change',
+  reauthentication: 'reauthentication',
+}
+
+function hookError(status: number, message: string): Response {
+  return new Response(JSON.stringify({ error: { http_code: status, message } }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
+async function handleSupabaseHook(req: Request): Promise<Response> {
+  const rawSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET')
+  if (!rawSecret) {
+    console.error('SEND_EMAIL_HOOK_SECRET not configured')
+    return hookError(500, 'Server configuration error')
+  }
+
+  const body = await req.text()
+  let payload: any
+  try {
+    const wh = new Webhook(rawSecret.replace(/^v1,whsec_/, ''))
+    payload = wh.verify(body, Object.fromEntries(req.headers))
+  } catch (error) {
+    console.error('Invalid Supabase hook signature', { error: (error as Error).message })
+    return hookError(401, 'Invalid signature')
+  }
+
+  const user = payload?.user
+  const data = payload?.email_data
+  const actionType: string = data?.email_action_type
+  const emailType = SUPABASE_ACTION_TO_TEMPLATE[actionType]
+  if (!user?.email || !emailType) {
+    console.error('Unsupported Supabase hook payload', { actionType })
+    return hookError(400, `Unknown email type: ${actionType}`)
+  }
+
+  const run_id = req.headers.get('webhook-id') || crypto.randomUUID()
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const verifyUrl = (tokenHash: string) =>
+    `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(tokenHash)}` +
+    `&type=${encodeURIComponent(actionType)}` +
+    `&redirect_to=${encodeURIComponent(data.redirect_to || data.site_url || SAMPLE_PROJECT_URL)}`
+
+  const base = {
+    siteName: SITE_NAME,
+    siteUrl: `https://${ROOT_DOMAIN}`,
+    email: user.email,
+    newEmail: user.new_email,
+  }
+
+  // Secure email change sends two links. Supabase's naming is inverted here:
+  // token_hash_new goes to the CURRENT address, token_hash to the NEW one.
+  const sends: Array<{ to: string; props: Record<string, unknown> }> = []
+  if (actionType === 'email_change' && user.new_email) {
+    if (data.token_hash_new) {
+      sends.push({ to: user.email, props: { ...base, recipient: user.email, confirmationUrl: verifyUrl(data.token_hash_new), token: data.token_new } })
+    }
+    if (data.token_hash) {
+      sends.push({ to: user.new_email, props: { ...base, recipient: user.new_email, confirmationUrl: verifyUrl(data.token_hash), token: data.token } })
+    }
+  } else {
+    sends.push({
+      to: user.email,
+      props: { ...base, recipient: user.email, confirmationUrl: verifyUrl(data.token_hash), token: data.token },
     })
   }
 
-  console.log('Auth email enqueued', { emailType, email: payload.data.email, run_id })
+  console.log('Received Supabase auth hook', { emailType, email: user.email, run_id })
+  for (const s of sends) {
+    const result = await renderAndEnqueue(emailType, s.to, s.props, run_id)
+    if (!result.ok) return hookError(500, 'Failed to enqueue email')
+  }
 
-  return new Response(
-    JSON.stringify({ success: true, queued: true }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
+  return new Response(JSON.stringify({}), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
 }
 
 Deno.serve(async (req) => {
@@ -307,8 +416,12 @@ Deno.serve(async (req) => {
     return handlePreview(req)
   }
 
-  // Main webhook handler
+  // Main webhook handler. Supabase Auth's hook signs with Standard Webhooks
+  // headers; Lovable's signs with x-lovable-signature.
   try {
+    if (req.headers.get('webhook-signature')) {
+      return await handleSupabaseHook(req)
+    }
     return await handleWebhook(req)
   } catch (error) {
     console.error('Webhook handler error:', error)

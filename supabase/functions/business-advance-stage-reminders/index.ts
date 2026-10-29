@@ -1,6 +1,7 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,9 +57,6 @@ async function sendSMS(phone: string, message: string) {
 }
 
 async function sendEmail(to: string, subject: string, title: string, bodyText: string, trackUrl: string) {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const gmailKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
-  if (!lovableKey || !gmailKey) return { ok: false, status: 0, raw: "missing-gmail-creds" };
 
   const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#ffffff;padding:24px;color:#0f172a">
   <div style="max-width:560px;margin:0 auto;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
@@ -79,23 +77,7 @@ async function sendEmail(to: string, subject: string, title: string, bodyText: s
     '',
     html,
   ].join('\r\n');
-  const b64 = btoa(unescape(encodeURIComponent(raw)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-
-  const res = await fetch(
-    "https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmailKey,
-      },
-      body: JSON.stringify({ raw: b64 }),
-    },
-  );
-  const text = await res.text();
-  return { ok: res.ok, status: res.status, raw: text };
+  return await sendMimeViaMailgun(to, raw);
 }
 
 function hoursSince(iso: string) {

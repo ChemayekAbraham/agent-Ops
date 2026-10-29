@@ -67,6 +67,7 @@ export interface StaffAssistantConfig {
   maxDeepModelRounds: number;
   maxDeepToolCalls: number;
   maxCostUsdPerQuestion: number;
+  webResearchEnabled: boolean;
 }
 
 
@@ -156,13 +157,14 @@ export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> 
       maxDeepModelRounds: MAX_DEEP_MODEL_ROUNDS,
       maxDeepToolCalls: MAX_DEEP_TOOL_CALLS,
       maxCostUsdPerQuestion: DEFAULT_MAX_COST_USD_PER_QUESTION,
+      webResearchEnabled: false,
     };
   }
   const db = admin();
   let { data, error } = await db
     .from("staff_assistant_config")
     .select(
-      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days, model_fast, model_deep, temperature, max_tokens, max_deep_model_rounds, max_deep_tool_calls, max_cost_usd_per_question",
+      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days, model_fast, model_deep, temperature, max_tokens, max_deep_model_rounds, max_deep_tool_calls, max_cost_usd_per_question, web_research_enabled",
     )
     .eq("id", true)
     .maybeSingle();
@@ -185,6 +187,7 @@ export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> 
           max_deep_model_rounds: MAX_DEEP_MODEL_ROUNDS,
           max_deep_tool_calls: MAX_DEEP_TOOL_CALLS,
           max_cost_usd_per_question: DEFAULT_MAX_COST_USD_PER_QUESTION,
+          web_research_enabled: false,
         }
       : null;
   }
@@ -224,6 +227,7 @@ export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> 
       typeof row.max_cost_usd_per_question === "string"
         ? Number(row.max_cost_usd_per_question)
         : DEFAULT_MAX_COST_USD_PER_QUESTION,
+    webResearchEnabled: row.web_research_enabled === true,
   };
 }
 
@@ -235,6 +239,7 @@ export type BudgetCheckResult =
       maxModelRounds: number;
       maxToolCalls: number;
       modelConfig?: ZoeModelTierConfig;
+      webResearchEnabled?: boolean;
     }
   | { allowed: false; reason: "burst" | "daily_budget"; maxQuestionsPerDay: number };
 
@@ -287,6 +292,7 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
       maxModelRounds,
       maxToolCalls,
       modelConfig,
+      webResearchEnabled: cfg.webResearchEnabled,
     };
   }
 
@@ -322,6 +328,7 @@ export async function checkQuestionBudget(userId: string): Promise<BudgetCheckRe
     maxModelRounds: cfg.maxModelRounds,
     maxToolCalls: cfg.maxToolCalls,
     modelConfig,
+    webResearchEnabled: cfg.webResearchEnabled,
   };
 }
 
@@ -606,12 +613,13 @@ export async function saveFeedback(args: {
   messageId: string;
   userId: string;
   rating: "up" | "down";
+  reportKind?: "rating" | "problem_report";
   comment?: string;
 }): Promise<{ ok: boolean }> {
   const db = admin();
   const { data: msg } = await db
     .from("staff_assistant_messages")
-    .select("id")
+    .select("id, created_at")
     .eq("id", args.messageId)
     .eq("conversation_id", args.conversationId)
     .eq("user_id", args.userId)
@@ -619,16 +627,33 @@ export async function saveFeedback(args: {
 
   if (!msg) return { ok: false };
 
-  const { error } = await db.from("staff_assistant_feedback").upsert(
+  const reportKind = args.reportKind === "problem_report" ? "problem_report" : "rating";
+  let { error } = await db.from("staff_assistant_feedback").upsert(
     {
       conversation_id: args.conversationId,
       message_id: args.messageId,
       user_id: args.userId,
       rating: args.rating,
+      report_kind: reportKind,
       comment: args.comment ? args.comment.slice(0, 1000) : null,
     },
     { onConflict: "message_id,user_id" },
   );
+
+  if (error) {
+    const fallback = await db.from("staff_assistant_feedback").upsert(
+      {
+        conversation_id: args.conversationId,
+        message_id: args.messageId,
+        user_id: args.userId,
+        rating: args.rating,
+        comment: args.comment ? args.comment.slice(0, 1000) : null,
+      },
+      { onConflict: "message_id,user_id" },
+    );
+    error = fallback.error;
+  }
+
   return { ok: !error };
 }
 

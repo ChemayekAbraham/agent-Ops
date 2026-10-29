@@ -148,6 +148,18 @@ describe('Agent KYC navigation and existing actions', () => {
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Next of kin');
   });
 
+  it('lists what is still needed below the live location card on review', () => {
+    completeAll();
+    state.value.vetting.next_of_kin.name = null;
+    mount();
+    for (let step = 0; step < 6; step += 1) fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Review and submit');
+    const locationCard = screen.getByRole('heading', { level: 2, name: 'Live location' });
+    const stillNeeded = screen.getByText('Still needed before you can submit');
+    expect(locationCard.compareDocumentPosition(stillNeeded) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+
   it('submits once every step is filled', () => {
     completeAll();
     state.value.submit = vi.fn().mockResolvedValue({ success: true, message: 'Sent for review' });

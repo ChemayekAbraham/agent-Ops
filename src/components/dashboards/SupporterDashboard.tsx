@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
+import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -50,6 +50,8 @@ import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackage
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
+import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
@@ -124,6 +126,8 @@ export default function SupporterDashboard({
   const [localHasAccepted, setLocalHasAccepted] = useState<boolean | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showSavedItems, setShowSavedItems] = useState(false);
+  const { count: savedCount } = useFunderSavedItems();
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
 
@@ -538,6 +542,7 @@ export default function SupporterDashboard({
     { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
     { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
     { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); } },
     { icon: Calculator, label: 'Returns Calculator', onClick: () => setShowCalculator(true) },
     { icon: TrendingUp, label: 'Returns Analytics', onClick: () => navigate('/supporter-earnings') },
@@ -850,6 +855,7 @@ export default function SupporterDashboard({
       />
 
       <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />
+      <FunderSavedItemsDialog open={showSavedItems} onOpenChange={setShowSavedItems} />
       <InvestmentAccountsDrawer
         open={showInvestments}
         onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}

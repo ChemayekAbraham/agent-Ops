@@ -216,13 +216,17 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
     }
   }
 
-  // Also allow simple pairwise ratios (a / b * 100) for small sets of tool figures so legitimate percentages pass
+  // Also allow simple pairwise ratios (a / b * 100) and differences (|a - b|) for small sets of tool figures
   const boundedFloats = rawFloats.filter((x) => x > 0).slice(0, 60);
   for (let i = 0; i < boundedFloats.length; i++) {
     for (let j = 0; j < boundedFloats.length; j++) {
       if (i === j) continue;
       const a = boundedFloats[i];
       const b = boundedFloats[j];
+      const diff = Math.abs(a - b);
+      exactNumbers.add(Math.round(diff));
+      exactNumbers.add(Number(diff.toFixed(1)));
+      exactNumbers.add(Number(diff.toFixed(2)));
       if (a <= b && b > 0) {
         const pct = (a / b) * 100;
         exactNumbers.add(Math.round(pct));
@@ -257,7 +261,10 @@ function scrubStructuralTokens(text: string): string {
     .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus|30\+)\b/gi, " ")
     .replace(/\bfirst\s+7\s+days\b/gi, " ")
     .replace(/\b(?:week|wk)[-_\s]?\d+\b/gi, " ")
-    .replace(/\bday\s+[1-7]\b/gi, " ")
+    .replace(/\bdays?[-_\s]+-?\d+(?:\s+to\s+\d+)?\b/gi, " ")
+    .replace(/\b(?:24|48)[-_\s]?hours?\b/gi, " ")
+    .replace(/\b\d+[-_\s]?(?:mins?|minutes?)\b/gi, " ")
+    .replace(/\boption\s+[123a-c]\b/gi, " ")
     .replace(/^\s*\d+[.)]\s+/gm, " ");
 }
 

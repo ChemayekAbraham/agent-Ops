@@ -280,8 +280,8 @@ export function InstallFunnelView() {
           </CardTitle>
           <CardDescription>
             Signed-in users are counted once per step; anonymous events (no session id exists) are counted
-            individually. Installs are Android/desktop install-prompt events, so iOS rows show 0 installed:
-            no iOS install event is recorded.
+            individually. Android and desktop installs come from the install prompt. iOS has no install
+            event, so an iOS install is counted when the app is first opened from the home screen.
           </CardDescription>
         </CardHeader>
         <CardContent>

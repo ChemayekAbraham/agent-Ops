@@ -185,7 +185,7 @@ export default function AgentVerification() {
             <p className="flex items-start gap-2 border-t border-border pt-5 text-sm text-muted-foreground"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0 text-primary" />Your details are only seen by Welile Agent Ops</p>
           </div> : showWizard ? <>
             <div className="mb-5 space-y-2">
-              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
+              <div className="flex items-center justify-between gap-2"><p className="text-sm font-medium">Step {current + 1} of 7</p><Badge variant={vetting.status === 'unverified' ? 'destructive' : vetting.status === 'rejected' ? 'soft' : 'secondary'}>{VETTING_STATUS_LABEL[vetting.status]}</Badge></div>
               <Progress value={((current + 1) / 7) * 100} aria-label="Verification progress" indicatorStyle={progressFill((current + 1) / 7)} />
             </div>
             <div className="mb-4 space-y-1.5"><h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold outline-none">{KYC_STEPS[current].title}</h1><p className="text-sm leading-relaxed text-muted-foreground">{KYC_STEPS[current].description}</p></div>
@@ -196,8 +196,8 @@ export default function AgentVerification() {
               const stepHint = step ? shortStepHint(key, step.hint, vetting) : '';
               return <div key={key} className="space-y-2">{index === 0 && <div className="flex items-center gap-2">{key === 'phone' ? <Smartphone className="h-4 w-4 text-primary" /> : <Mail className="h-4 w-4 text-primary" />}<h2 className="text-sm font-semibold">{step?.label}</h2>{step?.done && <Check className="h-4 w-4 text-primary" />}</div>}{stepHint && <p className="text-sm text-muted-foreground">{stepHint}</p>}<StepBody stepKey={key} v={v} vetting={vetting} editable={editable} guard={guard} act={act} /></div>;
             })}</section>)}
-            {current === 6 && !viewOnly && pending.length > 0 && <div className="rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
             {current === 6 && <ReviewDetails vetting={vetting} onEdit={index => { if (viewOnly) guard(() => { setViewOnly(false); goTo(index); }); else goTo(index); }} canEdit={canEditVetting(vetting.status)} />}
+            {current === 6 && !viewOnly && pending.length > 0 && <div className="mt-5 rounded-lg border border-warning/40 bg-warning/5 p-3"><p className="text-sm font-semibold">Still needed before you can submit</p><ul className="mt-2 space-y-2">{pending.map(s => <li key={s.key}><Button variant="outline" className="min-h-11 h-auto w-full justify-between gap-2 whitespace-normal py-3 text-left" onClick={() => { const target = KYC_STEPS.findIndex(k => k.keys.includes(s.key)); if (target >= 0) goTo(target); }}><span>{s.label}</span><ArrowRight className="h-4 w-4 shrink-0" /></Button></li>)}</ul></div>}
           </> : null}
       </main>
       {(intro || showWizard) && <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]"><div className="mx-auto grid max-w-2xl grid-cols-[auto_1fr] gap-3 px-5 py-4">
@@ -451,7 +451,7 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
             <OwnIdSummary id={id} />
             {onFile.locked && <p className="text-sm leading-relaxed text-muted-foreground">Your National ID has already been verified by Admin. It can't be changed here; contact support if your details are wrong.</p>}
             {!onFile.locked && onFile.state === 'partial' && <ul className="space-y-1 text-sm text-warning">{onFile.missing.map(part => <li key={part}>{part === 'number' ? 'Your National ID number is missing' : part === 'front' ? 'Front photo missing' : 'Back photo missing'}</li>)}</ul>}
-            {editable && !onFile.locked && <><Button variant="outline" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
+            {editable && !onFile.locked && <><Button variant="soft" className="min-h-11 h-auto w-full whitespace-normal" onClick={openCapture}><Camera className="mr-2 h-4 w-4 shrink-0" />{onFile.state === 'complete' ? 'Replace ID photos' : 'Upload missing photos'}</Button><p className="text-xs leading-relaxed text-muted-foreground">To change your ID details, upload new photos. Agent Ops will compare them with the ones on file.</p></>}
           </section> : <>
           <div className="mx-auto flex aspect-[1.586] w-full max-w-sm flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-primary/40 bg-muted/30 px-3">
             <CreditCard className="h-10 w-10 text-primary" strokeWidth={1.5} />
@@ -483,14 +483,14 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {link?.status === 'active' ? (
-            <p className="text-sm"><span className="font-mono">{link.nin_masked ?? id.nin_masked}</span> · Your parent agent's ID</p>
+          {link?.status === 'active' || link?.status === 'owner_approved' ? (
+            <p className="text-sm"><span className="font-mono">{link.nin_masked ?? id.nin_masked}</span> · Your parent agent's ID, approved by {parentName}</p>
           ) : link?.status === 'awaiting_owner' && !link.code_verified_at ? (
             <>
               <p className="text-sm">Ask {parentName} for the 6-digit code we sent them.</p>
               {editable && <CodeRow busy={v.busy === 'parent_link_confirm'} onConfirm={(c) => act(() => v.confirmParentIdCode(c), 'Code accepted')} />}
             </>
-          ) : link?.status === 'awaiting_owner' || link?.status === 'owner_approved' ? (
+          ) : link?.status === 'awaiting_owner' ? (
             <p className="text-sm">Waiting for {parentName} to approve in their app.</p>
           ) : (
             <>
