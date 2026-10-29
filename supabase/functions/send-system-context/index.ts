@@ -1,5 +1,6 @@
 import { SYSTEM_CONTEXT_MD } from "./doc.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,7 +8,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const GATEWAY = "https://connector-gateway.lovable.dev/google_mail/gmail/v1";
 const SYSTEM_CONTEXT_RECIPIENT = "joshwanda17@gmail.com";
 
 function b64(bytes: Uint8Array): string {
@@ -56,11 +56,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const GOOGLE_MAIL_API_KEY = Deno.env.get("GOOGLE_MAIL_API_KEY");
-    if (!LOVABLE_API_KEY || !GOOGLE_MAIL_API_KEY) {
-      throw new Error("Gmail connector secrets are not configured");
-    }
     const to = SYSTEM_CONTEXT_RECIPIENT;
 
     const attachment = b64(new TextEncoder().encode(SYSTEM_CONTEXT_MD));
@@ -90,27 +85,16 @@ Deno.serve(async (req) => {
       "",
     ].join("\r\n");
 
-    const raw = b64(new TextEncoder().encode(mime))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-    const res = await fetch(`${GATEWAY}/users/me/messages/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": GOOGLE_MAIL_API_KEY,
-      },
-      body: JSON.stringify({ raw }),
-    });
+    const res = await sendMimeViaMailgun(to, mime);
     if (!res.ok) {
-      const details = await res.text();
-      console.error(`Gmail send failed [${res.status}]: ${details}`);
-      return new Response(JSON.stringify({ error: "Gmail send failed", status: res.status, details }), {
-        status: res.status,
+      const details = res.raw;
+      console.error(`Mailgun send failed [${res.status}]: ${details}`);
+      return new Response(JSON.stringify({ error: "Mailgun send failed", status: res.status, details }), {
+        status: res.status || 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const sent = await res.json();
+    const sent = JSON.parse(res.raw || "{}");
     return new Response(JSON.stringify({ success: true, to, bytes: SYSTEM_CONTEXT_MD.length, id: sent?.id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

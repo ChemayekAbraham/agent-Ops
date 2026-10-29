@@ -23,6 +23,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 import autoTable from "https://esm.sh/jspdf-autotable@3.8.2";
+import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -533,11 +534,6 @@ async function sendWithAttachment(
   pdf: Uint8Array,
   filename: string,
 ): Promise<{ ok: boolean; status: number; raw?: string }> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const gmailKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
-  if (!lovableKey || !gmailKey) {
-    return { ok: false, status: 0, raw: "Gmail connector creds missing" };
-  }
   const boundary = `welile_${crypto.randomUUID().replace(/-/g, "")}`;
   const altBoundary = `alt_${crypto.randomUUID().replace(/-/g, "")}`;
   const pdfB64 = chunk76(bytesToBase64(pdf));
@@ -588,22 +584,7 @@ async function sendWithAttachment(
     "",
     `--${boundary}--`,
   ].join("\r\n");
-  const encoded = bytesToBase64(new TextEncoder().encode(raw))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const res = await fetch(
-    "https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmailKey,
-      },
-      body: JSON.stringify({ raw: encoded }),
-    },
-  );
-  const text = await res.text();
-  return { ok: res.ok, status: res.status, raw: text };
+  return await sendMimeViaMailgun([to, ...cc], raw);
 }
 
 function buildHtml(activity: DailyActivity, weekly: WeeklyForecast, prettyDate: string): string {
