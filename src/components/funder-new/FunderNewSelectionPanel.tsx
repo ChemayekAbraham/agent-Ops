@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, CircleDollarSign, Copy, Home, MapPin, MessageCircle, Loader2, Info, ShieldCheck, Trash2, Wallet, X, Share2, Link2, Send, HandCoins, TrendingUp, CalendarCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { normalizeE164OrNull } from '@/lib/phoneUtils';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +56,7 @@ export function FunderNewSelectionBar({
     // The bar is anchored above the floating bottom navigation instead of the
     // viewport edge: that pill (BottomRoleSwitcher / MobileBottomNav) is fixed
     // at 10px from the bottom, 68px tall, and paints at z-100, so a bar sitting
-    // at bottom-0 had Clear / Review support plan hidden underneath it.
+    // at bottom-0 had Clear / the Support N homes button hidden underneath it.
     // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
     // bottom inset (which the pill is already lifted by). The pill shows at
     // every breakpoint, so this offset is deliberately not responsive-gated.
@@ -82,8 +82,8 @@ export function FunderNewSelectionBar({
             Clear
           </Button>
           <Button className="h-11 min-w-0 flex-1 rounded-xl px-3 lg:flex-none lg:px-8" onClick={onReview}>
-            <ShieldCheck className="h-4 w-4" />
-            Review support plan
+            <CircleDollarSign className="h-4 w-4" aria-hidden />
+            Support {items.length} {items.length === 1 ? 'home' : 'homes'}
           </Button>
         </div>
       </div>
