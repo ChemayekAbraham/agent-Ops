@@ -35,38 +35,7 @@ import type {
 import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
-
-/** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
-const SAVED_KEY = 'rentflow:funder-new:saved:v1';
-
-interface SavedState {
-  empty: string[];
-  ready: string[];
-}
-
-const DEFAULT_SAVED: SavedState = { empty: [], ready: [] };
-
-function readSaved(): SavedState {
-  try {
-    const raw = window.localStorage.getItem(SAVED_KEY);
-    if (!raw) return DEFAULT_SAVED;
-    const parsed = JSON.parse(raw) as Partial<SavedState>;
-    return {
-      empty: Array.isArray(parsed.empty) ? parsed.empty.filter((id): id is string => typeof id === 'string') : [],
-      ready: Array.isArray(parsed.ready) ? parsed.ready.filter((id): id is string => typeof id === 'string') : [],
-    };
-  } catch {
-    return DEFAULT_SAVED;
-  }
-}
-
-function saveSaved(value: SavedState) {
-  try {
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(value));
-  } catch {
-    // Route-scoped browsing aid only.
-  }
-}
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
 interface FeedEntry {
   category: FunderNewCategory;
@@ -96,7 +65,7 @@ export function FunderHouseListingsSection() {
     withinFloat: false,
   });
   const [sortTouched, setSortTouched] = useState(false);
-  const [saved, setSaved] = useState<SavedState>(() => readSaved());
+  const { saved, toggleSave } = useFunderSavedItems();
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -120,10 +89,6 @@ export function FunderHouseListingsSection() {
       current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
     );
   }, [debouncedSearch]);
-
-  useEffect(() => {
-    saveSaved(saved);
-  }, [saved]);
 
   /**
    * Single origin for distance labels and the nearest-first sort: the device
@@ -256,14 +221,6 @@ export function FunderHouseListingsSection() {
   const changeSort = (value: FunderNewSort) => {
     setSortTouched(true);
     setFilters((current) => ({ ...current, sort: value }));
-  };
-
-  const toggleSave = (category: FunderNewCategory, id: string) => {
-    setSaved((current) => {
-      const list = current[category];
-      const nextList = list.includes(id) ? list.filter((savedId) => savedId !== id) : [...list, id];
-      return { ...current, [category]: nextList };
-    });
   };
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
