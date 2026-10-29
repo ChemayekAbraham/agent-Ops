@@ -69031,6 +69031,20 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      _agent_kyc_identity_members: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          agent_id: string
+          has_vetting: boolean
+          is_holder: boolean
+          masked_nin: string
+          name: string
+          phone: string
+          relation: string
+          status: string
+          subject_id: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -70477,6 +70491,18 @@ export type Database = {
       agent_float_read_allowed: {
         Args: { p_agent_id: string }
         Returns: boolean
+      }
+      agent_kyc_identity_group: {
+        Args: { p_agent_id: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      agent_kyc_identity_summary: {
+        Args: { p_agent_ids: string[] }
+        Returns: Json
+      }
+      agent_kyc_overview: {
+        Args: { p_days?: number; p_in_scope_only?: boolean }
+        Returns: Json
       }
       agent_league_heat_level: {
         Args: { p_collected: number; p_expected: number }
