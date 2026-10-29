@@ -547,6 +547,9 @@ describe('Zoe Action Drafts, Schedules & Reminders List, and 07:30 Morning Brief
           summary: 'Wait time is +47% above its 4-week Kampala baseline.',
           source_function: 'rent_request_timing',
           period_label: 'Last 4 weeks',
+          pct_change: 47,
+          direction: 'up',
+          screen_path: '/landlord-ops',
         },
       ],
     };

@@ -405,7 +405,7 @@ export function validateConsultantWebUrl(
       decodeURIComponent(parsed.search.slice(1)),
       rawToolOutputs,
     );
-    if (!queryCheck.ok) {
+    if (queryCheck.ok === false) {
       return {
         ok: false,
         reason: queryCheck.reason,
@@ -449,7 +449,7 @@ export async function executeConsultantWebSearch(
   | { ok: false; reason: string; error: string }
 > {
   const check = validateConsultantWebQuery(query, rawToolOutputs);
-  if (!check.ok) {
+  if (check.ok === false) {
     return {
       ok: false,
       reason: check.reason,
@@ -557,7 +557,7 @@ export async function executeConsultantReadWebPage(
   | { ok: false; reason: string; error: string }
 > {
   const check = validateConsultantWebUrl(url, rawToolOutputs);
-  if (!check.ok) {
+  if (check.ok === false) {
     return {
       ok: false,
       reason: check.reason,
