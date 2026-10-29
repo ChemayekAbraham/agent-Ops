@@ -48157,6 +48157,7 @@ export type Database = {
           pending_window_reset_by: string | null
           pending_window_reset_count: number
           preferred_language: string | null
+          pricing_version: string
           proxy_agent_id: string | null
           registration_type: string
           rejected_at: string | null
@@ -48213,6 +48214,13 @@ export type Database = {
           total_repayment: number
           total_roi_paid: number | null
           updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
         }
         Insert: {
           access_fee: number
@@ -48303,6 +48311,7 @@ export type Database = {
           pending_window_reset_by?: string | null
           pending_window_reset_count?: number
           preferred_language?: string | null
+          pricing_version?: string
           proxy_agent_id?: string | null
           registration_type?: string
           rejected_at?: string | null
@@ -48359,6 +48368,13 @@ export type Database = {
           total_repayment: number
           total_roi_paid?: number | null
           updated_at?: string
+          v360_daily_rate?: number | null
+          v360_gross?: number | null
+          v360_missed_days?: number
+          v360_paid_days?: number
+          v360_receivable?: number | null
+          v360_started_on?: string | null
+          v360_vacant_days?: number
         }
         Update: {
           access_fee?: number
@@ -48449,6 +48465,7 @@ export type Database = {
           pending_window_reset_by?: string | null
           pending_window_reset_count?: number
           preferred_language?: string | null
+          pricing_version?: string
           proxy_agent_id?: string | null
           registration_type?: string
           rejected_at?: string | null
@@ -48505,6 +48522,13 @@ export type Database = {
           total_repayment?: number
           total_roi_paid?: number | null
           updated_at?: string
+          v360_daily_rate?: number | null
+          v360_gross?: number | null
+          v360_missed_days?: number
+          v360_paid_days?: number
+          v360_receivable?: number | null
+          v360_started_on?: string | null
+          v360_vacant_days?: number
         }
         Relationships: [
           {
@@ -60247,6 +60271,475 @@ export type Database = {
         }
         Relationships: []
       }
+      v360_buffer_pool: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          movement: string
+          note: string
+          operating_unit: string
+          rent_request_id: string | null
+          schedule_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement: string
+          note: string
+          operating_unit?: string
+          rent_request_id?: string | null
+          schedule_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement?: string
+          note?: string
+          operating_unit?: string
+          rent_request_id?: string | null
+          schedule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "v360_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v360_daily_allocations: {
+        Row: {
+          agent: number
+          cash: number
+          created_at: string
+          created_by: string | null
+          id: string
+          landlord_principal: number
+          operating_unit: string
+          paid_on: string
+          partner_escrow: number
+          rail: number
+          rent_request_id: string
+          welile: number
+        }
+        Insert: {
+          agent: number
+          cash: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          landlord_principal: number
+          operating_unit?: string
+          paid_on: string
+          partner_escrow: number
+          rail: number
+          rent_request_id: string
+          welile: number
+        }
+        Update: {
+          agent?: number
+          cash?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          landlord_principal?: number
+          operating_unit?: string
+          paid_on?: string
+          partner_escrow?: number
+          rail?: number
+          rent_request_id?: string
+          welile?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      v360_guest_tenants: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          guest_tenant_id: string
+          id: string
+          reason: string
+          remaining_days: number
+          rent_request_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          guest_tenant_id: string
+          id?: string
+          reason: string
+          remaining_days: number
+          rent_request_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          guest_tenant_id?: string
+          id?: string
+          reason?: string
+          remaining_days?: number
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      v360_schedules: {
+        Row: {
+          amount: number
+          buffer_amount: number
+          created_at: string
+          due_on: string
+          id: string
+          kind: string
+          month_no: number
+          rent_request_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buffer_amount?: number
+          created_at?: string
+          due_on: string
+          id?: string
+          kind: string
+          month_no: number
+          rent_request_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buffer_amount?: number
+          created_at?: string
+          due_on?: string
+          id?: string
+          kind?: string
+          month_no?: number
+          rent_request_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       vendors: {
         Row: {
           active: boolean
@@ -70089,6 +70582,10 @@ export type Database = {
         }
         Returns: Json
       }
+      _v360_maturity: {
+        Args: { r: Database["public"]["Tables"]["rent_requests"]["Row"] }
+        Returns: string
+      }
       _wallet_strict_for_users_impl: {
         Args: { p_ids: string[] }
         Returns: {
@@ -71254,6 +71751,7 @@ export type Database = {
           pending_window_reset_by: string | null
           pending_window_reset_count: number
           preferred_language: string | null
+          pricing_version: string
           proxy_agent_id: string | null
           registration_type: string
           rejected_at: string | null
@@ -71310,6 +71808,13 @@ export type Database = {
           total_repayment: number
           total_roi_paid: number | null
           updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
         }
         SetofOptions: {
           from: "*"
@@ -74210,6 +74715,10 @@ export type Database = {
           request_fee: number
           total_repayment: number
         }[]
+      }
+      compute_rent_repayment_v360: {
+        Args: { p_months?: number; p_principal: number }
+        Returns: Json
       }
       compute_wallet_ledger_total: {
         Args: { _user_id: string }
@@ -85436,6 +85945,7 @@ export type Database = {
           pending_window_reset_by: string | null
           pending_window_reset_count: number
           preferred_language: string | null
+          pricing_version: string
           proxy_agent_id: string | null
           registration_type: string
           rejected_at: string | null
@@ -85492,6 +86002,13 @@ export type Database = {
           total_repayment: number
           total_roi_paid: number | null
           updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
         }[]
         SetofOptions: {
           from: "*"
@@ -85781,6 +86298,10 @@ export type Database = {
       }
       post_treasury_fee_cash_transfer: {
         Args: { p_collection_id: string }
+        Returns: Json
+      }
+      post_v360_daily_waterfall: {
+        Args: { p_cash: number; p_paid_on: string; p_rent_request_id: string }
         Returns: Json
       }
       preview_business_advance_limit: {
@@ -91137,6 +91658,24 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      v360_activate: {
+        Args: { p_rent_request_id: string; p_start?: string }
+        Returns: Json
+      }
+      v360_day30_settle: { Args: { p_as_of?: string }; Returns: Json }
+      v360_guest_tenant: {
+        Args: {
+          p_guest_tenant_id: string
+          p_reason: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      v360_mark_day: {
+        Args: { p_kind: string; p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      v360_plan_summary: { Args: { p_rent_request_id: string }; Returns: Json }
       validate_and_record_collection: {
         Args: {
           p_agent_id: string
