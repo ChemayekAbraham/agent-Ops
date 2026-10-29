@@ -8,8 +8,12 @@ vi.mock('@/hooks/useAgentVettingQueue', () => ({
   useAgentVettingDetail: () => ({ data: state.detail }),
   useAgentVettingPhotos: () => ({ data: { id_front: '/front.png', id_back: '/back.png', prev_id_front: '/old-front.png', prev_id_back: '/old-back.png' }, refetch: vi.fn() }),
   useDecideAgentVetting: () => ({ mutate: state.mutate, isPending: false }),
+  useAgentKycOverview: () => ({ data: undefined, isLoading: false }),
+  useAgentKycIdentitySummary: () => ({ data: { fixture: 0 } }),
+  useAgentKycIdentityGroup: () => ({ data: { total: 0, linked_count: 0, members: [] } }),
 }));
 vi.mock('@/components/agent-vetting/VettingMap', () => ({ default: () => null }));
+vi.mock('@/hooks/useUserAvatars', () => ({ useUserAvatars: () => ({ avatarFor: () => null }) }));
 import AgentVerificationReview from '@/pages/agent-ops/AgentVerificationReview';
 
 beforeEach(() => {
