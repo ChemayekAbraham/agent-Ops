@@ -60,8 +60,21 @@ export function FunderNewSelectionBar({
     // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
     // bottom inset (which the pill is already lifted by). The pill shows at
     // every breakpoint, so this offset is deliberately not responsive-gated.
-    <div className="fixed inset-x-0 bottom-0 z-[110] w-full max-w-full overflow-hidden border-t bg-card shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] pb-[env(safe-area-inset-bottom,0px)]">
-      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    <div className="funder-selection-sheet fixed inset-x-0 bottom-0 z-[110] w-full max-w-full overflow-hidden rounded-t-2xl border-t bg-card shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] pb-[env(safe-area-inset-bottom,0px)]">
+      <style>{`
+        @keyframes funderSheetUp {
+          0% { transform: translate3d(0,100%,0); }
+          60% { transform: translate3d(0,-6px,0); }
+          80% { transform: translate3d(0,2px,0); }
+          100% { transform: translate3d(0,0,0); }
+        }
+        .funder-selection-sheet { animation: funderSheetUp 520ms cubic-bezier(0.22,1,0.36,1) both; will-change: transform; }
+        @media (prefers-reduced-motion: reduce) { .funder-selection-sheet { animation: none; } }
+      `}</style>
+      <div className="flex justify-center pt-2" aria-hidden>
+        <span className="h-1.5 w-10 rounded-full bg-muted-foreground/30" />
+      </div>
+      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-2 px-4 pb-2.5 pt-1.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <p className="text-sm font-semibold">
