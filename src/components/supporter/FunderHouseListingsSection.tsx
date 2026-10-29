@@ -256,7 +256,7 @@ export function FunderHouseListingsSection() {
   return (
     <section className="space-y-3">
       {/* Search + compact filters row */}
-      <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:border sm:p-3 sm:shadow-sm">
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:p-3 sm:shadow-sm">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -283,7 +283,7 @@ export function FunderHouseListingsSection() {
         <Button
           variant="outline"
           aria-label="Filters"
-          className="relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4"
+          className="relative h-11 w-11 shrink-0 justify-center rounded-xl border-transparent p-0 text-sm md:w-auto md:justify-start md:border-input md:px-4"
           onClick={() => setFiltersOpen(true)}
         >
           {/* Phones: funnel icon only. Tablets and up: the original labelled button. */}
