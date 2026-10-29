@@ -55,6 +55,16 @@ export function quoteV360(principal: number): V360Quote {
   };
 }
 
+/** Worked example for new-quote screens. It does not price an existing Rent Plan. */
+const _modelA = quoteV360(100_000);
+export const V360_MODEL_A_EXAMPLE = {
+  principal: 100_000,
+  gross: _modelA.gross,
+  daily: _modelA.daily,
+  partnerMonthly: _modelA.partnerMonthly,
+  partnerTwelveMonths: _modelA.partnerTwelveMonths,
+} as const;
+
 /** Contract horizon: missed and vacant days postpone the end, never write off paid days. */
 export function contractEndDay(missedDays: number, vacantDays: number): number {
   return CONTRACT_DAYS + Math.max(0, missedDays) + Math.max(0, vacantDays);

@@ -8,6 +8,7 @@ import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown'
 import { MerchantAgentOwedSheet } from '@/components/cfo/MerchantAgentOwedSheet';
 
 import { useAuth } from '@/hooks/useAuth';
+import { V360NewPlansSwitch } from '@/components/v360/V360NewPlansSwitch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -287,6 +288,7 @@ export function CFOOverviewDashboard({
           how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-6">
+        {!cashPositionOnly && <V360NewPlansSwitch />}
 
         {/* ─────────── 1 · CASH POSITION ─────────── */}
         {showCashPosition && <Band
