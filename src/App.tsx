@@ -3,6 +3,7 @@ import type { AppRole } from '@/hooks/useAuth';
 
 
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
+import { IosInstallReporter } from './components/IosInstallReporter';
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
@@ -1099,6 +1100,7 @@ const App = () => {
       <ThemeColorSync />
       <QueryClientProvider client={queryClient}>
         <AvatarSyncBridge />
+        <IosInstallReporter />
         <BrowserRouter>
           <CombinedSettingsProvider>
             <AuthProvider>
