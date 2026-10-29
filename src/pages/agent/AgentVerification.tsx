@@ -483,14 +483,14 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {link?.status === 'active' ? (
-            <p className="text-sm"><span className="font-mono">{link.nin_masked ?? id.nin_masked}</span> · Your parent agent's ID</p>
+          {link?.status === 'active' || link?.status === 'owner_approved' ? (
+            <p className="text-sm"><span className="font-mono">{link.nin_masked ?? id.nin_masked}</span> · Your parent agent's ID, approved by {parentName}</p>
           ) : link?.status === 'awaiting_owner' && !link.code_verified_at ? (
             <>
               <p className="text-sm">Ask {parentName} for the 6-digit code we sent them.</p>
               {editable && <CodeRow busy={v.busy === 'parent_link_confirm'} onConfirm={(c) => act(() => v.confirmParentIdCode(c), 'Code accepted')} />}
             </>
-          ) : link?.status === 'awaiting_owner' || link?.status === 'owner_approved' ? (
+          ) : link?.status === 'awaiting_owner' ? (
             <p className="text-sm">Waiting for {parentName} to approve in their app.</p>
           ) : (
             <>
