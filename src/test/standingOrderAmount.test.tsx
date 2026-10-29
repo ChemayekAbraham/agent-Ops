@@ -59,16 +59,6 @@ describe('standing order amount confirmation and configuration-only save', () =>
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
-  it('blocks the production-connected preview before any request is made', async () => {
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://byrzshwlentqvktcksem.supabase.co');
-    setup();
-    fireEvent.change(screen.getByLabelText('Change amount (UGX)'), { target: { value: '25000' } });
-    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Approved amount correction' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm amount change' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('isolated development environment'));
-    expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.from).not.toHaveBeenCalled(); expect(mocks.invoke).not.toHaveBeenCalled();
-  });
   it('surfaces a stale-edit failure without fallback writes or retries', async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'Standing order changed. Refresh and review.' } });
     setup();

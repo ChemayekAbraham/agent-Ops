@@ -31,9 +31,8 @@ function setup(role: string, roles: string[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(<QueryClientProvider client={client}><StandingOrdersPanel /></QueryClientProvider>);
 }
-// Production-like backend: the amount dialog must stay preview-only.
-beforeEach(() => { vi.clearAllMocks(); vi.stubEnv('VITE_SUPABASE_URL', 'https://byrzshwlentqvktcksem.supabase.co'); });
-afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
+beforeEach(() => { vi.clearAllMocks(); });
+afterEach(() => { cleanup(); });
 
 describe('standing order "Change amount" visibility follows the account roles, not the active role', () => {
   it('shows it to a CFO account whose active role is still Supporter', () => {
@@ -51,18 +50,20 @@ describe('standing order "Change amount" visibility follows the account roles, n
     expect(screen.queryByRole('button', { name: 'Change amount' })).toBeNull();
   });
 
-  it('opens the increase/decrease dialog in preview-only mode, with saving disabled and no save call', () => {
+  it('opens the increase/decrease dialog with saving enabled through the atomic RPC', async () => {
+    mocks.rpc.mockResolvedValue({ data: { order: { id: order.id, amount: 125000, updated_at: '2026-10-23T02:00:00Z' }, audit_id: 'audit', previous_amount: 100000 }, error: null });
     setup('supporter', ['supporter', 'cfo']);
     fireEvent.click(screen.getByRole('button', { name: 'Change amount' }));
-    expect(screen.getByRole('note').textContent).toContain('Preview only');
+    expect(screen.queryByRole('note')).toBeNull();
     expect(screen.getByRole('button', { name: 'Increase' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Decrease' })).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Change amount (UGX)'), { target: { value: '25000' } });
-    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Preview amount correction' } });
+    fireEvent.change(screen.getByLabelText('Reason for change'), { target: { value: 'Approved amount correction' } });
     fireEvent.click(screen.getByRole('button', { name: 'Review change' }));
-    const save = screen.getByRole('button', { name: 'Saving disabled' }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
+    const save = screen.getByRole('button', { name: 'Confirm amount change' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(false);
     fireEvent.click(save);
-    expect(mocks.rpc).not.toHaveBeenCalled();
+    await screen.findByRole('status');
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('standing_order_set_amount', { p_order_id: order.id, p_expected_amount: 100000, p_expected_updated_at: order.updated_at, p_new_amount: 125000, p_reason: 'Approved amount correction' });
   });
 });
