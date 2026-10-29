@@ -37,8 +37,13 @@ describe('FunderNewReviewDialog', () => {
 
     // Title & description
     expect(screen.getByText('Your support plan')).toBeInTheDocument();
+    // The visible description line was removed; only the screen-reader
+    // description remains under the title.
     expect(
-      screen.getByText('Check the homes you picked. Nothing is submitted from this screen.')
+      screen.queryByText('Check the homes you picked. Nothing is submitted from this screen.')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Review the homes you picked. Nothing is submitted from this screen.')
     ).toBeInTheDocument();
 
     // Stats
