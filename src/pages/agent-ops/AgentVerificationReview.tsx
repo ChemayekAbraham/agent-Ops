@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, Check, ExternalLink, Loader2, Search } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Check, ExternalLink, Fingerprint, Link2, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,9 +19,12 @@ import {
 import {
   useAgentVettingQueue, useAgentVettingDetail, useAgentVettingPhotos, useDecideAgentVetting,
   type AgentVettingDetail,
+  useAgentKycOverview, useAgentKycIdentitySummary,
 } from '@/hooks/useAgentVettingQueue';
 import { VETTING_STATUS_LABEL, idComparison, type VettingStatus, type IdSnapshot } from '@/lib/agentVetting';
 import VettingMap, { type MapPoint } from '@/components/agent-vetting/VettingMap';
+import KycOverview from '@/components/agent-vetting/KycOverview';
+import KycIdentityConnections from '@/components/agent-vetting/KycIdentityConnections';
 
 const TABS: { value: VettingStatus; label: string }[] = [
   { value: 'submitted', label: 'To review' },
@@ -43,11 +46,15 @@ export default function AgentVerificationReview() {
   const [inScope, setInScope] = useState(false);
   const [page, setPage] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [reviewTrail, setReviewTrail] = useState<string[]>([]);
+  const [days, setDays] = useState<7 | 30>(7);
 
   useEffect(() => { const t = setTimeout(() => { setSearch(searchText); setPage(0); }, 300); return () => clearTimeout(t); }, [searchText]);
 
   const q = useAgentVettingQueue({ status, search, inScopeOnly: inScope, page, pageSize: PAGE });
   const data = q.data;
+  const overview = useAgentKycOverview(days, inScope);
+  const identities = useAgentKycIdentitySummary(data?.rows.map((r) => r.agent_id) ?? []);
   const from = data && data.total ? page * PAGE + 1 : 0;
   const to = data ? Math.min((page + 1) * PAGE, data.total) : 0;
 
@@ -56,73 +63,74 @@ export default function AgentVerificationReview() {
     setInScope(s === 'unverified');
     setPage(0);
   };
+  const openReview = (id: string) => { setReviewTrail([]); setOpenId(id); };
+  const refresh = () => { q.refetch(); overview.refetch(); if (data?.rows.length) identities.refetch(); };
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-2 px-3 py-3">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
           <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate(-1)} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">Agent verification</h1>
+          <div className="min-w-0 flex-1"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5" />Agent Operations / Identity & compliance</p><h1 className="text-xl font-semibold sm:text-2xl">Agent KYC Command Center</h1></div>
+          <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" aria-label="Refresh KYC reports" title="Refresh KYC reports" disabled={q.isFetching || overview.isFetching} onClick={refresh}><RefreshCw className={`h-4 w-4 ${q.isFetching || overview.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} /></Button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-3 px-3 py-4">
+      <main className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>{inScope ? 'Active agent scope' : 'All registered KYC agents'}</span><span>{overview.data?.generated_at ? `Updated ${abs(overview.data.generated_at)}` : 'Awaiting latest report'}</span></div>
+        <KycOverview data={overview.data} loading={overview.isLoading} error={!!overview.error} counts={data?.counts} status={status} onStatus={changeTab} days={days} onDays={setDays} onRetry={() => overview.refetch()} />
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 pt-7"><div><h2 className="text-lg font-semibold">Agent review queue</h2><p className="mt-1 text-xs text-muted-foreground">{data ? `${data.total.toLocaleString()} agents` : 'Loading agents'} · Oldest submissions first</p></div><Badge variant="outline" className="gap-1.5"><Fingerprint className="h-3.5 w-3.5" />National ID review</Badge></div>
         <Tabs value={status} onValueChange={changeTab}>
-          <TabsList className="w-full overflow-x-auto justify-start">
+          <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border bg-transparent p-0">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="min-h-10">
+              <TabsTrigger key={t.value} value={t.value} className="min-h-11 rounded-none border-b-2 border-transparent px-3 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-4 sm:text-sm">
                 {t.label}{data ? ` (${data.counts[t.value]})` : ''}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center">
           {/* [&_input]:!pl-9 outranks index.css's ≤360px `.px-4 { padding-left … !important }`, which otherwise puts the text under the icon. */}
           <div className="relative flex-1 [&_input]:!pl-9">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input className="min-h-11 pl-9" placeholder="Search name or phone" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+            <Input className="min-h-11 pl-9" aria-label="Search agents by name or phone" placeholder="Search name or phone" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
           </div>
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <Switch checked={inScope} onCheckedChange={(c) => { setInScope(c); setPage(0); }} /> Active agents only
+          <label className="flex min-h-11 items-center gap-2 whitespace-nowrap text-sm">
+            <Switch aria-label="Active agents only" checked={inScope} onCheckedChange={(c) => { setInScope(c); setPage(0); }} /> Active agents only
           </label>
         </div>
 
         {q.isLoading ? (
           <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>
         ) : q.error ? (
-          <div className="rounded-xl border border-border bg-card p-4 space-y-2">
+          <div className="border-y border-border p-4 space-y-2">
             <p className="text-sm">{(q.error as Error).message}</p>
             <Button className="min-h-11" variant="outline" onClick={() => q.refetch()}>Retry</Button>
           </div>
         ) : !data || data.rows.length === 0 ? (
-          <p className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">No agents here.</p>
+          <div className="flex flex-col items-center gap-2 border-y border-border py-16"><ShieldCheck className="h-8 w-8 text-muted-foreground" /><p className="text-sm text-muted-foreground">No agents here.</p></div>
         ) : (
-          <div className="divide-y divide-border rounded-xl border border-border bg-card">
+          <div className="border-y border-border">
+            {identities.error && <p className="border-b border-border px-3 py-2 text-xs text-muted-foreground">Identity-link counts unavailable. <Button variant="link" size="sm" onClick={() => identities.refetch()}>Retry</Button></p>}
+            <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_130px_140px_44px] gap-4 border-b border-border bg-muted/40 px-3 py-3 text-xs font-medium text-muted-foreground lg:grid"><span>Agent</span><span>District</span><span>Verification</span><span>National ID</span><span>Submitted</span><span /></div>
             {data.rows.map((r) => (
-              <button key={r.agent_id} onClick={() => setOpenId(r.agent_id)}
-                className="flex w-full flex-col gap-1 p-3 text-left hover:bg-muted/40 sm:flex-row sm:items-center sm:gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{r.name ?? 'Unknown'}</p>
-                  <p className="text-sm text-muted-foreground">{r.phone ?? ''}{r.district ? ` · ${r.district}` : ''}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {r.id_source && (
-                    <Badge variant="outline" className={r.id_source === 'parent' ? 'border-warning text-warning' : ''}>
-                      {r.id_source === 'parent' ? "Parent's ID" : 'Own ID'}
-                    </Badge>
-                  )}
-                  {r.submitted_at && <span className="text-sm text-muted-foreground" title={abs(r.submitted_at)}>{ago(r.submitted_at)}</span>}
-                </div>
-              </button>
+              <div key={r.agent_id} className="grid items-center gap-3 border-b border-border px-3 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_140px_130px_140px_44px] lg:gap-4">
+                <div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-sm font-semibold text-muted-foreground">{(r.name ?? 'A').split(' ').filter(Boolean).slice(0, 2).map((s) => s[0]).join('')}</span><div className="min-w-0"><Button variant="link" className="h-auto min-h-6 max-w-full justify-start whitespace-normal p-0 text-left font-semibold text-foreground" onClick={() => openReview(r.agent_id)}>{r.name ?? 'Unknown'}</Button><p className="text-xs text-muted-foreground">{r.phone ?? 'No phone on file'}<span className="lg:hidden">{r.district ? ` · ${r.district}` : ''}</span></p></div></div>
+                <p className="hidden truncate text-sm text-muted-foreground lg:block">{r.district ?? '—'}</p>
+                <div><Badge variant="outline" className={r.status === 'verified' ? 'border-success/30 bg-success/10 text-success' : r.status === 'rejected' ? 'border-destructive/30 bg-destructive/10 text-destructive' : r.status === 'submitted' ? 'border-warning/30 bg-warning/10 text-warning' : ''}>{VETTING_STATUS_LABEL[r.status] ?? 'Not started'}</Badge></div>
+                <div className="flex flex-wrap items-center gap-2 text-xs lg:block"><span className="text-muted-foreground">{r.id_source === 'parent' ? "Parent's ID" : r.id_source === 'own' ? 'Own ID' : 'Not on file'}</span><div className="lg:mt-1">{identities.data && identities.data[r.agent_id] !== undefined ? identities.data[r.agent_id] > 0 ? <Button variant="link" size="sm" className="h-auto min-h-6 gap-1 p-0 text-xs" onClick={() => openReview(r.agent_id)} aria-label={`Review identity links for ${r.name ?? 'agent'}`}><Link2 className="h-3 w-3" />{identities.data[r.agent_id]} linked</Button> : <span className="text-muted-foreground">No other agents linked</span> : <span className="text-muted-foreground">Links {identities.isLoading ? 'loading…' : 'unavailable'}</span>}</div></div>
+                <span className="text-xs text-muted-foreground" title={abs(r.submitted_at)}>{r.submitted_at ? ago(r.submitted_at) : 'Not submitted'}</span>
+                <Button variant="ghost" size="icon" className="hidden h-11 w-11 lg:inline-flex" onClick={() => openReview(r.agent_id)} aria-label={`Open review for ${r.name ?? 'agent'}`} title="Open review"><ArrowUpRight className="h-4 w-4" /></Button>
+              </div>
             ))}
           </div>
         )}
 
         {data && data.total > 0 && (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 py-4">
             <span className="text-sm text-muted-foreground">{from}–{to} of {data.total}</span>
             <div className="flex gap-2">
               <Button variant="outline" className="min-h-11" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
@@ -132,9 +140,10 @@ export default function AgentVerificationReview() {
         )}
       </main>
 
-      <Sheet open={!!openId} onOpenChange={(o) => !o && setOpenId(null)}>
+      <Sheet open={!!openId} onOpenChange={(o) => { if (!o) { setOpenId(null); setReviewTrail([]); } }}>
         <SheetContent side="right" aria-describedby={undefined} className="w-full overflow-y-auto sm:max-w-xl">
-          {openId && <ReviewPanel agentId={openId} onDone={() => setOpenId(null)} />}
+          {reviewTrail.length > 0 && <Button variant="ghost" className="mb-2 gap-2" onClick={() => { const previous = reviewTrail[reviewTrail.length - 1]; if (previous) { setOpenId(previous); setReviewTrail((trail) => trail.slice(0, -1)); } }}><ArrowLeft className="h-4 w-4" />Back to previous agent</Button>}
+          {openId && <ReviewPanel key={openId} agentId={openId} onDone={() => setOpenId(null)} onOpenLinked={(id) => { setReviewTrail((trail) => [...trail, openId]); setOpenId(id); }} />}
         </SheetContent>
       </Sheet>
     </div>
@@ -161,7 +170,7 @@ function eventLabel(e: AgentVettingDetail['events'][number]) {
 
 const n = (v: unknown) => (v === null || v === undefined || v === '' ? null : Number(v));
 
-function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void }) {
+function ReviewPanel({ agentId, onDone, onOpenLinked }: { agentId: string; onDone: () => void; onOpenLinked: (id: string) => void }) {
   const detailQ = useAgentVettingDetail(agentId);
   const d = detailQ.data;
   const photos = useAgentVettingPhotos(d);
@@ -186,7 +195,8 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
   const g2 = { lat: n(d.gps2_lat), lng: n(d.gps2_lng) };
   if (g1.lat != null && g1.lng != null) pts.push({ lat: g1.lat, lng: g1.lng, label: 'First reading', tone: 'muted' });
   const pin = d.residence_pin as any;
-  if (pin && n(pin.lat) != null && n(pin.lng) != null) pts.push({ lat: n(pin.lat)!, lng: n(pin.lng)!, label: 'Residence pin', tone: 'accent' });
+  const pinLat = n(pin?.lat), pinLng = n(pin?.lng);
+  if (pinLat != null && pinLng != null) pts.push({ lat: pinLat, lng: pinLng, label: 'Residence pin', tone: 'accent' });
   if (g2.lat != null && g2.lng != null) pts.push({ lat: g2.lat, lng: g2.lng, label: 'At submit', tone: 'primary' });
 
   const run = (approve: boolean) =>
@@ -251,6 +261,8 @@ function ReviewPanel({ agentId, onDone }: { agentId: string; onDone: () => void 
             : 'Own ID'}
         </p>
       </Section>
+
+      <KycIdentityConnections key={agentId} agentId={agentId} onOpen={onOpenLinked} />
 
       <Section title="Contact">
         <p className="text-sm">{d.profile_phone ?? d.phone ?? '—'} {d.phone_verified_at && <span className="text-muted-foreground"><Check className="inline h-4 w-4 text-primary" /> confirmed {abs(d.phone_verified_at)}</span>}</p>
