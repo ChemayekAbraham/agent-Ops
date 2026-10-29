@@ -8,6 +8,9 @@ DECLARE
   v_staff_a       uuid := gen_random_uuid();
   v_staff_b       uuid := gen_random_uuid();
   v_tenant_user   uuid := gen_random_uuid();
+  v_remind_at     timestamptz := date_trunc('minute', now() + interval '2 hours');
+  v_draft_res     jsonb;
+  v_draft_id      uuid;
   v_rem_res       jsonb;
   v_rem_id        uuid;
   v_notif_res     jsonb;
@@ -31,6 +34,7 @@ BEGIN
   INSERT INTO public.user_roles (user_id, role, enabled)
   VALUES
     (v_staff_a, 'tenant_ops', true),
+    (v_staff_b, 'tenant_ops', true),
     (v_staff_b, 'landlord_ops', true),
     (v_tenant_user, 'tenant', true);
 
@@ -49,22 +53,52 @@ BEGIN
     RAISE EXCEPTION 'Expected morning_brief.enabled = false by default, got %', v_list_res;
   END IF;
 
-  -- 2. Create a personal reminder for myself
+  -- 2. Save draft and create a personal reminder for myself
+  v_draft_res := public.staff_assistant_save_draft(
+    'reminder',
+    jsonb_build_object(
+      'kind', 'reminder',
+      'title', 'Review Landlord Ops Rent Plan payout queue',
+      'remind_at', v_remind_at,
+      'note', 'Check Wakiso landlords before 14:00'
+    ),
+    NULL
+  );
+  v_draft_id := (v_draft_res ->> 'draft_id')::uuid;
+
   v_rem_res := public.staff_assistant_create_reminder(
     'Review Landlord Ops Rent Plan payout queue',
-    now() + interval '2 hours',
-    'Check Wakiso landlords before 14:00'
+    v_remind_at,
+    'Check Wakiso landlords before 14:00',
+    NULL,
+    v_draft_id
   );
   v_rem_id := (v_rem_res #>> '{reminder,id}')::uuid;
   IF v_rem_id IS NULL THEN
     RAISE EXCEPTION 'Expected reminder id from staff_assistant_create_reminder';
   END IF;
 
-  -- 3. Send an in-app notification to Staff Beta (notifications table)
+  -- 3. Save draft and send an in-app notification to Staff Beta (notifications table)
+  v_draft_res := public.staff_assistant_save_draft(
+    'notification',
+    jsonb_build_object(
+      'kind', 'notification',
+      'recipient_email', 'beta.staff@welile.test',
+      'title', 'Rent Plan Review Ready',
+      'message', 'Please check the 3 Wakiso Rent Plans in Landlord Ops.',
+      'link_path', '/me'
+    ),
+    NULL
+  );
+  v_draft_id := (v_draft_res ->> 'draft_id')::uuid;
+
   v_notif_res := public.staff_assistant_send_colleague_notification(
     'beta.staff@welile.test',
     'Rent Plan Review Ready',
-    'Please check the 3 Wakiso Rent Plans in Landlord Ops.'
+    'Please check the 3 Wakiso Rent Plans in Landlord Ops.',
+    '/me',
+    NULL,
+    v_draft_id
   );
   v_notif_id := (v_notif_res ->> 'notification_id')::uuid;
   IF v_notif_id IS NULL OR NOT EXISTS (
@@ -82,7 +116,10 @@ BEGIN
     PERFORM public.staff_assistant_send_colleague_notification(
       'tenant.only@welile.test',
       'Should Fail',
-      'Non-staff must not be notified.'
+      'Non-staff must not be notified.',
+      '/me',
+      NULL,
+      NULL
     );
   EXCEPTION WHEN SQLSTATE '42501' THEN
     v_denied := true;
@@ -91,7 +128,25 @@ BEGIN
     RAISE EXCEPTION 'Expected 42501 when notifying a non-staff email';
   END IF;
 
-  -- 5. Create a daily report schedule for Staff Beta
+  -- 5. Save draft and create a daily report schedule for Staff Beta
+  v_draft_res := public.staff_assistant_save_draft(
+    'schedule',
+    jsonb_build_object(
+      'kind', 'schedule',
+      'title', 'Daily Tenant Ops Waiting Queue',
+      'report_tool', 'get_tops_pipeline_waiting_on_lops',
+      'report_rpc', 'assistant_staff_tops_pipeline_waiting_on_lops',
+      'report_args', '{}'::jsonb,
+      'frequency', 'daily',
+      'day_of_week', NULL,
+      'send_time_kampala', '07:30',
+      'recipient_emails', jsonb_build_array('beta.staff@welile.test'),
+      'custom_message', 'Daily 07:30 Kampala report'
+    ),
+    NULL
+  );
+  v_draft_id := (v_draft_res ->> 'draft_id')::uuid;
+
   v_sched_res := public.staff_assistant_create_schedule(
     'Daily Tenant Ops Waiting Queue',
     'get_tops_pipeline_waiting_on_lops',
@@ -101,7 +156,9 @@ BEGIN
     ARRAY['beta.staff@welile.test'],
     NULL,
     '07:30',
-    'Daily 07:30 Kampala report'
+    'Daily 07:30 Kampala report',
+    NULL,
+    v_draft_id
   );
   v_sched_id := (v_sched_res #>> '{schedule,id}')::uuid;
   IF v_sched_id IS NULL THEN
@@ -117,7 +174,12 @@ BEGIN
       'assistant_staff_my_tasks',
       '{}'::jsonb,
       'daily',
-      ARRAY['tenant.only@welile.test']
+      ARRAY['tenant.only@welile.test'],
+      NULL,
+      '07:30',
+      NULL,
+      NULL,
+      NULL
     );
   EXCEPTION WHEN SQLSTATE '42501' THEN
     v_denied := true;

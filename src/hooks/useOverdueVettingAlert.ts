@@ -2,6 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  hasUsableUserSession,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 import { buildDueSoonBanner, buildOverdueDialogCopy, type OverdueVetting } from '@/lib/vettingOverdueCopy';
 
 export const OVERDUE_VETTING_QUERY_KEY = ['overdue-vetting'] as const;
@@ -15,20 +22,25 @@ export const OVERDUE_VETTING_QUERY_KEY = ['overdue-vetting'] as const;
  */
 export function useOverdueVettingAlert(opts: { suppressed?: boolean } = {}) {
   const { user, roles } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   // Only agents can be Service Centre managers, so nobody else polls.
   const isAgent = (roles as string[]).some((r) => r === 'agent' || r === 'senior_agent' || r === 'sub_agent');
   const [snoozedUntil, setSnoozedUntil] = useState(0);
   const [, setTick] = useState(0);
   const loggedForCountRef = useRef<number | null>(null);
+  const polling = signedIn && isAgent;
 
   const query = useQuery({
     queryKey: [...OVERDUE_VETTING_QUERY_KEY, user?.id],
-    enabled: !!user?.id && isAgent,
+    enabled: polling,
     staleTime: 0,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
+    refetchInterval: polling ? 60_000 : false,
+    refetchOnWindowFocus: polling,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await (supabase.rpc as any)('get_my_overdue_vetting');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return data as OverdueVetting;
     },
@@ -51,7 +63,10 @@ export function useOverdueVettingAlert(opts: { suppressed?: boolean } = {}) {
     if (!open) { loggedForCountRef.current = null; return; }
     if (loggedForCountRef.current !== null) return;
     loggedForCountRef.current = data?.overdue_count ?? 0;
-    void (supabase.rpc as any)('log_overdue_vetting_alert_shown');
+    void (async () => {
+      if (!(await hasUsableUserSession())) return;
+      await (supabase.rpc as any)('log_overdue_vetting_alert_shown');
+    })();
   }, [open, data?.overdue_count]);
 
   const remindLater = useCallback(() => {
@@ -71,11 +86,16 @@ export function useOverdueVettingAlert(opts: { suppressed?: boolean } = {}) {
 
 /** For the Ops review screen: managers holding overdue items, oldest first. */
 export function useOverdueVettingOverview() {
+  const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['overdue-vetting-overview'],
-    refetchInterval: 120_000,
+    enabled: signedIn,
+    refetchInterval: signedIn ? 120_000 : false,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await (supabase.rpc as any)('get_overdue_vetting_overview');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return (data ?? []) as {
         manager_id: string; manager_name: string | null; overdue_count: number; escalated_count: number;

@@ -559,8 +559,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                           <p className="text-[11px] text-muted-foreground line-clamp-1">{c.specifications}</p>
                         )}
                         <p className="pt-1 text-sm font-bold tabular-nums">{formatUGX(cardPrice)}</p>
-                        <p className="text-[11px] text-muted-foreground line-clamp-1">
-                          {downPaymentCopy(c.brand, c.model_name).amountLabelShort}
+                        <p className="text-[11px] leading-snug text-muted-foreground line-clamp-2">
+                          Offered by Welile as down payment
                         </p>
                         {fromDaily > 0 && (
                           <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">

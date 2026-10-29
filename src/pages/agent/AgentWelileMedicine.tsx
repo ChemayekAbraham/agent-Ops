@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -401,7 +402,7 @@ function ReceiptFields({ tx, setTx, showParty, profiles }: { tx: TxDraft; setTx:
 }
 
 function txRowFrom(tx: TxDraft, facility: MedicalFacilityRow, agentId: string, extra: Partial<MedicalTransactionRow>): MedicalTransactionRow {
-  const id = crypto.randomUUID();
+  const id = safeUUID();
   return {
     id, client_ref: id, facility_id: facility.id, agent_id: agentId, recorded_at: new Date().toISOString(),
     tx_direction: tx.tx_direction, receipt_number: tx.receipt_number.trim() || generateReceiptNumber(), category: tx.category,
@@ -441,7 +442,7 @@ function GateView({ facility, agentId, onQueued, onRegister }: { facility: Medic
   const summary = useMemo(() => computeMedicalGateSummary(logs), [logs]);
 
   const record = async (entry: Partial<MedicalGateLogRow> & { person_name: string; role_type: string; direction: 'in' | 'out' }) => {
-    const id = crypto.randomUUID();
+    const id = safeUUID();
     const row: MedicalGateLogRow = { id, client_ref: id, facility_id: facility.id, agent_id: agentId, entry_point_name: facility.entry_point_name, recorded_at: new Date().toISOString(), ...entry };
     const res = await saveMedicalGateLog(row);
     refresh();
@@ -625,7 +626,7 @@ function ProfileRegistration({ facility, agentId, onQueued }: { facility: Medica
     if (!isAsset && !f.full_name.trim()) { toast.error('Enter the full name'); return; }
     if (!isAsset && hasPhone === null) { toast.error('Answer: has a smartphone?'); return; }
     setSaving(true);
-    const id = crypto.randomUUID();
+    const id = safeUUID();
     const row: MedicalProfileRow = {
       id, client_ref: id, facility_id: facility.id, role_type: role, registered_by_agent_id: agentId,
       full_name: isAsset ? f.asset_category : f.full_name.trim(),
@@ -637,7 +638,7 @@ function ProfileRegistration({ facility, agentId, onQueued }: { facility: Medica
     };
     const res = await saveMedicalProfile(row);
     if (!isAsset && logEntry) {
-      const gid = crypto.randomUUID();
+      const gid = safeUUID();
       await saveMedicalGateLog({ id: gid, client_ref: gid, facility_id: facility.id, profile_id: row.id, direction: 'in', person_name: row.full_name, role_type: role, phone: row.phone, department_or_ward: row.department_or_ward, entry_point_name: facility.entry_point_name, visit_purpose_or_note: 'Registered at entrance', attendant_or_kin_name: row.next_of_kin_name, attendant_or_kin_phone: row.next_of_kin_phone, agent_id: agentId, recorded_at: new Date().toISOString() });
     }
     setSaving(false);

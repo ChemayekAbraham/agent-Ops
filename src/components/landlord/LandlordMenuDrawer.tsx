@@ -111,13 +111,6 @@ export function LandlordMenuDrawer({
       title: 'Finances',
       items: [
         { 
-          icon: Receipt, 
-          label: 'My Receipts', 
-          description: 'View payment receipts',
-          path: '/my-receipts',
-          color: 'text-teal-500'
-        },
-        { 
           icon: Banknote, 
           label: 'My Loans', 
           description: 'View & manage loans',

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
+import { V360IllustrativeExample } from '@/components/v360/V360IllustrativeExample';
 import { cn } from '@/lib/utils';
 
 const DURATIONS = [30, 60, 90] as const;
@@ -50,6 +51,7 @@ export default function RentCalculatorDialog({ open, onOpenChange }: { open: boo
               <div className="flex justify-between gap-3 border-t border-border pt-1.5 font-semibold"><dt>Total to repay</dt><dd>{formatUGX(calc?.totalRepayment ?? 0)}</dd></div>
             </dl>
           </div>
+          <V360IllustrativeExample />
         </div>
       </DialogContent>
     </Dialog>

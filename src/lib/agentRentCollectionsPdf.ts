@@ -31,13 +31,26 @@ interface CollectionRow {
 
 interface TenantLite { id: string; full_name: string | null; phone: string | null }
 
-function rangeFor(range: RangeKey): { from: Date; to: Date; label: string } {
+/** ISO weekday (1 = Monday ... 7 = Sunday) the agent rule week starts on; Thursday unless the posting-rule setting says otherwise. */
+async function ruleWeekStartIsoDow(): Promise<number> {
+  try {
+    const { data } = await supabase.from('agent_posting_rule_settings').select('week_start_isodow').maybeSingle();
+    const n = Number((data as { week_start_isodow?: number } | null)?.week_start_isodow);
+    return n >= 1 && n <= 7 ? n : 4;
+  } catch {
+    return 4;
+  }
+}
+
+function rangeFor(range: RangeKey, weekStartIsoDow: number): { from: Date; to: Date; label: string } {
   const to = new Date();
   const from = new Date();
   if (range === 'weekly') {
-    from.setDate(to.getDate() - 6);
+    // The rule week so far: from the day the week started (Thursday) to today, the same window the payout check uses.
+    const isoDow = to.getDay() === 0 ? 7 : to.getDay();
+    from.setDate(to.getDate() - ((isoDow - weekStartIsoDow + 7) % 7));
     from.setHours(0, 0, 0, 0);
-    return { from, to, label: 'Weekly (last 7 days)' };
+    return { from, to, label: `This week so far (${from.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to today)` };
   }
   if (range === 'monthly') {
     from.setDate(1);
@@ -70,7 +83,7 @@ export async function generateAgentRentCollectionsPdf(params: {
   range: RangeKey;
 }): Promise<Blob> {
   const { agentId, agentName, range } = params;
-  const { from, to, label } = rangeFor(range);
+  const { from, to, label } = rangeFor(range, range === 'weekly' ? await ruleWeekStartIsoDow() : 4);
 
   const { data, error } = await supabase
     .from('agent_collections')
@@ -97,14 +110,16 @@ export async function generateAgentRentCollectionsPdf(params: {
   //
   // The pin is written at 00:05 on the day it covers and is the same record the
   // posting gate measures against, so it has neither gap nor drift.
+  //
+  // Since 20261027150000 the expected comes from get_my_expected_days: the pin
+  // plus a normal day for expired tenants whose billing stopped, the same
+  // expected the weekly posting rule and the dashboard's daily target use.
   const fromDate = localDateKey(from);
   const toDate = localDateKey(to);
-  const { data: expectedRows, error: expectedError } = await supabase
-    .from('agent_expected_day_plans')
-    .select('day, expected_ugx')
-    .eq('agent_id', agentId)
-    .gte('day', fromDate)
-    .lte('day', toDate);
+  const { data: expectedRows, error: expectedError } = await (supabase.rpc as any)(
+    'get_my_expected_days',
+    { p_from: fromDate, p_to: toDate, p_agent_id: agentId },
+  );
 
   if (expectedError) throw expectedError;
   // The pin stores one row per rent plan per day, so fold to a per-day total

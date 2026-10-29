@@ -1,3 +1,5 @@
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
@@ -2006,7 +2008,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     }
     setHousePhotos(prev => {
       const next = [...prev];
-      if (next[index]) URL.revokeObjectURL(next[index].preview);
+      if (next[index]) URL.revokeObjectURL(next[index]?.preview ?? "");
       next[index] = { file: stored, preview: previewUrl };
       return next;
     });
@@ -2015,7 +2017,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const removePhoto = useCallback((index: number) => {
     setHousePhotos(prev => {
       const next = [...prev];
-      if (next[index]) URL.revokeObjectURL(next[index].preview);
+      if (next[index]) URL.revokeObjectURL(next[index]?.preview ?? "");
       next.splice(index, 1);
       return next;
     });
@@ -2056,7 +2058,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       previewUrl = URL.createObjectURL(file);
     }
     setTenantPhoto(prev => {
-      if (prev) URL.revokeObjectURL(prev.preview);
+      if (prev?.preview) URL.revokeObjectURL(prev.preview);
       return { file: stored, preview: previewUrl };
     });
     void runFaceCheck(stored);
@@ -2064,7 +2066,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
   const removeTenantPhoto = useCallback(() => {
     setTenantPhoto(prev => {
-      if (prev) URL.revokeObjectURL(prev.preview);
+      if (prev?.preview) URL.revokeObjectURL(prev.preview);
       return null;
     });
     setFaceCheck(null);
@@ -2169,6 +2171,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     const urls: string[] = [];
     for (let i = 0; i < housePhotos.length; i++) {
       try {
+        if (!housePhotos[i]?.file) continue;
         const optimized = await optimizeImage(housePhotos[i].file, { maxWidth: 1200, quality: 0.8 });
         const ext = optimized.file.name.split('.').pop() || 'webp';
         const path = `${user.id}/${requestId}/photo_${i}.${ext}`;
@@ -2276,11 +2279,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setGpsLoading(false);
     // Photos can be taken out of slot order, so the array may hold undefined
     // entries (`[...prev]` turns holes into undefined). Skip them.
-    housePhotos.forEach(p => { if (p) URL.revokeObjectURL(p.preview); });
+    housePhotos.forEach(p => { if (p?.preview) URL.revokeObjectURL(p.preview); });
     setHousePhotos([]);
     setRenewDocs(null);
     setRenewDocsLoading(false);
-    if (tenantPhoto) URL.revokeObjectURL(tenantPhoto.preview);
+    if (tenantPhoto?.preview) URL.revokeObjectURL(tenantPhoto.preview);
     setTenantPhoto(null);
     setFaceCheck(null);
     setGuarantorConsent(false);
@@ -3152,7 +3155,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const existingId = isDuplicateAfterRejection
         ? (uuidRe.exec(error?.hint || '')?.[0] ?? uuidRe.exec(msg)?.[0] ?? null)
         : null;
-      if (isDuplicateAfterRejection) {
+      if (promptIfNotVetted(error, msg)) {
+        setSubmissionError(agentNotVettedReason(error) ?? agentNotVettedReason(msg));
+      } else if (isDuplicateAfterRejection) {
         const friendly = 'This tenant already has a rejected rent request. Fix the flagged detail on that request and resubmit it — creating a new one would duplicate the tenant.';
         setSubmissionError(friendly);
         toast.error('Duplicate blocked — resubmit instead', { description: friendly });
@@ -4679,10 +4684,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           {photo ? (
                             <div className="relative aspect-square rounded-lg overflow-hidden border border-border group">
                               <img
-                                src={photo.preview}
+                                src={photo?.preview}
                                 alt={slot.label}
                                 className="w-full h-full object-cover cursor-pointer"
-                                onClick={() => { setPreviewUrl(photo.preview); setPreviewLabel(slot.label); }}
+                                onClick={() => { setPreviewUrl(photo?.preview ?? null); setPreviewLabel(slot.label); }}
                               />
                               <button
                                 type="button"
@@ -4732,10 +4737,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     {tenantPhoto ? (
                       <div className="relative h-24 w-20 rounded-lg overflow-hidden border border-border shrink-0 group">
                         <img
-                          src={tenantPhoto.preview}
+                          src={tenantPhoto?.preview}
                           alt="Tenant"
                           className="w-full h-full object-cover cursor-pointer"
-                          onClick={() => { setPreviewUrl(tenantPhoto.preview); setPreviewLabel("Tenant Passport Photo"); }}
+                          onClick={() => { setPreviewUrl(tenantPhoto?.preview ?? null); setPreviewLabel("Tenant Passport Photo"); }}
                         />
                         <button
                           type="button"
@@ -4829,7 +4834,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 </h4>
                 {lcLetter ? (
                   <div className="flex items-center gap-3 rounded-xl border border-border p-2.5">
-                    <img src={lcLetter.preview} alt="LC letter" className="h-16 w-16 rounded-lg object-cover" />
+                    <img src={lcLetter?.preview} alt="LC letter" className="h-16 w-16 rounded-lg object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{lcLetter.file.name}</p>
                       <p className="text-xs text-muted-foreground">

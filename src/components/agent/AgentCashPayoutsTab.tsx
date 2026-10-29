@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,6 +67,7 @@ import {
   removeFromQueuePage, withClaimUpserted,
   type ClaimOutcome, type ClaimRpcResponse, type ClaimStatusResponse, type ClaimedWithdrawal,
 } from '@/lib/merchantClaim';
+import { isUuid } from '@/lib/isUuid';
 
 // Aligned with FinOps dashboard (FinOpsWithdrawalVerification) so pending counts
 // match across dashboards. Sourced from the shared fence module, which mirrors the
@@ -294,12 +296,8 @@ async function resolveSearchUserIds(term: string): Promise<string[]> {
   const t = sanitizeOrTerm(term);
   // Only search once at least 3 characters are typed (keeps the scan indexed and small).
   if (!t || t.length < 3) return [];
-  const { data } = await supabase
-    .from('profiles')
-    .select('id')
-    .or(`full_name.ilike.*${t}*,phone.ilike.*${t}*`)
-    .limit(100);
-  return (data || []).map((p: any) => p.id);
+  const { rows } = await searchProfilesTypeahead(t, { limit: 50, columns: 'id' });
+  return rows.map((p) => p.id);
 }
 
 /** Fetch ids of all currently-frozen accounts so their payouts are hidden. */
@@ -320,7 +318,7 @@ async function attachProfiles(rows: any[]) {
   // name instead of "Unknown".
   const ids = Array.from(
     new Set(
-      rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(Boolean),
+      rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(isUuid),
     ),
   );
   if (ids.length === 0) return rows;

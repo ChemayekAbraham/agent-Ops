@@ -129,7 +129,7 @@ export function FunderNewCalculatorDialog({
               <p className="text-xs text-muted-foreground">Projected return each month (15%)</p>
               <p className="break-words text-xl font-bold text-success">{formatDynamic(hypotheticalMonthly)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Hypothetical scenario, returns only \u2014 your support amount is not included.
+                Hypothetical scenario, returns only — your support amount is not included.
               </p>
             </div>
           </div>

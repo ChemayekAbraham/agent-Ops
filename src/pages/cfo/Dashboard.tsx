@@ -1,5 +1,10 @@
-import { useEffect } from 'react';
-import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { useEffect, Suspense } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
+import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
+const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
+const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -121,6 +126,8 @@ import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursemen
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
 import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
 import { LandlordFloatBudgetPanel } from '@/components/cfo/LandlordFloatBudgetPanel';
+// Lazy: keeps the register (and its on-demand xlsx import) out of the main CFO bundle.
+const AssetRegisterPanel = lazy(() => import('@/components/cfo/assets/AssetRegisterPanel'));
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -212,6 +219,12 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'asset-register':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading asset register…</div>}>
+            <AssetRegisterPanel />
+          </Suspense>
+        );
       case 'landlord-float-budget':
         return <LandlordFloatBudgetPanel />;
       case 'redemption-approvals':
@@ -496,12 +509,22 @@ export default function CFODashboardPage() {
       case 'advances':
         return (
           <div className="space-y-6">
-            <div>
-              <h1 className="text-xl font-bold">💵 Advance Requests</h1>
-              <p className="text-sm text-muted-foreground">
-                Review, edit and approve agent &amp; business advance requests, then disburse in one step.
-                Track what&apos;s been disbursed under <strong>Disbursed Advances</strong> and repayments under <strong>Advance Repayments</strong>.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-bold">💵 Advance Requests</h1>
+                <p className="text-sm text-muted-foreground">
+                  Review, edit and approve agent &amp; business advance requests, then disburse in one step.
+                  Track what&apos;s been disbursed under <strong>Disbursed Advances</strong> and repayments under <strong>Advance Repayments</strong>.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveTab('special-advances')}
+                className="gap-1.5 shrink-0"
+              >
+                <Sparkles className="h-4 w-4 text-primary" /> Special Advance
+              </Button>
             </div>
             <CFOAdvanceRequestPayments onViewDisbursed={() => setActiveTab('advances-disbursed')} />
             <div className="pt-4 border-t">
@@ -534,6 +557,25 @@ export default function CFODashboardPage() {
             <div id="cfo-disbursed-advances" className="scroll-mt-24">
               <DisbursedAdvancesRegister />
             </div>
+          </div>
+        );
+      case 'special-advances':
+        return (
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card to-muted/20 p-5 sm:p-6 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                  Special Advances
+                </h1>
+              </div>
+            </div>
+
+            <Suspense fallback={<p className="py-6 text-center text-xs text-muted-foreground">Loading...</p>}>
+              <SpecialAdvancesPanel />
+            </Suspense>
           </div>
         );
       case 'advance-repayments':
@@ -645,6 +687,18 @@ export default function CFODashboardPage() {
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
+      case 'paid-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money Out report…</div>}>
+            <PaidByCategory />
+          </Suspense>
+        );
+      case 'received-by-category':
+        return (
+          <Suspense fallback={<div className="py-16 text-center text-xs text-muted-foreground">Loading Money In report…</div>}>
+            <ReceivedByCategory />
+          </Suspense>
+        );
       case 'sms-otp-costs':
         return <SmsOtpCostsPanel />;
       case 'payout-reports':

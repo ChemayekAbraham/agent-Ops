@@ -1,921 +1,1279 @@
 /**
- * Pure report data extraction and normalization for Zoe (My Space Staff Assistant).
+ * Shared report data extraction, column ranking, verified summary lines,
+ * totals calculation, and file-request detection for Zoe (My Space Staff Assistant).
  *
- * Rules:
- *   - Uses ONLY the exact rows and summary figures Zoe returned in `reportPayload`
- *     (or an explicit markdown table in the assistant message).
- *   - Never recalculates, re-aggregates, or invents any figure on the client.
- *   - Enforces Welile regulatory terminology ("Rent Plan", "Supporter", "Returns")
- *     and formats money as "UGX 1,234".
+ * Prompt 1 rules enforced here:
+ *   1. No unrequested files: `extractZoeExportableReport` extracts ONLY structured
+ *      tabular row arrays (`kind: 'table'`) from `report_payload` — it never builds
+ *      `period_summary` reports out of loose scalar fields or markdown tables.
+ *   2. A file is created only when the user explicitly asks ("give me an Excel",
+ *      "PDF please", etc.) or taps an offer chip (`isZoeFileRequested` / `evaluateZoeFileRequest`).
+ *   3. Internal ID columns (`id`, `*_id`, `uuid`, or UUID-valued columns) are hidden.
+ *   4. PDF tables select at most 8 columns by importance (`selectImportantColumnsForPdf`).
+ *   5. Totals rows and 3–5 line written summaries are deterministically verified against
+ *      the exact figures in the report.
+ *   6. Mandatory Welile regulatory terminology: "Rent Plan", "Supporter", "Returns",
+ *      and "UGX 1,234" money formatting.
  */
-import { dayTime, ugx, num } from '@/lib/welileReportDocument';
 
-export interface ZoeReportSummaryMetric {
-  key: string;
-  label: string;
-  rawValue: string | number | boolean | null;
-  formattedValue: string;
-}
+export type ZoeReportCell = string | number | boolean | null;
+
+export type ZoeReportKind = 'table' | 'period_summary';
 
 export interface ZoeReportSheet {
   name: string;
   headers: string[];
   keys: string[];
-  rows: (string | number | null)[][];
+  rows: ZoeReportCell[][];
   rawRows: Record<string, unknown>[];
+  totalsRow?: ZoeReportCell[] | null;
+}
+
+export interface ZoeReportSummaryMetric {
+  key: string;
+  label: string;
+  rawValue: ZoeReportCell;
+  formattedValue: string;
 }
 
 export interface ZoeExportableReport {
-  kind: 'table' | 'period_summary';
+  kind: ZoeReportKind;
   title: string;
   subtitle: string;
-  source: string;
+  question: string;
   periodLabel: string;
   generatedAt: string;
   generatedBy: string;
+  source: string;
   howCountedNote: string;
+  /** Human-formatted column headers (`Tenant Name`, `Overdue Amount`, etc.) */
   headers: string[];
+  /** Raw column keys matching `rawRows` keys (`tenant_name`, `overdue_ugx`, etc.) */
+  columns: string[];
+  /** Alias for `columns` preserved for backward compatibility */
   keys: string[];
-  rows: (string | number | null)[][];
+  /** Internal ID column keys that were hidden from `columns` (`tenant_id`, `id`, etc.) */
+  hiddenColumns: string[];
+  /** Exact cell values in the same order as `columns` */
+  rows: ZoeReportCell[][];
+  /** Verbatim row objects from Zoe's answer payload */
   rawRows: Record<string, unknown>[];
   rowCount: number;
-  summaryMetrics: ZoeReportSummaryMetric[];
+  /** Named table sheets built from `rows` */
   sheets: ZoeReportSheet[];
+  /** Summary metrics when applicable */
+  summaryMetrics: ZoeReportSummaryMetric[];
+  /** Optional totals row summing numeric/money columns where applicable */
+  totalsRow: ZoeReportCell[] | null;
+  /** 3 to 5 plain-language summary lines verified against the report's numbers */
+  summaryLines: string[];
+  /** Up to 8 importance-ranked column keys for PDF page width */
+  pdfColumns: string[];
+  /** Human headers corresponding to `pdfColumns` */
+  pdfHeaders: string[];
+  /** Cell rows corresponding to `pdfColumns` */
+  pdfRows: ZoeReportCell[][];
+  /** Totals row corresponding to `pdfColumns` */
+  pdfTotalsRow: ZoeReportCell[] | null;
+  /** Number of columns omitted from the PDF (included in full in the .xlsx export) */
+  omittedPdfColumns: number;
   filenameBase: string;
 }
 
-export interface ZoeExportableMessageInput {
+export interface ZoeExportSourceMessage {
   id?: string;
   role?: 'user' | 'assistant';
   content: string;
+  status?: string;
   outcome?: string | null;
-  status?: string | null;
   source?: string | null;
+  source_label?: string | null;
   period?: string | null;
+  period_label?: string | null;
   reportPayload?: Record<string, unknown> | null;
-  createdAt?: string;
+  report_payload?: Record<string, unknown> | null;
+  createdAt?: Date | string;
+  created_at?: string;
+  userQuestion?: string;
 }
 
-export interface ExtractZoeReportOptions {
+export type ZoeExportableMessageInput = ZoeExportSourceMessage;
+
+export interface ZoeExtractReportOptions {
   generatedBy?: string | null;
   generatedAt?: Date | string;
+  userQuestion?: string;
 }
 
-/**
- * Regulatory terminology guard:
- * Replaces any accidental prohibited terms with mandatory Welile terms:
- *   - "loan" / "loans" -> "Rent Plan" / "Rent Plans"
- *   - "lender" / "lenders" -> "Supporter" / "Supporters"
- *   - "ROI" / "interest" -> "Returns"
- */
-export function sanitizeWelileTerms(input: string): string {
-  if (!input) return '';
-  return input
-    .replace(/\bloans\b/gi, 'Rent Plans')
-    .replace(/\bloan\b/gi, 'Rent Plan')
-    .replace(/\blenders\b/gi, 'Supporters')
-    .replace(/\blender\b/gi, 'Supporter')
-    .replace(/\bROI\b/g, 'Returns')
-    .replace(/\binterest\s+rate\b/gi, 'Returns rate')
-    .replace(/\binterest\b/gi, 'Returns');
+export type ExtractZoeReportOptions = ZoeExtractReportOptions;
+
+export interface ZoeFileRequestIntent {
+  requested: boolean;
+  format: 'xlsx' | 'pdf' | 'both' | null;
 }
 
-const TOOL_REPORT_TITLES: Record<string, { title: string; howCounted: string }> = {
-  my_profile: {
-    title: 'My Staff Profile & Enabled Roles',
-    howCounted:
-      'Read directly from your authenticated profile, staff profile record, and enabled user_roles.',
-  },
-  my_payslips: {
-    title: 'My Payslips & Allowances Statement',
-    howCounted:
-      'Counted from paid payroll items and allowances recorded on your staff payroll profile for the selected period.',
-  },
-  my_attendance_and_leave: {
-    title: 'My Attendance & Leave Summary',
-    howCounted:
-      'Counted from daily staff attendance clock-ins and submitted leave requests for your account in the selected period.',
-  },
-  my_tasks_and_tickets: {
-    title: 'My Assigned Tasks & Helpdesk Tickets',
-    howCounted:
-      'Counted from staff tasks and helpdesk tickets assigned to or created by your account.',
-  },
-  my_requests_and_advances: {
-    title: 'My Requisitions, Salary Advances & Expense Claims',
-    howCounted:
-      'Counted from staff requisitions, salary advances, and expense claims submitted by your account.',
-  },
-  my_call_history: {
-    title: 'My Calling & Rent Plan Pipeline Report',
-    howCounted:
-      'Counted via official server RPC staff_calling_detailed_report unioning Tenant Calling Center, Landlord Calling Center, and Rent Plan pipeline calls.',
-  },
-  tenant_ops_overview: {
-    title: 'Tenant Ops Executive Overview Report',
-    howCounted:
-      'Counted via official server RPC get_tenant_ops_overview over active, repaying, and pipeline Rent Plans.',
-  },
-  tenant_ops_pipeline_queues: {
-    title: 'Tenant Ops Rent Plan Pipeline Queues',
-    howCounted:
-      'Counted via official server RPC get_tenant_ops_Rent_requests grouped by Rent Plan pipeline stage.',
-  },
-  tenant_ops_repayments: {
-    title: 'Tenant Ops Repayments & Collection Rate Report',
-    howCounted:
-      'Counted via official server RPC get_tenant_ops_repayments comparing scheduled daily charges against posted collections.',
-  },
-  tenant_ops_Missed_today: {
-    title: 'Tenants Who Missed Payment Today',
-    howCounted:
-      'Counted via official server RPC tenant_ops_no_payment_report for active Rent Plans with zero payment posted on the target Kampala day.',
-  },
-  tenant_ops_missed_today: {
-    title: 'Tenants Who Missed Payment Today',
-    howCounted:
-      'Counted via official server RPC tenant_ops_no_payment_report for active Rent Plans with zero payment posted on the target Kampala day.',
-  },
-  tenant_ops_behaviour_segments: {
-    title: 'Tenant Payment Behaviour Classification Report',
-    howCounted:
-      'Counted via official server RPC tenant_ops_classification_report grouping tenants by historical repayment consistency.',
-  },
-  tenant_ops_topup_eligibility: {
-    title: 'Tenant Rent Plan Renewal & Top-Up Eligibility Report',
-    howCounted:
-      'Counted via official server RPC tenant_ops_topup_eligibility_report evaluating active tenants against renewal rules.',
-  },
-  tenant_ops_registration_control: {
-    title: 'Tenant Registration & Verification Control Report',
-    howCounted:
-      'Counted via official server RPC tenant_ops_registration_control_report tracking incomplete and unverified tenant profiles.',
-  },
-  tenant_ops_calling_summary: {
-    title: 'Tenant Ops Calling Center Daily & Weekly Summary',
-    howCounted:
-      'Counted via official server RPCs cc_daily_summary and cc_weekly_report across Tenant Ops calling logs.',
-  },
-  landlord_ops_pipeline: {
-    title: 'Landlord Ops Verification Pipeline Report',
-    howCounted:
-      'Counted from rent_requests in Landlord Ops verification stages and landlord_ops_reviews.',
-  },
-  landlord_ops_assigned_houses: {
-    title: 'Landlord Ops Listed Houses & Occupancy Report',
-    howCounted:
-      'Counted from house_listings across verification and occupancy statuses.',
-  },
-  landlord_ops_payouts: {
-    title: 'Landlord Payouts & Disbursement Report',
-    howCounted:
-      'Counted from landlord_payout_events and disbursed Rent Plans in the selected period.',
-  },
-  landlord_ops_principal_comparison: {
-    title: 'Landlord Float Allocations vs Principal Comparison',
-    howCounted:
-      'Counted via official server RPC get_landlord_principal_comparison comparing cumulative non-cancelled float allocations against non-reversed principal.',
-  },
-  landlord_ops_awareness_calls: {
-    title: 'Landlord Awareness Calls & OTP Consent Report',
-    howCounted:
-      'Counted from append-only landlord_awareness_calls records in the selected period.',
-  },
-  landlord_ops_calling_reports: {
-    title: 'Landlord Ops Calling Center Summary & Call Log',
-    howCounted:
-      'Counted via official server RPCs landlord_cc_daily_summary, landlord_cc_weekly_report, and landlord_cc_landlord_call_log.',
-  },
-  landlord_ops_concerns: {
-    title: 'Landlord Ops Escalated Concerns & Dispute Report',
-    howCounted:
-      'Counted via official server RPC landlord_cc_concerns_report over flagged landlord calls.',
-  },
-  coo_overview: {
-    title: 'COO Operations Snapshot & Rent Coverage Statement',
-    howCounted:
-      'Counted via official server RPCs get_coo_overview_snapshot and get_coo_rent_coverage_statement.',
-  },
-  coo_collections_vs_payouts: {
-    title: 'Collections vs Payouts Comparison Report',
-    howCounted:
-      'Counted via official server RPCs get_cfo_overview_summary and get_cfo_wallet_reconciliation for the selected Kampala period.',
-  },
-  coo_pipeline_bottlenecks: {
-    title: 'Rent Plan Pipeline Stage Bottlenecks & Stuck Requests',
-    howCounted:
-      'Counted from rent_requests grouped by stage age and pending_wallet_operations waiting queues.',
-  },
-  coo_missed_followups: {
-    title: 'Overdue Vetting, Uncalled Queues & Missed Follow-Ups',
-    howCounted:
-      'Counted via official server RPCs cc_daily_summary and landlord_cc_daily_summary plus overdue vetting rent_requests.',
-  },
-  coo_staff_calling_performance: {
-    title: 'Staff Calling & Rent Plan Pipeline Performance Report',
-    howCounted:
-      'Counted via official server RPC staff_calling_detailed_report across all Tenant and Landlord Calling Center and pipeline reviewers.',
-  },
-  ceo_health_and_growth: {
-    title: 'CEO Company Health, Growth Quality & Rent Coverage Report',
-    howCounted:
-      'Counted via official server RPCs get_ceo_growth_quality, get_coo_rent_coverage_statement, and get_cfo_overview_summary.',
-  },
-  cfo_cash_position: {
-    title: 'Treasury Cash Position Report',
-    howCounted:
-      'Counted exclusively via official server RPC get_treasury_cash_position across read-only ledger account totals.',
-  },
-  cfo_reconciliation_and_discrepancies: {
-    title: 'Wallet & Ledger Reconciliation Report',
-    howCounted:
-      'Counted via official server RPCs get_cfo_wallet_reconciliation and check_ledger_integrity.',
-  },
-  cfo_pending_approvals: {
-    title: 'CFO Pending Approvals, Withdrawals & Requisitions Queue',
-    howCounted:
-      'Counted via official server RPC get_cfo_overview_summary, pending_wallet_operations, withdrawal_requests, and staff_requisitions.',
-  },
-  cfo_receivables_and_payables: {
-    title: 'Company Receivables & Payables Forecast Report',
-    howCounted:
-      'Counted via official server RPCs get_receivables_Analytics and get_payables_forecast (excluding agent lending and ineligible merchandise plans).',
-  },
-  cfo_commissions_and_deductions: {
-    title: 'Agent Commissions & Recovery Deductions Report',
-    howCounted:
-      'Counted via official server RPC get_cfo_commission_payouts_summary and posted recovery ledger entries.',
-  },
-  cfo_budget_vs_actual: {
-    title: 'Department Budget vs Actual & Supplements Report',
-    howCounted:
-      'Counted from budget_Revised_position (original approved lines plus CFO-approved budget_supplements) against disbursed actuals.',
-  },
-  partner_ops_overview: {
-    title: 'Supporter Portfolios & Capital Summary Report',
-    howCounted:
-      'Counted via official server RPC get_partner_ops_overview over active and pending Supporter portfolios.',
-  },
-  partner_ops_due_returns: {
-    title: 'Supporter Returns Payouts & Upcoming Due Dates Report',
-    howCounted:
-      'Counted from investor_portfolios due dates and supporter_roi_payments records in the selected window.',
-  },
-  partner_ops_withdrawals: {
-    title: 'Supporter Capital Withdrawal Requests Report',
-    howCounted:
-      'Counted from partner_withdrawal_requests and withdrawal_requests for Supporter portfolios.',
-  },
-  agent_ops_float_and_advances: {
-    title: 'Agent Float Balances & Active Advances Report',
-    howCounted:
-      'Counted via official server RPC get_agent_ops_float_summary and active agent_advances records.',
-  },
-  agent_ops_activity_and_rankings: {
-    title: 'Agent Field Collections, Rankings & Dormancy Report',
-    howCounted:
-      'Counted via official server RPC agent_ops_report_rent_collections over field collection performance.',
-  },
-  agent_ops_sent_back_and_pending: {
-    title: 'Sent-Back Rent Plans, Float Returns & Pending Verifications',
-    howCounted:
-      'Counted from sent-back rent_requests, agent_float_allocations, and pending agent verifications.',
-  },
-  agent_ops_schools_and_medicine: {
-    title: 'Welile Schools & Welile Medicine Field Registrations Report',
-    howCounted:
-      'Counted from welile_school_profiles, welile_medical_profiles, and welile_medical_receipts in the selected period.',
-  },
-  hr_overview: {
-    title: 'HR Staff Headcount, Attendance & Expiring Contracts Report',
-    howCounted:
-      'Counted from staff_profiles by department, daily staff_attendance, leave_requests, and contracts expiring within 30 days.',
-  },
-  hr_payroll_and_statutory: {
-    title: 'HR Payroll Runs, Advances & TIN/NSSF Statutory Report',
-    howCounted:
-      'Counted from payroll_runs, salary_advances, and official server RPC cfo_statutory_consent_list.',
-  },
-};
-
-const ROW_ARRAY_KEYS = [
-  'rows',
-  'payslips',
-  'tasks',
-  'tickets',
-  'requisitions',
-  'advances',
-  'concerns',
-  'orders',
-  'detailed_rows',
-  'expiring_contracts',
-  'approved_requisitions',
-  'agents',
-  'waiting',
-  'landlord_call_log',
-  'weekly_all_calls_summary',
-  'top_collectors',
-  'by_department',
-  'items',
-  'records',
-] as const;
-
-const SUMMARY_OBJECT_KEYS = [
-  'summary',
-  'totals',
-  'overview',
-  'cash_position',
-  'money_received',
-  'money_paid_out',
-  'receivables',
-  'payables',
-  'growth_quality',
-  'rent_coverage_statement',
-  'pending_portfolios',
-  'comparison',
-  'attendance',
-  'leave',
-  'schools',
-  'medicine',
-  'float_summary',
-  'advances_summary',
-  'reconciliation',
-  'ledger_integrity',
-  'commissions_summary',
-  'deductions_and_recoveries',
-  'statutory_tin_nssf',
-  'payroll_runs',
-  'salary_advances',
-  'cfo_summary',
-  'pending_wallet_operations',
-  'withdrawal_requests',
-  'daily_summary',
-  'weekly_report',
-  'tenant_calling_daily',
-  'landlord_calling_daily',
-  'overdue_vetting',
-  'stuck_rent_plans',
-  'waiting_wallet_ops',
-  'data',
-] as const;
-
-const METADATA_KEYS = new Set([
-  'tool',
-  'rpc',
-  'args',
-  'source',
-  'period',
-  'row_count',
-  'basis',
-  'note',
-  'how_counted',
-  'generated_at',
-  'email_draft',
-]);
-
-/**
- * Formats a snake_case or camelCase identifier into a clean Title Case header,
- * applying Welile regulatory terminology.
- */
-export function formatZoeColumnHeader(key: string): string {
-  const cleaned = key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/\bId\b/g, 'ID')
-    .replace(/\bUgx\b/gi, 'UGX')
-    .replace(/\bTin\b/gi, 'TIN')
-    .replace(/\bNssf\b/gi, 'NSSF')
-    .replace(/\bLc1\b/gi, 'LC1')
-    .replace(/\bOtp\b/gi, 'OTP')
-    .replace(/\bCfo\b/gi, 'CFO')
-    .replace(/\bCoo\b/gi, 'COO')
-    .replace(/\bCeo\b/gi, 'CEO')
-    .replace(/\bHr\b/gi, 'HR')
-    .replace(/\bRoi\b/gi, 'Returns');
-  return sanitizeWelileTerms(cleaned);
+export interface ZoeFileDecision {
+  report: ZoeExportableReport | null;
+  fileCreated: boolean;
+  requestedFormat: 'xlsx' | 'pdf' | 'both' | null;
+  offerChipsShown: boolean;
 }
 
-/**
- * Determines whether a column key or metric key represents a monetary UGX amount.
- */
-export function isMoneyFieldKey(key: string): boolean {
-  const lower = key.toLowerCase();
-  if (
-    lower.endsWith('_count') ||
-    lower === 'count' ||
-    lower.startsWith('count_') ||
-    lower.endsWith('_days') ||
-    lower.endsWith('_id') ||
-    lower.endsWith('_rate') ||
-    lower.endsWith('_pct') ||
-    lower.endsWith('_percent') ||
-    lower.includes('phone') ||
-    lower.includes('year') ||
-    lower.includes('month') ||
-    lower.includes('stage') ||
-    lower.includes('status') ||
-    lower.includes('number')
-  ) {
-    return false;
-  }
-  return (
-    lower.includes('ugx') ||
-    lower.includes('amount') ||
-    lower.includes('balance') ||
-    lower.includes('total_collected') ||
-    lower.includes('collected_total') ||
-    lower.includes('disbursed') ||
-    lower.includes('principal') ||
-    lower.includes('commission') ||
-    lower.includes('salary') ||
-    lower.includes('net_pay') ||
-    lower.includes('gross_pay') ||
-    lower.includes('allowance') ||
-    lower.includes('deduction') ||
-    lower.includes('receivable') ||
-    lower.includes('payable') ||
-    lower.includes('float') ||
-    lower.includes('rent_approved') ||
-    lower.includes('rent_funded') ||
-    lower.includes('repayment_booked') ||
-    lower.includes('recorded_repaid') ||
-    lower.includes('outstanding') ||
-    lower.includes('cash') ||
-    lower.includes('budget') ||
-    lower.includes('supplement') ||
-    lower.includes('revised') ||
-    lower.includes('actual') ||
-    lower.includes('variance') ||
-    lower.includes('capital') ||
-    lower.includes('returns') ||
-    lower.includes('roi') ||
-    lower.includes('fee') ||
-    lower.includes('surcharge') ||
-    lower.includes('wallet')
-  );
-}
+const BANNED_TERM_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bloans\b/gi, 'Rent Plans'],
+  [/\bloan\b/gi, 'Rent Plan'],
+  [/\blenders\b/gi, 'Supporters'],
+  [/\blender\b/gi, 'Supporter'],
+  [/\bROI\b/gi, 'Returns'],
+  [/\binterests\b/gi, 'Returns'],
+  [/\binterest\b/gi, 'Returns'],
+];
 
 /**
- * Formats a cell value for human display in HTML/PDF while preserving Welile money formatting (`UGX 1,234`).
+ * Enforces Welile regulatory terminology on any human-facing label or note.
  */
-export function formatZoeCellForDisplay(
-  key: string,
-  value: string | number | boolean | null | undefined,
-): string {
-  if (value === null || value === undefined || value === '') return '—';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return '—';
-    if (isMoneyFieldKey(key)) {
-      return ugx(value);
-    }
-    return num(value);
-  }
-  const str = String(value);
-  return sanitizeWelileTerms(str);
-}
-
-/**
- * Converts an arbitrary row property into a primitive cell value (`string | number | null`)
- * without altering any string or number returned by Zoe.
- */
-function toExactCellPrimitive(value: unknown): string | number | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value === 'string') return sanitizeWelileTerms(value);
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => (typeof item === 'object' && item !== null ? JSON.stringify(item) : String(item ?? '')))
-      .join(', ');
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-  return String(value);
-}
-
-/**
- * Builds a `ZoeReportSheet` from an array of plain row objects, preserving exact row order and cell values.
- */
-export function buildSheetFromRowObjects(
-  sheetName: string,
-  rawObjects: Record<string, unknown>[],
-): ZoeReportSheet {
-  const keySet = new Set<string>();
-  for (const row of rawObjects) {
-    if (row && typeof row === 'object' && !Array.isArray(row)) {
-      for (const k of Object.keys(row)) {
-        keySet.add(k);
-      }
-    }
-  }
-  const keys = Array.from(keySet);
-  const headers = keys.map(formatZoeColumnHeader);
-  const rows = rawObjects.map((row) => keys.map((k) => toExactCellPrimitive(row[k])));
-
-  return {
-    name: sanitizeWelileTerms(sheetName).slice(0, 31) || 'Report Data',
-    headers,
-    keys,
-    rows,
-    rawRows: rawObjects,
-  };
-}
-
-/**
- * Formats a Zoe `period` object or string into a readable dates label.
- */
-export function formatZoePeriodLabel(
-  period: unknown,
-  fallbackPeriod?: string | null,
-): string {
-  if (typeof fallbackPeriod === 'string' && fallbackPeriod.trim()) {
-    return fallbackPeriod.trim();
-  }
-  if (!period) return 'Current Period';
-  if (typeof period === 'string') return period.trim() || 'Current Period';
-  if (typeof period === 'object' && !Array.isArray(period)) {
-    const p = period as Record<string, unknown>;
-    if (typeof p.from === 'string' && typeof p.to === 'string') {
-      return p.from === p.to ? p.from : `${p.from} to ${p.to}`;
-    }
-    if (typeof p.as_of === 'string') {
-      return `as of ${p.as_of}`;
-    }
-    if (p.month && p.year) {
-      return `${p.year}-${String(p.month).padStart(2, '0')}`;
-    }
-    if (p.year) {
-      return `Year ${p.year}`;
-    }
-    if (typeof p.days_ahead === 'number') {
-      return `Next ${p.days_ahead} days`;
-    }
-  }
-  return 'Current Period';
-}
-
-/**
- * Flattens scalar summary properties from an object into `ZoeReportSummaryMetric[]`
- * without recalculating or altering any number.
- */
-function collectSummaryMetricsFromObject(
-  obj: Record<string, unknown>,
-  prefix = '',
-  out: ZoeReportSummaryMetric[] = [],
-  depth = 0,
-): ZoeReportSummaryMetric[] {
-  if (depth > 2 || out.length >= 40) return out;
-  for (const [k, v] of Object.entries(obj)) {
-    if (METADATA_KEYS.has(k)) continue;
-    if (v === null || v === undefined) continue;
-    const compositeKey = prefix ? `${prefix}_${k}` : k;
-    const label = prefix
-      ? `${formatZoeColumnHeader(prefix)} — ${formatZoeColumnHeader(k)}`
-      : formatZoeColumnHeader(k);
-
-    if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
-      if (typeof v === 'string' && v.length > 140) continue;
-      out.push({
-        key: compositeKey,
-        label,
-        rawValue: typeof v === 'string' ? sanitizeWelileTerms(v) : v,
-        formattedValue: formatZoeCellForDisplay(compositeKey, v),
-      });
-    } else if (typeof v === 'object' && !Array.isArray(v)) {
-      collectSummaryMetricsFromObject(v as Record<string, unknown>, compositeKey, out, depth + 1);
-    }
+export function sanitizeWelileTerms(text: string): string {
+  if (!text) return '';
+  let out = text;
+  for (const [pattern, replacement] of BANNED_TERM_REPLACEMENTS) {
+    out = out.replace(pattern, replacement);
   }
   return out;
 }
 
 /**
- * Fallback parser for Markdown pipe tables inside `message.content` when `reportPayload`
- * does not carry structured rows.
+ * Formats a numeric amount as `"UGX 1,234"` (rounded to whole shillings, comma-grouped).
  */
-export function parseMarkdownTableFromContent(content: string): ZoeReportSheet | null {
-  if (!content || !content.includes('|')) return null;
-  const lines = content
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+export function formatZoeUgx(value: number): string {
+  if (!Number.isFinite(value)) return 'UGX 0';
+  const rounded = Math.round(value);
+  if (rounded < 0) {
+    return `-UGX ${Math.abs(rounded).toLocaleString('en-US')}`;
+  }
+  return `UGX ${rounded.toLocaleString('en-US')}`;
+}
 
-  for (let i = 0; i < lines.length - 1; i++) {
-    const headerLine = lines[i];
-    const dividerLine = lines[i + 1];
+/**
+ * Formats a Date or ISO string into a readable Africa/Kampala timestamp:
+ * e.g. `"26 Oct 2026, 14:05 EAT"`.
+ */
+export function formatZoeKampalaTimestamp(input?: Date | string): string {
+  const date =
+    input instanceof Date
+      ? input
+      : typeof input === 'string' && input.trim()
+        ? new Date(input)
+        : new Date();
+
+  const validDate = Number.isNaN(date.getTime()) ? new Date() : date;
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Kampala',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return `${formatter.format(validDate)} EAT`;
+  } catch {
+    return `${validDate.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+  }
+}
+
+/**
+ * Normalizes a period string or period object from `report_payload` into a clean display label.
+ */
+export function formatZoePeriodLabel(
+  period: unknown,
+  fallbackPeriod?: string | null,
+): string {
+  if (typeof period === 'string' && period.trim()) {
+    return sanitizeWelileTerms(period.trim());
+  }
+  if (period && typeof period === 'object') {
+    const p = period as Record<string, unknown>;
+    const from = typeof p.from === 'string' ? p.from.trim() : '';
+    const to = typeof p.to === 'string' ? p.to.trim() : '';
+    if (from && to) {
+      return from === to ? from : `${from} to ${to}`;
+    }
+    if (typeof p.as_of === 'string' && p.as_of.trim()) {
+      return `as of ${p.as_of.trim()}`;
+    }
+    if (typeof p.service_date === 'string' && p.service_date.trim()) {
+      return p.service_date.trim();
+    }
+    if (typeof p.anchor === 'string' && p.anchor.trim()) {
+      return `week of ${p.anchor.trim()}`;
+    }
+    if (typeof p.week_start === 'string' && p.week_start.trim()) {
+      return `week starting ${p.week_start.trim()}`;
+    }
+    if (typeof p.label === 'string' && p.label.trim()) {
+      return sanitizeWelileTerms(p.label.trim());
+    }
+  }
+  if (typeof fallbackPeriod === 'string' && fallbackPeriod.trim()) {
+    return sanitizeWelileTerms(fallbackPeriod.trim());
+  }
+  return 'Current period (Africa/Kampala)';
+}
+
+const MONEY_KEY_PATTERNS =
+  /(?:^|_)(?:ugx|amount|amt|balance|total_ugx|rent|fee|fees|commission|bonus|principal|arrears|overdue_ugx|expected|collected|disbursed|payout|payable|receivable|float|withdrawable|locked|advance|salary|gross|net|deduction|deductions|cost|price|spend|budget|supplement|revised|expenditure|remaining|shortfall|uncollected|outstanding|repaid|funded|paid_amount|due_amount|returns|topup|withdrawal|cash)(?:_|$)/i;
+
+const NON_MONEY_KEY_PATTERNS =
+  /(?:^|_)(?:count|cnt|pct|percent|percentage|rate|ratio|days|hours|minutes|mins|rank|score|index|id|uuid|phone|tel|mobile|number|code|status|stage|bucket|tier|name|title|email|role|date|time|at|from|to|month|year|week|day|note|reason|source|type|kind|category|region|district|enabled|active|verified|is_|has_|can_|total_row_count|row_count|plans_count|item_count|collection_count|payout_count|landlords_paid|calls|payers|started|missed|paid|part|not_due|future)(?:_|$)/i;
+
+/**
+ * Determines whether a column key represents a UGX money figure.
+ */
+export function isMoneyColumn(columnKey: string): boolean {
+  const key = columnKey.trim().toLowerCase();
+  if (!key) return false;
+  if (key.endsWith('_ugx') || key === 'ugx') return true;
+  if (NON_MONEY_KEY_PATTERNS.test(key) && !key.endsWith('_amount') && !key.endsWith('_ugx')) {
+    return false;
+  }
+  return MONEY_KEY_PATTERNS.test(key);
+}
+
+export const isMoneyFieldKey = isMoneyColumn;
+
+/**
+ * Determines whether a column key represents a count or percentage rather than money.
+ */
+export function isCountOrRateColumn(columnKey: string): boolean {
+  const key = columnKey.trim().toLowerCase();
+  return /(?:^|_)(?:count|cnt|pct|percent|percentage|rate|ratio|days|hours|minutes|rank|score|calls|plans|payers|started|items|tenants|landlords|agents)(?:_|$)/i.test(
+    key,
+  );
+}
+
+const ISO_DATE_VALUE_RE = /^\d{4}-\d{2}-\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/**
+ * Determines whether a column key or its values represent dates/timestamps.
+ */
+export function isDateColumn(columnKey: string, sampleValues?: ZoeReportCell[]): boolean {
+  const key = columnKey.trim().toLowerCase();
+  if (/(?:^|_)(?:date|as_at|as_of|from|to|period_start|period_end|called_at|created_at|updated_at|due_at|paid_at|disbursed_at|remind_at|started_at)(?:_|$)/i.test(key)) {
+    return true;
+  }
+  if (sampleValues && sampleValues.length > 0) {
+    const nonNull = sampleValues.filter((v) => v !== null && v !== '');
     if (
-      headerLine.startsWith('|') &&
-      headerLine.endsWith('|') &&
-      /^\|[\s:|-]+\|$/.test(dividerLine) &&
-      dividerLine.includes('-')
+      nonNull.length > 0 &&
+      nonNull.every((v) => typeof v === 'string' && ISO_DATE_VALUE_RE.test(v.trim()))
     ) {
-      const headers = headerLine
-        .slice(1, -1)
-        .split('|')
-        .map((c) => sanitizeWelileTerms(c.trim()));
-      if (headers.length === 0 || headers.every((h) => !h)) continue;
+      return true;
+    }
+  }
+  return false;
+}
 
-      const keys = headers.map((h, idx) =>
-        h
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '_')
-          .replace(/^_|_$/g, '') || `col_${idx + 1}`,
-      );
+/**
+ * Determines whether a column contains numeric values (money, counts, rates).
+ */
+export function isNumericColumn(columnKey: string, sampleValues?: ZoeReportCell[]): boolean {
+  if (isMoneyColumn(columnKey) || isCountOrRateColumn(columnKey)) {
+    return true;
+  }
+  if (sampleValues && sampleValues.length > 0) {
+    const nonNull = sampleValues.filter((v) => v !== null && v !== '');
+    if (nonNull.length > 0 && nonNull.every((v) => typeof v === 'number' && Number.isFinite(v))) {
+      return true;
+    }
+  }
+  return false;
+}
 
-      const rawRows: Record<string, unknown>[] = [];
-      const rows: (string | number | null)[][] = [];
+/**
+ * Infers the OpenXML column format type (`money`, `integer`, `decimal`, `date`, or `text`)
+ * for a given column in `.xlsx` exports.
+ */
+export function getZoeColumnXlsxType(
+  columnKey: string,
+  rows: ReadonlyArray<ReadonlyArray<ZoeReportCell>>,
+  colIdx: number,
+): 'money' | 'integer' | 'decimal' | 'date' | 'text' {
+  const sampleValues = rows.map((r) => r[colIdx] ?? null);
+  if (isMoneyColumn(columnKey)) return 'money';
+  if (isDateColumn(columnKey, sampleValues)) return 'date';
+  const numericValues = sampleValues.filter(
+    (v): v is number => typeof v === 'number' && Number.isFinite(v),
+  );
+  if (numericValues.length > 0) {
+    return numericValues.every((v) => Number.isInteger(v)) ? 'integer' : 'decimal';
+  }
+  return 'text';
+}
 
-      for (let j = i + 2; j < lines.length; j++) {
-        const rowLine = lines[j];
-        if (!rowLine.startsWith('|') || !rowLine.endsWith('|')) break;
-        const cells = rowLine
-          .slice(1, -1)
-          .split('|')
-          .map((c) => sanitizeWelileTerms(c.trim()));
-        const rowObj: Record<string, unknown> = {};
-        const rowArr: (string | number | null)[] = [];
-        keys.forEach((k, colIdx) => {
-          const cellVal = cells[colIdx] ?? '';
-          rowObj[k] = cellVal;
-          rowArr.push(cellVal);
-        });
-        rawRows.push(rowObj);
-        rows.push(rowArr);
+const INTERNAL_ID_COLUMN_RE =
+  /^(?:id|uuid|.*_id|.*_uuid|user_id|staff_id|agent_id|tenant_id|landlord_id|supporter_id|partner_id|rr_id|rent_request_id|person_id|caller_id|contract_id|department_id|submission_id|line_id|conversation_id|message_id|draft_id|prompt_id|requisition_id)$/i;
+
+const UUID_VALUE_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Returns true when a column is an internal database ID or UUID column that should be hidden
+ * from human-facing Excel and PDF tables.
+ */
+export function isInternalIdColumn(
+  columnKey: string,
+  rows?: ReadonlyArray<Record<string, unknown>>,
+): boolean {
+  const key = columnKey.trim();
+  if (!key) return true;
+  if (INTERNAL_ID_COLUMN_RE.test(key)) return true;
+
+  if (rows && rows.length > 0) {
+    const values = rows
+      .map((r) => r[columnKey])
+      .filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
+    if (
+      values.length > 0 &&
+      values.every((v) => typeof v === 'string' && UUID_VALUE_RE.test(v.trim()))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Formats a cell value for display in HTML/PDF tables while keeping non-money counts intact
+ * and formatting money columns as `"UGX 1,234"`.
+ */
+export function formatZoeCellForDisplay(
+  value: ZoeReportCell,
+  columnKey: string,
+): string {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return '—';
+    if (isMoneyColumn(columnKey)) {
+      return formatZoeUgx(value);
+    }
+    const key = columnKey.trim().toLowerCase();
+    if (key.endsWith('_pct') || key.endsWith('_percent') || key.endsWith('_rate')) {
+      const formatted = Number.isInteger(value) ? String(value) : value.toFixed(1);
+      return `${formatted}%`;
+    }
+    if (Number.isInteger(value)) {
+      return value.toLocaleString('en-US');
+    }
+    return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  }
+  const str = String(value).trim();
+  if (ISO_DATE_VALUE_RE.test(str) && str.length >= 10) {
+    // Keep clean YYYY-MM-DD or YYYY-MM-DD HH:MM for dates
+    if (str.length === 10) return str;
+    return str.slice(0, 16).replace('T', ' ');
+  }
+  return sanitizeWelileTerms(str);
+}
+
+const HEADER_ACRONYMS: Record<string, string> = {
+  ugx: 'UGX',
+  id: 'ID',
+  lc1: 'LC1',
+  nin: 'NIN',
+  tin: 'TIN',
+  nssf: 'NSSF',
+  cfo: 'CFO',
+  coo: 'COO',
+  ceo: 'CEO',
+  cto: 'CTO',
+  hr: 'HR',
+  crm: 'CRM',
+  pso: 'PSO',
+  kyc: 'KYC',
+  mfa: 'MFA',
+  sms: 'SMS',
+  otp: 'OTP',
+  pct: '%',
+};
+
+/**
+ * Turns a snake_case or camelCase column key into a clean Title Case header.
+ */
+export function formatZoeColumnHeader(columnKey: string): string {
+  const cleaned = sanitizeWelileTerms(
+    columnKey
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/[_\s-]+/g, ' ')
+      .trim(),
+  );
+  if (!cleaned) return 'Value';
+
+  return cleaned
+    .split(' ')
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (HEADER_ACRONYMS[lower]) return HEADER_ACRONYMS[lower];
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+}
+
+const KNOWN_TOOL_TITLES: Record<string, string> = {
+  my_profile: 'My Space Staff Profile',
+  my_tasks_and_tickets: 'My Tasks & Support Tickets',
+  my_tasks: 'My Tasks & Support Tickets',
+  my_payslips: 'My Payslips Summary',
+  my_requisitions: 'My Staff Requisitions',
+  my_advances: 'My Salary Advances & Ledger',
+  my_concerns: 'My Pipeline & Calling Concerns',
+  my_canteen: 'My Canteen Orders',
+  my_wallet: 'My Wallet Balances',
+  my_calls: 'My Calling Log & Summary',
+  tenant_ops_overview: 'Tenant Ops Executive Overview',
+  tenant_ops_first7: 'First 7 Days Rent Plan Performance',
+  tops_first_seven_summary: 'First 7 Days Rent Plan Performance',
+  tenant_ops_arrears_ageing: 'Tenant Ops Arrears Ageing Report',
+  tops_arrears_ageing: 'Tenant Ops Arrears Ageing Report',
+  tenant_ops_uncovered_plans: 'Rent Plans Waiting for Landlord Payout',
+  tops_landlord_not_paid: 'Rent Plans Waiting for Landlord Payout',
+  tenant_ops_repayments: 'Tenant Ops Repayments & Collection Rate Report',
+  tops_repayment_breakdown: 'Tenant Ops Repayments & Collection Rate Report',
+  tenant_ops_calling_summary: 'Tenant Calling Center Summary',
+  tops_calling_summary: 'Tenant Calling Center Summary',
+  landlord_ops_overview: 'Landlord Ops Workspace Overview',
+  lops_home_range: 'Landlord Ops Workspace Overview',
+  landlord_ops_paid_lists: 'Landlord Ops Paid & Repaying Lists',
+  lops_paid_lists: 'Landlord Ops Paid & Repaying Lists',
+  lops_paid_and_repaying: 'Landlord Ops Paid & Repaying Rent Plans Report',
+  lops_paid_and_repaying_summary: 'Landlord Ops Paid & Repaying Rent Plans Report',
+  landlord_ops_principal_comparison: 'Landlord Principal vs Float Allocation Report',
+  lops_principal_comparison: 'Landlord Principal vs Float Allocation Report',
+  landlord_ops_calling_summary: 'Landlord Calling Center Summary',
+  lops_calling_summary: 'Landlord Calling Center Summary',
+  agent_ops_overview: 'Agent Ops Network Overview',
+  aops_network_overview: 'Agent Ops Network Overview',
+  agent_ops_metrics: 'Agent Ops Listing & Advance Metrics',
+  aops_metrics_totals: 'Agent Ops Listing & Advance Metrics',
+  aops_metrics_agents: 'Agent Ops Per-Agent Performance Report',
+  agent_ops_silent_collectors: 'Agent Ops Silent Collectors Report',
+  aops_silent_collectors: 'Agent Ops Silent Collectors Report',
+  partner_ops_overview: 'Partner Ops Supporter Portfolio Report',
+  pops_report_overview: 'Partner Ops Supporter Portfolio Report',
+  partner_ops_pso_performance: 'Partner Success Officer (PSO) Performance Report',
+  pso_cohort_performance: 'Partner Success Officer (PSO) Performance Report',
+  cfo_cash_position: 'Treasury Cash Position Report',
+  cfo_treasury_cash_position: 'Treasury Cash Position Report',
+  cfo_receivables_payables: 'Company Receivables & Payables Report',
+  cfo_receivables_and_payables: 'Company Receivables & Payables Report',
+  cfo_seven_day_expenses: 'CFO 7-Day Platform Expenses Report',
+  cfo_budget_position: 'CFO Revised Budget Position Report',
+  cfo_budget_revised_position: 'CFO Revised Budget Position Report',
+  coo_command_center: 'COO Command Center & Rent Coverage Report',
+  coo_overview: 'COO Command Center & Rent Coverage Report',
+  ceo_growth_quality: 'CEO Growth Quality & Executive Report',
+  ceo_growth_and_approvals: 'CEO Growth Quality & Executive Report',
+  hr_calling_detailed_report: 'Staff Calling & Pipeline Feedback Report',
+  hr_contracts_expiring: 'HR Expiring Contracts & Birthdays Report',
+  hr_contracts_and_birthdays: 'HR Expiring Contracts & Birthdays Report',
+  hr_payroll_cost_by_department: 'HR Payroll Cost by Department Report',
+};
+
+/**
+ * Produces a clean human-readable report title from a tool/RPC name or source label.
+ */
+export function humanizeZoeReportTitle(
+  toolOrSource?: string | null,
+  fallbackKind: ZoeReportKind = 'table',
+): string {
+  if (!toolOrSource || !toolOrSource.trim()) {
+    return fallbackKind === 'table'
+      ? 'Welile Staff Operations Report'
+      : 'Welile Period Summary Report';
+  }
+  const raw = toolOrSource.trim();
+  const normalizedKey = raw
+    .replace(/^public\./i, '')
+    .replace(/^assistant_staff_/i, '')
+    .replace(/^get_/i, '')
+    .toLowerCase();
+
+  if (KNOWN_TOOL_TITLES[normalizedKey]) {
+    return KNOWN_TOOL_TITLES[normalizedKey];
+  }
+
+  return sanitizeWelileTerms(
+    normalizedKey
+      .split(/[_\s+]+/)
+      .filter(Boolean)
+      .map((part) => {
+        const lower = part.toLowerCase();
+        if (HEADER_ACRONYMS[lower]) return HEADER_ACRONYMS[lower];
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+      })
+      .join(' ') + ' Report',
+  );
+}
+
+/**
+ * Builds the "How this was counted" provenance note from the payload's `source`, `rpc`, and `basis`.
+ */
+export function buildZoeHowCountedNote(
+  payload: Record<string, unknown> | null | undefined,
+  fallbackSource?: string | null,
+): string {
+  const source =
+    (typeof payload?.source === 'string' && payload.source.trim()) ||
+    (typeof fallbackSource === 'string' && fallbackSource.trim()) ||
+    (typeof payload?.rpc === 'string' && payload.rpc.trim()) ||
+    (typeof payload?.tool === 'string' && payload.tool.trim()) ||
+    'Verified Welile read-only reporting RPC';
+
+  const basis =
+    (typeof payload?.basis === 'string' && payload.basis.trim()) ||
+    (typeof payload?.note === 'string' && payload.note.trim()) ||
+    (typeof (payload?.data as Record<string, unknown> | undefined)?.basis === 'string' &&
+      String((payload?.data as Record<string, unknown>).basis).trim()) ||
+    '';
+
+  const baseNote = `Figures come verbatim from ${source} (Africa/Kampala timezone, read-only server calculation).`;
+  return sanitizeWelileTerms(basis ? `${baseNote} ${basis}` : baseNote);
+}
+
+/**
+ * Guarantees that any Excel download filename ends with `.xlsx` (adds `.xlsx` if missing,
+ * or replaces a trailing `.xls` with `.xlsx`).
+ */
+export function ensureXlsxFilename(filename: string): string {
+  const trimmed = (filename || 'welile-zoe-report').trim();
+  if (/\.xlsx$/i.test(trimmed)) {
+    return trimmed.replace(/\.xlsx$/i, '.xlsx');
+  }
+  if (/\.xls$/i.test(trimmed)) {
+    return trimmed.replace(/\.xls$/i, '.xlsx');
+  }
+  return `${trimmed.replace(/\.+$/, '')}.xlsx`;
+}
+
+/**
+ * Builds a clean, safe filename for PDF or `.xlsx` downloads.
+ */
+export function buildZoeReportFilename(
+  toolOrTitle: string,
+  periodLabel: string,
+  extension: 'pdf' | 'xlsx',
+): string {
+  const slugTitle = toolOrTitle
+    .toLowerCase()
+    .replace(/^assistant_staff_/i, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 42);
+
+  const dateMatch = periodLabel.match(/\d{4}-\d{2}-\d{2}/);
+  const datePart = dateMatch ? dateMatch[0] : new Date().toISOString().slice(0, 10);
+  const base = `welile-zoe-${slugTitle || 'report'}-${datePart}`;
+  if (extension === 'xlsx') {
+    return ensureXlsxFilename(`${base}.xlsx`);
+  }
+  return `${base}.pdf`;
+}
+
+const MAX_PDF_COLUMNS = 8;
+
+function scoreColumnImportance(colKey: string, idx: number): number {
+  const k = colKey.trim().toLowerCase();
+  // Highest priority: primary entity / label / bucket / stage / staff / tenant / landlord name
+  if (
+    /^(?:name|full_name|staff_name|tenant_name|landlord_name|agent_name|supporter_name|person_name|title|bucket|stage|department|category|label|day|plan_ref|code)$/.test(
+      k,
+    )
+  ) {
+    return 100 - Math.min(idx, 10);
+  }
+  // High priority: primary totals, amounts, and counts
+  if (
+    /(?:^|_)(?:total|arrears_ugx|overdue_ugx|rent_amount|collected|expected|uncollected|outstanding|amount|balance|principal|returns|total_calls|answered_calls|unanswered_calls|count|plans|payers)(?:_|$)/.test(
+      k,
+    )
+  ) {
+    return 85 - Math.min(idx, 15);
+  }
+  // Medium-high priority: status, outcome, role, source, percentages, dates
+  if (
+    /(?:^|_)(?:status|outcome|answered|role|source|pct|percent|rate|called_at|date|as_of|from|to|due_at)(?:_|$)/.test(
+      k,
+    )
+  ) {
+    return 70 - Math.min(idx, 15);
+  }
+  // Medium priority: phone, location, frequency, feedback
+  if (/(?:^|_)(?:phone|person_phone|tenant_phone|landlord_phone|district|region|frequency|feedback|note)(?:_|$)/.test(k)) {
+    return 55 - Math.min(idx, 15);
+  }
+  return 40 - Math.min(idx, 20);
+}
+
+/**
+ * Selects up to `maxCols` (default 8) most important columns for PDF page width,
+ * preserving their original left-to-right relative column order.
+ */
+export function selectImportantColumnsForPdf(
+  columns: readonly string[],
+  maxCols: number = MAX_PDF_COLUMNS,
+): { selectedColumns: string[]; selectedIndices: number[]; omittedCount: number } {
+  if (columns.length <= maxCols) {
+    return {
+      selectedColumns: [...columns],
+      selectedIndices: columns.map((_, i) => i),
+      omittedCount: 0,
+    };
+  }
+
+  const scored = columns.map((col, idx) => ({
+    col,
+    idx,
+    score: scoreColumnImportance(col, idx),
+  }));
+
+  const topIndices = scored
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .slice(0, maxCols)
+    .map((item) => item.idx)
+    .sort((a, b) => a - b);
+
+  return {
+    selectedColumns: topIndices.map((i) => columns[i]),
+    selectedIndices: topIndices,
+    omittedCount: columns.length - topIndices.length,
+  };
+}
+
+const NON_SUMMABLE_COLUMN_RE =
+  /(?:^|_)(?:pct|percent|percentage|rate|ratio|avg|average|mean|median|min|max|day|week|month|year|rank|score|index|phone|tel|mobile|date|at|from|to|id|uuid|code|status|stage|bucket|name|title|role|source|note|feedback|frequency)(?:_|$)/i;
+
+/**
+ * Computes a Totals row across `rows` when the table has `>= 2` rows and at least one
+ * summable money or count column.
+ */
+export function computeZoeReportTotalsRow(
+  columns: readonly string[],
+  rows: ReadonlyArray<ReadonlyArray<ZoeReportCell>>,
+): ZoeReportCell[] | null {
+  if (rows.length < 2 || columns.length === 0) return null;
+
+  let hasSummableColumn = false;
+  const totals: ZoeReportCell[] = columns.map((col, colIdx) => {
+    const key = col.trim().toLowerCase();
+    if (colIdx === 0 && !isMoneyColumn(col) && !NON_SUMMABLE_COLUMN_RE.test(key)) {
+      return 'Total';
+    }
+    if (NON_SUMMABLE_COLUMN_RE.test(key) && !isMoneyColumn(col)) {
+      return colIdx === 0 ? 'Total' : null;
+    }
+
+    const numericVals: number[] = [];
+    for (const r of rows) {
+      const cell = r[colIdx];
+      if (typeof cell === 'number' && Number.isFinite(cell)) {
+        numericVals.push(cell);
+      } else if (cell !== null && cell !== undefined && cell !== '') {
+        // Non-numeric value in this column -> do not sum
+        return colIdx === 0 ? 'Total' : null;
       }
+    }
 
-      if (rows.length > 0) {
-        return {
-          name: 'Report Data',
-          headers,
-          keys,
-          rows,
-          rawRows,
-        };
+    if (numericVals.length === 0) {
+      return colIdx === 0 ? 'Total' : null;
+    }
+
+    if (isMoneyColumn(col) || /(?:^|_)(?:count|cnt|total|calls|plans|payers|started|missed|paid|part|items)(?:_|$)/i.test(key)) {
+      hasSummableColumn = true;
+      const sum = numericVals.reduce((acc, v) => acc + v, 0);
+      return Number.isInteger(sum) ? sum : Math.round(sum * 100) / 100;
+    }
+
+    return colIdx === 0 ? 'Total' : null;
+  });
+
+  if (!hasSummableColumn) return null;
+  if (totals[0] === null) totals[0] = 'Total';
+  return totals;
+}
+
+/**
+ * Verifies that every numeric token in `candidateLine` appears in the report's allowed number pool
+ * (built from `rows`, `totalsRow`, `rowCount`, `periodLabel`, and `chatContent`).
+ */
+export function verifySummaryNumbersAgainstReport(
+  candidateLine: string,
+  allowedNumbers: ReadonlySet<number>,
+  periodLabel: string,
+): boolean {
+  const scrubbed = candidateLine
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ')
+    .replace(/\b(?:01|02|03|04|05|06|07|08|09|10|11|12|13|14|15|16|17|18|19|20|21|22|23):\d{2}\b/g, ' ')
+    .replace(/\+?256\s*7[•*xX\d\s-]{6,14}\b/g, ' ')
+    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus|30\+)\b/gi, ' ')
+    .replace(/\bfirst\s+7\s+days\b/gi, ' ')
+    .replace(/\b(?:week|wk)[-_\s]?\d+\b/gi, ' ')
+    .replace(/\bday\s+[1-7]\b/gi, ' ');
+
+  const matches = scrubbed.matchAll(/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/g);
+  for (const m of matches) {
+    const n = Number(m[0].replace(/,/g, ''));
+    if (!Number.isFinite(n)) continue;
+    if (n >= 2020 && n <= 2035 && periodLabel.includes(String(n))) continue;
+    if (
+      !allowedNumbers.has(n) &&
+      !allowedNumbers.has(Math.round(n)) &&
+      !allowedNumbers.has(Number(n.toFixed(1))) &&
+      !allowedNumbers.has(Number(n.toFixed(2)))
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Produces 3 to 5 clean written summary lines for the PDF report header section.
+ * Uses Zoe's verified reply sentences (passed through `verifySummaryNumbersAgainstReport`)
+ * plus factual period/row/total lines derived directly from the report data.
+ */
+export function buildVerifiedSummaryLines(args: {
+  chatContent: string;
+  title: string;
+  periodLabel: string;
+  source: string;
+  rowCount: number;
+  columns: readonly string[];
+  headers: readonly string[];
+  rows: ReadonlyArray<ReadonlyArray<ZoeReportCell>>;
+  totalsRow: ReadonlyArray<ZoeReportCell> | null;
+}): string[] {
+  const allowedNumbers = new Set<number>([0, 1, args.rowCount, args.rows.length, args.columns.length]);
+  const addNum = (n: number) => {
+    if (!Number.isFinite(n)) return;
+    allowedNumbers.add(n);
+    allowedNumbers.add(Math.round(n));
+    allowedNumbers.add(Number(n.toFixed(1)));
+    allowedNumbers.add(Number(n.toFixed(2)));
+  };
+
+  for (const row of args.rows) {
+    for (const cell of row) {
+      if (typeof cell === 'number') addNum(cell);
+      else if (typeof cell === 'string') {
+        for (const m of cell.matchAll(/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/g)) {
+          addNum(Number(m[0].replace(/,/g, '')));
+        }
       }
+    }
+  }
+  if (args.totalsRow) {
+    for (const cell of args.totalsRow) {
+      if (typeof cell === 'number') addNum(cell);
+    }
+  }
+  for (const m of args.chatContent.matchAll(/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/g)) {
+    addNum(Number(m[0].replace(/,/g, '')));
+  }
+
+  const lines: string[] = [];
+
+  // Extract clean prose lines from Zoe's reply (excluding markdown table rows, Source lines, and file offer lines)
+  const rawParagraphs = sanitizeWelileTerms(args.chatContent || '')
+    .split(/\n+/)
+    .map((l) =>
+      l
+        .replace(/^#{1,6}\s+/, '')
+        .replace(/^[-*•]\s+/, '')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/`([^`]+)`/g, '$1')
+        .trim(),
+    )
+    .filter(
+      (l) =>
+        l.length >= 12 &&
+        !l.startsWith('|') &&
+        !/^source:\s*/i.test(l) &&
+        !/would you like.*\b(?:excel|pdf)\b/i.test(l),
+    );
+
+  for (const para of rawParagraphs) {
+    if (lines.length >= 3) break;
+    if (verifySummaryNumbersAgainstReport(para, allowedNumbers, args.periodLabel)) {
+      lines.push(para);
+    }
+  }
+
+  // Add factual Scope & Coverage line if needed
+  const scopeLine = `Scope: ${args.title} covering ${args.periodLabel} (${args.rowCount.toLocaleString('en-US')} ${args.rowCount === 1 ? 'record' : 'records'} from ${args.source}).`;
+  if (lines.length < 5 && !lines.some((l) => l.includes(args.periodLabel))) {
+    lines.push(scopeLine);
+  }
+
+  // Add factual Totals summary line from `totalsRow` if present
+  if (args.totalsRow && lines.length < 5) {
+    const totalParts: string[] = [];
+    args.columns.forEach((col, idx) => {
+      const val = args.totalsRow![idx];
+      if (typeof val === 'number' && Number.isFinite(val) && totalParts.length < 4) {
+        totalParts.push(`${args.headers[idx]}: ${formatZoeCellForDisplay(val, col)}`);
+      }
+    });
+    if (totalParts.length > 0) {
+      lines.push(`Verified column totals — ${totalParts.join(' | ')}.`);
+    }
+  }
+
+  // Guarantee between 3 and 5 lines
+  if (lines.length < 3) {
+    const firstRowPreview: string[] = [];
+    if (args.rows.length > 0) {
+      args.columns.slice(0, 3).forEach((col, idx) => {
+        const val = args.rows[0][idx];
+        if (val !== null && val !== undefined && val !== '') {
+          firstRowPreview.push(`${args.headers[idx]}: ${formatZoeCellForDisplay(val, col)}`);
+        }
+      });
+    }
+    if (firstRowPreview.length > 0) {
+      lines.push(`Top record highlight — ${firstRowPreview.join(', ')}.`);
+    }
+  }
+
+  if (lines.length < 3) {
+    lines.push(
+      `All figures are read-only server calculations in Africa/Kampala time formatted in Ugandan shillings (UGX).`,
+    );
+  }
+
+  return lines.slice(0, 5);
+}
+
+function toReportCell(val: unknown): ZoeReportCell {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  if (typeof val === 'boolean') return val;
+  if (typeof val === 'string') return sanitizeWelileTerms(val);
+  if (Array.isArray(val)) {
+    return sanitizeWelileTerms(
+      val
+        .map((item) => (typeof item === 'object' ? JSON.stringify(item) : String(item)))
+        .join(', '),
+    );
+  }
+  if (typeof val === 'object') {
+    const obj = val as Record<string, unknown>;
+    // Flatten compact state objects like `{ paid: 90, part: 75, missed: 168 }` cleanly
+    const pairs = Object.entries(obj)
+      .filter(([, v]) => typeof v === 'number' || typeof v === 'string')
+      .map(([k, v]) => `${k}: ${v}`);
+    if (pairs.length > 0) return sanitizeWelileTerms(pairs.join(', '));
+    return sanitizeWelileTerms(JSON.stringify(val));
+  }
+  return String(val);
+}
+
+const ARRAY_CANDIDATE_KEYS = [
+  'rows',
+  'detailed_rows',
+  'by_staff',
+  'weekly_all_calls_summary',
+  'per_day',
+  'categories',
+  'items',
+  'list',
+  'records',
+  'results',
+  'agents',
+  'tenants',
+  'landlords',
+  'supporters',
+  'portfolios',
+  'plans',
+  'tasks',
+  'tickets',
+  'payslips',
+  'requisitions',
+  'approved_requisitions',
+  'expiring_contracts',
+  'upcoming_birthdays',
+  'advances',
+  'concerns',
+  'orders',
+  'calls',
+  'waiting',
+  'reminders',
+  'schedules',
+  'buckets',
+  'cohorts',
+  'departments',
+  'accounts',
+  'disbursements',
+  'cashouts',
+  'teams',
+];
+
+function isRecordObject(val: unknown): val is Record<string, unknown> {
+  return Boolean(val) && typeof val === 'object' && !Array.isArray(val);
+}
+
+function findRowsArrayInObject(obj: Record<string, unknown>): Record<string, unknown>[] | null {
+  for (const key of ARRAY_CANDIDATE_KEYS) {
+    const candidate = obj[key];
+    if (Array.isArray(candidate) && candidate.length > 0 && candidate.every(isRecordObject)) {
+      return candidate;
+    }
+  }
+  for (const val of Object.values(obj)) {
+    if (Array.isArray(val) && val.length > 0 && val.every(isRecordObject)) {
+      return val;
+    }
+  }
+  // Convert a bucket map (e.g. `summary: { "1-7": { count: 119, arrears_ugx: 15292479 }, ... }`) into structured rows
+  if (isRecordObject(obj.summary)) {
+    const bucketRows: Record<string, unknown>[] = [];
+    for (const [bucketKey, bucketVal] of Object.entries(obj.summary)) {
+      if (isRecordObject(bucketVal)) {
+        bucketRows.push({ bucket: bucketKey, ...bucketVal });
+      }
+    }
+    if (bucketRows.length >= 2) {
+      return bucketRows;
     }
   }
   return null;
 }
 
-function normalizeToolKey(toolOrRpc?: string | null): string {
-  if (!toolOrRpc) return '';
-  return toolOrRpc.trim().replace(/^assistant_staff_/, '');
-}
+/**
+ * Extracts structured row objects from `report_payload` (including top-level arrays or nested
+ * report sections like `data`, `summary`, `receivables`, `payables`), hiding internal ID columns.
+ */
+function extractStructuredRows(payload: Record<string, unknown>): {
+  columns: string[];
+  hiddenColumns: string[];
+  rows: ZoeReportCell[][];
+  rawRows: Record<string, unknown>[];
+  rowCount: number;
+} | null {
+  let rawRows = findRowsArrayInObject(payload);
 
-function resolveReportMeta(
-  payload: Record<string, unknown> | null,
-  messageSource?: string | null,
-  periodLabel?: string,
-): { title: string; subtitle: string; source: string; howCountedNote: string } {
-  const toolName =
-    (typeof payload?.tool === 'string' && payload.tool) ||
-    (typeof payload?.rpc === 'string' && payload.rpc) ||
-    '';
-  const normalizedKey = normalizeToolKey(toolName);
-  const catalogEntry = TOOL_REPORT_TITLES[normalizedKey] ?? TOOL_REPORT_TITLES[toolName];
+  if (!rawRows && isRecordObject(payload.data)) {
+    rawRows = findRowsArrayInObject(payload.data);
+  }
+  if (!rawRows && isRecordObject(payload.summary)) {
+    rawRows = findRowsArrayInObject(payload.summary);
+  }
+  if (!rawRows && isRecordObject(payload.receivables)) {
+    rawRows = findRowsArrayInObject(payload.receivables);
+  }
+  if (!rawRows && isRecordObject(payload.payables)) {
+    rawRows = findRowsArrayInObject(payload.payables);
+  }
 
-  const rawSource =
-    (typeof payload?.source === 'string' && payload.source.trim()) ||
-    (typeof messageSource === 'string' && messageSource.trim()) ||
-    (typeof payload?.rpc === 'string' && payload.rpc.trim()) ||
-    'Official Welile Read-Only Report';
+  if (!rawRows || rawRows.length === 0) {
+    return null;
+  }
 
-  const source = sanitizeWelileTerms(rawSource);
-
-  let title = catalogEntry?.title ?? '';
-  if (!title) {
-    if (normalizedKey) {
-      title = `${formatZoeColumnHeader(normalizedKey)} Report`;
-    } else if (source && !source.includes('(') && source.length <= 60) {
-      title = `${formatZoeColumnHeader(source)} Report`;
-    } else {
-      title = 'Zoe Staff Operations Report';
+  const allColumns: string[] = [];
+  for (const row of rawRows) {
+    for (const key of Object.keys(row)) {
+      if (!allColumns.includes(key)) {
+        allColumns.push(key);
+      }
     }
   }
-  title = sanitizeWelileTerms(title);
 
-  const explicitBasis =
-    (typeof payload?.basis === 'string' && payload.basis.trim()) ||
-    (typeof payload?.how_counted === 'string' && payload.how_counted.trim()) ||
-    (typeof payload?.note === 'string' && payload.note.trim()) ||
-    '';
+  if (allColumns.length === 0) return null;
 
-  const baseHowCounted =
-    catalogEntry?.howCounted ||
-    `Counted directly from official read-only server source (${source}) for ${periodLabel || 'the selected period'}.`;
+  const hiddenColumns = allColumns.filter((col) => isInternalIdColumn(col, rawRows!));
+  const visibleColumns = allColumns.filter((col) => !hiddenColumns.includes(col));
+  const columns = visibleColumns.length > 0 ? visibleColumns : allColumns;
 
-  const howCountedNote = sanitizeWelileTerms(
-    explicitBasis
-      ? `${explicitBasis} (${baseHowCounted} Exported rows match the Zoe chat payload with zero client-side recalculation.)`
-      : `${baseHowCounted} Exported rows match the Zoe chat payload with zero client-side recalculation.`,
+  const rows: ZoeReportCell[][] = rawRows.map((row) =>
+    columns.map((col) => {
+      const cell = toReportCell(row[col]);
+      // Coerce numeric strings on money/numeric columns to real numbers so Excel/PDF treat them as numbers
+      if (typeof cell === 'string' && isMoneyColumn(col)) {
+        const cleaned = cell.replace(/^UGX\s*/i, '').replace(/,/g, '').trim();
+        if (/^-?\d+(?:\.\d+)?$/.test(cleaned)) {
+          return Number(cleaned);
+        }
+      }
+      return cell;
+    }),
   );
 
+  const explicitCount =
+    typeof payload.row_count === 'number' && Number.isFinite(payload.row_count)
+      ? payload.row_count
+      : typeof (payload.data as Record<string, unknown> | undefined)?.total_row_count === 'number'
+        ? Number((payload.data as Record<string, unknown>).total_row_count)
+        : rawRows.length;
+
   return {
-    title,
-    subtitle: `Official Source: ${source}`,
-    source,
-    howCountedNote,
+    columns,
+    hiddenColumns,
+    rows,
+    rawRows,
+    rowCount: Math.max(explicitCount, rawRows.length),
+  };
+}
+
+const EXPLICIT_FILE_REQUEST_RE =
+  /\b(?:excel|xlsx|spreadsheet|workbook|pdf|csv)\b|(?:^|\s)(?:export|download)\s+(?:this|that|it|the\s+(?:report|table|list|data)|as\b|to\b)|(?:give|send|make|create|generate|prepare|share)\s+(?:me\s+)?(?:a\s+|an\s+|the\s+)?(?:excel|xlsx|spreadsheet|pdf|file)\b/i;
+
+const EXCEL_INTENT_RE = /\b(?:excel|xlsx|spreadsheet|workbook)\b/i;
+const PDF_INTENT_RE = /\bpdf\b/i;
+
+/**
+ * Deterministic check for whether a user prompt explicitly asks for an Excel or PDF file.
+ * Returns `{ requested: false, format: null }` for regular questions with no file request.
+ */
+export function isZoeFileRequested(userPrompt: string): ZoeFileRequestIntent {
+  const text = (userPrompt || '').trim();
+  if (!text || !EXPLICIT_FILE_REQUEST_RE.test(text)) {
+    return { requested: false, format: null };
+  }
+  const wantsExcel = EXCEL_INTENT_RE.test(text);
+  const wantsPdf = PDF_INTENT_RE.test(text);
+  if (wantsExcel && wantsPdf) {
+    return { requested: true, format: 'both' };
+  }
+  if (wantsExcel) {
+    return { requested: true, format: 'xlsx' };
+  }
+  if (wantsPdf) {
+    return { requested: true, format: 'pdf' };
+  }
+  return { requested: true, format: 'both' };
+}
+
+/**
+ * Evaluates whether a Zoe turn should create a file or only show the two small offer chips.
+ * Rule (Prompt 1 item 2):
+ *   - A file is created ONLY when the user explicitly asks in `userPrompt` OR taps an offer chip (`chipTappedFormat`).
+ *   - When the answer contains a structured table and no file was requested, `fileCreated` is `false`
+ *     and `offerChipsShown` is `true`.
+ */
+export function evaluateZoeFileRequest(args: {
+  userPrompt: string;
+  assistantMessage: ZoeExportSourceMessage;
+  chipTappedFormat?: 'xlsx' | 'pdf' | null;
+  options?: ZoeExtractReportOptions;
+}): ZoeFileDecision {
+  const report = extractZoeExportableReport(args.assistantMessage, {
+    ...args.options,
+    userQuestion: args.userPrompt || args.assistantMessage.userQuestion,
+  });
+
+  if (!report) {
+    return {
+      report: null,
+      fileCreated: false,
+      requestedFormat: null,
+      offerChipsShown: false,
+    };
+  }
+
+  if (args.chipTappedFormat === 'xlsx' || args.chipTappedFormat === 'pdf') {
+    return {
+      report,
+      fileCreated: true,
+      requestedFormat: args.chipTappedFormat,
+      offerChipsShown: false,
+    };
+  }
+
+  const intent = isZoeFileRequested(args.userPrompt);
+  if (intent.requested) {
+    return {
+      report,
+      fileCreated: true,
+      requestedFormat: intent.format ?? 'both',
+      offerChipsShown: false,
+    };
+  }
+
+  return {
+    report,
+    fileCreated: false,
+    requestedFormat: null,
+    offerChipsShown: true,
   };
 }
 
 /**
- * Extracts a canonical `ZoeExportableReport` from a Zoe assistant message whenever the
- * answer is a table or a period summary. Returns `null` for user messages, errors,
- * clarifications, or plain conversational responses without tabular/summary report data.
+ * Extracts a structured `ZoeExportableReport` from a Zoe assistant message when it contains
+ * structured tabular rows (`report_payload`).
+ *
+ * Prompt 1 item (2): Never builds `'period_summary'` reports out of loose scalar fields
+ * or markdown tables. Returns `null` when the message has no structured table rows.
  */
 export function extractZoeExportableReport(
-  message: ZoeExportableMessageInput,
-  options?: ExtractZoeReportOptions,
+  message: ZoeExportSourceMessage,
+  options?: ZoeExtractReportOptions,
 ): ZoeExportableReport | null {
-  if (!message) return null;
-  if (message.role && message.role !== 'assistant') return null;
-  const statusOrOutcome = message.outcome ?? message.status;
-  const hasEmailDraft = Boolean(
-    message.reportPayload &&
-      typeof message.reportPayload === 'object' &&
-      'email_draft' in message.reportPayload,
-  );
-  if (statusOrOutcome && statusOrOutcome !== 'answered' && !hasEmailDraft) return null;
+  if (!message || message.role !== 'assistant') return null;
 
-  const payload =
-    message.reportPayload && typeof message.reportPayload === 'object' && !Array.isArray(message.reportPayload)
-      ? message.reportPayload
-      : null;
+  const statusOrOutcome = message.status ?? message.outcome ?? 'answered';
+  if (statusOrOutcome !== 'answered') return null;
 
-  const sheets: ZoeReportSheet[] = [];
+  const payload = message.reportPayload ?? message.report_payload ?? null;
+  if (!payload || !isRecordObject(payload)) return null;
+  if (payload.consultant_mode === true) return null;
 
-  if (payload) {
-    // 1. Check all known row-array keys on payload
-    for (const key of ROW_ARRAY_KEYS) {
-      const candidate = payload[key];
-      if (Array.isArray(candidate) && candidate.length > 0) {
-        const validRows = candidate.filter(
-          (item): item is Record<string, unknown> =>
-            Boolean(item) && typeof item === 'object' && !Array.isArray(item),
-        );
-        if (validRows.length > 0) {
-          const sheetLabel = key === 'rows' ? 'Report Data' : formatZoeColumnHeader(key);
-          sheets.push(buildSheetFromRowObjects(sheetLabel, validRows));
-        }
-      }
-    }
-
-    // 2. Check if `payload.data` is an array of row objects or contains row arrays
-    if (Array.isArray(payload.data) && payload.data.length > 0) {
-      const validRows = payload.data.filter(
-        (item): item is Record<string, unknown> =>
-          Boolean(item) && typeof item === 'object' && !Array.isArray(item),
-      );
-      if (validRows.length > 0 && sheets.length === 0) {
-        sheets.push(buildSheetFromRowObjects('Report Data', validRows));
-      }
-    } else if (payload.data && typeof payload.data === 'object' && !Array.isArray(payload.data)) {
-      const nestedData = payload.data as Record<string, unknown>;
-      for (const key of ROW_ARRAY_KEYS) {
-        const candidate = nestedData[key];
-        if (Array.isArray(candidate) && candidate.length > 0) {
-          const validRows = candidate.filter(
-            (item): item is Record<string, unknown> =>
-              Boolean(item) && typeof item === 'object' && !Array.isArray(item),
-          );
-          if (validRows.length > 0) {
-            const sheetLabel = key === 'rows' ? 'Report Data' : formatZoeColumnHeader(key);
-            sheets.push(buildSheetFromRowObjects(sheetLabel, validRows));
-          }
-        }
-      }
-    }
-  }
-
-  // 3. Collect period summary metrics from summary objects or scalar fields
-  const summaryMetrics: ZoeReportSummaryMetric[] = [];
-  if (payload) {
-    for (const key of SUMMARY_OBJECT_KEYS) {
-      const val = payload[key];
-      if (val && typeof val === 'object' && !Array.isArray(val)) {
-        const prefix = key === 'summary' || key === 'totals' || key === 'overview' || key === 'data' ? '' : key;
-        collectSummaryMetricsFromObject(val as Record<string, unknown>, prefix, summaryMetrics);
-      }
-    }
-
-    // Also collect any direct scalar summary fields on payload itself
-    for (const [k, v] of Object.entries(payload)) {
-      if (METADATA_KEYS.has(k)) continue;
-      if (typeof v === 'number' || typeof v === 'boolean' || (typeof v === 'string' && v.length <= 120)) {
-        if (!summaryMetrics.some((m) => m.key === k)) {
-          summaryMetrics.push({
-            key: k,
-            label: formatZoeColumnHeader(k),
-            rawValue: typeof v === 'string' ? sanitizeWelileTerms(v) : v,
-            formattedValue: formatZoeCellForDisplay(k, v),
-          });
-        }
-      }
-    }
-  }
-
-  // 4. Fallback: check if `message.content` contains a Markdown pipe table
-  if (sheets.length === 0 && summaryMetrics.length === 0) {
-    const mdSheet = parseMarkdownTableFromContent(message.content);
-    if (mdSheet) {
-      sheets.push(mdSheet);
-    }
-  }
-
-  if (sheets.length === 0 && summaryMetrics.length === 0) {
+  const structured = extractStructuredRows(payload);
+  if (!structured || structured.rows.length === 0) {
     return null;
   }
 
-  const periodLabel = formatZoePeriodLabel(payload?.period, message.period);
-  const generatedDate =
-    options?.generatedAt instanceof Date
-      ? options.generatedAt
-      : typeof options?.generatedAt === 'string' && options.generatedAt.trim()
-        ? new Date(options.generatedAt)
-        : new Date();
-  const generatedAt = Number.isNaN(generatedDate.getTime())
-    ? String(options?.generatedAt || '')
-    : `${dayTime(generatedDate.toISOString())} EAT`;
+  const rawSource =
+    (typeof payload.source === 'string' && payload.source.trim()) ||
+    message.source ||
+    message.source_label ||
+    (typeof payload.rpc === 'string' && payload.rpc.trim()) ||
+    (typeof payload.tool === 'string' && payload.tool.trim()) ||
+    'Welile Staff Assistant Report';
 
-  const generatedBy =
-    (typeof options?.generatedBy === 'string' && options.generatedBy.trim()) ||
-    'Authenticated Staff Member';
+  const source = sanitizeWelileTerms(String(rawSource));
+  const toolOrSource =
+    (typeof payload.tool === 'string' && payload.tool.trim()) ||
+    (typeof payload.rpc === 'string' && payload.rpc.trim()) ||
+    source;
 
-  const { title, subtitle, source, howCountedNote } = resolveReportMeta(
-    payload,
-    message.source,
-    periodLabel,
+  const periodLabel = formatZoePeriodLabel(
+    payload.period,
+    message.period ?? message.period_label ?? null,
   );
 
-  const dateSlug = Number.isNaN(generatedDate.getTime())
-    ? 'report'
-    : generatedDate.toISOString().slice(0, 10);
-  const titleSlug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 48);
-  const filenameBase = `welile-zoe-${titleSlug || 'report'}-${dateSlug}`;
+  const generatedAt = formatZoeKampalaTimestamp(
+    options?.generatedAt ?? message.createdAt ?? message.created_at,
+  );
+  const generatedBy = sanitizeWelileTerms(
+    options?.generatedBy?.trim() || 'Signed-in Welile Staff Member',
+  );
+  const question = sanitizeWelileTerms(
+    options?.userQuestion?.trim() ||
+      message.userQuestion?.trim() ||
+      (typeof payload.question === 'string' ? payload.question.trim() : '') ||
+      humanizeZoeReportTitle(toolOrSource, 'table'),
+  );
+  const howCountedNote = buildZoeHowCountedNote(payload, source);
+  const title = humanizeZoeReportTitle(toolOrSource, 'table');
+  const headers = structured.columns.map(formatZoeColumnHeader);
+  const totalsRow = computeZoeReportTotalsRow(structured.columns, structured.rows);
 
-  // If we have table sheets, primary table is sheets[0]
-  if (sheets.length > 0) {
-    const primary = sheets[0];
-    return {
-      kind: 'table',
-      title,
-      subtitle,
-      source,
-      periodLabel,
-      generatedAt,
-      generatedBy,
-      howCountedNote,
-      headers: primary.headers,
-      keys: primary.keys,
-      rows: primary.rows,
-      rawRows: primary.rawRows,
-      rowCount: primary.rows.length,
-      summaryMetrics,
-      sheets,
-      filenameBase,
-    };
-  }
+  const pdfSelection = selectImportantColumnsForPdf(structured.columns, MAX_PDF_COLUMNS);
+  const pdfColumns = pdfSelection.selectedColumns;
+  const pdfHeaders = pdfColumns.map(formatZoeColumnHeader);
+  const pdfRows = structured.rows.map((row) =>
+    pdfSelection.selectedIndices.map((idx) => row[idx]),
+  );
+  const pdfTotalsRow = totalsRow
+    ? pdfSelection.selectedIndices.map((idx) => totalsRow[idx])
+    : null;
 
-  // Otherwise, this is a period summary report (`kind: 'period_summary'`)
-  const summaryRawRows: Record<string, unknown>[] = summaryMetrics.map((m) => ({
-    metric: m.label,
-    value: m.rawValue,
-  }));
-  const summaryRows: (string | number | null)[][] = summaryMetrics.map((m) => [
-    m.label,
-    typeof m.rawValue === 'boolean' ? String(m.rawValue) : m.rawValue,
-  ]);
-  const summarySheet: ZoeReportSheet = {
-    name: 'Period Summary',
-    headers: ['Metric', 'Value'],
-    keys: ['metric', 'value'],
-    rows: summaryRows,
-    rawRows: summaryRawRows,
+  const summaryLines = buildVerifiedSummaryLines({
+    chatContent: message.content || '',
+    title,
+    periodLabel,
+    source,
+    rowCount: structured.rowCount,
+    columns: structured.columns,
+    headers,
+    rows: structured.rows,
+    totalsRow,
+  });
+
+  const primarySheet: ZoeReportSheet = {
+    name: 'Report Data',
+    headers,
+    keys: structured.columns,
+    rows: structured.rows,
+    rawRows: structured.rawRows,
+    totalsRow,
   };
 
   return {
-    kind: 'period_summary',
+    kind: 'table',
     title,
-    subtitle,
-    source,
+    subtitle: `${structured.rowCount.toLocaleString('en-US')} ${structured.rowCount === 1 ? 'row' : 'rows'} · ${periodLabel}`,
+    question,
     periodLabel,
     generatedAt,
     generatedBy,
+    source,
     howCountedNote,
-    headers: summarySheet.headers,
-    keys: summarySheet.keys,
-    rows: summarySheet.rows,
-    rawRows: summarySheet.rawRows,
-    rowCount: summarySheet.rows.length,
-    summaryMetrics,
-    sheets: [summarySheet],
-    filenameBase,
+    headers,
+    columns: structured.columns,
+    keys: structured.columns,
+    hiddenColumns: structured.hiddenColumns,
+    rows: structured.rows,
+    rawRows: structured.rawRows,
+    rowCount: structured.rowCount,
+    sheets: [primarySheet],
+    summaryMetrics: [],
+    totalsRow,
+    summaryLines,
+    pdfColumns,
+    pdfHeaders,
+    pdfRows,
+    pdfTotalsRow,
+    omittedPdfColumns: pdfSelection.omittedCount,
+    filenameBase: buildZoeReportFilename(toolOrSource, periodLabel, 'pdf').replace(/\.pdf$/, ''),
   };
+}
+
+/**
+ * Helper to build a `ZoeReportSheet` from an array of row objects (hiding internal ID columns).
+ */
+export function buildSheetFromRowObjects(
+  sheetName: string,
+  rowObjects: Record<string, unknown>[],
+): ZoeReportSheet | null {
+  if (!Array.isArray(rowObjects) || rowObjects.length === 0) return null;
+  const allCols: string[] = [];
+  for (const row of rowObjects) {
+    for (const k of Object.keys(row)) {
+      if (!allCols.includes(k)) allCols.push(k);
+    }
+  }
+  const visible = allCols.filter((c) => !isInternalIdColumn(c, rowObjects));
+  const keys = visible.length > 0 ? visible : allCols;
+  const headers = keys.map(formatZoeColumnHeader);
+  const rows: ZoeReportCell[][] = rowObjects.map((r) => keys.map((k) => toReportCell(r[k])));
+  const totalsRow = computeZoeReportTotalsRow(keys, rows);
+  return {
+    name: sheetName.slice(0, 31) || 'Report Data',
+    headers,
+    keys,
+    rows,
+    rawRows: rowObjects,
+    totalsRow,
+  };
+}
+
+/**
+ * Retained as a no-op helper for module compatibility; per Prompt 1 item (2),
+ * `extractZoeExportableReport` never builds reports from markdown tables.
+ */
+export function parseMarkdownTableFromContent(_content: string): ZoeReportSheet | null {
+  return null;
+}
+
+/**
+ * Returns the formatted string matrix (`displayRows`) for `report.rows` using `formatZoeCellForDisplay`.
+ */
+export function buildZoeDisplayRows(report: ZoeExportableReport): string[][] {
+  return report.rows.map((row) =>
+    row.map((cell, colIndex) =>
+      formatZoeCellForDisplay(cell, report.columns[colIndex] ?? `col_${colIndex}`),
+    ),
+  );
 }

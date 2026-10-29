@@ -1,5 +1,7 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
+import { COMPUTE_OPENAI_TOOL } from "./calculator.ts";
 import { currentWednesdayWeekStart, ISO_DATE, kampalaToday, PERIODS, Period, resolvePeriod } from "./dates.ts";
+import { GET_STAFF_MANUAL_HELP_OPENAI_TOOL } from "./manualHelp.ts";
 import type { OpenAiTool } from "./openai.ts";
 
 /**
@@ -21,6 +23,12 @@ export interface StaffTool {
    * `requireStaffAal2` from `../_shared/staffMfa.ts` before calling the RPC.
    */
   sensitive?: boolean;
+  /**
+   * When true, marks this tool as belonging to the flexible Analyst lane ("ad hoc, not certified").
+   * Certified lookups must always be preferred when one exists; Analyst lane results are
+   * explicitly labelled "Ad hoc, not certified" with the SQL shown under "Show the data".
+   */
+  adHoc?: boolean;
   parameters: Record<string, unknown>;
   schema: z.ZodType<Record<string, unknown>>;
   toRpcArgs: (parsed: Record<string, unknown>) => Record<string, unknown>;
@@ -28,16 +36,15 @@ export interface StaffTool {
 
 const EmptySchema = z.object({}).strict();
 
+const PeriodField = z.enum([...PERIODS, "custom"] as const).optional();
+
 const PeriodArgsSchema = z
   .object({
-    period: z.enum(PERIODS).optional(),
+    period: PeriodField,
     from: z.string().regex(ISO_DATE).optional(),
     to: z.string().regex(ISO_DATE).optional(),
   })
-  .strict()
-  .refine((v) => !(v.period && (v.from || v.to)), {
-    message: "Provide either `period` or `from`/`to`, not both.",
-  });
+  .strict();
 
 const periodProperties = {
   period: {
@@ -51,15 +58,15 @@ const periodProperties = {
 };
 
 function rangeArgs(parsed: Record<string, unknown>, defaultPeriod: Period = "last_30_days") {
-  if (typeof parsed.period === "string") {
-    const r = resolvePeriod(parsed.period as Period);
-    return { p_from: r.from, p_to: r.to };
-  }
   if (typeof parsed.from === "string" || typeof parsed.to === "string") {
     const today = kampalaToday();
     const from = (parsed.from as string | undefined) ?? (parsed.to as string);
     const to = (parsed.to as string | undefined) ?? today;
     return { p_from: from, p_to: to };
+  }
+  if (typeof parsed.period === "string" && parsed.period !== "custom") {
+    const r = resolvePeriod(parsed.period as Period);
+    return { p_from: r.from, p_to: r.to };
   }
   const r = resolvePeriod(defaultPeriod);
   return { p_from: r.from, p_to: r.to };
@@ -227,6 +234,28 @@ const FINOPS_REQUISITION_ROLES = [
   "cfo",
   "ceo",
   "coo",
+  "super_admin",
+] as const;
+
+const FINOPS_DISBURSEMENT_ROLES = [
+  "financial_ops",
+  "cfo",
+  "ceo",
+  "coo",
+  "manager",
+  "super_admin",
+] as const;
+
+const AWARENESS_CALLS_ROLES = [
+  "tenant_ops",
+  "landlord_ops",
+  "operations",
+  "hr",
+  "coo",
+  "ceo",
+  "cfo",
+  "cto",
+  "manager",
   "super_admin",
 ] as const;
 
@@ -425,15 +454,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         frequency: z.enum(["daily", "weekly", "monthly"]).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_frequency: (p.frequency as string | undefined) ?? null,
@@ -715,15 +741,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         week_start: z.string().regex(ISO_DATE).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_7_days"),
       p_week_start: (p.week_start as string | undefined) ?? currentWednesdayWeekStart(),
@@ -780,15 +803,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         min_expected: z.number().min(0).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_min_expected: (p.min_expected as number | undefined) ?? 50000,
@@ -856,7 +876,7 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         search: SearchField.optional(),
@@ -877,10 +897,7 @@ export const STAFF_TOOLS: StaffTool[] = [
         scope: z.enum(["qualifying", "linked", "all"]).optional(),
         limit: z.number().int().min(1).max(200).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_search: (p.search as string | undefined) ?? null,
@@ -911,15 +928,12 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        period: z.enum(PERIODS).optional(),
+        period: PeriodField,
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
         limit: z.number().int().min(1).max(100).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => ({
       ...rangeArgs(p, "last_30_days"),
       p_limit: (p.limit as number | undefined) ?? 50,
@@ -1191,8 +1205,8 @@ export const STAFF_TOOLS: StaffTool[] = [
         ...periodProperties,
         days: {
           type: "integer",
-          minimum: 3,
-          maximum: 60,
+          minimum: 1,
+          maximum: 180,
           description: "Trailing window in days when explicit dates are not passed (default 14).",
         },
       },
@@ -1203,14 +1217,11 @@ export const STAFF_TOOLS: StaffTool[] = [
         period: z.enum(PERIODS).optional(),
         from: z.string().regex(ISO_DATE).optional(),
         to: z.string().regex(ISO_DATE).optional(),
-        days: z.number().int().min(3).max(60).optional(),
+        days: z.number().int().min(1).max(180).optional(),
       })
-      .strict()
-      .refine((v) => !(v.period && (v.from || v.to)), {
-        message: "Provide either `period` or `from`/`to`, not both.",
-      }),
+      .strict(),
     toRpcArgs: (p) => {
-      const days = (p.days as number | undefined) ?? 14;
+      const days = Math.min(Math.max((p.days as number | undefined) ?? 14, 3), 60);
       if (p.period || p.from || p.to) {
         return { p_days: days, ...rangeArgs(p, "last_30_days") };
       }
@@ -1345,7 +1356,602 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_include_cancelled: (p.include_cancelled as boolean | undefined) ?? false,
     }),
   },
+
+  // ===========================================================================
+  // GROUP I — PROMPT 3 COVERAGE TOOLS (11 read-only `assistant_staff_*` RPCs)
+  // ===========================================================================
+  {
+    name: "get_my_calls",
+    rpc: "assistant_staff_my_calls",
+    description:
+      "Get the signed-in staff member's own Calling Center & Rent Plan pipeline calls over a date range (total calls, answered calls, unique subjects, and deduplicated call log rows from staff_calling_detailed_report).",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_tops_rent_requests_by_stage",
+    rpc: "assistant_staff_tops_rent_requests_by_stage",
+    description:
+      "Tenant Ops Rent Plan requests created today, created over a date range, and current open Rent Plan request counts and UGX totals broken down by pipeline stage.",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "today"),
+  },
+  {
+    name: "get_tops_time_on_desk",
+    rpc: "assistant_staff_tops_time_on_desk",
+    description:
+      "Tenant Ops Rent Plan request time on desk from official rent_request_timing: average and longest hours on the current desk and total pipeline hours, plus the longest-waiting open requests.",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        stage: {
+          type: "string",
+          description:
+            "Optional pipeline stage filter (e.g. pending, tenant_ops_approved, agent_verified, landlord_ops_approved, coo_approved, cfo_approved).",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 100,
+          description: "Max open Rent Plan requests to inspect (default 50, max 100).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        stage: SearchField.optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_stage: (p.stage as string | undefined) ?? null,
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_tops_find_tenant",
+    rpc: "assistant_staff_tops_find_tenant",
+    description:
+      "Find a tenant by name or phone in Tenant Ops using tops_tenant_classification_list and tenant_payment_score (returns classification, outstanding UGX, arrears UGX, days behind, and payment score).",
+    allowedRoles: TENANT_OPS_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description: "Tenant name or phone search term.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          description: "Max matching tenants to return (default 20, max 50).",
+        },
+      },
+      required: ["search"],
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField,
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: p.search as string,
+      p_limit: (p.limit as number | undefined) ?? 20,
+    }),
+  },
+  {
+    name: "get_tops_awareness_calls",
+    rpc: "assistant_staff_tops_awareness_calls",
+    description:
+      "Tenant Ops & Landlord Ops Rent Plan pipeline awareness calls summary and call rows over a date range (from cc_weekly_all_calls_report and rent_pipeline_awareness_calls, including landlord consent and aware_payout_otp).",
+    allowedRoles: AWARENESS_CALLS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_lops_verification_queue",
+    rpc: "assistant_staff_lops_verification_queue",
+    description:
+      "Landlord Ops verification queue counts (pending houses, landlords, LC1 from ops_landlord_ops_home_range) and unverified landlord rows from v_landlord_ops_status.",
+    allowedRoles: LANDLORD_OPS_HOME_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max pending landlords to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_aops_subagent_teams",
+    rpc: "assistant_staff_aops_subagent_teams",
+    description:
+      "Agent Ops main-agent and sub-agent teams report over a date range (from agent_ops_metrics_main_agents and agent_ops_metrics_risk: sub-agent count, team houses listed/approved, team listing earnings, and team risk summary).",
+    allowedRoles: AGENT_OPS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        ...periodProperties,
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max main agent teams to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        period: PeriodField,
+        from: z.string().regex(ISO_DATE).optional(),
+        to: z.string().regex(ISO_DATE).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      ...rangeArgs(p, "last_30_days"),
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_pops_returns_due",
+    rpc: "assistant_staff_pops_returns_due",
+    description:
+      "Partner Ops & Finance Supporter Returns due this week / over a date range (from partner_ops_report_totals, partner_ops_report_breakdown, and get_payables_predictive_forecast).",
+    allowedRoles: PARTNER_OPS_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "this_week"),
+  },
+  {
+    name: "get_pops_topups_and_withdrawals_waiting",
+    rpc: "assistant_staff_pops_topups_and_withdrawals_waiting",
+    description:
+      "Partner Ops & Finance waiting Supporter portfolio top-ups and wallet withdrawal requests (counts, UGX totals, and waiting withdrawal rows).",
+    allowedRoles: PARTNER_OPS_REPORT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 200,
+          description: "Max waiting withdrawal rows to return (default 50, max 200).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_limit: (p.limit as number | undefined) ?? 50,
+    }),
+  },
+  {
+    name: "get_fops_disbursements",
+    rpc: "assistant_staff_fops_disbursements",
+    description:
+      "Financial Ops & CFO disbursements report over a date range: disbursed landlord payouts (count, total UGX, rows) and CFO-approved requisition disbursements.",
+    allowedRoles: FINOPS_DISBURSEMENT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+  {
+    name: "get_fops_merchant_cashouts",
+    rpc: "assistant_staff_fops_merchant_cashouts",
+    description:
+      "Financial Ops & CFO merchant cash-outs and wallet withdrawals over a date range: completed vs pending counts, UGX totals, and withdrawal rows.",
+    allowedRoles: FINOPS_DISBURSEMENT_ROLES,
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_7_days"),
+  },
+
+  // ===========================================================================
+  // GROUP I — PROMPT 4: READ-ONLY ADVISOR INSIGHTS (`assistant_staff_insight_*`)
+  // ===========================================================================
+  {
+    name: "get_insight_desk_wait_times",
+    rpc: "assistant_staff_insight_desk_wait_times",
+    description:
+      "Advisor insight: where Rent Plan requests wait longest, by desk and by week (from rent_request_timing and tenant_ops_rent_request_lifetime), plus 4-week anomaly notes.",
+    allowedRoles: [
+      "tenant_ops",
+      "agent_ops",
+      "landlord_ops",
+      "partner_ops",
+      "operations",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 1,
+          maximum: 12,
+          description: "Number of weeks to analyze (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(1).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_collection_coverage_trends",
+    rpc: "assistant_staff_insight_collection_coverage_trends",
+    description:
+      "Advisor insight: collection coverage trends, areas/districts dropping week on week, and agents dropping week on week (from get_tenant_ops_weekly_performance_amclock, agent_ops_metrics_locations, agent_ops_metrics_agents, and agent_ops_silent_collectors), plus 4-week anomaly notes.",
+    allowedRoles: AGENT_OPS_SILENT_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 2,
+          maximum: 12,
+          description: "Number of weeks to compare (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(2).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_calling_reach_and_themes",
+    rpc: "assistant_staff_insight_calling_reach_and_themes",
+    description:
+      "Advisor insight: Calling Center reach rates by channel/source and the most common feedback and concern themes over a date range (from cc_weekly_all_calls_report, cc_feedback, landlord_cc_weekly_report, and landlord_cc_concerns_report), plus 4-week anomaly notes.",
+    allowedRoles: AWARENESS_CALLS_ROLES,
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: periodProperties,
+      additionalProperties: false,
+    },
+    schema: PeriodArgsSchema,
+    toRpcArgs: (p) => rangeArgs(p, "last_30_days"),
+  },
+  {
+    name: "get_insight_payout_delays",
+    rpc: "assistant_staff_insight_payout_delays",
+    description:
+      "Advisor insight: landlord payout delays, uncovered Rent Plans awaiting landlord payment, weekly disbursement turnaround, and verification queues (from tops_landlord_not_paid_summary_amclock, am_uncovered_plans, landlord_payouts, and finops_payout_verification_counts).",
+    allowedRoles: [
+      "financial_ops",
+      "cfo",
+      "ceo",
+      "coo",
+      "landlord_ops",
+      "operations",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "integer",
+          minimum: 1,
+          maximum: 12,
+          description: "Number of weeks to analyze (default 4, max 12).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        weeks: z.number().int().min(1).max(12).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_weeks: (p.weeks as number | undefined) ?? 4,
+    }),
+  },
+  {
+    name: "get_insight_zoe_feedback_themes",
+    rpc: "assistant_staff_insight_zoe_feedback_themes",
+    description:
+      "Advisor insight: Zoe's own top unanswered questions by reason and thumbs-down feedback themes over a lookback window (strictly redacted; gated to CRM, HR, CFO, COO, CEO, CTO, and managers).",
+    allowedRoles: [
+      "crm",
+      "cto",
+      "coo",
+      "ceo",
+      "cfo",
+      "hr",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 1,
+          maximum: 90,
+          description: "Lookback window in days (default 28, max 90).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(1).max(90).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 28,
+    }),
+  },
+
+  // ===========================================================================
+  // GROUP J — WELILE GLOSSARY & MEASUREMENT GOTCHAS (PROMPT 2 ITEM 6)
+  // ===========================================================================
+  {
+    name: "get_welile_glossary",
+    rpc: "assistant_staff_get_glossary",
+    description:
+      "Read-only Welile glossary & measurement gotchas (stored in staff_assistant_glossary, editable by managers on screen). Defines official Welile terms and measurement rules: Expected vs Collected Rent (daily bill vs receipt book, on-schedule vs arrears, capped vs uncapped), Treasury Cash Position (A1+A5) vs Agent Float (A2), Active Rent Plan & Repayment Clock (am_plan_clock), Agent vs Sub-Agent attribution & 20% eligibility, Wallet buckets (withdrawable, float, advance, locked), regulatory wording (Rent Plan, Supporter, Returns), Landlord payout verification, and Calling Center Wednesday-to-Tuesday Kampala weeks & 15-minute deduplication.",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        search: {
+          type: "string",
+          description:
+            "Optional keyword search (e.g. 'expected vs collected', 'treasury cash', 'repayment clock', 'agent vs sub-agent', 'wallet buckets').",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ],
+          description: "Optional glossary category filter.",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        search: SearchField.optional(),
+        category: z
+          .enum([
+            "collections",
+            "treasury_ledger",
+            "rent_plans",
+            "agents",
+            "landlords",
+            "supporters",
+            "calling_center",
+            "terminology",
+            "general",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_search: (p.search as string | undefined) ?? null,
+      p_category: (p.category as string | undefined) ?? null,
+    }),
+  },
+
+  // ===========================================================================
+  // GROUP K — THE ANALYST LANE (PROMPT 3: AD-HOC READ-ONLY `zoe_ro` QUERIES)
+  // ===========================================================================
+  {
+    name: "get_data_catalog",
+    rpc: "assistant_staff_data_catalog",
+    description:
+      "[Ad hoc — Analyst lane] Read the approved zoe_ro.* view and column catalog (plain-language descriptions, official sources, and 'use this for / do not use this for' notes) before writing an ad-hoc SELECT query with run_analyst_query. Only views permitted for the caller's role area are returned.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        area: {
+          type: "string",
+          enum: [
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ],
+          description:
+            "Role area of zoe_ro views to inspect (default 'all' returns all views the caller is authorized to read).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        area: z
+          .enum([
+            "all",
+            "finance",
+            "operations",
+            "calling",
+            "hr",
+            "agents",
+            "supporters",
+            "tenants",
+            "landlords",
+          ])
+          .optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_area: (p.area as string | undefined) ?? "all",
+    }),
+  },
+  {
+    name: "run_analyst_query",
+    rpc: "assistant_staff_run_query",
+    description:
+      "[Ad hoc — Analyst lane] Run a single read-only SELECT (or WITH ... SELECT) query against approved zoe_ro.* views when no certified lookup covers the question. Enforces a 5-second timeout, read-only transaction, 500-row cap, strict SQL function allow-list, and role-area + two-step login checks. Always say 'Ad hoc, not certified' and note that the SQL is shown under 'Show the data'.",
+    allowedRoles: [
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "crm",
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: false,
+    adHoc: true,
+    parameters: {
+      type: "object",
+      properties: {
+        sql: {
+          type: "string",
+          description:
+            "Exactly one read-only SELECT (or WITH ... SELECT) query reading exclusively from approved zoe_ro.<view> views. No comments (-- or /* */), no semicolons, no base tables, and no functions outside the SQL allow-list.",
+        },
+        question: {
+          type: "string",
+          description: "Optional plain-language question being answered (recorded in staff_assistant_queries).",
+        },
+      },
+      required: ["sql"],
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        sql: z.string().trim().min(10).max(4000),
+        question: z.string().trim().max(1000).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_sql: p.sql as string,
+      p_question: (p.question as string | undefined) ?? null,
+    }),
+  },
 ];
+
 
 /**
  * Pseudo-tool handled in the edge function (never calls the database): lets the model ask
@@ -1557,6 +2163,88 @@ export const DraftReportScheduleArgsSchema = z
   })
   .strict();
 
+export const DRAFT_IDEA_TOOL: OpenAiTool = {
+  type: "function",
+  function: {
+    name: "draft_welile_idea",
+    description:
+      "Prepare an 'Ideas for Welile' improvement suggestion draft card grounded in official figures from an advisor or report tool. NEVER acts, NEVER changes any setting or business record, and NEVER contacts anyone. Only saves to staff_assistant_ideas after the person clicks Save Idea on the draft card.",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description:
+            "Short title for the improvement idea using Welile terms (Rent Plan, Supporter, Returns).",
+        },
+        suggestion: {
+          type: "string",
+          description:
+            "Evidence-based improvement suggestion explaining what team workflow or focus could improve.",
+        },
+        evidence_summary: {
+          type: "string",
+          description:
+            "Exact figures and evidence from the tool output supporting this idea.",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "general",
+            "desk_wait",
+            "collections",
+            "calling",
+            "payouts",
+            "zoe_quality",
+          ],
+          description: "Improvement category (default general).",
+        },
+        screen_path: {
+          type: "string",
+          description:
+            "Optional internal Welile route for the screen related to this idea (e.g. /tenant-ops/workspace, /landlord-ops, /executive-hub?tab=agent-ops, /me/staff-reports, /me/ideas).",
+        },
+        source_label: {
+          type: "string",
+          description: "Optional official source function or view name.",
+        },
+        period_label: {
+          type: "string",
+          description: "Optional date range or period label.",
+        },
+        figures: {
+          type: "object",
+          description: "Optional key-value map of exact numeric figures from the tool output.",
+        },
+      },
+      required: ["title", "suggestion", "evidence_summary"],
+      additionalProperties: false,
+    },
+  },
+};
+
+export const DraftIdeaArgsSchema = z
+  .object({
+    title: z.string().trim().min(3).max(200),
+    suggestion: z.string().trim().min(5).max(2000),
+    evidence_summary: z.string().trim().min(5).max(2000),
+    category: z
+      .enum([
+        "general",
+        "desk_wait",
+        "collections",
+        "calling",
+        "payouts",
+        "zoe_quality",
+      ])
+      .optional(),
+    screen_path: z.string().trim().max(120).optional(),
+    source_label: z.string().trim().max(200).optional(),
+    period_label: z.string().trim().max(120).optional(),
+    figures: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
 export function findTool(name: string): StaffTool | undefined {
   return STAFF_TOOLS.find((t) => t.name === name);
 }
@@ -1587,15 +2275,79 @@ export function openAiToolsForRoles(callerRoles: readonly string[]): OpenAiTool[
         function: { name: t.name, description: t.description, parameters: t.parameters },
       }),
     ),
+    COMPUTE_OPENAI_TOOL,
+    GET_STAFF_MANUAL_HELP_OPENAI_TOOL,
     CLARIFICATION_TOOL,
     DRAFT_REPORT_EMAIL_TOOL,
     DRAFT_REMINDER_TOOL,
     DRAFT_STAFF_NOTIFICATION_TOOL,
     DRAFT_REPORT_SCHEDULE_TOOL,
+    DRAFT_IDEA_TOOL,
   ];
 }
 
 /** Human-readable tool summary lines injected into Zoe's system prompt for this caller. */
 export function describeToolsForRoles(callerRoles: readonly string[]): string[] {
-  return toolsForRoles(callerRoles).map((t) => `${t.name} (${t.rpc}): ${t.description}`);
+  return [
+    ...toolsForRoles(callerRoles).map(
+      (t) => `${t.name} (${t.rpc})${t.adHoc ? " [ad hoc]" : ""}: ${t.description}`,
+    ),
+    "compute (safe calculator): Deterministic calculator (sum, difference, pct_change, share, average, rank) on figures already returned by tools in this conversation.",
+    "get_staff_manual_help (staff manual): Look up 'how do I…', 'where do I find…', and workflow explanations from Welile staff manuals and docs/.",
+    "draft_welile_idea (Ideas for Welile draft card): Prepare a click-confirmed improvement idea draft card with evidence, figures, and source (never acts or changes business data).",
+  ];
+}
+
+export const PSEUDO_AND_DRAFT_TOOL_NAMES = new Set<string>([
+  "compute",
+  "get_staff_manual_help",
+  "ask_clarification",
+  "draft_report_email",
+  "draft_reminder",
+  "draft_staff_notification",
+  "draft_report_schedule",
+  "draft_welile_idea",
+]);
+
+/**
+ * Re-checks whether an earlier assistant message from conversation history may still be shown
+ * to a caller with `callerRoles` (Finding L: "When an old answer is opened from history,
+ * re-check the person's current role before showing its data").
+ */
+export function isHistoryMessageAllowedForRoles(
+  msg: {
+    role: string;
+    tools_called?: string[];
+    report_payload?: Record<string, unknown> | null;
+  },
+  callerRoles: readonly string[],
+): boolean {
+  if (msg.role !== "assistant") return true;
+
+  const toolNames = new Set<string>();
+  for (const name of msg.tools_called ?? []) {
+    if (typeof name === "string" && name.trim() && !PSEUDO_AND_DRAFT_TOOL_NAMES.has(name.trim())) {
+      toolNames.add(name.trim());
+    }
+  }
+
+  const payloadTool =
+    msg.report_payload && typeof msg.report_payload.tool === "string"
+      ? msg.report_payload.tool.trim()
+      : "";
+  if (payloadTool && !PSEUDO_AND_DRAFT_TOOL_NAMES.has(payloadTool)) {
+    toolNames.add(payloadTool);
+  }
+
+  for (const tName of toolNames) {
+    const tool =
+      findTool(tName) ??
+      findTool(tName.replace(/^assistant_staff_/, "get_")) ??
+      findTool(tName.replace(/^assistant_staff_/, ""));
+    if (!tool || !canUseTool(tool, callerRoles)) {
+      return false;
+    }
+  }
+
+  return true;
 }

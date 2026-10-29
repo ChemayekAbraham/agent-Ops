@@ -1,7 +1,8 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
-const MAX_MESSAGE_CHARS = 500;
+export const MAX_MESSAGE_CHARS = 2000;
 const MAX_COMMENT_CHARS = 1000;
+const MAX_TITLE_CHARS = 120;
 
 /** Strip ASCII control chars (except \n and \t) and trim. */
 export function cleanMessage(raw: string): string {
@@ -64,6 +65,8 @@ export const RequestSchema = z.discriminatedUnion("action", [
         }),
       conversation_id: z.string().uuid().optional(),
       client_context: ClientContextSchema.optional(),
+      stream: z.boolean().optional(),
+      regenerate: z.boolean().optional(),
     })
     .strict(),
   z
@@ -72,6 +75,7 @@ export const RequestSchema = z.discriminatedUnion("action", [
       conversation_id: z.string().uuid(),
       message_id: z.string().uuid(),
       rating: z.enum(["up", "down"]),
+      report_kind: z.enum(["rating", "problem_report"]).optional(),
       comment: z
         .string()
         .transform(cleanMessage)
@@ -90,6 +94,36 @@ export const RequestSchema = z.discriminatedUnion("action", [
     .strict(),
   z
     .object({
+      action: z.literal("conversations"),
+      limit: z.number().int().min(1).max(40).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("new_conversation"),
+      title: z
+        .string()
+        .transform(cleanMessage)
+        .refine((s) => s.length >= 1 && s.length <= MAX_TITLE_CHARS, {
+          message: `Title must be between 1 and ${MAX_TITLE_CHARS} characters.`,
+        })
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("rename_conversation"),
+      conversation_id: z.string().uuid(),
+      title: z
+        .string()
+        .transform(cleanMessage)
+        .refine((s) => s.length >= 1 && s.length <= MAX_TITLE_CHARS, {
+          message: `Title must be between 1 and ${MAX_TITLE_CHARS} characters.`,
+        }),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("clear_history"),
       conversation_id: z.string().uuid().optional(),
     })
@@ -100,6 +134,31 @@ export const RequestSchema = z.discriminatedUnion("action", [
       force: z.boolean().optional(),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal("list_notes"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("add_note"),
+      note_text: z.string().trim().min(2).max(240),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("delete_note"),
+      note_id: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("list_glossary"),
+      search: z.string().trim().max(80).optional(),
+      category: z.string().trim().max(40).optional(),
+    })
+    .strict(),
 ]);
 
 export type RequestBody = z.infer<typeof RequestSchema>;
+

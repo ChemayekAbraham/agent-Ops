@@ -12,8 +12,10 @@
 //
 // The VAPID private key never leaves this server-side module.
 
-const VAPID_PUBLIC_KEY =
-  "BGBr-FpnY4VrB-Whq9rXDTjeiH7vGXCquZk1kmkET87x12qkW073Tx-J8qJHcLW-8j4534x05f80WdLHPmnsKz0";
+// The public key comes from the VAPID_PUBLIC_KEY secret so a key rotation never needs a code change on the server; the literal is only the fallback
+// (the key generated 2026-10-29, fingerprint sha256 721b3b1c...56a636). It must be the public half of VAPID_PRIVATE_KEY, and the same key the browser subscribes with (src/lib/webPush.ts).
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") ||
+  "BKeWfSgeYM9EVU_0CU3EgOEpTlNkqIuO4y9PKvap7p74sh_gEQTdjwNVmo2NAslHKXHIuGkP4JBunz5yun6aCrc";
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "";
 const VAPID_SUBJECT = "mailto:notifications@welile.com";
 

@@ -1,0 +1,6 @@
+-- 2026-10-28: Postgres WARNING "[tr_detect_agent_unblock] system_events insert failed: null value in column "event_type" ... violates not-null constraint" (31/day, ongoing).
+-- tr_detect_agent_unblock (trigger on agent_collections) inserted into system_events with only event_name and payload; event_type is NOT NULL, so the
+-- 'agent.eligibility.unblocked' event was never recorded (the failure was caught and only warned). It now sets event_type as well as event_name.
+-- The unblock-event row and the notify-agent-unblocked call were not affected. Applied to production 2026-10-28 by hand; only the system_events insert block differs from the live function.
+-- Full function body: see `select pg_get_functiondef('public.tr_detect_agent_unblock'::regproc)`; the changed statement is:
+--   INSERT INTO public.system_events (event_type, event_name, payload) VALUES ('agent.eligibility.unblocked', 'agent.eligibility.unblocked', jsonb_build_object(...));

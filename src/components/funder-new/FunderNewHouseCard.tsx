@@ -1,4 +1,4 @@
-import { Bookmark, Check, HandCoins, Home, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,6 @@ import {
   readyPlanTitle,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
-import { getFunderHouseCompleteness } from '@/lib/funderHouseSort';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -47,8 +46,8 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow] sm:my-0',
-        'hover:shadow-md',
+        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-none transition-[border-color,box-shadow] sm:my-0 sm:shadow-sm',
+        'sm:hover:shadow-md',
         selected && 'border-primary ring-1 ring-primary',
       )}
     >
@@ -135,11 +134,6 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
-        {getFunderHouseCompleteness(item).complete && (
-          <span className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-success/20 bg-success/10 px-2 py-1 text-xs font-medium text-success">
-            <Check className="h-3.5 w-3.5 shrink-0" aria-hidden /> Verified: Tenant + Landlord + GPS
-          </span>
-        )}
         <div className="min-w-0">
           <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground">
             {title} <span className="font-medium text-muted-foreground">in</span> {place}
@@ -165,14 +159,14 @@ export function FunderNewHouseCard({
           {coords ? (
             <Button
               variant="outline"
-              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg p-0"
+              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
               }}
               aria-label={`Open Google Maps location for ${title}`}
               title="Open in Google Maps"
             >
-              <Navigation className="h-4 w-4" aria-hidden />
+              <Navigation className="h-4 w-4 text-primary" aria-hidden />
               <span className="sr-only">Open in Google Maps</span>
             </Button>
           ) : null}
@@ -190,7 +184,7 @@ export function FunderNewHouseCard({
             {selected ? (
               <Check className="h-4 w-4 text-white" aria-hidden />
             ) : (
-              <HandCoins className="h-4 w-4" aria-hidden />
+              <Sprout className="h-4 w-4" aria-hidden />
             )}
             {selected ? 'Selected' : 'Fund this House'}
           </Button>

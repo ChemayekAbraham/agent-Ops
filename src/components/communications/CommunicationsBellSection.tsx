@@ -1,17 +1,17 @@
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCommunicationInbox } from '@/hooks/useCrmCommunications';
-import { communicationDashboardRole, type Communication } from '@/lib/crmCommunications';
+import { communicationDashboardRole, communicationInboxAllowed, type Communication } from '@/lib/crmCommunications';
 import { communicationIcons } from './CommunicationDialog';
 
 export const OPEN_COMMUNICATION_EVENT = 'welile:open-communication';
 
 /** Platform communications for the current dashboard, shared with CommunicationGate's inbox query. */
 export function useBellCommunications() {
-  const { user, role, loading, rolesResolved, roles } = useAuth();
+  const { user, role, loading, rolesResolved, enabledRoles } = useAuth();
   const { pathname } = useLocation();
   const dashboardRole = communicationDashboardRole(pathname, role);
-  const eligible = !!user && !loading && rolesResolved && !!dashboardRole && roles.includes(dashboardRole);
+  const eligible = !!user && !loading && rolesResolved && communicationInboxAllowed(dashboardRole, enabledRoles);
   const query = useCommunicationInbox(dashboardRole, eligible);
   const rows = eligible ? query.data ?? [] : [];
   return { rows, unread: rows.filter(r => !r.acknowledged_at).length };

@@ -20,12 +20,15 @@ import { registerHooks } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// Map Deno URL import for Zod in `supabase/functions/staff-assistant/*` to local `zod/v3`
+// Map Deno URL imports in `supabase/functions/staff-assistant/*` to local Node packages
 if (typeof registerHooks === "function") {
   registerHooks({
     resolve(specifier, context, nextResolve) {
       if (specifier === "https://deno.land/x/zod@v3.23.8/mod.ts") {
         return nextResolve("zod/v3", context);
+      }
+      if (specifier === "https://esm.sh/@supabase/supabase-js@2.49.1") {
+        return nextResolve("@supabase/supabase-js", context);
       }
       return nextResolve(specifier, context);
     },
@@ -37,13 +40,15 @@ const RESULTS_PATH = resolve(ROOT, "docs", "zoe", "test-results.md");
 
 const { runSafetyPack } = await import("./zoe-eval/safetyPack.ts");
 const { runAccuracyPack } = await import("./zoe-eval/accuracyPack.ts");
+const { runLiveEvalPack } = await import("./zoe-eval/liveEvalPack.ts");
 const { renderTestResultsMarkdown } = await import("./zoe-eval/reportMarkdown.ts");
 
 const safety = await runSafetyPack();
 const accuracy = await runAccuracyPack();
+const live = await runLiveEvalPack();
 
 mkdirSync(dirname(RESULTS_PATH), { recursive: true });
-const markdown = renderTestResultsMarkdown(safety, accuracy);
+const markdown = renderTestResultsMarkdown(safety, accuracy, live);
 writeFileSync(RESULTS_PATH, markdown, "utf8");
 
 console.log(

@@ -12,10 +12,12 @@ import {
   buildWeekPeriodWindow,
   canAccessHrStaffReports,
   cleanAscii,
+  feedbackText,
   isCallingTeamHead,
   isCallingTeamStaff,
   JANE_USER_ID,
   MARK_BWAYO_USER_ID,
+  outcomeLabel,
   WINNIE_USER_ID,
   HANISHA_USER_ID,
   type RawStaffCallingRow,
@@ -162,5 +164,51 @@ describe('staffCallingReport helpers & PDF generation', () => {
     const teamPdf = await generateGeneralTeamCallingPdfBlob(teamData, win);
     expect(teamPdf.fileName).toBe('Call-Report-Team-Jane-Winnie-Hanisha-Week-2026-10-21-to-2026-10-27.pdf');
     expect(teamPdf.blob.size).toBeGreaterThan(1000);
+  });
+
+  it('formats call_back outcome label and Landlord Ops - Calling Hub feedbackText with awareness answers and category', () => {
+    expect(outcomeLabel('call_back')).toBe('Callback booked');
+
+    const hubAnswered = feedbackText({
+      source: 'Landlord Ops - Calling Hub',
+      outcome: 'answered',
+      feedback: 'Confirmed payout number (normal) | Landlord confirmed Airtel Money number for payout.',
+      extra: {
+        aware_30m: 'knew',
+        explained: 'yes',
+        landlord_consent: 'consents',
+        aware_payout_otp: 'heard',
+        category: 'Confirmed payout number',
+        severity: 'normal',
+      },
+    });
+    expect(hubAnswered).toBe(
+      '30M: Knew  -  Explained: Yes  -  Consent: consents  -  Payout code: heard  -  Confirmed payout number (normal) | Landlord confirmed Airtel Money number for payout.',
+    );
+
+    const hubExtraOnlyCategory = feedbackText({
+      source: 'Landlord Ops - Calling Hub',
+      outcome: 'answered',
+      feedback: 'Landlord asked to add two more houses next week.',
+      extra: {
+        aware_30m: 'did_not_know',
+        explained: 'partly',
+        landlord_consent: 'consents',
+        aware_payout_otp: 'knew',
+        category: 'Wants more tenants',
+        severity: 'high',
+      },
+    });
+    expect(hubExtraOnlyCategory).toBe(
+      '30M: Did not know  -  Explained: Partly  -  Consent: consents  -  Payout code: knew  -  Wants more tenants (high)  -  Landlord asked to add two more houses next week.',
+    );
+
+    const hubCallback = feedbackText({
+      source: 'Landlord Ops - Calling Hub',
+      outcome: 'call_back',
+      feedback: null,
+      extra: { call_back_at: '2026-10-28T09:00:00+03:00' },
+    });
+    expect(hubCallback).toBe('Callback booked');
   });
 });

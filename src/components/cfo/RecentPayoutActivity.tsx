@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_DEBOUNCE_MS, profileIdsForTypeahead } from '@/lib/profileTypeahead';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -122,6 +124,7 @@ function FilterDatePicker({
 export function RecentPayoutActivity() {
   const [page, setPage] = useState(1);
   const [nameFilter, setNameFilter] = useState('');
+  const debouncedNameFilter = useDebouncedValue(nameFilter, PROFILE_TYPEAHEAD_DEBOUNCE_MS);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'credit' | 'debit'>('all');
   const [destinationFilter, setDestinationFilter] = useState<'all' | 'user' | 'operational_wallet'>('all');
@@ -140,7 +143,7 @@ export function RecentPayoutActivity() {
     queryKey: [
       'cfo-recent-payout-activity',
       page,
-      nameFilter.trim(),
+      debouncedNameFilter.trim(),
       categoryFilter.trim(),
       typeFilter,
       destinationFilter,
@@ -153,18 +156,9 @@ export function RecentPayoutActivity() {
     queryFn: async () => {
       const from = (page - 1) * PAGE_SIZE;
 
-      let profileIds: string[] | null = null;
-      if (nameFilter.trim()) {
-        const { data: profiles, error: profileErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('full_name', `%${nameFilter.trim()}%`)
-          .limit(1000);
-        if (profileErr) throw profileErr;
-        profileIds = (profiles ?? []).map((p: any) => p.id);
-        if (profileIds.length === 0) {
-          return { rows: [], total: 0 };
-        }
+      const profileIds = await profileIdsForTypeahead(debouncedNameFilter);
+      if (profileIds && profileIds.length === 0) {
+        return { rows: [], total: 0 };
       }
 
       let query = supabase

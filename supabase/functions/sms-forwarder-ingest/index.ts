@@ -80,7 +80,11 @@ Deno.serve(async (req) => {
       if (g) { comparison = "matched_gmail"; matchedRowId = (g as any).id; }
     }
 
-    const { error } = await supabase.from("sms_forwarder_messages").insert({
+    // Keep the first-seen row. A phone retry re-sends the same
+    // (device_id, client_message_id); ON CONFLICT DO NOTHING stores nothing
+    // new and does not raise 23505. A later sweep may already have set
+    // comparison, so a re-upload must not overwrite parsed fields.
+    const { error } = await supabase.from("sms_forwarder_messages").upsert({
       device_id: device.id, client_message_id: cid, sender, body: text,
       sms_received_at: new Date(ts).toISOString(), sim_slot: Number.isInteger(m.sim_slot) ? m.sim_slot : null,
       parsed: isParsed, amount: p.amount ?? null, transaction_id: p.transaction_id ?? null,
@@ -89,9 +93,8 @@ Deno.serve(async (req) => {
       fee: p.fee ?? null, balance: p.balance ?? null,
       comparison, matched_gmail_row_id: matchedRowId,
       compared_at: comparison === "pending" ? null : nowIso,
-    });
-    // 23505 = retry of a message we already hold -> still an ack (idempotent).
-    if (!error || (error as any).code === "23505") acked.push(cid);
+    }, { onConflict: "device_id,client_message_id", ignoreDuplicates: true });
+    if (!error || isDuplicateStored(error)) acked.push(cid);
     else failed.push({ id: cid, error: error.message });
   }
 
@@ -99,6 +102,13 @@ Deno.serve(async (req) => {
   await sweepComparisons(supabase);
   return json({ ok: true, acked, failed });
 });
+
+/** A retry of a message already stored. PostgREST reports SQLSTATE 23505 as HTTP 409. */
+function isDuplicateStored(error: { code?: string; status?: number; message?: string; details?: string }): boolean {
+  if (error.code === "23505" || error.status === 409) return true;
+  const text = `${error.message ?? ""}\n${error.details ?? ""}`;
+  return text.includes("sms_forwarder_messages_device_id_client_message_id_key");
+}
 
 /** Settle `pending` rows once Gmail has had time to ingest the same TID. */
 // deno-lint-ignore no-explicit-any

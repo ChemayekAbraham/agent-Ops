@@ -3,6 +3,7 @@ import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseLi
 import { sortFunderHousesByCompleteness, compareFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -140,6 +141,7 @@ export function SelfPortfolioFundingCard({
   feedOrder: FeedOrder;
   onFeedOrderChange: (value: FeedOrder) => void;
 }) {
+  const signedIn = useAuthenticatedAudience();
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
@@ -306,7 +308,9 @@ export function SelfPortfolioFundingCard({
   // Cached so returning to this tab paints instantly; refreshes happen silently.
   const plansQuery = useQuery({
     queryKey: ['psm-fundable-plans'],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { items, total, meta } = await fetchAllPages<FundablePlan, { available: number }>({
         pageSize: 100,
         concurrency: 8,
@@ -1678,11 +1682,6 @@ export function SelfPortfolioFundingCard({
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {MONTHLY_ROI_RATE}% / month
                   </span>
-                  {plan.duration_days ? (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {plan.duration_days} days
-                    </span>
-                  ) : null}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (

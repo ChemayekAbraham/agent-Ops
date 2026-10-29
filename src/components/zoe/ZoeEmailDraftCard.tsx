@@ -119,7 +119,14 @@ export const ZoeEmailDraftCard: React.FC<ZoeEmailDraftCardProps> = ({
     setIsSending(true);
     setSendError(null);
     try {
+      const wasModified =
+        selectedRecipient.email.toLowerCase() !== (draft.recipient_email ?? '').toLowerCase() ||
+        subject.trim() !== draft.subject.trim() ||
+        message.trim() !== draft.message.trim();
+
       const res = await onSendEmail({
+        draft_id: draft.draft_id,
+        rebind_draft: wasModified,
         recipient_email: selectedRecipient.email,
         recipient_name: selectedRecipient.full_name,
         subject,

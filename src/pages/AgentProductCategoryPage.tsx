@@ -112,8 +112,13 @@ const PENDING_STATUSES = ['pending_approval', 'submitted'];
 
 function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
   const [tab, setTab] = useState('overview');
+
   const { data: orderCounts = { pending: 0, inProgress: 0, rejected: 0 } } = useQuery({
     queryKey: ['smartphone-order-counts'],
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data, error } = await db.rpc('list_smartphone_orders', { p_status: null });
       if (error) throw error;
@@ -215,23 +220,23 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
         </div>
       </nav>
 
-      <TabsContent value="overview" className="space-y-6 max-w-full">
+      <TabsContent value="overview" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="overview" />
       </TabsContent>
 
-      <TabsContent value="pending" className="space-y-6 max-w-full">
+      <TabsContent value="pending" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <SmartphoneOrderApprovalQueue pendingOnly />
       </TabsContent>
 
-      <TabsContent value="in-progress" className="space-y-6 max-w-full">
+      <TabsContent value="in-progress" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <SmartphoneOrderApprovalQueue inProgressOnly />
       </TabsContent>
 
-      <TabsContent value="issued" className="space-y-6 max-w-full">
+      <TabsContent value="issued" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="issued" />
       </TabsContent>
 
-      <TabsContent value="rejected" className="space-y-6 max-w-full">
+      <TabsContent value="rejected" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <SmartphoneOrderApprovalQueue rejectedOnly />
       </TabsContent>
     </Tabs>
@@ -241,8 +246,13 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 
 function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
   const [tab, setTab] = useState('overview');
+
   const { data: counts = { pendingOps: 0, awaitingExec: 0, approved: 0 } } = useQuery({
     queryKey: ['bike-lease-category-counts'],
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
       if (error) throw error;
@@ -341,23 +351,23 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
         </div>
       </nav>
 
-      <TabsContent value="overview" className="space-y-6 max-w-full">
+      <TabsContent value="overview" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} />
       </TabsContent>
 
-      <TabsContent value="dormant" className="space-y-6 max-w-full">
+      <TabsContent value="dormant" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <DormantBikeLeasesPanel />
       </TabsContent>
 
-      <TabsContent value="applications" className="space-y-6 max-w-full">
+      <TabsContent value="applications" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <BikeLeaseApprovalQueue stage="ops" pendingOnly />
       </TabsContent>
 
-      <TabsContent value="awaiting-exec" className="space-y-6 max-w-full">
+      <TabsContent value="awaiting-exec" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <BikeLeaseApprovalQueue stage="ops" awaitingExecOnly />
       </TabsContent>
 
-      <TabsContent value="approved" className="space-y-6 max-w-full">
+      <TabsContent value="approved" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
         <BikeLeaseApprovalQueue stage="ops" approvedOnly />
       </TabsContent>
     </Tabs>
@@ -366,6 +376,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 
 function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
   const [tab, setTab] = useState('overview');
+
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['agent-products-pending-count', category],
     queryFn: async () => {
@@ -373,7 +384,10 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
       if (error) throw error;
       return (((data as any)?.pending ?? []) as unknown[]).length;
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const { data: inProgressRows = [] } = useAgentProductsInProgress(category ?? undefined);
@@ -458,23 +472,23 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
         </div>
       </nav>
 
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="overview" forceMount={true} className="space-y-6 data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="overview" />
       </TabsContent>
 
-      <TabsContent value="applications" className="space-y-6">
+      <TabsContent value="applications" forceMount={true} className="space-y-6 data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="applications" />
       </TabsContent>
 
-      <TabsContent value="in-progress" className="space-y-6">
+      <TabsContent value="in-progress" forceMount={true} className="space-y-6 data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsInProgress category={category ?? undefined} />
       </TabsContent>
 
-      <TabsContent value="issued" className="space-y-6">
+      <TabsContent value="issued" forceMount={true} className="space-y-6 data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="issued" />
       </TabsContent>
 
-      <TabsContent value="completed" className="space-y-6">
+      <TabsContent value="completed" forceMount={true} className="space-y-6 data-[state=inactive]:hidden data-[state=active]:animate-none">
         <AgentProductsPanel category={category} mode="completed" />
       </TabsContent>
     </Tabs>

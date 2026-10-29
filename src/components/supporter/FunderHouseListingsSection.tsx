@@ -32,41 +32,10 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
-
-/** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
-const SAVED_KEY = 'rentflow:funder-new:saved:v1';
-
-interface SavedState {
-  empty: string[];
-  ready: string[];
-}
-
-const DEFAULT_SAVED: SavedState = { empty: [], ready: [] };
-
-function readSaved(): SavedState {
-  try {
-    const raw = window.localStorage.getItem(SAVED_KEY);
-    if (!raw) return DEFAULT_SAVED;
-    const parsed = JSON.parse(raw) as Partial<SavedState>;
-    return {
-      empty: Array.isArray(parsed.empty) ? parsed.empty.filter((id): id is string => typeof id === 'string') : [],
-      ready: Array.isArray(parsed.ready) ? parsed.ready.filter((id): id is string => typeof id === 'string') : [],
-    };
-  } catch {
-    return DEFAULT_SAVED;
-  }
-}
-
-function saveSaved(value: SavedState) {
-  try {
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(value));
-  } catch {
-    // Route-scoped browsing aid only.
-  }
-}
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
 interface FeedEntry {
   category: FunderNewCategory;
@@ -96,7 +65,7 @@ export function FunderHouseListingsSection() {
     withinFloat: false,
   });
   const [sortTouched, setSortTouched] = useState(false);
-  const [saved, setSaved] = useState<SavedState>(() => readSaved());
+  const { saved, toggleSave } = useFunderSavedItems();
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -120,10 +89,6 @@ export function FunderHouseListingsSection() {
       current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
     );
   }, [debouncedSearch]);
-
-  useEffect(() => {
-    saveSaved(saved);
-  }, [saved]);
 
   /**
    * Single origin for distance labels and the nearest-first sort: the device
@@ -231,14 +196,10 @@ export function FunderHouseListingsSection() {
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
-  const filtersActive =
-    filters.search.trim() !== '' ||
-    filters.location.trim() !== '' ||
-    filters.amount !== 'all' ||
-    filters.rentMin !== null ||
-    filters.rentMax !== null ||
-    filters.radiusKm !== 'all' ||
-    filters.withinFloat;
+  // How many filters the funder has actually switched on. The Filters button
+  // badges this number and turns purple while it is above zero.
+  const activeFilterCount = countActiveFunderFilters(filters);
+  const filtersActive = activeFilterCount > 0;
 
   const resetFilters = () => {
     setFilters((current) => ({
@@ -256,14 +217,6 @@ export function FunderHouseListingsSection() {
   const changeSort = (value: FunderNewSort) => {
     setSortTouched(true);
     setFilters((current) => ({ ...current, sort: value }));
-  };
-
-  const toggleSave = (category: FunderNewCategory, id: string) => {
-    setSaved((current) => {
-      const list = current[category];
-      const nextList = list.includes(id) ? list.filter((savedId) => savedId !== id) : [...list, id];
-      return { ...current, [category]: nextList };
-    });
   };
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
@@ -299,7 +252,7 @@ export function FunderHouseListingsSection() {
   return (
     <section className="space-y-3">
       {/* Search + compact filters row */}
-      <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:p-3 sm:shadow-sm">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -325,8 +278,10 @@ export function FunderHouseListingsSection() {
         </div>
         <Button
           variant="outline"
-          aria-label="Filters"
-          className="relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4"
+          aria-label={filtersActive ? `Filters, ${activeFilterCount} applied` : 'Filters'}
+          className={`relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4 ${
+            filtersActive ? 'border-primary text-primary md:border-primary' : 'border-transparent md:border-input'
+          }`}
           onClick={() => setFiltersOpen(true)}
         >
           {/* Phones: funnel icon only. Tablets and up: the original labelled button. */}
@@ -334,7 +289,22 @@ export function FunderHouseListingsSection() {
           <ListFilter className="hidden h-4 w-4 md:block" aria-hidden />
           <span className="hidden md:inline">Filters</span>
           {filtersActive ? (
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary md:right-2 md:top-2" aria-hidden />
+            <>
+              {/* Phones: the count rides on the corner of the icon button. */}
+              <span
+                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground md:hidden"
+                aria-hidden
+              >
+                {activeFilterCount}
+              </span>
+              {/* Tablet and up: the count sits beside the label. */}
+              <span
+                className="ml-1.5 hidden h-4 min-w-4 items-center justify-center rounded-full bg-primary/10 px-1 text-[10px] font-bold leading-none text-primary md:inline-flex"
+                aria-hidden
+              >
+                {activeFilterCount}
+              </span>
+            </>
           ) : null}
         </Button>
       </div>

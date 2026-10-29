@@ -178,6 +178,18 @@ const EXECUTIVE_SUGGESTIONS: readonly ZoeSuggestion[] = [
     prompt: 'Show the CEO growth quality summary for the last 30 days.',
     category: 'executive',
   },
+  {
+    id: 'advisor-desk-wait',
+    label: 'How to improve desk wait times',
+    prompt: 'Where do Rent Plan requests wait longest by desk and week, and how could we improve turnaround?',
+    category: 'executive',
+  },
+  {
+    id: 'advisor-coverage',
+    label: 'Areas dropping in collection coverage',
+    prompt: 'Which agents and areas are dropping week on week in collection coverage, and what do you suggest?',
+    category: 'executive',
+  },
 ];
 
 const HR_CALLING_SUGGESTIONS: readonly ZoeSuggestion[] = [
@@ -266,7 +278,7 @@ export function getSuggestionsForRoles(roles: readonly string[] = []): ZoeSugges
     out.push(...FINANCE_SUGGESTIONS);
   }
   if (hasExecutive) {
-    out.push(...EXECUTIVE_SUGGESTIONS.slice(0, 1));
+    out.push(...EXECUTIVE_SUGGESTIONS.slice(0, 2));
   }
   if (hasTenantOps) {
     out.push(...TENANT_OPS_SUGGESTIONS.slice(0, 2));
@@ -391,6 +403,12 @@ export function resolveSourceScreenLink(source?: string | null): ZoeScreenLink {
   }
   if (s.includes('landlord_ops') || s.includes('landlord_cc_')) {
     return { to: '/landlord-ops', label: 'Open Landlord Ops' };
+  }
+  if (s.includes('rent_request_timing')) {
+    return { to: '/coo-dashboard', label: 'Open COO Dashboard' };
+  }
+  if (s.includes('staff_assistant_ideas') || s.includes('staff_assistant_insights')) {
+    return { to: '/me/ideas', label: 'Open Ideas for Welile' };
   }
 
   return { to: '/me', label: 'Open My space' };

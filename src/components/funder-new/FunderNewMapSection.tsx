@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Crosshair, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -127,7 +127,7 @@ export function FunderNewMapSection({
             Use my location
           </Button>
         ) : !device && location.permission === 'denied' ? (
-          <p className="text-xs text-muted-foreground">Location is off \u2014 search an area instead</p>
+          <p className="text-xs text-muted-foreground">Location is off — search an area instead</p>
         ) : null}
       </div>
 

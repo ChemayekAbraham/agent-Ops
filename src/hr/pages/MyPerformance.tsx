@@ -132,11 +132,19 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   };
 }
 
+const STAFF_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// p_staff_id is uuid. Null means all officers (the server forces an officer's
+// own id). A boolean must never be sent — PostgREST rejects true with 22P02.
+function psoStaffArg(staffId: unknown): { p_staff_id: string } | Record<string, never> {
+  return typeof staffId === 'string' && STAFF_UUID.test(staffId) ? { p_staff_id: staffId } : {};
+}
+
 async function fetchPsoSeries(from: string, to: string, staffId: string | null = null): Promise<PsoRow[]> {
   const { data, error } = (await supabase.rpc('pso_daily_series' as any, {
     p_from: from,
     p_to: to,
-    ...(staffId ? { p_staff_id: staffId } : {}),
+    ...psoStaffArg(staffId),
   })) as unknown as { data: PsoRow[] | null; error: { message: string } | null };
 
   if (error) throw new Error(error.message);
@@ -172,11 +180,11 @@ export default function MyPerformancePage() {
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('hr_my_staff_id' as any)) as unknown as {
-        data: string | null;
+        data: unknown;
         error: { message: string } | null;
       };
       if (error) return null;
-      return data ?? null;
+      return typeof data === 'string' && STAFF_UUID.test(data) ? data : null;
     },
   });
 
@@ -238,7 +246,7 @@ export default function MyPerformancePage() {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
         p_to: to,
-        ...(myStaffId ? { p_staff_id: myStaffId } : {}),
+        ...psoStaffArg(myStaffId),
       })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
       if (error) throw new Error(error.message);
       return data?.[0] ?? null;

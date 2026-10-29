@@ -34,6 +34,7 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import LandlordAddTenantDialog from './LandlordAddTenantDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import UserReviewsSection from '@/components/reviews/UserReviewsSection';
@@ -57,6 +58,8 @@ interface TenantRow {
   lastPayment: string | null;
   dueDate: string | null;
   daysDelta: number | null;
+  activeRentRequestId: string | null;
+  pricingVersion: string | null;
 }
 
 const STATUS_META: Record<TenantRow['payStatus'], { label: string; cls: string; dot: string }> = {
@@ -184,7 +187,7 @@ export default function MyTenantsSection() {
       supabase
         .from('rent_requests')
         .select(
-          'tenant_id, rent_amount, total_repayment, amount_repaid, status, disbursed_at, duration_days, updated_at, created_at',
+          'id, tenant_id, rent_amount, total_repayment, amount_repaid, status, disbursed_at, duration_days, updated_at, created_at, pricing_version',
         )
         .in('tenant_id', tenantIds)
         .or(`landlord_id.eq.${user.id},landlord_phone.eq.${profile.phone}`),
@@ -257,6 +260,8 @@ export default function MyTenantsSection() {
         lastPayment,
         dueDate,
         daysDelta,
+        activeRentRequestId: active?.id ?? null,
+        pricingVersion: active?.pricing_version ?? null,
       };
     });
 
@@ -669,6 +674,11 @@ export default function MyTenantsSection() {
                         </Button>
                       </div>
                     </div>
+                    {r.pricingVersion === 'v360' && r.activeRentRequestId && (
+                      <div className="mt-3">
+                        <V360PlanCaptions rentRequestId={r.activeRentRequestId} expectV360 />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>

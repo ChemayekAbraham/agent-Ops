@@ -489,6 +489,52 @@ var explore_welile_default = defineTool2({
 // src/lib/mcp-public/tools/estimate-rent-access.ts
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z3 } from "npm:zod@^4.4.3";
+
+// src/lib/contractEngine360.ts
+var PARTNER_MONTHLY_RATE = 0.15;
+var CONTRACT_DAYS = 360;
+var CONTRACT_MONTHS = 12;
+function railFee(principal, months = 1) {
+  return Math.max(3500 * months, 0.025 * months * principal);
+}
+function grossForMonths(principal, months = 1) {
+  if (!(principal > 0)) throw new Error("Rent amount must be above zero");
+  if (!(months >= 1 && months <= 12)) throw new Error("Months must be between 1 and 12");
+  const denom = 0.9 - 0.07 * months;
+  if (denom <= 0) throw new Error("Months too long for this pricing");
+  return Math.ceil((principal * Math.pow(1.15, months) + railFee(principal, months)) / denom);
+}
+function dailyRate(principal, months = 1) {
+  return Math.ceil(grossForMonths(principal, months) / (30 * months));
+}
+function quoteV360(principal) {
+  const gross = grossForMonths(principal, 1);
+  const daily = dailyRate(principal, 1);
+  const partner = Math.round(principal * PARTNER_MONTHLY_RATE);
+  const agentSub = Math.round(gross * 0.08);
+  const agentGeneral = Math.round(gross * 0.02);
+  const rail = Math.round(railFee(principal, 1));
+  const welile = Math.round(gross * 0.07);
+  return {
+    principal,
+    gross,
+    daily,
+    buckets: { landlord: principal, partner, agent: agentSub + agentGeneral, agentSub, agentGeneral, rail, welile },
+    partnerMonthly: partner,
+    partnerTwelveMonths: partner * CONTRACT_MONTHS,
+    receivable360: CONTRACT_DAYS * daily
+  };
+}
+var _modelA = quoteV360(1e5);
+var V360_MODEL_A_EXAMPLE = {
+  principal: 1e5,
+  gross: _modelA.gross,
+  daily: _modelA.daily,
+  partnerMonthly: _modelA.partnerMonthly,
+  partnerTwelveMonths: _modelA.partnerTwelveMonths
+};
+
+// src/lib/mcp-public/tools/estimate-rent-access.ts
 var MONTHLY_RATE = 0.33;
 var DEFAULT_DURATIONS = [30, 60, 90];
 var AGENT_COMMISSION_RATE = 0.1;
@@ -625,6 +671,14 @@ var estimate_rent_access_default = defineTool3({
       data: {
         rent: roundedRent,
         monthly_rate_pct: MONTHLY_RATE * 100,
+        v360_new_quote_example: {
+          principal: V360_MODEL_A_EXAMPLE.principal,
+          gross: V360_MODEL_A_EXAMPLE.gross,
+          daily: V360_MODEL_A_EXAMPLE.daily,
+          partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
+          partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
+          note: "Illustrative 360-day example for a new quote. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
+        },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
           daily_repayment: p.dailyRepayment,
@@ -642,6 +696,7 @@ var estimate_rent_access_default = defineTool3({
       },
       disclaimers: [
         "Line items are illustrative only \u2014 the service/access/agent-commission split is shown for transparency and does not change the total.",
+        `A separate illustrative 360-day example for rent ${ugx(V360_MODEL_A_EXAMPLE.principal)} is Gross ${ugx(V360_MODEL_A_EXAMPLE.gross)} and Daily ${ugx(V360_MODEL_A_EXAMPLE.daily)}. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.`,
         ...DISCLAIMERS
       ],
       next_steps: [

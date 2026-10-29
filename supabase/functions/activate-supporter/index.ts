@@ -327,12 +327,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Ensure wallet exists
-    const { error: walletError } = await adminClient
-      .from("wallets")
-      .upsert({ user_id: userId, balance: 0 }, { onConflict: 'user_id' });
-    if (walletError) console.error("[activate-supporter] Wallet upsert error:", walletError);
-
     // Grant ALL 4 public roles so link-onboarded users can access every public dashboard.
     // The intended role from the invite is preserved in user_metadata for landing-page routing.
     const PUBLIC_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;

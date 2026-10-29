@@ -127,6 +127,11 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   A22: 'Landlord Float Pool — Reserved Cash',
   // A23: Angel Pool share owned by Pius but paid from company float — owed by Pius.
   A23: 'Receivables from Partner Products and Services',
+  // A24 Special Advances Receivable (Phase 4, not yet applied): individually agreed advances to any Welile user
+  // (tenant, agent or other) or to an external individual or company. No single counterparty heading fits every
+  // borrower, so it reports under Other Assets rather than being flagged; the drill-down still names the account.
+  // A dedicated heading would be a presentation change for the CFO to decide (docs/special-advances/phase4-cfo-decisions.md).
+  A24: 'Other Assets',
 };
 
 

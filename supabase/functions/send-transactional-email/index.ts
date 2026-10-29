@@ -238,9 +238,26 @@ Deno.serve(async (req) => {
       ? template.subject(templateData)
       : template.subject
 
+  const isZoeReportTemplate =
+    templateName === 'zoe-report-shared' || templateName === 'report-shared-from-zoe'
+
+  // For Zoe report emails, never store the attachment or report rows/data in email_send_log.metadata
+  const loggedTemplateData = (() => {
+    if (!isZoeReportTemplate) return templateData
+    const {
+      attachment_base64: _a,
+      pdf_base64: _p,
+      rows: _r,
+      headers: _h,
+      data: _d,
+      ...safeMeta
+    } = templateData
+    return safeMeta
+  })()
+
   const routingMetadata = {
     subject: resolvedSubject,
-    template_data: templateData,
+    template_data: loggedTemplateData,
     from: isPartnerFunder ? PARTNER_FROM : `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
     ...(isPartnerFunder ? { reply_to: PARTNER_REPLY_TO } : {}),
     ...(isPartnerFunder ? { bcc: PARTNER_REPLY_TO } : {}),
@@ -482,10 +499,11 @@ Deno.serve(async (req) => {
   }
 
   // "Report shared from Zoe" carries the branded Welile A4 PDF built from the
-  // exact rows Zoe returned when re-running the report as the sender.
+  // exact rows Zoe returned when re-running the report as the sender (unless sign_in_only is true).
   if (
-    (templateName === 'zoe-report-shared' || templateName === 'report-shared-from-zoe') &&
-    !attachment
+    isZoeReportTemplate &&
+    !attachment &&
+    (templateData as any).sign_in_only !== true
   ) {
     try {
       const filename =

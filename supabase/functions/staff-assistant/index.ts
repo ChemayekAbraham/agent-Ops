@@ -1,10 +1,28 @@
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { requireStaffAal2 } from "../_shared/staffMfa.ts";
 import {
+   buildIdeaDraft,
   buildReminderDraft,
   buildReportScheduleDraft,
   buildStaffNotificationDraft,
 } from "./actionDrafts.ts";
+import {
+  canCallerAccessZoeRoArea,
+  ensureAdHocCertificationNotice,
+  validateAnalystSqlQuery,
+  type ZoeRoRoleArea as ZoeRoArea,
+} from "./analyst.ts";
+import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
+import {
+  CONSULTANT_FORBIDDEN_TOOLS,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
+  filterToolsForConsultantMode,
+  isConsultantQuestion,
+  ReadWebPageArgsSchema,
+  SearchWebArgsSchema,
+  WEB_RESEARCH_TOOL_NAMES,
+} from "./consultant.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import {
   buildReportEmailDraft,
@@ -12,47 +30,96 @@ import {
   isEmailFromToolData,
   normalizeStaffRecipients,
 } from "./emailDraft.ts";
-import { checkAnswer } from "./guards.ts";
+import {
+  checkAnswer,
+  checkDraftCardText,
+  isDirectPromptInjection,
+  isWriteMutationIntent,
+} from "./guards.ts";
+import {
+  isConversationalPromptAllowedWithoutTool,
+  ManualHelpArgsSchema,
+  searchStaffManualHelp,
+} from "./manualHelp.ts";
+import {
+  appendMemoryEntries,
+  buildFollowUpSuggestions,
+  buildMemoryEntryFromToolResult,
+  buildRollingConversationSummary,
+  ConversationMemorySummary,
+  extractChartFromReportPayload,
+  formatConversationMemoryForPrompt,
+  formatZoeNotesForPrompt,
+  MemoryToolEntry,
+  parseConversationMemory,
+  statusLineForTool,
+  synthesizePartialStepLimitReply,
+  ZoeChartPayload,
+  ZoeNoteRecord,
+} from "./memory.ts";
 import { MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
-import { chatCompletion, ChatMessage, classifyText } from "./openai.ts";
-import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
+import {
+  AiGatewayError,
+  chatCompletion,
+  ChatMessage,
+  ChatUsage,
+  classifyText,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  OpenAiTool,
+  selectModelTier,
+} from "./openai.ts";
+import { buildSystemPrompt } from "./prompt.ts";
 import { RequestSchema } from "./schemas.ts";
 import {
+  addUserNote,
+  BudgetCheckResult,
   checkQuestionBudget,
   clearUserHistory,
+  ConversationListItem,
+  createNewConversation,
+  deleteUserNote,
   getAdminClientForMfa,
   getOrCreateConversation,
+  listUserConversations,
+  listUserNotes,
   loadConversationHistory,
   loadLatestReportPayload,
   loadRecentTurns,
+  logAnalystQuery,
   recordTurn,
   recordUnanswered,
+  renameUserConversation,
   saveFeedback,
   SessionMeta,
   TurnOutcome,
   UnansweredReason,
 } from "./store.ts";
+
 import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
+  DraftIdeaArgsSchema,
   DraftReminderArgsSchema,
   DraftReportEmailArgsSchema,
   DraftReportScheduleArgsSchema,
   DraftStaffNotificationArgsSchema,
   findTool,
+  isHistoryMessageAllowedForRoles,
   openAiToolsForRoles,
 } from "./tools.ts";
+import { prepareToolOutputForModel } from "./toolOutput.ts";
 
-const corsHeaders = {
+export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const MAX_MODEL_ROUNDS = 4;
-const MAX_CALLS_PER_ROUND = 3;
+const MAX_CALLS_PER_ROUND = 4;
 const MAX_TOOL_CALLS = 6;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 
@@ -63,9 +130,181 @@ function json(status: number, body: Record<string, unknown>): Response {
   });
 }
 
-function parseCategory(raw: string): "in_scope" | "out_of_scope" {
-  const m = raw.match(/"category"\s*:\s*"(in_scope|out_of_scope)"/);
-  return (m?.[1] as "in_scope" | "out_of_scope" | undefined) ?? "in_scope";
+function splitTokensForStream(text: string): string[] {
+  const parts = text.match(/\S+\s*|\n+/g);
+  return parts && parts.length > 0 ? parts : [text];
+}
+
+function buildSseStreamResponse(
+  statusSteps: readonly string[],
+  finalBody: Record<string, unknown>,
+): Response {
+  const encoder = new TextEncoder();
+  const replyText = typeof finalBody.reply === "string" ? finalBody.reply : "";
+  const tokens = splitTokensForStream(replyText);
+
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const sendEvent = (event: string, data: unknown) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+        );
+      };
+
+      for (const step of statusSteps) {
+        sendEvent("status", { text: step });
+      }
+      for (const chunk of tokens) {
+        sendEvent("token", { token: chunk });
+      }
+      sendEvent("done", finalBody);
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+export interface StaffAssistantAiClient {
+  classifyText?: (systemPrompt: string, userMessage: string) => Promise<string>;
+  chatCompletion: (opts: {
+    messages: ChatMessage[];
+    tools?: OpenAiTool[];
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+  }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
+}
+
+export interface StaffAssistantStoreDeps {
+  checkQuestionBudget: (userId: string) => Promise<BudgetCheckResult>;
+  getOrCreateConversation: (
+    userId: string,
+    conversationId: string | undefined,
+    meta: SessionMeta,
+  ) => Promise<{
+    id: string;
+    status: string;
+    memory?: ConversationMemorySummary;
+    rollingSummary?: string;
+  }>;
+  loadRecentTurns: (userId: string, conversationId: string) => Promise<ChatMessage[]>;
+  loadLatestReportPayload: (
+    userId: string,
+    conversationId: string,
+  ) => Promise<Record<string, unknown> | null>;
+  recordTurn: typeof recordTurn;
+  recordUnanswered: typeof recordUnanswered;
+  saveFeedback: typeof saveFeedback;
+  loadConversationHistory: typeof loadConversationHistory;
+  clearUserHistory: typeof clearUserHistory;
+  listUserConversations?: (userId: string, limit?: number) => Promise<ConversationListItem[]>;
+  createNewConversation?: (
+    userId: string,
+    meta: SessionMeta,
+    title?: string,
+  ) => Promise<ConversationListItem>;
+  renameUserConversation?: (
+    userId: string,
+    conversationId: string,
+    title: string,
+  ) => Promise<{ ok: boolean; title: string }>;
+  listUserNotes?: (userId: string) => Promise<ZoeNoteRecord[]>;
+  addUserNote?: (
+    userId: string,
+    noteText: string,
+  ) => Promise<
+    | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+    | { ok: false; reason: string; error: string }
+  >;
+  deleteUserNote?: (
+    userId: string,
+    noteId: string,
+  ) => Promise<{ ok: boolean; notes: ZoeNoteRecord[] }>;
+  logAnalystQuery?: typeof logAnalystQuery;
+}
+
+export interface StaffAssistantHandlerDeps {
+  userClient?: SupabaseClient;
+  aiClient?: StaffAssistantAiClient;
+  store?: Partial<StaffAssistantStoreDeps>;
+  checkMfaAal2?: (token: string, userId: string) => Promise<{ ok: boolean }>;
+}
+
+const DEFAULT_AI_CLIENT: StaffAssistantAiClient = {
+  classifyText,
+  chatCompletion,
+};
+
+const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
+  checkQuestionBudget,
+  getOrCreateConversation,
+  loadRecentTurns,
+  loadLatestReportPayload,
+  recordTurn,
+  recordUnanswered,
+  saveFeedback,
+  loadConversationHistory,
+  clearUserHistory,
+  listUserConversations,
+  createNewConversation,
+  renameUserConversation,
+  listUserNotes,
+  addUserNote,
+  deleteUserNote,
+  logAnalystQuery,
+};
+
+/**
+ * Saves a draft server-side in `public.staff_assistant_drafts` (owner, kind, exact payload_hash,
+ * 30-minute expiry, single-use `used_at`) using the caller's own JWT (`userClient`).
+ */
+async function saveServerDraft(
+  userClient: SupabaseClient,
+  kind: "email" | "reminder" | "notification" | "schedule" | "idea",
+  payload: Record<string, unknown>,
+  conversationId: string,
+): Promise<string | null> {
+
+  const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
+    p_kind: kind,
+    p_payload: payload,
+    p_conversation_id: conversationId,
+  });
+  if (error || !data || typeof data !== "object") {
+    return null;
+  }
+  const rec = data as Record<string, unknown>;
+  return typeof rec.draft_id === "string" && rec.draft_id.trim() ? rec.draft_id.trim() : null;
+}
+
+/**
+ * Checks whether a recipient's own roles can read the given report RPC via
+ * `public.staff_assistant_can_user_read_report`.
+ */
+async function checkRecipientCanReadReport(
+  userClient: SupabaseClient,
+  recipientUserId: string,
+  reportRpc: string,
+  ownerId: string,
+): Promise<boolean> {
+  const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
+    p_user_id: recipientUserId,
+    p_report_rpc: reportRpc,
+    p_owner_id: ownerId,
+  });
+  if (error) return false;
+  return data === true;
 }
 
 /**
@@ -104,11 +343,21 @@ async function resolveCallerRoles(userClient: SupabaseClient, userId: string): P
   return [...roles].sort();
 }
 
-Deno.serve(async (req) => {
+/**
+ * Real request handler for Zoe (`supabase/functions/staff-assistant`).
+ * Accepts optional injected `aiClient`, `userClient`, `store`, and `checkMfaAal2` dependencies
+ * so unit, integration, and live evaluation tests run against the exact production handler.
+ */
+export async function handleStaffAssistantRequest(
+  req: Request,
+  deps: StaffAssistantHandlerDeps = {},
+): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: MSG.invalidRequest });
 
   const startedAt = Date.now();
+  const ai = deps.aiClient ?? DEFAULT_AI_CLIENT;
+  const store: StaffAssistantStoreDeps = { ...DEFAULT_STORE_DEPS, ...(deps.store ?? {}) };
 
   // ---- 1. Authenticate caller from Authorization Bearer JWT only -----------------------------
   const authHeader = req.headers.get("Authorization");
@@ -117,15 +366,18 @@ Deno.serve(async (req) => {
   }
   const token = authHeader.slice("Bearer ".length).trim();
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
   // This client carries the caller's own JWT. Every `assistant_staff_*` RPC is called on THIS
   // client so `auth.uid()` inside PostgreSQL is always the signed-in staff member.
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const userClient =
+    deps.userClient ??
+    createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+  const checkMfa =
+    deps.checkMfaAal2 ??
+    ((jwt: string, uid: string) => requireStaffAal2(getAdminClientForMfa(), jwt, uid));
 
   const {
     data: { user },
@@ -153,23 +405,80 @@ Deno.serve(async (req) => {
     return json(403, { error: MSG.notStaff, outcome: "not_staff" });
   }
 
-  // ---- 4. Non-chat utility actions (history, clear_history, feedback) ------------------------
+  // ---- 4. Non-chat utility actions (history, conversations, new_conversation, rename, clear_history, feedback, morning_brief)
   if (body.action === "history") {
-    const history = await loadConversationHistory(user.id, body.conversation_id, body.limit ?? 30);
-    return json(200, history);
+    const [callerRoles, history] = await Promise.all([
+      resolveCallerRoles(userClient, user.id),
+      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40),
+    ]);
+    // Re-check the caller's current role before showing any historical answer or report_payload
+    const roleFilteredMessages = history.messages.map((msg) => {
+      if (!isHistoryMessageAllowedForRoles(msg, callerRoles)) {
+        return {
+          ...msg,
+          content: MSG.historyRoleRestricted,
+          report_payload: null,
+        };
+      }
+      return msg;
+    });
+    return json(200, {
+      conversation_id: history.conversation_id,
+      messages: roleFilteredMessages,
+    });
+  }
+
+  if (body.action === "conversations") {
+    const list = store.listUserConversations
+      ? await store.listUserConversations(user.id, body.limit ?? 25)
+      : [];
+    return json(200, { ok: true, conversations: list });
+  }
+
+  if (body.action === "new_conversation") {
+    const forwardedFor = req.headers.get("x-forwarded-for") ?? req.headers.get("cf-connecting-ip");
+    const meta: SessionMeta = {
+      ipAddress: forwardedFor ? forwardedFor.split(",")[0].trim() : null,
+      userAgent: req.headers.get("user-agent"),
+    };
+    if (store.createNewConversation) {
+      const created = await store.createNewConversation(user.id, meta, body.title);
+      return json(200, { ok: true, conversation: created });
+    }
+    const conv = await store.getOrCreateConversation(user.id, undefined, meta);
+    return json(200, {
+      ok: true,
+      conversation: {
+        id: conv.id,
+        title: body.title ?? "New chat",
+        message_count: 0,
+        last_active_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      },
+    });
+  }
+
+  if (body.action === "rename_conversation") {
+    if (store.renameUserConversation) {
+      const res = await store.renameUserConversation(user.id, body.conversation_id, body.title);
+      if (!res.ok) return json(404, { error: MSG.invalidRequest });
+      return json(200, { ok: true, conversation_id: body.conversation_id, title: res.title });
+    }
+    return json(200, { ok: true, conversation_id: body.conversation_id, title: body.title });
   }
 
   if (body.action === "clear_history") {
-    await clearUserHistory(user.id, body.conversation_id);
+    await store.clearUserHistory(user.id, body.conversation_id);
     return json(200, { ok: true, reply: MSG.historyCleared });
   }
 
   if (body.action === "feedback") {
-    const res = await saveFeedback({
+    const res = await store.saveFeedback({
       conversationId: body.conversation_id,
       messageId: body.message_id,
       userId: user.id,
       rating: body.rating,
+      reportKind: body.report_kind,
       comment: body.comment,
     });
     if (!res.ok) return json(404, { error: MSG.invalidRequest });
@@ -184,7 +493,7 @@ Deno.serve(async (req) => {
       runTool: async (tool) => {
         if (!canUseTool(tool, callerRoles)) return null;
         if (tool.sensitive) {
-          const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+          const mfaGate = await checkMfa(token, user.id);
           if (!mfaGate.ok) return null;
         }
         const parsedArgs = tool.schema.safeParse({});
@@ -199,8 +508,50 @@ Deno.serve(async (req) => {
     return json(200, { ok: true, morning_brief: brief });
   }
 
+  // Prompt 2 item (5): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
+  if (body.action === "list_notes") {
+    const notes = store.listUserNotes ? await store.listUserNotes(user.id) : [];
+    return json(200, { ok: true, notes });
+  }
+
+  if (body.action === "add_note") {
+    if (!store.addUserNote) {
+      return json(400, { ok: false, error: MSG.invalidRequest });
+    }
+    const res = await store.addUserNote(user.id, body.note_text);
+    if (!res.ok) {
+      return json(400, { ok: false, reason: res.reason, error: res.error });
+    }
+    return json(200, { ok: true, note: res.note, notes: res.notes });
+  }
+
+  if (body.action === "delete_note") {
+    const res = store.deleteUserNote
+      ? await store.deleteUserNote(user.id, body.note_id)
+      : { ok: true, notes: [] };
+    return json(200, { ok: res.ok, notes: res.notes });
+  }
+
+  // Prompt 2 item (6): Read-only Welile Glossary lookup (`assistant_staff_get_glossary`)
+  if (body.action === "list_glossary") {
+    const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
+      p_search: body.search ?? null,
+      p_category: body.category ?? null,
+    });
+    if (error) {
+      return json(200, { ok: false, rows: [], error: error.message });
+    }
+    const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+    return json(200, {
+      ok: true,
+      source: payload.source ?? "staff_assistant_glossary",
+      rows: Array.isArray(payload.rows) ? payload.rows : [],
+    });
+  }
+
+
   // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
-  const budget = await checkQuestionBudget(user.id);
+  const budget = await store.checkQuestionBudget(user.id);
   if (!budget.allowed) {
     const reply = budget.reason === "daily_budget" ? MSG.dailyLimitReached : MSG.rateLimited;
     return json(429, {
@@ -221,11 +572,48 @@ Deno.serve(async (req) => {
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const callerRoles = await resolveCallerRoles(userClient, user.id);
-  const allowedOpenAiTools = openAiToolsForRoles(callerRoles);
-  const toolDescriptions = describeToolsForRoles(callerRoles);
-
-  const conv = await getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
   const userText = body.message;
+  const consultantMode = isConsultantQuestion(userText);
+  const webResearchEnabled = consultantMode && budget.webResearchEnabled === true;
+  const baseOpenAiTools = openAiToolsForRoles(callerRoles);
+  const allowedOpenAiTools = consultantMode
+    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
+    : baseOpenAiTools;
+  const toolDescriptions = describeToolsForRoles(callerRoles).filter(
+    (line) => !consultantMode || !line.startsWith("draft_"),
+  );
+  if (webResearchEnabled) {
+    toolDescriptions.push(
+      "search_web [Consultant mode — Outside source]: Generic public web search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
+      "read_web_page [Consultant mode — Outside source]: Read a public https:// page returned by search_web. Label 'Outside source' with link and date; never mix with Welile totals.",
+    );
+  }
+
+  const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+  const existingMemory = parseConversationMemory(conv.memory);
+  const newMemoryEntries: MemoryToolEntry[] = [];
+  const statusSteps: string[] = [];
+  const wantsStream = body.stream === true;
+  let updatedRollingSummary = conv.rollingSummary ?? "";
+  let totalQuestionCostUsd = 0;
+  let cachedPromptTokens = 0;
+
+  const baseTier = selectModelTier(userText, {
+    maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
+    maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
+    maxDeepModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
+    maxDeepToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+    ...(budget.modelConfig ?? {}),
+  });
+  const selectedTier = consultantMode
+    ? {
+        ...baseTier,
+        tier: "deep" as const,
+        model: budget.modelConfig?.modelDeep ?? baseTier.model,
+        maxModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
+        maxToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+      }
+    : baseTier;
 
   const finish = async (
     reply: string,
@@ -237,11 +625,48 @@ Deno.serve(async (req) => {
       sourceLabel?: string | null;
       periodLabel?: string | null;
       reportPayload?: Record<string, unknown> | null;
+      chart?: ZoeChartPayload | null;
+      followUpSuggestions?: string[];
       unansweredReason?: UnansweredReason;
       mfaRequired?: boolean;
     },
   ) => {
-    const { assistantMessageId } = await recordTurn({
+    const updatedMemory = appendMemoryEntries(existingMemory, newMemoryEntries);
+    const chart =
+      opts?.chart !== undefined
+        ? opts.chart
+        : outcome === "answered"
+        ? extractChartFromReportPayload(opts?.reportPayload ?? null)
+        : null;
+    const followUpSuggestions =
+      opts?.followUpSuggestions ??
+      (outcome === "answered"
+        ? buildFollowUpSuggestions({
+            toolsCalled: opts?.tools ?? [],
+            callerRoles,
+          })
+        : []);
+
+    const enrichedReportPayload = opts?.reportPayload
+      ? {
+          ...opts.reportPayload,
+          ...(consultantMode ? { consultant_mode: true } : {}),
+          ...(chart ? { chart } : {}),
+          ...(followUpSuggestions.length > 0
+            ? { follow_up_suggestions: followUpSuggestions }
+            : {}),
+        }
+      : chart
+      ? {
+          ...(consultantMode ? { consultant_mode: true } : {}),
+          chart,
+          follow_up_suggestions: followUpSuggestions,
+        }
+      : consultantMode
+      ? { consultant_mode: true }
+      : null;
+
+    const { assistantMessageId } = await store.recordTurn({
       conversationId: conv.id,
       userId: user.id,
       userMessage: userText,
@@ -250,13 +675,15 @@ Deno.serve(async (req) => {
       toolsCalled: opts?.tools,
       sourceLabel: opts?.sourceLabel ?? null,
       periodLabel: opts?.periodLabel ?? null,
-      reportPayload: opts?.reportPayload ?? null,
+      reportPayload: enrichedReportPayload,
+      conversationSummary: updatedMemory,
+      rollingSummary: updatedRollingSummary,
       model: opts?.model,
       latencyMs: Date.now() - startedAt,
     });
 
     if (opts?.unansweredReason) {
-      await recordUnanswered({
+      await store.recordUnanswered({
         conversationId: conv.id,
         messageId: assistantMessageId,
         userId: user.id,
@@ -266,7 +693,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return json(200, {
+    const responsePayload: Record<string, unknown> = {
       conversation_id: conv.id,
       message_id: assistantMessageId,
       reply,
@@ -274,48 +701,113 @@ Deno.serve(async (req) => {
       clarification: opts?.clarification ?? null,
       source: opts?.sourceLabel ?? null,
       period: opts?.periodLabel ?? null,
-      report_payload: opts?.reportPayload ?? null,
+      report_payload: enrichedReportPayload,
+      chart: chart ?? null,
+      follow_up_suggestions: followUpSuggestions,
+      status_steps: statusSteps,
+      model_tier: selectedTier.tier,
+      consultant_mode: consultantMode,
+      estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
+      cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
       remaining_questions_today: budget.remainingToday,
-    });
+    };
+
+    if (wantsStream) {
+      return buildSseStreamResponse(statusSteps, responsePayload);
+    }
+    return json(200, responsePayload);
   };
 
   try {
-    // ---- 7. Cheap scope pre-check (no data, no tools) ----------------------------------------
-    const scopeRaw = await classifyText(SCOPE_CHECK_PROMPT, userText);
-    const scope = parseCategory(scopeRaw);
-    if (scope === "out_of_scope") {
+    // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
+    // Prompt 3 item (4): Drop the separate classifier call; let the main model decide in the same call.
+    if (isDirectPromptInjection(userText) || isWriteMutationIntent(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
       });
     }
 
-    // ---- 8. Tool-calling loop (Requirement c, d, f, g) ---------------------------------------
-    const history = await loadRecentTurns(user.id, conv.id);
+    // ---- 8. Tool-calling loop (whole-conversation memory, Zoe notes, safe calculator) --------
+    const [history, userNotes] = await Promise.all([
+      store.loadRecentTurns(user.id, conv.id),
+      store.listUserNotes ? store.listUserNotes(user.id) : Promise.resolve([]),
+    ]);
     const today = kampalaToday();
+    const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
+    const zoeNotesBlock = formatZoeNotesForPrompt(userNotes);
+
+    // Keep whole conversation: condense older turns into a rolling summary when long (> 12 messages)
+    const activeTurnWindow = history.length > 16 ? history.slice(-16) : history;
+    if (history.length > 16) {
+      updatedRollingSummary = buildRollingConversationSummary(
+        history.slice(0, history.length - 16),
+        conv.rollingSummary ?? "",
+      );
+    }
+    const rollingSummaryBlock = updatedRollingSummary
+      ? `EARLIER CONVERSATION ROLLING SUMMARY:\n${updatedRollingSummary}`
+      : "";
+
     const messages: ChatMessage[] = [
       {
         role: "system",
-        content: buildSystemPrompt(today, callerRoles, toolDescriptions),
+        content: buildSystemPrompt(today, callerRoles, toolDescriptions, {
+          conversationMemoryBlock: memoryBlock,
+          zoeNotesBlock,
+          rollingSummaryBlock,
+          modelTier: selectedTier.tier,
+          consultantMode,
+          webResearchEnabled,
+        }),
       },
-      ...history,
+      ...activeTurnWindow,
       { role: "user", content: userText },
     ];
 
     const toolsCalled: string[] = [];
+    // Seed rawToolOutputs with earlier conversation memory figures & assistant turns so
+    // `compute` and "explain that" can reference earlier verified figures in this conversation.
     const rawToolOutputs: string[] = [];
+    if (existingMemory.entries.length > 0) {
+      rawToolOutputs.push(JSON.stringify(existingMemory.entries));
+    }
+    for (const h of history) {
+      if (h.role === "assistant" && typeof h.content === "string" && h.content.trim()) {
+        rawToolOutputs.push(h.content);
+      }
+    }
+
     const sourcesUsed: string[] = [];
     const periodsUsed: string[] = [];
     let lastReportPayload: Record<string, unknown> | null = null;
-    let lastModel = "";
+    let lastModel = selectedTier.model;
     let finalText: string | null = null;
+    let hitStepOrCostLimit = false;
 
-    for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
-      const { message, model } = await chatCompletion({
+    const maxModelRounds = selectedTier.maxModelRounds;
+    const maxToolCalls = selectedTier.maxToolCalls;
+    const maxCostUsd = selectedTier.maxCostUsdPerQuestion;
+
+    for (let round = 0; round < maxModelRounds; round++) {
+      if (round > 0 && totalQuestionCostUsd >= maxCostUsd) {
+        hitStepOrCostLimit = true;
+        break;
+      }
+
+      const { message, model, usage } = await ai.chatCompletion({
         messages,
         tools: allowedOpenAiTools,
+        model: selectedTier.model,
+        temperature: selectedTier.temperature,
+        maxTokens: selectedTier.maxTokens,
+        signal: req.signal,
       });
       lastModel = model;
+      if (usage) {
+        totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
+        cachedPromptTokens += usage.cachedTokens ?? 0;
+      }
 
       if (!message.tool_calls || message.tool_calls.length === 0) {
         finalText = (message.content ?? "").trim();
@@ -326,12 +818,15 @@ Deno.serve(async (req) => {
       messages.push({ role: "assistant", content: message.content ?? null, tool_calls: calls });
 
       for (const call of calls) {
-        if (toolsCalled.length >= MAX_TOOL_CALLS) {
-          return await finish(MSG.unmatched, "unmatched", {
-            tools: toolsCalled,
-            model: lastModel,
-            unansweredReason: "unmatched",
-          });
+        if (toolsCalled.length >= maxToolCalls) {
+          hitStepOrCostLimit = true;
+          break;
+        }
+
+
+        const stepText = statusLineForTool(call.function.name);
+        if (!statusSteps.includes(stepText)) {
+          statusSteps.push(stepText);
         }
 
         const rawArgs = (() => {
@@ -378,6 +873,199 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Prompt 3 item (3): Safe deterministic calculator (`compute`)
+        if (call.function.name === "compute") {
+          const parsedCompute = ComputeArgsSchema.safeParse(rawArgs);
+          if (!parsedCompute.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+          const computePeriod =
+            periodsUsed.length > 0 ? periodsUsed.join(" vs ") : `as of ${today}`;
+          const computeRes = runSafeCompute(parsedCompute.data, rawToolOutputs, computePeriod);
+          if (!computeRes.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "compute"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+          toolsCalled.push("compute");
+          const computeJson = JSON.stringify(computeRes.data);
+          rawToolOutputs.push(computeJson);
+          if (!sourcesUsed.includes("compute (Verified Conversation Calculator)")) {
+            sourcesUsed.push("compute (Verified Conversation Calculator)");
+          }
+          const preparedCompute = prepareToolOutputForModel(computeRes.data, "compute", {
+            maxChars: MAX_TOOL_RESULT_CHARS,
+          });
+          if (Array.isArray(computeRes.data.rows)) {
+            lastReportPayload = {
+              ...computeRes.data,
+              tool: "compute",
+              rpc: "compute",
+              args: parsedCompute.data,
+              source: "compute (Verified Conversation Calculator)",
+              period: { as_of: today },
+              row_count: (computeRes.data.rows as unknown[]).length,
+              rows: computeRes.data.rows,
+            };
+          }
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: preparedCompute.modelContent,
+          });
+          continue;
+        }
+
+        // Prompt 3 item (1): Staff manual & docs help (`get_staff_manual_help`)
+        if (call.function.name === "get_staff_manual_help") {
+          const parsedManual = ManualHelpArgsSchema.safeParse(rawArgs);
+          if (!parsedManual.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+          const helpRes = searchStaffManualHelp(parsedManual.data.topic);
+          toolsCalled.push("get_staff_manual_help");
+          const helpJson = JSON.stringify(helpRes);
+          rawToolOutputs.push(helpJson);
+          if (!sourcesUsed.includes(helpRes.source)) {
+            sourcesUsed.push(helpRes.source);
+          }
+          if (!periodsUsed.includes(`as of ${today}`)) {
+            periodsUsed.push(`as of ${today}`);
+          }
+          const preparedHelp = prepareToolOutputForModel(helpRes, "get_staff_manual_help", {
+            maxChars: MAX_TOOL_RESULT_CHARS,
+          });
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: preparedHelp.modelContent,
+          });
+          continue;
+        }
+
+        // Prompt 4 item (1): Consultant mode blocks all write/action/export draft tools
+        if (consultantMode && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+          return await finish(MSG.outOfScope, "blocked", {
+            tools: toolsCalled,
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+
+        // Prompt 4 item (3): Admin-switched Web Research (`search_web`, `read_web_page`)
+        // Available ONLY in the Consultant path when `staff_assistant_config.web_research_enabled === true`.
+        if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
+          if (!consultantMode || !webResearchEnabled) {
+            return await finish(
+              "Web research is currently disabled in staff_assistant_config (or outside Consultant mode).",
+              "blocked",
+              {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              },
+            );
+          }
+
+          if (call.function.name === "search_web") {
+            const parsedSearch = SearchWebArgsSchema.safeParse(rawArgs);
+            if (!parsedSearch.success) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "unmatched",
+              });
+            }
+            const webRes = await executeConsultantWebSearch(
+              parsedSearch.data.query,
+              rawToolOutputs,
+            );
+            if (!webRes.ok) {
+              return await finish(
+                `I cannot run that web search: ${webRes.error}`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "search_web"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                },
+              );
+            }
+            toolsCalled.push("search_web");
+            const webJson = JSON.stringify(webRes.payload);
+            rawToolOutputs.push(webJson);
+            if (!sourcesUsed.includes(webRes.payload.source)) {
+              sourcesUsed.push(webRes.payload.source);
+            }
+            if (!periodsUsed.includes(webRes.payload.period)) {
+              periodsUsed.push(webRes.payload.period);
+            }
+            const preparedWeb = prepareToolOutputForModel(webRes.payload, "search_web", {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: preparedWeb.modelContent,
+            });
+            continue;
+          }
+
+          if (call.function.name === "read_web_page") {
+            const parsedPage = ReadWebPageArgsSchema.safeParse(rawArgs);
+            if (!parsedPage.success) {
+              return await finish(MSG.unmatched, "unmatched", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "unmatched",
+              });
+            }
+            const pageRes = await executeConsultantReadWebPage(
+              parsedPage.data.url,
+              rawToolOutputs,
+            );
+            if (!pageRes.ok) {
+              return await finish(
+                `I cannot read that web page: ${pageRes.error}`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "read_web_page"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                },
+              );
+            }
+            toolsCalled.push("read_web_page");
+            const pageJson = JSON.stringify(pageRes.payload);
+            rawToolOutputs.push(pageJson);
+            if (!sourcesUsed.includes(pageRes.payload.source)) {
+              sourcesUsed.push(pageRes.payload.source);
+            }
+            if (!periodsUsed.includes(pageRes.payload.period)) {
+              periodsUsed.push(pageRes.payload.period);
+            }
+            const preparedPage = prepareToolOutputForModel(pageRes.payload, "read_web_page", {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: preparedPage.modelContent,
+            });
+            continue;
+          }
+        }
+
         // Action tool: draft_report_email (NEVER sends; looks up recipient ONLY via staff_assistant_email_recipients)
         if (call.function.name === "draft_report_email") {
           const d = DraftReportEmailArgsSchema.safeParse(rawArgs);
@@ -389,7 +1077,6 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Rule: Never use an email address found in data
           if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_email"],
@@ -398,7 +1085,6 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Ensure we have a report payload (either from this turn, from report_tool, or from conversation history)
           if (!lastReportPayload && d.data.report_tool) {
             const repTool = findTool(d.data.report_tool);
             if (!repTool) {
@@ -416,7 +1102,7 @@ Deno.serve(async (req) => {
               });
             }
             if (repTool.sensitive) {
-              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              const mfaGate = await checkMfa(token, user.id);
               if (!mfaGate.ok) {
                 return await finish(MSG.mfaRequired, "blocked", {
                   tools: toolsCalled,
@@ -446,7 +1132,10 @@ Deno.serve(async (req) => {
               });
             }
             toolsCalled.push(repTool.name);
-            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            rawToolOutputs.push(preparedRep.cleanJson);
             if (repData && typeof repData === "object" && !Array.isArray(repData)) {
               const payload = repData as Record<string, unknown>;
               if (typeof payload.source === "string" && payload.source.trim()) {
@@ -469,7 +1158,16 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
           }
 
           if (!lastReportPayload) {
@@ -481,17 +1179,18 @@ Deno.serve(async (req) => {
                 model: lastModel,
                 clarification: {
                   question: "Which report would you like to email?",
-                  options: [
-                    "My tasks and tickets",
-                    "My payslips",
-                  ],
+                  options: ["My tasks and tickets", "My payslips"],
                 },
               },
             );
           }
 
-          const combinedRawOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
-          if (isEmailFromToolData(d.data.recipient_search, combinedRawOutputs, userText)) {
+          const combinedRawOutputs = [
+            ...rawToolOutputs,
+            JSON.stringify(lastReportPayload),
+            JSON.stringify({ period: today }),
+          ];
+          if (isEmailFromToolData(d.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_email"],
               model: lastModel,
@@ -499,7 +1198,19 @@ Deno.serve(async (req) => {
             });
           }
 
-          // Look up recipient ONLY through staff_assistant_email_recipients with caller's JWT
+          const emailDraftGuard = checkDraftCardText(
+            [d.data.subject, d.data.message],
+            combinedRawOutputs,
+            userText,
+          );
+          if (!emailDraftGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_report_email"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
           const recipientQuery = extractRecipientQuery(d.data.recipient_search);
           const { data: recipientRows, error: recipientErr } = await userClient.rpc(
             "staff_assistant_email_recipients",
@@ -535,6 +1246,46 @@ Deno.serve(async (req) => {
             });
           }
 
+          if (draftOutcome.draft.recipient_user_id) {
+            const reportToolDef = findTool(draftOutcome.draft.report_reference.tool);
+            const roleAllowed =
+              reportToolDef &&
+              canUseTool(reportToolDef, draftOutcome.draft.recipient_roles) &&
+              !(
+                draftOutcome.draft.report_reference.rpc.startsWith("assistant_staff_my_") &&
+                draftOutcome.draft.recipient_user_id !== user.id
+              );
+            const dbRoleAllowed = await checkRecipientCanReadReport(
+              userClient,
+              draftOutcome.draft.recipient_user_id,
+              draftOutcome.draft.report_reference.rpc,
+              user.id,
+            );
+            if (!roleAllowed || !dbRoleAllowed) {
+              return await finish(MSG.recipientRoleRestricted, "blocked", {
+                tools: [...toolsCalled, "draft_report_email"],
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          const savedEmailDraftId = await saveServerDraft(
+            userClient,
+            "email",
+            {
+              kind: "email",
+              recipient_email: draftOutcome.draft.recipient_email ?? "",
+              subject: draftOutcome.draft.subject,
+              message: draftOutcome.draft.message,
+              report_reference: draftOutcome.draft.report_reference,
+            },
+            conv.id,
+          );
+          if (savedEmailDraftId) {
+            draftOutcome.draft.draft_id = savedEmailDraftId;
+          }
+
           if (draftOutcome.kind === "pick_recipient") {
             return await finish(draftOutcome.question, "clarify", {
               tools: [...toolsCalled, "draft_report_email"],
@@ -564,7 +1315,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Action tool: draft_reminder (NEVER writes to DB; returns draft card for user click)
+        // Action tool: draft_reminder
         if (call.function.name === "draft_reminder") {
           const r = DraftReminderArgsSchema.safeParse(rawArgs);
           if (!r.success) {
@@ -582,6 +1333,34 @@ Deno.serve(async (req) => {
             todayKampala: today,
           });
 
+          const reminderGuard = checkDraftCardText(
+            [r.data.title, r.data.note],
+            [...rawToolOutputs, JSON.stringify({ today, remind_at: reminderDraft.draft.remind_at_kampala })],
+            userText,
+          );
+          if (!reminderGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_reminder"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const savedReminderDraftId = await saveServerDraft(
+            userClient,
+            "reminder",
+            {
+              kind: "reminder",
+              title: reminderDraft.draft.title,
+              remind_at: reminderDraft.draft.remind_at,
+              note: reminderDraft.draft.note ?? "",
+            },
+            conv.id,
+          );
+          if (savedReminderDraftId) {
+            reminderDraft.draft.draft_id = savedReminderDraftId;
+          }
+
           return await finish(reminderDraft.replyText, "answered", {
             tools: [...toolsCalled, "draft_reminder"],
             model: lastModel,
@@ -594,7 +1373,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Action tool: draft_staff_notification (NEVER writes to notifications; looks up recipient ONLY via staff_assistant_email_recipients)
+        // Action tool: draft_staff_notification
         if (call.function.name === "draft_staff_notification") {
           const n = DraftStaffNotificationArgsSchema.safeParse(rawArgs);
           if (!n.success) {
@@ -610,6 +1389,19 @@ Deno.serve(async (req) => {
               tools: [...toolsCalled, "draft_staff_notification"],
               model: lastModel,
               unansweredReason: "role_restricted",
+            });
+          }
+
+          const notifGuard = checkDraftCardText(
+            [n.data.title, n.data.message],
+            [...rawToolOutputs, JSON.stringify({ today })],
+            userText,
+          );
+          if (!notifGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_staff_notification"],
+              model: lastModel,
+              unansweredReason: "error",
             });
           }
 
@@ -644,6 +1436,22 @@ Deno.serve(async (req) => {
             });
           }
 
+          const savedNotifDraftId = await saveServerDraft(
+            userClient,
+            "notification",
+            {
+              kind: "notification",
+              recipient_email: notifOutcome.draft.recipient_email ?? "",
+              title: notifOutcome.draft.title,
+              message: notifOutcome.draft.message,
+              link_path: "/me",
+            },
+            conv.id,
+          );
+          if (savedNotifDraftId) {
+            notifOutcome.draft.draft_id = savedNotifDraftId;
+          }
+
           if (notifOutcome.kind === "pick_recipient") {
             return await finish(notifOutcome.question, "clarify", {
               tools: [...toolsCalled, "draft_staff_notification"],
@@ -673,7 +1481,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Action tool: draft_report_schedule (NEVER stores or sends; looks up recipient ONLY via staff_assistant_email_recipients)
+        // Action tool: draft_report_schedule
         if (call.function.name === "draft_report_schedule") {
           const s = DraftReportScheduleArgsSchema.safeParse(rawArgs);
           if (!s.success) {
@@ -709,7 +1517,7 @@ Deno.serve(async (req) => {
               });
             }
             if (repTool.sensitive) {
-              const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+              const mfaGate = await checkMfa(token, user.id);
               if (!mfaGate.ok) {
                 return await finish(MSG.mfaRequired, "blocked", {
                   tools: toolsCalled,
@@ -739,7 +1547,10 @@ Deno.serve(async (req) => {
               });
             }
             toolsCalled.push(repTool.name);
-            rawToolOutputs.push(JSON.stringify(repData ?? {}).slice(0, MAX_TOOL_RESULT_CHARS));
+            const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
+              maxChars: MAX_TOOL_RESULT_CHARS,
+            });
+            rawToolOutputs.push(preparedRep.cleanJson);
             if (repData && typeof repData === "object" && !Array.isArray(repData)) {
               const payload = repData as Record<string, unknown>;
               lastReportPayload = {
@@ -757,7 +1568,16 @@ Deno.serve(async (req) => {
           }
 
           if (!lastReportPayload) {
-            lastReportPayload = await loadLatestReportPayload(user.id, conv.id);
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
           }
 
           if (!lastReportPayload) {
@@ -775,12 +1595,29 @@ Deno.serve(async (req) => {
             );
           }
 
-          const combinedOutputs = [...rawToolOutputs, JSON.stringify(lastReportPayload)];
-          if (isEmailFromToolData(s.data.recipient_search, combinedOutputs, userText)) {
+          const combinedOutputs = [
+            ...rawToolOutputs,
+            JSON.stringify(lastReportPayload),
+            JSON.stringify({ period: today }),
+          ];
+          if (isEmailFromToolData(s.data.recipient_search, rawToolOutputs, userText)) {
             return await finish(MSG.dataEmailForbidden, "blocked", {
               tools: [...toolsCalled, "draft_report_schedule"],
               model: lastModel,
               unansweredReason: "role_restricted",
+            });
+          }
+
+          const scheduleDraftGuard = checkDraftCardText(
+            [s.data.custom_message],
+            combinedOutputs,
+            userText,
+          );
+          if (!scheduleDraftGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_report_schedule"],
+              model: lastModel,
+              unansweredReason: "error",
             });
           }
 
@@ -821,6 +1658,53 @@ Deno.serve(async (req) => {
             });
           }
 
+          if (scheduleOutcome.draft.recipient_user_id) {
+            const reportToolDef = findTool(scheduleOutcome.draft.report_reference.tool);
+            const roleAllowed =
+              reportToolDef &&
+              canUseTool(reportToolDef, scheduleOutcome.draft.recipient_roles) &&
+              !(
+                scheduleOutcome.draft.report_reference.rpc.startsWith("assistant_staff_my_") &&
+                scheduleOutcome.draft.recipient_user_id !== user.id
+              );
+            const dbRoleAllowed = await checkRecipientCanReadReport(
+              userClient,
+              scheduleOutcome.draft.recipient_user_id,
+              scheduleOutcome.draft.report_reference.rpc,
+              user.id,
+            );
+            if (!roleAllowed || !dbRoleAllowed) {
+              return await finish(MSG.recipientRoleRestricted, "blocked", {
+                tools: [...toolsCalled, "draft_report_schedule"],
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          const savedScheduleDraftId = await saveServerDraft(
+            userClient,
+            "schedule",
+            {
+              kind: "schedule",
+              title: scheduleOutcome.draft.title,
+              report_tool: scheduleOutcome.draft.report_reference.tool,
+              report_rpc: scheduleOutcome.draft.report_reference.rpc,
+              report_args: scheduleOutcome.draft.report_reference.args ?? {},
+              frequency: scheduleOutcome.draft.frequency,
+              day_of_week: scheduleOutcome.draft.day_of_week,
+              send_time_kampala: scheduleOutcome.draft.send_time_kampala,
+              recipient_emails: scheduleOutcome.draft.recipient_email
+                ? [scheduleOutcome.draft.recipient_email]
+                : [],
+              custom_message: scheduleOutcome.draft.custom_message ?? "",
+            },
+            conv.id,
+          );
+          if (savedScheduleDraftId) {
+            scheduleOutcome.draft.draft_id = savedScheduleDraftId;
+          }
+
           if (scheduleOutcome.kind === "pick_recipient") {
             return await finish(scheduleOutcome.question, "clarify", {
               tools: [...toolsCalled, "draft_report_schedule"],
@@ -846,6 +1730,103 @@ Deno.serve(async (req) => {
             reportPayload: {
               ...lastReportPayload,
               action_draft: scheduleOutcome.draft,
+            },
+          });
+        }
+
+        // Action tool: draft_welile_idea (Prompt 4 item 3: "Ideas for Welile" draft card)
+        if (call.function.name === "draft_welile_idea") {
+          const ideaParsed = DraftIdeaArgsSchema.safeParse(rawArgs);
+          if (!ideaParsed.success) {
+            return await finish(MSG.unmatched, "unmatched", {
+              tools: toolsCalled,
+              model: lastModel,
+              unansweredReason: "unmatched",
+            });
+          }
+
+          if (!lastReportPayload) {
+            const candidatePayload = await store.loadLatestReportPayload(user.id, conv.id);
+            if (
+              candidatePayload &&
+              isHistoryMessageAllowedForRoles(
+                { role: "assistant", report_payload: candidatePayload },
+                callerRoles,
+              )
+            ) {
+              lastReportPayload = candidatePayload;
+            }
+          }
+
+          const combinedIdeaOutputs = [
+            ...rawToolOutputs,
+            ...(lastReportPayload ? [JSON.stringify(lastReportPayload)] : []),
+            JSON.stringify({ period: today }),
+          ];
+
+          const ideaGuard = checkDraftCardText(
+            [
+              ideaParsed.data.title,
+              ideaParsed.data.suggestion,
+              ideaParsed.data.evidence_summary,
+            ],
+            combinedIdeaOutputs,
+            userText,
+          );
+          if (!ideaGuard.ok) {
+            return await finish(MSG.unmatched, "blocked", {
+              tools: [...toolsCalled, "draft_welile_idea"],
+              model: lastModel,
+              unansweredReason: "error",
+            });
+          }
+
+          const resolvedIdeaPeriod =
+            ideaParsed.data.period_label ??
+            periodsUsed[0] ??
+            (lastReportPayload ? formatPeriodLabel(lastReportPayload.period) : null) ??
+            `as of ${today}`;
+
+          const builtIdea = buildIdeaDraft({
+            title: ideaParsed.data.title,
+            suggestion: ideaParsed.data.suggestion,
+            evidenceSummary: ideaParsed.data.evidence_summary,
+            category: ideaParsed.data.category,
+            screenPath: ideaParsed.data.screen_path,
+            sourceLabel: ideaParsed.data.source_label,
+            figures: ideaParsed.data.figures,
+            reportPayload: lastReportPayload,
+            periodLabel: resolvedIdeaPeriod,
+            todayKampala: today,
+          });
+
+          const savedIdeaDraftId = await saveServerDraft(
+            userClient,
+            "idea",
+            {
+              kind: "idea",
+              title: builtIdea.draft.title,
+              suggestion: builtIdea.draft.suggestion,
+              evidence_summary: builtIdea.draft.evidence_summary,
+              source_label: builtIdea.draft.source_label,
+              period_label: builtIdea.draft.period_label,
+              category: builtIdea.draft.category,
+              screen_path: builtIdea.draft.screen_path,
+            },
+            conv.id,
+          );
+          if (savedIdeaDraftId) {
+            builtIdea.draft.draft_id = savedIdeaDraftId;
+          }
+
+          return await finish(builtIdea.replyText, "answered", {
+            tools: [...toolsCalled, "draft_welile_idea"],
+            model: lastModel,
+            sourceLabel: builtIdea.draft.source_label,
+            periodLabel: builtIdea.draft.period_label,
+            reportPayload: {
+              ...(lastReportPayload ?? {}),
+              action_draft: builtIdea.draft,
             },
           });
         }
@@ -878,9 +1859,114 @@ Deno.serve(async (req) => {
           });
         }
 
+        // Prompt 3 item (3): Analyst Lane pre-flight validation & role-area/MFA checks
+        let validatedAnalystSql: {
+          cleanSql: string;
+          executedSql: string;
+          roleAreas: ZoeRoArea[];
+        } | null = null;
+
+        if (tool.name === "get_data_catalog") {
+          const areaArg = String((args.data as Record<string, unknown>).area ?? "all")
+            .trim()
+            .toLowerCase();
+          if (areaArg !== "" && areaArg !== "all") {
+            if (!canCallerAccessZoeRoArea(areaArg as ZoeRoArea, callerRoles, user.id)) {
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+        }
+
+        if (tool.name === "run_analyst_query") {
+          const queryStartedAt = Date.now();
+          const candidateQuery = String((args.data as Record<string, unknown>).sql ?? "");
+          const queryQuestion = String(
+            (args.data as Record<string, unknown>).question ?? userText,
+          );
+          const sqlCheck = validateAnalystSqlQuery(candidateQuery);
+          if (!sqlCheck.ok) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: queryQuestion,
+              sqlText: candidateQuery,
+              executedSql: candidateQuery,
+              roleAreas: [],
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - queryStartedAt,
+              status: "refused",
+              errorMessage: sqlCheck.reason,
+            });
+            return await finish(
+              `I cannot run that Analyst query: ${sqlCheck.reason}`,
+              "blocked",
+              {
+                tools: [...toolsCalled, "run_analyst_query"],
+                model: lastModel,
+                unansweredReason: "error",
+              },
+            );
+          }
+
+          for (const area of sqlCheck.roleAreas) {
+            if (!canCallerAccessZoeRoArea(area, callerRoles, user.id)) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: `Role not authorized for zoe_ro area: ${area}`,
+              });
+              return await finish(MSG.roleRestricted, "not_staff", {
+                tools: toolsCalled,
+                model: lastModel,
+                unansweredReason: "role_restricted",
+              });
+            }
+          }
+
+          if (sqlCheck.requiresAal2) {
+            const mfaGate = await checkMfa(token, user.id);
+            if (!mfaGate.ok) {
+              await store.logAnalystQuery?.({
+                userId: user.id,
+                question: queryQuestion,
+                sqlText: sqlCheck.cleanSql,
+                executedSql: sqlCheck.executedSql,
+                roleAreas: sqlCheck.roleAreas,
+                rowCount: 0,
+                truncated: false,
+                durationMs: Date.now() - queryStartedAt,
+                status: "refused",
+                errorMessage: "MFA aal2 required for sensitive zoe_ro area",
+              });
+              return await finish(MSG.mfaRequired, "blocked", {
+                tools: toolsCalled,
+                model: lastModel,
+                mfaRequired: true,
+              });
+            }
+          }
+
+          validatedAnalystSql = {
+            cleanSql: sqlCheck.cleanSql,
+            executedSql: sqlCheck.executedSql,
+            roleAreas: sqlCheck.roleAreas,
+          };
+        }
+
         // Requirement (g): Sensitive tools require AAL2 MFA via requireStaffAal2
         if (tool.sensitive) {
-          const mfaGate = await requireStaffAal2(getAdminClientForMfa(), token, user.id);
+          const mfaGate = await checkMfa(token, user.id);
           if (!mfaGate.ok) {
             return await finish(MSG.mfaRequired, "blocked", {
               tools: toolsCalled,
@@ -892,9 +1978,27 @@ Deno.serve(async (req) => {
 
         // Requirement (c): Call `assistant_staff_*` with the caller's OWN JWT (`userClient`)
         const rpcArgs = tool.toRpcArgs(args.data);
+        if (tool.name === "run_analyst_query" && !rpcArgs.p_question) {
+          rpcArgs.p_question = userText;
+        }
+        const rpcStartedAt = Date.now();
         const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
         if (error) {
           console.error(`[staff-assistant] tool ${tool.rpc} error:`, error.code, error.message);
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText: validatedAnalystSql.cleanSql,
+              executedSql: validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount: 0,
+              truncated: false,
+              durationMs: Date.now() - rpcStartedAt,
+              status: error.code === "42501" ? "refused" : "error",
+              errorMessage: error.message,
+            });
+          }
           if (error.code === "42501") {
             return await finish(MSG.roleRestricted, "not_staff", {
               tools: toolsCalled,
@@ -909,33 +2013,127 @@ Deno.serve(async (req) => {
           });
         }
 
-        const serialized = JSON.stringify(data ?? {}).slice(0, MAX_TOOL_RESULT_CHARS);
+        // Deduplicate `rows`/`data`, sanitize free-text fields, trim by whole rows ("showing 50 of 312 rows"),
+        // and wrap in `<UNTRUSTED_TOOL_DATA>` for prompt-injection defence.
+        const rawJsonString = JSON.stringify(data ?? {});
+        const prepared = prepareToolOutputForModel(data ?? {}, tool.name, {
+          maxChars: MAX_TOOL_RESULT_CHARS,
+        });
         toolsCalled.push(tool.name);
-        rawToolOutputs.push(serialized);
+        rawToolOutputs.push(rawJsonString);
+        if (prepared.cleanJson !== rawJsonString) {
+          rawToolOutputs.push(prepared.cleanJson);
+        }
 
         if (data && typeof data === "object" && !Array.isArray(data)) {
           const payload = data as Record<string, unknown>;
-          if (typeof payload.source === "string" && payload.source.trim()) {
-            if (!sourcesUsed.includes(payload.source)) sourcesUsed.push(payload.source);
-          }
+          const sourceStr =
+            typeof payload.source === "string" && payload.source.trim()
+              ? payload.source.trim()
+              : tool.rpc;
+          if (!sourcesUsed.includes(sourceStr)) sourcesUsed.push(sourceStr);
           const pLabel = formatPeriodLabel(payload.period);
           if (pLabel && !periodsUsed.includes(pLabel)) {
             periodsUsed.push(pLabel);
           }
+
+          if (tool.name === "run_analyst_query" && validatedAnalystSql) {
+            await store.logAnalystQuery?.({
+              userId: user.id,
+              question: String(rpcArgs.p_question ?? userText),
+              sqlText:
+                typeof payload.sql === "string" ? payload.sql : validatedAnalystSql.cleanSql,
+              executedSql:
+                typeof payload.executed_sql === "string"
+                  ? payload.executed_sql
+                  : validatedAnalystSql.executedSql,
+              roleAreas: validatedAnalystSql.roleAreas,
+              rowCount:
+                typeof payload.row_count === "number"
+                  ? payload.row_count
+                  : prepared.totalRows ?? 0,
+              truncated: Boolean(payload.truncated),
+              durationMs:
+                typeof payload.duration_ms === "number"
+                  ? payload.duration_ms
+                  : Date.now() - rpcStartedAt,
+              status: "ok",
+            });
+          }
+
           lastReportPayload = {
             ...payload,
             tool: tool.name,
             rpc: tool.rpc,
             args: args.data,
-            source: payload.source ?? tool.rpc,
+            resolved_rpc_args: rpcArgs,
+            source: sourceStr,
             period: payload.period ?? null,
-            row_count: payload.row_count ?? null,
+            row_count: payload.row_count ?? prepared.totalRows,
             rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
             data: payload.data ?? null,
+            ...(tool.adHoc
+              ? {
+                  ad_hoc: true,
+                  certification: "Ad hoc, not certified",
+                  ...(validatedAnalystSql
+                    ? {
+                        sql:
+                          typeof payload.sql === "string"
+                            ? payload.sql
+                            : validatedAnalystSql.cleanSql,
+                        executed_sql:
+                          typeof payload.executed_sql === "string"
+                            ? payload.executed_sql
+                            : validatedAnalystSql.executedSql,
+                      }
+                    : {}),
+                }
+              : {}),
+            ...(prepared.truncationNote ? { rows_note: prepared.truncationNote } : {}),
           };
+
+          newMemoryEntries.push(
+            buildMemoryEntryFromToolResult({
+              tool: tool.name,
+              rpc: tool.rpc,
+              toolArgs: args.data,
+              payload,
+              todayKampala: today,
+            }),
+          );
         }
 
-        messages.push({ role: "tool", tool_call_id: call.id, content: serialized });
+        messages.push({ role: "tool", tool_call_id: call.id, content: prepared.modelContent });
+      }
+      if (hitStepOrCostLimit) {
+        break;
+      }
+    }
+
+    // Prompt 2 item (3): When the multi-step loop reaches its round, tool-call, or cost ceiling
+    // after gathering partial tool results, synthesize a clear grounded summary of what Zoe has so far.
+    if (!finalText && newMemoryEntries.length > 0) {
+      const partialReply = synthesizePartialStepLimitReply(
+        newMemoryEntries,
+        MSG.stepLimitReachedPrefix,
+      );
+      const sourceLabel =
+        sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : toolsCalled.join(" + ");
+      const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
+      const partialGuard = checkAnswer(
+        partialReply,
+        [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
+        userText,
+      );
+      if (partialGuard.ok) {
+        return await finish(partialReply, "answered", {
+          tools: toolsCalled,
+          model: lastModel,
+          sourceLabel,
+          periodLabel,
+          reportPayload: lastReportPayload,
+        });
       }
     }
 
@@ -970,31 +2168,79 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Any real answer must come from at least one read-only tool call
+    // Prompt 2 item (2) & Prompt 3 item (1): Zoe answers greetings, explanations, drafting,
+    // brainstorming, general work help, and transparent data-unavailable guidance directly
+    // without canned UNMATCHED/OUT_OF_SCOPE scripts, while still enforcing checkAnswer on any figure.
     if (toolsCalled.length === 0) {
-      return await finish(MSG.unmatched, "unmatched", {
+      if (!isConversationalPromptAllowedWithoutTool(userText, finalText)) {
+        return await finish(MSG.unmatched, "unmatched", {
+          model: lastModel,
+          unansweredReason: "missing_tool",
+        });
+      }
+
+      const convGuard = checkAnswer(finalText, rawToolOutputs, userText);
+      if (!convGuard.ok) {
+        if (convGuard.reason === "prompt_leak") {
+          return await finish(MSG.outOfScope, "blocked", {
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+        return await finish(MSG.unmatched, "blocked", {
+          model: lastModel,
+          unansweredReason: "error",
+        });
+      }
+
+      return await finish(finalText, "answered", {
+        tools: [],
         model: lastModel,
-        unansweredReason: "missing_tool",
+        sourceLabel: null,
+        periodLabel: null,
+        reportPayload: null,
       });
     }
 
-    const sourceLabel = sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : null;
-    const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : today;
 
-    // Ensure Source and Period are always explicitly named on every answer (Requirement f)
+    const sourceLabel =
+      sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : toolsCalled.join(" + ");
+    const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
+
+    // Always add a "Source · dates" line whenever any tool was used
     let answerWithCitation = finalText;
     if (sourceLabel && !answerWithCitation.toLowerCase().includes("source:")) {
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
     }
 
+    // Prompt 3 item (3): Ensure every ad-hoc Analyst query answer carries "Ad hoc, not certified"
+    const usedAdHocAnalyst = toolsCalled.includes("run_analyst_query");
+    if (usedAdHocAnalyst) {
+      answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
+    }
+
     // Requirement (d): Deterministic post-generation guard against tool results
     const guard = checkAnswer(
       answerWithCitation,
-      [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
+      [
+        ...rawToolOutputs,
+        JSON.stringify({
+          source: sourceLabel,
+          period: periodLabel,
+          ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+        }),
+      ],
       userText,
     );
     if (!guard.ok) {
       console.warn(`[staff-assistant] output guard blocked answer: ${guard.reason}`);
+      if (guard.reason === "prompt_leak") {
+        return await finish(MSG.outOfScope, "blocked", {
+          tools: toolsCalled,
+          model: lastModel,
+          unansweredReason: "out_of_scope",
+        });
+      }
       return await finish(MSG.unmatched, "blocked", {
         tools: toolsCalled,
         model: lastModel,
@@ -1010,9 +2256,23 @@ Deno.serve(async (req) => {
       reportPayload: lastReportPayload,
     });
   } catch (err) {
+    if (err instanceof AiGatewayError && (err.status === 429 || err.status === 402)) {
+      console.error(
+        `[staff-assistant] AI gateway HTTP ${err.status}:`,
+        err.detail || err.message,
+      );
+      const reply = err.status === 429 ? MSG.gatewayBusy : MSG.gatewayOutOfCredit;
+      return await finish(reply, "error", {
+        unansweredReason: "error",
+      });
+    }
     console.error("[staff-assistant] unhandled error:", err instanceof Error ? err.message : err);
     return await finish(MSG.error, "error", {
       unansweredReason: "error",
     });
   }
-});
+}
+
+if (typeof Deno !== "undefined" && typeof Deno.serve === "function") {
+  Deno.serve((req) => handleStaffAssistantRequest(req));
+}

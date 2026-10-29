@@ -10,6 +10,10 @@ import { MagicLinkEmail } from '../_shared/email-templates/magic-link.tsx'
 import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx'
 import { EmailChangeEmail } from '../_shared/email-templates/email-change.tsx'
 import { ReauthenticationEmail } from '../_shared/email-templates/reauthentication.tsx'
+import {
+  ensureWelileEmailHeader,
+  ensureWelileEmailTextHeader,
+} from '../_shared/emailHeader.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -122,7 +126,7 @@ async function handlePreview(req: Request): Promise<Response> {
   }
 
   const sampleData = SAMPLE_DATA[type] || {}
-  const html = await renderAsync(React.createElement(EmailTemplate, sampleData))
+  const html = ensureWelileEmailHeader(await renderAsync(React.createElement(EmailTemplate, sampleData)))
 
   return new Response(html, {
     status: 200,
@@ -254,10 +258,10 @@ async function renderAndEnqueue(
   const EmailTemplate = EMAIL_TEMPLATES[emailType]
 
   // Render React Email to HTML and plain text
-  const html = await renderAsync(React.createElement(EmailTemplate, templateProps))
-  const text = await renderAsync(React.createElement(EmailTemplate, templateProps), {
+  const html = ensureWelileEmailHeader(await renderAsync(React.createElement(EmailTemplate, templateProps)))
+  const text = ensureWelileEmailTextHeader(await renderAsync(React.createElement(EmailTemplate, templateProps), {
     plainText: true,
-  })
+  }))
 
   // Enqueue email for async processing by the dispatcher (process-email-queue).
   const supabase = createClient(

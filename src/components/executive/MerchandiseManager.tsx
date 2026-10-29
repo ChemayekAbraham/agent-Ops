@@ -153,6 +153,9 @@ export function MerchandiseManager() {
   const [toDate, setToDate] = useState('');
   const [productFilter, setProductFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
+  // Moving one end past the other moves the other end too, instead of silently emptying every table.
+  const changeFromDate = (v: string) => { setFromDate(v); if (v && toDate && v > toDate) setToDate(v); };
+  const changeToDate = (v: string) => { setToDate(v); if (v && fromDate && v < fromDate) setFromDate(v); };
 
   const { data: purchases = [], isLoading: loadingPurchases } = useQuery<Purchase[]>({
     queryKey: ['merchandise-purchases'],
@@ -262,6 +265,17 @@ export function MerchandiseManager() {
     const outstanding = countableSales.reduce((s, x) => s + Number(x.amount_outstanding), 0);
     const currentStock = totalQtyPurchased - totalQtySold;
 
+    // Facts the headline numbers hide, shown on the cards: orders still awaiting approval are
+    // included in revenue and receivables, and sales with no unit cost count as 100% margin.
+    const awaiting = countableSales.filter((x) => {
+      // The database also uses statuses (pending_approval, approved, ...) the page's type predates.
+      const st = x.order_status as string | undefined;
+      return st === 'pending_approval' || st === 'submitted';
+    });
+    const awaitingRevenue = awaiting.reduce((s, x) => s + Number(x.total_revenue), 0);
+    const awaitingOutstanding = awaiting.reduce((s, x) => s + Number(x.amount_outstanding), 0);
+    const missingCostSales = countableSales.filter((x) => Number(x.unit_cost) <= 0 && Number(x.total_revenue) > 0).length;
+
     // Weighted average unit cost across all purchases (for inventory valuation).
     const allInvested = purchases.reduce((s, p) => s + Number(p.total_cost), 0);
     const allQty = purchases.reduce((s, p) => s + Number(p.quantity), 0);
@@ -271,6 +285,7 @@ export function MerchandiseManager() {
     return {
       totalInvested, totalQtyPurchased, totalRevenue, totalQtySold,
       cogs, grossProfit, outstanding, currentStock, inventoryValue,
+      awaitingCount: awaiting.length, awaitingRevenue, awaitingOutstanding, missingCostSales,
     };
   }, [filteredPurchases, countableSales, purchases]);
 
@@ -384,11 +399,11 @@ export function MerchandiseManager() {
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-3">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-40" />
+          <Input type="date" value={fromDate} onChange={(e) => changeFromDate(e.target.value)} className="w-40" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-40" />
+          <Input type="date" value={toDate} onChange={(e) => changeToDate(e.target.value)} className="w-40" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Product</Label>
@@ -416,17 +431,17 @@ export function MerchandiseManager() {
       {/* Financial summary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <KPICard title="Total Invested" value={formatUGX(totals.totalInvested)} icon={Wallet} loading={loadingPurchases} color="bg-blue-500/10 text-blue-600" />
-        <KPICard title="Total Revenue" value={formatUGX(totals.totalRevenue)} icon={Coins} loading={loadingSales} color="bg-green-500/10 text-green-600" />
-        <KPICard title="Gross Profit" value={formatUGX(totals.grossProfit)} icon={TrendingUp} loading={loadingSales} color={totals.grossProfit >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'} />
-        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales} color="bg-amber-500/10 text-amber-600" subtitle={`${receivables.length} client${receivables.length === 1 ? '' : 's'} owing`} />
+        <KPICard title="Total Revenue" value={formatUGX(totals.totalRevenue)} icon={Coins} loading={loadingSales} color="bg-green-500/10 text-green-600" subtitle={totals.awaitingCount > 0 ? `incl. ${formatUGX(totals.awaitingRevenue)} awaiting approval (${totals.awaitingCount} orders)` : undefined} />
+        <KPICard title="Gross Profit" value={formatUGX(totals.grossProfit)} icon={TrendingUp} loading={loadingSales} color={totals.grossProfit >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'} subtitle={totals.missingCostSales > 0 ? `${totals.missingCostSales} sale${totals.missingCostSales === 1 ? '' : 's'} have no unit cost recorded, so profit is overstated` : undefined} />
+        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales} color="bg-amber-500/10 text-amber-600" subtitle={`${receivables.length} client${receivables.length === 1 ? '' : 's'} owing${totals.awaitingCount > 0 ? ` · incl. ${formatUGX(totals.awaitingOutstanding)} awaiting approval` : ''}`} />
       </div>
 
       {/* Inventory KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KPICard title="Quantity Purchased" value={totals.totalQtyPurchased.toLocaleString()} icon={ArrowDownCircle} color="bg-blue-500/10 text-blue-600" />
-        <KPICard title="Quantity Sold" value={totals.totalQtySold.toLocaleString()} icon={ArrowUpCircle} color="bg-purple-500/10 text-purple-600" />
-        <KPICard title="Current Stock" value={totals.currentStock.toLocaleString()} icon={Boxes} color="bg-indigo-500/10 text-indigo-600" />
-        <KPICard title="Inventory Value" value={formatUGX(totals.inventoryValue)} icon={Package} color="bg-cyan-500/10 text-cyan-600" subtitle="Stock at avg cost" />
+        <KPICard title="Quantity Purchased" value={totals.totalQtyPurchased.toLocaleString()} icon={ArrowDownCircle} loading={loadingPurchases} color="bg-blue-500/10 text-blue-600" />
+        <KPICard title="Quantity Sold" value={totals.totalQtySold.toLocaleString()} icon={ArrowUpCircle} loading={loadingSales} color="bg-purple-500/10 text-purple-600" />
+        <KPICard title="Current Stock" value={totals.currentStock.toLocaleString()} icon={Boxes} loading={loadingPurchases || loadingSales} color="bg-indigo-500/10 text-indigo-600" subtitle={totals.currentStock < 0 ? 'Sales exceed recorded purchases' : undefined} />
+        <KPICard title="Inventory Value" value={formatUGX(totals.inventoryValue)} icon={Package} loading={loadingPurchases || loadingSales} color="bg-cyan-500/10 text-cyan-600" subtitle="Stock at avg cost" />
       </div>
 
       {/* Live customer orders + realtime pop-ups */}
@@ -434,8 +449,8 @@ export function MerchandiseManager() {
 
       {/* Cost of goods sold callout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <KPICard title="Cost of Merchandise Sold" value={formatUGX(totals.cogs)} icon={Receipt} color="bg-orange-500/10 text-orange-600" />
-        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} color="bg-amber-500/10 text-amber-600" />
+        <KPICard title="Cost of Merchandise Sold" value={formatUGX(totals.cogs)} icon={Receipt} loading={loadingSales} color="bg-orange-500/10 text-orange-600" />
+        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} loading={loadingSales} color="bg-amber-500/10 text-amber-600" />
       </div>
 
       {/* Wallet-recovery KPIs */}

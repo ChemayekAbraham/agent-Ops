@@ -138,13 +138,28 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(downBtn);
     expect(onFeedback).toHaveBeenCalledWith('a-1', 'down');
 
+    // Clicking "Report a problem" opens the inline problem report form and submits report_kind = 'problem_report'
+    const reportProblemBtn = screen.getByTestId('zoe-report-problem-a-1');
+    expect(reportProblemBtn).toHaveTextContent('Report a problem');
+    fireEvent.click(reportProblemBtn);
+
+    expect(screen.getByTestId('zoe-feedback-form-a-1')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('zoe-feedback-comment-input-a-1'), {
+      target: { value: 'October payslip date looked one day off' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-feedback-submit-a-1'));
+    expect(onFeedback).toHaveBeenCalledWith('a-1', 'down', {
+      comment: 'October payslip date looked one day off',
+      reportKind: 'problem_report',
+    });
+
     const clearBtn = screen.getByTestId('zoe-clear-history');
     fireEvent.click(clearBtn);
     expect(onClearHistory).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the report card with title, dates, row count, metadata, and PDF/Excel buttons for table or period summary answers', () => {
-    const messages: ZoeMessage[] = [
+  it('shows only the two small offer chips (Excel / PDF) when a table answer has no file request, and shows Download ready when requested or tapped', async () => {
+    const unrequestedTableMessages: ZoeMessage[] = [
       { id: 'u-1', role: 'user', content: 'Show Tenant Ops repayments for October' },
       {
         id: 'a-1',
@@ -168,13 +183,38 @@ describe('ZoeChatSurface', () => {
       },
     ];
 
+    const { unmount } = renderSurface({
+      messages: unrequestedTableMessages,
+      roles: ['tenant_ops'],
+      generatedBy: 'Winfred Asiimwe (winnie@welile.com)',
+    });
+
+    // Unrequested table: shows the two small offer chips, NOT the Download ready card
+    expect(screen.getByTestId('zoe-file-offer-row')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-offer-excel-chip')).toHaveTextContent('Excel (.xlsx)');
+    expect(screen.getByTestId('zoe-offer-pdf-chip')).toHaveTextContent('PDF');
+    expect(screen.queryByTestId('zoe-report-card')).not.toBeInTheDocument();
+    unmount();
+
+    // Requested file ("Give me an Excel for Tenant Ops repayments"): shows Download ready row
+    const requestedMessages: ZoeMessage[] = [
+      {
+        id: 'u-2',
+        role: 'user',
+        content: 'Give me an Excel for Tenant Ops repayments in October',
+      },
+      unrequestedTableMessages[1],
+    ];
+
     renderSurface({
-      messages,
+      messages: requestedMessages,
       roles: ['tenant_ops'],
       generatedBy: 'Winfred Asiimwe (winnie@welile.com)',
     });
 
     expect(screen.getByTestId('zoe-report-card')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-download-ready-row')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-download-ready-badge')).toHaveTextContent('Download ready');
     expect(screen.getByTestId('zoe-report-title')).toHaveTextContent(
       'Tenant Ops Repayments & Collection Rate Report',
     );
@@ -319,5 +359,271 @@ describe('ZoeChatSurface', () => {
     expect(await screen.findByTestId('zoe-email-draft-sent')).toHaveTextContent(
       'Report shared from Zoe',
     );
+  });
+
+  it('renders Markdown tables, mini charts with written summary, follow-up chips, Copy/Regenerate/Show the data buttons, conversation list drawer with Rename and New chat, Stop button, and 2,000-char input limit', () => {
+    const onSendMessage = vi.fn();
+    const onRegenerate = vi.fn();
+    const onStopGenerating = vi.fn();
+    const onStartNewChat = vi.fn().mockResolvedValue('conv-new');
+    const onSelectConversation = vi.fn().mockResolvedValue(undefined);
+    const onRenameConversation = vi.fn().mockResolvedValue(true);
+
+    const messages: ZoeMessage[] = [
+      { id: 'u-1', role: 'user', content: 'Give me the full breakdown of Rent Plans by stage' },
+      {
+        id: 'a-1',
+        role: 'assistant',
+        content: [
+          '### Rent Plans by Stage',
+          '',
+          '| Stage | Plans | Principal |',
+          '| --- | --- | --- |',
+          '| Pending Landlord Ops | 14 | UGX 18,400,000 |',
+          '| Repaying | 82 | UGX 112,000,000 |',
+          '',
+          'Source: assistant_staff_tops_rent_requests_by_stage · Period: as of 2026-10-26',
+        ].join('\n'),
+        outcome: 'answered',
+        source: 'assistant_staff_tops_rent_requests_by_stage',
+        period: 'as of 2026-10-26',
+        followUpSuggestions: [
+          'How long have pending Rent Plans been sitting on each desk?',
+          'Compare this week with last week',
+        ],
+        reportPayload: {
+          tool: 'get_tops_rent_requests_by_stage',
+          rpc: 'assistant_staff_tops_rent_requests_by_stage',
+          source: 'assistant_staff_tops_rent_requests_by_stage',
+          period: { as_of: '2026-10-26' },
+          row_count: 2,
+          rows: [
+            { stage: 'Repaying', count: 82, total_ugx: 112000000 },
+            { stage: 'Pending Landlord Ops', count: 14, total_ugx: 18400000 },
+          ],
+          chart: {
+            type: 'bar',
+            title: 'Rent Plans by Stage',
+            summary:
+              'Repaying leads with 82 across 2 ranked items (total 96) for as of 2026-10-26.',
+            xKey: 'stage',
+            yKey: 'count',
+            isUgx: false,
+            data: [
+              { label: 'Repaying', value: 82 },
+              { label: 'Pending Landlord Ops', value: 14 },
+            ],
+          },
+        },
+      },
+    ];
+
+    renderSurface({
+      messages,
+      roles: ['tenant_ops'],
+      statusLine: 'Comparing weeks…',
+      isLoading: false,
+      conversations: [
+        {
+          id: 'conv-1',
+          title: 'Rent Plans by stage',
+          message_count: 4,
+          last_active_at: '2026-10-26T08:00:00Z',
+          created_at: '2026-10-26T07:50:00Z',
+        },
+      ],
+      activeConversationId: 'conv-1',
+      onSendMessage,
+      onRegenerate,
+      onStopGenerating,
+      onStartNewChat,
+      onSelectConversation,
+      onRenameConversation,
+    });
+
+    // 1. 2,000-character limit on input textarea
+    expect(screen.getByTestId('zoe-input')).toHaveAttribute('maxLength', '2000');
+
+    // 2. Markdown heading and table rendered
+    expect(screen.getByTestId('zoe-markdown')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-markdown-table')).toBeInTheDocument();
+    expect(screen.getAllByText('Pending Landlord Ops').length).toBeGreaterThanOrEqual(1);
+
+    // 3. Mini chart with one-line summary rendered
+    expect(screen.getByTestId('zoe-mini-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-mini-chart-summary')).toHaveTextContent(
+      'Repaying leads with 82 across 2 ranked items',
+    );
+
+    // 4. Copy, Regenerate, and "Show the data" buttons
+    expect(screen.getByTestId('zoe-copy-a-1')).toBeInTheDocument();
+    const regenBtn = screen.getByTestId('zoe-regenerate-a-1');
+    fireEvent.click(regenBtn);
+    expect(onRegenerate).toHaveBeenCalledTimes(1);
+
+    const showDataBtn = screen.getByTestId('zoe-show-data-a-1');
+    expect(showDataBtn).toHaveTextContent('Show the data');
+    fireEvent.click(showDataBtn);
+    expect(screen.getByTestId('zoe-raw-data-table-a-1')).toBeInTheDocument();
+
+    // 5. Follow-up suggestion chips under answer
+    expect(screen.getByTestId('zoe-follow-ups-a-1')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByText('How long have pending Rent Plans been sitting on each desk?'),
+    );
+    expect(onSendMessage).toHaveBeenCalledWith(
+      'How long have pending Rent Plans been sitting on each desk?',
+    );
+
+    // 6. Conversation list drawer with Rename and New chat
+    fireEvent.click(screen.getByTestId('zoe-new-chat-button'));
+    expect(onStartNewChat).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByTestId('zoe-conversations-toggle'));
+    expect(screen.getByTestId('zoe-conversation-drawer')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('zoe-conv-rename-btn-conv-1'));
+    fireEvent.change(screen.getByTestId('zoe-conv-rename-input-conv-1'), {
+      target: { value: 'October Stage Breakdown' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-conv-rename-save-conv-1'));
+    expect(onRenameConversation).toHaveBeenCalledWith('conv-1', 'October Stage Breakdown');
+  });
+
+  it('renders Zoe notes drawer (view, add, reject figures/PII error, delete) and Glossary drawer with manager-only editor', async () => {
+    const onAddNote = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        error: 'Zoe notes can only store short personal preferences (no UGX figures).',
+      })
+      .mockResolvedValueOnce({ ok: true });
+    const onDeleteNote = vi.fn().mockResolvedValue({ ok: true });
+    const onSaveGlossaryEntry = vi.fn().mockResolvedValue({ ok: true });
+
+    const { unmount } = renderSurface({
+      messages: [],
+      roles: ['employee'],
+      notes: [
+        {
+          id: 'note-1',
+          note_text: 'Show Kampala West first',
+          created_at: '2026-10-28T08:00:00Z',
+        },
+      ],
+      onAddNote,
+      onDeleteNote,
+      onSaveGlossaryEntry,
+    });
+
+    // Open Zoe notes drawer
+    fireEvent.click(screen.getByTestId('zoe-notes-toggle'));
+    expect(screen.getByTestId('zoe-notes-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-note-item-note-1')).toHaveTextContent('Show Kampala West first');
+
+    // Attempt to add a note rejected by the guard
+    fireEvent.change(screen.getByTestId('zoe-note-input'), {
+      target: { value: 'Target UGX 5,000,000' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-note-add-button'));
+    expect(await screen.findByTestId('zoe-note-error')).toHaveTextContent(
+      'Zoe notes can only store short personal preferences',
+    );
+
+    // Add a valid note
+    fireEvent.change(screen.getByTestId('zoe-note-input'), {
+      target: { value: 'Keep summaries under 5 bullet points' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-note-add-button'));
+    expect(onAddNote).toHaveBeenCalledWith('Keep summaries under 5 bullet points');
+
+    // Delete existing note
+    fireEvent.click(screen.getByTestId('zoe-note-delete-note-1'));
+    expect(onDeleteNote).toHaveBeenCalledWith('note-1');
+
+    // Open Glossary drawer as regular employee -> sees definitions & measurement gotchas, but NO manager form
+    fireEvent.click(screen.getByTestId('zoe-glossary-toggle'));
+    expect(screen.getByTestId('zoe-glossary-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-glossary-item-expected_vs_collected')).toBeInTheDocument();
+    expect(screen.queryByTestId('zoe-glossary-manager-form')).not.toBeInTheDocument();
+    unmount();
+
+    // Render as manager -> sees manager glossary editor and can save a term
+    renderSurface({
+      messages: [],
+      roles: ['manager'],
+      onSaveGlossaryEntry,
+    });
+    fireEvent.click(screen.getByTestId('zoe-glossary-toggle'));
+    expect(screen.getByTestId('zoe-glossary-manager-form')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('zoe-glossary-key-input'), {
+      target: { value: 'custom_term' },
+    });
+    fireEvent.change(screen.getByTestId('zoe-glossary-title-input'), {
+      target: { value: 'Custom Operational Term' },
+    });
+    fireEvent.change(screen.getByTestId('zoe-glossary-definition-input'), {
+      target: { value: 'Official definition for staff operations.' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-glossary-save-button'));
+    expect(onSaveGlossaryEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: 'custom_term',
+        term: 'Custom Operational Term',
+        plain_definition: 'Official definition for staff operations.',
+      }),
+    );
+  });
+
+  it('shows the executed SQL and "Ad hoc, not certified" badge inside the "Show the data" panel for Analyst Lane answers', () => {
+    const analystMessages: ZoeMessage[] = [
+      {
+        id: 'u-analyst-1',
+        role: 'user',
+        content: 'Compare Wakiso vs Mukono agent daily collections on 2026-10-26',
+      },
+      {
+        id: 'a-analyst-1',
+        role: 'assistant',
+        content:
+          'Wakiso collected UGX 5,355,000 on schedule (85%) and Mukono collected UGX 2,760,000 on schedule (80%) (Ad hoc, not certified).',
+        outcome: 'answered',
+        source: 'zoe_ro (zoe_ro.agents_daily_collections_by_region) — Ad hoc, not certified',
+        period: 'as of 2026-10-26',
+        reportPayload: {
+          tool: 'run_analyst_query',
+          rpc: 'assistant_staff_run_query',
+          ad_hoc: true,
+          certification: 'Ad hoc, not certified',
+          sql: "SELECT district, collected_on_schedule_ugx, on_schedule_coverage_pct FROM zoe_ro.agents_daily_collections_by_region WHERE collection_day = DATE '2026-10-26'",
+          executed_sql:
+            "SELECT * FROM (SELECT district, collected_on_schedule_ugx, on_schedule_coverage_pct FROM zoe_ro.agents_daily_collections_by_region WHERE collection_day = DATE '2026-10-26') AS _zoe_q LIMIT 500",
+          truncated: false,
+          row_count: 2,
+          rows: [
+            { district: 'Wakiso', collected_on_schedule_ugx: 5355000, on_schedule_coverage_pct: 85 },
+            { district: 'Mukono', collected_on_schedule_ugx: 2760000, on_schedule_coverage_pct: 80 },
+          ],
+        },
+      },
+    ];
+
+    renderSurface({
+      messages: analystMessages,
+      roles: ['agent_ops'],
+    });
+
+    const showDataBtn = screen.getByTestId('zoe-show-data-a-analyst-1');
+    expect(showDataBtn).toHaveTextContent('Show the data');
+
+    fireEvent.click(showDataBtn);
+
+    expect(screen.getByTestId('zoe-show-data-panel-a-analyst-1')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-adhoc-badge-a-analyst-1')).toHaveTextContent(
+      'Ad hoc, not certified',
+    );
+    expect(screen.getByTestId('zoe-executed-sql-a-analyst-1')).toHaveTextContent(
+      'SELECT * FROM (SELECT district, collected_on_schedule_ugx',
+    );
+    expect(screen.getByTestId('zoe-raw-data-table-a-analyst-1')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { hasUsableUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import type { OpportunitySummary } from '@/hooks/useOpportunitySummary';
 
 export interface EmptyHouseGroupStat {
@@ -86,13 +87,15 @@ async function resolveRunningStarts(rows: Array<{ id: string; created_at: string
 
 export function useCapitalOpportunities() {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   const [portfolios, setPortfolios] = useState<PortfolioRecord[]>([]);
   const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary | null>(null);
   const [emptyHouseSummary, setEmptyHouseSummary] = useState<EmptyHouseOpportunitySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!signedIn || !user?.id) { setLoading(false); return; }
+    if (!(await hasUsableUserSession())) { setLoading(false); return; }
 
     try {
       const [byInvestor, byAgent, summaryRes, emptyHousesRes] = await Promise.all([
@@ -170,7 +173,7 @@ export function useCapitalOpportunities() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [signedIn, user?.id]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

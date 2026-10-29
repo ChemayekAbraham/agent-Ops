@@ -199,6 +199,7 @@ export function AgentMenuDrawer({
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
         { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
         { icon: Stethoscope, label: 'Welile Medicine', description: 'Clinics, pharmacies, hospitals — people IN/OUT & receipts', path: '/agent/welile-medicine', accent: 'primary' },
+        { icon: Megaphone, label: 'Welile Signages', description: 'Busy spots, billboards & signboards', path: '/agent/welile-signages', accent: 'primary', badge: 'New' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
@@ -226,6 +227,7 @@ export function AgentMenuDrawer({
         { icon: Home, label: 'Welile Homes', description: 'Agent-managed tenants & subscriptions', path: '/agent/welile-homes', accent: 'primary' },
         { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
         { icon: Stethoscope, label: 'Welile Medicine', description: 'Clinics, pharmacies, hospitals — people IN/OUT & receipts', path: '/agent/welile-medicine', accent: 'primary' },
+        { icon: Megaphone, label: 'Welile Signages', description: 'Busy spots, billboards & signboards', path: '/agent/welile-signages', accent: 'primary', badge: 'New' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },

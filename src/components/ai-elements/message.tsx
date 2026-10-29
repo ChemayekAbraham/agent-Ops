@@ -12,11 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { cjk } from "@streamdown/cjk";
-import { code } from "@streamdown/code";
-import { math } from "@streamdown/math";
-import { mermaid } from "@streamdown/mermaid";
-import type { UIMessage } from "ai";
+import ReactMarkdown from "react-markdown";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import {
@@ -28,10 +24,9 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
-  from: UIMessage["role"];
+  from: "user" | "assistant" | "system" | "data" | string;
 };
 
 export const Message = ({ className, from, ...props }: MessageProps) => (
@@ -319,24 +314,20 @@ export const MessageBranchPage = ({
   );
 };
 
-export type MessageResponseProps = ComponentProps<typeof Streamdown>;
-
-const streamdownPlugins = { cjk, code, math, mermaid };
+export type MessageResponseProps = ComponentProps<typeof ReactMarkdown> & { className?: string };
 
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
+  ({ className, children, ...props }: MessageResponseProps) => (
+    <div
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
-      plugins={streamdownPlugins}
-      {...props}
-    />
+    >
+      <ReactMarkdown {...props}>{children}</ReactMarkdown>
+    </div>
   ),
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    nextProps.isAnimating === prevProps.isAnimating
+  (prevProps, nextProps) => prevProps.children === nextProps.children
 );
 
 MessageResponse.displayName = "MessageResponse";

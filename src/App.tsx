@@ -22,6 +22,7 @@ const lazy = lazyWithRetry;
 
 // Critical providers — loaded eagerly for instant auth/routing
 import { AuthProvider } from "@/hooks/useAuth";
+import { useAuthenticatedAudience } from "@/hooks/useAuthenticatedPoll";
 import AccountFrozenGate from "@/components/account/AccountFrozenGate";
 import BudgetSubmissionGate from "@/components/budget/BudgetSubmissionGate";
 import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
@@ -207,7 +208,7 @@ const DepositHistory = lazy(() => import('./pages/DepositHistory'));
 const DepositVerificationDetail = lazy(() => import('./pages/DepositVerificationDetail'));
 const WelileHomes = lazy(() => import('./pages/WelileHomes'));
 const WelileHomesDashboard = lazy(() => import('./pages/WelileHomesDashboard'));
-const LandlordWelileHomesPage = lazy(() => import('./pages/LandlordWelileHomesPage'));
+const LandlordTenantsPage = lazy(() => import('./pages/LandlordTenantsPage'));
 const TryCalculator = lazy(() => import('./pages/TryCalculator'));
 const PublicRentCalculator = lazy(() => import('./pages/PublicRentCalculator'));
 const LandlordSignup = lazy(() => import('./pages/LandlordSignup'));
@@ -255,6 +256,8 @@ const CFOCorrection5300000Page = lazy(() => import('./pages/cfo/CorrectionPackag
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
+const AssetDetailPage = lazy(() => import('./pages/cfo/AssetDetail'));
+const SignInReturnGate = lazy(() => import('./components/auth/SignInReturnGate'));
 const LedgerEntryDeepLinkPage = lazy(() => import('./pages/LedgerEntryDeepLink'));
 const VerificationRequestDetailPage = lazy(() => import('./pages/VerificationRequestDetail'));
 const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory'));
@@ -290,6 +293,7 @@ const MeConcernsPage = lazy(() => import('./pages/me/MyConcerns'));
 const MyReportsPage = lazy(() => import('./pages/me/MyReports'));
 const StaffReportsPage = lazy(() => import('./pages/me/StaffReports'));
 const ZoePage = lazy(() => import('./pages/me/Zoe'));
+const IdeasPage = lazy(() => import('./pages/me/IdeasPage'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
@@ -327,7 +331,10 @@ const AgentFloatBreakdownPage = lazy(() => import('./pages/agent/FloatBreakdown'
 const AgentCollectionLeaguePage = lazy(() => import('./pages/agent/CollectionLeague'));
 const AgentWelileHomesPage = lazy(() => import('./pages/agent/AgentWelileHomes'));
 const AgentWelileSchoolsPage = lazy(() => import('./pages/agent/AgentWelileSchools'));
+const AgentVerificationPage = lazy(() => import('./pages/agent/AgentVerification'));
+const AgentVerificationReviewPage = lazy(() => import('./pages/agent-ops/AgentVerificationReview'));
 const AgentWelileMedicinePage = lazy(() => import('./pages/agent/AgentWelileMedicine'));
+const AgentWelileSignagesPage = lazy(() => import('./pages/agent/AgentWelileSignages'));
 const AgentWeeklyPerformancePage = lazy(() => import('./pages/agent/AgentWeeklyPerformance'));
 const RentDisbursementProcessPage = lazy(() => import('./pages/RentDisbursementProcess'));
 const ActiveUsersDetail = lazy(() => import('./pages/coo/ActiveUsersDetail'));
@@ -476,6 +483,10 @@ function GlobalFloatingWidgets() {
 // from an SMS/QR link are never blocked by onboarding screens.
 function GlobalOnboardingGates() {
   const location = useLocation();
+  // Staff prompt RPCs, usage-report notices, National ID link requests and
+  // calling-centre concerns are granted to authenticated only. Mount them
+  // only for a real session so a signed-out page does not log Postgres 42501.
+  const signedIn = useAuthenticatedAudience();
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -490,15 +501,18 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <RequisitionUsageReportGate />
-      <NationalIdLinkGate />
-      <ConcernAssignmentGate />
-      <FacilitationApprovalGate />
-      <StaffLoanApprovalGate />
-      <StaffRequisitionApprovalGate />
-      <PayrollApprovalGate />
-      <StaffSurveyGate />
-
+      {signedIn && (
+        <>
+          <RequisitionUsageReportGate />
+          <NationalIdLinkGate />
+          <ConcernAssignmentGate />
+          <FacilitationApprovalGate />
+          <StaffLoanApprovalGate />
+          <StaffRequisitionApprovalGate />
+          <PayrollApprovalGate />
+          <StaffSurveyGate />
+        </>
+      )}
     </>
   );
 }
@@ -578,6 +592,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/verification" element={<RoleGuard allowedRoles={['agent']}><AgentVerificationPage /></RoleGuard>} />
           {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
           <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent-new" element={<AgentDashboardNew />} />
@@ -711,7 +726,7 @@ function AppRoutes() {
           <Route path="/agent-registrations" element={<AgentRegistrations />} />
           <Route path="/sub-agents" element={<SubAgentAnalytics />} />
           <Route path="/agent/service-center" element={<AgentServiceCenter />} />
-          <Route path="/merchandise" element={<MerchandiseStore />} />
+          <Route path="/merchandise" element={<SignInReturnGate><MerchandiseStore /></SignInReturnGate>} />
           <Route path="/agent/partners" element={<AgentPartners />} />
           <Route path="/agent/proxy-agents" element={<ProxyAgentGuard><ProxyAgentCommandCenter /></ProxyAgentGuard>} />
           <Route path="/join" element={<Join />} />
@@ -736,7 +751,9 @@ function AppRoutes() {
           <Route path="/deposit-history/:id" element={<DepositVerificationDetail />} />
           <Route path="/welile-homes" element={<WelileHomes />} />
           <Route path="/welile-homes-dashboard" element={<WelileHomesDashboard />} />
-          <Route path="/landlord-welile-homes" element={<LandlordWelileHomesPage />} />
+          <Route path="/landlord-tenants" element={<LandlordTenantsPage />} />
+          {/* The old Welile Homes Impact page was replaced by My Tenants; keep old links working. */}
+          <Route path="/landlord-welile-homes" element={<Navigate to="/landlord-tenants" replace />} />
           <Route path="/try-calculator" element={<TryCalculator />} />
           <Route path="/rent-calculator" element={<PublicRentCalculator />} />
           <Route path="/guides/pay-rent-in-installments-uganda" element={<PayRentInstallmentsGuide />} />
@@ -772,6 +789,8 @@ function AppRoutes() {
           <Route path="/cfo/investor-report" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto']} requiredPermission="cfo"><InvestorReportPage /></RoleGuard>} />
           <Route path="/cfo/money-flow-trace" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><MoneyFlowTracePage /></RoleGuard>} />
           <Route path="/cfo/ledger/:id" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><LedgerEntryDetailPage /></RoleGuard>} />
+          {/* Asset QR target: CFO + Super Admin only (matches asset_register_read_ok); signed-out scans return here after /auth. */}
+          <Route path="/cfo/assets/:assetId" element={<SignInReturnGate><RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><AssetDetailPage /></RoleGuard></SignInReturnGate>} />
           <Route path="/ledger/:id" element={<RoleGuard allowedRoles={['cfo', 'ceo', 'coo', 'super_admin', 'cto', 'manager', 'operations', 'employee']}><LedgerEntryDeepLinkPage /></RoleGuard>} />
           <Route path="/cfo/phantom-drift/:userId" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto', 'manager']} requiredPermission="cfo"><PhantomDriftDetailPage /></RoleGuard>} />
           <Route path="/coo/dashboard" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto']} requiredPermission="coo"><COODashboardPage /></RoleGuard>} />
@@ -821,6 +840,7 @@ function AppRoutes() {
           <Route path="/me/reports" element={<HRSignedInRoute><MyReportsPage /></HRSignedInRoute>} />
           <Route path="/me/staff-reports" element={<HRSignedInRoute><StaffReportsPage /></HRSignedInRoute>} />
           <Route path="/me/zoe" element={<HRSignedInRoute><ZoePage /></HRSignedInRoute>} />
+          <Route path="/me/ideas" element={<HRSignedInRoute><IdeasPage /></HRSignedInRoute>} />
           <Route path="/approvals" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><ApprovalsPage /></RoleGuard>} />
           <Route path="/hr/dashboard/tasks" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRTasksPage /></RoleGuard>} />
           <Route path="/hr/people" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRPeoplePage /></RoleGuard>} />
@@ -868,6 +888,7 @@ function AppRoutes() {
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
+          <Route path="/agent-ops/agent-verification" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations', 'agent_ops' as AppRole]} requiredPermission="agent-ops"><AgentVerificationReviewPage /></RoleGuard>} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']} requiredPermission="agent-ops"><AgentProductCategoryPage /></RoleGuard>} />
           <Route path="/roi-trends" element={<RoleGuard allowedRoles={['ceo', 'coo', 'cfo', 'super_admin', 'manager', 'operations']}><ROITrendsPage /></RoleGuard>} />
            <Route path="/rent-disbursement-process" element={<RoleGuard allowedRoles={['agent', 'manager', 'operations', 'coo', 'cfo', 'ceo', 'super_admin', 'cto']}><RentDisbursementProcessPage /></RoleGuard>} />
@@ -882,6 +903,7 @@ function AppRoutes() {
           <Route path="/agent/welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/agent/welile-schools" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSchoolsPage /></RoleGuard>} />
           <Route path="/agent/welile-medicine" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileMedicinePage /></RoleGuard>} />
+          <Route path="/agent/welile-signages" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileSignagesPage /></RoleGuard>} />
           <Route path="/agent-welile-homes" element={<RoleGuard allowedRoles={['agent', 'super_admin', 'manager', 'operations', 'ceo', 'coo', 'cto']}><AgentWelileHomesPage /></RoleGuard>} />
           <Route path="/coo/active-users" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><ActiveUsersDetail /></RoleGuard>} />
           <Route path="/coo/earning-agents" element={<RoleGuard allowedRoles={['manager', 'super_admin']} requiredPermission="coo"><EarningAgentsDetail /></RoleGuard>} />

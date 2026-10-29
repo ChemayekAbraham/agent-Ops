@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,18 +50,18 @@ function PersonSearch({
   borderColor: string;
 }) {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const { data: results } = useQuery({
-    queryKey: [`connector-${role}-search`, search],
+    queryKey: [`connector-${role}-search`, debouncedSearch],
     queryFn: async () => {
-      if (search.length < 3) return [];
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, territory')
-        .or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`)
-        .limit(6);
-      if (!data || data.length === 0) return [];
-      const ids = data.map(p => p.id);
+      if (debouncedSearch.trim().length < 3) return [];
+      const { rows } = await searchProfilesTypeahead(debouncedSearch, {
+        limit: 6,
+        columns: 'id, full_name, phone, territory',
+      });
+      if (rows.length === 0) return [];
+      const ids = rows.map(p => p.id);
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -67,9 +69,9 @@ function PersonSearch({
         .eq('role', role)
         .eq('enabled', true);
       const roleIds = new Set((roles || []).map(r => r.user_id));
-      return data.filter(p => roleIds.has(p.id)) as ProfileResult[];
+      return rows.filter(p => roleIds.has(p.id)) as ProfileResult[];
     },
-    enabled: search.length >= 3 && !selected,
+    enabled: debouncedSearch.trim().length >= 3 && !selected,
     staleTime: 30000,
   });
 

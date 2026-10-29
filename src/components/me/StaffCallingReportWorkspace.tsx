@@ -1279,7 +1279,8 @@ export function IndividualStaffReportPanel({
       <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
         Methodology: Duplicate records of the same staff member phoning the same person or reviewing the same role on the
         same Rent Plan within 15 minutes are merged into one entry so no call is double-counted and no feedback is lost.
-        Excluded: {excludedReveals} Calling Center phone-reveals where no call outcome was submitted.
+        Excluded: {excludedReveals} Calling Center phone-reveals and unrecorded Landlord Calling Hub dials older than 24
+        hours where no call outcome was submitted.
       </p>
     </div>
   );
@@ -1381,7 +1382,8 @@ export function GeneralTeamReportPanel({
                 Jane, Winnie &amp; Hanisha &mdash; Combined Calling &amp; Pipeline Report
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Tenant Ops &amp; Landlord Ops Calling Centers + Rent Plan Pipelines &bull; {periodWindow.periodLabel}
+                Tenant Ops &amp; Landlord Ops Calling Centers, Landlord Calling Hub + Rent Plan Pipelines &bull;{' '}
+                {periodWindow.periodLabel}
               </p>
             </div>
           </div>

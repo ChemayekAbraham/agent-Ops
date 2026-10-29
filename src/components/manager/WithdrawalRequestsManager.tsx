@@ -39,6 +39,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchOpsWalletBuckets, trackOpsQuery } from '@/hooks/ops/useOpsDataLayer';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -601,12 +602,9 @@ export function WithdrawalRequestsManager({ subCategoryFilter: propSubCategoryFi
       if (searchTerm) {
         const escaped = searchTerm.replace(/[%,()]/g, ' ').trim();
         const digits = escaped.replace(/\D/g, '');
-        const { data: matchedUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .or(`full_name.ilike.%${escaped}%,phone.ilike.%${escaped}%`)
-          .limit(50);
-        const userIdList = (matchedUsers || []).map(u => u.id);
+        const userIdList = escaped.length >= PROFILE_TYPEAHEAD_MIN_CHARS
+          ? (await searchProfilesTypeahead(escaped, { limit: 50, columns: 'id' })).rows.map((u) => u.id)
+          : [];
 
         const orParts = [
           `mobile_money_number.ilike.%${escaped}%`,

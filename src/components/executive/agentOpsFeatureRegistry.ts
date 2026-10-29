@@ -46,6 +46,7 @@ export type ActiveView =
   | 'general-activities'
   | 'agents-rent'
   | 'agents-bikes'
+  | 'agent-verification'
   | 'welile-merchandise'
   | 'shopping-advance'
   | 'business-advance'
@@ -53,6 +54,7 @@ export type ActiveView =
   | 'welile-homes'
   | 'welile-schools'
   | 'welile-medicine'
+  | 'welile-signages'
   | 'agents-hope'
   | 'agents-space'
   | 'agent-ops-report'
@@ -266,6 +268,16 @@ export const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'field',
     desc: 'Clinics, pharmacies, hospitals & medical centers — people IN/OUT, receipts, transactions & profiles',
     keywords: ['medicine', 'clinic', 'pharmacy', 'hospital', 'medical', 'health', 'receipts', 'transactions', 'gate', 'welile medicine'],
+  },
+  {
+    num: '17',
+    title: 'Welile Signages',
+    icon: Megaphone,
+    section: 'welile-signages',
+    highlight: true,
+    category: 'field',
+    desc: 'Commercial signages & billboards: GPS, review queue, installation verification, UGX 10k owner payouts & UGX 3k agent rewards',
+    keywords: ['signage', 'billboard', 'advert', 'branding', 'advertising', 'signages', 'signboard'],
   },
 ];
 
@@ -492,6 +504,18 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     isCoreBusinessArea: true,
     businessAreaNum: '16',
   },
+  {
+    id: 'core-17-welile-signages',
+    title: 'Welile Signages',
+    section: 'welile-signages',
+    categoryGroup: 'Core Business Areas',
+    icon: Megaphone,
+    color: 'bg-primary',
+    desc: 'Commercial signages & billboards: GPS, review queue, installation verification, UGX 10k owner payouts & UGX 3k agent rewards',
+    keywords: ['signage', 'billboard', 'advert', 'branding', 'advertising', 'signages', 'signboard'],
+    isCoreBusinessArea: true,
+    businessAreaNum: '17',
+  },
 
   // Agents' Space
   {
@@ -515,6 +539,17 @@ export const ALL_DASHBOARD_FEATURES: DashboardFeatureItem[] = [
     color: 'bg-blue-500',
     desc: 'Full agent roster, KYC status, contact information & search',
     keywords: ['directory', 'roster', 'agents list', 'search agents', 'kyc', 'phone numbers', 'territory', 'agent search', 'contacts', 'profiles', 'verification'],
+  },
+  {
+    id: 'agent-verification',
+    title: 'Agent Verification',
+    section: 'directory',
+    to: '/agent-ops/agent-verification',
+    categoryGroup: 'Agents',
+    icon: ShieldCheck,
+    color: 'bg-blue-500',
+    desc: 'Review agent vetting: ID, passport photo, location, next of kin. Approve or send back',
+    keywords: ['verification', 'vetting', 'verify agents', 'approve agents', 'national id', 'passport photo', 'next of kin', 'gps', 'agent ops review', 'unverified'],
   },
   {
     id: 'agent-performance',

@@ -1,4 +1,39 @@
 import {
+  buildReminderDraft,
+  buildReportScheduleDraft,
+  buildStaffNotificationDraft,
+  resolveReminderTimestamp,
+  ZoeActionDraft,
+  ZoeNotificationDraft,
+  ZoeReminderDraft,
+  ZoeScheduleDraft,
+} from "../../supabase/functions/staff-assistant/actionDrafts.ts";
+import {
+  ALLOWED_ANALYST_SQL_FUNCTIONS,
+  type AnalystSqlValidationResult,
+  areaRequiresStaffAal2,
+  canCallerAccessZoeRoArea,
+  ensureAdHocCertificationNotice,
+  FORBIDDEN_ANALYST_PII_COLUMNS,
+  validateAnalystSqlQuery,
+  ZOE_RO_AREA_ROLES,
+  ZOE_RO_VIEWS_CATALOG,
+  type ZoeRoArea,
+  type ZoeRoViewCatalogEntry,
+} from "../../supabase/functions/staff-assistant/analyst.ts";
+import {
+  CONSULTANT_FORBIDDEN_TOOLS,
+  type ConsultantChecklistScore,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
+  filterToolsForConsultantMode,
+  isConsultantQuestion,
+  scoreConsultantAnswer,
+  validateConsultantWebQuery,
+  validateConsultantWebUrl,
+  WEB_RESEARCH_TOOL_NAMES,
+} from "../../supabase/functions/staff-assistant/consultant.ts";
+import {
   currentWednesdayWeekStart,
   formatPeriodLabel,
   kampalaToday,
@@ -14,21 +49,77 @@ import {
   sanitizeWelileTermsServer,
   StaffEmailRecipient,
 } from "../../supabase/functions/staff-assistant/emailDraft.ts";
-import { checkAnswer, GuardResult } from "../../supabase/functions/staff-assistant/guards.ts";
+import {
+  checkAnswer,
+  checkDraftCardText,
+  containsPromptOrSecretLeak,
+  GuardResult,
+  isDirectPromptInjection,
+  isWriteMutationIntent,
+  validateZoeNoteText,
+} from "../../supabase/functions/staff-assistant/guards.ts";
+import {
+  handleStaffAssistantRequest,
+  StaffAssistantAiClient,
+  StaffAssistantHandlerDeps,
+  StaffAssistantStoreDeps,
+} from "../../supabase/functions/staff-assistant/index.ts";
+import { isConversationalPromptAllowedWithoutTool } from "../../supabase/functions/staff-assistant/manualHelp.ts";
+import {
+  buildRollingConversationSummary,
+  formatZoeNotesForPrompt,
+  MAX_ZOE_NOTES_PER_USER,
+  synthesizePartialStepLimitReply,
+  ZoeUserNote,
+} from "../../supabase/functions/staff-assistant/memory.ts";
 import { MSG } from "../../supabase/functions/staff-assistant/messages.ts";
-import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "../../supabase/functions/staff-assistant/prompt.ts";
+import {
+  buildMorningBriefForCaller,
+  isPastKampalaBriefTime,
+  MORNING_BRIEF_CANDIDATE_TOOLS,
+  MorningBriefPayload,
+  selectRoleBriefToolNames,
+} from "../../supabase/functions/staff-assistant/morningBrief.ts";
+import {
+  type ChatMessage,
+  DEFAULT_CHAT_MAX_TOKENS,
+  DEFAULT_CHAT_TEMPERATURE,
+  DEFAULT_MAX_COST_USD_PER_QUESTION,
+  DEFAULT_ZOE_MODEL_DEEP,
+  DEFAULT_ZOE_MODEL_FAST,
+  estimateCallCostUsd,
+  isDeepQuestion,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  type OpenAiTool,
+  selectModelTier,
+} from "../../supabase/functions/staff-assistant/openai.ts";
+import {
+  buildSystemPrompt,
+  SCOPE_CHECK_PROMPT,
+  STATIC_SYSTEM_PROMPT_PREFIX,
+} from "../../supabase/functions/staff-assistant/prompt.ts";
 import { cleanMessage, RequestSchema } from "../../supabase/functions/staff-assistant/schemas.ts";
+import type { BudgetCheckResult } from "../../supabase/functions/staff-assistant/store.ts";
 import {
   canUseTool,
   ClarificationArgsSchema,
   describeToolsForRoles,
   DraftReportEmailArgsSchema,
   findTool,
+  isHistoryMessageAllowedForRoles,
   openAiToolsForRoles,
   STAFF_TOOLS,
   StaffTool,
   toolsForRoles,
 } from "../../supabase/functions/staff-assistant/tools.ts";
+import {
+  deduplicatePayloadArrays,
+  isValueFromToolDataOnly,
+  PreparedToolOutput,
+  prepareToolOutputForModel,
+  sanitizeUntrustedFreeText,
+} from "../../supabase/functions/staff-assistant/toolOutput.ts";
 import {
   DEFAULT_MAX_EMAILS_PER_DAY,
   extractReportTableFromFreshRpc,
@@ -40,43 +131,112 @@ import {
 } from "../../supabase/functions/staff-assistant-send-email/handler.ts";
 
 export {
+  ALLOWED_ANALYST_SQL_FUNCTIONS,
+  areaRequiresStaffAal2,
+  buildMorningBriefForCaller,
+  buildReminderDraft,
   buildReportEmailDraft,
+  buildReportScheduleDraft,
+  buildRollingConversationSummary,
+  buildStaffNotificationDraft,
   buildSystemPrompt,
+  canCallerAccessZoeRoArea,
   canUseTool,
   checkAnswer,
+  checkDraftCardText,
   ClarificationArgsSchema,
   cleanMessage,
+  CONSULTANT_FORBIDDEN_TOOLS,
+  containsPromptOrSecretLeak,
   currentWednesdayWeekStart,
+  deduplicatePayloadArrays,
+  DEFAULT_CHAT_MAX_TOKENS,
+  DEFAULT_CHAT_TEMPERATURE,
+  DEFAULT_MAX_COST_USD_PER_QUESTION,
   DEFAULT_MAX_EMAILS_PER_DAY,
+  DEFAULT_ZOE_MODEL_DEEP,
+  DEFAULT_ZOE_MODEL_FAST,
   describeToolsForRoles,
   DraftReportEmailArgsSchema,
+  ensureAdHocCertificationNotice,
+  estimateCallCostUsd,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
   extractRecipientQuery,
   extractReportTableFromFreshRpc,
+  filterToolsForConsultantMode,
   findTool,
+  FORBIDDEN_ANALYST_PII_COLUMNS,
   formatPeriodLabel,
+  formatZoeNotesForPrompt,
+  handleStaffAssistantRequest,
   handleStaffAssistantSendEmail,
+  isConsultantQuestion,
+  isConversationalPromptAllowedWithoutTool,
+  isDeepQuestion,
+  isDirectPromptInjection,
   isEmailFromToolData,
+  isHistoryMessageAllowedForRoles,
+  isPastKampalaBriefTime,
+  isValueFromToolDataOnly,
+  isWriteMutationIntent,
   kampalaToday,
+  MAX_DEEP_MODEL_ROUNDS,
+  MAX_DEEP_TOOL_CALLS,
+  MAX_ZOE_NOTES_PER_USER,
+  MORNING_BRIEF_CANDIDATE_TOOLS,
   MSG,
   normalizeStaffRecipients,
   openAiToolsForRoles,
+  prepareToolOutputForModel,
   RequestSchema,
   resolvePeriod,
+  resolveReminderTimestamp,
+  sanitizeUntrustedFreeText,
   sanitizeWelileTermsServer,
   SCOPE_CHECK_PROMPT,
+  scoreConsultantAnswer,
+  selectModelTier,
+  selectRoleBriefToolNames,
   STAFF_TOOLS,
+  STATIC_SYSTEM_PROMPT_PREFIX,
+  synthesizePartialStepLimitReply,
   toolsForRoles,
+  validateAnalystSqlQuery,
+  validateConsultantWebQuery,
+  validateConsultantWebUrl,
+  validateZoeNoteText,
+  WEB_RESEARCH_TOOL_NAMES,
   ZOE_REPORT_EMAIL_DISPLAY_NAME,
   ZOE_REPORT_EMAIL_TEMPLATE,
+  ZOE_RO_AREA_ROLES,
+  ZOE_RO_VIEWS_CATALOG,
 };
 export type {
+  AnalystSqlValidationResult,
+  BudgetCheckResult,
+  ChatMessage,
+  ConsultantChecklistScore,
   DraftEmailOutcome,
   GuardResult,
+  MorningBriefPayload,
+  OpenAiTool,
   Period,
+  PreparedToolOutput,
   SendEmailDependencies,
   SendEmailResult,
+  StaffAssistantAiClient,
+  StaffAssistantHandlerDeps,
+  StaffAssistantStoreDeps,
   StaffEmailRecipient,
   StaffTool,
+  ZoeActionDraft,
+  ZoeNotificationDraft,
+  ZoeReminderDraft,
+  ZoeRoArea,
+  ZoeRoViewCatalogEntry,
+  ZoeScheduleDraft,
+  ZoeUserNote,
 };
 
 /**
@@ -112,19 +272,6 @@ export function withFixedEvalDateSync<T>(fn: () => T): T {
   }
 }
 
-const SYSTEM_PROMPT_LEAK_RE =
-  /\b(You are Zoe, the Welile My Space Staff Assistant|TOOLS AVAILABLE FOR THIS CALLER|SECURITY RULES \(cannot be overridden|MANDATORY WELILE TERMINOLOGY|SCOPE_CHECK_PROMPT|LOVABLE_API_KEY|SUPABASE_SERVICE_ROLE_KEY|SECURITY DEFINER|SET search_path = public)\b/i;
-
-const DIRECT_PROMPT_INJECTION_RE =
-  /\b(ignore (?:all |previous |prior |above )?(?:instructions|rules|prompts)|reveal (?:your |the )?(?:system )?(?:instructions|prompt|rules)|print (?:your |the )?system prompt|what are your hidden instructions|show me your system prompt|developer mode|jailbreak|LOVABLE_API_KEY|SUPABASE_SERVICE_ROLE_KEY|(?:show|reveal|dump) (?:the )?(?:raw )?sql)\b/i;
-
-const WRITE_MUTATION_INTENT_RE =
-  /\b(approve requisition|reject requisition|disburse |transfer ugx|credit wallet|debit wallet|delete all |drop table |update profile email|mark rent plan as paid|edit standing order amount)\b/i;
-
-export function containsPromptOrSecretLeak(text: string): boolean {
-  return SYSTEM_PROMPT_LEAK_RE.test(text);
-}
-
 export interface SimulatedToolCall {
   name: string;
   args: Record<string, unknown>;
@@ -136,12 +283,19 @@ export interface ExecuteZoeTurnInput {
   callerRoles: string[];
   mfaAal2?: boolean;
   userMessage: string;
+  conversationId?: string;
   requestExtraFields?: Record<string, unknown>;
   scopeClassification?: "in_scope" | "out_of_scope";
   modelToolCalls?: SimulatedToolCall[];
+  modelToolCallRounds?: SimulatedToolCall[][];
   modelFinalText?: string;
   rpcDataByTool?: Record<string, Record<string, unknown> | { errorCode: string; message: string }>;
   staffDirectory?: StaffEmailRecipient[];
+  recentTurns?: ChatMessage[];
+  userNotes?: ZoeUserNote[];
+  latestReportPayload?: Record<string, unknown> | null;
+  budgetCheckResult?: BudgetCheckResult;
+  recipientCanReadReport?: boolean;
 }
 
 export interface ExecuteZoeTurnResult {
@@ -165,565 +319,313 @@ export interface ExecuteZoeTurnResult {
   reportPayload: Record<string, unknown> | null;
   mfaRequired: boolean;
   emailsSentCount: number;
+  modelMessagesSeen: ChatMessage[][];
+  savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }>;
+  loggedAnalystQueries: Array<{
+    question: string;
+    sqlText: string;
+    executedSql: string;
+    roleAreas: string[];
+    rowCount: number;
+    truncated: boolean;
+    status: "ok" | "refused" | "error";
+    errorMessage?: string;
+  }>;
+  modelTier?: "fast" | "deep";
+  statusSteps?: string[];
 }
 
+const ENABLED_STAFF_ROLES = new Set([
+  "employee",
+  "operations",
+  "tenant_ops",
+  "landlord_ops",
+  "agent_ops",
+  "partner_ops",
+  "financial_ops",
+  "hr",
+  "crm",
+  "cmo",
+  "rd",
+  "coo",
+  "cfo",
+  "ceo",
+  "cto",
+  "manager",
+  "super_admin",
+  "access_admin",
+]);
+
 /**
- * Deterministic execution of Zoe's turn pipeline (`supabase/functions/staff-assistant/index.ts`)
- * on the fixed evaluation date (`2026-10-26`).
+ * Executes a turn against the REAL `handleStaffAssistantRequest` handler from
+ * `supabase/functions/staff-assistant/index.ts` with injected `aiClient`, `userClient`,
+ * `checkMfaAal2`, and `store` dependencies.
  */
 export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<ExecuteZoeTurnResult> {
   return await withFixedEvalDate(async () => {
-    // 1. Authentication check
-    if (input.authenticated === false) {
-      return {
-        httpStatus: 401,
-        outcome: "unauthorized",
-        reply: MSG.unauthorized,
-        toolsOffered: [],
-        toolsCalled: [],
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
+    const callerHasStaffRole = input.callerRoles.some((r) =>
+      ENABLED_STAFF_ROLES.has(r.toLowerCase().trim())
+    );
+    const hasAccess = input.hasAccess ?? callerHasStaffRole;
 
-    // 2. Strict RequestSchema validation (rejects user_id, role, history, system, etc.)
+    const modelMessagesSeen: ChatMessage[][] = [];
+    const savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }> =
+      [];
+    const loggedAnalystQueries: ExecuteZoeTurnResult["loggedAnalystQueries"] = [];
+    let recordedToolsCalled: string[] = [];
+    let toolsOfferedFromRound: string[] = [];
+
+    const mockUserClient = {
+      auth: {
+        getUser: async () => {
+          if (input.authenticated === false) {
+            return { data: { user: null }, error: { message: "Unauthorized" } };
+          }
+          return {
+            data: {
+              user: {
+                id: "5295252d-0000-4000-8000-000000000001",
+                email: "staff@welile.com",
+              },
+            },
+            error: null,
+          };
+        },
+      },
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: async () => {
+              if (table === "user_roles") {
+                return {
+                  data: input.callerRoles.map((role) => ({ role })),
+                  error: null,
+                };
+              }
+              return { data: [], error: null };
+            },
+          }),
+        }),
+      }),
+      rpc: async (fnName: string, rpcArgs?: Record<string, unknown>) => {
+        if (fnName === "staff_assistant_has_access") {
+          return { data: hasAccess, error: null };
+        }
+        if (fnName === "staff_assistant_email_recipients") {
+          const query = String(rpcArgs?.p_search ?? "").toLowerCase().trim();
+          const directory = input.staffDirectory ?? [];
+          const matches = directory.filter(
+            (r) =>
+              r.full_name.toLowerCase().includes(query) ||
+              r.email.toLowerCase() === query,
+          );
+          return { data: matches, error: null };
+        }
+        if (fnName === "staff_assistant_can_user_read_report") {
+          return { data: input.recipientCanReadReport ?? true, error: null };
+        }
+        if (fnName === "staff_assistant_save_draft") {
+          const draftId = `550e8400-e29b-41d4-a716-${String(savedDrafts.length + 1).padStart(
+            12,
+            "0",
+          )}`;
+          savedDrafts.push({
+            kind: String(rpcArgs?.p_kind ?? ""),
+            payload: (rpcArgs?.p_payload as Record<string, unknown>) ?? {},
+            draftId,
+          });
+          return { data: { ok: true, draft_id: draftId }, error: null };
+        }
+
+        // Find matching tool by RPC name
+        const tool = STAFF_TOOLS.find((t) => t.rpc === fnName);
+        const toolKey = tool?.name ?? fnName;
+        const mockRes = input.rpcDataByTool?.[toolKey] ?? input.rpcDataByTool?.[fnName];
+
+        if (mockRes && typeof mockRes === "object" && "errorCode" in mockRes) {
+          return {
+            data: null,
+            error: {
+              code: String(mockRes.errorCode),
+              message: String(mockRes.message ?? "RPC error"),
+            },
+          };
+        }
+
+        const payload = (mockRes as Record<string, unknown> | undefined) ?? {
+          source: fnName,
+          period: { as_of: FIXED_EVAL_DATE },
+          row_count: 1,
+          rows: [],
+        };
+        return { data: payload, error: null };
+      },
+    };
+
+    let chatRound = 0;
+    const mockAiClient: StaffAssistantAiClient = {
+      classifyText: async () => {
+        const cat = input.scopeClassification ?? "in_scope";
+        return JSON.stringify({ category: cat });
+      },
+      chatCompletion: async (opts) => {
+        modelMessagesSeen.push([...opts.messages]);
+        if (opts.tools && toolsOfferedFromRound.length === 0) {
+          toolsOfferedFromRound = opts.tools.map((t) => t.function.name);
+        }
+        const currentRound = chatRound++;
+        const roundsList =
+          input.modelToolCallRounds ??
+          (input.modelToolCalls && input.modelToolCalls.length > 0
+            ? [input.modelToolCalls]
+            : []);
+        const configuredCalls = roundsList[currentRound] ?? [];
+        if (configuredCalls.length > 0) {
+          return {
+            model: opts.model ?? "google/gemini-2.5-flash",
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: configuredCalls.map((c, idx) => ({
+                id: `call_r${currentRound + 1}_${idx + 1}`,
+                type: "function" as const,
+                function: {
+                  name: c.name,
+                  arguments: JSON.stringify(c.args ?? {}),
+                },
+              })),
+            },
+          };
+        }
+        return {
+          model: opts.model ?? "google/gemini-2.5-flash",
+          message: {
+            role: "assistant",
+            content: input.modelFinalText ?? "",
+          },
+        };
+      },
+    };
+
+    const mockStore: Partial<StaffAssistantStoreDeps> = {
+      checkQuestionBudget: async () =>
+        input.budgetCheckResult ?? {
+          allowed: true,
+          remainingToday: 49,
+          maxQuestionsPerDay: 50,
+          maxModelRounds: 4,
+          maxToolCalls: 6,
+          maxDeepModelRounds: 8,
+          maxDeepToolCalls: 12,
+          modelFast: "google/gemini-2.5-flash",
+          modelDeep: "google/gemini-2.5-pro",
+          temperature: 0.2,
+          maxTokens: 3200,
+          maxCostUsdPerQuestion: 0.08,
+        },
+      getOrCreateConversation: async (_uid, convId) => ({
+        id: convId ?? "11111111-2222-4333-8444-555555555555",
+        status: "open",
+        rollingSummary: null,
+      }),
+      loadRecentTurns: async () => input.recentTurns ?? [],
+      listUserNotes: async () => input.userNotes ?? [],
+      loadLatestReportPayload: async () => input.latestReportPayload ?? null,
+      recordTurn: async (args) => {
+        recordedToolsCalled = args.toolsCalled ?? [];
+        return {
+          userMessageId: "22222222-3333-4444-8555-666666666666",
+          assistantMessageId: "33333333-4444-4555-8666-777777777777",
+        };
+      },
+      recordUnanswered: async () => {},
+      logAnalystQuery: async (entry) => {
+        loggedAnalystQueries.push({
+          question: entry.question,
+          sqlText: entry.sqlText,
+          executedSql: entry.executedSql,
+          roleAreas: [...entry.roleAreas],
+          rowCount: entry.rowCount,
+          truncated: entry.truncated,
+          status: entry.status,
+          errorMessage: entry.errorMessage,
+        });
+      },
+    };
+
     const rawBody = {
       action: "message",
       message: input.userMessage,
+      ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
       ...(input.requestExtraFields ?? {}),
     };
-    const parsedReq = RequestSchema.safeParse(rawBody);
-    if (!parsedReq.success) {
-      return {
-        httpStatus: 400,
-        outcome: "invalid_request",
-        reply: MSG.invalidRequest,
-        toolsOffered: [],
-        toolsCalled: [],
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (input.authenticated !== false) {
+      headers.Authorization = "Bearer test-staff-jwt-token";
     }
 
-    // 3. Top-level access gate: `staff_assistant_has_access()`
-    const enabledStaffRoles = new Set([
-      "employee",
-      "operations",
-      "tenant_ops",
-      "landlord_ops",
-      "agent_ops",
-      "partner_ops",
-      "financial_ops",
-      "hr",
-      "crm",
-      "cmo",
-      "rd",
-      "coo",
-      "cfo",
-      "ceo",
-      "cto",
-      "manager",
-      "super_admin",
-      "access_admin",
-    ]);
-    const callerHasStaffRole = input.callerRoles.some((r) =>
-      enabledStaffRoles.has(r.toLowerCase().trim())
-    );
-    const hasAccess = input.hasAccess ?? callerHasStaffRole;
-    if (!hasAccess) {
-      return {
-        httpStatus: 403,
-        outcome: "not_staff",
-        reply: MSG.notStaff,
-        toolsOffered: [],
-        toolsCalled: [],
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
+    const req = new Request("https://welileapp.com/functions/v1/staff-assistant", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(rawBody),
+    });
 
-    // 4. Role-based tool menu filtering (Lock 1)
-    const allowedOpenAiTools = openAiToolsForRoles(input.callerRoles);
-    const toolsOffered = allowedOpenAiTools.map((t) => t.function.name);
+    const response = await handleStaffAssistantRequest(req, {
+      // deno-lint-ignore no-explicit-any
+      userClient: mockUserClient as any,
+      aiClient: mockAiClient,
+      store: mockStore,
+      checkMfaAal2: async () => ({ ok: input.mfaAal2 !== false }),
+    });
 
-    // 5. Scope pre-check (blocks direct prompt injection, secret extraction, and write/mutation requests)
-    const effectiveScope =
-      input.scopeClassification ??
-      (DIRECT_PROMPT_INJECTION_RE.test(input.userMessage) ||
-          WRITE_MUTATION_INTENT_RE.test(input.userMessage)
-        ? "out_of_scope"
-        : "in_scope");
+    const resBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const httpStatus = response.status;
 
-    if (effectiveScope === "out_of_scope") {
-      return {
-        httpStatus: 200,
-        outcome: "out_of_scope",
-        reply: MSG.outOfScope,
-        toolsOffered,
-        toolsCalled: [],
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-
-    const toolsCalled: string[] = [];
-    const rawToolOutputs: string[] = [];
-    const sourcesUsed: string[] = [];
-    const periodsUsed: string[] = [];
-    let lastReportPayload: Record<string, unknown> | null = null;
-
-    // 6. Execute tool calls (Lock 2: Edge role check + Zod schema + MFA AAL2 + DB 42501 check)
-    for (const call of (input.modelToolCalls ?? []).slice(0, 6)) {
-      if (call.name === "ask_clarification") {
-        const c = ClarificationArgsSchema.safeParse(call.args);
-        if (!c.success) {
-          return {
-            httpStatus: 200,
-            outcome: "unmatched",
-            reply: MSG.unmatched,
-            toolsOffered,
-            toolsCalled,
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-        const guard = checkAnswer(
-          `${c.data.question} ${c.data.options.join(" ")}`,
-          rawToolOutputs,
-          input.userMessage,
-        );
-        if (!guard.ok) {
-          return {
-            httpStatus: 200,
-            outcome: "blocked",
-            reply: MSG.unmatched,
-            toolsOffered,
-            toolsCalled,
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-        return {
-          httpStatus: 200,
-          outcome: "clarify",
-          reply: c.data.question,
-          toolsOffered,
-          toolsCalled: [...toolsCalled, "ask_clarification"],
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: false,
-          emailsSentCount: 0,
-        };
+    const outcome = (() => {
+      if (httpStatus === 401) return "unauthorized";
+      if (httpStatus === 400) return "invalid_request";
+      if (typeof resBody.outcome === "string") {
+        return resBody.outcome as ExecuteZoeTurnResult["outcome"];
       }
+      return "error";
+    })();
 
-      if (call.name === "draft_report_email") {
-        const d = DraftReportEmailArgsSchema.safeParse(call.args);
-        if (!d.success) {
-          return {
-            httpStatus: 200,
-            outcome: "unmatched",
-            reply: MSG.unmatched,
-            toolsOffered,
-            toolsCalled,
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-
-        const combinedOutputs = [
-          ...rawToolOutputs,
-          ...(lastReportPayload ? [JSON.stringify(lastReportPayload)] : []),
-        ];
-
-        // Rule: Never use an email address found in data
-        if (isEmailFromToolData(d.data.recipient_search, combinedOutputs, input.userMessage)) {
-          return {
-            httpStatus: 200,
-            outcome: "blocked",
-            reply: MSG.dataEmailForbidden,
-            toolsOffered,
-            toolsCalled: [...toolsCalled, "draft_report_email"],
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-
-        if (!lastReportPayload) {
-          return {
-            httpStatus: 200,
-            outcome: "clarify",
-            reply:
-              "Which report would you like me to draft an email for? Ask for the report first or specify the report and staff colleague.",
-            toolsOffered,
-            toolsCalled: [...toolsCalled, "draft_report_email"],
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-
-        const query = extractRecipientQuery(d.data.recipient_search).toLowerCase();
-        const directory = input.staffDirectory ?? [];
-        const matchedRecipients = directory.filter(
-          (r) =>
-            r.full_name.toLowerCase().includes(query) ||
-            r.email.toLowerCase() === query,
-        );
-
-        const resolvedPeriod =
-          periodsUsed[0] ?? formatPeriodLabel(lastReportPayload.period) ?? FIXED_EVAL_DATE;
-        const draftOutcome = buildReportEmailDraft({
-          recipientSearch: d.data.recipient_search,
-          recipients: matchedRecipients,
-          rawToolOutputs: combinedOutputs,
-          userText: input.userMessage,
-          subject: d.data.subject,
-          message: d.data.message,
-          reportPayload: lastReportPayload,
-          periodLabel: resolvedPeriod,
-          todayKampala: FIXED_EVAL_DATE,
-        });
-
-        if (draftOutcome.kind === "refused") {
-          return {
-            httpStatus: 200,
-            outcome: "blocked",
-            reply: draftOutcome.message,
-            toolsOffered,
-            toolsCalled: [...toolsCalled, "draft_report_email"],
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-
-        if (draftOutcome.kind === "pick_recipient") {
-          return {
-            httpStatus: 200,
-            outcome: "clarify",
-            reply: draftOutcome.question,
-            toolsOffered,
-            toolsCalled: [...toolsCalled, "draft_report_email"],
-            source: draftOutcome.draft.report_reference.source,
-            period: draftOutcome.draft.report_reference.period,
-            reportPayload: {
-              ...lastReportPayload,
-              email_draft: draftOutcome.draft,
-            },
-            mfaRequired: false,
-            emailsSentCount: 0, // Never sends without click!
-          };
-        }
-
-        return {
-          httpStatus: 200,
-          outcome: "answered",
-          reply: draftOutcome.replyText,
-          toolsOffered,
-          toolsCalled: [...toolsCalled, "draft_report_email"],
-          source: draftOutcome.draft.report_reference.source,
-          period: draftOutcome.draft.report_reference.period,
-          reportPayload: {
-            ...lastReportPayload,
-            email_draft: draftOutcome.draft,
-          },
-          mfaRequired: false,
-          emailsSentCount: 0, // Never sends without click!
-        };
-      }
-
-      const tool = findTool(call.name);
-      if (!tool) {
-        return {
-          httpStatus: 200,
-          outcome: "unmatched",
-          reply: MSG.unmatched,
-          toolsOffered,
-          toolsCalled,
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: false,
-          emailsSentCount: 0,
-        };
-      }
-
-      // Edge role check
-      if (!canUseTool(tool, input.callerRoles)) {
-        return {
-          httpStatus: 200,
-          outcome: "not_staff",
-          reply: MSG.roleRestricted,
-          toolsOffered,
-          toolsCalled,
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: false,
-          emailsSentCount: 0,
-        };
-      }
-
-      // Strict Zod argument validation
-      const parsedArgs = tool.schema.safeParse(call.args);
-      if (!parsedArgs.success) {
-        return {
-          httpStatus: 200,
-          outcome: "unmatched",
-          reply: MSG.unmatched,
-          toolsOffered,
-          toolsCalled,
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: false,
-          emailsSentCount: 0,
-        };
-      }
-
-      // Sensitive tool AAL2 MFA check
-      if (tool.sensitive && input.mfaAal2 === false) {
-        return {
-          httpStatus: 200,
-          outcome: "blocked",
-          reply: MSG.mfaRequired,
-          toolsOffered,
-          toolsCalled,
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: true,
-          emailsSentCount: 0,
-        };
-      }
-
-      const rpcArgs = tool.toRpcArgs(parsedArgs.data);
-      const mockRpcResponse = input.rpcDataByTool?.[tool.name];
-      if (
-        mockRpcResponse &&
-        typeof mockRpcResponse === "object" &&
-        "errorCode" in mockRpcResponse
-      ) {
-        if (mockRpcResponse.errorCode === "42501") {
-          return {
-            httpStatus: 200,
-            outcome: "not_staff",
-            reply: MSG.roleRestricted,
-            toolsOffered,
-            toolsCalled,
-            source: null,
-            period: null,
-            reportPayload: null,
-            mfaRequired: false,
-            emailsSentCount: 0,
-          };
-        }
-        return {
-          httpStatus: 200,
-          outcome: "error",
-          reply: MSG.error,
-          toolsOffered,
-          toolsCalled,
-          source: null,
-          period: null,
-          reportPayload: null,
-          mfaRequired: false,
-          emailsSentCount: 0,
-        };
-      }
-
-      const payload = (mockRpcResponse as Record<string, unknown> | undefined) ?? {
-        source: tool.rpc,
-        period: { as_of: FIXED_EVAL_DATE },
-        row_count: 0,
-        rows: [],
-      };
-
-      const serialized = JSON.stringify(payload).slice(0, 16_000);
-      toolsCalled.push(tool.name);
-      rawToolOutputs.push(serialized);
-
-      if (typeof payload.source === "string" && payload.source.trim()) {
-        if (!sourcesUsed.includes(payload.source)) sourcesUsed.push(payload.source);
-      }
-      const pLabel = formatPeriodLabel(payload.period);
-      if (pLabel && !periodsUsed.includes(pLabel)) {
-        periodsUsed.push(pLabel);
-      }
-      lastReportPayload = {
-        ...payload,
-        tool: tool.name,
-        rpc: tool.rpc,
-        args: parsedArgs.data,
-        resolved_rpc_args: rpcArgs,
-        source: payload.source ?? tool.rpc,
-        period: payload.period ?? null,
-        row_count: payload.row_count ?? null,
-        rows: Array.isArray(payload.rows) ? payload.rows.slice(0, 200) : [],
-        data: payload.data ?? null,
-      };
-    }
-
-    const finalText = (input.modelFinalText ?? "").trim();
-    if (!finalText) {
-      return {
-        httpStatus: 200,
-        outcome: "unmatched",
-        reply: MSG.unmatched,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-
-    const upper = finalText.toUpperCase();
-    if (upper === "OUT_OF_SCOPE") {
-      return {
-        httpStatus: 200,
-        outcome: "out_of_scope",
-        reply: MSG.outOfScope,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-    if (upper === "ROLE_RESTRICTED") {
-      return {
-        httpStatus: 200,
-        outcome: "not_staff",
-        reply: MSG.roleRestricted,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-    if (upper === "UNMATCHED") {
-      return {
-        httpStatus: 200,
-        outcome: "unmatched",
-        reply: MSG.unmatched,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-
-    if (toolsCalled.length === 0) {
-      return {
-        httpStatus: 200,
-        outcome: "unmatched",
-        reply: MSG.unmatched,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-
-    // Block any system prompt or secret leakage in model output
-    if (containsPromptOrSecretLeak(finalText)) {
-      return {
-        httpStatus: 200,
-        outcome: "blocked",
-        reply: MSG.outOfScope,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
-
-    const sourceLabel = sourcesUsed.length > 0 ? sourcesUsed.join(" + ") : null;
-    const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : FIXED_EVAL_DATE;
-
-    let answerWithCitation = finalText;
-    if (sourceLabel && !answerWithCitation.toLowerCase().includes("source:")) {
-      answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
-    }
-
-    // Lock 3: Deterministic post-generation guard against tool results
-    const guard = checkAnswer(
-      answerWithCitation,
-      [...rawToolOutputs, JSON.stringify({ source: sourceLabel, period: periodLabel })],
-      input.userMessage,
-    );
-    if (!guard.ok) {
-      return {
-        httpStatus: 200,
-        outcome: "blocked",
-        reply: MSG.unmatched,
-        toolsOffered,
-        toolsCalled,
-        source: null,
-        period: null,
-        reportPayload: null,
-        mfaRequired: false,
-        emailsSentCount: 0,
-      };
-    }
+    const reply = String(resBody.reply ?? resBody.error ?? "");
+    const toolsOffered =
+      toolsOfferedFromRound.length > 0
+        ? toolsOfferedFromRound
+        : hasAccess && httpStatus === 200
+        ? openAiToolsForRoles(input.callerRoles).map((t) => t.function.name)
+        : [];
 
     return {
-      httpStatus: 200,
-      outcome: "answered",
-      reply: answerWithCitation,
+      httpStatus,
+      outcome,
+      reply,
       toolsOffered,
-      toolsCalled,
-      source: sourceLabel,
-      period: periodLabel,
-      reportPayload: lastReportPayload,
-      mfaRequired: false,
+      toolsCalled: recordedToolsCalled,
+      source: typeof resBody.source === "string" ? resBody.source : null,
+      period: typeof resBody.period === "string" ? resBody.period : null,
+      reportPayload:
+        resBody.report_payload && typeof resBody.report_payload === "object"
+          ? (resBody.report_payload as Record<string, unknown>)
+          : null,
+      mfaRequired: Boolean(resBody.mfa_required),
       emailsSentCount: 0,
+      modelMessagesSeen,
+      savedDrafts,
+      loggedAnalystQueries,
+      modelTier:
+        resBody.model_tier === "deep" || resBody.model_tier === "fast"
+          ? resBody.model_tier
+          : undefined,
+      consultantMode: Boolean(resBody.consultant_mode),
+      statusSteps: Array.isArray(resBody.status_steps)
+        ? (resBody.status_steps as string[])
+        : undefined,
     };
   });
 }

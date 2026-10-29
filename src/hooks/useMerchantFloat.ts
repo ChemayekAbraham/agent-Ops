@@ -1,7 +1,17 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AuthRequiredError,
+  hasUsableUserSession,
+  isUnauthenticatedRpcError,
+} from '@/hooks/useAuthenticatedPoll';
+import {
+  merchantFloatPositionsDeniedError,
+  stopMerchantFloatPositionsPoll,
+  useMerchantFloatPositionsGate,
+} from '@/hooks/merchantFloatPositionsAccess';
 
 /**
  * Shared merchant payout float + per-merchant settlement positions.
@@ -162,18 +172,38 @@ function releaseFloatProjectionChannel(userId: string) {
 
 export function useMerchantFloatPositions(enabled = true) {
   const qc = useQueryClient();
+  // The RPC is granted to every signed-in user and then raises
+  // 'Not authorized' for anyone outside the finance role list. Merchant
+  // dashboards mount this hook, so the query stays disabled until
+  // `enabledRoles` contains a role the function accepts. A refusal or a
+  // dead session stops the poll. The client `roles` list is not used.
+  const gate = useMerchantFloatPositionsGate();
+  const mayFetch = enabled && gate.allowed;
+  const allowedRef = useRef(false);
+  allowedRef.current = mayFetch;
+  const waitingForRoles = enabled && !gate.ready;
 
   const query = useQuery({
     queryKey: ['merchant-float-positions'],
-    enabled,
+    enabled: mayFetch,
+    // No automatic retry. A 400/403/P0001 "Not authorized" also stops the
+    // interval below; a timeout may still be polled.
     retry: false,
     // Heavy RPC (~4s): refresh only while the screen is visible, and rarely.
     staleTime: 60_000,
-    refetchInterval: 120_000,
+    refetchInterval: (q) => (
+      mayFetch && !stopMerchantFloatPositionsPoll(q.state.error) ? 120_000 : false
+    ),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     queryFn: async (): Promise<MerchantFloatPosition[]> => {
+      if (!allowedRef.current) throw merchantFloatPositionsDeniedError();
+      if (!(await hasUsableUserSession())) throw new AuthRequiredError();
       const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
+      if (isUnauthenticatedRpcError(error)) {
+        throw new AuthRequiredError((error as { message?: string }).message || 'Sign in again to continue.');
+      }
       if (error) throw error;
       return ((data ?? []) as any[]).map((r) => ({
         deskId: String(r.desk_id),
@@ -219,13 +249,14 @@ export function useMerchantFloatPositions(enabled = true) {
   // and merchant_out_of_pocket_advances, which are not published and never
   // fired (doc 147). Per-merchant float stays live via the filtered
   // projection channels below.
+  const stopPoll = stopMerchantFloatPositionsPoll(query.error);
   const { lastUpdatedAt: boardUpdatedAt, refresh: refreshBoard } = usePolling(
     () => Promise.all([
       qc.invalidateQueries({ queryKey: ['merchant-float-positions'] }),
       qc.invalidateQueries({ queryKey: ['merchant-payout-float'] }),
     ]),
     30_000,
-    { enabled },
+    { enabled: mayFetch && !stopPoll },
   );
 
   // Filtered per-user projection subscriptions. The projection row is what
@@ -233,14 +264,18 @@ export function useMerchantFloatPositions(enabled = true) {
   // following it by user_id makes the number move on both sides at the same
   // instant after Phase 2's synchronous refresh.
   useEffect(() => {
-    if (!enabled || agentIds.length === 0) return;
+    if (!enabled || !gate.allowed || stopPoll || agentIds.length === 0) return;
     agentIds.forEach((id) => acquireFloatProjectionChannel(id, qc));
     return () => {
       agentIds.forEach((id) => releaseFloatProjectionChannel(id));
     };
-  }, [enabled, agentIds, qc]);
+  }, [enabled, gate.allowed, stopPoll, agentIds, qc]);
 
-  return query;
+  return {
+    ...query,
+    isLoading: query.isLoading || waitingForRoles,
+    isPending: query.isPending || waitingForRoles,
+  };
 }
 
 /**

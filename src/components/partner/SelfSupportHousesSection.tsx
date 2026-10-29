@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -88,9 +89,12 @@ export function HighlightText({
  * self-support operational funding tagged per house.
  */
 export function useVerifiedEmptyHouses() {
+  const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['psh-verified-empty-houses'],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { items, total } = await fetchAllPages<SupportableHouse>({
         pageSize: 100,
         concurrency: 8,

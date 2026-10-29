@@ -49,32 +49,32 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-xl border bg-card border-border/40 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation overflow-hidden"
+      className="w-full rounded-xl border bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-all touch-manipulation overflow-hidden"
     >
       <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
         <div className="space-y-2 lg:space-y-3">
           <div className="relative w-fit">
-            <div className="p-1.5 lg:p-2.5 rounded-lg bg-muted">
-              <Home className="h-[18px] w-[18px] lg:h-7 lg:w-7 text-foreground" />
+            <div className="p-1.5 lg:p-2.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 shadow-xs">
+              <Home className="h-[18px] w-[18px] lg:h-7 lg:w-7 text-white" />
             </div>
             {newCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-primary shadow-sm">
-                <span className="absolute inset-0.5 rounded-full bg-primary animate-ping opacity-75" />
-                <span className="absolute inset-0.5 rounded-full bg-primary" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full bg-emerald-600 shadow-sm">
+                <span className="absolute inset-0.5 rounded-full bg-emerald-600 animate-ping opacity-75" />
+                <span className="absolute inset-0.5 rounded-full bg-emerald-600" />
               </span>
             )}
           </div>
           <div className="flex items-start gap-1.5 flex-wrap">
-            <p className="font-bold text-sm lg:text-lg leading-tight text-foreground">Find a House Nearby</p>
+            <p className="font-bold text-sm lg:text-lg leading-tight text-emerald-950 dark:text-emerald-100">Find a House Nearby</p>
             {newCount > 0 && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 lg:px-2.5 lg:py-1 rounded-full bg-primary text-primary-foreground text-[9px] lg:text-xs font-semibold uppercase tracking-wider shrink-0">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 lg:px-2.5 lg:py-1 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white text-[9px] lg:text-xs font-semibold uppercase tracking-wider shrink-0">
                 <Sparkles className="h-2.5 w-2.5 lg:h-3 lg:w-3" /> {newCount} new
               </span>
             )}
           </div>
         </div>
 
-        <p className="text-xs lg:text-sm text-foreground/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
+        <p className="text-xs lg:text-sm text-emerald-950/70 dark:text-emerald-100/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
           {totalCount !== null ? (
             <>{totalCount} available · Pay daily</>
           ) : (

@@ -46,14 +46,43 @@ const EmptyComponent = (() => null) as ComponentType<any>;
  */
 const untilReload = <T,>() => new Promise<T>(() => {});
 
+const RELOAD_KEY = "welile:lazy-reload-at";
+const RELOAD_WINDOW_MS = 30_000;
+
+/** True for the browser/Vite messages a missing or rotated chunk produces. */
+export function isChunkLoadError(err: unknown): boolean {
+  const e = err as { name?: string; message?: string } | null;
+  const text = `${e?.name ?? ""} ${e?.message ?? (typeof err === "string" ? err : "")}`;
+  return /Importing a module script failed|Failed to fetch dynamically imported module|error loading dynamically imported module|ChunkLoadError|Loading (CSS )?chunk/i.test(text);
+}
+
+/** A guarded stale-chunk reload happened (or is happening) in the last 30s. */
+export function wasRecentChunkReload(): boolean {
+  try {
+    return Date.now() - Number(sessionStorage.getItem(RELOAD_KEY) || 0) < RELOAD_WINDOW_MS;
+  } catch {
+    return false;
+  }
+}
+
+/** Once the page has stayed up after a reload, allow a future recovery again. */
+function clearReloadFlagIfSettled() {
+  try {
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+    if (last && Date.now() - last > 10_000) sessionStorage.removeItem(RELOAD_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 function reloadOnceForStaleChunk(): boolean {
   if (typeof window === "undefined") return false;
+  // In development, Vite manages modules via HMR; never auto-reload.
+  if (import.meta.env.DEV) return false;
   try {
-    const KEY = "welile:lazy-reload-at";
-    const last = Number(sessionStorage.getItem(KEY) || 0);
-    // Only reload if we haven't already done so in the last 30s.
-    if (Date.now() - last > 30_000) {
-      sessionStorage.setItem(KEY, String(Date.now()));
+    const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+    if (Date.now() - last > RELOAD_WINDOW_MS) {
+      sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
       window.location.reload();
       return true;
     }
@@ -61,6 +90,16 @@ function reloadOnceForStaleChunk(): boolean {
     /* ignore storage errors */
   }
   return false;
+}
+
+let preloadListenerInstalled = false;
+/** Vite fires `vite:preloadError` when a preloaded chunk 404s after a deploy. */
+export function installChunkPreloadRecovery() {
+  if (preloadListenerInstalled || typeof window === "undefined") return;
+  preloadListenerInstalled = true;
+  window.addEventListener("vite:preloadError", (event) => {
+    if (reloadOnceForStaleChunk()) event.preventDefault();
+  });
 }
 
 /**
@@ -77,14 +116,14 @@ const StaleChunkFallback = (() =>
         fontFamily: "system-ui, sans-serif",
       },
     },
-    createElement("p", { style: { marginBottom: "12px" } }, "This screen needs to reload."),
+    createElement("p", { style: { marginBottom: "12px" } }, "This section needs a refresh"),
     createElement(
       "button",
       {
         type: "button",
         onClick: () => {
           try {
-            sessionStorage.removeItem("welile:lazy-reload-at");
+            sessionStorage.removeItem(RELOAD_KEY);
           } catch {
             /* ignore */
           }
@@ -98,7 +137,7 @@ const StaleChunkFallback = (() =>
           cursor: "pointer",
         },
       },
-      "Reload app",
+      "Reload",
     ),
   )) as ComponentType<any>;
 
@@ -172,7 +211,7 @@ export function queuedImport<T>(factory: () => Promise<T>): Promise<T> {
  */
 export function lazyWithRetry<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
-  retries = 2
+  retries = 1
 ) {
   return lazy(async () => {
     let lastErr: unknown;
@@ -194,6 +233,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
           }
           return untilReload<{ default: T }>();
         }
+        clearReloadFlagIfSettled();
         return coerced;
       } catch (e) {
         lastErr = e;
@@ -262,7 +302,7 @@ export function optionalLazyWithRetry<T extends ComponentType<any>>(
 export function lazyNamed<M extends Record<string, any>, K extends keyof M & string>(
   factory: () => Promise<M>,
   name: K,
-  retries = 2,
+  retries = 1,
 ) {
   type C = M[K] extends ComponentType<any> ? M[K] : ComponentType<any>;
   const staleError = (cause: unknown) => {
@@ -286,7 +326,10 @@ export function lazyNamed<M extends Record<string, any>, K extends keyof M & str
         continue;
       }
       const comp = mod?.[name] ?? mod?.default?.[name];
-      if (isComponentLike(comp)) return { default: comp as C };
+      if (isComponentLike(comp)) {
+        clearReloadFlagIfSettled();
+        return { default: comp as C };
+      }
       // Resolved without the export: stale chunk, retrying won't help.
       lastErr = new Error(`Lazy module has no export "${name}"`);
       break;

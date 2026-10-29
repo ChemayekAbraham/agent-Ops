@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,10 +17,8 @@ import {
   RefreshCw,
   Search,
   Building2,
-  ArrowUpRight,
   ExternalLink,
-  ShieldCheck,
-  Send,
+  History,
   Loader2,
 } from 'lucide-react';
 import {
@@ -47,47 +44,36 @@ interface FloatRequest {
   agent_phone?: string;
 }
 
+// Statuses written by the old browser flow, before disbursement moved to the server.
+// Nothing proves money moved for these, so they are listed apart and never re-disbursed here.
+const OLD_LOGIC_STATUSES = ['approved', 'funded', 'disbursed'];
+
+function isMissingServerFunction(err: any): boolean {
+  const code = String(err?.code ?? '');
+  const msg = String(err?.message ?? '');
+  return code === 'PGRST202' || code === '42883' || /could not find the function/i.test(msg);
+}
+
 export function CFOWelileHomesDisbursementDesk() {
-  const { user } = useAuth();
   const qc = useQueryClient();
-  const [filterTab, setFilterTab] = useState<'pending_cfo' | 'disbursed' | 'all'>('pending_cfo');
+  const [filterTab, setFilterTab] = useState<'pending_cfo' | 'old_logic' | 'all'>('pending_cfo');
   const [search, setSearch] = useState('');
 
-  // Fetch Welile Homes float requests awaiting CFO
+  // Fetch Welile Homes float requests that have reached the CFO stage.
+  // Only Welile Homes requests: Merchant float requests are handled on the Merchant panel.
   const { data: floatRequests = [], isLoading, refetch } = useQuery({
     queryKey: ['cfo-welile-homes-float-requests'],
     queryFn: async (): Promise<FloatRequest[]> => {
       const { data, error } = await supabase
         .from('float_requests')
         .select('id, agent_id, requested_amount, reason, expected_recipient_phone, status, created_at, approved_at, approved_by')
+        .ilike('reason', '%welile%homes%')
+        .in('status', ['coo_approved', ...OLD_LOGIC_STATUSES])
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
       if (error) throw error;
-      const allRows = data ?? [];
-
-      // Include by pipeline status, keyword, or active Welile Homes agents
-      const { data: subs } = await supabase
-        .from('welile_homes_subscriptions')
-        .select('agent_id');
-      const homesAgentIds = new Set((subs ?? []).map((s) => s.agent_id).filter(Boolean));
-
-      const welileRows = allRows.filter((r) => {
-        // Only include requests that have actually reached CFO (cleared/approved by COO).
-        // Never show requests still waiting or pending at previous stages (Agent Ops, Tenant Ops, or COO)!
-        const hasReachedCfo = ['coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status);
-        if (!hasReachedCfo) return false;
-
-        const reason = (r.reason || '').toLowerCase();
-        return (
-          ['coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
-          reason.includes('welile') ||
-          reason.includes('homes') ||
-          reason.includes('landlord') ||
-          reason.includes('tenant') ||
-          homesAgentIds.has(r.agent_id)
-        );
-      });
+      const welileRows = data ?? [];
 
       if (welileRows.length === 0) return [];
 
@@ -109,48 +95,29 @@ export function CFOWelileHomesDisbursementDesk() {
   });
 
   const [allocatingReq, setAllocatingReq] = useState<FloatRequest | null>(null);
-  const [allocationAmount, setAllocationAmount] = useState<string>('');
-  const [allocationNotes, setAllocationNotes] = useState<string>('');
 
   const openAllocationModal = (req: FloatRequest) => {
     setAllocatingReq(req);
-    setAllocationAmount(String(req.requested_amount));
-    setAllocationNotes(req.reason ? `CFO Approved: ${req.reason}` : 'CFO approved float allocation');
   };
 
-  // Action: CFO Disburse / Authorize Float Allocation
+  // Action: CFO disbursement. One server function sends the float, records the ledger
+  // entry and marks the request approved in a single step; if any part fails, nothing changes.
+  // The browser never writes the request status.
   const disburseMutation = useMutation({
-    mutationFn: async ({ req, amount, notes }: { req: FloatRequest; amount: number; notes?: string }) => {
-      // 1. Deliver float via edge function (if available) or update status to approved
-      try {
-        await supabase.functions.invoke('send-operational-float', {
-          body: {
-            request_id: req.id,
-            agent_id: req.agent_id,
-            amount,
-            category: 'welile_homes_landlord_float',
-            reason: notes || req.reason || 'Welile Homes landlord float disbursement',
-          },
-        });
-      } catch (invokeErr) {
-        console.warn('[CFOWelileHomes] Edge function invoke fallback:', invokeErr);
+    mutationFn: async ({ req }: { req: FloatRequest }) => {
+      const { data, error } = await (supabase.rpc as any)('wh_cfo_disburse_float', {
+        p_request_id: req.id,
+      });
+      if (error) {
+        if (isMissingServerFunction(error)) {
+          throw new Error('Server disbursement is not installed yet. Nothing was sent.');
+        }
+        throw error;
       }
-
-      // 2. Mark float_requests as approved/funded with CFO stamp
-      const { error } = await supabase
-        .from('float_requests')
-        .update({
-          status: 'approved',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-          approved_amount: amount,
-        })
-        .eq('id', req.id);
-
-      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
-      toast.success('Float allocation authorized and credited to agent float wallet');
+      toast.success('Float disbursed and recorded on the ledger');
       setAllocatingReq(null);
       qc.invalidateQueries({ queryKey: ['cfo-welile-homes-float-requests'] });
     },
@@ -161,22 +128,11 @@ export function CFOWelileHomesDisbursementDesk() {
 
   const handleConfirmAllocation = () => {
     if (!allocatingReq) return;
-    const amt = parseFloat(allocationAmount);
-    if (!amt || amt <= 0) {
-      toast.error('Enter a valid allocation amount');
-      return;
-    }
-    disburseMutation.mutate({
-      req: allocatingReq,
-      amount: amt,
-      notes: allocationNotes.trim(),
-    });
+    disburseMutation.mutate({ req: allocatingReq });
   };
 
   const pendingCount = floatRequests.filter((r) => r.status === 'coo_approved').length;
-  const disbursedCount = floatRequests.filter(
-    (r) => r.status === 'approved' || r.status === 'funded'
-  ).length;
+  const disbursedCount = floatRequests.filter((r) => OLD_LOGIC_STATUSES.includes(r.status)).length;
   const totalPendingAmount = floatRequests
     .filter((r) => r.status === 'coo_approved')
     .reduce((s, r) => s + (Number(r.requested_amount) || 0), 0);
@@ -194,8 +150,8 @@ export function CFOWelileHomesDisbursementDesk() {
     if (filterTab === 'pending_cfo') {
       return r.status === 'coo_approved';
     }
-    if (filterTab === 'disbursed') {
-      return r.status === 'approved' || r.status === 'funded';
+    if (filterTab === 'old_logic') {
+      return OLD_LOGIC_STATUSES.includes(r.status);
     }
     return true;
   });
@@ -267,11 +223,11 @@ export function CFOWelileHomesDisbursementDesk() {
           </div>
 
           <div className="p-3 rounded-xl bg-background/60 border border-border/40">
-            <span className="text-[11px] text-muted-foreground block font-medium">Disbursed Subscriptions</span>
-            <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <span className="text-[11px] text-muted-foreground block font-medium">Old Logic Approvals</span>
+            <span className="text-lg font-bold text-muted-foreground tabular-nums">
               {disbursedCount}
             </span>
-            <span className="text-[10px] text-muted-foreground block">Successfully funded float</span>
+            <span className="text-[10px] text-muted-foreground block">Marked approved before server disbursement</span>
           </div>
         </div>
       </div>
@@ -295,16 +251,16 @@ export function CFOWelileHomesDisbursementDesk() {
 
           <button
             type="button"
-            onClick={() => setFilterTab('disbursed')}
+            onClick={() => setFilterTab('old_logic')}
             className={cn(
               'px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer shrink-0',
-              filterTab === 'disbursed'
-                ? 'bg-emerald-600 text-white font-bold shadow-xs'
+              filterTab === 'old_logic'
+                ? 'bg-slate-600 text-white font-bold shadow-xs'
                 : 'bg-muted text-muted-foreground hover:text-foreground border border-border/40'
             )}
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            Disbursed Float ({disbursedCount})
+            <History className="h-3.5 w-3.5" />
+            Old Logic ({disbursedCount})
           </button>
 
           <button
@@ -348,16 +304,27 @@ export function CFOWelileHomesDisbursementDesk() {
             <p className="text-sm font-semibold text-foreground">
               {filterTab === 'pending_cfo'
                 ? 'No requests awaiting CFO disbursement'
+                : filterTab === 'old_logic'
+                ? 'No Old Logic approvals'
                 : 'No requests found'}
             </p>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-              Requests approved by the COO will appear here ready for treasury float allocation.
+              {filterTab === 'old_logic'
+                ? 'Requests marked approved by the earlier browser flow appear here for review.'
+                : 'Requests approved by the COO will appear here ready for treasury float allocation.'}
             </p>
           </Card>
-        ) : (
+        ) : null}
+        {!isLoading && filtered.length > 0 && filterTab === 'old_logic' && (
+          <Card className="rounded-2xl p-3 border-slate-500/30 bg-slate-500/5 text-[11px] text-muted-foreground">
+            These were marked approved by the earlier flow, which did not confirm that money was sent.
+            They are kept as they are for CFO review and cannot be disbursed again from here.
+          </Card>
+        )}
+        {!isLoading && filtered.length > 0 && (
           filtered.map((req) => {
             const isPendingCfo = req.status === 'coo_approved';
-            const isDisbursed = req.status === 'approved' || req.status === 'funded';
+            const isDisbursed = OLD_LOGIC_STATUSES.includes(req.status);
 
             return (
               <Card
@@ -397,8 +364,8 @@ export function CFOWelileHomesDisbursementDesk() {
                           </Badge>
                         )}
                         {isDisbursed && (
-                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
-                            Disbursed
+                          <Badge variant="outline" className="bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30 text-[10px]">
+                            Old Logic · {req.status}
                           </Badge>
                         )}
                       </div>
@@ -474,33 +441,11 @@ export function CFOWelileHomesDisbursementDesk() {
               )}
             </div>
 
-            <div>
-              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                Approved Float Allocation (UGX)
-              </label>
-              <Input
-                type="number"
-                value={allocationAmount}
-                onChange={(e) => setAllocationAmount(e.target.value)}
-                placeholder="Amount"
-                className="h-9 text-xs rounded-xl"
-              />
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Amount credited to agent's operational float wallet upon confirmation.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                Treasury Allocation Memo (Optional)
-              </label>
-              <Input
-                value={allocationNotes}
-                onChange={(e) => setAllocationNotes(e.target.value)}
-                placeholder="CFO approval note..."
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
+            <p className="text-[10.5px] text-muted-foreground leading-relaxed">
+              The full requested amount is credited to the agent's float in one server step,
+              with the same ledger entries the Merchant panel uses. If the payment fails, nothing is recorded
+              and the request stays here.
+            </p>
           </div>
 
           <DialogFooter className="gap-2 sm:justify-end">

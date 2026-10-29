@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, subDays, startOfDay } from 'date-fns';
 import { CATEGORY_DESCRIPTIONS } from '@/lib/ledgerConstants';
+import { isUuid } from '@/lib/isUuid';
 
 interface CategoryEntry {
   id: string;
@@ -43,7 +44,7 @@ function formatLabel(cat: string): string {
 }
 
 async function fetchPartyNames(userIds: string[]): Promise<PartyMap> {
-  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  const ids = Array.from(new Set(userIds.filter(isUuid)));
   if (ids.length === 0) return {};
   const { data } = await supabase
     .from('profiles')

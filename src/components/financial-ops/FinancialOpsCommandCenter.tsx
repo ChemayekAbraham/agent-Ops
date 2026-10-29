@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { FinOpsScope } from './FinOpsScope';
-import { Component, useEffect, useState, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
+import { Component, useEffect, useState, Suspense, type ComponentType, type ReactNode } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 // Eagerly imported: only what's needed on the Home view.
 import { WalletOverviewCard } from './WalletOverviewCard';
 import { MomoFeedSilenceAlert } from './MomoFeedSilenceAlert';
@@ -12,6 +13,7 @@ import { MerchantAgentFloatAllocationPanel } from './MerchantAgentFloatAllocatio
 import { MerchantBalanceDisputesPanel } from './MerchantBalanceDisputesPanel';
 import { PhonePlatformReconciliationCard } from './PhonePlatformReconciliationCard';
 import { AutoCreditSuccessRateTile } from './AutoCreditSuccessRateTile';
+import { V360NewPlansSwitch } from '@/components/v360/V360NewPlansSwitch';
 
 // Everything below is code-split — a panel's JS is only fetched when its
 // tool/view is opened. Keeps /admin/financial-ops first paint fast.
@@ -888,6 +890,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
 
         {!activeTool && view === 'home' && (
           <div className="mt-6 space-y-4">
+            <V360NewPlansSwitch />
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, lazy, Suspense, ReactNode } from 'react';
+import { useState, useEffect, useRef, Suspense, ReactNode } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth, type AppRole } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
