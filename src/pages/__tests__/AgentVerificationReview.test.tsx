@@ -13,6 +13,7 @@ vi.mock('@/hooks/useAgentVettingQueue', () => ({
   useAgentKycIdentityGroup: () => ({ data: { total: 0, linked_count: 0, members: [] } }),
 }));
 vi.mock('@/components/agent-vetting/VettingMap', () => ({ default: () => null }));
+vi.mock('@/hooks/useUserAvatars', () => ({ useUserAvatars: () => ({ avatarFor: () => null }) }));
 import AgentVerificationReview from '@/pages/agent-ops/AgentVerificationReview';
 
 beforeEach(() => {
