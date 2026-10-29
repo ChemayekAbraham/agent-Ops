@@ -138,6 +138,21 @@ describe('ZoeChatSurface', () => {
     fireEvent.click(downBtn);
     expect(onFeedback).toHaveBeenCalledWith('a-1', 'down');
 
+    // Clicking "Report a problem" opens the inline problem report form and submits report_kind = 'problem_report'
+    const reportProblemBtn = screen.getByTestId('zoe-report-problem-a-1');
+    expect(reportProblemBtn).toHaveTextContent('Report a problem');
+    fireEvent.click(reportProblemBtn);
+
+    expect(screen.getByTestId('zoe-feedback-form-a-1')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('zoe-feedback-comment-input-a-1'), {
+      target: { value: 'October payslip date looked one day off' },
+    });
+    fireEvent.click(screen.getByTestId('zoe-feedback-submit-a-1'));
+    expect(onFeedback).toHaveBeenCalledWith('a-1', 'down', {
+      comment: 'October payslip date looked one day off',
+      reportKind: 'problem_report',
+    });
+
     const clearBtn = screen.getByTestId('zoe-clear-history');
     fireEvent.click(clearBtn);
     expect(onClearHistory).toHaveBeenCalledTimes(1);
