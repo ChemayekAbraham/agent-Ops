@@ -32,7 +32,7 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
@@ -196,17 +196,9 @@ export function FunderHouseListingsSection() {
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
-  // How many filters the funder has actually switched on. Sort is an ordering,
-  // not a filter, so it is never counted.
-  const activeFilterCount = [
-    filters.search.trim() !== '',
-    filters.location.trim() !== '',
-    filters.amount !== 'all',
-    filters.rentMin !== null,
-    filters.rentMax !== null,
-    filters.radiusKm !== 'all',
-    filters.withinFloat,
-  ].filter(Boolean).length;
+  // How many filters the funder has actually switched on. The Filters button
+  // badges this number and turns purple while it is above zero.
+  const activeFilterCount = countActiveFunderFilters(filters);
   const filtersActive = activeFilterCount > 0;
 
   const resetFilters = () => {
