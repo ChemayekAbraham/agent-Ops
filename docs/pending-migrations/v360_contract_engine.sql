@@ -1,4 +1,4 @@
--- PROPOSAL ONLY. NOT APPLIED. Unified 360-Day Contract Engine, new Rent Plans only.
+-- APPLIED 2026-10-29 (Benjamin approved), corrected version applied via migration tool; kept for reference.
 -- This project has one connected database (production). Apply only after explicit approval.
 -- Existing plans are untouched: every new column defaults to legacy behaviour.
 
