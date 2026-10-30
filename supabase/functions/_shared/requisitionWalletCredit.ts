@@ -11,6 +11,7 @@
  */
 import { sendSMS } from "./sendSmsMultiProvider.ts";
 import { maySendRequisitionSms } from "./requisitionSmsPolicy.ts";
+import { assessReceiptPayout } from "./requisitionReceiptMatch.ts";
 
 // deno-lint-ignore no-explicit-any
 type Admin = any;
@@ -89,6 +90,25 @@ async function logAuditEvent(
     }));
 }
 
+/**
+ * Null when payout may proceed. A string when the receipt gate holds it.
+ * Fail closed if the requisition row cannot be read.
+ */
+async function staffReceiptPayoutHold(admin: Admin, requisitionId: string): Promise<string | null> {
+  const { data, error } = await admin
+    .from("staff_requisitions")
+    .select("*")
+    .eq("id", requisitionId)
+    .maybeSingle();
+  if (error || !data) {
+    return "Payout is frozen because the receipt check could not be read. Nothing was credited.";
+  }
+  if (data.wallet_credit_status === "credited") return null;
+  const verdict = assessReceiptPayout(data);
+  if (!verdict.active || verdict.allowed) return null;
+  return verdict.message;
+}
+
 export async function creditRequisitionWallet(
   input: RequisitionCreditInput,
 ): Promise<RequisitionCreditResult> {
@@ -109,6 +129,22 @@ export async function creditRequisitionWallet(
   }
   if (!userId) {
     return { ok: false, stage: "validation", message: "No requester account is linked to this requisition.", error: "no_recipient" };
+  }
+
+  // Receipt gate — before any lock, ledger post, or wallet write.
+  // A missing column (migration not applied) does not hold payout.
+  // An already-credited row is left alone: a later receipt gap is not clawed back.
+  if (sourceTable === "staff_requisitions") {
+    const held = await staffReceiptPayoutHold(admin, requisitionId);
+    if (held) {
+      await logAuditEvent(admin, {
+        actionType: "requisition_payout_frozen",
+        sourceTable, requisitionId, approverId,
+        reason: held.slice(0, 300),
+        metadata: { requisition_id: requisitionId, requisition_code: requisitionCode, amount },
+      });
+      return { ok: false, stage: "receipt_match", message: held, error: "payout_frozen" };
+    }
   }
 
   // 7. Audit trail — approval started.

@@ -1,4 +1,6 @@
 # Component decisions
+- Partner Ops promissory Pending and Approved figures, including the summary tile beside the list, use `countPromissoryQueue` on the shared promissory report. Approve & Pay still opens the existing confirmation and does not pay by itself. Delete stays in a separate danger zone and still requires a reason.
+- CFO Money Out Corrections (`PaidByCategory`) shows Benjamin's verified payroll-loyalty caption under the Corrections tile and as its tooltip. The caption does not recompute the tile total.
 
 - Agent Ops opens on 17 business-area entry panels, while all legacy views remain reachable through the collapsible desktop sections menu or mobile sections menu, so reorganizing the landing view never removes management data.
 - CFO bulk rent payments use a local selection-only review screen and revalidate every selected request before the existing payment function is called, so opening bulk review can never move money or change workflow state.

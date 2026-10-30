@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
+import { promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
 import { normalizeWa } from '@/lib/whatsapp';
@@ -175,9 +176,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
 
     if (!(Number(amount) > 0)) errs.promise.push('Promised amount');
     if (!recordedOn) errs.promise.push('Date recorded');
-    if (fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn) {
-      errs.promise.push('Fulfilment date must be on or after the recording date');
-    }
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    if (fulfilmentError) errs.promise.push(fulfilmentError);
 
     if (supportMode === 'self' && selectedPlanIds.length === 0 && selectedHouseIds.length === 0) errs.tenants.push('At least one house or tenant rent plan');
 
@@ -267,8 +267,11 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     if (submitting) return;
     setErrorMsg(null);
     setAttemptedStep(stepIndex);
-    if (currentStepHasErrors) {
-      const msg = `Please complete: ${stepErrors[currentStep.key].join(', ')}`;
+    const fulfilmentError = promissoryFulfilmentError(recordedOn, fulfilmentDueOn);
+    if (currentStepHasErrors || fulfilmentError) {
+      const msg = fulfilmentError && !currentStepHasErrors
+        ? fulfilmentError
+        : `Please complete: ${stepErrors[currentStep.key].join(', ')}`;
       setErrorMsg(msg);
       toast.error(msg);
       return;
@@ -659,7 +662,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
           </div>
           <div className="space-y-1">
             <Label htmlFor="promissory-fulfilment" className="text-xs">
-              Fulfil by
+              Fulfil by *
             </Label>
             <Input
               id="promissory-fulfilment"
@@ -671,8 +674,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
             />
           </div>
         </div>
-        {showStepErrors && fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn && (
-          <p className="text-[11px] text-destructive">Fulfilment date must be on or after the recording date</p>
+        {showStepErrors && promissoryFulfilmentError(recordedOn, fulfilmentDueOn) && (
+          <p className="text-[11px] text-destructive">{promissoryFulfilmentError(recordedOn, fulfilmentDueOn)}</p>
         )}
 
         {parsedAmount > 0 && (

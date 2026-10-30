@@ -4,6 +4,8 @@ import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
 import { authorizeStaffRequisitionDecision } from "../_shared/staffRequisitionApprovalAuth.ts";
+import { assessReceiptPayout } from "../_shared/requisitionReceiptMatch.ts";
+import { clearStaffReceiptGap } from "../_shared/requisitionReceiptRead.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,7 +74,7 @@ Deno.serve(async (req) => {
     const requisitionId = String(body.requisition_id || "");
     const action = String(body.action || "");
     const comment = String(body.comment ?? body.note ?? "").trim();
-    if (!requisitionId || !["approve", "reject", "return_info"].includes(action)) {
+    if (!requisitionId || !["approve", "reject", "return_info", "clear_receipt_gap"].includes(action)) {
       return json({ error: "bad_request" }, 400);
     }
     if (action !== "approve" && comment.length < 10) {
@@ -87,6 +89,26 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (rowErr) throw rowErr;
     if (!row) return json({ error: "Requisition not found" }, 404);
+
+    // CFO records that the receipt gap may be paid. This does not credit the wallet.
+    if (action === "clear_receipt_gap") {
+      if (row.requester_id === actor.id) {
+        return json({ error: "You cannot clear the receipt gap on your own requisition." }, 403);
+      }
+      if (!(await isCfoApprover(admin, actor.id))) {
+        return json({ error: "Only the CFO approver can clear an unaccounted receipt gap." }, 403);
+      }
+      const cleared = await clearStaffReceiptGap(admin, requisitionId, actor.id, comment);
+      if (!cleared.ok) return json({ error: cleared.error }, 409);
+      return json({
+        ok: true,
+        cleared: true,
+        payout_frozen: cleared.verdict.payoutFrozen,
+        amount_unaccounted: cleared.verdict.amountUnaccounted,
+        message: cleared.verdict.message,
+      }, 200);
+    }
+
     if (["approved", "rejected"].includes(row.stage)) {
       return json({ error: "already_final", message: `This requisition is already ${row.stage}.` }, 409);
     }
@@ -201,6 +223,33 @@ Deno.serve(async (req) => {
 
     const isFinalStage = isSixEyes ? stageKey === "cfo" : stageKey === row.final_stage;
 
+    // Submit is already allowed. Only the wallet credit is held.
+    if (isFinalStage) {
+      const verdict = assessReceiptPayout(row);
+      if (verdict.active && !verdict.allowed) {
+        if (body.clear_receipt_gap === true) {
+          if (!(await isCfoApprover(admin, actor.id))) {
+            return json({ error: "Only the CFO approver can clear an unaccounted receipt gap." }, 403);
+          }
+          if (comment.length < 10) {
+            return json({ error: "Clearing the receipt gap needs a note of at least 10 characters." }, 400);
+          }
+          const cleared = await clearStaffReceiptGap(admin, requisitionId, actor.id, comment);
+          if (!cleared.ok) return json({ error: cleared.error }, 409);
+          if (!cleared.verdict.allowed) {
+            return json({ error: cleared.verdict.message, code: "payout_frozen" }, 409);
+          }
+        } else {
+          await logEvent(admin, requisitionId, actor.id, actorName, "payout_frozen", stageKey, verdict.message, {
+            amount_unaccounted: verdict.amountUnaccounted,
+            status: verdict.status,
+            receipt_ocr_amount: verdict.ocrAmount,
+          });
+          return json({ error: verdict.message, code: "payout_frozen" }, 409);
+        }
+      }
+    }
+
     if (!isFinalStage) {
       const nextStage = isSixEyes
         ? SIX_EYES_NEXT[stageKey]
@@ -288,7 +337,13 @@ Deno.serve(async (req) => {
       await logEvent(admin, requisitionId, actor.id, actorName, "credit_failed", stageKey, credit.message, {
         stage_detail: credit.stage, error: credit.error,
       });
-      return json({ ok: false, error: credit.error, message: credit.message, rolled_back: true }, 400);
+      return json({
+        ok: false,
+        error: credit.error === "payout_frozen" ? credit.message : credit.error,
+        message: credit.message,
+        code: credit.error,
+        rolled_back: true,
+      }, 400);
     }
 
     await logEvent(admin, requisitionId, actor.id, actorName, "credited", stageKey, comment || "Approved and credited", {
