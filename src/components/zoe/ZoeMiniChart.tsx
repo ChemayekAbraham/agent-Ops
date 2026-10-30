@@ -70,7 +70,7 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
   return (
     <div
       data-testid="zoe-mini-chart"
-      className="my-2 rounded-lg border border-border bg-background p-3 space-y-2.5"
+      className="my-2 max-w-md rounded-lg border border-border/80 bg-muted/20 p-2.5 space-y-2"
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -97,10 +97,10 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
       </p>
 
       {chart.type === 'line' ? (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <svg
-            viewBox="0 0 300 84"
-            className="h-20 w-full overflow-visible"
+            viewBox="0 0 300 68"
+            className="h-14 w-full overflow-visible"
             role="img"
             aria-label={chart.title}
           >
@@ -110,7 +110,7 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
                   chart.data.length === 1
                     ? 150
                     : 12 + (idx / (chart.data.length - 1)) * 276;
-                const y = 72 - (Math.max(pt.value, 0) / maxVal) * 56;
+                const y = 58 - (Math.max(pt.value, 0) / maxVal) * 44;
                 return { x, y, pt };
               });
               const polyPoints = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
@@ -136,11 +136,11 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
               );
             })()}
           </svg>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
             {chart.data.slice(0, 6).map((pt, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between gap-1 rounded border border-border/60 bg-muted/20 px-2 py-1 text-xs"
+                className="flex items-center justify-between gap-1 rounded border border-border/60 bg-background/80 px-2 py-1 text-xs"
               >
                 <span className="truncate text-muted-foreground">{pt.label}</span>
                 <span className="font-semibold text-foreground shrink-0">
@@ -152,7 +152,7 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {chart.data.slice(0, 8).map((pt, idx) => {
+          {chart.data.slice(0, 6).map((pt, idx) => {
             const pct = Math.max(4, Math.min(100, Math.round((Math.abs(pt.value) / maxVal) * 100)));
             return (
               <div key={idx} className="space-y-1">
@@ -162,7 +162,7 @@ export const ZoeMiniChart: React.FC<{ chart: ZoeChartData }> = ({ chart }) => {
                     {formatChartValue(pt, chart.isUgx)}
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary transition-all"
                     style={{ width: `${pct}%` }}
