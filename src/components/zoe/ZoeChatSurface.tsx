@@ -58,8 +58,13 @@ import type {
   ZoeFeedbackRating,
   ZoeGlossaryEntry,
   ZoeGlossaryUpsertInput,
+  ZoeKnowledgeCategory,
+  ZoeKnowledgeEntry,
+  ZoeKnowledgeUpsertInput,
+  ZoeMemorySuggestion,
   ZoeMessage,
   ZoeNoteItem,
+  ZoePersonalisedStarter,
 } from './useZoeAssistant';
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -141,6 +146,11 @@ export interface ZoeChatSurfaceProps {
   morningBrief?: ZoeMorningBriefPayload | null;
   notes?: ZoeNoteItem[];
   glossaryEntries?: ZoeGlossaryEntry[];
+  knowledgeEntries?: ZoeKnowledgeEntry[];
+  personalisedStarters?: ZoePersonalisedStarter[];
+  memoryEnabled?: boolean;
+  temporaryChat?: boolean;
+  memorySuggestion?: ZoeMemorySuggestion | null;
   isLoading: boolean;
   isHistoryLoading?: boolean;
   streamingText?: string | null;
@@ -150,6 +160,10 @@ export interface ZoeChatSurfaceProps {
   errorMessage?: string | null;
   remainingQuestionsToday?: number | null;
   onToggleResearchMode?: (nextValue: boolean) => void;
+  onToggleMemoryEnabled?: (nextValue: boolean) => void | Promise<void>;
+  onToggleTemporaryChat?: (nextValue: boolean) => void;
+  onAcceptMemorySuggestion?: () => Promise<{ ok: boolean; error?: string }>;
+  onDismissMemorySuggestion?: () => void | Promise<void>;
   onSendMessage: (prompt: string) => void | Promise<void>;
   onStopGenerating?: () => void;
   onRegenerate?: () => void | Promise<void>;
@@ -165,8 +179,10 @@ export interface ZoeChatSurfaceProps {
   ) => void | Promise<void>;
   onClearHistory: () => void | Promise<void>;
   onAddNote?: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
+  onUpdateNote?: (noteId: string, noteText: string) => Promise<{ ok: boolean; error?: string }>;
   onDeleteNote?: (noteId: string) => Promise<{ ok: boolean; error?: string }>;
   onSaveGlossaryEntry?: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;
+  onSaveKnowledgeEntry?: (input: ZoeKnowledgeUpsertInput) => Promise<{ ok: boolean; error?: string }>;
   onSendEmail?: (input: SendZoeReportEmailInput) => Promise<SendZoeReportEmailResponse>;
   onConfirmReminder?: (input: ConfirmZoeReminderInput) => Promise<ConfirmZoeActionResult>;
   onConfirmNotification?: (input: ConfirmZoeNotificationInput) => Promise<ConfirmZoeActionResult>;
@@ -283,6 +299,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   morningBrief = null,
   notes = [],
   glossaryEntries = [],
+  knowledgeEntries = [],
+  personalisedStarters = [],
+  memoryEnabled: memoryEnabledProp,
+  temporaryChat: temporaryChatProp,
+  memorySuggestion = null,
   isLoading,
   isHistoryLoading = false,
   streamingText = null,
@@ -292,6 +313,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   errorMessage = null,
   remainingQuestionsToday = null,
   onToggleResearchMode,
+  onToggleMemoryEnabled,
+  onToggleTemporaryChat,
+  onAcceptMemorySuggestion,
+  onDismissMemorySuggestion,
   onSendMessage,
   onStopGenerating,
   onRegenerate,
@@ -303,8 +328,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onFeedback,
   onClearHistory,
   onAddNote,
+  onUpdateNote,
   onDeleteNote,
   onSaveGlossaryEntry,
+  onSaveKnowledgeEntry,
   onSendEmail,
   onConfirmReminder,
   onConfirmNotification,
@@ -321,12 +348,29 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
 }) => {
   const [draft, setDraft] = useState('');
   const [internalResearchMode, setInternalResearchMode] = useState(false);
+  const [internalMemoryEnabled, setInternalMemoryEnabled] = useState(true);
+  const [internalTemporaryChat, setInternalTemporaryChat] = useState(false);
   const activeResearchMode =
     typeof researchMode === 'boolean' ? researchMode : internalResearchMode;
+  const activeMemoryEnabled =
+    typeof memoryEnabledProp === 'boolean' ? memoryEnabledProp : internalMemoryEnabled;
+  const activeTemporaryChat =
+    typeof temporaryChatProp === 'boolean' ? temporaryChatProp : internalTemporaryChat;
+
   const handleToggleResearch = () => {
     const next = !activeResearchMode;
     setInternalResearchMode(next);
     onToggleResearchMode?.(next);
+  };
+  const handleToggleMemoryEnabled = () => {
+    const next = !activeMemoryEnabled;
+    setInternalMemoryEnabled(next);
+    void onToggleMemoryEnabled?.(next);
+  };
+  const handleToggleTemporaryChat = () => {
+    const next = !activeTemporaryChat;
+    setInternalTemporaryChat(next);
+    onToggleTemporaryChat?.(next);
   };
   const [showTopMoreMenu, setShowTopMoreMenu] = useState(false);
   const [showConversationList, setShowConversationList] = useState(false);
@@ -335,6 +379,8 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   const [noteDraft, setNoteDraft] = useState('');
   const [noteError, setNoteError] = useState<string | null>(null);
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState('');
   const [glossaryTermKey, setGlossaryTermKey] = useState('');
   const [glossaryTermTitle, setGlossaryTermTitle] = useState('');
   const [glossaryCategory, setGlossaryCategory] = useState<
@@ -344,6 +390,15 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   const [glossaryGotcha, setGlossaryGotcha] = useState('');
   const [glossarySourceNote, setGlossarySourceNote] = useState('');
   const [glossarySaveStatus, setGlossarySaveStatus] = useState<string | null>(null);
+  const [kbCategoryFilter, setKbCategoryFilter] = useState<'all' | ZoeKnowledgeCategory>('all');
+  const [kbSlug, setKbSlug] = useState('');
+  const [kbTitle, setKbTitle] = useState('');
+  const [kbCategory, setKbCategory] = useState<ZoeKnowledgeCategory>('measurement_gotcha');
+  const [kbSummary, setKbSummary] = useState('');
+  const [kbGotcha, setKbGotcha] = useState('');
+  const [kbWhereToFind, setKbWhereToFind] = useState('');
+  const [kbScreenPath, setKbScreenPath] = useState('/me');
+  const [kbSaveStatus, setKbSaveStatus] = useState<string | null>(null);
   const [editingConvId, setEditingConvId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -356,11 +411,18 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   const endOfMessagesRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Deliverable (5): Starter prompts only on an empty chat — at most three, chosen from role and recent topics
+  // Prompt 4 Deliverable (1): Personalised starters (up to 3 from caller's own last 30 days of topics, role & tools), falling back to role starters
   const starterSuggestions: ZoeSuggestion[] = useMemo(() => {
+    if (personalisedStarters && personalisedStarters.length > 0) {
+      return personalisedStarters.slice(0, 3).map((s) => ({
+        id: s.id,
+        label: s.label,
+        prompt: s.prompt,
+      }));
+    }
     const recentTopics = conversations.slice(0, 5).map((c) => c.title);
     return getStarterSuggestionsForRoles(roles, recentTopics, 3).slice(0, 3);
-  }, [roles, conversations]);
+  }, [personalisedStarters, roles, conversations]);
 
   const canManageGlossary = roles.some((r) => GLOSSARY_MANAGER_ROLES.has(r.toLowerCase()));
   const activeGlossaryEntries =
@@ -452,6 +514,57 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
       setGlossarySaveStatus(res.error || 'Could not save glossary entry.');
     }
   };
+
+  const handleSaveNoteEdit = async (noteId: string) => {
+    const trimmed = editingNoteDraft.trim();
+    if (!trimmed || !onUpdateNote) {
+      setEditingNoteId(null);
+      return;
+    }
+    setNoteError(null);
+    const res = await onUpdateNote(noteId, trimmed);
+    if (res.ok) {
+      setEditingNoteId(null);
+      setEditingNoteDraft('');
+    } else {
+      setNoteError(
+        res.error ||
+          'Zoe notes can only store short personal preferences (no UGX figures, account balances, or personal details about others).',
+      );
+    }
+  };
+
+  const handleSaveKbSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!onSaveKnowledgeEntry || !canManageGlossary) return;
+    setKbSaveStatus(null);
+    const res = await onSaveKnowledgeEntry({
+      slug: kbSlug.trim(),
+      title: kbTitle.trim(),
+      category: kbCategory,
+      summary: kbSummary.trim(),
+      body: kbSummary.trim(),
+      measurement_gotcha: kbGotcha.trim(),
+      where_to_find: kbWhereToFind.trim(),
+      screen_path: kbScreenPath.trim() || '/me',
+      is_published: true,
+    });
+    if (res.ok) {
+      setKbSaveStatus('Saved knowledge base entry.');
+      setKbSlug('');
+      setKbTitle('');
+      setKbSummary('');
+      setKbGotcha('');
+      setKbWhereToFind('');
+    } else {
+      setKbSaveStatus(res.error || 'Could not save knowledge base entry.');
+    }
+  };
+
+  const filteredKnowledgeEntries = useMemo(() => {
+    if (kbCategoryFilter === 'all') return knowledgeEntries;
+    return knowledgeEntries.filter((e) => e.category === kbCategoryFilter);
+  }, [knowledgeEntries, kbCategoryFilter]);
 
   const handleSuggestionClick = async (prompt: string) => {
     if (isLoading) return;
@@ -647,6 +760,15 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 Zoe
               </h2>
 
+              {activeTemporaryChat && (
+                <span
+                  data-testid="zoe-temporary-chat-badge"
+                  className="rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
+                >
+                  Temporary chat · No memory
+                </span>
+              )}
+
               {/* Deliverable (2): Show daily counter in main view ONLY when 10 or fewer remain */}
               {typeof remainingQuestionsToday === 'number' && remainingQuestionsToday <= 10 && (
                 <span
@@ -740,6 +862,52 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   <span className="inline-flex items-center gap-2">
                     <BookOpen className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                     <span>Glossary</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={!activeMemoryEnabled}
+                  data-testid="zoe-memory-off-switch"
+                  onClick={() => {
+                    handleToggleMemoryEnabled();
+                  }}
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <span>Memory off</span>
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-[11px] font-semibold',
+                      !activeMemoryEnabled
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {!activeMemoryEnabled ? 'On' : 'Off'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={activeTemporaryChat}
+                  data-testid="zoe-temporary-chat-toggle"
+                  onClick={() => {
+                    handleToggleTemporaryChat();
+                  }}
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <span>Temporary chat</span>
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-[11px] font-semibold',
+                      activeTemporaryChat
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {activeTemporaryChat ? 'On' : 'Off'}
                   </span>
                 </button>
 
@@ -868,26 +1036,69 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 <p className="py-1 text-xs text-muted-foreground">No saved Zoe notes yet.</p>
               ) : (
                 <div className="max-h-48 space-y-1.5 overflow-y-auto">
-                  {notes.map((n) => (
-                    <div
-                      key={n.id}
-                      data-testid={`zoe-note-item-${n.id}`}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
-                    >
-                      <span className="min-w-0 flex-1 break-words">{n.note_text}</span>
-                      {onDeleteNote && (
-                        <button
-                          type="button"
-                          aria-label={`Delete note ${n.note_text}`}
-                          data-testid={`zoe-note-delete-${n.id}`}
-                          onClick={() => void onDeleteNote(n.id)}
-                          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {notes.map((n) => {
+                    const isEditingNote = editingNoteId === n.id;
+                    return (
+                      <div
+                        key={n.id}
+                        data-testid={`zoe-note-item-${n.id}`}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      >
+                        {isEditingNote ? (
+                          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={editingNoteDraft}
+                              onChange={(e) => setEditingNoteDraft(e.target.value)}
+                              maxLength={160}
+                              aria-label="Edit Zoe note"
+                              data-testid={`zoe-note-edit-input-${n.id}`}
+                              className="min-h-[44px] min-w-0 flex-1 rounded border border-input bg-background px-2.5 py-1 text-xs text-foreground"
+                            />
+                            <button
+                              type="button"
+                              data-testid={`zoe-note-edit-save-${n.id}`}
+                              onClick={() => void handleSaveNoteEdit(n.id)}
+                              className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="min-w-0 flex-1 break-words">{n.note_text}</span>
+                            <div className="flex shrink-0 items-center gap-1">
+                              {onUpdateNote && (
+                                <button
+                                  type="button"
+                                  aria-label={`Edit note ${n.note_text}`}
+                                  data-testid={`zoe-note-edit-${n.id}`}
+                                  onClick={() => {
+                                    setEditingNoteId(n.id);
+                                    setEditingNoteDraft(n.note_text);
+                                  }}
+                                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              )}
+                              {onDeleteNote && (
+                                <button
+                                  type="button"
+                                  aria-label={`Delete note ${n.note_text}`}
+                                  data-testid={`zoe-note-delete-${n.id}`}
+                                  onClick={() => void onDeleteNote(n.id)}
+                                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-border bg-background px-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1040,6 +1251,165 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   )}
                 </form>
               )}
+
+              {/* Prompt 4 Deliverable (6): Curated Knowledge Base (searched via FTS before the web; managers edit via screen) */}
+              <div className="space-y-2 border-t border-border/60 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                      Curated Knowledge Base ({filteredKnowledgeEntries.length})
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Product/policy summaries, process explanations, &ldquo;where do I find X&rdquo; help, and measurement gotchas searched before the web.
+                    </p>
+                  </div>
+                  <select
+                    value={kbCategoryFilter}
+                    onChange={(e) =>
+                      setKbCategoryFilter(e.target.value as 'all' | ZoeKnowledgeCategory)
+                    }
+                    aria-label="Filter knowledge base category"
+                    data-testid="zoe-kb-category-filter"
+                    className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1 text-xs text-foreground"
+                  >
+                    <option value="all">All categories</option>
+                    <option value="glossary">Glossary</option>
+                    <option value="product_policy">Product &amp; Policy</option>
+                    <option value="process_explanation">Process explanation</option>
+                    <option value="where_to_find">Where do I find X</option>
+                    <option value="measurement_gotcha">Measurement gotcha</option>
+                  </select>
+                </div>
+
+                {filteredKnowledgeEntries.length > 0 && (
+                  <div className="max-h-48 space-y-2 overflow-y-auto">
+                    {filteredKnowledgeEntries.map((kb) => (
+                      <div
+                        key={kb.slug}
+                        data-testid={`zoe-kb-item-${kb.slug}`}
+                        className="space-y-1 rounded-lg border border-border bg-background p-2.5 text-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                          <span className="font-semibold text-foreground">{kb.title}</span>
+                          <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            {kb.category.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <p className="leading-relaxed text-foreground">{kb.summary}</p>
+                        {kb.measurement_gotcha && (
+                          <p className="leading-relaxed text-muted-foreground">
+                            <span className="font-semibold text-foreground">Measurement gotcha: </span>
+                            {kb.measurement_gotcha}
+                          </p>
+                        )}
+                        {kb.where_to_find && (
+                          <p className="leading-relaxed text-muted-foreground">
+                            <span className="font-semibold text-foreground">Where to find: </span>
+                            {kb.where_to_find}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {canManageGlossary && onSaveKnowledgeEntry && (
+                  <form
+                    onSubmit={(e) => void handleSaveKbSubmit(e)}
+                    data-testid="zoe-kb-manager-form"
+                    className="space-y-2 rounded-lg border border-border bg-background p-3"
+                  >
+                    <p className="text-xs font-semibold text-foreground">
+                      Manager Knowledge Base Editor (updates staff_assistant_knowledge_base directly)
+                    </p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <input
+                        type="text"
+                        value={kbSlug}
+                        onChange={(e) => setKbSlug(e.target.value)}
+                        placeholder="slug (e.g. where_to_find_cash_position)"
+                        aria-label="Knowledge base slug"
+                        data-testid="zoe-kb-slug-input"
+                        className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                      <input
+                        type="text"
+                        value={kbTitle}
+                        onChange={(e) => setKbTitle(e.target.value)}
+                        placeholder="Entry title"
+                        aria-label="Knowledge base title"
+                        data-testid="zoe-kb-title-input"
+                        className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                      <select
+                        value={kbCategory}
+                        onChange={(e) => setKbCategory(e.target.value as ZoeKnowledgeCategory)}
+                        aria-label="Knowledge base category"
+                        data-testid="zoe-kb-category-select"
+                        className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      >
+                        <option value="measurement_gotcha">Measurement gotcha</option>
+                        <option value="where_to_find">Where do I find X</option>
+                        <option value="product_policy">Product &amp; Policy</option>
+                        <option value="process_explanation">Process explanation</option>
+                        <option value="glossary">Glossary</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      value={kbSummary}
+                      onChange={(e) => setKbSummary(e.target.value)}
+                      placeholder="Summary / explanation..."
+                      aria-label="Knowledge base summary"
+                      data-testid="zoe-kb-summary-input"
+                      className="min-h-[44px] w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                    />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <input
+                        type="text"
+                        value={kbGotcha}
+                        onChange={(e) => setKbGotcha(e.target.value)}
+                        placeholder="Measurement gotcha (optional)..."
+                        aria-label="Knowledge base measurement gotcha"
+                        data-testid="zoe-kb-gotcha-input"
+                        className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                      <input
+                        type="text"
+                        value={kbWhereToFind}
+                        onChange={(e) => setKbWhereToFind(e.target.value)}
+                        placeholder="Where do I find X? (optional)..."
+                        aria-label="Knowledge base where to find"
+                        data-testid="zoe-kb-where-input"
+                        className="min-h-[44px] rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <input
+                        type="text"
+                        value={kbScreenPath}
+                        onChange={(e) => setKbScreenPath(e.target.value)}
+                        placeholder="/cfo/dashboard"
+                        aria-label="Knowledge base screen path"
+                        className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-input bg-background px-2.5 py-1.5 text-xs text-foreground"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!kbSlug.trim() || !kbTitle.trim() || !kbSummary.trim()}
+                        data-testid="zoe-kb-save-button"
+                        className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                      >
+                        Save knowledge entry
+                      </button>
+                    </div>
+                    {kbSaveStatus && (
+                      <p data-testid="zoe-kb-save-status" className="text-xs text-muted-foreground">
+                        {kbSaveStatus}
+                      </p>
+                    )}
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1626,6 +1996,42 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     <ZoeMarkdown content={streamingText} />
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Prompt 4 Deliverable (3): One-time "Remember this?" offer with Save and No thanks (nothing saved without a tap) */}
+            {memorySuggestion && activeMemoryEnabled && !activeTemporaryChat && (
+              <div
+                data-testid="zoe-memory-suggestion"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 text-xs text-foreground"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Bookmark className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground">{memorySuggestion.prompt}</p>
+                    <p className="truncate text-muted-foreground">
+                      Note: &ldquo;{memorySuggestion.note_text}&rdquo;
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="zoe-memory-suggestion-save"
+                    onClick={() => void onAcceptMemorySuggestion?.()}
+                    className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="zoe-memory-suggestion-dismiss"
+                    onClick={() => void onDismissMemorySuggestion?.()}
+                    className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    No thanks
+                  </button>
+                </div>
               </div>
             )}
 

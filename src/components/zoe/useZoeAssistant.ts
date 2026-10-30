@@ -60,6 +60,55 @@ export interface ZoeGlossaryUpsertInput {
   is_active?: boolean;
 }
 
+export type ZoeKnowledgeCategory =
+  | 'glossary'
+  | 'product_policy'
+  | 'process_explanation'
+  | 'where_to_find'
+  | 'measurement_gotcha';
+
+export interface ZoeKnowledgeEntry {
+  slug: string;
+  title: string;
+  category: ZoeKnowledgeCategory;
+  summary: string;
+  body: string;
+  measurement_gotcha: string;
+  where_to_find: string;
+  screen_path: string;
+  official_source: string;
+  keywords?: string[];
+  is_published?: boolean;
+  updated_at?: string;
+}
+
+export interface ZoeKnowledgeUpsertInput {
+  slug: string;
+  title: string;
+  category: ZoeKnowledgeCategory;
+  summary: string;
+  body?: string;
+  measurement_gotcha?: string;
+  where_to_find?: string;
+  screen_path?: string;
+  official_source?: string;
+  keywords?: string[];
+  is_published?: boolean;
+}
+
+export interface ZoeMemorySuggestion {
+  key: string;
+  note_text: string;
+  prompt: string;
+}
+
+export interface ZoePersonalisedStarter {
+  id: string;
+  label: string;
+  prompt: string;
+  topic?: string;
+  tool?: string;
+}
 
 export interface ZoeMessage {
   id: string;
@@ -88,6 +137,9 @@ interface StaffAssistantEdgeResponse {
   period?: string | null;
   report_payload?: Record<string, unknown> | null;
   follow_up_suggestions?: string[];
+  memory_suggestion?: ZoeMemorySuggestion | null;
+  temporary_chat?: boolean;
+  memory_enabled?: boolean;
   status_steps?: string[];
   research_mode?: boolean;
   research_plan?: string[];
@@ -241,6 +293,11 @@ export interface UseZoeAssistantReturn {
   morningBrief: ZoeMorningBriefPayload | null;
   notes: ZoeNoteItem[];
   glossaryEntries: ZoeGlossaryEntry[];
+  knowledgeEntries: ZoeKnowledgeEntry[];
+  personalisedStarters: ZoePersonalisedStarter[];
+  memoryEnabled: boolean;
+  temporaryChat: boolean;
+  memorySuggestion: ZoeMemorySuggestion | null;
   isLoading: boolean;
   isHistoryLoading: boolean;
   streamingText: string | null;
@@ -251,6 +308,10 @@ export interface UseZoeAssistantReturn {
   lastFailedPrompt: string | null;
   remainingQuestionsToday: number | null;
   setResearchMode: (enabled: boolean | ((prev: boolean) => boolean)) => void;
+  setMemoryEnabled: (enabled: boolean) => Promise<void>;
+  setTemporaryChat: (enabled: boolean) => void;
+  acceptMemorySuggestion: () => Promise<{ ok: boolean; error?: string }>;
+  dismissMemorySuggestion: () => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
   stopGenerating: () => void;
   regenerateLastAnswer: () => Promise<void>;
@@ -266,8 +327,10 @@ export interface UseZoeAssistantReturn {
   renameConversation: (conversationId: string, title: string) => Promise<void>;
   deleteConversation: (conversationId: string) => Promise<void>;
   addNote: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
+  updateNote: (noteId: string, noteText: string) => Promise<{ ok: boolean; error?: string }>;
   deleteNote: (noteId: string) => Promise<{ ok: boolean }>;
   saveGlossaryEntry: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;
+  saveKnowledgeEntry: (input: ZoeKnowledgeUpsertInput) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
@@ -278,6 +341,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const [morningBrief, setMorningBrief] = useState<ZoeMorningBriefPayload | null>(null);
   const [notes, setNotes] = useState<ZoeNoteItem[]>([]);
   const [glossaryEntries, setGlossaryEntries] = useState<ZoeGlossaryEntry[]>([]);
+  const [knowledgeEntries, setKnowledgeEntries] = useState<ZoeKnowledgeEntry[]>([]);
+  const [personalisedStarters, setPersonalisedStarters] = useState<ZoePersonalisedStarter[]>([]);
+  const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(true);
+  const [temporaryChat, setTemporaryChatState] = useState<boolean>(false);
+  const [memorySuggestion, setMemorySuggestion] = useState<ZoeMemorySuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
@@ -426,6 +494,51 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         /* ignore glossary load error */
       });
 
+    // Load personalised starters (up to 3 from caller's own last 30 days of topics, role & tools)
+    supabase.functions
+      .invoke<{ starters?: ZoePersonalisedStarter[] }>('staff-assistant', {
+        body: { action: 'personalised_starters' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.starters)) {
+          setPersonalisedStarters(data.starters.slice(0, 3));
+        }
+      })
+      .catch(() => {
+        /* ignore starter load error */
+      });
+
+    // Load caller's memory preferences ("Memory off" switch & dismissed suggestions)
+    supabase.functions
+      .invoke<{ memory_enabled?: boolean }>('staff-assistant', {
+        body: { action: 'get_memory_prefs' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (typeof data?.memory_enabled === 'boolean') {
+          setMemoryEnabledState(data.memory_enabled);
+        }
+      })
+      .catch(() => {
+        /* ignore memory prefs load error */
+      });
+
+    // Load curated Knowledge Base entries
+    supabase.functions
+      .invoke<{ rows?: ZoeKnowledgeEntry[] }>('staff-assistant', {
+        body: { action: 'search_knowledge_base', query: '', limit: 25 },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.rows)) {
+          setKnowledgeEntries(data.rows);
+        }
+      })
+      .catch(() => {
+        /* ignore knowledge base load error */
+      });
+
     return () => {
       cancelled = true;
       clearStreamTimer();
@@ -445,6 +558,33 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     setStatusLine(null);
   }, [clearStreamTimer]);
 
+  const setMemoryEnabled = useCallback(
+    async (nextEnabled: boolean) => {
+      setMemoryEnabledState(nextEnabled);
+      if (!nextEnabled) {
+        setMemorySuggestion(null);
+      }
+      if (!user?.id) return;
+      try {
+        await supabase.functions.invoke('staff-assistant', {
+          body: {
+            action: 'set_memory_prefs',
+            memory_enabled: nextEnabled,
+          },
+        });
+      } catch {
+        /* non-blocking */
+      }
+    },
+    [user?.id],
+  );
+
+  const setTemporaryChat = useCallback((nextTemp: boolean) => {
+    setTemporaryChatState(nextTemp);
+    if (nextTemp) {
+      setMemorySuggestion(null);
+    }
+  }, []);
 
   const sendMessage = useCallback(
     async (rawText: string) => {
@@ -494,7 +634,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
               action: 'message',
               message: prompt,
               ...(researchMode ? { research_mode: true } : {}),
-              ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
+              ...(temporaryChat ? { temporary_chat: true } : {}),
+              memory_enabled: memoryEnabled && !temporaryChat,
+              ...(!temporaryChat && conversationIdRef.current
+                ? { conversation_id: conversationIdRef.current }
+                : {}),
               client_context: { device: collectDevice() },
             },
           })
@@ -534,7 +678,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
           setResearchPlanSteps(res.research_plan);
         }
 
-        if (res.conversation_id) {
+        if (res.memory_suggestion && memoryEnabled && !temporaryChat) {
+          setMemorySuggestion(res.memory_suggestion);
+        }
+
+        if (res.conversation_id && !temporaryChat) {
           conversationIdRef.current = res.conversation_id;
           setActiveConversationId(res.conversation_id);
           setConversations((prev) => {
@@ -613,7 +761,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         }
       }
     },
-    [user?.id, clearStreamTimer, researchMode],
+    [user?.id, clearStreamTimer, researchMode, temporaryChat, memoryEnabled],
   );
 
   const regenerateLastAnswer = useCallback(async () => {
@@ -857,6 +1005,64 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const updateNote = useCallback(
+    async (noteId: string, noteText: string): Promise<{ ok: boolean; error?: string }> => {
+      const cleaned = noteText.trim();
+      if (!noteId || !cleaned || !user?.id) {
+        return { ok: false, error: 'Please enter a short preference note (2–240 characters).' };
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          ok?: boolean;
+          error?: string;
+          notes?: ZoeNoteItem[];
+        }>('staff-assistant', {
+          body: { action: 'update_note', note_id: noteId, note_text: cleaned },
+        });
+        const res = await readEdgeResponse(data, error);
+        if (Array.isArray((data as { notes?: ZoeNoteItem[] } | null)?.notes)) {
+          setNotes((data as { notes: ZoeNoteItem[] }).notes);
+        }
+        if ((data as { ok?: boolean } | null)?.ok === false || error) {
+          return {
+            ok: false,
+            error:
+              res.error ||
+              'Zoe notes may only store short preferences and must never contain business figures or personal data.',
+          };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Could not update Zoe note right now.' };
+      }
+    },
+    [user?.id],
+  );
+
+  const acceptMemorySuggestion = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!memorySuggestion) return { ok: false, error: 'No memory suggestion active.' };
+    const textToSave = memorySuggestion.note_text;
+    setMemorySuggestion(null);
+    return addNote(textToSave);
+  }, [memorySuggestion, addNote]);
+
+  const dismissMemorySuggestion = useCallback(async () => {
+    const key = memorySuggestion?.key;
+    setMemorySuggestion(null);
+    if (!key || !user?.id) return;
+    try {
+      await supabase.functions.invoke('staff-assistant', {
+        body: {
+          action: 'set_memory_prefs',
+          memory_enabled: memoryEnabled,
+          dismiss_preference_key: key,
+        },
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }, [memorySuggestion, user?.id, memoryEnabled]);
+
   const deleteNote = useCallback(
     async (noteId: string): Promise<{ ok: boolean }> => {
       if (!noteId || !user?.id) return { ok: false };
@@ -923,6 +1129,65 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const saveKnowledgeEntry = useCallback(
+    async (input: ZoeKnowledgeUpsertInput): Promise<{ ok: boolean; error?: string }> => {
+      if (!user?.id) return { ok: false, error: 'Not signed in.' };
+      try {
+        const { data, error } = await supabase.rpc(
+          'staff_assistant_upsert_knowledge_entry' as never,
+          {
+            p_slug: input.slug,
+            p_title: input.title,
+            p_category: input.category,
+            p_summary: input.summary,
+            p_body: input.body || input.where_to_find || input.summary,
+            p_measurement_gotcha: input.measurement_gotcha ?? '',
+            p_official_source: input.official_source ?? 'SYSTEM_CONTEXT.md',
+            p_screen_path: input.screen_path ?? '/me',
+            p_keywords: input.keywords ?? [],
+            p_review_status: input.is_published === false ? 'draft' : 'published',
+          } as never,
+        );
+        if (error) {
+          return { ok: false, error: error.message };
+        }
+        const raw = (data ?? {}) as { ok?: boolean; error?: string; slug?: string };
+        if (raw.ok === false) {
+          return { ok: false, error: raw.error || 'Could not save knowledge base entry.' };
+        }
+        const nextEntry: ZoeKnowledgeEntry = {
+          slug: raw.slug || input.slug,
+          title: input.title,
+          category: input.category,
+          summary: input.summary,
+          body: input.body ?? '',
+          measurement_gotcha: input.measurement_gotcha ?? '',
+          where_to_find: input.where_to_find ?? '',
+          screen_path: input.screen_path ?? '/me',
+          official_source: input.official_source ?? 'SYSTEM_CONTEXT.md',
+          keywords: input.keywords ?? [],
+          is_published: input.is_published ?? true,
+        };
+        setKnowledgeEntries((prev) => {
+          const idx = prev.findIndex((e) => e.slug === nextEntry.slug);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = nextEntry;
+            return next;
+          }
+          return [nextEntry, ...prev];
+        });
+        return { ok: true };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Could not save knowledge base entry.',
+        };
+      }
+    },
+    [user?.id],
+  );
+
   return {
     messages,
     conversations,
@@ -930,6 +1195,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     morningBrief,
     notes,
     glossaryEntries,
+    knowledgeEntries,
+    personalisedStarters,
+    memoryEnabled,
+    temporaryChat,
+    memorySuggestion,
     isLoading,
     isHistoryLoading,
     streamingText,
@@ -940,6 +1210,10 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     lastFailedPrompt,
     remainingQuestionsToday,
     setResearchMode,
+    setMemoryEnabled,
+    setTemporaryChat,
+    acceptMemorySuggestion,
+    dismissMemorySuggestion,
     sendMessage,
     stopGenerating,
     regenerateLastAnswer,
@@ -951,8 +1225,10 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     renameConversation,
     deleteConversation,
     addNote,
+    updateNote,
     deleteNote,
     saveGlossaryEntry,
+    saveKnowledgeEntry,
   };
 }
 

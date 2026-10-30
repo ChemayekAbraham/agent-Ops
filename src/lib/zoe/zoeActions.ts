@@ -124,22 +124,32 @@ export interface ZoeRemindersAndSchedulesPayload {
 }
 
 export interface ZoeMorningBriefSection {
+  id?: string;
   tool: string;
   rpc: string;
   title: string;
   source: string;
   period: string;
   summary: string;
-  row_count: number;
+  row_count?: number;
+  screen_path?: string;
+  current_value?: number;
+  four_week_avg?: number;
+  pct_change?: number;
+  direction?: 'up' | 'down' | 'flat';
 }
 
 export interface ZoeMorningBriefPayload {
-  available: boolean;
+  available?: boolean;
   enabled: boolean;
-  should_display_now: boolean;
+  should_display_now?: boolean;
+  should_display?: boolean;
+  in_app_only?: boolean;
+  max_items?: number;
   kampala_date: string;
-  scheduled_time_kampala: string;
-  headline: string;
+  scheduled_time_kampala?: string;
+  brief_time_kampala?: string;
+  headline?: string;
   sections: ZoeMorningBriefSection[];
   source: string;
   period: string;
