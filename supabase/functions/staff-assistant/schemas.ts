@@ -68,6 +68,8 @@ export const RequestSchema = z.discriminatedUnion("action", [
       stream: z.boolean().optional(),
       regenerate: z.boolean().optional(),
       research_mode: z.boolean().optional(),
+      temporary_chat: z.boolean().optional(),
+      memory_enabled: z.boolean().optional(),
     })
     .strict(),
   z
@@ -154,9 +156,41 @@ export const RequestSchema = z.discriminatedUnion("action", [
     .strict(),
   z
     .object({
+      action: z.literal("update_note"),
+      note_id: z.string().uuid(),
+      note_text: z.string().trim().min(2).max(240),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("get_memory_prefs"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("set_memory_prefs"),
+      memory_enabled: z.boolean().optional(),
+      dismiss_preference_key: z.string().trim().max(80).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("personalised_starters"),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("list_glossary"),
       search: z.string().trim().max(80).optional(),
       category: z.string().trim().max(40).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("search_knowledge_base"),
+      query: z.string().trim().max(160).optional(),
+      category: z.string().trim().max(40).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
     })
     .strict(),
 ]);

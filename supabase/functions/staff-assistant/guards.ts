@@ -528,20 +528,25 @@ export type ZoeNoteValidationResult =
         | "pii_email"
         | "pii_uuid"
         | "pii_nin"
+        | "pii_other_person"
         | "terminology";
     };
 
 const EMAIL_IN_NOTE_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
 const UG_NIN_RE = /\bC[MF][A-Z0-9]{12}\b/i;
+const STAFF_OR_RECORD_ID_IN_NOTE_RE = /\b(?:WEL-[A-Z0-9-]+|TSK-\d+|TCK-\d+|REQ-\d{4}-\d+|staff\s+id|national\s+id|nin\s*:)\b/i;
+const OTHER_PERSON_DETAIL_IN_NOTE_RE =
+  /\b(?:tenant|landlord|supporter|colleague|agent|customer|client|manager|caller)\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b/;
 const GENERIC_PHONE_IN_NOTE_RE = /(?:\+?\d[\d\s()-]{7,15}\d)/;
-const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\b/i;
+const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\s*\d|\b\d[\d,]*\s*(?:UGX|USh|shillings?)\b/i;
 
 /**
  * Deterministic validator for per-person `staff_assistant_notes` ("Zoe notes").
- * Enforces Prompt 2 item (5):
+ * Enforces Prompt 2 item (5) & Prompt 4 item (3):
  *   - Up to 240 characters per note
  *   - Never contains business figures (UGX amounts, percentages, shorthand 1.2M/500k, or numbers >= 100)
- *   - Never contains personal data about others (phone numbers, email addresses, UUIDs, NINs)
+ *   - Never contains personal data or IDs (phone numbers, email addresses, UUIDs, NINs, staff/record IDs)
+ *   - Never contains details about other people (named tenants, landlords, Supporters, colleagues, agents)
  *   - Never contains banned regulatory terms (loan, lender, ROI, interest)
  */
 export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
@@ -557,7 +562,7 @@ export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
     return { ok: false, reason: "terminology" };
   }
   UUID_RE.lastIndex = 0;
-  if (UUID_RE.test(cleaned)) {
+  if (UUID_RE.test(cleaned) || STAFF_OR_RECORD_ID_IN_NOTE_RE.test(cleaned)) {
     return { ok: false, reason: "pii_uuid" };
   }
   if (EMAIL_IN_NOTE_RE.test(cleaned)) {
@@ -569,6 +574,9 @@ export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
   PHONE_RE.lastIndex = 0;
   if (PHONE_RE.test(cleaned) || GENERIC_PHONE_IN_NOTE_RE.test(cleaned)) {
     return { ok: false, reason: "pii_phone" };
+  }
+  if (OTHER_PERSON_DETAIL_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_other_person" };
   }
   SHORTHAND_RE.lastIndex = 0;
   PERCENT_RE.lastIndex = 0;

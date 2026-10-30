@@ -1,5 +1,6 @@
 import { formatPeriodLabel } from "./dates.ts";
 import { validateZoeNoteText } from "./guards.ts";
+import { canUseTool, findTool } from "./tools.ts";
 
 export const PROMPT_ACTIVE_TURNS = 20;
 export const PROMPT_ACTIVE_MESSAGES = PROMPT_ACTIVE_TURNS * 2; // 40 messages = 20 turns
@@ -345,6 +346,7 @@ export function statusLineForTool(toolName: string): string {
     get_insight_payout_delays: "Analyzing landlord payout delays and verification queues...",
     get_insight_zoe_feedback_themes: "Reviewing Zoe unanswered questions and feedback themes...",
     get_welile_glossary: "Checking Welile glossary & measurement rules...",
+    search_knowledge_base: "Searching Welile Knowledge Base (Postgres full-text search)...",
     get_data_catalog: "Reading approved zoe_ro data catalog...",
     run_analyst_query: "Running read-only Analyst query on zoe_ro views...",
     draft_welile_idea: "Preparing Ideas for Welile draft card...",
@@ -355,79 +357,542 @@ export function statusLineForTool(toolName: string): string {
 }
 
 
+export interface FollowUpCandidate {
+  text: string;
+  requiredTool: string;
+}
+
 /**
- * Generates 2 or 3 contextual follow-up question suggestions under each answer.
+ * Prompt 4 item (2): Next-question suggestions.
+ * After a data answer, suggests up to 3 follow-ups grounded in what the answer actually
+ * contained (for example "Break this down by agent", "Compare with last week", "Show only plans below target")
+ * and verifies that every suggestion maps to an available tool (`canUseTool`) or the Analyst lane (`run_analyst_query`).
+ * Never suggests something Zoe cannot do for the caller's role.
  */
 export function buildFollowUpSuggestions(opts: {
   toolsCalled: readonly string[];
   callerRoles: readonly string[];
+  reportPayload?: Record<string, unknown> | null;
+  userMessage?: string;
 }): string[] {
   const lastTool = opts.toolsCalled[opts.toolsCalled.length - 1] ?? "";
+  const payload = opts.reportPayload ?? null;
+
+  const isToolAvailable = (toolName: string): boolean => {
+    const t = findTool(toolName);
+    if (!t) return false;
+    return canUseTool(t, opts.callerRoles);
+  };
+
+  const canRunAnalyst = isToolAvailable("run_analyst_query");
+
+  // Inspect payload keys & sample rows to ground suggestions in what the answer actually contained
+  const payloadKeys = new Set<string>();
+  if (payload) {
+    for (const k of Object.keys(payload)) payloadKeys.add(k.toLowerCase());
+    if (payload.data && typeof payload.data === "object" && !Array.isArray(payload.data)) {
+      for (const k of Object.keys(payload.data as Record<string, unknown>)) {
+        payloadKeys.add(k.toLowerCase());
+      }
+    }
+    const sampleRows = Array.isArray(payload.rows)
+      ? payload.rows
+      : Array.isArray(payload.by_stage)
+      ? payload.by_stage
+      : Array.isArray(payload.buckets)
+      ? payload.buckets
+      : [];
+    if (sampleRows.length > 0 && sampleRows[0] && typeof sampleRows[0] === "object") {
+      for (const k of Object.keys(sampleRows[0] as Record<string, unknown>)) {
+        payloadKeys.add(k.toLowerCase());
+      }
+    }
+  }
+
+  const candidates: FollowUpCandidate[] = [];
+
+  // Grounded dimensional follow-ups from payload columns/keys
+  if (
+    payloadKeys.has("agent_name") ||
+    payloadKeys.has("qualifying_agents") ||
+    payloadKeys.has("houses_listed") ||
+    lastTool.startsWith("get_aops_")
+  ) {
+    candidates.push({
+      text: "Break this down by agent",
+      requiredTool: isToolAvailable("get_aops_metrics_agents")
+        ? "get_aops_metrics_agents"
+        : "run_analyst_query",
+    });
+  }
+
+  if (
+    payloadKeys.has("expected_ugx") ||
+    payloadKeys.has("collected_ugx") ||
+    payloadKeys.has("arrears_ugx") ||
+    payloadKeys.has("paying_on_track") ||
+    lastTool === "get_tops_first_seven_summary" ||
+    lastTool === "get_tops_weekly_performance" ||
+    lastTool === "get_tops_arrears_ageing"
+  ) {
+    candidates.push({
+      text: "Show only Rent Plans below target or with no recent payment",
+      requiredTool: isToolAvailable("get_tops_no_payment_report")
+        ? "get_tops_no_payment_report"
+        : "get_tops_arrears_ageing",
+    });
+  }
+
+  if (
+    payloadKeys.has("city") ||
+    payloadKeys.has("district") ||
+    payloadKeys.has("region") ||
+    lastTool === "run_analyst_query" ||
+    lastTool === "get_data_catalog"
+  ) {
+    candidates.push({
+      text: "Group this by city or district in a table",
+      requiredTool: "run_analyst_query",
+    });
+  }
+
+  if (lastTool) {
+    candidates.push({
+      text: "Compare this vs last week",
+      requiredTool: lastTool,
+    });
+  }
 
   if (lastTool === "run_analyst_query" || lastTool === "get_data_catalog") {
-    return [
-      "Give me this breakdown in a table",
-      "Would you like this table as an Excel or PDF file?",
-      "Compare this with the official certified report",
-    ];
+    candidates.push(
+      { text: "Give me this breakdown in a table", requiredTool: "run_analyst_query" },
+      {
+        text: "Compare this with the official certified report",
+        requiredTool: isToolAvailable("get_tops_weekly_performance")
+          ? "get_tops_weekly_performance"
+          : "run_analyst_query",
+      },
+    );
+  } else if (lastTool.startsWith("get_insight_")) {
+    candidates.push(
+      { text: "Compare this week with the 4-week average", requiredTool: lastTool },
+      { text: "Give me the full breakdown in a table", requiredTool: lastTool },
+    );
+  } else if (lastTool.startsWith("get_tops_")) {
+    candidates.push(
+      {
+        text: "Show Rent Plan requests today and by stage",
+        requiredTool: "get_tops_rent_requests_by_stage",
+      },
+      {
+        text: "What is the time on desk for open Rent Plan requests?",
+        requiredTool: "get_tops_time_on_desk",
+      },
+    );
+  } else if (lastTool.startsWith("get_lops_")) {
+    candidates.push(
+      {
+        text: "Show the Landlord Ops verification queue",
+        requiredTool: "get_lops_verification_queue",
+      },
+      { text: "Show paid and repaying landlords", requiredTool: "get_lops_paid_lists" },
+    );
+  } else if (lastTool.startsWith("get_aops_")) {
+    candidates.push(
+      { text: "Which agents are silent collectors today?", requiredTool: "get_aops_silent_collectors" },
+      { text: "Show sub-agent teams and risk summary", requiredTool: "get_aops_subagent_teams" },
+    );
+  } else if (lastTool.startsWith("get_pops_") || lastTool === "get_pso_cohort_performance") {
+    candidates.push(
+      { text: "How much in Supporter Returns is due this week?", requiredTool: "get_pops_returns_due" },
+      {
+        text: "Which top-ups and withdrawals are waiting?",
+        requiredTool: "get_pops_topups_and_withdrawals_waiting",
+      },
+    );
+  } else if (lastTool.startsWith("get_cfo_") || lastTool.startsWith("get_fops_")) {
+    candidates.push(
+      { text: "Show disbursements for the last 7 days", requiredTool: "get_fops_disbursements" },
+      {
+        text: "Show merchant cash-outs and withdrawals waiting",
+        requiredTool: "get_fops_merchant_cashouts",
+      },
+    );
+  } else if (lastTool.startsWith("get_hr_") || lastTool === "get_my_calls") {
+    candidates.push(
+      { text: "Show my own calls for this week", requiredTool: "get_my_calls" },
+      { text: "Give me the full breakdown by caller", requiredTool: "get_hr_calling_detailed_report" },
+    );
   }
 
-  if (lastTool.startsWith("get_insight_")) {
-    return [
-      "Save this suggestion to Ideas for Welile",
-      "Give me the full breakdown in a table",
-      "Compare this week with the 4-week average",
-    ];
+  // Fallback My Space suggestions that every role can execute
+  candidates.push(
+    { text: "Show my pending tasks and tickets", requiredTool: "get_my_tasks" },
+    { text: "Show my own calls for this week", requiredTool: "get_my_calls" },
+    { text: "Search the Welile Knowledge Base for measurement rules", requiredTool: "search_knowledge_base" },
+  );
+
+  const verified: string[] = [];
+  for (const cand of candidates) {
+    if (verified.length >= 3) break;
+    if (verified.includes(cand.text)) continue;
+    if (
+      isToolAvailable(cand.requiredTool) ||
+      (cand.requiredTool === "run_analyst_query" && canRunAnalyst)
+    ) {
+      verified.push(cand.text);
+    }
   }
 
-  if (lastTool.startsWith("get_tops_")) {
-    return [
-      "And last week? What is the difference?",
-      "Show Rent Plan requests today and by stage",
-      "What is the time on desk for open Rent Plan requests?",
-    ];
+  return verified.slice(0, 3);
+}
+
+/**
+ * Prompt 4 item (5): Fixed list of 13 question topics for `staff_assistant_learning_log`.
+ * Never stores a second copy of the staff member's question text.
+ */
+export const ZOE_FIXED_TOPICS = [
+  "my_space",
+  "tenant_ops",
+  "landlord_ops",
+  "calling_center",
+  "agent_ops",
+  "supporters_partner_ops",
+  "finance_cfo",
+  "coo_ceo_executive",
+  "hr_people",
+  "welile_glossary_process",
+  "general_accounting_writing",
+  "research_advice",
+  "other",
+] as const;
+
+export type ZoeQuestionTopic = (typeof ZOE_FIXED_TOPICS)[number];
+
+export function classifyQuestionTopic(opts: {
+  userMessage: string;
+  toolsCalled?: readonly string[];
+  consultantMode?: boolean;
+  researchMode?: boolean;
+}): ZoeQuestionTopic {
+  const tools = opts.toolsCalled ?? [];
+  const primaryTool = tools[0] ?? "";
+  const q = (opts.userMessage ?? "").toLowerCase();
+
+  if (opts.researchMode || opts.consultantMode || tools.includes("search_web") || tools.includes("read_web_page")) {
+    return "research_advice";
   }
-  if (lastTool.startsWith("get_lops_")) {
-    return [
-      "Show the Landlord Ops verification queue",
-      "Compare this week with last week",
-      "Show paid and repaying landlords",
-    ];
+  if (primaryTool.startsWith("get_cfo_") || primaryTool.startsWith("get_fops_")) {
+    return "finance_cfo";
   }
-  if (lastTool.startsWith("get_aops_")) {
-    return [
-      "Show sub-agent teams and risk summary",
-      "Which agents are silent collectors today?",
-      "Compare this period with last month",
-    ];
+  if (primaryTool === "get_coo_overview" || primaryTool === "get_ceo_growth_and_approvals") {
+    return "coo_ceo_executive";
   }
-  if (lastTool.startsWith("get_pops_") || lastTool === "get_pso_cohort_performance") {
-    return [
-      "How much in Supporter Returns is due this week?",
-      "Which top-ups and withdrawals are waiting?",
-      "Give me the full breakdown in a table",
-    ];
+  if (
+    primaryTool === "get_hr_calling_detailed_report" ||
+    primaryTool === "get_my_calls" ||
+    primaryTool === "get_lops_calling_summary" ||
+    primaryTool === "get_lops_calling_coverage" ||
+    primaryTool === "get_tops_awareness_calls" ||
+    primaryTool === "get_insight_calling_reach_and_themes"
+  ) {
+    return "calling_center";
   }
-  if (lastTool.startsWith("get_cfo_") || lastTool.startsWith("get_fops_")) {
-    return [
-      "Show disbursements for the last 7 days",
-      "Show merchant cash-outs and withdrawals waiting",
-      "Compare with the previous period",
-    ];
+  if (primaryTool.startsWith("get_tops_")) return "tenant_ops";
+  if (primaryTool.startsWith("get_lops_")) return "landlord_ops";
+  if (primaryTool.startsWith("get_aops_")) return "agent_ops";
+  if (primaryTool.startsWith("get_pops_") || primaryTool === "get_pso_cohort_performance") {
+    return "supporters_partner_ops";
   }
-  if (lastTool.startsWith("get_hr_") || lastTool === "get_my_calls") {
-    return [
-      "Show my own calls for this week",
-      "Compare calling totals with last week",
-      "Give me the full breakdown by caller",
-    ];
+  if (primaryTool.startsWith("get_hr_")) return "hr_people";
+  if (primaryTool.startsWith("get_my_")) return "my_space";
+  if (
+    primaryTool === "get_welile_glossary" ||
+    primaryTool === "search_knowledge_base" ||
+    primaryTool === "get_staff_manual_help"
+  ) {
+    return "welile_glossary_process";
   }
 
-  return [
-    "Show my pending tasks and tickets",
-    "Show my own calls for this week",
-    "What can you do for my role?",
-  ];
+  // Keyword fallback when no tool was called (e.g. general questions or unanswered)
+  if (/\b(?:treasury|cash position|receivables|payables|cfo|disbursement|merchant cashout|budget)\b/.test(q)) {
+    return "finance_cfo";
+  }
+  if (/\b(?:calling center|call report|jane|winnie|hanisha|awareness call|my calls)\b/.test(q)) {
+    return "calling_center";
+  }
+  if (/\b(?:first 7 days|arrears|tenant ops|time on desk|no payment)\b/.test(q)) {
+    return "tenant_ops";
+  }
+  if (/\b(?:landlord ops|landlord payout|unverified landlord)\b/.test(q)) {
+    return "landlord_ops";
+  }
+  if (/\b(?:agent ops|silent collector|sub-?agent|house listing)\b/.test(q)) {
+    return "agent_ops";
+  }
+  if (/\b(?:supporter|partner ops|returns due|promissory)\b/.test(q)) {
+    return "supporters_partner_ops";
+  }
+  if (/\b(?:payslip|my tasks|my tickets|my requisition|canteen|my advance|my wallet|my space)\b/.test(q)) {
+    return "my_space";
+  }
+  if (/\b(?:payroll|headcount|expiring contract|birthday|hr)\b/.test(q)) {
+    return "hr_people";
+  }
+  if (/\b(?:glossary|where do i find|how does welile|expected vs collected|am_plan_clock)\b/.test(q)) {
+    return "welile_glossary_process";
+  }
+  if (/\b(?:what should we do|way forward|advice|recommend|why did|review this plan)\b/.test(q)) {
+    return "research_advice";
+  }
+  if (/\b(?:explain|accrual|working capital|balance sheet|depreciation|draft|write a|email|memo|like i'm five|calculate)\b/.test(q)) {
+    return "general_accounting_writing";
+  }
+  return "other";
+}
+
+export function classifyFeedbackTheme(
+  comment: string | undefined,
+  reportKind?: "rating" | "problem_report",
+): string {
+  const c = (comment ?? "").toLowerCase();
+  if (/slow|timeout|latency|wait/.test(c)) return "latency_or_timeout";
+  if (/number|figure|wrong|mismatch|off|inaccurate/.test(c)) return "figure_mismatch";
+  if (/missing|not found|cannot|can't/.test(c)) return "missing_coverage";
+  if (reportKind === "problem_report") return "problem_report";
+  return "general_thumbs_down";
+}
+
+/**
+ * Prompt 4 item (1): Personalised starters helper.
+ * Filters starter candidates so every starter maps to a tool the caller's role can run,
+ * and caps the result at 3 starters. Never uses other people's text.
+ */
+export interface PersonalisedStarterItem {
+  id: string;
+  topic: ZoeQuestionTopic;
+  label: string;
+  prompt: string;
+  tool: string;
+  reason?: string;
+}
+
+export const FALLBACK_ROLE_STARTERS: readonly PersonalisedStarterItem[] = [
+  {
+    id: "starter-cfo-treasury",
+    topic: "finance_cfo",
+    label: "Treasury cash position (A1 + A5)",
+    prompt: "What is our spendable Treasury Cash Position (Accounts A1 and A5) today?",
+    tool: "get_cfo_treasury_cash_position",
+    reason: "role_default",
+  },
+  {
+    id: "starter-tops-first7",
+    topic: "tenant_ops",
+    label: "First 7 Days collection summary",
+    prompt: "How are newly funded Rent Plans performing in the First 7 Days report today?",
+    tool: "get_tops_first_seven_summary",
+    reason: "role_default",
+  },
+  {
+    id: "starter-lops-summary",
+    topic: "landlord_ops",
+    label: "Landlord Ops verifications & payouts",
+    prompt: "How many landlords were verified and paid out in Landlord Ops over the last 7 days?",
+    tool: "get_lops_home_range",
+    reason: "role_default",
+  },
+  {
+    id: "starter-aops-overview",
+    topic: "agent_ops",
+    label: "Agent Ops network & silent collectors",
+    prompt: "Show the Agent Ops network overview and silent field collectors today.",
+    tool: "get_aops_network_overview",
+    reason: "role_default",
+  },
+  {
+    id: "starter-pops-pending",
+    topic: "supporters_partner_ops",
+    label: "Pending Supporter portfolios",
+    prompt: "How many pending Supporter portfolios are in the Partner Ops queue and what is their total UGX?",
+    tool: "get_pops_pending_summary",
+    reason: "role_default",
+  },
+  {
+    id: "starter-calling-report",
+    topic: "calling_center",
+    label: "Weekly Calling Center report",
+    prompt: "Show the weekly Calling Center report and reach rates for this week.",
+    tool: "get_hr_calling_detailed_report",
+    reason: "role_default",
+  },
+  {
+    id: "starter-my-tasks",
+    topic: "my_space",
+    label: "My pending tasks & requisitions",
+    prompt: "Show my pending tasks in My Work and the status of my staff requisitions.",
+    tool: "get_my_tasks",
+    reason: "role_default",
+  },
+  {
+    id: "starter-my-calls",
+    topic: "calling_center",
+    label: "My calls this week",
+    prompt: "How many calls have I logged this week in my personal calling report?",
+    tool: "get_my_calls",
+    reason: "role_default",
+  },
+  {
+    id: "starter-kb-gotchas",
+    topic: "welile_glossary_process",
+    label: "Welile measurement rules & glossary",
+    prompt: "Explain the difference between Expected vs Collected rent and when the Rent Plan repayment clock starts.",
+    tool: "search_knowledge_base",
+    reason: "role_default",
+  },
+];
+
+export function selectRoleVerifiedStarters(
+  callerRoles: readonly string[],
+  rpcStarters?: ReadonlyArray<Record<string, unknown>>,
+): PersonalisedStarterItem[] {
+  const out: PersonalisedStarterItem[] = [];
+  const isAllowed = (toolName: string): boolean => {
+    const t = findTool(toolName);
+    return t ? canUseTool(t, callerRoles) : false;
+  };
+
+  if (Array.isArray(rpcStarters)) {
+    for (const raw of rpcStarters) {
+      if (out.length >= 3) break;
+      const id = typeof raw.id === "string" ? raw.id : "";
+      const label = typeof raw.label === "string" ? raw.label : "";
+      const prompt = typeof raw.prompt === "string" ? raw.prompt : "";
+      const tool = typeof raw.tool === "string" ? raw.tool : "";
+      const topic = (typeof raw.topic === "string" ? raw.topic : "other") as ZoeQuestionTopic;
+      if (!id || !label || !prompt || !tool) continue;
+      if (!isAllowed(tool)) continue;
+      out.push({
+        id,
+        topic,
+        label,
+        prompt,
+        tool,
+        reason: typeof raw.reason === "string" ? raw.reason : "own_30d_topic_history",
+      });
+    }
+  }
+
+  for (const fallback of FALLBACK_ROLE_STARTERS) {
+    if (out.length >= 3) break;
+    if (out.some((x) => x.id === fallback.id || x.prompt === fallback.prompt)) continue;
+    if (!isAllowed(fallback.tool)) continue;
+    out.push(fallback);
+  }
+
+  return out.slice(0, 3);
+}
+
+/**
+ * Prompt 4 item (3): Memory that learns.
+ * When Zoe notices a repeated preference across the user's messages (for example
+ * "in millions", "Kampala Central", "short answers"), she offers once:
+ *   "Remember this?" with Save and No thanks.
+ * Nothing is saved without a tap. Blocks figures, phone numbers, emails, IDs,
+ * and details about other people via `validateZoeNoteText`.
+ */
+export interface ZoeMemorySuggestion {
+  key: string;
+  note_text: string;
+  prompt: string;
+}
+
+const LEARNABLE_PREFERENCE_PATTERNS: ReadonlyArray<{
+  key: string;
+  regex: RegExp;
+  noteText: string;
+}> = [
+  {
+    key: "pref_in_millions",
+    regex: /\bin\s+millions\b/i,
+    noteText: "Format large amounts in millions",
+  },
+  {
+    key: "pref_kampala_central",
+    regex: /\bkampala\s+central\b/i,
+    noteText: "Focus on Kampala Central when relevant",
+  },
+  {
+    key: "pref_wakiso",
+    regex: /\bwakiso\b/i,
+    noteText: "Focus on Wakiso district when relevant",
+  },
+  {
+    key: "pref_mukono",
+    regex: /\bmukono\b/i,
+    noteText: "Focus on Mukono district when relevant",
+  },
+  {
+    key: "pref_short_answers",
+    regex: /\b(?:short\s+answers?|keep\s+it\s+short|be\s+brief|concise\s+answers?)\b/i,
+    noteText: "Keep answers short and concise",
+  },
+  {
+    key: "pref_bullet_points",
+    regex: /\b(?:in\s+bullet\s+points?|use\s+bullets|bulleted\s+list)\b/i,
+    noteText: "Use concise bullet points",
+  },
+  {
+    key: "pref_table_format",
+    regex: /\b(?:in\s+a\s+table|table\s+format|as\s+a\s+table)\b/i,
+    noteText: "Present breakdowns in a Markdown table",
+  },
+];
+
+export function detectRepeatedUserPreference(opts: {
+  currentMessage: string;
+  recentUserMessages: readonly string[];
+  existingNotes: ReadonlyArray<{ note_text: string }>;
+  dismissedPromptKeys?: readonly string[];
+  memoryEnabled?: boolean;
+  temporaryChat?: boolean;
+}): ZoeMemorySuggestion | null {
+  if (opts.memoryEnabled === false || opts.temporaryChat === true) {
+    return null;
+  }
+
+  const current = (opts.currentMessage ?? "").trim();
+  if (!current) return null;
+
+  const existingLower = new Set(
+    opts.existingNotes.map((n) => (n.note_text ?? "").trim().toLowerCase()),
+  );
+  const dismissed = new Set(
+    (opts.dismissedPromptKeys ?? []).map((k) => k.trim().toLowerCase()),
+  );
+
+  const explicitAlways = /\b(?:always|every\s+time|from\s+now\s+on|by\s+default)\b/i.test(current);
+
+  for (const pat of LEARNABLE_PREFERENCE_PATTERNS) {
+    if (!pat.regex.test(current)) continue;
+    if (dismissed.has(pat.key.toLowerCase())) continue;
+    if (existingLower.has(pat.noteText.toLowerCase())) continue;
+
+    // Count occurrences across recent user messages + current message
+    const priorMatches = opts.recentUserMessages.filter((m) => pat.regex.test(m)).length;
+    if (priorMatches >= 1 || explicitAlways) {
+      const validation = validateZoeNoteText(pat.noteText);
+      if (validation.ok) {
+        return {
+          key: pat.key,
+          note_text: validation.cleaned,
+          prompt: "Remember this?",
+        };
+      }
+    }
+  }
+
+  return null;
 }
 
 export const MAX_ZOE_NOTES_PER_USER = 20;
