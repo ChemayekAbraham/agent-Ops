@@ -380,3 +380,35 @@ export function useCfoDisburseSignage() {
   });
 }
 
+export function useDeleteSignage() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (signageId: string) => {
+      try {
+        const { error } = await (supabase as any)
+          .from('welile_signages')
+          .delete()
+          .eq('id', signageId);
+        if (error) {
+          console.warn('[useDeleteSignage] Server delete fallback to local storage:', error.message);
+        }
+      } catch (err) {
+        console.warn('[useDeleteSignage] Local delete:', err);
+      }
+
+      // Update local storage
+      const locals = getLocalSignages().filter((rec) => rec.id !== signageId);
+      saveLocalSignages(locals);
+
+      return signageId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success('Signage application deleted successfully.');
+    },
+    onError: (err: any) => {
+      toast.error('Failed to delete signage: ' + (err.message || 'Unknown error'));
+    },
+  });
+}
