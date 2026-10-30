@@ -2008,58 +2008,211 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 Rejecting a request keeps its tenants enrolled. The agent then sends a new request from their
                 Welile Homes screen, which links the exact tenants it covers.
               </p>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {floatRequests
                   .filter((f) => f.status === 'pending')
-                  .map((req) => (
-                    <div
-                      key={req.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-card border border-border/60"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs sm:text-sm font-bold text-foreground">{req.agent_name || 'Agent'}</span>
-                          {req.agent_phone && (
-                            <span className="text-[11px] text-muted-foreground">({req.agent_phone})</span>
-                          )}
-                          <span className="text-xs font-bold text-primary tabular-nums">
-                            {formatUGX(Number(req.requested_amount) || 0)}
-                          </span>
+                  .map((req) => {
+                    const reasonLandlord = req.reason?.match(/For:\s*([^,\n\r]+)/i)?.[1]?.trim();
+                    const matchingTenants = rows.filter((r) => {
+                      if (r.agent_id !== req.agent_id) return false;
+                      if (reasonLandlord && r.landlord_name) {
+                        return (
+                          r.landlord_name.toLowerCase().includes(reasonLandlord.toLowerCase()) ||
+                          reasonLandlord.toLowerCase().includes(r.landlord_name.toLowerCase())
+                        );
+                      }
+                      return true;
+                    });
+                    const landlordName = reasonLandlord || matchingTenants[0]?.landlord_name || 'Landlord Float Request';
+                    const landlordPhone = matchingTenants[0]?.landlord_phone || req.expected_recipient_phone || '';
+                    const tenantCount =
+                      matchingTenants.length > 0
+                        ? matchingTenants.length
+                        : Number(req.reason?.match(/(\d+)\s*tenants?/i)?.[1]) || 1;
+                    const isExpanded = !!expandedAppLandlords[req.id];
+
+                    return (
+                      <Card
+                        key={req.id}
+                        className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-2xs hover:border-primary/40 transition-all"
+                      >
+                        {/* Landlord Card Header */}
+                        <div
+                          onClick={() => {
+                            setExpandedAppLandlords((prev) => ({ ...prev, [req.id]: !prev[req.id] }));
+                          }}
+                          className="p-3.5 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none bg-muted/20 hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              <Home className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs sm:text-sm font-bold text-foreground truncate uppercase">
+                                  {landlordName}
+                                </span>
+                                {landlordPhone && (
+                                  <span className="text-[11px] text-muted-foreground font-normal">
+                                    ({landlordPhone})
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (req.agent_id) setProfileAgentId(req.agent_id);
+                                    else toast.info(`Agent: ${req.agent_name || 'Agent'} (no ID linked)`);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all cursor-pointer"
+                                  title="Click to inspect Agent 360 Performance across products"
+                                >
+                                  <Sparkles className="h-3 w-3 text-amber-500" />
+                                  <span>Agent: {req.agent_name || 'Agent'}</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-primary/20 px-1 rounded ml-0.5">360°</span>
+                                </button>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-purple-500/30 text-purple-600 bg-purple-500/10">
+                                  Welile Homes
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/40 text-amber-600 bg-amber-500/10 gap-1">
+                                  <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                  Pending Agent Ops
+                                </Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'} · Total float: <span className="font-semibold text-foreground">{formatUGX(Number(req.requested_amount) || 0)}</span>
+                                <span className="text-[10px] text-muted-foreground ml-2">Requested {new Date(req.created_at).toLocaleDateString()}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 font-bold text-xs px-2.5 py-0.5">
+                              {formatUGX(Number(req.requested_amount) || 0)}
+                            </Badge>
+
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                forwardToTenantOps(req.id);
+                              }}
+                              disabled={forwardingId === req.id || rejectingReq}
+                              className="h-8 px-2.5 sm:px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              {forwardingId === req.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              )}
+                              <span className="hidden sm:inline">Approve & Forward to Tenant Ops</span>
+                              <span className="sm:hidden">Forward</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRejectRequest(req);
+                              }}
+                              disabled={forwardingId === req.id || rejectingReq}
+                              className="h-8 px-2.5 sm:px-3 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              <span>Reject with note</span>
+                            </Button>
+
+                            <div className="text-muted-foreground">
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                          {req.reason || 'Welile Homes landlord float'}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Requested {new Date(req.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        <Button
-                          size="sm"
-                          onClick={() => forwardToTenantOps(req.id)}
-                          disabled={forwardingId === req.id || rejectingReq}
-                          className="h-8 px-3 text-xs font-semibold gap-1.5 cursor-pointer"
-                        >
-                          {forwardingId === req.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          )}
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openRejectRequest(req)}
-                          disabled={forwardingId === req.id || rejectingReq}
-                          className="h-8 px-3 text-xs font-semibold gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          Reject with note
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+
+                        {/* Attached Tenant Applications */}
+                        {isExpanded && (
+                          <div className="p-3 sm:p-4 pt-2 sm:pt-2 space-y-2.5 bg-muted/5 border-t border-border/40">
+                            {matchingTenants.length > 0 ? (
+                              matchingTenants.map((t) => (
+                                <div
+                                  key={t.id}
+                                  className="rounded-2xl border p-3.5 sm:p-4 transition-all border-primary/25 bg-primary/5 hover:bg-primary/8"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide">
+                                            {t.tenant_name}
+                                          </span>
+                                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                            {t.landlord_uses_wallet ? 'Welile Wallet' : 'Agent Float'}
+                                          </Badge>
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              "text-[10px] px-1.5 py-0 font-normal gap-1",
+                                              t.tenant_verified
+                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+                                                : "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                                            )}
+                                          >
+                                            {t.tenant_verified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
+                                            {t.tenant_verified ? 'Verified' : 'Unverified'}
+                                          </Badge>
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/40 text-amber-600 bg-amber-500/10 gap-1">
+                                            <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                            Pending Agent Ops
+                                          </Badge>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setHistorySub(t)}
+                                          className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mt-0.5 cursor-pointer text-left"
+                                        >
+                                          <span>{t.tenant_phone || 'No phone'}</span>
+                                          <span>· Tap for payment history</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-border/40 text-xs">
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Monthly Rent</span>
+                                      <span className="font-bold text-foreground tabular-nums text-xs sm:text-sm">
+                                        {formatUGX(Number(t.monthly_rent) || 0)}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Outstanding</span>
+                                      <span className="font-bold text-destructive tabular-nums text-xs sm:text-sm">
+                                        {formatUGX(Number(t.outstanding_balance) || 0)}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Payout Day</span>
+                                      <span className="font-bold text-foreground text-xs sm:text-sm">
+                                        {t.payout_day ? `Day ${t.payout_day}` : '—'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-3 rounded-xl bg-card border border-border/60 text-xs space-y-1 text-muted-foreground">
+                                <p className="font-semibold text-foreground">Request Details</p>
+                                <p>{req.reason || 'Welile Homes landlord float'}</p>
+                                {req.expected_recipient_phone && (
+                                  <p>Recipient Phone: <span className="text-foreground font-medium">{req.expected_recipient_phone}</span></p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
               </div>
             </Card>
           )}
