@@ -91165,6 +91165,16 @@ export type Database = {
           unmapped: boolean
         }[]
       }
+      tlb_log_location_pdf_export: {
+        Args: {
+          p_place_labels?: string[]
+          p_places: number
+          p_reason: string
+          p_status: string
+          p_tenants: number
+        }
+        Returns: string
+      }
       tlb_search_locations: {
         Args: { p_limit?: number; p_query: string; p_status?: string }
         Returns: {
@@ -91204,6 +91214,28 @@ export type Database = {
           is_active: boolean
           latest_status: string
           legacy_location: string
+          parish_name: string
+          region: string
+          subcounty_name: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+          village_name: string
+        }[]
+      }
+      tlb_tenants_multi: {
+        Args: { p_limit?: number; p_paths: Json; p_status?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          county_name: string
+          depth: number
+          district_name: string
+          is_active: boolean
+          latest_status: string
+          legacy_location: string
+          matched_path_index: number
           parish_name: string
           region: string
           subcounty_name: string
