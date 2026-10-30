@@ -1877,3 +1877,13 @@ html.reduce-motion *::after {
   .assistant-chat > div:has(> div > button > h2) h2 { font-size: 14px; }
 }
 
+
+/* Tenant Locations: selected-places bar slides up when it first appears.
+   Off entirely when the person asks for reduced motion. */
+@keyframes tlb-bar-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tlb-selection-bar { animation: tlb-bar-up 0.22s ease-out; }
+}
