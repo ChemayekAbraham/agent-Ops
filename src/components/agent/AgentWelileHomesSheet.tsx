@@ -1323,7 +1323,7 @@ function RequestFloatDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[90vh] overflow-y-auto p-3.5 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-primary" /> Request Landlord Float
@@ -2419,7 +2419,7 @@ function EnrollDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto p-3.5 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
@@ -2437,22 +2437,24 @@ function EnrollDialog({
         </DialogHeader>
 
         {/* Step Indicator */}
-        <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-2 text-xs">
+        <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg border bg-muted/30 p-1.5 sm:p-2 text-xs">
           <button
             type="button"
             onClick={() => setStep('landlord')}
-            className={`flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium transition-colors ${step === 'landlord'
+            className={`flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1.5 sm:px-2 font-medium transition-colors ${step === 'landlord'
                 ? 'bg-background shadow-xs text-foreground font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             <span
-              className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${landlordName ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground'
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${landlordName ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground'
                 }`}
             >
               {landlordName ? '✓' : '1'}
             </span>
-            <span className="truncate">1. Landlord{landlordName ? `: ${landlordName}` : ''}</span>
+            <span className="truncate text-[11px] sm:text-xs">
+              1. Landlord{landlordName ? `: ${landlordName}` : ''}
+            </span>
           </button>
 
           <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -2461,18 +2463,18 @@ function EnrollDialog({
             type="button"
             disabled={!landlordName}
             onClick={() => { if (landlordName) setStep('tenant'); }}
-            className={`flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium transition-colors disabled:opacity-50 ${step === 'tenant'
+            className={`flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1.5 sm:px-2 font-medium transition-colors disabled:opacity-50 ${step === 'tenant'
                 ? 'bg-background shadow-xs text-foreground font-semibold'
                 : 'text-muted-foreground hover:text-foreground'
               }`}
           >
             <span
-              className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${step === 'tenant' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step === 'tenant' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'
                 }`}
             >
               2
             </span>
-            <span className="truncate">2. Tenant & Rent</span>
+            <span className="truncate text-[11px] sm:text-xs">2. Tenant & Rent</span>
           </button>
         </div>
 
@@ -2480,12 +2482,13 @@ function EnrollDialog({
         {step === 'landlord' && (
           <div className="space-y-4">
             <Tabs value={landlordMode} onValueChange={(v) => setLandlordMode(v as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="choose" className="text-xs">
+              <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
+                <TabsTrigger value="choose" className="text-[11px] sm:text-xs px-1 sm:px-3 truncate">
                   My Landlords ({landlords.length})
                 </TabsTrigger>
-                <TabsTrigger value="register" className="text-xs">
-                  + Register New Landlord
+                <TabsTrigger value="register" className="text-[11px] sm:text-xs px-1 sm:px-3 truncate">
+                  <span className="sm:hidden">+ Register Landlord</span>
+                  <span className="hidden sm:inline">+ Register New Landlord</span>
                 </TabsTrigger>
               </TabsList>
 
@@ -2497,7 +2500,7 @@ function EnrollDialog({
                     value={landlordQuery}
                     onChange={(e) => setLandlordQuery(e.target.value)}
                     placeholder="Find your landlord by name or phone..."
-                    className="h-9 pl-8 text-sm"
+                    className="h-9 pl-8 text-xs sm:text-sm"
                   />
                 </div>
 
@@ -2550,29 +2553,34 @@ function EnrollDialog({
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') handleSelectLandlord(l);
                           }}
-                          className={`flex items-center justify-between gap-2 rounded-lg border p-2.5 text-left text-xs transition-colors cursor-pointer ${isSelected
+                          className={`flex items-center justify-between gap-2 rounded-xl border p-2 sm:p-2.5 text-left text-xs transition-colors cursor-pointer ${isSelected
                               ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
                               : 'hover:bg-muted/60'
                             }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                             {l.passportUrl ? (
                               <img
                                 src={l.passportUrl}
                                 alt={l.name}
-                                className="h-9 w-9 rounded-full object-cover border border-primary/30 shrink-0"
+                                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-primary/30 shrink-0"
                               />
                             ) : (
-                              <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
+                              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-[11px] sm:text-xs">
                                 {l.name.slice(0, 2).toUpperCase()}
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-foreground truncate flex items-center gap-1.5">
-                                {l.name}
+                              <p className="font-semibold text-foreground truncate flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm">
+                                <span className="truncate">{l.name}</span>
                                 {isSelected && (
-                                  <Badge variant="default" className="text-[9px] h-4 px-1 py-0 font-normal">
+                                  <Badge variant="default" className="text-[9px] h-4 px-1 py-0 font-normal shrink-0">
                                     Selected
+                                  </Badge>
+                                )}
+                                {l.count > 0 && (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 shrink-0">
+                                    {l.count} {l.count === 1 ? 'tenant' : 'tenants'}
                                   </Badge>
                                 )}
                                 {l.gps && (
@@ -2580,52 +2588,45 @@ function EnrollDialog({
                                     "text-[9px] font-normal px-1 py-0.2 rounded shrink-0",
                                     l.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
                                   )}>
-                                    {l.gps.latitude ? "📍 GPS" : "🌐 IP Verified"}
+                                    {l.gps.latitude ? "📍 GPS" : "🌐 IP"}
                                   </span>
                                 )}
                               </p>
-                              <p className="text-muted-foreground truncate text-[11px]">
+                              <p className="text-muted-foreground truncate text-[10px] sm:text-[11px]">
                                 {l.phone || 'No phone'}
                                 {l.address ? ` · ${l.address}` : ''}
                               </p>
                             </div>
                           </div>
-                          <div className="shrink-0 flex items-center gap-1.5">
-                            {l.count > 0 ? (
-                              <Badge variant="secondary" className="text-[10px]">
-                                {l.count} {l.count === 1 ? 'tenant' : 'tenants'}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] text-primary/80 border-primary/30 bg-primary/5">
-                                Welile Homes
-                              </Badge>
-                            )}
+                          <div className="shrink-0 flex items-center gap-1 sm:gap-1.5">
                             {isSelected ? (
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-xs border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors"
+                                className="h-7 px-2 text-[11px] sm:text-xs border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSelectLandlord(l);
                                 }}
                                 title="Click to deselect"
                               >
-                                <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-primary shrink-0" /> Selected
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-primary shrink-0" />
+                                <span>Selected</span>
                               </Button>
                             ) : (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs hover:bg-primary/10 hover:text-primary"
+                                className="h-7 px-2 text-[11px] sm:text-xs text-primary hover:bg-primary/10"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSelectLandlord(l);
                                 }}
                               >
-                                Select →
+                                <span>Select</span>
+                                <ArrowRight className="h-3 w-3 ml-0.5" />
                               </Button>
                             )}
                             <Button
@@ -2653,10 +2654,10 @@ function EnrollDialog({
                     type="button"
                     onClick={handleProceedWithSelectedLandlord}
                     disabled={!landlordName}
-                    className="w-full gap-2"
+                    className="w-full gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
                   >
-                    <span>Continue to Tenant Registration</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span className="truncate">Continue to Tenant Registration</span>
+                    <ArrowRight className="h-4 w-4 shrink-0" />
                   </Button>
                 </div>
               </TabsContent>
@@ -3051,17 +3052,17 @@ function EnrollDialog({
                     type="button"
                     onClick={handleSaveNewLandlord}
                     disabled={savingLandlord || !newLandlordName.trim() || !newLandlordPhone.trim() || (!gpsLat && !capturedIp)}
-                    className="w-full gap-2 h-11"
+                    className="w-full gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
                   >
                     {savingLandlord ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Saving Landlord & Uploading Photos...</span>
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        <span className="truncate">Saving Landlord & Uploading Photos...</span>
                       </>
                     ) : (
                       <>
-                        <UserCheck className="h-4 w-4" />
-                        <span>Save Landlord & Continue to Tenant →</span>
+                        <UserCheck className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Save Landlord & Continue to Tenant →</span>
                       </>
                     )}
                   </Button>
@@ -3247,17 +3248,17 @@ function EnrollDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setStep('landlord')}
-                className="gap-1.5"
+                className="gap-1.5 h-10 sm:h-11 px-3 text-xs shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
               <Button
                 onClick={submit}
                 disabled={submitting || (!tenant && newName.trim().length < 2) || !phone.trim() || !rent.trim()}
-                className="flex-1 gap-2"
+                className="flex-1 min-w-0 gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
               >
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
-                Enroll Tenant for {landlordName}
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <UserCheck className="h-4 w-4 shrink-0" />}
+                <span className="truncate">Enroll Tenant for {landlordName}</span>
               </Button>
             </div>
           </div>
