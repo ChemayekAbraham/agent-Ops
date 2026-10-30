@@ -362,10 +362,29 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
       // Float request linked to each subscription (empty until the float-link migration).
       try {
-        setFloatLinks(await fetchWhFloatLinks());
+        const dbLinks = await fetchWhFloatLinks();
+        // Resilient fallback: merge with locally recorded pending float links for this agent
+        const localKey = `wh_pending_float_subs_${user.id}`;
+        let localSaved: Record<string, string> = {};
+        try {
+          localSaved = JSON.parse(localStorage.getItem(localKey) || '{}');
+        } catch { }
+        const merged = new Map(dbLinks);
+        for (const [subId, status] of Object.entries(localSaved)) {
+          if (!merged.has(subId)) {
+            merged.set(subId, status);
+          }
+        }
+        setFloatLinks(merged);
       } catch (linkErr) {
         console.warn('Welile Homes float links unavailable:', linkErr);
-        setFloatLinks(new Map());
+        try {
+          const localKey = `wh_pending_float_subs_${user.id}`;
+          const localSaved = JSON.parse(localStorage.getItem(localKey) || '{}');
+          setFloatLinks(new Map(Object.entries(localSaved)));
+        } catch {
+          setFloatLinks(new Map());
+        }
       }
 
       // Agent 2% earnings + pending landlord payouts
@@ -406,6 +425,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         .ilike('reason', WH_REASON_ILIKE)
         .order('created_at', { ascending: false });
       setFloatRequests(floatReqs ?? []);
+
+      // If latest float request was rejected, clean up local cache so tenant is back in Enrolled
+      if (floatReqs && floatReqs[0]?.status === 'rejected') {
+        try {
+          const localKey = `wh_pending_float_subs_${user.id}`;
+          localStorage.removeItem(localKey);
+        } catch { }
+      }
     } catch (err: any) {
       toast({ title: 'Failed to load Welile Homes', description: err.message, variant: 'destructive' });
     } finally {
@@ -432,7 +459,52 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     );
   }, [subs, listQuery]);
 
-  // Group visible subscriptions by landlord
+  // Stage and delete lock per subscription, from recorded facts only.
+  const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
+    const facts = {
+      subscriptionStatus: sub.subscription_status,
+      linkedRequestStatus: floatLinks.get(sub.id) ?? null,
+      hasCollections: collectedSubIds.has(sub.id),
+      collectionsUnknown,
+    };
+    const stage = resolveWhPlanStage(facts);
+    return pipelineInfo(stage, isWhPlanLocked(facts), stage === 'declined' ? sub.notes || undefined : undefined);
+  }, [floatLinks, collectedSubIds, collectionsUnknown]);
+
+  // Main lifecycle tab: enrolled (ready to request float), in_progress (read-only under review), active (funded/repaying)
+  const [mainTab, setMainTab] = useState<'enrolled' | 'in_progress' | 'active'>('enrolled');
+
+  const enrolledSubs = useMemo(() => {
+    return visibleSubs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return true;
+      const fp = getSubscriptionPipeline(s);
+      return !fp.isPending && !fp.canCollect;
+    });
+  }, [visibleSubs, getSubscriptionPipeline]);
+
+  const inProgressSubs = useMemo(() => {
+    return visibleSubs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      const fp = getSubscriptionPipeline(s);
+      return fp.isPending;
+    });
+  }, [visibleSubs, getSubscriptionPipeline]);
+
+  const activeFundedSubs = useMemo(() => {
+    return visibleSubs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      const fp = getSubscriptionPipeline(s);
+      return fp.canCollect;
+    });
+  }, [visibleSubs, getSubscriptionPipeline]);
+
+  const displayedSubs = useMemo(() => {
+    if (mainTab === 'in_progress') return inProgressSubs;
+    if (mainTab === 'active') return activeFundedSubs;
+    return enrolledSubs;
+  }, [mainTab, enrolledSubs, inProgressSubs, activeFundedSubs]);
+
+  // Group displayed subscriptions by landlord
   const landlordGroups = useMemo<Array<{
     key: string;
     name: string;
@@ -450,7 +522,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       totalOutstanding: number;
     }>();
 
-    visibleSubs.forEach((s) => {
+    displayedSubs.forEach((s) => {
       const name = (s.landlord_name || '').trim() || 'Unassigned Landlord';
       const phone = (s.landlord_phone || '').trim();
       const key = `${name.toLowerCase()}|${phone}`;
@@ -474,19 +546,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     });
 
     return Array.from(map.values());
-  }, [visibleSubs]);
-
-  // Stage and delete lock per subscription, from recorded facts only.
-  const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
-    const facts = {
-      subscriptionStatus: sub.subscription_status,
-      linkedRequestStatus: floatLinks.get(sub.id) ?? null,
-      hasCollections: collectedSubIds.has(sub.id),
-      collectionsUnknown,
-    };
-    const stage = resolveWhPlanStage(facts);
-    return pipelineInfo(stage, isWhPlanLocked(facts), stage === 'declined' ? sub.notes || undefined : undefined);
-  }, [floatLinks, collectedSubIds, collectionsUnknown]);
+  }, [displayedSubs]);
 
   // Landlord badge: all declined, else the first tenant with a recorded stage.
   const getLandlordPipeline = useCallback((group: { name: string; phone?: string; tenants: WHSubscription[] }): FloatPipelineInfo => {
@@ -501,7 +561,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     return pipelineInfo('not_requested', false);
   }, [getSubscriptionPipeline]);
 
+  const handleTabChange = (tab: 'enrolled' | 'in_progress' | 'active') => {
+    setMainTab(tab);
+    setSelectedTenantIds(new Set());
+  };
+
   const toggleTenant = (tenantId: string) => {
+    if (mainTab !== 'enrolled') return;
     const target = subs.find((s) => s.id === tenantId);
     if (target?.subscription_status === 'cancelled') return;
     setSelectedTenantIds((prev) => {
@@ -513,16 +579,19 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
 
   const isLandlordAllSelected = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return false;
     const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
     return active.length > 0 && active.every((t) => selectedTenantIds.has(t.id));
   };
 
   const isLandlordPartiallySelected = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return false;
     const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
     return active.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
   };
 
   const toggleLandlord = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
       const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
@@ -561,7 +630,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   );
 
   const handleToggleSelectAll = () => {
-    const active = visibleSubs.filter((s) => s.subscription_status !== 'cancelled');
+    if (mainTab !== 'enrolled') return;
+    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled');
     if (selectedTenantIds.size === active.length && active.length > 0) {
       setSelectedTenantIds(new Set());
     } else {
@@ -577,27 +647,41 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     <div className={cn("space-y-4", !isPage && "p-4")}>
       {/* Stats */}
       <div className="grid grid-cols-2 gap-2.5">
-        <Card><CardContent className="p-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Enrolled</div>
-          <div className="flex items-baseline gap-2">
-            <p className="text-xl font-bold">{loading ? '...' : activeSubs.length}</p>
-            {declinedSubs.length > 0 && (
-              <span className="text-[10px] text-destructive font-medium">
-                ({declinedSubs.length} declined)
-              </span>
-            )}
-          </div>
-        </CardContent></Card>
-        <Card><CardContent className="p-3">
-          <div className="flex items-center justify-between gap-1">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
-              <Banknote className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">Receivable</span>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">Enrolled</span>
             </div>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <p className="text-xl font-bold">{loading ? '...' : activeSubs.length}</p>
+              {declinedSubs.length > 0 && (
+                <span className="text-[10px] text-destructive font-medium">
+                  ({declinedSubs.length} declined)
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1 pt-1 border-t border-border/30">Active subscriptions</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Banknote className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">Receivables</span>
+            </div>
+            <p className="text-lg font-bold truncate mt-0.5">
+              {formatUGX(receivablePeriod === 'monthly' ? monthlyReceivable : totalReceivable)}
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-border/30">
+            <span className="text-[10px] text-muted-foreground truncate">
+              {receivablePeriod === 'monthly' ? 'Monthly' : '12-mo term'}
+            </span>
             <div
               role="tablist"
               aria-label="Receivable period"
-              className="inline-flex shrink-0 items-center rounded-full bg-muted p-0.5 text-[10px] border border-border/40"
+              className="inline-flex shrink-0 items-center rounded-md bg-muted/80 p-0.5 text-[9px] border border-border/40"
             >
               <button
                 type="button"
@@ -605,9 +689,9 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                 aria-selected={receivablePeriod === 'monthly'}
                 onClick={() => setReceivablePeriod('monthly')}
                 className={cn(
-                  'h-5 px-2 rounded-full font-medium transition-all flex items-center justify-center',
+                  'px-1.5 py-0.5 rounded font-bold text-[9px] transition-all flex items-center justify-center leading-none',
                   receivablePeriod === 'monthly'
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    ? 'bg-background text-primary shadow-xs'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
                 title="Per month receivable"
@@ -620,9 +704,9 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                 aria-selected={receivablePeriod === 'yearly'}
                 onClick={() => setReceivablePeriod('yearly')}
                 className={cn(
-                  'h-5 px-2 rounded-full font-medium transition-all flex items-center justify-center',
+                  'px-1.5 py-0.5 rounded font-bold text-[9px] transition-all flex items-center justify-center leading-none',
                   receivablePeriod === 'yearly'
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    ? 'bg-background text-primary shadow-xs'
                     : 'text-muted-foreground hover:text-foreground',
                 )}
                 title="Full 12-month receivable"
@@ -631,20 +715,20 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
               </button>
             </div>
           </div>
-          <p className="text-lg font-bold">
-            {formatUGX(receivablePeriod === 'monthly' ? monthlyReceivable : totalReceivable)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {receivablePeriod === 'monthly' ? 'Per month' : 'Full 12-month term'}
-          </p>
         </CardContent></Card>
-        <Card><CardContent className="p-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrendingUp className="h-3.5 w-3.5" /> Your 2% earned</div>
-          <p className="text-lg font-bold text-emerald-600">{formatUGX(earned)}</p>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <TrendingUp className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+            <span className="font-medium truncate">Your 2% earned</span>
+          </div>
+          <p className="text-lg font-bold text-emerald-600 truncate mt-0.5">{formatUGX(earned)}</p>
         </CardContent></Card>
-        <Card><CardContent className="p-3">
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock className="h-3.5 w-3.5" /> Pending payouts</div>
-          <p className="text-lg font-bold text-orange-600">{formatUGX(pendingPayouts)}</p>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-orange-600" />
+            <span className="font-medium truncate">Pending payouts</span>
+          </div>
+          <p className="text-lg font-bold text-orange-600 truncate mt-0.5">{formatUGX(pendingPayouts)}</p>
         </CardContent></Card>
       </div>
 
@@ -706,6 +790,71 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </div>
       )}
 
+      {/* Lifecycle Navigation Tabs */}
+      <div className="w-full">
+        <Tabs
+          value={mainTab}
+          onValueChange={(val) => handleTabChange(val as 'enrolled' | 'in_progress' | 'active')}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted/60 rounded-xl">
+            <TabsTrigger
+              value="enrolled"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>Enrolled</span>
+              <Badge
+                variant={mainTab === 'enrolled' ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  mainTab === 'enrolled'
+                    ? "bg-primary/15 text-primary border-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {enrolledSubs.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="in_progress"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>In Progress</span>
+              <Badge
+                variant={inProgressSubs.length > 0 ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  inProgressSubs.length > 0
+                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                    : mainTab === 'in_progress'
+                      ? "bg-primary/15 text-primary border-primary/20"
+                      : "bg-muted text-muted-foreground"
+                )}
+              >
+                {inProgressSubs.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="active"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>Active</span>
+              <Badge
+                variant={mainTab === 'active' ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  mainTab === 'active'
+                    ? "bg-primary/15 text-primary border-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {activeFundedSubs.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : subs.length === 0 ? (
@@ -716,10 +865,56 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         <div className="text-center py-10 text-sm text-muted-foreground">
           No match for "{listQuery}".
         </div>
+      ) : displayedSubs.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground border rounded-xl bg-card/60 p-6 space-y-2">
+          {mainTab === 'in_progress' ? (
+            <>
+              <Clock className="h-8 w-8 mx-auto text-amber-500/70" />
+              <p className="font-semibold text-foreground">No float requests in progress</p>
+              <p className="text-xs max-w-sm mx-auto">
+                When you request float for enrolled tenants, their applications move here to be reviewed and approved by Agent Ops.
+              </p>
+            </>
+          ) : mainTab === 'active' ? (
+            <>
+              <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500/70" />
+              <p className="font-semibold text-foreground">No active funded plans</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Tenants whose float has been approved and disbursed by the CFO appear here for rent collection.
+              </p>
+            </>
+          ) : (
+            <>
+              <Users className="h-8 w-8 mx-auto text-muted-foreground/60" />
+              <p className="font-semibold text-foreground">No enrolled tenants awaiting float</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Tap <b>Add Tenant</b> above to register tenants and landlords.
+              </p>
+            </>
+          )}
+        </div>
       ) : (
         <div className="space-y-3 pb-20">
+          {/* Read-Only Notice for In-Progress Tab */}
+          {mainTab === 'in_progress' && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs shadow-xs">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <span className="font-semibold text-xs text-foreground">Float In Progress • Read-Only Mode</span>
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/15 font-medium">
+                    At Agent Ops
+                  </Badge>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
+                  These applications have requested float and are currently awaiting review and approval by Agent Ops. To ensure compliance, plans are locked in read-only mode during review.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Latest float request rejected: show the reviewer's note */}
-          {floatRequests[0]?.status === 'rejected' && floatRequests[0]?.rejection_reason && (
+          {mainTab === 'enrolled' && floatRequests[0]?.status === 'rejected' && floatRequests[0]?.rejection_reason && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
               <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
               <div className="min-w-0 text-xs">
@@ -736,20 +931,20 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           {/* Select All Toolbar */}
           <div className="flex items-center justify-between text-xs px-1 text-muted-foreground">
             <span>
-              {landlordGroups.length} {landlordGroups.length === 1 ? 'landlord' : 'landlords'} · {visibleSubs.length} {visibleSubs.length === 1 ? 'tenant' : 'tenants'}
-              {declinedSubs.length > 0 && (
+              {landlordGroups.length} {landlordGroups.length === 1 ? 'landlord' : 'landlords'} · {displayedSubs.length} {displayedSubs.length === 1 ? 'tenant' : 'tenants'}
+              {mainTab === 'enrolled' && declinedSubs.length > 0 && (
                 <span className="text-destructive font-medium ml-1">
                   ({declinedSubs.length} declined)
                 </span>
               )}
             </span>
-            {visibleSubs.some((s) => s.subscription_status !== 'cancelled') && (
+            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled') && (
               <button
                 type="button"
                 onClick={handleToggleSelectAll}
                 className="text-primary hover:underline font-medium"
               >
-                {selectedTenantIds.size === visibleSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
+                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
                   ? 'Deselect all'
                   : 'Select all'}
               </button>
@@ -767,16 +962,26 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                 key={group.key}
                 className="rounded-xl border bg-card overflow-hidden shadow-xs"
               >
-                {/* Landlord Group Header with Checkbox */}
+                {/* Landlord Group Header with Checkbox / Read-only Status Indicator */}
                 <div className="flex items-center justify-between p-3 bg-muted/40 border-b gap-2.5">
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <Checkbox
-                      id={`group-${group.key}`}
-                      checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
-                      disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
-                      onCheckedChange={() => toggleLandlord(group)}
-                      aria-label={`Select all tenants for landlord ${group.name}`}
-                    />
+                    {mainTab === 'enrolled' ? (
+                      <Checkbox
+                        id={`group-${group.key}`}
+                        checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
+                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
+                        onCheckedChange={() => toggleLandlord(group)}
+                        aria-label={`Select all tenants for landlord ${group.name}`}
+                      />
+                    ) : mainTab === 'in_progress' ? (
+                      <div className="h-5 w-5 rounded-md flex items-center justify-center text-amber-500 bg-amber-500/10 shrink-0" title="Float in progress · At Agent Ops">
+                        <Clock className="h-3.5 w-3.5 animate-pulse" />
+                      </div>
+                    ) : (
+                      <div className="h-5 w-5 rounded-md flex items-center justify-center text-emerald-500 bg-emerald-500/10 shrink-0" title="Active funded plan">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </div>
+                    )}
                     <div
                       className="min-w-0 flex-1 cursor-pointer select-none"
                       onClick={() => toggleGroupCollapsed(group.key)}
@@ -851,13 +1056,23 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                           <div className="flex items-start justify-between gap-2.5">
                             <div className="flex items-start gap-2.5 min-w-0 flex-1">
                               <div className="pt-0.5">
-                                <Checkbox
-                                  id={`tenant-${s.id}`}
-                                  checked={isSelected}
-                                  disabled={s.subscription_status === 'cancelled'}
-                                  onCheckedChange={() => toggleTenant(s.id)}
-                                  aria-label={`Select ${s.tenant_name}`}
-                                />
+                                {mainTab === 'enrolled' ? (
+                                  <Checkbox
+                                    id={`tenant-${s.id}`}
+                                    checked={isSelected}
+                                    disabled={s.subscription_status === 'cancelled'}
+                                    onCheckedChange={() => toggleTenant(s.id)}
+                                    aria-label={`Select ${s.tenant_name}`}
+                                  />
+                                ) : mainTab === 'in_progress' ? (
+                                  <div className="h-4 w-4 flex items-center justify-center text-amber-500 shrink-0 mt-0.5" title="Under review with Agent Ops">
+                                    <Clock className="h-3.5 w-3.5 animate-pulse" />
+                                  </div>
+                                ) : (
+                                  <div className="h-4 w-4 flex items-center justify-center text-emerald-500 shrink-0 mt-0.5" title="Active">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  </div>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -971,72 +1186,89 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                           </div>
 
                           <div className="grid grid-cols-2 gap-2 pt-1">
-                            {!s.tenant_verified && s.subscription_status !== 'cancelled' && (
-                              <Button size="sm" className="gap-1.5 col-span-2 h-8 text-xs"
-                                onClick={() => setVerifyFor(s)}>
-                                <ShieldCheck className="h-3.5 w-3.5" /> Verify
-                              </Button>
+                            {mainTab === 'in_progress' ? (
+                              <div className="col-span-2 flex items-center justify-between p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-xs truncate">Under Review at Agent Ops</p>
+                                    <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 truncate">Ready to be approved · Read-Only</p>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] shrink-0 border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium">
+                                  Locked
+                                </Badge>
+                              </div>
+                            ) : (
+                              <>
+                                {!s.tenant_verified && s.subscription_status !== 'cancelled' && (
+                                  <Button size="sm" className="gap-1.5 col-span-2 h-8 text-xs"
+                                    onClick={() => setVerifyFor(s)}>
+                                    <ShieldCheck className="h-3.5 w-3.5" /> Verify
+                                  </Button>
+                                )}
+                                {(() => {
+                                  if (s.subscription_status === 'cancelled') {
+                                    return (
+                                      <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
+                                        <XCircle className="h-3.5 w-3.5" /> Declined
+                                      </Button>
+                                    );
+                                  }
+                                  const fp = getSubscriptionPipeline(s);
+                                  if (fp.canCollect) {
+                                    return (
+                                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
+                                        disabled={s.outstanding_balance <= 0}
+                                        onClick={() => setAllocFor(s)}>
+                                        <Receipt className="h-3.5 w-3.5 text-primary" /> Collect Rent
+                                      </Button>
+                                    );
+                                  }
+                                  if (!fp.canRequestFloat) {
+                                    return (
+                                      <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs bg-muted/40 text-muted-foreground border-border/60 cursor-not-allowed">
+                                        <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Awaiting Float
+                                      </Button>
+                                    );
+                                  }
+                                  return (
+                                    <Button size="sm" className="gap-1.5 h-8 text-xs bg-primary text-primary-foreground font-semibold shadow-xs"
+                                      onClick={() => {
+                                        setSelectedTenantIds(new Set([s.id]));
+                                        setRequestFloatOpen(true);
+                                      }}>
+                                      <Banknote className="h-3.5 w-3.5" /> {fp.stage === 'request_rejected' ? 'Request Float Again' : 'Request Float'}
+                                    </Button>
+                                  );
+                                })()}
+                                {(() => {
+                                  if (getSubscriptionPipeline(s).isLocked) {
+                                    return (
+                                      <Badge
+                                        variant="outline"
+                                        className="gap-1 h-8 px-2 justify-center text-[11px] text-muted-foreground border-border/60 bg-muted/20 font-normal select-none"
+                                        title={collectionsUnknown
+                                          ? 'Payment history could not be loaded, so Delete is unavailable'
+                                          : 'Plans with collections, a float request or funding cannot be deleted'}
+                                      >
+                                        <Lock className="h-3 w-3 text-muted-foreground" /> Non-deletable Plan
+                                      </Badge>
+                                    );
+                                  }
+                                  return (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                                      onClick={() => setDeleteFor(s)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </Button>
+                                  );
+                                })()}
+                              </>
                             )}
-                            {(() => {
-                              if (s.subscription_status === 'cancelled') {
-                                return (
-                                  <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
-                                    <XCircle className="h-3.5 w-3.5" /> Declined
-                                  </Button>
-                                );
-                              }
-                              const fp = getSubscriptionPipeline(s);
-                              if (fp.canCollect) {
-                                return (
-                                  <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
-                                    disabled={s.outstanding_balance <= 0}
-                                    onClick={() => setAllocFor(s)}>
-                                    <Receipt className="h-3.5 w-3.5 text-primary" /> Collect Rent
-                                  </Button>
-                                );
-                              }
-                              if (!fp.canRequestFloat) {
-                                return (
-                                  <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs bg-muted/40 text-muted-foreground border-border/60 cursor-not-allowed">
-                                    <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Awaiting Float
-                                  </Button>
-                                );
-                              }
-                              return (
-                                <Button size="sm" className="gap-1.5 h-8 text-xs bg-primary text-primary-foreground font-semibold shadow-xs"
-                                  onClick={() => {
-                                    setSelectedTenantIds(new Set([s.id]));
-                                    setRequestFloatOpen(true);
-                                  }}>
-                                  <Banknote className="h-3.5 w-3.5" /> {fp.stage === 'request_rejected' ? 'Request Float Again' : 'Request Float'}
-                                </Button>
-                              );
-                            })()}
-                            {(() => {
-                              if (getSubscriptionPipeline(s).isLocked) {
-                                return (
-                                  <Badge
-                                    variant="outline"
-                                    className="gap-1 h-8 px-2 justify-center text-[11px] text-muted-foreground border-border/60 bg-muted/20 font-normal select-none"
-                                    title={collectionsUnknown
-                                      ? 'Payment history could not be loaded, so Delete is unavailable'
-                                      : 'Plans with collections, a float request or funding cannot be deleted'}
-                                  >
-                                    <Lock className="h-3 w-3 text-muted-foreground" /> Non-deletable Plan
-                                  </Badge>
-                                );
-                              }
-                              return (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
-                                  onClick={() => setDeleteFor(s)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                                </Button>
-                              );
-                            })()}
                           </div>
                         </div>
                       );
@@ -1166,6 +1398,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         agentId={user?.id}
         onDone={() => {
           setSelectedTenantIds(new Set());
+          setMainTab('in_progress');
           load();
         }}
       />
@@ -1308,6 +1541,18 @@ function RequestFloatDialog({
         console.warn('CFO notification background dispatch:', err);
       }
 
+      // Record requested subscriptions in local cache so UI immediately transitions them to In Progress
+      try {
+        const localKey = `wh_pending_float_subs_${agentId}`;
+        const existing: Record<string, string> = JSON.parse(localStorage.getItem(localKey) || '{}');
+        selectedTenants.forEach((s) => {
+          existing[s.id] = 'pending';
+        });
+        localStorage.setItem(localKey, JSON.stringify(existing));
+      } catch (cacheErr) {
+        console.warn('Could not cache pending float subs:', cacheErr);
+      }
+
       toast({
         title: 'Float request submitted',
         description: `Total float of ${formatUGX(totalAmount)} requested for ${landlordBreakdown.length} landlord(s).`,
@@ -1323,12 +1568,12 @@ function RequestFloatDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[90vh] overflow-y-auto p-3.5 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Banknote className="h-5 w-5 text-primary" /> Request Landlord Float
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Banknote className="h-5 w-5 text-primary shrink-0" /> Request Landlord Float
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             Submit a requisition to the CFO for the total float required to disburse rent to the selected landlords.
           </DialogDescription>
         </DialogHeader>
@@ -1348,9 +1593,9 @@ function RequestFloatDialog({
             <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
               Landlord Float Allocation Breakdown
             </Label>
-            <div className="max-h-48 overflow-y-auto space-y-2 rounded-lg border p-2.5 bg-muted/20">
+            <div className="max-h-48 overflow-y-auto space-y-2 rounded-xl border p-2.5 bg-muted/20">
               {landlordBreakdown.map((l) => (
-                <div key={`${l.name}|${l.phone}`} className="rounded-md border bg-card p-2.5 text-xs space-y-1">
+                <div key={`${l.name}|${l.phone}`} className="rounded-lg border bg-card p-2.5 text-xs space-y-1">
                   <div className="flex items-center justify-between font-semibold">
                     <span className="flex items-center gap-1.5 truncate">
                       <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -1373,34 +1618,34 @@ function RequestFloatDialog({
 
           {/* Phone */}
           <div>
-            <Label className="text-xs">Your MoMo / Payout Phone Number</Label>
+            <Label className="text-xs font-semibold">Your MoMo / Payout Phone Number</Label>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="07..."
-              className="mt-1"
+              className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <Label className="text-xs">Purpose / Reason</Label>
+            <Label className="text-xs font-semibold">Purpose / Reason</Label>
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Requisition notes..."
-              className="mt-1"
+              className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
             />
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
+        <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="h-10 sm:h-11 rounded-xl">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || totalAmount <= 0} className="gap-2">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-            Confirm Float Request ({formatUGX(totalAmount)})
+          <Button onClick={handleSubmit} disabled={submitting || totalAmount <= 0} className="gap-2 h-10 sm:h-11 rounded-xl flex-1 sm:flex-none">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Banknote className="h-4 w-4 shrink-0" />}
+            <span className="truncate">Confirm Float Request ({formatUGX(totalAmount)})</span>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -2419,75 +2664,93 @@ function EnrollDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto p-3.5 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-primary" />
-            {step === 'landlord'
-              ? (landlordMode === 'register' ? 'Register New Landlord' : 'Choose Existing Landlord')
-              : 'Register Tenant'}
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden p-3 sm:p-6 min-w-0 box-border">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Building2 className="h-5 w-5 text-primary shrink-0" />
+            <span className="truncate">
+              {step === 'landlord'
+                ? (landlordMode === 'register' ? 'Register New Landlord' : 'Choose Existing Landlord')
+                : 'Register Tenant'}
+            </span>
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {step === 'landlord'
               ? (landlordMode === 'register'
-                ? 'Enter the landlord details. They will be saved to your landlords list and linked to the tenant.'
-                : 'Select an existing landlord from your file or switch to register a new one.')
+                ? 'Enter landlord details. They will be saved to your file and linked to the tenant.'
+                : 'Select an existing landlord from your file or register a new one.')
               : 'Link the tenant to the selected landlord and set the monthly rent terms.'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step Indicator */}
-        <div className="flex items-center gap-1.5 sm:gap-2 rounded-lg border bg-muted/30 p-1.5 sm:p-2 text-xs">
+        {/* Step Indicator - Symmetric 2-col Grid on identical parameters */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 rounded-xl border bg-muted/40 p-1 sm:p-1.5 text-xs">
           <button
             type="button"
             onClick={() => setStep('landlord')}
-            className={`flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1.5 sm:px-2 font-medium transition-colors ${step === 'landlord'
-                ? 'bg-background shadow-xs text-foreground font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-              }`}
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 font-medium transition-all text-left ${
+              step === 'landlord'
+                ? 'bg-background shadow-xs text-foreground font-semibold ring-1 ring-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}
           >
             <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${landlordName ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground'
-                }`}
+              className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold ${
+                landlordName ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground'
+              }`}
             >
               {landlordName ? '✓' : '1'}
             </span>
-            <span className="truncate text-[11px] sm:text-xs">
-              1. Landlord{landlordName ? `: ${landlordName}` : ''}
-            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold leading-tight">
+                {landlordName || 'Landlord'}
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {landlordName ? 'Selected' : 'Step 1'}
+              </p>
+            </div>
           </button>
-
-          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 
           <button
             type="button"
             disabled={!landlordName}
             onClick={() => { if (landlordName) setStep('tenant'); }}
-            className={`flex flex-1 min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1.5 sm:px-2 font-medium transition-colors disabled:opacity-50 ${step === 'tenant'
-                ? 'bg-background shadow-xs text-foreground font-semibold'
-                : 'text-muted-foreground hover:text-foreground'
-              }`}
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 font-medium transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed ${
+              step === 'tenant'
+                ? 'bg-background shadow-xs text-foreground font-semibold ring-1 ring-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}
           >
             <span
-              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${step === 'tenant' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'
-                }`}
+              className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold ${
+                step === 'tenant' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'
+              }`}
             >
               2
             </span>
-            <span className="truncate text-[11px] sm:text-xs">2. Tenant & Rent</span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold leading-tight">
+                <span className="sm:hidden">Tenant</span>
+                <span className="hidden sm:inline">Tenant &amp; Rent</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Step 2
+              </p>
+            </div>
           </button>
         </div>
 
         {/* STEP 1: LANDLORD */}
         {step === 'landlord' && (
-          <div className="space-y-4">
-            <Tabs value={landlordMode} onValueChange={(v) => setLandlordMode(v as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
-                <TabsTrigger value="choose" className="text-[11px] sm:text-xs px-1 sm:px-3 truncate">
-                  My Landlords ({landlords.length})
+          <div className="space-y-3 sm:space-y-4 w-full min-w-0 max-w-full overflow-hidden">
+            <Tabs value={landlordMode} onValueChange={(v) => setLandlordMode(v as any)} className="w-full min-w-0 max-w-full">
+              <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10 rounded-xl p-1 bg-muted/60">
+                <TabsTrigger value="choose" className="text-xs font-medium rounded-lg px-1 sm:px-2 truncate">
+                  <span className="sm:hidden">Landlords ({landlords.length})</span>
+                  <span className="hidden sm:inline">My Landlords ({landlords.length})</span>
                 </TabsTrigger>
-                <TabsTrigger value="register" className="text-[11px] sm:text-xs px-1 sm:px-3 truncate">
-                  <span className="sm:hidden">+ Register Landlord</span>
+                <TabsTrigger value="register" className="text-xs font-medium rounded-lg px-1 sm:px-2 truncate">
+                  <span className="sm:hidden">+ Register</span>
                   <span className="hidden sm:inline">+ Register New Landlord</span>
                 </TabsTrigger>
               </TabsList>
@@ -2495,22 +2758,22 @@ function EnrollDialog({
               {/* CHOOSE EXISTING LANDLORD */}
               <TabsContent value="choose" className="space-y-3 pt-2">
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={landlordQuery}
                     onChange={(e) => setLandlordQuery(e.target.value)}
-                    placeholder="Find your landlord by name or phone..."
-                    className="h-9 pl-8 text-xs sm:text-sm"
+                    placeholder="Search landlord by name or phone..."
+                    className="h-9 sm:h-10 pl-9 pr-3 text-xs sm:text-sm rounded-xl"
                   />
                 </div>
 
-                <div className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                <div className="max-h-64 sm:max-h-80 space-y-1.5 overflow-y-auto pr-1">
                   {loadingLandlords ? (
                     <div className="flex justify-center py-8">
                       <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                     </div>
                   ) : filteredLandlords.length === 0 ? (
-                    <div className="rounded-lg border border-dashed p-4 text-center">
+                    <div className="rounded-xl border border-dashed p-4 text-center">
                       <Building2 className="mx-auto h-7 w-7 text-muted-foreground/50 mb-1" />
                       <p className="text-xs font-medium text-foreground">
                         {landlords.length === 0 ? 'No landlords registered by you yet 🤣' : `No match for "${landlordQuery}"`}
@@ -2534,7 +2797,7 @@ function EnrollDialog({
                           }
                           setLandlordMode('register');
                         }}
-                        className="gap-1.5 text-xs"
+                        className="gap-1.5 text-xs rounded-xl"
                       >
                         <UserPlus className="h-3.5 w-3.5" /> Register new landlord
                       </Button>
@@ -2553,20 +2816,21 @@ function EnrollDialog({
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') handleSelectLandlord(l);
                           }}
-                          className={`flex items-center justify-between gap-2 rounded-xl border p-2 sm:p-2.5 text-left text-xs transition-colors cursor-pointer ${isSelected
+                          className={`flex items-center justify-between gap-2 rounded-xl border p-2.5 sm:p-3 text-left text-xs transition-colors cursor-pointer ${
+                            isSelected
                               ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
-                              : 'hover:bg-muted/60'
-                            }`}
+                              : 'hover:bg-muted/60 bg-card'
+                          }`}
                         >
                           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
                             {l.passportUrl ? (
                               <img
                                 src={l.passportUrl}
                                 alt={l.name}
-                                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-primary/30 shrink-0"
+                                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-primary/30 shrink-0 shadow-xs"
                               />
                             ) : (
-                              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-[11px] sm:text-xs">
+                              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
                                 {l.name.slice(0, 2).toUpperCase()}
                               </div>
                             )}
@@ -2574,12 +2838,12 @@ function EnrollDialog({
                               <p className="font-semibold text-foreground truncate flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm">
                                 <span className="truncate">{l.name}</span>
                                 {isSelected && (
-                                  <Badge variant="default" className="text-[9px] h-4 px-1 py-0 font-normal shrink-0">
+                                  <Badge variant="default" className="text-[9px] h-4 px-1.5 py-0 font-normal shrink-0">
                                     Selected
                                   </Badge>
                                 )}
                                 {l.count > 0 && (
-                                  <Badge variant="secondary" className="text-[9px] h-4 px-1 py-0 shrink-0">
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 shrink-0">
                                     {l.count} {l.count === 1 ? 'tenant' : 'tenants'}
                                   </Badge>
                                 )}
@@ -2604,7 +2868,7 @@ function EnrollDialog({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-[11px] sm:text-xs border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors"
+                                className="h-7 px-2 text-[11px] sm:text-xs border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors rounded-lg"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSelectLandlord(l);
@@ -2619,7 +2883,7 @@ function EnrollDialog({
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-[11px] sm:text-xs text-primary hover:bg-primary/10"
+                                className="h-7 px-2 text-[11px] sm:text-xs text-primary hover:bg-primary/10 rounded-lg"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleSelectLandlord(l);
@@ -2633,7 +2897,7 @@ function EnrollDialog({
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRequestDeleteLandlord(l);
@@ -2656,14 +2920,17 @@ function EnrollDialog({
                     disabled={!landlordName}
                     className="w-full gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
                   >
-                    <span className="truncate">Continue to Tenant Registration</span>
+                    <span className="truncate">
+                      <span className="sm:hidden">Continue to Tenant</span>
+                      <span className="hidden sm:inline">Continue to Tenant Registration</span>
+                    </span>
                     <ArrowRight className="h-4 w-4 shrink-0" />
                   </Button>
                 </div>
               </TabsContent>
 
               {/* REGISTER NEW LANDLORD */}
-              <TabsContent value="register" className="space-y-4 pt-2">
+              <TabsContent value="register" className="space-y-4 pt-2 w-full min-w-0 max-w-full overflow-hidden">
                 {/* Hidden File Inputs */}
                 <input
                   ref={passportCameraRef}
@@ -2803,28 +3070,28 @@ function EnrollDialog({
                         <p className="text-[11px] text-muted-foreground">
                           Take a clear live photo of the landlord or upload their passport photo headshot.
                         </p>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-2 gap-2 w-full min-w-0">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-8 text-xs gap-1.5 flex-1"
+                            className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
                             onClick={() => passportCameraRef.current?.click()}
                             disabled={optimizingImage}
                           >
-                            <Camera className="h-3.5 w-3.5 text-primary" />
-                            <span>Take Live Photo</span>
+                            <Camera className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate">Take Live Photo</span>
                           </Button>
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-8 text-xs gap-1.5 flex-1"
+                            className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
                             onClick={() => passportGalleryRef.current?.click()}
                             disabled={optimizingImage}
                           >
-                            <Upload className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Upload Photo</span>
+                            <Upload className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">Upload Photo</span>
                           </Button>
                         </div>
                       </div>
@@ -2972,65 +3239,67 @@ function EnrollDialog({
                 </Card>
 
                 {/* 4. House / Property Photos */}
-                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                <div className="rounded-xl border bg-card p-3 sm:p-3.5 space-y-3 shadow-xs w-full min-w-0 max-w-full overflow-hidden">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                      <Home className="h-4 w-4 text-primary" />
-                      <span>House Photos ({housePhotos.length}/5)</span>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground min-w-0">
+                      <Home className="h-4 w-4 text-primary shrink-0" />
+                      <span className="truncate">House Photos ({housePhotos.length}/5)</span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">Exterior / Entrance</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">Exterior / Entrance</span>
                   </div>
 
                   {housePhotos.length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 snap-x">
-                      {housePhotos.map((item, idx) => (
-                        <div
-                          key={item.id}
-                          className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-border shadow-xs"
-                        >
-                          <img
-                            src={item.previewUrl}
-                            alt={`House photo ${idx + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveHousePhoto(item.id)}
-                            className="absolute top-1 right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow"
-                            title="Remove photo"
+                    <div className="w-full min-w-0 max-w-full">
+                      <div className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full min-w-0">
+                        {housePhotos.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="relative aspect-square rounded-lg overflow-hidden border border-border shadow-xs bg-muted/20"
                           >
-                            ✕
-                          </button>
-                          <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] text-center py-0.5">
-                            Photo {idx + 1}
+                            <img
+                              src={item.previewUrl}
+                              alt={`House photo ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveHousePhoto(item.id)}
+                              className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow active:scale-90 transition-transform"
+                              title="Remove photo"
+                            >
+                              ✕
+                            </button>
+                            <div className="absolute bottom-0 inset-x-0 bg-black/65 backdrop-blur-[2px] text-white text-[8px] sm:text-[9px] text-center py-0.5 font-medium leading-none">
+                              #{idx + 1}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 w-full min-w-0">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs gap-1.5 flex-1"
+                      className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
                       onClick={() => houseCameraRef.current?.click()}
                       disabled={housePhotos.length >= 5 || optimizingImage}
                     >
-                      <Camera className="h-3.5 w-3.5 text-primary" />
-                      <span>Take Live Photo</span>
+                      <Camera className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="truncate">Take Live Photo</span>
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="h-8 text-xs gap-1.5 flex-1"
+                      className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
                       onClick={() => houseGalleryRef.current?.click()}
                       disabled={housePhotos.length >= 5 || optimizingImage}
                     >
-                      <Upload className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span>Upload Photos</span>
+                      <Upload className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">Upload Photos</span>
                     </Button>
                   </div>
                   <p className="text-[10px] text-muted-foreground">
@@ -3074,9 +3343,9 @@ function EnrollDialog({
 
         {/* STEP 2: TENANT & RENT */}
         {step === 'tenant' && (
-          <div className="space-y-3">
+          <div className="space-y-3 w-full min-w-0 max-w-full overflow-hidden">
             {/* Selected Landlord Summary Banner */}
-            <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 {selectedLandlordRecord?.passportUrl ? (
                   <img
@@ -3097,12 +3366,12 @@ function EnrollDialog({
                         "text-[9px] font-normal px-1 py-0.2 rounded",
                         selectedLandlordRecord.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
                       )}>
-                        {selectedLandlordRecord.gps.latitude ? "📍 GPS" : "🌐 IP Verified"}
+                        {selectedLandlordRecord.gps.latitude ? "📍 GPS" : "🌐 IP"}
                       </span>
                     )}
                   </p>
-                  <p className="text-sm font-bold text-foreground truncate">{landlordName}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs sm:text-sm font-bold text-foreground truncate">{landlordName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
                     {landlordPhone || 'No phone on file'}
                     {selectedLandlordRecord?.address ? ` · ${selectedLandlordRecord.address}` : ''}
                   </p>
@@ -3113,14 +3382,14 @@ function EnrollDialog({
                 variant="outline"
                 size="sm"
                 onClick={() => setStep('landlord')}
-                className="text-xs shrink-0 gap-1 h-8"
+                className="text-xs shrink-0 gap-1 h-8 rounded-lg"
               >
                 Change
               </Button>
             </div>
 
             <div>
-              <Label>Tenant phone *</Label>
+              <Label className="text-xs font-semibold">Tenant phone *</Label>
               <div className="flex gap-2 mt-1">
                 <Input
                   value={phone}
@@ -3136,14 +3405,16 @@ function EnrollDialog({
                     }
                   }}
                   placeholder="e.g. 0772 123 456"
+                  className="h-10 text-xs sm:text-sm rounded-xl"
                 />
-                <Button type="button" variant="outline" onClick={findTenant} disabled={searching}>
+                <Button type="button" variant="outline" onClick={findTenant} disabled={searching} className="h-10 px-3 rounded-xl shrink-0">
                   {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                 </Button>
               </div>
               {tenant ? (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Existing account: {tenant.full_name} ({tenant.phone})
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Existing account: {tenant.full_name} ({tenant.phone})</span>
                 </div>
               ) : searched ? (
                 <p className="mt-1 text-[11px] text-muted-foreground">
@@ -3153,24 +3424,24 @@ function EnrollDialog({
             </div>
 
             {!tenant && (
-              <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+              <div className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-3.5">
                 <p className="text-xs font-semibold text-foreground">New tenant details</p>
                 <div>
-                  <Label className="text-xs">Tenant full name *</Label>
+                  <Label className="text-xs font-medium">Tenant full name *</Label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="e.g. John Doe"
-                    className="mt-1"
+                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">National ID (optional)</Label>
+                  <Label className="text-xs font-medium">National ID (optional)</Label>
                   <Input
                     value={newNationalId}
                     onChange={(e) => setNewNationalId(e.target.value)}
                     placeholder="CM..."
-                    className="mt-1"
+                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
                   />
                 </div>
               </div>
@@ -3178,7 +3449,7 @@ function EnrollDialog({
 
             <div>
               <div className="flex items-center justify-between">
-                <Label>Monthly rent (UGX)</Label>
+                <Label className="text-xs font-semibold">Monthly rent (UGX) *</Label>
                 {Number(rent) > 0 && (
                   <span className="text-[11px] text-emerald-600 font-medium">
                     You earn {formatUGX(Number(rent) * 0.02)}/mo
@@ -3191,27 +3462,34 @@ function EnrollDialog({
                 value={rent}
                 onChange={(e) => setRent(e.target.value)}
                 placeholder="500000"
-                className="mt-1"
+                className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
               />
-              <div className="flex flex-wrap gap-1.5 mt-1.5">
-                {['200000', '350000', '500000', '800000', '1000000'].map((preset) => (
+              <div className="grid grid-cols-5 gap-1.5 mt-2">
+                {[
+                  { value: '200000', label: '200k' },
+                  { value: '350000', label: '350k' },
+                  { value: '500000', label: '500k' },
+                  { value: '800000', label: '800k' },
+                  { value: '1000000', label: '1M' },
+                ].map((p) => (
                   <button
-                    key={preset}
+                    key={p.value}
                     type="button"
-                    onClick={() => setRent(preset)}
-                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${rent === preset
-                        ? 'border-primary bg-primary/10 text-primary'
+                    onClick={() => setRent(p.value)}
+                    className={`rounded-lg border py-1.5 text-xs font-semibold transition-all text-center ${
+                      rent === p.value
+                        ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/40'
                         : 'hover:bg-muted text-muted-foreground'
-                      }`}
+                    }`}
                   >
-                    {formatUGX(Number(preset))}
+                    {p.label}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <Label>Landlord payout day (1–28)</Label>
+              <Label className="text-xs font-semibold">Landlord payout day (1–28)</Label>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 The date of each month when the landlord receives their rent payout (e.g. 5 = 5th of every month).
               </p>
@@ -3223,22 +3501,22 @@ function EnrollDialog({
                 min={1}
                 max={28}
                 placeholder="5"
-                className="mt-1"
+                className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
               <div>
-                <p className="text-sm font-medium">Tenant has a smartphone</p>
-                <p className="text-xs text-muted-foreground">Off = you allocate their rent</p>
+                <p className="text-xs sm:text-sm font-medium">Tenant has a smartphone</p>
+                <p className="text-[11px] text-muted-foreground">Off = you allocate their rent</p>
               </div>
               <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
             </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
               <div>
-                <p className="text-sm font-medium">Landlord uses Welile wallet</p>
-                <p className="text-xs text-muted-foreground">Off = paid to your landlord float</p>
+                <p className="text-xs sm:text-sm font-medium">Landlord uses Welile wallet</p>
+                <p className="text-[11px] text-muted-foreground">Off = paid to your landlord float</p>
               </div>
               <Switch checked={landlordUsesWallet} onCheckedChange={setLandlordUsesWallet} />
             </div>
@@ -3248,14 +3526,14 @@ function EnrollDialog({
                 type="button"
                 variant="outline"
                 onClick={() => setStep('landlord')}
-                className="gap-1.5 h-10 sm:h-11 px-3 text-xs shrink-0"
+                className="gap-1.5 h-11 px-3.5 text-xs shrink-0 rounded-xl"
               >
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
               <Button
                 onClick={submit}
                 disabled={submitting || (!tenant && newName.trim().length < 2) || !phone.trim() || !rent.trim()}
-                className="flex-1 min-w-0 gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
+                className="flex-1 min-w-0 gap-2 h-11 text-xs sm:text-sm font-semibold rounded-xl"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <UserCheck className="h-4 w-4 shrink-0" />}
                 <span className="truncate">Enroll Tenant for {landlordName}</span>
@@ -3360,12 +3638,12 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
 
   return (
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" /> Verify tenant
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <ShieldCheck className="h-5 w-5 text-primary shrink-0" /> Verify tenant
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {sent
               ? `Enter the 6-digit code sent to ${phone}.`
               : `Send a verification SMS to ${sub?.tenant_name || 'this tenant'} on ${phone || 'no phone on file'}.`}
@@ -3397,7 +3675,7 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
             </div>
             {verifying && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Verifying…
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" /> Verifying…
               </div>
             )}
             {otpError && <p className="text-sm text-destructive text-center">{otpError}</p>}
@@ -3414,9 +3692,9 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
             </div>
           </div>
         ) : (
-          <DialogFooter>
-            <Button className="w-full gap-2" onClick={sendOtp} disabled={sending || !phone}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+          <DialogFooter className="pt-2">
+            <Button className="w-full gap-2 h-11 rounded-xl text-xs sm:text-sm font-semibold" onClick={sendOtp} disabled={sending || !phone}>
+              {sending ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
               Send verification SMS
             </Button>
           </DialogFooter>
@@ -3557,12 +3835,12 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
 
   return (
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base sm:text-lg">
             {step === 'confirm' ? 'Confirm changes' : 'Edit enrollment'} — {sub?.tenant_name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {step === 'confirm'
               ? 'Review how dues and totals will change before saving. Nothing is saved yet.'
               : 'Changes apply to upcoming, uncollected months only. Collected and paid months stay as they were.'}
@@ -3570,7 +3848,7 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
         </DialogHeader>
         {step === 'confirm' && preview ? (
           <div className="space-y-3">
-            <div className="rounded-lg border divide-y">
+            <div className="rounded-xl border divide-y overflow-hidden">
               <PreviewRow label="Monthly rent" oldText={formatUGX(preview.monthly_rent.old)} newText={formatUGX(preview.monthly_rent.new)} changed={preview.monthly_rent.old !== preview.monthly_rent.new} />
               <PreviewRow label="Landlord payout day" oldText={String(preview.payout_day.old ?? '—')} newText={String(preview.payout_day.new)} changed={preview.payout_day.old !== preview.payout_day.new} />
               <PreviewRow label="Collection mode" oldText={preview.has_smartphone.old ? 'Tenant pays' : 'Agent allocates'} newText={preview.has_smartphone.new ? 'Tenant pays' : 'Agent allocates'} changed={preview.has_smartphone.old !== preview.has_smartphone.new} />
@@ -3587,19 +3865,19 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
         ) : (
           <div className="space-y-3">
             <div>
-              <Label>Monthly rent (UGX)</Label>
-              <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" />
+              <Label className="text-xs font-semibold">Monthly rent (UGX)</Label>
+              <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
             </div>
             <div>
-              <Label>Landlord payout day (1–28)</Label>
-              <Input type="number" inputMode="numeric" value={payoutDay} onChange={(e) => setPayoutDay(e.target.value)} min={1} max={28} />
+              <Label className="text-xs font-semibold">Landlord payout day (1–28)</Label>
+              <Input type="number" inputMode="numeric" value={payoutDay} onChange={(e) => setPayoutDay(e.target.value)} min={1} max={28} className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
             </div>
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div><p className="text-sm font-medium">Tenant has a smartphone</p><p className="text-xs text-muted-foreground">Off = you allocate their rent</p></div>
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
+              <div><p className="text-xs sm:text-sm font-medium">Tenant has a smartphone</p><p className="text-[11px] text-muted-foreground">Off = you allocate their rent</p></div>
               <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
             </div>
 
-            <div className="rounded-lg border p-3">
+            <div className="rounded-xl border p-3 bg-card">
               <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
                 <History className="h-3.5 w-3.5" /> Edit history
               </div>
@@ -3630,19 +3908,19 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
             </div>
           </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           {step === 'confirm' ? (
             <div className="flex w-full gap-2">
-              <Button variant="outline" onClick={() => setStep('form')} disabled={submitting} className="flex-1">
-                <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
+              <Button variant="outline" onClick={() => setStep('form')} disabled={submitting} className="flex-1 h-11 rounded-xl text-xs sm:text-sm">
+                <ArrowLeft className="h-4 w-4 mr-1.5 shrink-0" /> Back
               </Button>
-              <Button onClick={submit} disabled={submitting} className="flex-1">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Confirm &amp; save
+              <Button onClick={submit} disabled={submitting} className="flex-1 h-11 rounded-xl text-xs sm:text-sm font-semibold">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null} Confirm &amp; save
               </Button>
             </div>
           ) : (
-            <Button onClick={review} disabled={previewLoading} className="w-full">
-              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Review changes
+            <Button onClick={review} disabled={previewLoading} className="w-full h-11 rounded-xl text-xs sm:text-sm font-semibold">
+              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null} Review changes
             </Button>
           )}
         </DialogFooter>
@@ -3709,33 +3987,37 @@ function AllocateDialog({ sub, onClose, onDone }: {
 
   return (
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Record rent collection — {sub?.tenant_name}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base sm:text-lg">Record rent collection — {sub?.tenant_name}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             Records cash collected from the tenant into the system. Outstanding: {sub ? formatUGX(sub.outstanding_balance) : ''}.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label>Amount (UGX)</Label>
-          <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <div className="space-y-3 pt-1">
+          <div>
+            <Label className="text-xs font-semibold">Amount (UGX)</Label>
+            <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Month being paid for</Label>
+            <div className="mt-1">
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="h-10 rounded-xl text-xs sm:text-sm">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((m) => (
+                    <SelectItem key={m.value} value={m.value} className="text-xs sm:text-sm">{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Month being paid for</Label>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={submitting} className="w-full">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Receipt className="h-4 w-4 mr-2" />} Record Collection
+        <DialogFooter className="pt-2">
+          <Button onClick={submit} disabled={submitting} className="w-full h-11 rounded-xl text-xs sm:text-sm font-semibold">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <Receipt className="h-4 w-4 mr-2 shrink-0" />} Record Collection
           </Button>
         </DialogFooter>
       </DialogContent>
