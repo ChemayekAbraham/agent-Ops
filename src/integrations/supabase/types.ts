@@ -52376,6 +52376,51 @@ export type Database = {
           },
         ]
       }
+      staff_assistant_eval_candidates: {
+        Row: {
+          added_by: string | null
+          cleaned_question: string
+          created_at: string
+          expected_tool: string | null
+          expected_topic: string
+          id: string
+          is_active: boolean
+          outcome_before: string | null
+          reviewer_notes: string | null
+          source_id: string | null
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          cleaned_question: string
+          created_at?: string
+          expected_tool?: string | null
+          expected_topic?: string
+          id?: string
+          is_active?: boolean
+          outcome_before?: string | null
+          reviewer_notes?: string | null
+          source_id?: string | null
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          cleaned_question?: string
+          created_at?: string
+          expected_tool?: string | null
+          expected_topic?: string
+          id?: string
+          is_active?: boolean
+          outcome_before?: string | null
+          reviewer_notes?: string | null
+          source_id?: string | null
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_assistant_feedback: {
         Row: {
           comment: string | null
@@ -52643,6 +52688,139 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_assistant_knowledge_base: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          id: string
+          keywords: string[]
+          measurement_gotcha: string | null
+          official_source: string
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          screen_path: string | null
+          search_tsv: unknown
+          slug: string
+          summary: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          body: string
+          category: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          measurement_gotcha?: string | null
+          official_source?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screen_path?: string | null
+          search_tsv?: unknown
+          slug: string
+          summary: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          measurement_gotcha?: string | null
+          official_source?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screen_path?: string | null
+          search_tsv?: unknown
+          slug?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      staff_assistant_learning_log: {
+        Row: {
+          caller_roles: string[]
+          conversation_id: string | null
+          cost_usd: number
+          created_at: string
+          feedback_rating: number | null
+          feedback_theme: string | null
+          id: string
+          latency_ms: number | null
+          message_id: string | null
+          model_tier: string | null
+          outcome: string
+          tool_used: string | null
+          topic: string
+          user_id: string
+        }
+        Insert: {
+          caller_roles?: string[]
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          feedback_rating?: number | null
+          feedback_theme?: string | null
+          id?: string
+          latency_ms?: number | null
+          message_id?: string | null
+          model_tier?: string | null
+          outcome?: string
+          tool_used?: string | null
+          topic: string
+          user_id: string
+        }
+        Update: {
+          caller_roles?: string[]
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          feedback_rating?: number | null
+          feedback_theme?: string | null
+          id?: string
+          latency_ms?: number | null
+          message_id?: string | null
+          model_tier?: string | null
+          outcome?: string
+          tool_used?: string | null
+          topic?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_learning_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_assistant_messages: {
         Row: {
           content: string
@@ -52736,7 +52914,9 @@ export type Database = {
         Row: {
           created_at: string
           dismissed_brief_kampala_date: string | null
+          dismissed_memory_prompts: string[]
           last_brief_kampala_date: string | null
+          memory_enabled: boolean
           morning_brief_enabled: boolean
           morning_brief_time: string
           updated_at: string
@@ -52745,7 +52925,9 @@ export type Database = {
         Insert: {
           created_at?: string
           dismissed_brief_kampala_date?: string | null
+          dismissed_memory_prompts?: string[]
           last_brief_kampala_date?: string | null
+          memory_enabled?: boolean
           morning_brief_enabled?: boolean
           morning_brief_time?: string
           updated_at?: string
@@ -52754,7 +52936,9 @@ export type Database = {
         Update: {
           created_at?: string
           dismissed_brief_kampala_date?: string | null
+          dismissed_memory_prompts?: string[]
           last_brief_kampala_date?: string | null
+          memory_enabled?: boolean
           morning_brief_enabled?: boolean
           morning_brief_time?: string
           updated_at?: string
@@ -73372,6 +73556,7 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      assistant_staff_morning_brief_what_changed: { Args: never; Returns: Json }
       assistant_staff_my_advances: { Args: never; Returns: Json }
       assistant_staff_my_calls: {
         Args: { p_from?: string; p_to?: string }
@@ -73392,6 +73577,7 @@ export type Database = {
       assistant_staff_my_tasks: { Args: { p_status?: string }; Returns: Json }
       assistant_staff_my_tickets: { Args: never; Returns: Json }
       assistant_staff_my_wallet: { Args: never; Returns: Json }
+      assistant_staff_personalised_starters: { Args: never; Returns: Json }
       assistant_staff_pops_pending_summary: {
         Args: { p_month?: string }
         Returns: Json
@@ -73418,6 +73604,10 @@ export type Database = {
       }
       assistant_staff_run_query: {
         Args: { p_question?: string; p_sql: string }
+        Returns: Json
+      }
+      assistant_staff_search_knowledge_base: {
+        Args: { p_category?: string; p_limit?: number; p_query?: string }
         Returns: Json
       }
       assistant_staff_tops_arrears_ageing: {
@@ -85109,6 +85299,7 @@ export type Database = {
       }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
+      normalize_email_for_match: { Args: { p_email: string }; Returns: string }
       normalize_landlord_phone_256: { Args: { raw: string }; Returns: string }
       normalize_momo_tid: { Args: { p_tid: string }; Returns: string }
       normalize_national_id_fuzzy: {
@@ -85126,6 +85317,10 @@ export type Database = {
       notify_landlord_registration_helper: {
         Args: { p_landlord_id: string }
         Returns: undefined
+      }
+      oauth_signup_duplicate_of: {
+        Args: { p_email: string; p_new_id: string }
+        Returns: string
       }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
@@ -90037,6 +90232,7 @@ export type Database = {
         Returns: Json
       }
       staff_assistant_get_config: { Args: never; Returns: Json }
+      staff_assistant_get_memory_prefs: { Args: never; Returns: Json }
       staff_assistant_has_access: { Args: never; Returns: boolean }
       staff_assistant_health: { Args: never; Returns: Json }
       staff_assistant_hide_my_history: {
@@ -90077,6 +90273,17 @@ export type Database = {
       staff_assistant_mask_phone: {
         Args: { p_allow_full?: boolean; p_phone: string }
         Returns: string
+      }
+      staff_assistant_promote_to_eval_set: {
+        Args: {
+          p_cleaned_question: string
+          p_expected_tool?: string
+          p_expected_topic?: string
+          p_notes?: string
+          p_source_id: string
+          p_source_kind: string
+        }
+        Returns: Json
       }
       staff_assistant_purge_old_history: { Args: never; Returns: number }
       staff_assistant_refresh_daily_insights: {
@@ -90127,6 +90334,10 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_assistant_set_memory_prefs: {
+        Args: { p_dismiss_preference_key?: string; p_memory_enabled?: boolean }
+        Returns: Json
+      }
       staff_assistant_set_morning_brief_prefs: {
         Args: {
           p_brief_time?: string
@@ -90139,8 +90350,31 @@ export type Database = {
         Args: { p_idea_id: string; p_status: string; p_status_note?: string }
         Returns: Json
       }
+      staff_assistant_update_note: {
+        Args: { p_note_id: string; p_note_text: string }
+        Returns: Json
+      }
+      staff_assistant_upsert_knowledge_entry: {
+        Args: {
+          p_body: string
+          p_category: string
+          p_keywords?: string[]
+          p_measurement_gotcha?: string
+          p_official_source?: string
+          p_review_status?: string
+          p_screen_path?: string
+          p_slug: string
+          p_summary: string
+          p_title: string
+        }
+        Returns: Json
+      }
       staff_assistant_weekly_look_at_summary: {
         Args: { p_as_of?: string }
+        Returns: Json
+      }
+      staff_assistant_weekly_manager_learning_view: {
+        Args: { p_days?: number }
         Returns: Json
       }
       staff_assistant_weekly_unanswered_list: {
