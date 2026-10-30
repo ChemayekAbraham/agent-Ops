@@ -178,7 +178,7 @@ export function auditSqlMigration(fileLabel, rawSql, functionMap = null) {
         errs.push(`${where} must set statement_timeout = '5s'.`);
       }
       if (
-        !/\bSET\s+default_transaction_read_only\s*=\s*on\b/i.test(header) ||
+        !/\bSET\s+default_transaction_read_only\s*=\s*on\b/i.test(header) &&
         !/\bSET\s+LOCAL\s+transaction_read_only\s*=\s*on\b/i.test(body)
       ) {
         errs.push(`${where} must enforce transaction_read_only = on.`);

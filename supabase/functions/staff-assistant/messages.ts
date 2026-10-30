@@ -11,9 +11,9 @@ export const MSG = {
   mfaRequired:
     "This report contains sensitive figures and requires two-factor verification (MFA) before Zoe can read it. Please complete MFA verification and try again.",
   outOfScope:
-    "I am a read-only assistant and cannot change Welile data, approve requests, move money, or assist with harmful or unauthorized requests. To make changes or approvals, please use the appropriate Welile screen (such as /me/requisitions, /tenant-ops, /landlord-ops, or /cfo/dashboard).",
+    "I'm a read-only assistant, so I can't change Welile data, approve requests, move money, or help with harmful requests. To make changes or approvals, please use the matching Welile screen (such as /me/requisitions, /tenant-ops, /landlord-ops, /partner-ops, or /cfo/dashboard).",
   unmatched:
-    "I checked your available My Space and department report tools, but I could not find a verified live dataset for that specific figure yet. Try checking the closest workspace screen (/tenant-ops, /landlord-ops, /executive-hub?tab=agent-ops, /cfo/dashboard, or /me/staff-reports) or ask your department manager or Operations team.",
+    "I don't have that on file. I checked your available My Space and department report tools, but I could not find a verified live dataset for that specific figure. Please check the closest workspace screen (/tenant-ops, /landlord-ops, /executive-hub?tab=agent-ops, /cfo/dashboard, or /me/staff-reports) or ask your manager.",
   stepLimitReachedPrefix:
     "I reached my limit, here is what I have so far:",
   dailyLimitReached:
@@ -42,7 +42,41 @@ export const MSG = {
     "Zoe notes may only store short work or formatting preferences (2–240 characters) and must never contain business figures (UGX amounts or large numbers), phone numbers, email addresses, IDs, or personal data about others.",
   noteLimitReached:
     "You already have the maximum of 20 Zoe notes. Please delete an older note before adding a new one.",
+  webResearchNotConfigured:
+    "Web research is not set up yet",
+  unverifiedStreamFigure:
+    "I could not verify that figure",
 } as const;
+
+/**
+ * Builds a short, kind refusal for data-change / mutation requests that names the
+ * exact Welile screen the staff member should use instead.
+ */
+export function formatWriteMutationRefusal(userMessage: string): string {
+  const q = (userMessage ?? "").toLowerCase();
+  if (/\b(requisition|budget|expense\s+request)\b/.test(q)) {
+    return "I'm read-only and can't create, edit, or approve requisitions. Please use the Requisitions screen at /me/requisitions (or /cfo/dashboard for CFO approvals).";
+  }
+  if (/\b(advance|salary\s+advance)\b/.test(q)) {
+    return "I'm read-only and can't submit or approve salary advances. Please use the Salary Advances screen at /me/advances.";
+  }
+  if (/\b(landlord|lc1|payout\s+number|verify\s+house)\b/.test(q)) {
+    return "I'm read-only and can't verify landlords or release landlord payouts. Please use the Landlord Ops Workspace at /landlord-ops (or /cfo/dashboard for payout disbursements).";
+  }
+  if (/\b(supporter|portfolio|top[-_\s]?up|returns)\b/.test(q)) {
+    return "I'm read-only and can't modify Supporter portfolios or process Returns. Please use the Partner Ops Workspace at /partner-ops.";
+  }
+  if (/\b(disburse|wallet|ledger|transfer|credit|debit|withdrawal|cash[-_\s]?out)\b/.test(q)) {
+    return "I'm read-only and can't move money, adjust wallets, or post ledger entries. Please use the CFO Dashboard at /cfo/dashboard or Financial Ops at /financial-ops.";
+  }
+  if (/\b(tenant|rent\s+plan|arrears)\b/.test(q)) {
+    return "I'm read-only and can't edit or approve Rent Plans. Please use the Tenant Ops Workspace at /tenant-ops.";
+  }
+  if (/\b(payslip|payroll|task|ticket|contract)\b/.test(q)) {
+    return "I'm read-only and can't modify HR records, payslips, or tasks. Please use My Space Work at /me/work or Payslips at /me/payslips.";
+  }
+  return MSG.outOfScope;
+}
 
 /** Outcomes that should be recorded in `staff_assistant_unanswered` for coverage tracking. */
 export const UNANSWERED_OUTCOMES = new Set([

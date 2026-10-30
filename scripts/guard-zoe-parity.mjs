@@ -692,8 +692,12 @@ for (const requiredRel of [
   }
 }
 
-// 5. Optional live database check (`--check-live` or `ZOE_PARITY_CHECK_LIVE=1`)
-if (process.argv.includes('--check-live') || process.env.ZOE_PARITY_CHECK_LIVE === '1') {
+// 5. Optional live database check (`--check-live`, `--live`, or `ZOE_PARITY_CHECK_LIVE=1`)
+if (
+  process.argv.includes('--check-live') ||
+  process.argv.includes('--live') ||
+  process.env.ZOE_PARITY_CHECK_LIVE === '1'
+) {
   const paritySqlPath = join(ROOT, 'supabase', 'tests', 'zoe_live_parity.sql');
   const res = spawnSync(
     'npx',
