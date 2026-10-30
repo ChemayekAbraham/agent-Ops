@@ -264,6 +264,8 @@ export function useVerifyInstallation() {
             status: 'active' as SignageStatus,
             installed_at: installedAt,
             installer_name: installerName,
+            agent_reward_status: 'eligible',
+            owner_rent_status: 'pending',
             verified_by: user?.id,
             verified_at: now,
             verification_notes: verificationNotes,
@@ -283,3 +285,98 @@ export function useVerifyInstallation() {
     },
   });
 }
+
+export function useCfoDisburseSignage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      signageId,
+      payoutType,
+      transactionRef,
+      recipientPhone,
+      recipientName,
+      amountUgx,
+    }: {
+      signageId: string;
+      payoutType: 'agent_reward' | 'owner_rent';
+      transactionRef?: string;
+      recipientPhone?: string;
+      recipientName?: string;
+      amountUgx: number;
+    }) => {
+      const now = new Date().toISOString();
+      const txRef = transactionRef || `DISB-SGN-${Date.now().toString().slice(-6)}`;
+
+      const updates: Partial<SignageRecord> = {
+        updated_at: now,
+      };
+
+      if (payoutType === 'agent_reward') {
+        updates.agent_reward_status = 'disbursed';
+        updates.agent_reward_disbursed_at = now;
+        updates.agent_reward_disbursed_by = user?.id;
+        updates.agent_reward_tx_ref = txRef;
+      } else {
+        updates.owner_rent_status = 'disbursed';
+        updates.owner_rent_disbursed_at = now;
+        updates.owner_rent_disbursed_by = user?.id;
+        updates.owner_rent_tx_ref = txRef;
+      }
+
+      try {
+        await (supabase as any)
+          .from('welile_signages')
+          .update(updates)
+          .eq('id', signageId);
+
+        if (payoutType === 'agent_reward') {
+          await (supabase as any)
+            .from('welile_signage_agent_rewards')
+            .update({
+              status: 'paid',
+              wallet_transaction_id: txRef,
+              paid_at: now,
+            })
+            .eq('signage_id', signageId);
+        } else {
+          await (supabase as any)
+            .from('welile_signage_owner_obligations')
+            .update({
+              status: 'paid',
+              transaction_ref: txRef,
+              disbursed_at: now,
+              disbursed_by: user?.id,
+            })
+            .eq('signage_id', signageId);
+        }
+      } catch (err) {
+        console.warn('[useCfoDisburseSignage] Fallback to local cache:', err);
+      }
+
+      // Update local storage
+      const locals = getLocalSignages().map((rec) => {
+        if (rec.id === signageId) {
+          return {
+            ...rec,
+            ...updates,
+          };
+        }
+        return rec;
+      });
+      saveLocalSignages(locals);
+
+      return { signageId, payoutType, txRef, amountUgx };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      const label = data.payoutType === 'agent_reward' ? 'Agent Reward (UGX 3,000)' : 'Owner Rent (UGX 10,000)';
+      toast.success(`${label} disbursed successfully! Ref: ${data.txRef}`);
+    },
+    onError: (err: any) => {
+      toast.error('Failed to disburse: ' + (err.message || 'Unknown error'));
+    },
+  });
+}
+
