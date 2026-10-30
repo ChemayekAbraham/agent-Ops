@@ -314,17 +314,22 @@ export async function fetchTlbTenantsMulti(
   return { rows, total: rows[0]?.total_count ?? 0 };
 }
 
+/**
+ * `limit` 1 is enough to learn the distinct tenant total (the selection bar);
+ * the combined view and the PDF ask for the full list.
+ */
 export function useTlbTenantsMulti(
   places: readonly TlbSelectedPlace[],
   status: TlbStatus,
   enabled = true,
+  limit = TLB_MULTI_MAX_TENANTS,
 ) {
   const keys = places.map((p) => p.key);
   return useQuery({
     enabled: enabled && places.length > 0,
-    queryKey: ['tlb-tenants-multi', keys, status],
+    queryKey: ['tlb-tenants-multi', keys, status, limit],
     staleTime: 30_000,
-    queryFn: () => fetchTlbTenantsMulti(places, status),
+    queryFn: () => fetchTlbTenantsMulti(places, status, limit),
   });
 }
 
