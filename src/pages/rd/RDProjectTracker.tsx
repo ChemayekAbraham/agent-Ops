@@ -1,4 +1,6 @@
 import React from 'react';
+import { Progress } from '@/components/ui/progress';
+import { ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
 
 export type MilestoneCategory = 'All' | 'Core' | 'Receipts & Signages' | 'Agent App' | 'Security & QA';
 export type MilestoneStatus = 'Completed' | 'In QA' | 'Planned';
@@ -97,5 +99,61 @@ export const CATEGORIES: MilestoneCategory[] = [
 ];
 
 export default function RDProjectTracker() {
-  return null;
+  const completedCount = MILESTONES.filter((m) => m.status === 'Completed').length;
+  const totalCount = MILESTONES.length;
+  const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  return (
+    <div className="space-y-6 pb-8">
+      {/* 1. Executive Header with Read-Only Badge */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-card via-card to-primary/5 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                R&amp;D Oversight Portal • Read-Only Mode
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-muted/50 px-2.5 py-1 text-[11px] font-mono text-muted-foreground">
+                <Lock className="h-3 w-3" />
+                Protected View
+              </span>
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+              Welile Homes R&amp;D Project Tracker
+            </h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">
+              Real-time engineering milestone telemetry, automated test health, and sprint deliverable tracking.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-3 rounded-xl border border-border/80 bg-background/80 p-3 backdrop-blur sm:p-4">
+            <div className="text-right">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Sprint Progress
+              </div>
+              <div className="text-2xl font-black text-primary">{progressPercent}%</div>
+              <div className="text-[10px] font-mono text-muted-foreground">Build v2.4.0-prod</div>
+            </div>
+            <div className="h-10 w-px bg-border" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 space-y-2">
+          <div className="flex justify-between text-xs font-medium text-foreground">
+            <span>Overall Sprint Completion</span>
+            <span className="font-semibold text-primary">{completedCount} of {totalCount} Deliverables Finished ({progressPercent}%)</span>
+          </div>
+          <Progress value={progressPercent} className="h-2.5 w-full bg-muted" variant="default" />
+          <div className="flex justify-between text-[11px] text-muted-foreground">
+            <span>Sprint Kickoff (Oct 2026)</span>
+            <span>Target Handover: Nov 15, 2026</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
