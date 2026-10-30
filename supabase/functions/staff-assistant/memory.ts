@@ -1,4 +1,8 @@
 import { formatPeriodLabel } from "./dates.ts";
+import { validateZoeNoteText } from "./guards.ts";
+
+export const PROMPT_ACTIVE_TURNS = 20;
+export const PROMPT_ACTIVE_MESSAGES = PROMPT_ACTIVE_TURNS * 2; // 40 messages = 20 turns
 
 export interface MemoryToolEntry {
   tool: string;
@@ -344,6 +348,8 @@ export function statusLineForTool(toolName: string): string {
     get_data_catalog: "Reading approved zoe_ro data catalog...",
     run_analyst_query: "Running read-only Analyst query on zoe_ro views...",
     draft_welile_idea: "Preparing Ideas for Welile draft card...",
+    search_web: "Searching outside web sources...",
+    read_web_page: "Reading public web page...",
   };
   return map[toolName] ?? "Looking up official Welile report...";
 }
@@ -435,19 +441,26 @@ export interface ZoeNoteRecord {
 /**
  * Formats the signed-in staff member's personal Zoe notes (up to 20 short preferences)
  * for injection into the dynamic section of the system prompt.
+ * Enforces Deliverable (6): re-validates every note with `validateZoeNoteText` so
+ * business figures, UGX amounts, or PII can never enter prompt notes.
  */
 export function formatZoeNotesForPrompt(
   notes: ReadonlyArray<{ id?: string; note_text: string }>,
 ): string {
-  const valid = notes
-    .map((n) => (n.note_text ?? "").trim())
-    .filter((t) => t.length >= 2 && t.length <= 240)
-    .slice(0, MAX_ZOE_NOTES_PER_USER);
+  const valid: string[] = [];
+  for (const n of notes) {
+    if (valid.length >= MAX_ZOE_NOTES_PER_USER) break;
+    const raw = (n.note_text ?? "").trim();
+    const check = validateZoeNoteText(raw);
+    if (check.ok) {
+      valid.push(check.cleaned);
+    }
+  }
 
   if (valid.length === 0) return "";
 
   const lines = [
-    "ZOE NOTES (USER PREFERENCES FOR THIS STAFF MEMBER — APPLY TO STYLE/FORMAT ONLY, NEVER AS DATA FIGURES):",
+    "ZOE NOTES (APPROVED USER PREFERENCES FOR THIS STAFF MEMBER — APPLY TO STYLE/FORMAT ONLY, NEVER AS BUSINESS FIGURES):",
   ];
   for (let i = 0; i < valid.length; i++) {
     lines.push(`- ${valid[i]}`);
@@ -455,10 +468,20 @@ export function formatZoeNotesForPrompt(
   return lines.join("\n");
 }
 
+function stripBusinessFiguresFromSummaryLine(text: string): string {
+  return text
+    .replace(/\b(?:UGX|USh|shillings?)\s*[\d,]+(?:\.\d+)?(?:\s*[kmbKMB])?/gi, "[amount]")
+    .replace(/\b\d{1,3}(?:,\d{3})+\b/g, "[number]")
+    .replace(/\b\d+(?:\.\d+)?\s*[kmbKMB]\b/g, "[number]")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
- * Condenses earlier conversation turns into a compact rolling summary when a
- * conversation grows beyond the verbatim turn window, preserving topics and
- * questions asked across the whole conversation.
+ * Condenses earlier conversation turns (older than the last 20 turns) into a compact
+ * rolling summary when a conversation grows beyond the 20-turn (40-message) verbatim
+ * window, preserving topics and questions asked across the conversation without
+ * storing business figures.
  */
 export function buildRollingConversationSummary(
   olderTurnsOrExisting:
@@ -487,18 +510,51 @@ export function buildRollingConversationSummary(
   const userTopics: string[] = [];
   for (const turn of olderTurns) {
     if (turn.role !== "user" || !turn.content) continue;
-    const oneLine = turn.content.replace(/\s+/g, " ").trim().slice(0, 140);
+    const oneLine = stripBusinessFiguresFromSummaryLine(turn.content).slice(0, 140);
     if (oneLine && !userTopics.includes(oneLine)) {
       userTopics.push(oneLine);
     }
   }
 
-  const prev = existingSummary.trim();
+  const prev = stripBusinessFiguresFromSummaryLine(existingSummary);
   if (userTopics.length === 0) return prev;
 
   const bulletList = userTopics.slice(-12).map((q) => `• Earlier question: "${q}"`).join("\n");
   const combined = prev ? `${prev}\n${bulletList}` : bulletList;
   return combined.slice(-1600);
+}
+
+/**
+ * Deliverable (6): Keeps the last 20 turns (40 messages) verbatim for the prompt
+ * and summarizes any older turns beyond the 20-turn window.
+ */
+export function splitTurnsForPromptMemory<T extends { role: string; content: string | null }>(
+  history: readonly T[],
+  existingRollingSummary = "",
+  maxActiveTurns: number = PROMPT_ACTIVE_TURNS,
+): {
+  activeTurnWindow: T[];
+  olderTurnWindow: T[];
+  rollingSummaryText: string;
+  rollingSummaryPromptBlock: string;
+} {
+  const maxMessages = Math.max(2, maxActiveTurns * 2);
+  const activeTurnWindow = history.slice(-maxMessages);
+  const olderTurnWindow = history.length > maxMessages ? history.slice(0, -maxMessages) : [];
+  const rollingSummaryText = buildRollingConversationSummary(
+    olderTurnWindow,
+    existingRollingSummary,
+  );
+  const rollingSummaryPromptBlock = rollingSummaryText
+    ? `EARLIER CONVERSATION ROLLING SUMMARY (turns older than the last ${maxActiveTurns} turns — topics only, no business figures):\n${rollingSummaryText}`
+    : "";
+
+  return {
+    activeTurnWindow,
+    olderTurnWindow,
+    rollingSummaryText,
+    rollingSummaryPromptBlock,
+  };
 }
 
 /**

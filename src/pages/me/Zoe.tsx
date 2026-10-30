@@ -4,7 +4,6 @@ import { ArrowLeft, Loader2, ShieldAlert } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { useAuth } from '@/hooks/useAuth';
 import { ZoeChatSurface } from '@/components/zoe/ZoeChatSurface';
-import { ZoeHealthBanner } from '@/components/zoe/ZoeHealthBanner';
 import { ZoeWeeklyLookAtCard } from '@/components/zoe/ZoeWeeklyLookAtCard';
 import { useZoeAccess, useZoeAssistant } from '@/components/zoe/useZoeAssistant';
 
@@ -50,7 +49,6 @@ const ZoePage: React.FC = () => {
       ) : (
         <div className="space-y-3">
           <div className="mx-auto max-w-[720px] px-4 space-y-2">
-            <ZoeHealthBanner />
             <ZoeWeeklyLookAtCard roles={roles} defaultExpanded={false} />
           </div>
           <ZoeChatSurface
@@ -66,8 +64,11 @@ const ZoePage: React.FC = () => {
             isHistoryLoading={assistant.isHistoryLoading}
             streamingText={assistant.streamingText}
             statusLine={assistant.statusLine}
+            researchMode={assistant.researchMode}
+            researchPlanSteps={assistant.researchPlanSteps}
             errorMessage={assistant.errorMessage}
             remainingQuestionsToday={assistant.remainingQuestionsToday}
+            onToggleResearchMode={assistant.setResearchMode}
             onSendMessage={assistant.sendMessage}
             onStopGenerating={assistant.stopGenerating}
             onRegenerate={assistant.regenerateLastAnswer}

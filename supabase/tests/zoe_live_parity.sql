@@ -111,10 +111,18 @@ DECLARE
     'zoe_ro.landlords_registry_by_district',
     'zoe_ro.landlords_payouts_summary'
   ];
+  v_cron_only_functions constant text[] := ARRAY[
+    'public.staff_assistant_purge_old_history()'
+  ];
+  v_service_role_functions constant text[] := ARRAY[
+    'public.staff_assistant_check_question_rate_limit(uuid)',
+    'public.staff_assistant_dispatch_due_reminders()',
+    'public.staff_assistant_check_owner_access(uuid)',
+    'public.staff_assistant_run_scheduled_report_as_owner(uuid, text, jsonb)'
+  ];
   v_functions constant text[] := ARRAY[
     'public.staff_assistant_has_access()',
     'public.staff_assistant_require_staff()',
-    'public.staff_assistant_purge_old_history()',
     'public.staff_assistant_email_recipients(text)',
     'public.staff_assistant_is_staff_email(text)',
     'public.staff_assistant_get_config()',
@@ -123,7 +131,6 @@ DECLARE
     'public.staff_assistant_can_user_read_report(uuid, text, uuid)',
     'public.staff_assistant_save_draft(text, jsonb, uuid)',
     'public.staff_assistant_consume_draft(uuid, text, jsonb)',
-    'public.staff_assistant_check_question_rate_limit(uuid)',
     'public.staff_assistant_check_email_budget(uuid, integer)',
     'public.staff_assistant_hide_my_history(uuid, uuid)',
     'public.staff_assistant_is_crm_reviewer()',
@@ -133,15 +140,12 @@ DECLARE
     'public.staff_assistant_rename_conversation(uuid, text)',
     'public.staff_assistant_create_reminder(text, timestamptz, text, uuid, uuid)',
     'public.staff_assistant_cancel_reminder(uuid)',
-    'public.staff_assistant_dispatch_due_reminders()',
     'public.staff_assistant_send_colleague_notification(text, text, text, text, uuid, uuid)',
-    'public.staff_assistant_compute_next_run(text, time, integer, timestamptz)',
-    'public.staff_assistant_create_schedule(text, text, text, jsonb, text, text[], integer, time, text, uuid, uuid)',
+    'public.staff_assistant_compute_next_run(text, text, integer, timestamptz)',
+    'public.staff_assistant_create_schedule(text, text, text, jsonb, text, text[], integer, text, text, uuid, uuid)',
     'public.staff_assistant_confirm_schedule_mfa(uuid)',
     'public.staff_assistant_cancel_schedule(uuid)',
-    'public.staff_assistant_set_morning_brief_prefs(boolean, time, boolean)',
-    'public.staff_assistant_check_owner_access(uuid)',
-    'public.staff_assistant_run_scheduled_report_as_owner(uuid, text, jsonb)',
+    'public.staff_assistant_set_morning_brief_prefs(boolean, text, boolean)',
     'public.staff_assistant_can_manage_ideas(uuid)',
     'public.staff_assistant_save_idea(text, text, text, jsonb, text, text, text, text, uuid, uuid, uuid)',
     'public.staff_assistant_list_ideas(text, integer)',
@@ -300,6 +304,36 @@ BEGIN
       END IF;
       IF NOT has_function_privilege('authenticated', v_fn_oid, 'EXECUTE') THEN
         v_missing := array_append(v_missing, 'authenticated_missing_execute:' || v_fn_sig);
+      END IF;
+    END IF;
+  END LOOP;
+
+  -- 6. Check service_role-only functions
+  FOREACH v_fn_sig IN ARRAY v_service_role_functions LOOP
+    v_fn_oid := to_regprocedure(v_fn_sig);
+    IF v_fn_oid IS NULL THEN
+      v_missing := array_append(v_missing, 'missing_function:' || v_fn_sig);
+    ELSE
+      IF has_function_privilege('anon', v_fn_oid, 'EXECUTE') THEN
+        v_missing := array_append(v_missing, 'anon_has_execute:' || v_fn_sig);
+      END IF;
+      IF NOT has_function_privilege('service_role', v_fn_oid, 'EXECUTE') THEN
+        v_missing := array_append(v_missing, 'service_role_missing_execute:' || v_fn_sig);
+      END IF;
+    END IF;
+  END LOOP;
+
+  -- 7. Check cron/superuser-only functions
+  FOREACH v_fn_sig IN ARRAY v_cron_only_functions LOOP
+    v_fn_oid := to_regprocedure(v_fn_sig);
+    IF v_fn_oid IS NULL THEN
+      v_missing := array_append(v_missing, 'missing_function:' || v_fn_sig);
+    ELSE
+      IF has_function_privilege('anon', v_fn_oid, 'EXECUTE') THEN
+        v_missing := array_append(v_missing, 'anon_has_execute:' || v_fn_sig);
+      END IF;
+      IF has_function_privilege('authenticated', v_fn_oid, 'EXECUTE') THEN
+        v_missing := array_append(v_missing, 'authenticated_has_execute:' || v_fn_sig);
       END IF;
     END IF;
   END LOOP;

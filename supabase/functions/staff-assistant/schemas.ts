@@ -67,6 +67,7 @@ export const RequestSchema = z.discriminatedUnion("action", [
       client_context: ClientContextSchema.optional(),
       stream: z.boolean().optional(),
       regenerate: z.boolean().optional(),
+      research_mode: z.boolean().optional(),
     })
     .strict(),
   z

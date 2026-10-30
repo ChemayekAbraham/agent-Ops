@@ -27,7 +27,7 @@ export const DIRECT_PROMPT_INJECTION_RE =
   /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer mode|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
 
 export const WRITE_MUTATION_INTENT_RE =
-  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout)\b/i;
+  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket)\b/i;
 
 export function containsPromptOrSecretLeak(text: string): boolean {
   return SYSTEM_PROMPT_LEAK_RE.test(text);
@@ -227,11 +227,34 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
       exactNumbers.add(Math.round(diff));
       exactNumbers.add(Number(diff.toFixed(1)));
       exactNumbers.add(Number(diff.toFixed(2)));
-      if (a <= b && b > 0) {
+      if (b > 0 && a <= b) {
         const pct = (a / b) * 100;
         exactNumbers.add(Math.round(pct));
         exactNumbers.add(Number(pct.toFixed(1)));
         exactNumbers.add(Number(pct.toFixed(2)));
+      }
+      // For pure general-knowledge / maths questions (no tool outputs), allow basic pairwise arithmetic
+      // on the numbers provided in the user's question.
+      if (toolOutputs.length === 0) {
+        const sum = a + b;
+        const prod = a * b;
+        const pctOf = (a / 100) * b;
+        for (const candidate of [sum, prod, pctOf]) {
+          if (Number.isFinite(candidate)) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
+        if (b > 0) {
+          const div = a / b;
+          const pctDiff = (diff / b) * 100;
+          for (const candidate of [div, pctDiff]) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
       }
     }
   }
@@ -405,6 +428,75 @@ export function checkAnswer(
   }
 
   return { ok: true };
+}
+
+export const UNVERIFIED_PARAGRAPH_REPLACEMENT = "I could not verify that figure";
+
+/**
+ * Deliverable (2): Runs `checkAnswer` on a single finished paragraph (`\n\n`).
+ * If the paragraph fails the figure check, replaces that paragraph with
+ * `"I could not verify that figure"` and returns the failure reason for logging.
+ */
+export function checkStreamedParagraph(
+  paragraph: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  ok: boolean;
+  paragraph: string;
+  reason?: GuardResult extends { ok: false; reason: infer R } ? R : string;
+} {
+  const trimmed = (paragraph ?? "").trim();
+  if (!trimmed) {
+    return { ok: true, paragraph };
+  }
+  // Trailing citation line ("Source: ... · Period: ...") is structural metadata
+  if (/^Source:\s*[^\n]+$/i.test(trimmed)) {
+    return { ok: true, paragraph };
+  }
+  const check = checkAnswer(paragraph, toolOutputs, userMessage);
+  if (check.ok) {
+    return { ok: true, paragraph };
+  }
+  return {
+    ok: false,
+    paragraph: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+    reason: check.reason,
+  };
+}
+
+/**
+ * Verifies every finished paragraph separated by `\n\n` in `fullText`.
+ * Replaces any paragraph that fails `checkAnswer` with `"I could not verify that figure"`.
+ */
+export function verifyAndSanitizeStreamedParagraphs(
+  fullText: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  sanitizedText: string;
+  replacedIndices: number[];
+  reasons: string[];
+} {
+  const paragraphs = (fullText ?? "").split(/\n\n+/);
+  const outParagraphs: string[] = [];
+  const replacedIndices: number[] = [];
+  const reasons: string[] = [];
+
+  for (let i = 0; i < paragraphs.length; i++) {
+    const res = checkStreamedParagraph(paragraphs[i], toolOutputs, userMessage);
+    outParagraphs.push(res.paragraph);
+    if (!res.ok) {
+      replacedIndices.push(i);
+      if (res.reason) reasons.push(res.reason);
+    }
+  }
+
+  return {
+    sanitizedText: outParagraphs.join("\n\n"),
+    replacedIndices,
+    reasons,
+  };
 }
 
 /**
