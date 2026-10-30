@@ -19,8 +19,11 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OTP_TTL_SECONDS = 3600;
-const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
-const TWILIO_SENDER = "WELILE";
+// Marks the audit row of an auto-reissue so a second failure report for the
+// same challenge does not reissue again. The legacy Twilio marker is kept so
+// challenges reissued before Twilio was removed still count.
+const AUTO_REISSUE_MARKER = "Landlord payout OTP (auto-reissue after AT failure)";
+const LEGACY_TWILIO_MARKER = "Landlord payout OTP (Twilio auto-fallback)";
 
 function generateOtp(): string {
   let s = "";
@@ -40,59 +43,90 @@ function normalizePhone(raw: string): string {
   return "+" + d;
 }
 
-interface TwilioResult {
+interface ReissueResult {
   ok: boolean;
+  provider: string | null;
   status?: string;
   reason?: string;
   messageId?: string;
   raw?: unknown;
 }
 
-// Reissue an OTP through the Twilio connector gateway. The gateway injects
-// Twilio auth + the Account SID prefix, so we only POST /Messages.json.
-async function sendTwilioSms(phone: string, message: string): Promise<TwilioResult> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const twilioKey = Deno.env.get("TWILIO_API_KEY");
-  if (!lovableKey || !twilioKey) {
-    return { ok: false, reason: "Twilio fallback not configured" };
-  }
+async function sendViaYoola(phone: string, message: string): Promise<ReissueResult | null> {
+  const apiKey = (Deno.env.get("YOOLA_SMS_API_KEY") || "").trim();
+  if (!apiKey) return null;
   try {
-    const res = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
+    const res = await fetch("https://yoolasms.com/api/v1/send", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": twilioKey,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({ To: phone, From: TWILIO_SENDER, Body: message }).toString(),
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ phone: phone.replace(/\D/g, ""), message, api_key: apiKey, sender: "WELILE" }),
     });
     const text = await res.text();
     let data: any = null;
     try { data = JSON.parse(text); } catch { /* keep raw text */ }
-    if (!res.ok) {
-      const reason = data?.error_message || data?.message || `Twilio HTTP ${res.status}: ${text.slice(0, 200)}`;
-      return { ok: false, reason, raw: data ?? text };
-    }
-    const status = (data?.status ?? "").toString().toLowerCase();
-    const accepted = ["queued", "accepted", "sending", "sent", "delivered"].includes(status);
+    const status = String(data?.status ?? "").toLowerCase();
+    const accepted = res.ok && ["success", "ok", "sent", "queued"].includes(status);
     return {
       ok: accepted,
+      provider: "yoola",
       status: data?.status ?? undefined,
-      reason: accepted ? undefined : (data?.error_message || `Twilio status ${data?.status ?? "unknown"}`),
-      messageId: data?.sid ?? undefined,
+      reason: accepted ? undefined : (data?.message || `Yoola HTTP ${res.status}`),
+      messageId: data?.message_id ?? undefined,
       raw: data ?? text,
     };
   } catch (e) {
-    console.error("[sms-delivery-report] Twilio error:", e);
-    return { ok: false, reason: e instanceof Error ? e.message : "Twilio network error" };
+    return { ok: false, provider: "yoola", reason: e instanceof Error ? e.message : "Yoola network error" };
   }
 }
 
+async function sendViaLana(phone: string, message: string): Promise<ReissueResult | null> {
+  const apiKey = (Deno.env.get("LANA_SMS_API_KEY") || "").trim();
+  if (!apiKey) return null;
+  try {
+    const res = await fetch("https://api.lanasms.com/v1/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({ phone: phone.replace(/\D/g, ""), sender_id: "WELILE", message }).toString(),
+    });
+    const text = await res.text();
+    let data: any = null;
+    try { data = JSON.parse(text); } catch { /* keep raw text */ }
+    const accepted = res.ok && (data?.status === true || String(data?.status ?? "").toLowerCase() === "success");
+    return {
+      ok: accepted,
+      provider: "lana",
+      status: data?.status !== undefined ? String(data.status) : undefined,
+      reason: accepted ? undefined : (data?.message || `LANA HTTP ${res.status}`),
+      messageId: data?.message_id ?? data?.id ?? undefined,
+      raw: data ?? text,
+    };
+  } catch (e) {
+    return { ok: false, provider: "lana", reason: e instanceof Error ? e.message : "LANA network error" };
+  }
+}
+
+// Africa's Talking just failed this message, so the reissue goes to the other
+// two providers in the normal order: Yoola, then LANA.
+async function sendReissueSms(phone: string, message: string): Promise<ReissueResult> {
+  const reasons: string[] = [];
+  for (const send of [sendViaYoola, sendViaLana]) {
+    const r = await send(phone, message);
+    if (r === null) continue;
+    if (r.ok) return r;
+    reasons.push(`${r.provider}: ${r.reason ?? "rejected"}`);
+  }
+  return { ok: false, provider: null, reason: reasons.join(" | ") || "No backup SMS provider configured" };
+}
+
 // When Africa's Talking reports a failed handset delivery for a landlord OTP,
-// regenerate the OTP and reissue it through Twilio so the landlord still gets a
-// working code. Idempotent: skips if the challenge is no longer pending/expired
-// or if a Twilio reissue already succeeded for this challenge.
-async function reissueOtpViaTwilio(
+// regenerate the OTP and reissue it through Yoola (then LANA) so the landlord
+// still gets a working code. Idempotent: skips if the challenge is no longer
+// pending or if an auto-reissue already succeeded for this challenge.
+async function reissueOtpViaBackup(
   // deno-lint-ignore no-explicit-any
   admin: any,
   challengeId: string,
@@ -106,16 +140,16 @@ async function reissueOtpViaTwilio(
     if (!challenge) return;
     if ((challenge as any).status !== "pending") return;
 
-    // Don't reissue twice: if a Twilio send already went out for this challenge.
-    const { data: priorTwilio } = await admin
+    // Don't reissue twice: if an auto-reissue already went out for this challenge.
+    const { data: priorReissue } = await admin
       .from("sms_delivery_log")
       .select("id")
       .eq("reference_id", challengeId)
-      .eq("provider", "twilio")
+      .in("message", [AUTO_REISSUE_MARKER, LEGACY_TWILIO_MARKER])
       .in("status", ["sent", "delivered"])
       .limit(1)
       .maybeSingle();
-    if (priorTwilio) return;
+    if (priorReissue) return;
 
     const otp = generateOtp();
     const otp_hash = await sha256(otp);
@@ -133,7 +167,7 @@ async function reissueOtpViaTwilio(
     const attemptNumber = (priorSends ?? 0) + 1;
 
     const phone = normalizePhone((challenge as any).landlord_phone);
-    const result = await sendTwilioSms(
+    const result = await sendReissueSms(
       phone,
       `Welile: You are receiving UGX ${Number((challenge as any).amount).toLocaleString()} as rent. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
     );
@@ -141,9 +175,9 @@ async function reissueOtpViaTwilio(
     await admin.from("sms_delivery_log").insert({
       recipient_phone: phone,
       recipient_name: (challenge as any).landlord_name ?? null,
-      message: "Landlord payout OTP (Twilio auto-fallback)",
+      message: AUTO_REISSUE_MARKER,
       status: result.ok ? "sent" : "failed",
-      provider: "twilio",
+      provider: result.provider ?? "none",
       provider_message_id: result.messageId ?? null,
       reference_id: challengeId,
       provider_response: result.raw ?? null,
@@ -160,16 +194,16 @@ async function reissueOtpViaTwilio(
       amount: (challenge as any).amount,
       otp_expires_at,
       detail: result.ok
-        ? "OTP auto-reissued via Twilio after Africa's Talking delivery failed"
-        : `OTP auto-reissue via Twilio failed: ${result.reason ?? "unknown"}`,
-      failure_reason: result.ok ? null : (result.reason ?? "twilio_reissue_failed"),
+        ? `OTP auto-reissued via ${result.provider} after Africa's Talking delivery failed`
+        : `OTP auto-reissue failed: ${result.reason ?? "unknown"}`,
+      failure_reason: result.ok ? null : (result.reason ?? "backup_reissue_failed"),
       metadata: {
         attempt_number: attemptNumber,
         sms_sent: result.ok,
         sms_status: result.status ?? null,
         sms_reason: result.reason ?? null,
         sms_message_id: result.messageId ?? null,
-        sms_provider: "twilio",
+        sms_provider: result.provider,
         fallback_used: true,
         primary_provider: "africastalking",
         primary_reason: "delivery_failed",
@@ -178,10 +212,10 @@ async function reissueOtpViaTwilio(
       },
     });
     console.log(
-      `[sms-delivery-report] OTP for challenge ${challengeId} auto-reissued via Twilio (ok=${result.ok})`,
+      `[sms-delivery-report] OTP for challenge ${challengeId} auto-reissued via ${result.provider ?? "none"} (ok=${result.ok})`,
     );
   } catch (e) {
-    console.error("[sms-delivery-report] Twilio reissue error:", e);
+    console.error("[sms-delivery-report] backup reissue error:", e);
   }
 }
 
@@ -320,9 +354,9 @@ Deno.serve(async (req) => {
           },
         });
 
-        // Auto-reissue via Twilio when the AT delivery terminally failed.
+        // Auto-reissue via Yoola/LANA when the AT delivery terminally failed.
         if (status === "failed") {
-          await reissueOtpViaTwilio(admin, challengeId);
+          await reissueOtpViaBackup(admin, challengeId);
         }
       }
     } else {

@@ -73,11 +73,6 @@ async function sendSMS(phone: string, message: string) {
   };
 }
 
-// Twilio fallback — routed through the Lovable connector gateway (same path as
-// the production landlord-payout OTP function), so we only POST /Messages.json.
-const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
-const TWILIO_SENDER = "WELILE";
-
 // Yoola — the PRIMARY production SMS provider. Posts JSON to /api/v1/send.
 // WELILE is the registered sender ID and must be set explicitly on every call.
 function toYoolaDigits(phone: string): string {
@@ -122,65 +117,60 @@ async function sendYoolaSMS(phone: string, message: string, opts: { sender?: str
     return { ok: false, formattedPhone: bareDigits, reason: e instanceof Error ? e.message : "Yoola network error", provider: "yoola" };
   }
 }
-async function sendTwilioSMS(phone: string, message: string) {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const twilioKey = Deno.env.get("TWILIO_API_KEY");
-  if (!lovableKey || !twilioKey) {
-    return { ok: false, reason: "Twilio fallback not configured", provider: "twilio" };
-  }
-  const formattedPhone = formatPhoneInternational(phone);
+// LANA — the last production fallback. Form body with a Bearer key;
+// { status: true } or { status: "success" } = accepted.
+async function sendLanaSMS(phone: string, message: string) {
+  const apiKey = Deno.env.get("LANA_SMS_API_KEY")?.trim();
+  if (!apiKey) return { ok: false, reason: "LANA not configured", provider: "lana" };
+  const bareDigits = toYoolaDigits(phone);
   try {
-    const res = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
+    const res = await fetch("https://api.lanasms.com/v1/send", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": twilioKey,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
       },
-      body: new URLSearchParams({ To: formattedPhone, From: TWILIO_SENDER, Body: message }).toString(),
+      body: new URLSearchParams({ phone: bareDigits, sender_id: "WELILE", message }).toString(),
     });
     const rawText = await res.text();
     let parsed: any = null;
     try { parsed = JSON.parse(rawText); } catch { /* keep raw */ }
-    if (!res.ok) {
-      return {
-        ok: false,
-        httpStatus: res.status,
-        formattedPhone,
-        reason: parsed?.error_message || parsed?.message || `Twilio HTTP ${res.status}`,
-        raw: parsed ?? rawText,
-        provider: "twilio",
-      };
-    }
-    const status = (parsed?.status ?? "").toString().toLowerCase();
-    const accepted = ["queued", "accepted", "sending", "sent", "delivered"].includes(status);
+    const accepted = res.ok && (parsed?.status === true || String(parsed?.status ?? "").toLowerCase() === "success");
     return {
       ok: accepted,
       httpStatus: res.status,
-      formattedPhone,
+      formattedPhone: bareDigits,
       status: parsed?.status ?? null,
-      messageId: parsed?.sid ?? null,
-      reason: accepted ? undefined : (parsed?.error_message || `Twilio status ${parsed?.status ?? "unknown"}`),
+      reason: accepted ? undefined : (parsed?.message || `LANA HTTP ${res.status}`),
       raw: parsed ?? rawText,
-      provider: "twilio",
+      provider: "lana",
     };
   } catch (e) {
-    return { ok: false, formattedPhone, reason: e instanceof Error ? e.message : "Twilio network error", provider: "twilio" };
+    return { ok: false, formattedPhone: bareDigits, reason: e instanceof Error ? e.message : "LANA network error", provider: "lana" };
   }
 }
 
-// Africa's Talking first, then automatic Twilio fallback — identical strategy to
-// the production landlord payout OTP path, so this is a true end-to-end check.
+// Yoola, then Africa's Talking, then LANA — the same order as production
+// (_shared/sendSmsMultiProvider.ts), so this is a true end-to-end check.
 async function sendWithFallback(phone: string, message: string) {
-  const primary = await sendSMS(phone, message);
-  if (primary.ok) return { ...primary, fallbackUsed: false };
-  const fallback = await sendTwilioSMS(phone, message);
+  const tried: Array<{ provider: string; reason?: string }> = [];
+  let last: any = null;
+  for (const send of [
+    () => sendYoolaSMS(phone, message),
+    () => sendSMS(phone, message),
+    () => sendLanaSMS(phone, message),
+  ]) {
+    last = await send();
+    if (last.ok) break;
+    tried.push({ provider: last.provider, reason: last.reason });
+  }
   return {
-    ...fallback,
-    fallbackUsed: true,
-    primaryProvider: "africastalking",
-    primaryReason: (primary as any).reason ?? "AT send not accepted",
-    primaryRaw: (primary as any).raw ?? null,
+    ...last,
+    fallbackUsed: tried.length > 0,
+    primaryProvider: "yoola",
+    primaryReason: tried[0]?.reason ?? null,
+    failedProviders: tried,
   };
 }
 
@@ -191,7 +181,7 @@ Deno.serve(async (req) => {
     let phone = "0777607640";
     let message =
       "[Welile Test] Background SMS API test successful. If you received this, the SMS pipeline is healthy. — Welile Ops";
-    let provider = "auto"; // 'auto' = AT then Twilio fallback | 'twilio' = force Twilio | 'africastalking' = force AT
+    let provider = "auto"; // 'auto' = Yoola -> AT -> LANA | 'yoola' / 'africastalking' / 'lana' = force one
     let no_sender = false; // legacy flag; ignored because WELILE is always sent
     let sender: string | undefined = undefined; // when set (+ provider=yoola), override the default WELILE sender id
 
@@ -208,8 +198,8 @@ Deno.serve(async (req) => {
     const result =
       provider === "yoola"
         ? { ...(await sendYoolaSMS(phone, message, sender !== undefined ? { sender } : (no_sender ? { sender: null } : {}))), fallbackUsed: false, forced: "yoola" }
-        : provider === "twilio"
-        ? { ...(await sendTwilioSMS(phone, message)), fallbackUsed: false, forced: "twilio" }
+        : provider === "lana"
+        ? { ...(await sendLanaSMS(phone, message)), fallbackUsed: false, forced: "lana" }
         : provider === "africastalking"
         ? { ...(await sendSMS(phone, message)), fallbackUsed: false, forced: "africastalking" }
         : await sendWithFallback(phone, message);
