@@ -11,7 +11,7 @@ export const MSG = {
   mfaRequired:
     "This report contains sensitive figures and requires two-factor verification (MFA) before Zoe can read it. Please complete MFA verification and try again.",
   outOfScope:
-    "I'm a read-only assistant, so I can't change Welile data, approve requests, move money, or help with harmful requests. To make changes or approvals, please use the matching Welile screen (such as /me/requisitions, /tenant-ops, /landlord-ops, /partner-ops, or /cfo/dashboard).",
+    "I'm a read-only assistant, so I can't change Welile data, approve requests, move money, or help with harmful requests. To make changes or approvals, please use the matching Welile screen (such as /me/requisitions, /me/advances, /me/work, /tenant-ops, /landlord-ops, /partner-ops, /financial-ops, or /cfo/dashboard).",
   unmatched:
     "I don't have that on file. I checked your available My Space and department report tools, but I could not find a verified live dataset for that specific figure. Please check the closest workspace screen (/tenant-ops, /landlord-ops, /executive-hub?tab=agent-ops, /cfo/dashboard, or /me/staff-reports) or ask your manager.",
   stepLimitReachedPrefix:
