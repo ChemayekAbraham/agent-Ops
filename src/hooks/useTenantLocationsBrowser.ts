@@ -173,3 +173,177 @@ export function hitToPath(hit: TlbLocationHit): TlbPath {
     villageName: hit.kind === 'village' ? hit.label : undefined,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Multi-place selection (read-only). A selected place is one path of the same
+// shape the single-place browser already uses; the server returns each tenant
+// once, credited to the most specific selected place (tlb_tenants_multi).
+// ---------------------------------------------------------------------------
+
+/** Hard cap shared by the server (tlb_tenants_multi) and the PDF export. */
+export const TLB_MULTI_MAX_TENANTS = 5000;
+
+export interface TlbSelectedPlace {
+  /** Stable key, see tlbPathKey. */
+  key: string;
+  /** Short name shown on chips and headings (village, district, ...). */
+  label: string;
+  /** Full path, largest to smallest: Region, District, ... , Village. */
+  fullPath: string[];
+  path: TlbPath;
+}
+
+export interface TlbMultiTenant extends Omit<TlbTenant, 'total_count'> {
+  matched_path_index: number;
+  total_count: number;
+}
+
+/**
+ * Stable identity of a place, independent of names and of how it was reached
+ * (search hit or drill-down). Same place, same key, so a selection survives new
+ * searches and navigation and cannot be added twice.
+ */
+export function tlbPathKey(path: TlbPath): string {
+  if (path.unmapped) return 'unmapped';
+  return [
+    `r:${path.region ?? ''}`,
+    `d:${path.districtId ?? ''}`,
+    `c:${path.countyId ?? ''}`,
+    `s:${path.subcountyId ?? ''}`,
+    `p:${path.parishId ?? ''}`,
+    `v:${path.villageId ?? ''}`,
+  ].join('|');
+}
+
+/** Names of a path that are known, largest to smallest. */
+export function pathNames(path: TlbPath): string[] {
+  if (path.unmapped) return ['Unmapped'];
+  return [
+    path.region, path.districtName, path.countyName,
+    path.subcountyName, path.parishName, path.villageName,
+  ].filter((v): v is string => !!v);
+}
+
+/** The path a child row opens, given the list level it was shown at. */
+export function childToPath(
+  parent: TlbPath,
+  level: TlbLevel | null,
+  nodeId: number | null,
+  label: string,
+  unmapped: boolean,
+): TlbPath | null {
+  if (unmapped) return { unmapped: true };
+  switch (level) {
+    case 'region':    return { region: label };
+    case 'district':  return { ...parent, districtId: nodeId!, districtName: label };
+    case 'county':    return { ...parent, countyId: nodeId!, countyName: label };
+    case 'subcounty': return { ...parent, subcountyId: nodeId!, subcountyName: label };
+    case 'parish':    return { ...parent, parishId: nodeId!, parishName: label };
+    case 'village':   return { ...parent, villageId: nodeId!, villageName: label };
+    default: return null;
+  }
+}
+
+export function placeFromPath(path: TlbPath, label?: string): TlbSelectedPlace {
+  const names = pathNames(path);
+  return {
+    key: tlbPathKey(path),
+    label: label ?? names[names.length - 1] ?? 'Place',
+    fullPath: names,
+    path,
+  };
+}
+
+export function placeFromChild(
+  parent: TlbPath,
+  level: TlbLevel | null,
+  nodeId: number | null,
+  label: string,
+  unmapped: boolean,
+): TlbSelectedPlace | null {
+  const path = childToPath(parent, level, nodeId, label, unmapped);
+  return path ? placeFromPath(path, unmapped ? 'Unmapped' : label) : null;
+}
+
+/** A search hit knows its parents only as text ("parish, sub-county, district"). */
+export function placeFromHit(hit: TlbLocationHit): TlbSelectedPlace {
+  const parents = (hit.kind === 'district' ? [] : (hit.path_label ?? '').split(', ').reverse())
+    .map((v) => v.trim()).filter(Boolean);
+  const fullPath = [hit.region, ...parents, hit.label]
+    .filter((v): v is string => !!v)
+    .filter((v, i, all) => i === 0 || v !== all[i - 1]);
+  const path = hitToPath(hit);
+  return { key: tlbPathKey(path), label: hit.label, fullPath, path };
+}
+
+/** Argument shape of tlb_tenants_multi.p_paths, in selection order. */
+export function toRpcPaths(places: readonly TlbSelectedPlace[]) {
+  return places.map(({ path }) => ({
+    region: path.region ?? null,
+    district_id: path.districtId ?? null,
+    county_id: path.countyId ?? null,
+    subcounty_id: path.subcountyId ?? null,
+    parish_id: path.parishId ?? null,
+    village_id: path.villageId ?? null,
+    unmapped: !!path.unmapped,
+  }));
+}
+
+export interface TlbMultiResult {
+  rows: TlbMultiTenant[];
+  /** Distinct tenants across all selected places (may exceed rows.length). */
+  total: number;
+}
+
+export async function fetchTlbTenantsMulti(
+  places: readonly TlbSelectedPlace[],
+  status: TlbStatus,
+  limit = TLB_MULTI_MAX_TENANTS,
+): Promise<TlbMultiResult> {
+  const { data, error } = await supabase.rpc('tlb_tenants_multi' as any, {
+    p_paths: toRpcPaths(places),
+    p_status: status,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  const rows = ((data ?? []) as TlbMultiTenant[]).map((r) => ({
+    ...r,
+    matched_path_index: Number(r.matched_path_index),
+    total_count: Number(r.total_count),
+  }));
+  return { rows, total: rows[0]?.total_count ?? 0 };
+}
+
+export function useTlbTenantsMulti(
+  places: readonly TlbSelectedPlace[],
+  status: TlbStatus,
+  enabled = true,
+) {
+  const keys = places.map((p) => p.key);
+  return useQuery({
+    enabled: enabled && places.length > 0,
+    queryKey: ['tlb-tenants-multi', keys, status],
+    staleTime: 30_000,
+    queryFn: () => fetchTlbTenantsMulti(places, status),
+  });
+}
+
+/**
+ * Append-only audit row for a Tenant Location Report PDF (it carries personal
+ * phone numbers). Caller-checked on the server; the reason is always >= 10 chars.
+ */
+export async function logTlbLocationPdfExport(args: {
+  places: readonly TlbSelectedPlace[];
+  tenants: number;
+  status: TlbStatus;
+}): Promise<void> {
+  const reason = `Tenant Location Report PDF: ${args.places.length} places, ${args.tenants} tenants, status ${args.status}`;
+  const { error } = await supabase.rpc('tlb_log_location_pdf_export' as any, {
+    p_reason: reason,
+    p_places: args.places.length,
+    p_tenants: args.tenants,
+    p_status: args.status,
+    p_place_labels: args.places.slice(0, 25).map((p) => p.fullPath.join(' > ')),
+  });
+  if (error) throw error;
+}
