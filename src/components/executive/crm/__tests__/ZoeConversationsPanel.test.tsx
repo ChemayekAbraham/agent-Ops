@@ -14,6 +14,7 @@ import {
 const mockUseAuth = vi.fn();
 const mockUseZoeCrmDashboard = vi.fn();
 const mockUseZoeCrmThread = vi.fn();
+const mockUseZoeErrorSummary = vi.fn();
 const mockMutate = vi.fn();
 
 vi.mock('@/hooks/useAuth', () => ({
@@ -27,6 +28,8 @@ vi.mock('@/hooks/useZoeCrm', async (importOriginal) => {
     useZoeCrmDashboard: (filters: unknown, enabled: boolean) =>
       mockUseZoeCrmDashboard(filters, enabled),
     useZoeCrmThread: (convId: string | null) => mockUseZoeCrmThread(convId),
+    useZoeErrorSummary: (days?: number, enabled?: boolean) =>
+      mockUseZoeErrorSummary(days, enabled),
     useUpdateZoeUnanswered: () => ({
       mutate: mockMutate,
       isPending: false,
@@ -267,6 +270,48 @@ describe('ZoeConversationsPanel & useZoeCrm', () => {
     });
     mockUseZoeCrmThread.mockReturnValue({
       data: SAMPLE_THREAD,
+      isLoading: false,
+    });
+    mockUseZoeErrorSummary.mockReturnValue({
+      data: {
+        ok: true,
+        source: 'staff_assistant_error_summary',
+        days: 14,
+        from_date: '2026-10-13',
+        to_date: '2026-10-26',
+        total_errors: 4,
+        by_code: [
+          {
+            error_code: 'ERR_DB_CONFIG_MISSING',
+            total_count: 3,
+            unique_staff_count: 2,
+            first_seen_at: '2026-10-25T08:00:00Z',
+            last_seen_at: '2026-10-26T09:00:00Z',
+          },
+          {
+            error_code: 'ERR_DB_GLOSSARY_MISSING',
+            total_count: 1,
+            unique_staff_count: 1,
+            first_seen_at: '2026-10-26T08:30:00Z',
+            last_seen_at: '2026-10-26T08:30:00Z',
+          },
+        ],
+        by_day: [
+          {
+            day_kampala: '2026-10-26',
+            error_code: 'ERR_DB_CONFIG_MISSING',
+            error_count: 3,
+            unique_staff_count: 2,
+          },
+          {
+            day_kampala: '2026-10-26',
+            error_code: 'ERR_DB_GLOSSARY_MISSING',
+            error_count: 1,
+            unique_staff_count: 1,
+          },
+        ],
+        error: null,
+      },
       isLoading: false,
     });
   });
@@ -515,6 +560,29 @@ describe('ZoeConversationsPanel & useZoeCrm', () => {
       // Reviewer NEVER sees the CFO answer or figures
       expect(threadEl).not.toHaveTextContent('UGX 148,500,000');
       expect(threadEl).not.toHaveTextContent('Total cash position is');
+    });
+
+    it('renders the admin Error Summary by error_code and Kampala day with zero user text', () => {
+      mockUseAuth.mockReturnValue({ roles: ['crm'] });
+      render(<ZoeConversationsPanel />);
+
+      expect(screen.getByTestId('zoe-tab-error-summary')).toHaveTextContent(
+        'Error Summary (4)',
+      );
+      expect(screen.getByTestId('zoe-error-summary-total')).toHaveTextContent(
+        'Total logged errors: 4',
+      );
+      expect(
+        screen.getByTestId('zoe-error-code-row-ERR_DB_CONFIG_MISSING'),
+      ).toHaveTextContent('3x');
+      expect(
+        screen.getByTestId('zoe-error-code-row-ERR_DB_GLOSSARY_MISSING'),
+      ).toHaveTextContent('1x');
+      expect(
+        screen.getByTestId(
+          'zoe-error-day-row-2026-10-26-ERR_DB_CONFIG_MISSING',
+        ),
+      ).toHaveTextContent('2026-10-26');
     });
   });
 });

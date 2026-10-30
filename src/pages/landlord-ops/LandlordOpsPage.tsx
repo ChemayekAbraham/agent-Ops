@@ -8,6 +8,7 @@ import { LandlordOpsDecisionDrawer } from '@/components/executive/landlord-ops/L
 import { Button } from '@/components/ui/button';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { ReceivablesSummaryGate } from '@/components/receivables/ReceivablesSummaryGate';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 /**
  * Layout route for Landlord Ops.
@@ -97,6 +98,7 @@ export default function LandlordOpsPage() {
         </aside>
 
         <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
+          <V360StaffPricingBanner />
           <TutorialVideosButton />
           {isHome ? (
             <ReceivablesSummaryGate startOpen={hasExtraParams} onVisibilityChange={setHomeOpen}>

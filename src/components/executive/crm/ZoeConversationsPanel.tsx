@@ -46,6 +46,7 @@ import {
   useUpdateZoeUnanswered,
   useZoeCrmDashboard,
   useZoeCrmThread,
+  useZoeErrorSummary,
   ZOE_CRM_REVIEWER_ROLES,
   type ZoeCrmConversationRow,
   type ZoeUnansweredStatus,
@@ -112,9 +113,21 @@ export function ZoeConversationsPanel() {
       ? selectedConversation.id
       : null,
   );
+  const errorSummaryQuery = useZoeErrorSummary(14, isAuthorizedReviewer);
   const updateUnanswered = useUpdateZoeUnanswered();
 
   const data = dashboardQuery.data;
+  const errorSummary = errorSummaryQuery.data ?? {
+    ok: true,
+    source: 'staff_assistant_error_summary',
+    days: 14,
+    from_date: '',
+    to_date: '',
+    total_errors: 0,
+    by_code: [],
+    by_day: [],
+    error: null,
+  };
 
   const filteredConversations = useMemo(() => {
     const raw = data?.conversations ?? [];
@@ -374,6 +387,9 @@ export function ZoeConversationsPanel() {
           </TabsTrigger>
           <TabsTrigger value="daily-usage" data-testid="zoe-tab-daily-usage">
             Daily Usage vs Budget ({dailyUsageRows.length})
+          </TabsTrigger>
+          <TabsTrigger value="error-summary" data-testid="zoe-tab-error-summary">
+            Error Summary ({errorSummary.total_errors})
           </TabsTrigger>
         </TabsList>
 
@@ -940,6 +956,111 @@ export function ZoeConversationsPanel() {
                     );
                   })}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 4: ADMIN ERROR SUMMARY BY ERROR_CODE AND DAY (NO USER TEXT) */}
+        <TabsContent
+          value="error-summary"
+          forceMount
+          className="space-y-3 data-[state=inactive]:hidden"
+        >
+          <Card data-testid="zoe-error-summary-card">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    Technical Error Summary (Last {errorSummary.days} Days · No User Text)
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Counts of degraded dependencies and database parity errors by{' '}
+                    <code className="font-mono">error_code</code> and Kampala day from{' '}
+                    <code className="font-mono">staff_assistant_error_summary</code>. Zero
+                    user text or financial figures are included.
+                  </p>
+                </div>
+                <Badge
+                  variant={errorSummary.total_errors > 0 ? 'destructive' : 'secondary'}
+                  className="text-xs"
+                  data-testid="zoe-error-summary-total"
+                >
+                  Total logged errors: {errorSummary.total_errors}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {errorSummary.by_code.length === 0 ? (
+                <div
+                  className="p-6 text-center text-xs text-muted-foreground"
+                  data-testid="zoe-error-summary-empty"
+                >
+                  No technical error codes logged in the last {errorSummary.days} days.
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2" data-testid="zoe-error-summary-by-code">
+                    <h3 className="text-xs font-semibold text-foreground">
+                      Counts by Error Code
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {errorSummary.by_code.map((item) => (
+                        <div
+                          key={item.error_code}
+                          data-testid={`zoe-error-code-row-${item.error_code}`}
+                          className="rounded-lg border border-border p-3 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs font-mono font-semibold text-foreground truncate">
+                              {item.error_code}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.unique_staff_count} staff · Last seen{' '}
+                              {formatRelativeTime(item.last_seen_at)}
+                            </p>
+                          </div>
+                          <Badge variant="destructive" className="text-xs shrink-0">
+                            {item.total_count}x
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {errorSummary.by_day.length > 0 && (
+                    <div className="space-y-2" data-testid="zoe-error-summary-by-day">
+                      <h3 className="text-xs font-semibold text-foreground">
+                        Daily Breakdown (Kampala Day)
+                      </h3>
+                      <div className="space-y-1.5">
+                        {errorSummary.by_day.map((dayRow, idx) => (
+                          <div
+                            key={`${dayRow.day_kampala}-${dayRow.error_code}-${idx}`}
+                            data-testid={`zoe-error-day-row-${dayRow.day_kampala}-${dayRow.error_code}`}
+                            className="rounded border border-border/70 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs font-mono">
+                                {dayRow.day_kampala}
+                              </Badge>
+                              <span className="font-mono font-medium text-foreground">
+                                {dayRow.error_code}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <span>{dayRow.unique_staff_count} staff</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {dayRow.error_count}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

@@ -522,6 +522,8 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
   if (!isTools) {
     const ALLOWED_DIRECT_RPCS = new Set([
       'staff_assistant_has_access',
+      'staff_assistant_health',
+      'staff_assistant_get_config',
       'staff_assistant_is_staff_email',
       'staff_assistant_email_recipients',
       'staff_assistant_save_draft',
@@ -532,6 +534,8 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
       'staff_assistant_hide_my_history',
       'assistant_staff_my_profile',
       'assistant_staff_get_glossary',
+      'assistant_staff_get_data_catalog',
+      'assistant_staff_data_catalog',
     ]);
     for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
       if (!ALLOWED_DIRECT_RPCS.has(m[1])) {

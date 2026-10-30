@@ -32,8 +32,9 @@ function normalizePhone(raw: string): string | null {
   }
   // Bare 9-digit Ugandan number without any prefix (e.g. 771234567)
   if (!hadPlus && d.length === 9) return `+256${d}`;
-  // Explicit international number: + followed by 9-15 digits
-  if (hadPlus && d.length >= 9 && d.length <= 15) return `+${d}`;
+  // International number, with or without the +: 9-15 digits starting with a country code
+  // (a bare 9-digit number is Ugandan, handled above)
+  if (d.length >= 9 && d.length <= 15) return `+${d}`;
   return null;
 }
 

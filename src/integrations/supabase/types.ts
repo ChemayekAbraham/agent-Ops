@@ -83216,6 +83216,10 @@ export type Database = {
       landlord_payout_allowed_today: { Args: never; Returns: number }
       landlord_payout_goal_allowed: { Args: never; Returns: number }
       landlord_payout_goal_started_at: { Args: never; Returns: string }
+      landlord_payout_is_renewal: {
+        Args: { p_landlord_payout_id: string }
+        Returns: boolean
+      }
       landlord_payout_queue_blocked: {
         Args: { p_exempt_at: string; p_landlord_payout_id: string }
         Returns: boolean

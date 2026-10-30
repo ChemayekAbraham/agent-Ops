@@ -5,6 +5,15 @@ import { beginOAuthFunnel, trackOAuthRedirected, trackOAuthError, completePendin
 import { revokeCurrentDevicePush } from '@/lib/webPush';
 import { preflightSignup, attachSignupUser } from '@/lib/signupGuard';
 import { getStoredAttributionToken } from '@/lib/campaignAttribution';
+import { normalizeE164OrNull } from '@/lib/phoneUtils';
+
+// The profiles insert trigger refuses a number it cannot normalise (e.g. 250793903844 typed without the +), and
+// auth then answers with a bare 500 "Database error saving new user". Run the same rule here first so the
+// person gets a message they can act on. A blank phone is allowed, as in the trigger.
+function signupPhoneError(phone: string): Error | null {
+  if (!phone || !phone.trim() || normalizeE164OrNull(phone) !== null) return null;
+  return new Error('That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda the full number with its country code, for example +250793903844.');
+}
 
 // Maintenance lock removed 2026-05-08 — was silently returning a fake
 // "Welile is under maintenance" error on every sign-in / sign-up unless
@@ -20,6 +29,8 @@ export async function signUp(
   signupSource?: string,
   referrerId?: string,
 ) {
+  const phoneError = signupPhoneError(phone);
+  if (phoneError) return { data: null, error: phoneError };
   const guard = await preflightSignup({ email, phone });
   if (!guard.allowed) {
     return { data: null, error: new Error(guard.reason || 'Sign-up is temporarily unavailable from this device or network. Please try again tomorrow.') as Error };
@@ -67,6 +78,8 @@ export async function signUp(
 }
 
 export async function signUpWithoutRole(email: string, password: string, fullName: string, phone: string, referrerId?: string, intendedRole?: string, signupSource?: string) {
+  const phoneError = signupPhoneError(phone);
+  if (phoneError) return { data: null, error: phoneError };
   const guard = await preflightSignup({ email, phone });
   if (!guard.allowed) {
     return { data: null, error: new Error(guard.reason || 'Sign-up is temporarily unavailable from this device or network. Please try again tomorrow.') as Error };

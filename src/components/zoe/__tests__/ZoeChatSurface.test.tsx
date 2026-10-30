@@ -67,7 +67,7 @@ describe('ZoeChatSurface', () => {
     expect(screen.getByTestId('zoe-send-button')).toBeDisabled();
   });
 
-  it('renders error message banner with Retry button and triggers onRetry when clicked', () => {
+  it('renders soft inline error note with plain-language message and Try again link, triggering onRetry when clicked', () => {
     const onRetry = vi.fn();
     renderSurface({
       messages: [{ id: 'u-1', role: 'user', content: 'Show my payslips' }],
@@ -77,9 +77,11 @@ describe('ZoeChatSurface', () => {
 
     const banner = screen.getByTestId('zoe-error-banner');
     expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("I'm having trouble reading that report right now.");
+    expect(banner).toHaveTextContent("Zoe's data service is being updated");
+    expect(banner.className).not.toContain('destructive');
 
     const retryBtn = screen.getByTestId('zoe-retry-button');
+    expect(retryBtn).toHaveTextContent('Try again');
     fireEvent.click(retryBtn);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -625,5 +627,191 @@ describe('ZoeChatSurface', () => {
       'SELECT * FROM (SELECT district, collected_on_schedule_ugx',
     );
     expect(screen.getByTestId('zoe-raw-data-table-a-analyst-1')).toBeInTheDocument();
+  });
+
+  it('implements Prompt 2 ChatGPT-grade layout: top-bar "..." menu & quota <= 10 rule, max 3 empty-chat starters, no-bubble assistant replies, sticky first column, 4 subtle action icons + "..." menu, composer Enter/Stop/disclaimer, and history rail delete', () => {
+    const onSendMessage = vi.fn();
+    const onStopGenerating = vi.fn();
+    const onDeleteConversation = vi.fn();
+
+    // 1. Empty chat with >10 remaining questions: quota is in menu, not top bar; max 3 starter prompts
+    const { unmount } = renderSurface({
+      messages: [],
+      roles: ['cfo', 'tenant_ops'],
+      remainingQuestionsToday: 48,
+      onSendMessage,
+    });
+
+    expect(screen.queryByTestId('zoe-low-quota-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('zoe-menu-quota')).toHaveTextContent('48 left today');
+
+    const topMoreBtn = screen.getByTestId('zoe-top-more-button');
+    expect(topMoreBtn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(topMoreBtn);
+    expect(topMoreBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('zoe-top-more-menu')).toHaveAttribute('data-state', 'open');
+
+    const starterButtons = screen
+      .getByTestId('zoe-suggestion-list')
+      .querySelectorAll('button');
+    expect(starterButtons.length).toBeLessThanOrEqual(3);
+
+    // Composer disclaimer line and desktop Enter-to-send
+    expect(screen.getByTestId('zoe-disclaimer-line')).toHaveTextContent(
+      'Zoe can make mistakes. Check important figures.',
+    );
+    const input = screen.getByTestId('zoe-input');
+    fireEvent.change(input, { target: { value: 'Show treasury cash position' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+    expect(onSendMessage).toHaveBeenCalledWith('Show treasury cash position');
+
+    // Shift+Enter does not submit
+    onSendMessage.mockClear();
+    fireEvent.change(input, { target: { value: 'Line 1' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(onSendMessage).not.toHaveBeenCalled();
+    unmount();
+
+    // 2. When <= 10 questions remain, badge appears in main top bar; while loading, circular Stop button replaces Send
+    renderSurface({
+      messages: [
+        { id: 'u-1', role: 'user', content: 'Show cash position' },
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '| Account | Balance |\n| --- | --- |\n| Bank | UGX 12,000,000 |',
+          outcome: 'answered',
+          source: 'get_treasury_cash_position',
+          period: 'as of 2026-10-30',
+          followUpSuggestions: ['Question 1', 'Question 2', 'Question 3', 'Question 4'],
+        },
+      ],
+      roles: ['cfo'],
+      remainingQuestionsToday: 8,
+      isLoading: true,
+      onStopGenerating,
+      conversations: [
+        {
+          id: 'conv-del-1',
+          title: 'Treasury cash check',
+          message_count: 2,
+          last_active_at: '2026-10-30T08:00:00Z',
+          created_at: '2026-10-30T07:55:00Z',
+        },
+      ],
+      onDeleteConversation,
+    });
+
+    expect(screen.getByTestId('zoe-low-quota-badge')).toHaveTextContent('8 left today');
+
+    // Circular Stop button inside composer
+    const stopBtn = screen.getByTestId('zoe-stop-button');
+    expect(stopBtn.className).toContain('rounded-full');
+    fireEvent.click(stopBtn);
+    expect(onStopGenerating).toHaveBeenCalledTimes(1);
+
+    // Sticky first column on Markdown table
+    const firstHeader = screen.getByTestId('zoe-markdown-table').querySelector('th');
+    expect(firstHeader?.className).toContain('first:sticky');
+    expect(firstHeader?.className).toContain('first:left-0');
+
+    // Follow-up links capped at 3
+    const followUpLinks = screen
+      .getByTestId('zoe-follow-ups-a-1')
+      .querySelectorAll('button');
+    expect(followUpLinks.length).toBe(3);
+
+    // Message "..." menu opens and has aria-expanded
+    const msgMoreBtn = screen.getByTestId('zoe-message-more-a-1');
+    expect(msgMoreBtn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(msgMoreBtn);
+    expect(msgMoreBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('zoe-message-more-menu-a-1')).toHaveAttribute(
+      'data-state',
+      'open',
+    );
+
+    // Delete conversation in history rail/drawer
+    fireEvent.click(screen.getByTestId('zoe-conv-delete-btn-conv-del-1'));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv-del-1');
+  });
+
+  it('verifies keyboard behaviour on mobile/coarse pointer, focus order, 44px tap targets, and screen-reader ARIA labels', () => {
+    const onSendMessage = vi.fn();
+    renderSurface({
+      messages: [
+        { id: 'u-a11y', role: 'user', content: 'Show my tasks' },
+        {
+          id: 'a-a11y',
+          role: 'assistant',
+          content: 'You have 2 open tasks in My Space.',
+          outcome: 'answered',
+          source: 'hr_tasks',
+          period: 'as of 2026-10-30',
+        },
+      ],
+      roles: ['employee'],
+      errorMessage: 'NetworkError when attempting to fetch resource.',
+      onSendMessage,
+    });
+
+    // Screen-reader landmarks and ARIA labels
+    expect(screen.getByRole('log', { name: 'Zoe conversation messages' })).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
+    expect(screen.getByTestId('zoe-conversations-toggle')).toHaveAttribute(
+      'aria-label',
+      'Chat history',
+    );
+    expect(screen.getByTestId('zoe-top-more-button')).toHaveAttribute(
+      'aria-label',
+      'More options',
+    );
+    expect(screen.getByTestId('zoe-copy-a-a11y')).toHaveAttribute('aria-label', 'Copy answer');
+    expect(screen.getByTestId('zoe-feedback-up-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'Helpful answer',
+    );
+    expect(screen.getByTestId('zoe-feedback-down-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'Not helpful answer',
+    );
+    expect(screen.getByTestId('zoe-message-more-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'More message actions',
+    );
+    expect(screen.getByTestId('zoe-send-button')).toHaveAttribute('aria-label', 'Send message');
+
+    // Verify 44px minimum tap area on all message action icon buttons and top bar buttons
+    for (const testId of [
+      'zoe-conversations-toggle',
+      'zoe-top-more-button',
+      'zoe-copy-a-a11y',
+      'zoe-feedback-up-a-a11y',
+      'zoe-feedback-down-a-a11y',
+      'zoe-message-more-a-a11y',
+      'zoe-send-button',
+    ]) {
+      const btn = screen.getByTestId(testId);
+      expect(btn.className).toContain('min-h-[44px]');
+      expect(btn.className).toContain('min-w-[44px]');
+    }
+
+    // Mobile viewport (< 768px): Enter inserts newline and does NOT submit
+    const origInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 360 });
+    try {
+      const input = screen.getByTestId('zoe-input');
+      fireEvent.change(input, { target: { value: 'Mobile multi-line note' } });
+      fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+      expect(onSendMessage).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: origInnerWidth,
+      });
+    }
   });
 });

@@ -171,6 +171,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Approved Rent Requests', icon: ClipboardList, id: 'approved-rent-payouts' },
         { label: 'Landlord Payout Float', icon: Home, id: 'landlord-payout-float' },
         { label: 'Welile Homes Float Payouts', icon: Home, id: 'welile-homes-payouts' },
+        { label: 'Welile Signages', icon: Megaphone, id: 'signages' },
         { label: 'Landlord Float Budget', icon: Gauge, id: 'landlord-float-budget' },
         { label: 'Float Timeline', icon: History, id: 'landlord-float-timeline' },
         { label: 'Already Funded Landlords', icon: Landmark, id: 'already-funded-landlords' },

@@ -17,6 +17,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceEnabled } from '@/hooks/tenantOpsWorkspace/useWorkspaceEnabled';
 import WorkspaceShell from '@/components/tenant-ops-workspace/WorkspaceShell';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 const ALLOWED_ROLES = ['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'];
 
@@ -46,5 +47,14 @@ export default function TenantOpsWorkspacePage() {
     return <UnavailableState />;
   }
 
-  return <WorkspaceShell />;
+  return (
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
+      <div className="shrink-0 px-3 pt-3 sm:px-4">
+        <V360StaffPricingBanner />
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        <WorkspaceShell embedded />
+      </div>
+    </div>
+  );
 }

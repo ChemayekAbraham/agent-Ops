@@ -322,12 +322,14 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl">
           {selectedSignage && (
             <div className="space-y-4">
-              <DialogHeader>
-                <div className="flex items-center justify-between">
+              <DialogHeader className="pr-8">
+                <div className="flex items-center justify-between gap-3">
                   <DialogTitle className="text-base font-bold">
                     Review Signage: {selectedSignage.reference_no}
                   </DialogTitle>
-                  <Badge variant="outline">{selectedSignage.status}</Badge>
+                  <Badge variant={formatSignageStatus(selectedSignage.status).variant as any} className="text-xs shrink-0">
+                    {formatSignageStatus(selectedSignage.status).label}
+                  </Badge>
                 </div>
                 <DialogDescription className="text-xs">
                   Inspect coordinates, photographs, owner consent, and commercial advertising visibility.
@@ -467,7 +469,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
         <DialogContent className="max-w-md rounded-2xl">
           {selectedSignage && (
             <div className="space-y-4">
-              <DialogHeader>
+              <DialogHeader className="pr-8">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-emerald-600" />
                   <DialogTitle className="text-base font-bold">Verify Physical Installation</DialogTitle>

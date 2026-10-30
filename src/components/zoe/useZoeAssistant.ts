@@ -622,6 +622,38 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      if (!conversationId) return;
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (conversationIdRef.current === conversationId) {
+        generationRef.current += 1;
+        clearStreamTimer();
+        inFlightRef.current = false;
+        conversationIdRef.current = undefined;
+        setActiveConversationId(null);
+        setMessages([]);
+        setIsLoading(false);
+        setStreamingText(null);
+        setStatusLine(null);
+        setErrorMessage(null);
+        setLastFailedPrompt(null);
+      }
+      if (!user?.id) return;
+      await supabase.functions
+        .invoke('staff-assistant', {
+          body: {
+            action: 'clear_history',
+            conversation_id: conversationId,
+          },
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    },
+    [user?.id, clearStreamTimer],
+  );
+
   const clearHistory = useCallback(async () => {
     const convId = conversationIdRef.current;
     generationRef.current += 1;
@@ -772,6 +804,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     selectConversation,
     startNewChat,
     renameConversation,
+    deleteConversation,
     addNote,
     deleteNote,
     saveGlossaryEntry,
