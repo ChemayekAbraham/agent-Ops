@@ -7,6 +7,7 @@ import {
   FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, ShieldCheck, type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import RDProjectTracker from './RDProjectTracker';
 import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
