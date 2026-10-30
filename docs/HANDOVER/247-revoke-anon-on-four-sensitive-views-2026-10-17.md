@@ -534,3 +534,11 @@ The indexes added in step 54 call `person_name_key()` on every profiles update, 
 **Checked, not a bug:** `permission denied` for `has_active_smartphone_plan`, `hr_pay_bonus_pending_for_me`, `get_agent_lp_float_available`, `agent_expected_week`, `crm_communication_inbox`, `staff_permissions`, `agent_posting_gate_exemptions`, `phone_collection_prompt_events`: `authenticated` holds every one of these grants, so the refusals come from signed-out sessions. The `record "new" has no field "amount"` trigger error (4, 14:30 on 10-29) is gone from the live functions.
 
 **Found, NOT changed:** signup with phone `250793903844` returns 500 `unexpected_failure` (the phone check constraint refuses a non-Ugandan number; the client should show a clear message); `invalid input value for enum app_role: "partner"` (5, client sends a role that does not exist); `get_agent_ops_overview` 500s (6, last 15:37); Twilio 20003 (36); `generate_merchant_cashout_daily_report` and `get_cto_daily_report` timed out at 21:00 UTC.
+
+## Step 57: signup 500 for a number typed without "+"
+
+**Cause (checked in the auth log, 24 h to 10-30 05:45 UTC):** 20 signups, 17 succeeded, 2 refused with 4xx, 1 returned `500 unexpected_failure` (05:33). The 500 is the profiles insert trigger `trg_normalize_validate_profile_phone` raising `invalid_phone_number: "250793903844"`. `normalize_e164_phone` accepts a number only as `07XXXXXXXX`, `256…`, a bare 9-digit local number, or `+` followed by 9-15 digits; a Rwandan number typed without the `+` is none of these. Auth wraps the trigger's check violation into a bare 500 ("Database error saving new user"), so the person sees a server error and no hint.
+
+**Fix (client only):** `src/hooks/auth/authOperations.ts` runs the same rule (`normalizeE164OrNull` in `phoneUtils.ts`, already documented as mirroring the database function) before `signUp` and `signUpWithoutRole`, and returns "That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda start with + and the country code, for example +250793903844." A blank phone is still allowed, as in the trigger. The database rule is unchanged: whether to accept a no-plus 11-15 digit number as international is a product decision, not made here.
+
+**Not covered:** `ActivatePartner.tsx` calls `auth.signUp` directly and was not changed.
