@@ -24,6 +24,8 @@ import {
   ChevronRight,
   ShieldCheck,
   RefreshCw,
+  Trash2,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +36,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import UgLocationPicker from '@/components/location/UgLocationPicker';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { hapticTap, hapticSuccess, hapticError } from '@/lib/haptics';
@@ -47,16 +57,20 @@ import {
   SignagePhoto,
   formatSignageStatus,
 } from '@/lib/welileSignages';
-import { useMySignages, useSubmitSignage } from '@/hooks/useWelileSignages';
+import { useMySignages, useSubmitSignage, useDeleteSignage } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
 export default function AgentWelileSignages() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'apply' | 'pending' | 'submissions' | 'rewards'>('apply');
+  type SignageTab = 'pipeline' | 'new_spot' | 'my_spots' | 'rewards';
+  const [activeTab, setActiveTab] = useState<SignageTab>('new_spot');
   const [submissionsFilter, setSubmissionsFilter] = useState<'all' | 'active' | 'installing'>('all');
 
   const { data: signages = [], isLoading: loadingSignages } = useMySignages();
   const submitMutation = useSubmitSignage();
+  const deleteMutation = useDeleteSignage();
+  const [signageToDelete, setSignageToDelete] = useState<SignageRecord | null>(null);
+  const [pendingFilter, setPendingFilter] = useState<'all' | 'pipeline' | 'declined'>('all');
 
   // Metrics & Filters
   // Approved by Ops: signages that have passed Ops review
@@ -66,17 +80,20 @@ export default function AgentWelileSignages() {
   const activeSignages = signages.filter((s) => s.status === 'active');
   const installingSignages = approvedSignages.filter((s) => s.status !== 'active');
 
-  // Submissions still in pipeline
+  // Submissions still in pipeline or declined by Ops
   const pendingSignages = signages.filter((s) =>
+    ['draft', 'submitted', 'under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'changes_required', 'rejected', 'cancelled'].includes(s.status)
+  );
+  const declinedSignages = signages.filter((s) => s.status === 'rejected' || s.status === 'cancelled');
+  const inPipelineSignages = signages.filter((s) =>
     ['draft', 'submitted', 'under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'changes_required'].includes(s.status)
   );
 
   const approvedCount = approvedSignages.length;
   const activeCount = activeSignages.length;
   const installingCount = installingSignages.length;
-  const pendingCount = signages.filter((s) =>
-    ['draft', 'submitted', 'under_review', 'changes_required'].includes(s.status)
-  ).length;
+  const inPipelineCount = inPipelineSignages.length;
+  const pendingCount = inPipelineSignages.length;
   const verifiedRewardsUgx = activeCount * SIGNAGE_RATES.AGENT_REWARD_UGX;
 
   // ── Form State ──
@@ -318,108 +335,505 @@ export default function AgentWelileSignages() {
       setCapturedIp(null);
       setPlotOrLandmark('');
       setPhotos([]);
-      setActiveTab('pending');
+      setActiveTab('pipeline');
     } catch {
       // Handled in mutation hook
     }
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-24">
       {/* Top Header */}
-      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/60 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/dashboard/agent')}
-            className="h-9 w-9 rounded-full"
-            aria-label="Back to Agent Dashboard"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-md bg-primary/10 text-primary">
-                <Megaphone className="h-4 w-4" />
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border/60">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/dashboard/agent')}
+                className="h-8 w-8 rounded-full shrink-0"
+                aria-label="Back to Agent Dashboard"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="p-1 rounded-md bg-primary/10 text-primary shrink-0">
+                    <Megaphone className="h-3.5 w-3.5" />
+                  </div>
+                  <h1 className="font-bold text-sm sm:text-base tracking-tight truncate">Welile Signages</h1>
+                  <Badge variant="secondary" className="text-[9px] uppercase font-bold bg-primary/10 text-primary shrink-0 py-0">
+                    New
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate hidden sm:block">
+                  UGX 3,000 Agent Reward • UGX 10,000/mo Owner Rent
+                </p>
               </div>
-              <h1 className="font-bold text-base tracking-tight truncate">Welile Signages</h1>
-              <Badge variant="secondary" className="text-[10px] uppercase font-bold bg-primary/10 text-primary">
-                New
-              </Badge>
             </div>
-            <p className="text-xs text-muted-foreground truncate">
-              UGX 3,000 Agent Reward • UGX 10,000/mo Owner Rent
-            </p>
-          </div>
-        </div>
 
-        {/* Hero Metric Strip - Interactive shortcuts */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
-          <button
-            type="button"
-            onClick={() => {
-              setSubmissionsFilter('all');
-              setActiveTab('submissions');
-            }}
-            className={cn(
-              "p-2.5 rounded-xl bg-card border border-border/60 text-center transition-all cursor-pointer hover:border-emerald-500/50",
-              activeTab === 'submissions' && "ring-2 ring-emerald-500/30 border-emerald-500/50 bg-emerald-500/5"
-            )}
-          >
-            <span className="text-[10px] text-muted-foreground block font-medium">Approved Spots</span>
-            <span className="text-base font-bold text-emerald-600">{approvedCount}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('pending')}
-            className={cn(
-              "p-2.5 rounded-xl bg-card border border-border/60 text-center transition-all cursor-pointer hover:border-amber-500/50",
-              activeTab === 'pending' && "ring-2 ring-amber-500/30 border-amber-500/50 bg-amber-500/5"
-            )}
-          >
-            <span className="text-[10px] text-muted-foreground block font-medium">In Pipeline (Pending)</span>
-            <span className="text-base font-bold text-amber-600">{pendingCount}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('rewards')}
-            className={cn(
-              "p-2.5 rounded-xl bg-card border border-border/60 text-center transition-all cursor-pointer hover:border-primary/50",
-              activeTab === 'rewards' && "ring-2 ring-primary/30 border-primary/50 bg-primary/5"
-            )}
-          >
-            <span className="text-[10px] text-muted-foreground block font-medium">Rewards Earned</span>
-            <span className="text-base font-bold text-primary">UGX {verifiedRewardsUgx.toLocaleString()}</span>
-          </button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setActiveTab('new_spot');
+                hapticTap();
+              }}
+              className={cn(
+                "h-8 px-3 rounded-xl text-xs font-semibold shrink-0 gap-1.5 shadow-sm transition-all",
+                activeTab === 'new_spot' ? "bg-primary text-primary-foreground" : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
+            >
+              <Megaphone className="h-3.5 w-3.5" />
+              <span>+ Register Spot</span>
+            </Button>
+          </div>
+
+          {/* Navigations Up There: Independent Tabs Navigation */}
+          <div className="flex items-center gap-2 mt-2.5 overflow-x-auto pb-0.5 no-scrollbar">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('new_spot');
+                hapticTap();
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shrink-0 cursor-pointer",
+                activeTab === 'new_spot'
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs ring-2 ring-primary/20"
+                  : "border-border/60 bg-card hover:border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Megaphone className={cn("h-3.5 w-3.5", activeTab === 'new_spot' ? "text-primary" : "text-muted-foreground")} />
+              <span>Register Spot</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('pipeline');
+                hapticTap();
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shrink-0 cursor-pointer",
+                activeTab === 'pipeline'
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs ring-2 ring-primary/20"
+                  : "border-border/60 bg-card hover:border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Clock className={cn("h-3.5 w-3.5", activeTab === 'pipeline' ? "text-primary" : "text-muted-foreground")} />
+              <span>Pipeline ({pendingCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('my_spots');
+                hapticTap();
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shrink-0 cursor-pointer",
+                activeTab === 'my_spots'
+                  ? "border-emerald-600 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold shadow-xs ring-2 ring-emerald-500/20"
+                  : "border-border/60 bg-card hover:border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Layers className={cn("h-3.5 w-3.5", activeTab === 'my_spots' ? "text-emerald-600" : "text-muted-foreground")} />
+              <span>My Spots ({approvedCount})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('rewards');
+                hapticTap();
+              }}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all shrink-0 cursor-pointer",
+                activeTab === 'rewards'
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs ring-2 ring-primary/20"
+                  : "border-border/60 bg-card hover:border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Coins className={cn("h-3.5 w-3.5", activeTab === 'rewards' ? "text-primary" : "text-muted-foreground")} />
+              <span>Rewards: UGX {verifiedRewardsUgx.toLocaleString()}</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Tabs */}
-      <div className="max-w-2xl mx-auto px-4 pt-4">
-        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)}>
-          <TabsList className="grid grid-cols-4 w-full h-11 rounded-xl bg-muted/60 p-1 mb-4">
-            <TabsTrigger value="apply" className="rounded-lg text-[11px] sm:text-xs font-semibold px-1">
-              <Megaphone className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">New Spot</span>
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="rounded-lg text-[11px] sm:text-xs font-semibold px-1">
-              <Clock className="h-3.5 w-3.5 mr-1 shrink-0 text-amber-500" />
-              <span className="truncate">Pending ({pendingCount})</span>
-            </TabsTrigger>
-            <TabsTrigger value="submissions" className="rounded-lg text-[11px] sm:text-xs font-semibold px-1">
-              <Layers className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">My Spots ({approvedCount})</span>
-            </TabsTrigger>
-            <TabsTrigger value="rewards" className="rounded-lg text-[11px] sm:text-xs font-semibold px-1">
-              <Coins className="h-3.5 w-3.5 mr-1 shrink-0" />
-              <span className="truncate">Rewards</span>
-            </TabsTrigger>
-          </TabsList>
+      {/* Main Tabbed Container */}
+      <div className="max-w-3xl mx-auto px-4 pt-4">
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as SignageTab)} className="w-full">
+          {/* TAB 1: PENDING & DECLINED PIPELINE */}
+          <TabsContent value="pipeline" className="mt-0 space-y-4 focus-visible:outline-none">
 
-          {/* TAB 1: NEW APPLICATION */}
-          <TabsContent value="apply" className="space-y-4">
-            <form onSubmit={handleSubmitApplication} className="space-y-4">
+
+        {/* SECTION 1: PENDING & DECLINED PIPELINE */}
+        <div id="section-pipeline" className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <h2 className="text-sm font-bold text-foreground">Signage Pipeline & Submissions</h2>
+              <Badge variant="outline" className="text-[10px]">
+                {pendingSignages.length}
+              </Badge>
+            </div>
+            <span className="text-[11px] text-muted-foreground hidden sm:block">
+              Review & Installation Stage
+            </span>
+          </div>
+
+          {loadingSignages ? (
+            <div className="py-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading your pending signages...</span>
+            </div>
+          ) : pendingSignages.length === 0 ? (
+            <div className="py-8 text-center space-y-2.5 bg-card border border-border/60 rounded-2xl p-6">
+              <Clock className="h-8 w-8 text-amber-500/50 mx-auto" />
+              <h3 className="font-semibold text-sm">No Pending Submissions</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                You have no signage submissions currently awaiting Ops review or installation. All verified spots are active.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setActiveTab('new_spot')}
+                className="rounded-xl text-xs font-semibold h-8"
+              >
+                Register New Signage Spot
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Sub-filters if declined exist */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+                {declinedSignages.length > 0 ? (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                    <Button
+                      type="button"
+                      variant={pendingFilter === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPendingFilter('all')}
+                      className="h-7 text-xs rounded-lg px-2.5"
+                    >
+                      All ({pendingSignages.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={pendingFilter === 'declined' ? 'destructive' : 'outline'}
+                      size="sm"
+                      onClick={() => setPendingFilter('declined')}
+                      className={cn(
+                        "h-7 text-xs rounded-lg px-2.5 font-semibold",
+                        pendingFilter !== 'declined' && "border-destructive/30 text-destructive hover:bg-destructive/10"
+                      )}
+                    >
+                      <XCircle className="h-3 w-3 mr-1" />
+                      Declined ({declinedSignages.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={pendingFilter === 'pipeline' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setPendingFilter('pipeline')}
+                      className="h-7 text-xs rounded-lg px-2.5"
+                    >
+                      In Pipeline ({inPipelineSignages.length})
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {pendingSignages.length} submission{pendingSignages.length === 1 ? '' : 's'} in review & installation
+                  </span>
+                )}
+                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30 bg-amber-500/10 shrink-0 self-start sm:self-auto">
+                  Ops Pipeline
+                </Badge>
+              </div>
+
+              {(() => {
+                const itemsToRender =
+                  pendingFilter === 'declined'
+                    ? declinedSignages
+                    : pendingFilter === 'pipeline'
+                    ? inPipelineSignages
+                    : pendingSignages;
+
+                if (itemsToRender.length === 0) {
+                  return (
+                    <div className="py-8 text-center text-xs text-muted-foreground bg-card border border-border/60 rounded-xl p-4">
+                      {pendingFilter === 'declined'
+                        ? 'No declined signage applications.'
+                        : 'No active submissions in the pipeline.'}
+                    </div>
+                  );
+                }
+
+                return itemsToRender.map((signage) => {
+                  const statusMeta = formatSignageStatus(signage.status);
+                  const isRejected = signage.status === 'rejected' || signage.status === 'cancelled';
+
+                  return (
+                    <Card
+                      key={signage.id}
+                      className={cn(
+                        "rounded-2xl border-border/60 shadow-sm overflow-hidden bg-card transition-all",
+                        isRejected && "border-destructive/50 bg-destructive/[0.03]"
+                      )}
+                    >
+                      <div className="p-4 space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-sm text-foreground truncate">{signage.property_name}</span>
+                              <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                                {signage.property_type.replace('_', ' ')}
+                              </Badge>
+                              {isRejected && (
+                                <Badge variant="destructive" className="text-[10px] shrink-0 font-semibold flex items-center gap-1">
+                                  <XCircle className="h-3 w-3" /> Declined
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {signage.village_name}, {signage.district_name}
+                              {signage.plot_or_landmark ? ` • ${signage.plot_or_landmark}` : ''}
+                            </p>
+                            <span className="text-[10px] font-mono text-muted-foreground/80 block mt-0.5">
+                              Ref: {signage.reference_no}
+                            </span>
+                          </div>
+                          {!isRejected && (
+                            <Badge
+                              variant={
+                                signage.status === 'approved_for_installation' || signage.status === 'installation_verification'
+                                  ? 'default'
+                                  : signage.status === 'changes_required'
+                                  ? 'destructive'
+                                  : 'warning'
+                              }
+                              className="text-[10px] shrink-0"
+                            >
+                              {statusMeta.label}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* If Declined: Display prominent rejection notification and feedback */}
+                        {isRejected ? (
+                          <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/30 space-y-2">
+                            <div className="flex items-center gap-1.5 font-bold text-xs text-destructive">
+                              <XCircle className="h-4 w-4 shrink-0" />
+                              <span>Application Declined by Agent Operations</span>
+                            </div>
+                            <div className="space-y-1">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-destructive/90 block">
+                                Decline Reason / Feedback:
+                              </span>
+                              <div className="bg-background/90 p-2.5 rounded-lg border border-destructive/20 text-xs text-foreground font-medium leading-relaxed">
+                                {signage.rejection_reason || signage.review_notes || 'This signage location was reviewed by Ops and declined. It did not meet road visibility or landlord authorization standards.'}
+                              </div>
+                            </div>
+                            {signage.reviewed_at && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Reviewed on {new Date(signage.reviewed_at).toLocaleDateString()} at {new Date(signage.reviewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          /* Pipeline Progress Stepper */
+                          <div className="bg-muted/40 rounded-xl p-2.5 border border-border/40">
+                            <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
+                              <span>Review & Installation Stage</span>
+                              <span className="text-primary font-medium lowercase">
+                                {signage.status === 'changes_required' ? 'action required' : 'processing'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1.5 text-center">
+                              {/* Step 1: Submitted */}
+                              <div className="flex flex-col items-center">
+                                <div className="h-1.5 w-full rounded-full bg-emerald-500 mb-1" />
+                                <span className="text-[9px] font-medium text-foreground">Submitted</span>
+                              </div>
+                              {/* Step 2: Ops Review */}
+                              <div className="flex flex-col items-center">
+                                <div
+                                  className={cn(
+                                    "h-1.5 w-full rounded-full mb-1",
+                                    ['under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                      ? 'bg-emerald-500'
+                                      : signage.status === 'changes_required'
+                                      ? 'bg-amber-500'
+                                      : 'bg-muted-foreground/25'
+                                  )}
+                                />
+                                <span className="text-[9px] font-medium text-foreground">Ops Review</span>
+                              </div>
+                              {/* Step 3: Installation */}
+                              <div className="flex flex-col items-center">
+                                <div
+                                  className={cn(
+                                    "h-1.5 w-full rounded-full mb-1",
+                                    ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                      ? 'bg-emerald-500'
+                                      : 'bg-muted-foreground/25'
+                                  )}
+                                />
+                                <span className="text-[9px] font-medium text-muted-foreground">Installation</span>
+                              </div>
+                              {/* Step 4: Active */}
+                              <div className="flex flex-col items-center">
+                                <div
+                                  className={cn(
+                                    "h-1.5 w-full rounded-full mb-1",
+                                    signage.status === 'active' ? 'bg-emerald-500' : 'bg-muted-foreground/25'
+                                  )}
+                                />
+                                <span className="text-[9px] font-medium text-muted-foreground">Active</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Location & GPS Info */}
+                        {signage.gps_latitude && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/20 p-2 rounded-lg border border-border/40">
+                            <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="font-mono text-[10px]">
+                              GPS: {signage.gps_latitude.toFixed(4)}, {signage.gps_longitude.toFixed(4)}
+                            </span>
+                            {signage.gps_accuracy_meters && (
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 ml-auto">
+                                ±{Math.round(signage.gps_accuracy_meters)}m
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Details row */}
+                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block">Consenting Owner:</span>
+                            <span className="font-medium truncate block">
+                              {signage.owner_full_name} ({signage.owner_phone})
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-muted-foreground block">Owner Rent Due:</span>
+                            <span className="font-bold text-emerald-600">UGX 10,000 / mo</span>
+                          </div>
+                        </div>
+
+                        {/* Review Notes / Action Required (for non-rejected) */}
+                        {!isRejected && (signage.review_notes || signage.rejection_reason) && (
+                          <div
+                            className={cn(
+                              "p-2.5 rounded-xl text-xs space-y-1",
+                              signage.status === 'changes_required'
+                                ? "bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200"
+                                : "bg-muted/60 border border-border/60 text-muted-foreground"
+                            )}
+                          >
+                            <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span>Ops Feedback:</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed">
+                              {signage.review_notes || signage.rejection_reason}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Photos preview if present */}
+                        {signage.photos && signage.photos.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[10px] text-muted-foreground block mb-1.5">
+                              Submitted Photos ({signage.photos.length}):
+                            </span>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                              {signage.photos.map((p, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted/40"
+                                >
+                                  <img
+                                    src={p.url}
+                                    alt={p.caption || 'Signage photo'}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bottom Action: Delete Declined or Pending Application */}
+                        <div className="pt-2 border-t border-border/40 flex items-center justify-between">
+                          {isRejected ? (
+                            <>
+                              <span className="text-[11px] text-destructive font-medium flex items-center gap-1">
+                                <AlertCircle className="h-3.5 w-3.5" /> Declined — remove to clean pipeline
+                              </span>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => setSignageToDelete(signage)}
+                                className="h-8 px-3 text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-sm"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Delete Declined Spot
+                              </Button>
+                            </>
+                          ) : ['draft', 'submitted', 'changes_required'].includes(signage.status) ? (
+                            <>
+                              <span className="text-[10px] text-muted-foreground">
+                                {signage.status === 'changes_required' ? 'Ops requested revisions' : 'Awaiting review'}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSignageToDelete(signage)}
+                                className="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg flex items-center gap-1"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Delete Application
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                });
+              })()}
+            </>
+          )}
+          </div>
+          </TabsContent>
+
+          {/* TAB 2: REGISTER NEW SIGNAGE SPOT */}
+          <TabsContent value="new_spot" className="mt-0 space-y-4 focus-visible:outline-none">
+            <div className="flex items-center justify-between px-1">
+            <div>
+              <div className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground">Register New Signage Spot</h2>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Identify busy houses or shops with high foot traffic and road visibility.
+              </p>
+            </div>
+            <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary font-semibold shrink-0">
+              UGX 3,000 Reward
+            </Badge>
+          </div>
+
+          <form onSubmit={handleSubmitApplication} className="space-y-4">
               {/* SECTION A: PROPERTY & OWNER */}
               <Card id="section-property" className="rounded-2xl border-border/60 shadow-sm">
                 <CardHeader className="pb-3">
@@ -898,423 +1312,301 @@ export default function AgentWelileSignages() {
             </form>
           </TabsContent>
 
-          {/* TAB 2: PENDING STATUS SUBMISSIONS */}
-          <TabsContent value="pending" className="space-y-3">
-            {loadingSignages ? (
-              <div className="py-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading your pending signages...</span>
-              </div>
-            ) : pendingSignages.length === 0 ? (
-              <div className="py-12 text-center space-y-3 bg-card border border-border/60 rounded-2xl p-6">
-                <Clock className="h-10 w-10 text-amber-500/50 mx-auto" />
-                <h3 className="font-semibold text-sm">No Pending Signages</h3>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  You have no signage submissions currently awaiting Ops review or installation. All verified spots are active.
-                </p>
-                <Button size="sm" onClick={() => setActiveTab('apply')} className="rounded-xl text-xs font-semibold">
-                  Submit New Signage
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {pendingSignages.length} submission{pendingSignages.length === 1 ? '' : 's'} in review & installation
-                  </span>
-                  <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30 bg-amber-500/10">
-                    Ops Pipeline
-                  </Badge>
-                </div>
+          {/* TAB 3: APPROVED & ACTIVE SPOTS */}
+          <TabsContent value="my_spots" className="mt-0 space-y-4 focus-visible:outline-none">
+            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-600" />
+              <h2 className="text-sm font-bold text-foreground">My Approved & Active Spots</h2>
+              <Badge variant="outline" className="text-[10px]">
+                {approvedCount}
+              </Badge>
+            </div>
+            <span className="text-[11px] text-muted-foreground hidden sm:block">
+              Verified installations
+            </span>
+          </div>
 
-                {pendingSignages.map((signage) => {
-                  const statusMeta = formatSignageStatus(signage.status);
-                  return (
-                    <Card key={signage.id} className="rounded-2xl border-border/60 shadow-sm overflow-hidden bg-card">
-                      <div className="p-4 space-y-3">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-sm text-foreground truncate">{signage.property_name}</span>
-                              <Badge variant="outline" className="text-[10px] capitalize shrink-0">
-                                {signage.property_type.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                              {signage.village_name}, {signage.district_name}
-                              {signage.plot_or_landmark ? ` • ${signage.plot_or_landmark}` : ''}
-                            </p>
-                            <span className="text-[10px] font-mono text-muted-foreground/80 block mt-0.5">
-                              Ref: {signage.reference_no}
-                            </span>
-                          </div>
-                          <Badge
-                            variant={
-                              signage.status === 'approved_for_installation' || signage.status === 'installation_verification'
-                                ? 'default'
-                                : signage.status === 'changes_required'
-                                ? 'destructive'
-                                : 'warning'
-                            }
-                            className="text-[10px] shrink-0"
-                          >
-                            {statusMeta.label}
-                          </Badge>
-                        </div>
-
-                        {/* Pipeline Progress Stepper */}
-                        <div className="bg-muted/40 rounded-xl p-2.5 border border-border/40">
-                          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center justify-between">
-                            <span>Review & Installation Stage</span>
-                            <span className="text-primary font-medium lowercase">
-                              {signage.status === 'changes_required' ? 'action required' : 'processing'}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-4 gap-1.5 text-center">
-                            {/* Step 1: Submitted */}
-                            <div className="flex flex-col items-center">
-                              <div className="h-1.5 w-full rounded-full bg-emerald-500 mb-1" />
-                              <span className="text-[9px] font-medium text-foreground">Submitted</span>
-                            </div>
-                            {/* Step 2: Ops Review */}
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={cn(
-                                  "h-1.5 w-full rounded-full mb-1",
-                                  ['under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
-                                    ? 'bg-emerald-500'
-                                    : signage.status === 'changes_required'
-                                    ? 'bg-amber-500'
-                                    : 'bg-muted-foreground/25'
-                                )}
-                              />
-                              <span className="text-[9px] font-medium text-foreground">Ops Review</span>
-                            </div>
-                            {/* Step 3: Installation */}
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={cn(
-                                  "h-1.5 w-full rounded-full mb-1",
-                                  ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
-                                    ? 'bg-emerald-500'
-                                    : 'bg-muted-foreground/25'
-                                )}
-                              />
-                              <span className="text-[9px] font-medium text-muted-foreground">Installation</span>
-                            </div>
-                            {/* Step 4: Active */}
-                            <div className="flex flex-col items-center">
-                              <div
-                                className={cn(
-                                  "h-1.5 w-full rounded-full mb-1",
-                                  signage.status === 'active' ? 'bg-emerald-500' : 'bg-muted-foreground/25'
-                                )}
-                              />
-                              <span className="text-[9px] font-medium text-muted-foreground">Active</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Location & GPS Info */}
-                        {signage.gps_latitude && (
-                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/20 p-2 rounded-lg border border-border/40">
-                            <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="font-mono text-[10px]">
-                              GPS: {signage.gps_latitude.toFixed(4)}, {signage.gps_longitude.toFixed(4)}
-                            </span>
-                            {signage.gps_accuracy_meters && (
-                              <Badge variant="outline" className="text-[9px] py-0 px-1 ml-auto">
-                                ±{Math.round(signage.gps_accuracy_meters)}m
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Details row */}
-                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
-                          <div>
-                            <span className="text-[10px] text-muted-foreground block">Consenting Owner:</span>
-                            <span className="font-medium truncate block">
-                              {signage.owner_full_name} ({signage.owner_phone})
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-muted-foreground block">Owner Rent Due:</span>
-                            <span className="font-bold text-emerald-600">UGX 10,000 / mo</span>
-                          </div>
-                        </div>
-
-                        {/* Review Notes / Action Required */}
-                        {(signage.review_notes || signage.rejection_reason) && (
-                          <div
-                            className={cn(
-                              "p-2.5 rounded-xl text-xs space-y-1",
-                              signage.status === 'changes_required'
-                                ? "bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200"
-                                : "bg-muted/60 border border-border/60 text-muted-foreground"
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5 font-semibold text-[11px]">
-                              <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                              <span>Ops Feedback:</span>
-                            </div>
-                            <p className="text-[11px] leading-relaxed">
-                              {signage.review_notes || signage.rejection_reason}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Photos preview if present */}
-                        {signage.photos && signage.photos.length > 0 && (
-                          <div className="pt-1">
-                            <span className="text-[10px] text-muted-foreground block mb-1.5">
-                              Submitted Photos ({signage.photos.length}):
-                            </span>
-                            <div className="flex gap-2 overflow-x-auto pb-1">
-                              {signage.photos.map((p, idx) => (
-                                <div
-                                  key={idx}
-                                  className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted/40"
-                                >
-                                  <img
-                                    src={p.url}
-                                    alt={p.caption || 'Signage photo'}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </>
-            )}
-          </TabsContent>
-
-          {/* TAB 3: APPROVED SPOTS ONLY */}
-          <TabsContent value="submissions" className="space-y-3">
-            {/* Filter pills for approved spots */}
-            {approvedSignages.length > 0 && (
-              <div className="flex items-center gap-1.5 pb-1 overflow-x-auto">
+          {/* Filter pills for approved spots */}
+          {approvedSignages.length > 0 && (
+            <div className="flex items-center gap-1.5 pb-1 overflow-x-auto">
+              <Button
+                type="button"
+                variant={submissionsFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSubmissionsFilter('all')}
+                className="h-7 text-xs rounded-lg px-2.5"
+              >
+                All Approved ({approvedCount})
+              </Button>
+              <Button
+                type="button"
+                variant={submissionsFilter === 'active' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSubmissionsFilter('active')}
+                className="h-7 text-xs rounded-lg px-2.5"
+              >
+                Active ({activeCount})
+              </Button>
+              {installingCount > 0 && (
                 <Button
                   type="button"
-                  variant={submissionsFilter === 'all' ? 'default' : 'outline'}
+                  variant={submissionsFilter === 'installing' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSubmissionsFilter('all')}
+                  onClick={() => setSubmissionsFilter('installing')}
                   className="h-7 text-xs rounded-lg px-2.5"
                 >
-                  All Approved ({approvedCount})
+                  Awaiting Install ({installingCount})
                 </Button>
-                <Button
-                  type="button"
-                  variant={submissionsFilter === 'active' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSubmissionsFilter('active')}
-                  className="h-7 text-xs rounded-lg px-2.5"
-                >
-                  Active ({activeCount})
-                </Button>
-                {installingCount > 0 && (
-                  <Button
-                    type="button"
-                    variant={submissionsFilter === 'installing' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSubmissionsFilter('installing')}
-                    className="h-7 text-xs rounded-lg px-2.5"
-                  >
-                    Awaiting Install ({installingCount})
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {loadingSignages ? (
-              <div className="py-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading your approved spots...</span>
-              </div>
-            ) : approvedSignages.length === 0 ? (
-              <div className="py-12 text-center space-y-3 bg-card border border-border/60 rounded-2xl p-6">
-                <CheckCircle2 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
-                <h3 className="font-semibold text-sm">No Approved Spots Yet</h3>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  {pendingCount > 0
-                    ? `You have ${pendingCount} signage submission${pendingCount === 1 ? '' : 's'} awaiting Ops review. Once approved by Ops, your spots will appear here.`
-                    : 'Only signages reviewed and approved by Ops appear in My Spots. Submit a busy shop or house to get started.'}
-                </p>
-                {pendingCount > 0 ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setActiveTab('pending')}
-                    className="rounded-xl text-xs font-semibold gap-1.5"
-                  >
-                    <Clock className="h-3.5 w-3.5 text-amber-500" />
-                    View Pending Submissions ({pendingCount})
-                  </Button>
-                ) : (
-                  <Button size="sm" onClick={() => setActiveTab('apply')} className="rounded-xl text-xs font-semibold">
-                    Submit First Signage
-                  </Button>
-                )}
-              </div>
-            ) : (
-              approvedSignages
-                .filter((signage) => {
-                  if (submissionsFilter === 'active') return signage.status === 'active';
-                  if (submissionsFilter === 'installing') return signage.status !== 'active';
-                  return true;
-                })
-                .map((signage) => {
-                  const statusMeta = formatSignageStatus(signage.status);
-                  return (
-                    <Card key={signage.id} className="rounded-2xl border-border/60 shadow-sm overflow-hidden">
-                      <div className="p-4 space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-sm text-foreground">{signage.property_name}</span>
-                              <Badge variant="outline" className="text-[10px] capitalize">
-                                {signage.property_type.replace('_', ' ')}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {signage.village_name}, {signage.district_name} • Ref: {signage.reference_no}
-                            </p>
-                          </div>
-                          <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">
-                            {statusMeta.label}
-                          </Badge>
-                        </div>
-
-                        {/* Details row */}
-                        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
-                          <div>
-                            <span className="text-[10px] text-muted-foreground block">Consenting Person:</span>
-                            <span className="font-medium">{signage.owner_full_name} ({signage.owner_phone})</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-muted-foreground block">Owner Rent Due:</span>
-                            <span className="font-bold text-emerald-600">UGX 10,000 / mo</span>
-                          </div>
-                        </div>
-
-                        {signage.rejection_reason && (
-                          <div className="p-2 rounded-lg bg-destructive/10 text-destructive text-xs">
-                            <strong>Note:</strong> {signage.rejection_reason}
-                          </div>
-                        )}
-
-                        {signage.status === 'approved_for_installation' && (
-                          <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
-                              Approved by Ops • Queued for Installation
-                            </span>
-                          </div>
-                        )}
-
-                        {signage.status === 'pending_installation' && (
-                          <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <Clock className="h-4 w-4 shrink-0 text-indigo-600" />
-                              Installation in Progress
-                            </span>
-                          </div>
-                        )}
-
-                        {signage.status === 'installation_verification' && (
-                          <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400 text-xs flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <CheckCircle2 className="h-4 w-4 shrink-0 text-purple-600" />
-                              Installed • Awaiting Final Ops Verification
-                            </span>
-                          </div>
-                        )}
-
-                        {signage.status === 'active' && (
-                          <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 font-medium">
-                              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-                              Signage Active & Verified
-                            </span>
-                            <span className="font-bold">UGX 3,000 Reward Unlocked</span>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })
-            )}
-          </TabsContent>
-
-          {/* TAB 3: REWARDS LEDGER */}
-          <TabsContent value="rewards" className="space-y-4">
-            <Card className="rounded-2xl border-border/60 shadow-sm p-4 space-y-3">
-              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                <Coins className="h-4 w-4 text-primary" />
-                Signage Compensation Framework
-              </h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Welile Signages provides two independent, auditable financial flows governed strictly by verified installation:
-              </p>
-              <div className="space-y-2 pt-1">
-                <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
-                    <Coins className="h-4 w-4" />
-                  </div>
-                  <div className="text-xs">
-                    <span className="font-bold text-foreground block">Agent Reward: UGX 3,000 (One-Time)</span>
-                    <span className="text-muted-foreground">
-                      Payable once per qualifying installation immediately after Agent Operations completes physical verification.
-                    </span>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-start gap-3">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5">
-                    <Building2 className="h-4 w-4" />
-                  </div>
-                  <div className="text-xs">
-                    <span className="font-bold text-foreground block">Owner Monthly Rent: UGX 10,000 / month</span>
-                    <span className="text-muted-foreground">
-                      Recurring monthly obligation starting strictly on the verified activation date. Disbursed directly to the owner's MoMo account.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="rounded-2xl border-border/60 shadow-sm p-4 space-y-2">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Your Active Earners</h4>
-              {signages.filter(s => s.status === 'active').length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2">
-                  No active signages yet. Submit high-visibility locations and coordinate installation to unlock your rewards.
-                </p>
-              ) : (
-                <div className="divide-y divide-border/40">
-                  {signages.filter(s => s.status === 'active').map(s => (
-                    <div key={s.id} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-semibold text-foreground">{s.property_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{s.village_name}, {s.district_name}</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-primary block">+UGX 3,000</span>
-                        <span className="text-[9px] text-emerald-600 font-medium">Verified Active</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               )}
-            </Card>
+            </div>
+          )}
+
+          {loadingSignages ? (
+            <div className="py-12 text-center text-muted-foreground text-xs flex flex-col items-center gap-2">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span>Loading your approved spots...</span>
+            </div>
+          ) : approvedSignages.length === 0 ? (
+            <div className="py-8 text-center space-y-2.5 bg-card border border-border/60 rounded-2xl p-6">
+              <CheckCircle2 className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+              <h3 className="font-semibold text-sm">No Approved Spots Yet</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Only signage locations reviewed and approved by Agent Operations appear in My Spots.
+              </p>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setActiveTab('new_spot');
+                  hapticTap();
+                }}
+                className="rounded-xl text-xs font-semibold"
+              >
+                + Register New Spot
+              </Button>
+            </div>
+          ) : (
+            approvedSignages
+              .filter((signage) => {
+                if (submissionsFilter === 'active') return signage.status === 'active';
+                if (submissionsFilter === 'installing') return signage.status !== 'active';
+                return true;
+              })
+              .map((signage) => {
+                const statusMeta = formatSignageStatus(signage.status);
+                return (
+                  <Card key={signage.id} className="rounded-2xl border-border/60 shadow-sm overflow-hidden">
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-foreground">{signage.property_name}</span>
+                            <Badge variant="outline" className="text-[10px] capitalize">
+                              {signage.property_type.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {signage.village_name}, {signage.district_name} • Ref: {signage.reference_no}
+                          </p>
+                        </div>
+                        <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">
+                          {statusMeta.label}
+                        </Badge>
+                      </div>
+
+                      {/* Details row */}
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Consenting Person:</span>
+                          <span className="font-medium">{signage.owner_full_name} ({signage.owner_phone})</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-muted-foreground block">Owner Rent Due:</span>
+                          <span className="font-bold text-emerald-600">UGX 10,000 / mo</span>
+                        </div>
+                      </div>
+
+                      {signage.rejection_reason && (
+                        <div className="p-2 rounded-lg bg-destructive/10 text-destructive text-xs">
+                          <strong>Note:</strong> {signage.rejection_reason}
+                        </div>
+                      )}
+
+                      {signage.status === 'approved_for_installation' && (
+                        <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
+                            Approved by Ops • Queued for Installation
+                          </span>
+                        </div>
+                      )}
+
+                      {signage.status === 'pending_installation' && (
+                        <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <Clock className="h-4 w-4 shrink-0 text-indigo-600" />
+                            Installation in Progress
+                          </span>
+                        </div>
+                      )}
+
+                      {signage.status === 'installation_verification' && (
+                        <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-400 text-xs flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-purple-600" />
+                            Installed • Awaiting Final Ops Verification
+                          </span>
+                        </div>
+                      )}
+
+                      {signage.status === 'active' && (
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                            Signage Active & Verified
+                          </span>
+                          <span className="font-bold">UGX 3,000 Reward Unlocked</span>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })
+          )}
+          </TabsContent>
+
+          {/* TAB 4: REWARDS & COMPENSATION FRAMEWORK */}
+          <TabsContent value="rewards" className="mt-0 space-y-4 focus-visible:outline-none">
+            <Card className="rounded-2xl border-border/60 shadow-sm p-4 space-y-3">
+            <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+              <Coins className="h-4 w-4 text-primary" />
+              Signage Compensation Framework
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Welile Signages provides two independent, auditable financial flows governed strictly by verified installation:
+            </p>
+            <div className="space-y-2 pt-1">
+              <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 flex items-start gap-3">
+                <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0 mt-0.5">
+                  <Coins className="h-4 w-4" />
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-foreground block">Agent Reward: UGX 3,000 (One-Time)</span>
+                  <span className="text-muted-foreground">
+                    Payable once per qualifying installation immediately after Agent Operations completes physical verification.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-start gap-3">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 shrink-0 mt-0.5">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div className="text-xs">
+                  <span className="font-bold text-foreground block">Owner Monthly Rent: UGX 10,000 / month</span>
+                  <span className="text-muted-foreground">
+                    Recurring monthly obligation starting strictly on the verified activation date. Disbursed directly to the owner's MoMo account.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="rounded-2xl border-border/60 shadow-sm p-4 space-y-2">
+            <h4 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Your Active Earners</h4>
+            {signages.filter(s => s.status === 'active').length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">
+                No active signages yet. Submit high-visibility locations and coordinate installation to unlock your rewards.
+              </p>
+            ) : (
+              <div className="divide-y divide-border/40">
+                {signages.filter(s => s.status === 'active').map(s => (
+                  <div key={s.id} className="py-2.5 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-semibold text-foreground">{s.property_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{s.village_name}, {s.district_name}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-primary block">+UGX 3,000</span>
+                      <span className="text-[9px] text-emerald-600 font-medium">Verified Active</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!signageToDelete} onOpenChange={(open) => !open && setSignageToDelete(null)}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mb-2">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-base font-bold">
+              {signageToDelete?.status === 'rejected' ? 'Delete Declined Signage Spot?' : 'Delete Signage Application?'}
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs text-muted-foreground">
+              Are you sure you want to permanently delete{' '}
+              <strong className="text-foreground font-semibold">"{signageToDelete?.property_name}"</strong>
+              {signageToDelete?.reference_no ? ` (${signageToDelete.reference_no})` : ''}? This application will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+
+          {signageToDelete?.status === 'rejected' && (
+            <div className="p-3 rounded-xl bg-destructive/5 border border-destructive/20 text-xs space-y-1">
+              <span className="font-semibold text-destructive block">Ops Decline Reason:</span>
+              <p className="text-foreground text-[11px] leading-relaxed">
+                {signageToDelete.rejection_reason || signageToDelete.review_notes || 'Declined during review.'}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter className="flex sm:justify-between gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSignageToDelete(null)}
+              disabled={deleteMutation.isPending}
+              className="rounded-xl flex-1 text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={async () => {
+                if (!signageToDelete) return;
+                try {
+                  await deleteMutation.mutateAsync(signageToDelete.id);
+                  setSignageToDelete(null);
+                } catch {
+                  // toast handled by hook
+                }
+              }}
+              disabled={deleteMutation.isPending}
+              className="rounded-xl flex-1 text-xs font-semibold gap-1.5"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Application
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
