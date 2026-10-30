@@ -52163,81 +52163,218 @@ export type Database = {
           enabled: boolean
           history_days: number
           id: boolean
+          max_cost_usd_per_question: number
+          max_deep_model_rounds: number
+          max_deep_tool_calls: number
           max_emails_per_day: number
+          max_model_rounds: number
+          max_notifications_per_day: number
           max_questions_per_day: number
+          max_tokens: number
+          max_tool_calls: number
+          model_deep: string
+          model_fast: string
+          temperature: number
           updated_at: string
           updated_by: string | null
+          web_research_enabled: boolean
         }
         Insert: {
           enabled?: boolean
           history_days?: number
           id?: boolean
+          max_cost_usd_per_question?: number
+          max_deep_model_rounds?: number
+          max_deep_tool_calls?: number
           max_emails_per_day?: number
+          max_model_rounds?: number
+          max_notifications_per_day?: number
           max_questions_per_day?: number
+          max_tokens?: number
+          max_tool_calls?: number
+          model_deep?: string
+          model_fast?: string
+          temperature?: number
           updated_at?: string
           updated_by?: string | null
+          web_research_enabled?: boolean
         }
         Update: {
           enabled?: boolean
           history_days?: number
           id?: boolean
+          max_cost_usd_per_question?: number
+          max_deep_model_rounds?: number
+          max_deep_tool_calls?: number
           max_emails_per_day?: number
+          max_model_rounds?: number
+          max_notifications_per_day?: number
           max_questions_per_day?: number
+          max_tokens?: number
+          max_tool_calls?: number
+          model_deep?: string
+          model_fast?: string
+          temperature?: number
           updated_at?: string
           updated_by?: string | null
+          web_research_enabled?: boolean
         }
         Relationships: []
       }
       staff_assistant_conversations: {
         Row: {
           closed_at: string | null
+          conversation_summary: Json
+          created_at: string
           device_browser: string | null
           device_class: string | null
           device_os: string | null
+          hidden_at: string | null
+          hidden_by_user: boolean
           id: string
           ip_address: string | null
           last_active_at: string
+          last_message_at: string
           message_count: number
           persona: string
+          rolling_summary: string
           started_at: string
           status: string
           title: string | null
+          updated_at: string
           user_agent: string | null
           user_id: string
         }
         Insert: {
           closed_at?: string | null
+          conversation_summary?: Json
+          created_at?: string
           device_browser?: string | null
           device_class?: string | null
           device_os?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
           id?: string
           ip_address?: string | null
           last_active_at?: string
+          last_message_at?: string
           message_count?: number
           persona?: string
+          rolling_summary?: string
           started_at?: string
           status?: string
           title?: string | null
+          updated_at?: string
           user_agent?: string | null
           user_id?: string
         }
         Update: {
           closed_at?: string | null
+          conversation_summary?: Json
+          created_at?: string
           device_browser?: string | null
           device_class?: string | null
           device_os?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
           id?: string
           ip_address?: string | null
           last_active_at?: string
+          last_message_at?: string
           message_count?: number
           persona?: string
+          rolling_summary?: string
           started_at?: string
           status?: string
           title?: string | null
+          updated_at?: string
           user_agent?: string | null
           user_id?: string
         }
         Relationships: []
+      }
+      staff_assistant_data_catalog: {
+        Row: {
+          columns: Json
+          created_at: string
+          description: string
+          do_not_use_for: string
+          official_source: string
+          requires_aal2: boolean
+          role_area: string
+          title: string
+          use_for: string
+          view_name: string
+        }
+        Insert: {
+          columns?: Json
+          created_at?: string
+          description: string
+          do_not_use_for: string
+          official_source: string
+          requires_aal2?: boolean
+          role_area: string
+          title: string
+          use_for: string
+          view_name: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          description?: string
+          do_not_use_for?: string
+          official_source?: string
+          requires_aal2?: boolean
+          role_area?: string
+          title?: string
+          use_for?: string
+          view_name?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_drafts: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          payload: Json
+          payload_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          payload_hash: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          payload_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_assistant_feedback: {
         Row: {
@@ -52247,6 +52384,7 @@ export type Database = {
           id: string
           message_id: string
           rating: string
+          report_kind: string
           updated_at: string
           user_id: string
         }
@@ -52257,6 +52395,7 @@ export type Database = {
           id?: string
           message_id: string
           rating: string
+          report_kind?: string
           updated_at?: string
           user_id?: string
         }
@@ -52267,6 +52406,7 @@ export type Database = {
           id?: string
           message_id?: string
           rating?: string
+          report_kind?: string
           updated_at?: string
           user_id?: string
         }
@@ -52285,13 +52425,231 @@ export type Database = {
             referencedRelation: "staff_assistant_messages"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      staff_assistant_glossary: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          keywords: string[]
+          measurement_gotcha: string
+          official_source: string
+          plain_definition: string
+          screen_path: string
+          slug: string
+          term: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          measurement_gotcha?: string
+          official_source?: string
+          plain_definition: string
+          screen_path?: string
+          slug: string
+          term: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          measurement_gotcha?: string
+          official_source?: string
+          plain_definition?: string
+          screen_path?: string
+          slug?: string
+          term?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      staff_assistant_ideas: {
+        Row: {
+          category: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          draft_id: string | null
+          evidence_summary: string
+          figures: Json
+          id: string
+          message_id: string | null
+          period_label: string
+          screen_path: string
+          source_label: string
+          status: string
+          status_note: string | null
+          status_updated_at: string | null
+          status_updated_by: string | null
+          suggestion: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          draft_id?: string | null
+          evidence_summary: string
+          figures?: Json
+          id?: string
+          message_id?: string | null
+          period_label: string
+          screen_path?: string
+          source_label: string
+          status?: string
+          status_note?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+          suggestion: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          draft_id?: string | null
+          evidence_summary?: string
+          figures?: Json
+          id?: string
+          message_id?: string | null
+          period_label?: string
+          screen_path?: string
+          source_label?: string
+          status?: string
+          status_note?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+          suggestion?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_ideas_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_insights: {
+        Row: {
+          category: string
+          created_at: string
+          current_value: number
+          direction: string
+          evidence: Json
+          four_week_avg: number
+          id: string
+          is_notable: boolean
+          kampala_date: string
+          metric_name: string
+          min_role_scope: string
+          pct_change: number
+          period_label: string
+          scope_key: string
+          screen_path: string
+          source_function: string
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          current_value?: number
+          direction?: string
+          evidence?: Json
+          four_week_avg?: number
+          id?: string
+          is_notable?: boolean
+          kampala_date?: string
+          metric_name: string
+          min_role_scope?: string
+          pct_change?: number
+          period_label: string
+          scope_key: string
+          screen_path?: string
+          source_function: string
+          summary: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          current_value?: number
+          direction?: string
+          evidence?: Json
+          four_week_avg?: number
+          id?: string
+          is_notable?: boolean
+          kampala_date?: string
+          metric_name?: string
+          min_role_scope?: string
+          pct_change?: number
+          period_label?: string
+          scope_key?: string
+          screen_path?: string
+          source_function?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       staff_assistant_messages: {
         Row: {
           content: string
           conversation_id: string
           created_at: string
+          hidden_at: string | null
+          hidden_by_user: boolean
           id: string
           latency_ms: number | null
           model: string | null
@@ -52307,6 +52665,8 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          hidden_at?: string | null
+          hidden_by_user?: boolean
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -52322,6 +52682,8 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          hidden_at?: string | null
+          hidden_by_user?: boolean
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -52343,11 +52705,248 @@ export type Database = {
           },
         ]
       }
+      staff_assistant_notes: {
+        Row: {
+          created_at: string
+          id: string
+          is_deleted: boolean
+          note_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          note_text: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          note_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_preferences: {
+        Row: {
+          created_at: string
+          dismissed_brief_kampala_date: string | null
+          last_brief_kampala_date: string | null
+          morning_brief_enabled: boolean
+          morning_brief_time: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_brief_kampala_date?: string | null
+          last_brief_kampala_date?: string | null
+          morning_brief_enabled?: boolean
+          morning_brief_time?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_brief_kampala_date?: string | null
+          last_brief_kampala_date?: string | null
+          morning_brief_enabled?: boolean
+          morning_brief_time?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_queries: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          executed_sql: string
+          id: string
+          question: string
+          role_areas: string[]
+          row_count: number
+          sql_text: string
+          status: string
+          truncated: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          executed_sql: string
+          id?: string
+          question?: string
+          role_areas?: string[]
+          row_count?: number
+          sql_text: string
+          status?: string
+          truncated?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          executed_sql?: string
+          id?: string
+          question?: string
+          role_areas?: string[]
+          row_count?: number
+          sql_text?: string
+          status?: string
+          truncated?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_reminders: {
+        Row: {
+          cancelled_at: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          notified_at: string | null
+          remind_at: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          remind_at: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          remind_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_reminders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_schedules: {
+        Row: {
+          cancelled_at: string | null
+          conversation_id: string | null
+          created_at: string
+          custom_message: string | null
+          day_of_week: number | null
+          frequency: string
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          mfa_confirmed_at: string | null
+          next_run_at: string
+          recipient_emails: string[]
+          recipient_names: string[]
+          report_args: Json
+          report_rpc: string
+          report_tool: string
+          run_count: number
+          send_time_kampala: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          custom_message?: string | null
+          day_of_week?: number | null
+          frequency: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          mfa_confirmed_at?: string | null
+          next_run_at: string
+          recipient_emails: string[]
+          recipient_names?: string[]
+          report_args?: Json
+          report_rpc: string
+          report_tool: string
+          run_count?: number
+          send_time_kampala?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          custom_message?: string | null
+          day_of_week?: number | null
+          frequency?: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          mfa_confirmed_at?: string | null
+          next_run_at?: string
+          recipient_emails?: string[]
+          recipient_names?: string[]
+          report_args?: Json
+          report_rpc?: string
+          report_tool?: string
+          run_count?: number
+          send_time_kampala?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_schedules_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_assistant_unanswered: {
         Row: {
           caller_roles: string[]
           conversation_id: string | null
           created_at: string
+          error_code: string | null
+          error_detail: string | null
           id: string
           message_id: string | null
           question_text: string
@@ -52362,6 +52961,8 @@ export type Database = {
           caller_roles?: string[]
           conversation_id?: string | null
           created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
           id?: string
           message_id?: string | null
           question_text: string
@@ -52376,6 +52977,8 @@ export type Database = {
           caller_roles?: string[]
           conversation_id?: string | null
           created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
           id?: string
           message_id?: string | null
           question_text?: string
@@ -52399,6 +53002,13 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
         ]
@@ -65613,14 +66223,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -68980,6 +69590,59 @@ export type Database = {
         }
         Relationships: []
       }
+      v_staff_assistant_crm_messages_redacted: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string | null
+          latency_ms: number | null
+          model: string | null
+          outcome: string | null
+          period_label: string | null
+          question_text: string | null
+          role: string | null
+          source_label: string | null
+          tools_called: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          question_text?: never
+          role?: string | null
+          source_label?: string | null
+          tools_called?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          question_text?: never
+          role?: string | null
+          source_label?: string | null
+          tools_called?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_staff_requisition_budget_context: {
         Row: {
           approved_budget: number | null
@@ -70280,6 +70943,7 @@ export type Database = {
           existing_total: number
         }[]
       }
+      _partner_statement_build: { Args: { p_user_id: string }; Returns: Json }
       _pf_identity: { Args: { p_oid: unknown }; Returns: string }
       _pf_log: {
         Args: {
@@ -72600,6 +73264,10 @@ export type Database = {
         Args: { p_limit?: number; p_min_days_silent?: number }
         Returns: Json
       }
+      assistant_staff_aops_subagent_teams: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_ceo_growth_and_approvals: {
         Args: { p_days?: number }
         Returns: Json
@@ -72622,8 +73290,25 @@ export type Database = {
         Args: { p_days?: number; p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_staff_data_catalog: { Args: { p_area?: string }; Returns: Json }
+      assistant_staff_fops_disbursements: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_fops_merchant_cashouts: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_fops_verification_and_requisitions: {
         Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_get_data_catalog: {
+        Args: { p_area?: string }
+        Returns: Json
+      }
+      assistant_staff_get_glossary: {
+        Args: { p_category?: string; p_search?: string }
         Returns: Json
       }
       assistant_staff_hr_calling_detailed_report: {
@@ -72636,6 +73321,26 @@ export type Database = {
       }
       assistant_staff_hr_payroll_cost_by_department: {
         Args: { p_period_code?: string }
+        Returns: Json
+      }
+      assistant_staff_insight_calling_reach_and_themes: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_insight_collection_coverage_trends: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_desk_wait_times: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_payout_delays: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_zoe_feedback_themes: {
+        Args: { p_days?: number }
         Returns: Json
       }
       assistant_staff_lops_calling_coverage: {
@@ -72663,7 +73368,15 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_staff_lops_verification_queue: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       assistant_staff_my_advances: { Args: never; Returns: Json }
+      assistant_staff_my_calls: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_my_canteen: {
         Args: { p_service_date?: string }
         Returns: Json
@@ -72671,6 +73384,10 @@ export type Database = {
       assistant_staff_my_payslips: { Args: never; Returns: Json }
       assistant_staff_my_pending_concerns: { Args: never; Returns: Json }
       assistant_staff_my_profile: { Args: never; Returns: Json }
+      assistant_staff_my_reminders_and_schedules: {
+        Args: { p_include_cancelled?: boolean }
+        Returns: Json
+      }
       assistant_staff_my_requisitions: { Args: never; Returns: Json }
       assistant_staff_my_tasks: { Args: { p_status?: string }; Returns: Json }
       assistant_staff_my_tickets: { Args: never; Returns: Json }
@@ -72683,12 +73400,24 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_staff_pops_returns_due: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_pops_search_supporters: {
         Args: { p_limit?: number; p_search?: string }
         Returns: Json
       }
+      assistant_staff_pops_topups_and_withdrawals_waiting: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       assistant_staff_pso_cohort_performance: {
         Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_run_query: {
+        Args: { p_question?: string; p_sql: string }
         Returns: Json
       }
       assistant_staff_tops_arrears_ageing: {
@@ -72699,6 +73428,14 @@ export type Database = {
           p_limit?: number
           p_offset?: number
         }
+        Returns: Json
+      }
+      assistant_staff_tops_awareness_calls: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_find_tenant: {
+        Args: { p_limit?: number; p_search: string }
         Returns: Json
       }
       assistant_staff_tops_first_seven_summary: {
@@ -72714,11 +73451,19 @@ export type Database = {
         Returns: Json
       }
       assistant_staff_tops_rent_request_lifetime: { Args: never; Returns: Json }
+      assistant_staff_tops_rent_requests_by_stage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       assistant_staff_tops_smartphone_usage: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
       assistant_staff_tops_tenant_classification: { Args: never; Returns: Json }
+      assistant_staff_tops_time_on_desk: {
+        Args: { p_limit?: number; p_stage?: string }
+        Returns: Json
+      }
       assistant_staff_tops_weekly_performance: {
         Args: { p_anchor?: string }
         Returns: Json
@@ -78890,6 +79635,7 @@ export type Database = {
         Args: { p_bypass_roles: string[]; p_rules: Json }
         Returns: Json
       }
+      get_data_catalog: { Args: { p_area?: string }; Returns: Json }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -80166,6 +80912,7 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      get_partner_statement: { Args: { p_user_id: string }; Returns: Json }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
       get_partner_wallet_hub: {
         Args: { p_limit?: number; p_offset?: number; p_user_id: string }
@@ -89166,10 +89913,116 @@ export type Database = {
           user_id: string
         }[]
       }
+      staff_assistant_can_manage_ideas: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      staff_assistant_can_user_read_report: {
+        Args: { p_owner_id?: string; p_report_rpc: string; p_user_id: string }
+        Returns: boolean
+      }
       staff_assistant_can_view_pii: {
         Args: { p_scope?: string }
         Returns: boolean
       }
+      staff_assistant_cancel_reminder: {
+        Args: { p_reminder_id: string }
+        Returns: Json
+      }
+      staff_assistant_cancel_schedule: {
+        Args: { p_schedule_id: string }
+        Returns: Json
+      }
+      staff_assistant_check_email_budget: {
+        Args: { p_recipient_count?: number; p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_check_owner_access: {
+        Args: { p_owner_id: string }
+        Returns: boolean
+      }
+      staff_assistant_check_question_rate_limit: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_compute_draft_hash: {
+        Args: { p_kind: string; p_payload: Json }
+        Returns: string
+      }
+      staff_assistant_compute_next_run: {
+        Args: {
+          p_day_of_week?: number
+          p_frequency: string
+          p_from?: string
+          p_send_time_kampala?: string
+        }
+        Returns: string
+      }
+      staff_assistant_confirm_schedule_mfa: {
+        Args: { p_schedule_id: string }
+        Returns: Json
+      }
+      staff_assistant_consume_draft: {
+        Args: { p_draft_id: string; p_kind: string; p_payload: Json }
+        Returns: Json
+      }
+      staff_assistant_create_reminder: {
+        Args: {
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_note?: string
+          p_remind_at: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_create_schedule: {
+        Args: {
+          p_conversation_id?: string
+          p_custom_message?: string
+          p_day_of_week?: number
+          p_draft_id?: string
+          p_frequency?: string
+          p_recipient_emails?: string[]
+          p_report_args?: Json
+          p_report_rpc: string
+          p_report_tool: string
+          p_send_time_kampala?: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_crm_can_review: { Args: never; Returns: boolean }
+      staff_assistant_crm_conversation_thread: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
+      staff_assistant_crm_review_dashboard:
+        | {
+            Args: {
+              p_limit?: number
+              p_only_thumbs_down?: boolean
+              p_only_unanswered?: boolean
+              p_role_filter?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_days?: number
+              p_limit?: number
+              p_role_filter?: string
+              p_search?: string
+              p_thumbs_down?: boolean
+              p_unanswered_only?: boolean
+            }
+            Returns: Json
+          }
+      staff_assistant_crm_weekly_learning_report: {
+        Args: { p_days?: number; p_role_filter?: string }
+        Returns: Json
+      }
+      staff_assistant_dispatch_due_reminders: { Args: never; Returns: number }
       staff_assistant_email_recipients: {
         Args: { p_search?: string }
         Returns: {
@@ -89179,10 +90032,43 @@ export type Database = {
           staff_user_id: string
         }[]
       }
+      staff_assistant_error_summary: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_get_config: { Args: never; Returns: Json }
       staff_assistant_has_access: { Args: never; Returns: boolean }
+      staff_assistant_health: { Args: never; Returns: Json }
+      staff_assistant_hide_my_history: {
+        Args: { p_conversation_id?: string; p_user_id?: string }
+        Returns: Json
+      }
+      staff_assistant_is_crm_reviewer: { Args: never; Returns: boolean }
       staff_assistant_is_staff_email: {
         Args: { p_email: string }
         Returns: boolean
+      }
+      staff_assistant_is_valid_link_path: {
+        Args: { p_link_path: string }
+        Returns: boolean
+      }
+      staff_assistant_list_ideas: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
+      }
+      staff_assistant_log_query: {
+        Args: {
+          p_duration_ms: number
+          p_error_message?: string
+          p_executed_sql: string
+          p_question: string
+          p_role_areas: string[]
+          p_row_count: number
+          p_sql: string
+          p_status?: string
+          p_truncated: boolean
+        }
+        Returns: string
       }
       staff_assistant_mask_nin: {
         Args: { p_allow_full?: boolean; p_nin: string }
@@ -89193,10 +90079,77 @@ export type Database = {
         Returns: string
       }
       staff_assistant_purge_old_history: { Args: never; Returns: number }
+      staff_assistant_refresh_daily_insights: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
+      staff_assistant_rename_conversation: {
+        Args: { p_conversation_id: string; p_title: string }
+        Returns: Json
+      }
       staff_assistant_require_staff: { Args: never; Returns: undefined }
+      staff_assistant_run_scheduled_report_as_owner: {
+        Args: { p_owner_id: string; p_report_args?: Json; p_report_rpc: string }
+        Returns: Json
+      }
       staff_assistant_sanitize_jsonb: {
         Args: { p_allow_phones?: boolean; p_data: Json; p_max_rows?: number }
         Returns: Json
+      }
+      staff_assistant_save_draft: {
+        Args: { p_conversation_id?: string; p_kind: string; p_payload: Json }
+        Returns: Json
+      }
+      staff_assistant_save_idea: {
+        Args: {
+          p_category?: string
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_evidence_summary: string
+          p_figures?: Json
+          p_message_id?: string
+          p_period_label?: string
+          p_screen_path?: string
+          p_source_label?: string
+          p_suggestion: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_send_colleague_notification: {
+        Args: {
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_link_path?: string
+          p_message: string
+          p_recipient_email: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_set_morning_brief_prefs: {
+        Args: {
+          p_brief_time?: string
+          p_dismiss_today?: boolean
+          p_enabled: boolean
+        }
+        Returns: Json
+      }
+      staff_assistant_update_idea_status: {
+        Args: { p_idea_id: string; p_status: string; p_status_note?: string }
+        Returns: Json
+      }
+      staff_assistant_weekly_look_at_summary: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
+      staff_assistant_weekly_unanswered_list: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_write_or_read_roles_list: {
+        Args: never
+        Returns: string[]
       }
       staff_calling_detailed_report: {
         Args: { p_from: string; p_to: string }
@@ -92580,6 +93533,28 @@ export type Database = {
         Args: { p_amount: number; p_reason: string; p_review_id: string }
         Returns: string
       }
+      zoe_glossary_can_manage: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      zoe_glossary_upsert_entry: {
+        Args: {
+          p_category: string
+          p_is_active?: boolean
+          p_keywords?: string[]
+          p_measurement_gotcha?: string
+          p_official_source?: string
+          p_plain_definition: string
+          p_screen_path?: string
+          p_slug: string
+          p_term: string
+        }
+        Returns: Json
+      }
+      zoe_ro_area_allowed: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_area_requires_aal2: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_require_area: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_validate_query: { Args: { p_sql: string }; Returns: Json }
     }
     Enums: {
       agent_tier:
