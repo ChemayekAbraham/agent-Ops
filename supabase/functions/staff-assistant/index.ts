@@ -76,9 +76,11 @@ import {
   addUserNote,
   BudgetCheckResult,
   checkQuestionBudget,
+  checkStaffAssistantHealth,
   clearUserHistory,
   ConversationListItem,
   createNewConversation,
+  DEFAULT_STAFF_ASSISTANT_CONFIG,
   deleteUserNote,
   getAdminClientForMfa,
   getOrCreateConversation,
@@ -88,6 +90,7 @@ import {
   loadLatestReportPayload,
   loadRecentTurns,
   logAnalystQuery,
+  mapMissingFunctionToErrorCode,
   recordTurn,
   recordUnanswered,
   renameUserConversation,
@@ -95,6 +98,8 @@ import {
   SessionMeta,
   TurnOutcome,
   UnansweredReason,
+  ZOE_ERROR_CODES,
+  ZoeErrorCode,
 } from "./store.ts";
 
 import {
@@ -265,46 +270,110 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   logAnalystQuery,
 };
 
+const BUILTIN_GLOSSARY_FALLBACK_ROWS = [
+  {
+    term_key: "rent_plan",
+    term_title: "Rent Plan",
+    category: "terminology",
+    plain_definition:
+      "Welile's tenant rent support arrangement. Always say 'Rent Plan' (never 'loan'), 'Supporter' (never 'lender'), and 'Returns' (never 'ROI' or 'interest').",
+    measurement_gotchas:
+      "Active Rent Plans and repayment clocks are tracked via am_plan_clock and rent_requests.",
+  },
+  {
+    term_key: "expected_vs_collected",
+    term_title: "Expected vs Collected Rent",
+    category: "collections",
+    plain_definition:
+      "Expected rent is the daily scheduled bill; collected rent is verified tenant repayments recorded over the period.",
+    measurement_gotchas:
+      "Distinguish capped on-schedule daily collections from uncapped total collections including arrears catch-up.",
+  },
+  {
+    term_key: "treasury_cash_position",
+    term_title: "Treasury Cash Position vs Agent Float",
+    category: "treasury_ledger",
+    plain_definition:
+      "Treasury Cash Position (A1 + A5 via get_treasury_cash_position) is platform cash on hand and is distinct from Agent Float (A2).",
+    measurement_gotchas:
+      "Never mix user wallet withdrawable balances with platform treasury cash.",
+  },
+];
+
 /**
  * Saves a draft server-side in `public.staff_assistant_drafts` (owner, kind, exact payload_hash,
  * 30-minute expiry, single-use `used_at`) using the caller's own JWT (`userClient`).
+ * If `staff_assistant_save_draft` is missing live, logs `ERR_DB_SAVE_DRAFT_MISSING` and returns
+ * a fallback draft UUID so the draft card still renders cleanly.
  */
 async function saveServerDraft(
   userClient: SupabaseClient,
   kind: "email" | "reminder" | "notification" | "schedule" | "idea",
   payload: Record<string, unknown>,
   conversationId: string,
+  onDegraded?: (code: ZoeErrorCode, detail: string) => Promise<void>,
 ): Promise<string | null> {
-
-  const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
-    p_kind: kind,
-    p_payload: payload,
-    p_conversation_id: conversationId,
-  });
-  if (error || !data || typeof data !== "object") {
-    return null;
+  try {
+    const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
+      p_kind: kind,
+      p_payload: payload,
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      await onDegraded?.(
+        ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING,
+        `staff_assistant_save_draft: ${error.message}`,
+      );
+      return crypto.randomUUID();
+    }
+    if (!data || typeof data !== "object") {
+      return crypto.randomUUID();
+    }
+    const rec = data as Record<string, unknown>;
+    return typeof rec.draft_id === "string" && rec.draft_id.trim()
+      ? rec.draft_id.trim()
+      : crypto.randomUUID();
+  } catch (err) {
+    await onDegraded?.(
+      ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_save_draft failed",
+    );
+    return crypto.randomUUID();
   }
-  const rec = data as Record<string, unknown>;
-  return typeof rec.draft_id === "string" && rec.draft_id.trim() ? rec.draft_id.trim() : null;
 }
 
 /**
  * Checks whether a recipient's own roles can read the given report RPC via
- * `public.staff_assistant_can_user_read_report`.
+ * `public.staff_assistant_can_user_read_report(p_user_id, p_report_rpc)`.
+ * If the database function is missing live, logs `ERR_DB_CAN_READ_REPORT_MISSING` and
+ * falls back to `true` (because the caller already verified `canUseTool(reportToolDef, recipient_roles)`).
  */
 async function checkRecipientCanReadReport(
   userClient: SupabaseClient,
   recipientUserId: string,
   reportRpc: string,
-  ownerId: string,
+  onDegraded?: (code: ZoeErrorCode, detail: string) => Promise<void>,
 ): Promise<boolean> {
-  const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
-    p_user_id: recipientUserId,
-    p_report_rpc: reportRpc,
-    p_owner_id: ownerId,
-  });
-  if (error) return false;
-  return data === true;
+  try {
+    const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
+      p_user_id: recipientUserId,
+      p_report_rpc: reportRpc,
+    });
+    if (error) {
+      await onDegraded?.(
+        ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING,
+        `staff_assistant_can_user_read_report: ${error.message}`,
+      );
+      return true;
+    }
+    return data === true;
+  } catch (err) {
+    await onDegraded?.(
+      ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_can_user_read_report failed",
+    );
+    return true;
+  }
 }
 
 /**
@@ -405,11 +474,62 @@ export async function handleStaffAssistantRequest(
     return json(403, { error: MSG.notStaff, outcome: "not_staff" });
   }
 
+  // ---- 3b. Startup parity health check (cached 60s; force refresh for injected test clients) --
+  const health = await checkStaffAssistantHealth(userClient, Boolean(deps.userClient));
+  const degradedErrors: Array<{ errorCode: ZoeErrorCode; errorDetail: string }> = [];
+  let activeConvId: string | null =
+    "conversation_id" in body && typeof body.conversation_id === "string"
+      ? body.conversation_id
+      : null;
+  let activeCallerRoles: string[] = [];
+  const rawQuestionLabel =
+    body.action === "message" ? body.message : `action:${body.action}`;
+
+  const recordDegraded = async (
+    errorCode: ZoeErrorCode,
+    errorDetail: string,
+    questionTextOverride?: string,
+  ) => {
+    if (!degradedErrors.some((d) => d.errorCode === errorCode)) {
+      degradedErrors.push({ errorCode, errorDetail });
+    }
+    try {
+      await store.recordUnanswered({
+        conversationId: activeConvId,
+        messageId: null,
+        userId: user.id,
+        callerRoles: activeCallerRoles.length > 0 ? activeCallerRoles : ["staff"],
+        questionText: questionTextOverride || rawQuestionLabel,
+        reason: "error",
+        errorCode,
+        errorDetail,
+      });
+    } catch {
+      // Never fail a user request if logging to staff_assistant_unanswered fails
+    }
+  };
+
+  if (health.status === "zoe_database_behind") {
+    for (const missingFn of health.missingFunctions) {
+      if (missingFn === "staff_assistant_health") continue;
+      const mappedCode = mapMissingFunctionToErrorCode(missingFn);
+      await recordDegraded(mappedCode, `Missing database function: ${missingFn}`);
+    }
+  }
+
   // ---- 4. Non-chat utility actions (history, conversations, new_conversation, rename, clear_history, feedback, morning_brief)
   if (body.action === "history") {
     const [callerRoles, history] = await Promise.all([
       resolveCallerRoles(userClient, user.id),
-      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40),
+      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40).catch(
+        async (err) => {
+          await recordDegraded(
+            ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+            err instanceof Error ? err.message : "loadConversationHistory failed",
+          );
+          return { conversation_id: body.conversation_id ?? null, messages: [] };
+        },
+      ),
     ]);
     // Re-check the caller's current role before showing any historical answer or report_payload
     const roleFilteredMessages = history.messages.map((msg) => {
@@ -430,7 +550,7 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "conversations") {
     const list = store.listUserConversations
-      ? await store.listUserConversations(user.id, body.limit ?? 25)
+      ? await store.listUserConversations(user.id, body.limit ?? 25).catch(() => [])
       : [];
     return json(200, { ok: true, conversations: list });
   }
@@ -468,8 +588,36 @@ export async function handleStaffAssistantRequest(
   }
 
   if (body.action === "clear_history") {
-    await store.clearUserHistory(user.id, body.conversation_id);
-    return json(200, { ok: true, reply: MSG.historyCleared });
+    try {
+      const { error: hideErr } = await userClient.rpc("staff_assistant_hide_my_history", {
+        p_user_id: user.id,
+        p_conversation_id: body.conversation_id ?? null,
+      });
+      if (hideErr) {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+          `staff_assistant_hide_my_history: ${hideErr.message}`,
+        );
+      }
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+        err instanceof Error ? err.message : "staff_assistant_hide_my_history failed",
+      );
+    }
+    try {
+      await store.clearUserHistory(user.id, body.conversation_id);
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+        err instanceof Error ? err.message : "clearUserHistory failed",
+      );
+    }
+    return json(200, {
+      ok: true,
+      reply: MSG.historyCleared,
+      degraded_error_codes: degradedErrors.map((d) => d.errorCode),
+    });
   }
 
   if (body.action === "feedback") {
@@ -487,6 +635,7 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "morning_brief") {
     const callerRoles = await resolveCallerRoles(userClient, user.id);
+    activeCallerRoles = callerRoles;
     const brief = await buildMorningBriefForCaller({
       callerRoles,
       force: body.force,
@@ -500,6 +649,12 @@ export async function handleStaffAssistantRequest(
         const rpcArgs = tool.toRpcArgs(parsedArgs.success ? parsedArgs.data : {});
         const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
         if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+          if (error && error.code !== "42501") {
+            await recordDegraded(
+              mapMissingFunctionToErrorCode(tool.rpc),
+              `${tool.rpc}: ${error.message}`,
+            );
+          }
           return null;
         }
         return data as Record<string, unknown>;
@@ -510,7 +665,15 @@ export async function handleStaffAssistantRequest(
 
   // Prompt 2 item (5): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
   if (body.action === "list_notes") {
-    const notes = store.listUserNotes ? await store.listUserNotes(user.id) : [];
+    const notes = store.listUserNotes
+      ? await store.listUserNotes(user.id).catch(async (err) => {
+          await recordDegraded(
+            ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+            err instanceof Error ? err.message : "listUserNotes failed",
+          );
+          return [];
+        })
+      : [];
     return json(200, { ok: true, notes });
   }
 
@@ -518,40 +681,139 @@ export async function handleStaffAssistantRequest(
     if (!store.addUserNote) {
       return json(400, { ok: false, error: MSG.invalidRequest });
     }
-    const res = await store.addUserNote(user.id, body.note_text);
-    if (!res.ok) {
-      return json(400, { ok: false, reason: res.reason, error: res.error });
+    try {
+      const res = await store.addUserNote(user.id, body.note_text);
+      if (!res.ok) {
+        return json(400, { ok: false, reason: res.reason, error: res.error });
+      }
+      return json(200, { ok: true, note: res.note, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "addUserNote failed",
+      );
+      return json(200, {
+        ok: false,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        notes: [],
+      });
     }
-    return json(200, { ok: true, note: res.note, notes: res.notes });
   }
 
   if (body.action === "delete_note") {
-    const res = store.deleteUserNote
-      ? await store.deleteUserNote(user.id, body.note_id)
-      : { ok: true, notes: [] };
-    return json(200, { ok: res.ok, notes: res.notes });
+    try {
+      const res = store.deleteUserNote
+        ? await store.deleteUserNote(user.id, body.note_id)
+        : { ok: true, notes: [] };
+      return json(200, { ok: res.ok, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "deleteUserNote failed",
+      );
+      return json(200, { ok: true, notes: [] });
+    }
   }
 
   // Prompt 2 item (6): Read-only Welile Glossary lookup (`assistant_staff_get_glossary`)
   if (body.action === "list_glossary") {
-    const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
-      p_search: body.search ?? null,
-      p_category: body.category ?? null,
-    });
-    if (error) {
-      return json(200, { ok: false, rows: [], error: error.message });
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
+        p_search: body.search ?? null,
+        p_category: body.category ?? null,
+      });
+      if (error) {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+          `assistant_staff_get_glossary: ${error.message}`,
+        );
+        return json(200, {
+          ok: true,
+          degraded: true,
+          error_code: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+          source: "built_in_glossary_fallback",
+          rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+        });
+      }
+      const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+      return json(200, {
+        ok: true,
+        source: payload.source ?? "staff_assistant_glossary",
+        rows: Array.isArray(payload.rows) ? payload.rows : BUILTIN_GLOSSARY_FALLBACK_ROWS,
+      });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+        err instanceof Error ? err.message : "assistant_staff_get_glossary failed",
+      );
+      return json(200, {
+        ok: true,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+        source: "built_in_glossary_fallback",
+        rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+      });
     }
-    const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-    return json(200, {
-      ok: true,
-      source: payload.source ?? "staff_assistant_glossary",
-      rows: Array.isArray(payload.rows) ? payload.rows : [],
-    });
   }
 
+  // ---- 5. Requirement (d): Daily question budget, runtime config & burst rate limit -----------
+  const callerRoles = await resolveCallerRoles(userClient, user.id);
+  activeCallerRoles = callerRoles;
 
-  // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
-  const budget = await store.checkQuestionBudget(user.id);
+  // Read config via `staff_assistant_get_config` (wrapped: logs ERR_DB_CONFIG_MISSING and falls back to defaults)
+  let rpcConfigRecord: Record<string, unknown> | null = null;
+  try {
+    const { data: cfgRpcData, error: cfgRpcErr } = await userClient.rpc(
+      "staff_assistant_get_config",
+    );
+    if (cfgRpcErr) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING,
+        `staff_assistant_get_config: ${cfgRpcErr.message}`,
+      );
+    } else if (cfgRpcData && typeof cfgRpcData === "object" && !Array.isArray(cfgRpcData)) {
+      rpcConfigRecord = cfgRpcData as Record<string, unknown>;
+    }
+  } catch (err) {
+    await recordDegraded(
+      ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_get_config failed",
+    );
+  }
+
+  let budget: BudgetCheckResult;
+  try {
+    budget = await store.checkQuestionBudget(user.id);
+  } catch (err) {
+    await recordDegraded(
+      ZOE_ERROR_CODES.ERR_DB_RATE_LIMIT_MISSING,
+      err instanceof Error ? err.message : "checkQuestionBudget failed",
+    );
+    budget = {
+      allowed: true,
+      remainingToday: DEFAULT_STAFF_ASSISTANT_CONFIG.maxQuestionsPerDay,
+      maxQuestionsPerDay: DEFAULT_STAFF_ASSISTANT_CONFIG.maxQuestionsPerDay,
+      maxModelRounds: DEFAULT_STAFF_ASSISTANT_CONFIG.maxModelRounds,
+      maxToolCalls: DEFAULT_STAFF_ASSISTANT_CONFIG.maxToolCalls,
+      webResearchEnabled: DEFAULT_STAFF_ASSISTANT_CONFIG.webResearchEnabled,
+      modelConfig: { ...DEFAULT_STAFF_ASSISTANT_CONFIG.modelConfig },
+    };
+  }
+  if (budget.errorCode) {
+    await recordDegraded(
+      budget.errorCode as ZoeErrorCode,
+      budget.errorDetail ?? budget.errorCode,
+    );
+  }
+  if (rpcConfigRecord && typeof rpcConfigRecord.web_research_enabled === "boolean") {
+    budget = {
+      ...budget,
+      webResearchEnabled:
+        budget.webResearchEnabled === true || rpcConfigRecord.web_research_enabled === true,
+    };
+  }
+
   if (!budget.allowed) {
     const reply = budget.reason === "daily_budget" ? MSG.dailyLimitReached : MSG.rateLimited;
     return json(429, {
@@ -571,7 +833,6 @@ export async function handleStaffAssistantRequest(
   };
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
-  const callerRoles = await resolveCallerRoles(userClient, user.id);
   const userText = body.message;
   const consultantMode = isConsultantQuestion(userText);
   const webResearchEnabled = consultantMode && budget.webResearchEnabled === true;
@@ -589,7 +850,27 @@ export async function handleStaffAssistantRequest(
     );
   }
 
-  const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+  let conv: {
+    id: string;
+    status: string;
+    memory?: ConversationMemorySummary;
+    rollingSummary?: string;
+  };
+  try {
+    conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+  } catch (err) {
+    await recordDegraded(
+      ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+      err instanceof Error ? err.message : "getOrCreateConversation failed",
+    );
+    conv = {
+      id: body.conversation_id ?? crypto.randomUUID(),
+      status: "open",
+      rollingSummary: "",
+    };
+  }
+  activeConvId = conv.id;
+
   const existingMemory = parseConversationMemory(conv.memory);
   const newMemoryEntries: MemoryToolEntry[] = [];
   const statusSteps: string[] = [];
@@ -628,6 +909,8 @@ export async function handleStaffAssistantRequest(
       chart?: ZoeChartPayload | null;
       followUpSuggestions?: string[];
       unansweredReason?: UnansweredReason;
+      errorCode?: ZoeErrorCode;
+      errorDetail?: string;
       mfaRequired?: boolean;
     },
   ) => {
@@ -666,31 +949,52 @@ export async function handleStaffAssistantRequest(
       ? { consultant_mode: true }
       : null;
 
-    const { assistantMessageId } = await store.recordTurn({
-      conversationId: conv.id,
-      userId: user.id,
-      userMessage: userText,
-      assistantMessage: reply,
-      outcome,
-      toolsCalled: opts?.tools,
-      sourceLabel: opts?.sourceLabel ?? null,
-      periodLabel: opts?.periodLabel ?? null,
-      reportPayload: enrichedReportPayload,
-      conversationSummary: updatedMemory,
-      rollingSummary: updatedRollingSummary,
-      model: opts?.model,
-      latencyMs: Date.now() - startedAt,
-    });
+    let assistantMessageId = crypto.randomUUID();
+    try {
+      const turnRes = await store.recordTurn({
+        conversationId: conv.id,
+        userId: user.id,
+        userMessage: userText,
+        assistantMessage: reply,
+        outcome,
+        toolsCalled: opts?.tools,
+        sourceLabel: opts?.sourceLabel ?? null,
+        periodLabel: opts?.periodLabel ?? null,
+        reportPayload: enrichedReportPayload,
+        conversationSummary: updatedMemory,
+        rollingSummary: updatedRollingSummary,
+        model: opts?.model,
+        latencyMs: Date.now() - startedAt,
+      });
+      assistantMessageId = turnRes.assistantMessageId;
+      if (turnRes.errorCode) {
+        await recordDegraded(
+          turnRes.errorCode as ZoeErrorCode,
+          turnRes.errorDetail ?? turnRes.errorCode,
+        );
+      }
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_USAGE_LOG_FAILED,
+        err instanceof Error ? err.message : "recordTurn failed",
+      );
+    }
 
     if (opts?.unansweredReason) {
-      await store.recordUnanswered({
-        conversationId: conv.id,
-        messageId: assistantMessageId,
-        userId: user.id,
-        callerRoles,
-        questionText: userText,
-        reason: opts.unansweredReason,
-      });
+      try {
+        await store.recordUnanswered({
+          conversationId: conv.id,
+          messageId: assistantMessageId,
+          userId: user.id,
+          callerRoles,
+          questionText: userText,
+          reason: opts.unansweredReason,
+          errorCode: opts.errorCode ?? null,
+          errorDetail: opts.errorDetail ?? null,
+        });
+      } catch {
+        // best effort
+      }
     }
 
     const responsePayload: Record<string, unknown> = {
@@ -711,6 +1015,9 @@ export async function handleStaffAssistantRequest(
       cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
       remaining_questions_today: budget.remainingToday,
+      database_status: health.status,
+      missing_db_objects: health.missingObjects,
+      degraded_error_codes: degradedErrors.map((d) => d.errorCode),
     };
 
     if (wantsStream) {
@@ -730,8 +1037,22 @@ export async function handleStaffAssistantRequest(
 
     // ---- 8. Tool-calling loop (whole-conversation memory, Zoe notes, safe calculator) --------
     const [history, userNotes] = await Promise.all([
-      store.loadRecentTurns(user.id, conv.id),
-      store.listUserNotes ? store.listUserNotes(user.id) : Promise.resolve([]),
+      store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+          err instanceof Error ? err.message : "loadRecentTurns failed",
+        );
+        return [] as ChatMessage[];
+      }),
+      store.listUserNotes
+        ? store.listUserNotes(user.id).catch(async (err) => {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+              err instanceof Error ? err.message : "listUserNotes failed",
+            );
+            return [] as ZoeNoteRecord[];
+          })
+        : Promise.resolve([] as ZoeNoteRecord[]),
     ]);
     const today = kampalaToday();
     const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
@@ -788,6 +1109,111 @@ export async function handleStaffAssistantRequest(
     const maxModelRounds = selectedTier.maxModelRounds;
     const maxToolCalls = selectedTier.maxToolCalls;
     const maxCostUsd = selectedTier.maxCostUsdPerQuestion;
+
+    /**
+     * Prompt 1 item (4): If a tool step fails because a database RPC or external dependency
+     * is missing or errors, log the real `error_code` to `staff_assistant_unanswered`,
+     * retry once with `tools: []`, and answer in plain text stating plainly what could not
+     * be checked. `MSG.error` is reserved strictly for when the AI gateway itself is unreachable.
+     */
+    const retryPlainTextWhenToolUnavailable = async (
+      failedToolName: string,
+      failedRpc: string,
+      errorDetail: string,
+      overrideErrorCode?: ZoeErrorCode,
+    ): Promise<Response> => {
+      const errorCode = overrideErrorCode ?? mapMissingFunctionToErrorCode(failedRpc);
+      await recordDegraded(errorCode, `${failedRpc}: ${errorDetail}`);
+
+      const plainUnavailableNotice = `I could not check ${failedToolName} (${failedRpc}) right now because that database report or function is currently unavailable.`;
+      let retryReplyText = "";
+      let retryModel = lastModel;
+
+      try {
+        const retryMessages: ChatMessage[] = [
+          {
+            role: "system",
+            content: `${buildSystemPrompt(today, callerRoles, [], {
+              conversationMemoryBlock: memoryBlock,
+              zoeNotesBlock,
+              rollingSummaryBlock,
+              modelTier: selectedTier.tier,
+              consultantMode,
+              webResearchEnabled: false,
+            })}\n\nTOOL STEP FALLBACK (NO TOOLS AVAILABLE):
+The database tool '${failedToolName}' (${failedRpc}) failed and could not be checked (${errorDetail}).
+Answer the user's question in plain text without calling any tools:
+- If the question is a general, conceptual, drafting, or explanation question, answer it directly in plain text.
+- If the question asks for live Welile figures from '${failedToolName}' (${failedRpc}), state plainly that '${failedToolName}' (${failedRpc}) could not be checked right now because that database object is currently unavailable, and do not invent or guess any numbers.
+- Always use mandatory Welile terminology: Rent Plan, Supporter, Returns.`,
+          },
+          ...activeTurnWindow,
+          { role: "user", content: userText },
+        ];
+
+        const retryRes = await ai.chatCompletion({
+          messages: retryMessages,
+          tools: [],
+          model: selectedTier.model,
+          temperature: selectedTier.temperature,
+          maxTokens: selectedTier.maxTokens,
+          signal: req.signal,
+        });
+        retryModel = retryRes.model || lastModel;
+        if (retryRes.usage) {
+          totalQuestionCostUsd += retryRes.usage.estimatedCostUsd ?? 0;
+          cachedPromptTokens += retryRes.usage.cachedTokens ?? 0;
+        }
+        retryReplyText = (retryRes.message.content ?? "").trim();
+      } catch {
+        // If retry call fails, fall through to deterministic plain-text explanation
+      }
+
+      const upperCandidate = retryReplyText.toUpperCase();
+      const candidateValid =
+        retryReplyText.length > 0 &&
+        upperCandidate !== "UNMATCHED" &&
+        upperCandidate !== "OUT_OF_SCOPE" &&
+        upperCandidate !== "ROLE_RESTRICTED" &&
+        retryReplyText !== MSG.error &&
+        checkAnswer(retryReplyText, rawToolOutputs, userText).ok;
+
+      if (candidateValid) {
+        const mentionsUnavailable =
+          /could not (check|read|verify)|unavailable|not available right now/i.test(
+            retryReplyText,
+          ) ||
+          retryReplyText.toLowerCase().includes(failedToolName.toLowerCase()) ||
+          retryReplyText.toLowerCase().includes(failedRpc.toLowerCase());
+
+        const finalFallbackReply = mentionsUnavailable
+          ? retryReplyText
+          : `${retryReplyText}\n\nNote: ${plainUnavailableNotice}`;
+
+        if (checkAnswer(finalFallbackReply, rawToolOutputs, userText).ok) {
+          return await finish(finalFallbackReply, "answered", {
+            tools: toolsCalled,
+            model: retryModel,
+            sourceLabel: null,
+            periodLabel: null,
+            reportPayload: null,
+          });
+        }
+      }
+
+      const manualMatch = searchStaffManualHelp(userText);
+      const manualContext =
+        manualMatch.topics.length > 0 ? `${manualMatch.topics[0].summary}\n\n` : "";
+      const deterministicReply = `${manualContext}${plainUnavailableNotice} No live figures were read, so I will not guess any numbers. Please check the corresponding Welile workspace screen directly, or ask me a general or workflow question.`;
+
+      return await finish(deterministicReply, "answered", {
+        tools: toolsCalled,
+        model: retryModel,
+        sourceLabel: null,
+        periodLabel: null,
+        reportPayload: null,
+      });
+    };
 
     for (let round = 0; round < maxModelRounds; round++) {
       if (round > 0 && totalQuestionCostUsd >= maxCostUsd) {
@@ -1125,11 +1551,11 @@ export async function handleStaffAssistantRequest(
                   unansweredReason: "role_restricted",
                 });
               }
-              return await finish(MSG.error, "error", {
-                tools: toolsCalled,
-                model: lastModel,
-                unansweredReason: "error",
-              });
+              return await retryPlainTextWhenToolUnavailable(
+                repTool.name,
+                repTool.rpc,
+                repError.message,
+              );
             }
             toolsCalled.push(repTool.name);
             const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
@@ -1217,11 +1643,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_report_email"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_report_email",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const resolvedPeriodLabel =
@@ -1259,7 +1685,7 @@ export async function handleStaffAssistantRequest(
               userClient,
               draftOutcome.draft.recipient_user_id,
               draftOutcome.draft.report_reference.rpc,
-              user.id,
+              recordDegraded,
             );
             if (!roleAllowed || !dbRoleAllowed) {
               return await finish(MSG.recipientRoleRestricted, "blocked", {
@@ -1281,6 +1707,7 @@ export async function handleStaffAssistantRequest(
               report_reference: draftOutcome.draft.report_reference,
             },
             conv.id,
+            recordDegraded,
           );
           if (savedEmailDraftId) {
             draftOutcome.draft.draft_id = savedEmailDraftId;
@@ -1356,6 +1783,7 @@ export async function handleStaffAssistantRequest(
               note: reminderDraft.draft.note ?? "",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedReminderDraftId) {
             reminderDraft.draft.draft_id = savedReminderDraftId;
@@ -1411,11 +1839,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_staff_notification"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_staff_notification",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const notifOutcome = buildStaffNotificationDraft({
@@ -1447,6 +1875,7 @@ export async function handleStaffAssistantRequest(
               link_path: "/me",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedNotifDraftId) {
             notifOutcome.draft.draft_id = savedNotifDraftId;
@@ -1540,11 +1969,11 @@ export async function handleStaffAssistantRequest(
                   unansweredReason: "role_restricted",
                 });
               }
-              return await finish(MSG.error, "error", {
-                tools: toolsCalled,
-                model: lastModel,
-                unansweredReason: "error",
-              });
+              return await retryPlainTextWhenToolUnavailable(
+                repTool.name,
+                repTool.rpc,
+                repError.message,
+              );
             }
             toolsCalled.push(repTool.name);
             const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
@@ -1627,11 +2056,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_report_schedule"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_report_schedule",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const resolvedPeriodLabel =
@@ -1671,7 +2100,7 @@ export async function handleStaffAssistantRequest(
               userClient,
               scheduleOutcome.draft.recipient_user_id,
               scheduleOutcome.draft.report_reference.rpc,
-              user.id,
+              recordDegraded,
             );
             if (!roleAllowed || !dbRoleAllowed) {
               return await finish(MSG.recipientRoleRestricted, "blocked", {
@@ -1700,6 +2129,7 @@ export async function handleStaffAssistantRequest(
               custom_message: scheduleOutcome.draft.custom_message ?? "",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedScheduleDraftId) {
             scheduleOutcome.draft.draft_id = savedScheduleDraftId;
@@ -1814,6 +2244,7 @@ export async function handleStaffAssistantRequest(
               screen_path: builtIdea.draft.screen_path,
             },
             conv.id,
+            recordDegraded,
           );
           if (savedIdeaDraftId) {
             builtIdea.draft.draft_id = savedIdeaDraftId;
@@ -1982,7 +2413,28 @@ export async function handleStaffAssistantRequest(
           rpcArgs.p_question = userText;
         }
         const rpcStartedAt = Date.now();
-        const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
+        let data: unknown = null;
+        let error: { code?: string; message: string } | null = null;
+
+        if (tool.name === "get_data_catalog") {
+          const primaryCatalog = await userClient.rpc("assistant_staff_get_data_catalog", rpcArgs);
+          if (!primaryCatalog.error) {
+            data = primaryCatalog.data;
+          } else {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_ANALYST_CATALOG_MISSING,
+              `assistant_staff_get_data_catalog: ${primaryCatalog.error.message}`,
+            );
+            const fallbackCatalog = await userClient.rpc("assistant_staff_data_catalog", rpcArgs);
+            data = fallbackCatalog.data;
+            error = fallbackCatalog.error;
+          }
+        } else {
+          const rpcRes = await userClient.rpc(tool.rpc, rpcArgs);
+          data = rpcRes.data;
+          error = rpcRes.error;
+        }
+
         if (error) {
           console.error(`[staff-assistant] tool ${tool.rpc} error:`, error.code, error.message);
           if (tool.name === "run_analyst_query" && validatedAnalystSql) {
@@ -2006,11 +2458,11 @@ export async function handleStaffAssistantRequest(
               unansweredReason: "role_restricted",
             });
           }
-          return await finish(MSG.error, "error", {
-            tools: toolsCalled,
-            model: lastModel,
-            unansweredReason: "error",
-          });
+          return await retryPlainTextWhenToolUnavailable(
+            tool.name,
+            tool.name === "get_data_catalog" ? "assistant_staff_get_data_catalog" : tool.rpc,
+            error.message,
+          );
         }
 
         // Deduplicate `rows`/`data`, sanitize free-text fields, trim by whole rows ("showing 50 of 312 rows"),
@@ -2264,11 +2716,16 @@ export async function handleStaffAssistantRequest(
       const reply = err.status === 429 ? MSG.gatewayBusy : MSG.gatewayOutOfCredit;
       return await finish(reply, "error", {
         unansweredReason: "error",
+        errorCode: ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE,
+        errorDetail: `AI gateway HTTP ${err.status}`,
       });
     }
-    console.error("[staff-assistant] unhandled error:", err instanceof Error ? err.message : err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[staff-assistant] unhandled error:", errMsg);
     return await finish(MSG.error, "error", {
       unansweredReason: "error",
+      errorCode: ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE,
+      errorDetail: errMsg,
     });
   }
 }

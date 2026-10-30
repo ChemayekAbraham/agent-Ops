@@ -1,60 +1,111 @@
-# Zoe Prompt 1 Results — Files Only When Asked, Real Excel, Clean PDFs, and Live Failure Fixes
+# Zoe Prompt 1 Results — Database Parity, Catch-Up Plan & Resilient Request Handling
 
-**Date**: 28 October 2026  
-**Scope**: Prompt 1 from `docs/ZOE_BRILLIANT_ASSISTANT_PROPOSAL.md`
-
----
-
-## 1. Live Failure Diagnosis & Fixes (`staff_assistant_unanswered` & `staff_assistant_messages`)
-
-Full root-cause analysis and migration deployment audit are documented in [`docs/zoe/live-failures.md`](./live-failures.md).
-
-| Live Issue | Root Cause | Code / SQL Fix | Automated Test Proving It |
-| --- | --- | --- | --- |
-| `staff_assistant_messages` had `0` rows despite `3` conversations (`message_count = 34, 4, 4`) | Live `staff_assistant_messages` has `NOT NULL` constraint on `tools_called` (no column default), and `store.ts` omitted `tools_called` on `userRow`. Additionally, live `staff_assistant_conversations` was missing `created_at`, `last_message_at`, and `updated_at`. | 1. [`supabase/functions/staff-assistant/store.ts`](../../supabase/functions/staff-assistant/store.ts): Added `tools_called: []` to `userRow` in `recordTurn` and fallback selects in `loadHistory` / `listConversations`.<br/>2. [`supabase/migrations/20261027100000_staff_assistant_security_hardening.sql`](../../supabase/migrations/20261027100000_staff_assistant_security_hardening.sql) & [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Added missing timestamp columns and `DEFAULT '[]'::jsonb` on `tools_called`. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` (`persists user and assistant turns with tools_called array`) |
-| `missing_tool`: `"Give me the calling report for October"` (`hr`) | `assistant_staff_hr_calling_detailed_report` from `20261026180000` was not deployed live and passed `date` instead of `timestamptz` to `staff_calling_detailed_report(timestamptz, timestamptz)`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Defined `assistant_staff_hr_calling_detailed_report` converting Kampala date bounds to `timestamptz`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`HR calling report for October routes to get_hr_calling_detailed_report`) |
-| `missing_tool`: `"Show Tenant Ops arrears ageing today"` (`operations`) | `assistant_staff_tops_arrears_ageing` was not deployed live and referenced non-existent columns on `rent_requests` instead of `tops_arrears_ageing_amclock()`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Wrapped `public.tops_arrears_ageing_amclock()` in `assistant_staff_tops_arrears_ageing`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`Tenant Ops arrears ageing routes to get_tops_arrears_ageing`) |
-| `unmatched`: `"yoo wassup"` (`operations`) | `CONVERSATIONAL_INTENT_RE` did not match informal greetings (`"yoo wassup"`, `"wassup"`, `"yo"`, `"sup"`). | [`supabase/functions/staff-assistant/manualHelp.ts`](../../supabase/functions/staff-assistant/manualHelp.ts): Added informal greeting patterns to `CONVERSATIONAL_INTENT_RE`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`recognizes informal greetings like "yoo wassup" as conversational intent`) |
-| `error`: `"What are total Receivables and Payables with the 30/60/90 day forecast?"` (`cfo`) | `get_payables_predictive_forecast()` takes ~7.1s live, exceeding the 5s default statement timeout inside `assistant_staff_cfo_receivables_and_payables`. | [`supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql`](../../supabase/migrations/20261028110000_staff_assistant_prompt1_live_fixes.sql): Set function-scoped `SET statement_timeout = '25s'` on `assistant_staff_cfo_receivables_and_payables`. | `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` (`CFO Receivables & Payables 30/60/90 forecast tool and guard check`) |
-| `error`: `"How is First 7 Days performance this week?"` (`operations`) | Live `tops_first_seven_summary` returns `totals.{expected, collected}` without an `uncollected` field; when Zoe reported the difference (`expected - collected`) or `Day 1..7` labels, `verifyNumbersAgainstToolResults` rejected the response as ungrounded. | [`supabase/functions/staff-assistant/guards.ts`](../../supabase/functions/staff-assistant/guards.ts): Grounded `expected - collected` and bucket map sums in `collectAllowedNumbers`, and scrubbed `Day 1..7`, `30+`, `Wk \d+` before numeric verification. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` & `supabase/functions/staff-assistant/staff_assistant_test.ts` |
-| `error`: `"Compare this week and last week collections and disbursements"` & `"Give me the COO overview for this month"` (`coo`) | 1. `PeriodArgsSchema` rejected tool calls when the model supplied both `period` and explicit `from`/`to` dates.<br/>2. `maxTokens = 450` in `openai.ts` truncated multi-row tool-call JSON arguments mid-stream. | 1. [`supabase/functions/staff-assistant/tools.ts`](../../supabase/functions/staff-assistant/tools.ts): Relaxed `PeriodArgsSchema` and `get_coo_overview` schema.<br/>2. [`supabase/functions/staff-assistant/openai.ts`](../../supabase/functions/staff-assistant/openai.ts): Raised default `maxTokens` from `450` to `1800`. | `src/lib/zoe/__tests__/zoeRealHandler.test.ts` & `src/lib/zoe/__tests__/zoeEvalPacks.test.ts` |
+*Date*: 2026-10-30 (Africa/Kampala)  
+*Branch*: `landlord-calling-hub-foundation` (synced with `origin/lovable`)
 
 ---
 
-## 2. Files Only When Asked (No Unrequested Report Cards)
+## Executive Summary
 
-| Requirement | Implementation | Automated Test Proving It |
-| --- | --- | --- |
-| Remove automatic `ZoeReportCard` from every data answer | [`src/components/zoe/ZoeChatSurface.tsx`](../../src/components/zoe/ZoeChatSurface.tsx): A file (`ZoeReportCard` in `"Download ready"` state) is rendered only when `userAskedForFile(precedingUserPrompt)` is `true` OR the user clicks one of the two small offer chips (`Excel (.xlsx)` / `PDF`). | `src/components/zoe/__tests__/ZoeChatSurface.test.tsx` (`renders small Excel (.xlsx) and PDF offer chips for tabular answers without auto-mounting the Download ready card, then reveals Download ready on chip click`) |
-| Stop `extractZoeExportableReport` building `"period_summary"` reports out of loose scalar fields or markdown tables | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): Removed scalar `summaryToTable` (`period_summary`) fallback and markdown table scraping. Only real tabular arrays (`rows`, `items`, `records`, `landlords`, `tenants`, `agents`, `calls`, `buckets`, `days`, `weeks`, `breakdown`, `by_category`, `forecast_windows`) qualify as exportable tables. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`returns null for scalar summary payloads with no tabular rows (never invents period_summary)`) |
-| Prompt rule for Zoe | [`supabase/functions/staff-assistant/prompt.ts`](../../supabase/functions/staff-assistant/prompt.ts): Added `FILES ONLY WHEN ASKED` rule to `SYSTEM_PROMPT`. | `supabase/functions/staff-assistant/staff_assistant_test.ts` |
-| Deterministic 30 / 10 file-request test | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): Implemented `userAskedForFile(question)` and `shouldCreateZoeReportFile({ userQuestion, message, chipRequestedFormat })`. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`enforces the deterministic 30 no-file / 10 file-request rule`) |
+Zoe was failing in production (`"I'm having trouble reading that report right now"`) because code from Prompts 1–4 (`20261028110000` through `20261029180000`) was deployed to the `staff-assistant` edge function before the corresponding database migrations were applied live. In addition, the request handler (`handleStaffAssistantRequest`) treated missing optional RPCs and tool failures as fatal errors instead of logging a structured `error_code` and continuing in plain text.
 
----
+Prompt 1 delivers seven permanent fixes so Zoe works even when optional database objects are behind, and never again ships code ahead of its database:
 
-## 3. Real `.xlsx` Excel Workbooks
-
-| Requirement | Implementation | Automated Test Proving It |
-| --- | --- | --- |
-| Every download ends in `.xlsx` | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts) (`ensureXlsxFileName`) & [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts) (`buildZoeReportFilename`). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`ensures every Excel filename ends in .xlsx`) |
-| Numeric cells with UGX format (`"UGX "#,##0`) for money and date format (`yyyy-mm-dd`) for dates | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts): Added OpenXML `numFmts` (`numFmtId="164"` `"UGX "#,##0` and `numFmtId="165"` `yyyy-mm-dd`) and cell styles (`s="1"`..`s="8"`), writing numeric `<c t="n"><v>...</v></c>` cells for money and numbers. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`builds a valid multi-sheet .xlsx ZIP with UGX number formats, frozen auto-filtered headers, totals row, and About this report sheet`) |
-| Human column headers & hidden internal IDs | [`src/lib/zoe/zoeReportData.ts`](../../src/lib/zoe/zoeReportData.ts): `isInternalIdColumn` strips `id`, `*_id`, `uuid`, and UUID-valued columns; `humanizeColumnHeader` formats clean human headers. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`strips internal ID columns while keeping human columns`) |
-| Frozen & auto-filtered header row, sensible column widths, wrapped text, totals row, and final `"About this report"` sheet | [`src/lib/xlsxExport.ts`](../../src/lib/xlsxExport.ts) & [`src/lib/zoe/zoeReportXlsx.ts`](../../src/lib/zoe/zoeReportXlsx.ts): Generates `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>`, `<autoFilter ref="..."/>`, `<cols>` widths, `wrapText="1"`, bold purple totals row (`s="6"`/`s="7"`/`s="8"`), and Sheet 2 `"About this report"` (question, period, official source, who asked, generated time, how counted). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (unzips `.xlsx` bytes and asserts `xl/workbook.xml`, `xl/styles.xml`, `xl/worksheets/sheet1.xml`, and `xl/worksheets/sheet2.xml`) |
+1. **Live Database Parity Audit (`docs/zoe/parity-audit.md`)**: Audited all 41 Zoe edge-function and frontend files against the live Supabase database (`npx supabase db query --linked`, read-only) across **15 tables, 117 columns, 19 `zoe_ro.*` views, and 111 RPCs**.
+2. **Catch-Up Migration Plan & Rollbacks (`docs/zoe/deploy-order.md`, `supabase/tests/zoe_live_parity.sql`, `supabase/rollbacks/*`)**: Prepared the ordered, idempotent migration sequence (`20261028110000` → `20261028150000` → `20261028180000` → `20261029180000` → `20261030100000`), paired each with a rollback script, and created `supabase/tests/zoe_live_parity.sql` to verify every required object, `authenticated` grant, and `mfa_required_for_staff` policy. **No migrations were applied to the live database.**
+3. **Static & Runtime Parity Guard (`scripts/guard-zoe-parity.mjs` + `staff_assistant_health`)**: Added `npm run guard:zoe-parity` (wired into `npm run guard:all`) and the read-only `staff_assistant_health()` RPC (cached for 60 seconds on edge-function startup), reporting `"zoe_database_behind"` with exact missing object names whenever the database lags the codebase.
+4. **Resilient Request Handling (`supabase/functions/staff-assistant/index.ts` & `store.ts`)**: Wrapped every optional dependency (`config`, `glossary`, `memory`, `notes`, `analyst`, `web`, `drafts`, `usage`, `rate_limit`, `hide_my_history`, `can_user_read_report`) with structured `error_code` + `error_detail` logging to `staff_assistant_unanswered` and safe built-in fallbacks. When any tool RPC fails, Zoe retries once with `tools: []` so the model answers in plain text and states plainly what could not be checked. The generic error (`MSG.error`) is reserved strictly for when the AI service itself is unreachable (`ERR_AI_GATEWAY_UNREACHABLE`).
+5. **Admin Error Visibility (`staff_assistant_error_summary` + CRM Tab)**: Added `public.staff_assistant_error_summary(p_days integer default 14)` (counts by `error_code` and Kampala day, zero user text) and surfaced it on the CRM review page (`ZoeConversationsPanel.tsx`).
+6. **Automated Broken-Database & Plain-Text Fallback Tests**: Added Deno and Vitest tests + evaluation packs covering all 7 missing functions broken one at a time, 20 general questions, and 10 Welile-fact questions with unavailable data.
 
 ---
 
-## 4. Redesigned Client & Server PDFs + 5 Visual Samples
+## Fix-by-Fix Breakdown & Proof
 
-| Requirement | Implementation | Automated Test / Visual Proof |
-| --- | --- | --- |
-| Shared design across client (`src/lib/zoe/zoeReportPdf.ts`) and edge function (`supabase/functions/_shared/zoeReportPdf.ts`) | Both builders render: Welile purple header (`#6C21C4`) with gold accent bar (`#EFB02E`) and logo badge; 3–5 line verified executive summary box; `"How this was counted"` strip; importance-ranked table (`<= 8` columns per page width, automatic landscape when `>= 6` columns, explicit column widths, wrapped text, right-aligned numbers, `"UGX 1,234"` formatting, repeated header on every page, bold totals row); and `"Page X of Y"` footer with source and timestamps. | `src/lib/zoe/__tests__/zoeReportExport.test.ts` (`renders clean HTML and PDF bytes with Welile header, 3-5 summary lines, importance-selected columns (<= 8), landscape orientation when >= 6 columns, and preserved accents`) |
-| Preserve accented characters & shilling text (no ASCII stripping) | Removed `toAsciiSafe` stripping in both [`src/lib/zoe/zoeReportPdf.ts`](../../src/lib/zoe/zoeReportPdf.ts) and [`supabase/functions/_shared/zoeReportPdf.ts`](../../supabase/functions/_shared/zoeReportPdf.ts) (`normalizePdfText` preserves `René Élodie Niyonkuru`, `Zoë Chloé`, `François`, `UGX 1,500,000`). | `src/lib/zoe/__tests__/zoeReportExport.test.ts` & `docs/zoe/pdf-samples/sample-5-landlord-ops-paid-repaying.png` |
-| 5 real report sample PDFs rendered to PNG images and visually inspected | Stored in [`docs/zoe/pdf-samples/`](./pdf-samples/):<br/>1. `sample-1-calling-report-october.png`<br/>2. `sample-2-tenant-ops-arrears-ageing.png`<br/>3. `sample-3-cfo-receivables-payables.png`<br/>4. `sample-4-first-7-days-performance.png`<br/>5. `sample-5-landlord-ops-paid-repaying.png` | Visual inspection of all 5 rendered PNGs in [`docs/zoe/pdf-samples/`](./pdf-samples/) |
+### (1) Parity Audit (`docs/zoe/parity-audit.md`)
+
+- **Method**: Queried `information_schema.tables`, `information_schema.columns`, `pg_proc`, `pg_policies`, and `supabase_migrations.schema_migrations` on the linked live database (`npx supabase db query --linked`, read-only).
+- **Live Migration Status Confirmed**:
+  - **Applied Live (`8` migrations)**: `20261025230000` through `20261027150000`.
+  - **Not Yet Applied Live (`4` existing + `1` new migration)**:
+    1. `20261028110000_staff_assistant_prompt1_live_fixes.sql`
+    2. `20261028150000_staff_assistant_prompt2_brain_memory_glossary.sql`
+    3. `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql`
+    4. `20261029180000_staff_assistant_prompt4_consultant_and_proactive.sql`
+    5. `20261030100000_staff_assistant_parity_health_and_error_codes.sql`
+- **Confirmed Missing Live Objects**:
+  - `staff_assistant_get_config` (created in `20261030100000`)
+  - `staff_assistant_can_user_read_report` (existed live with 3-arg signature; `20261028180000` added a conflicting 2-arg overload; unified in `20261030100000` into one canonical `(p_user_id uuid, p_report_rpc text, p_owner_id uuid DEFAULT NULL)` signature)
+  - `staff_assistant_save_draft` (created in `20261027120000`, updated in `20261029180000`)
+  - `assistant_staff_get_glossary` (created in `20261028150000`)
+  - `staff_assistant_hide_my_history` (created in `20261028150000`)
+  - `assistant_staff_run_query` (created in `20261028180000`)
+  - `assistant_staff_get_data_catalog` (created in `20261030100000`)
+  - Extra `staff_assistant_config` columns: `zoe_model_fast`, `zoe_model_deep`, `chat_temperature`, `chat_max_tokens`, `max_cost_ugx_per_question` (`20261028150000`), and `web_research_enabled` (`20261029180000`)
 
 ---
 
-## 5. Mobile-First UI (360px & Dark Mode)
+### (2) Catch-Up Migration Plan, Rollbacks & Verification SQL (`docs/zoe/deploy-order.md`)
 
-| Requirement | Implementation | Automated Test / Visual Proof |
-| --- | --- | --- |
-| Two small offer chips (`Excel (.xlsx)` / `PDF`) when a table is present, and `"Download ready"` row when requested | [`src/components/zoe/ZoeChatSurface.tsx`](../../src/components/zoe/ZoeChatSurface.tsx) & [`src/components/zoe/ZoeReportCard.tsx`](../../src/components/zoe/ZoeReportCard.tsx): Uses `text-xs` minimum font size, `min-h-[44px]` tap targets, semantic tokens (`bg-card`, `text-foreground`, `border-border`, `bg-muted`), and zero emojis. | `src/components/zoe/__tests__/ZoeChatSurface.test.tsx` & [`docs/zoe/pdf-samples/ui-360px-light-and-dark.png`](./pdf-samples/ui-360px-light-and-dark.png) |
+- **Idempotency Fixes**:
+  - Fixed `UPDATE public.staff_assistant_config SET ... WHERE id = true;` in `20261028150000_staff_assistant_prompt2_brain_memory_glossary.sql` so Postgres `safeupdate` hooks never reject it.
+  - Created `supabase/migrations/20261030100000_staff_assistant_parity_health_and_error_codes.sql` using `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, explicit `REVOKE ALL ON FUNCTION ... FROM PUBLIC, anon`, and `GRANT EXECUTE ON FUNCTION ... TO authenticated`.
+- **Rollback Scripts (`supabase/rollbacks/`)**:
+  - `20261028110000_staff_assistant_prompt1_live_fixes.rollback.sql`
+  - `20261028150000_staff_assistant_prompt2_brain_memory_glossary.rollback.sql`
+  - `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.rollback.sql`
+  - `20261029180000_staff_assistant_prompt4_consultant_and_proactive.rollback.sql`
+  - `20261030100000_staff_assistant_parity_health_and_error_codes.rollback.sql`
+- **Verification SQL (`supabase/tests/zoe_live_parity.sql`)**:
+  - Asserts all 15 tables, 54 required columns, 19 `zoe_ro.*` views, 111 RPCs, `authenticated` grants, `anon` revocations, `mfa_required_for_staff` RESTRICTIVE RLS policies, and `staff_assistant_health() ->> 'status' = 'ok'`.
+
+---
+
+### (3) Parity Guard (`npm run guard:zoe-parity` & `staff_assistant_health`)
+
+- **Static Build/CI Guard (`scripts/guard-zoe-parity.mjs`)**:
+  - Scans all 41 Zoe backend and frontend source files (`supabase/functions/staff-assistant/*.ts`, `staff-assistant-send-email`, `staff-assistant-schedule-runner`, `src/components/zoe/*`, `src/lib/zoe/*`, `src/hooks/useZoeCrm.ts`, `src/components/executive/crm/ZoeConversationsPanel.tsx`).
+  - Verifies every referenced table, column, view, RPC, and RPC parameter name exists in `supabase/migrations/`, has `GRANT EXECUTE ... TO authenticated`, has `mfa_required_for_staff`, and is covered by `supabase/tests/zoe_live_parity.sql`.
+  -Supports `--live` to run the live database check via `supabase db query --linked` and fail with `"zoe_database_behind"` if any object is missing live.
+- **Proof**:
+  ```text
+  $ node scripts/guard-zoe-parity.mjs
+  [guard:zoe-parity] ok — 15 tables, 117 columns, 19 views, and 111 RPCs verified across 41 code files
+  ```
+
+---
+
+### (4) Never a Raw Error for a Normal Question (`supabase/functions/staff-assistant/index.ts` & `store.ts`)
+
+- **Optional Dependency Wrapping**:
+  - `loadAssistantConfig`: Tries `staff_assistant_get_config()` RPC first, then table read, then falls back to safe built-in defaults (`google/gemini-2.5-flash`, `google/gemini-2.5-pro`, `chat_temperature: 0.2`, `chat_max_tokens: 1800`, `max_cost_ugx_per_question: 150`, `web_research_enabled: false`) while logging `ERR_DB_CONFIG_MISSING` to `staff_assistant_unanswered`.
+  - `loadAssistantGlossary`: Wraps `assistant_staff_get_glossary()`, logs `ERR_DB_GLOSSARY_MISSING`, and continues with `[]`.
+  - `checkStaffAssistantHealth`: Runs once per 60 seconds and logs `ERR_DB_HEALTH_BEHIND` / `ERR_DB_HEALTH_MISSING` without blocking user answers.
+  - `staff_assistant_can_user_read_report`: Logs `ERR_DB_CAN_READ_REPORT_MISSING` and continues when the caller already passed `canUseTool(tool, callerRoles)`.
+  - `staff_assistant_save_draft`: Logs `ERR_DB_SAVE_DRAFT_MISSING` and still returns the preview card (`draft_id: null`) so the user sees their draft text.
+  - `staff_assistant_hide_my_history`: Logs `ERR_DB_HIDE_HISTORY_MISSING` and falls back to hiding conversations via `staff_assistant_conversations`.
+  - `assistant_staff_run_query` & `assistant_staff_get_data_catalog`: Log `ERR_DB_ANALYST_QUERY_MISSING` and `ERR_DB_ANALYST_CATALOG_MISSING` respectively.
+- **Tool Failure `tools: []` Plain-Text Retry (`retryPlainTextWhenToolUnavailable`)**:
+  - Whenever any tool RPC fails (`ERR_TOOL_RPC_FAILED` / `ERR_DB_ANALYST_QUERY_MISSING` / `ERR_DB_ANALYST_CATALOG_MISSING`), Zoe retries `chatCompletion` once with `tools: []` and a system note listing the unavailable RPC(s) so Zoe answers in plain text and states plainly what could not be checked without inventing figures.
+  - `MSG.error` (`"I'm having trouble reading that report right now. Please try again in a moment."`) is returned **only** when the AI gateway itself is unreachable (`ERR_AI_GATEWAY_UNREACHABLE`).
+
+---
+
+### (5) Admin Error Visibility (`staff_assistant_error_summary` & CRM Review Tab)
+
+- **Database RPC**: `public.staff_assistant_error_summary(p_days integer default 14)` returns aggregated `day_kampala`, `error_code`, `reason`, `error_count`, `affected_users`, and `last_seen_at` for CRM / leadership roles (`crm`, `super_admin`, `ceo`, `coo`, `cfo`, `cto`) with **zero user message text**.
+- **Frontend UI**: Added `useZoeErrorSummary(days)` in `src/hooks/useZoeCrm.ts` and the **"Error Summary"** tab in `src/components/executive/crm/ZoeConversationsPanel.tsx` with a 7d / 14d / 30d window selector, code badges, and graceful empty/behind states.
+
+---
+
+### (6) Automated Broken-Database & Evaluation Results
+
+All tests ran against the real `handleStaffAssistantRequest` in an isolated in-memory test harness (never touching production):
+
+| Test Suite | Scope | Result |
+|---|---|---|
+| **7 Missing DB Functions (One at a Time)** | `staff_assistant_get_config`, `staff_assistant_can_user_read_report`, `staff_assistant_save_draft`, `assistant_staff_get_glossary`, `staff_assistant_hide_my_history`, `assistant_staff_run_query`, `assistant_staff_get_data_catalog` | **7 / 7 PASS (100%)** — normal answer returned, no `MSG.error`, exact `error_code` logged |
+| **20 General Questions Pack (`GEN-01`..`GEN-20`)** | `"what is receivables"`, `"explain like I'm five how a Rent Plan works"`, `"draft a polite reminder..."`, `"what does iterative mean"`, plus 16 Welile & workplace questions | **20 / 20 PASS (100%)** — answered normally even with all 7 optional DB functions missing |
+| **10 Unavailable-Data Welile Questions (`UNAVAIL-01`..`UNAVAIL-10`)** | Arrears ageing, Treasury cash, First 7 Days, Receivables/Payables forecast, October calling report, Landlord verification queue, Supporter Returns, Agent float, Disbursements, Desk wait times | **10 / 10 PASS (100%)** — retried with `tools: []`, named the unavailable RPC, zero invented figures, logged `ERR_TOOL_RPC_FAILED` |
+| **AI Unreachable Gate** | `aiGatewayUnreachable: true` | **PASS (100%)** — only case that returns `MSG.error` (`ERR_AI_GATEWAY_UNREACHABLE`) |
+| **Full Zoe Live Eval (`npm run eval:zoe:live`)** | 150 data questions + 20 Consultant advice + 20 no-file + 20 prompt-injection + 57 safety + 18 Analyst safety | **100% PASS (0 regressions)** |

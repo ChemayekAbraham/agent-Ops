@@ -111,6 +111,33 @@ export interface ZoeDailyUsageRow {
   last_active_at: string | null;
 }
 
+export interface ZoeErrorSummaryByCodeRow {
+  error_code: string;
+  total_count: number;
+  unique_staff_count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+}
+
+export interface ZoeErrorSummaryByDayRow {
+  day_kampala: string;
+  error_code: string;
+  error_count: number;
+  unique_staff_count: number;
+}
+
+export interface ZoeErrorSummaryData {
+  ok: boolean;
+  source: string;
+  days: number;
+  from_date: string;
+  to_date: string;
+  total_errors: number;
+  by_code: ZoeErrorSummaryByCodeRow[];
+  by_day: ZoeErrorSummaryByDayRow[];
+  error?: string | null;
+}
+
 export interface ZoeCrmDashboardData {
   generated_at: string;
   kampala_date: string;
@@ -355,6 +382,56 @@ export function useUpdateZoeUnanswered() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['zoe-crm-dashboard'] });
+    },
+  });
+}
+
+export function useZoeErrorSummary(days = 14, enabled = true) {
+  const safeDays = Math.min(90, Math.max(1, Math.floor(days)));
+
+  return useQuery({
+    queryKey: ['zoe-error-summary', safeDays],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeErrorSummaryData> => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_error_summary',
+        {
+          p_days: safeDays,
+        },
+      );
+
+      if (error) {
+        return {
+          ok: false,
+          source: 'staff_assistant_error_summary',
+          days: safeDays,
+          from_date: '',
+          to_date: '',
+          total_errors: 0,
+          by_code: [],
+          by_day: [],
+          error: error.message,
+        };
+      }
+
+      const payload = (data ?? {}) as Partial<ZoeErrorSummaryData>;
+      return {
+        ok: payload.ok !== false,
+        source: payload.source ?? 'staff_assistant_error_summary',
+        days: typeof payload.days === 'number' ? payload.days : safeDays,
+        from_date: payload.from_date ?? '',
+        to_date: payload.to_date ?? '',
+        total_errors:
+          typeof payload.total_errors === 'number' ? payload.total_errors : 0,
+        by_code: Array.isArray(payload.by_code) ? payload.by_code : [],
+        by_day: Array.isArray(payload.by_day) ? payload.by_day : [],
+        error: null,
+      };
     },
   });
 }
