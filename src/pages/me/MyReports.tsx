@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertCircle, FileBarChart, ShieldAlert, UserCheck, Users } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
@@ -73,6 +74,7 @@ export default function MyReportsPage() {
   return (
     <PersonalLayout title="My reports">
       <div className="space-y-4 sm:space-y-5">
+        <V360StaffPricingBanner />
         {/* Mobile-First Header */}
         <div className="rounded-2xl border border-border/70 bg-card p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center gap-2">

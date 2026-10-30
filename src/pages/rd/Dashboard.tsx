@@ -19,6 +19,7 @@ import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 import { Textarea } from '@/components/ui/textarea';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
@@ -377,6 +378,7 @@ export default function RDDashboard() {
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-5">
+        <V360StaffPricingBanner />
         <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm lg:grid-cols-[1.2fr_repeat(4,1fr)]">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10"><FlaskConical className="h-5 w-5 text-primary" /></div>

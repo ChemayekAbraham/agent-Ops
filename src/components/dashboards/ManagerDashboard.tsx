@@ -36,6 +36,7 @@ import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
 import DashboardHeader from '@/components/DashboardHeader';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 import { useProfile } from '@/hooks/useProfile';
 import { ManagerDashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
@@ -864,6 +865,7 @@ export default function ManagerDashboard({ user, signOut, currentRole, available
         />
 
         <main className="flex-1 px-3 py-3 space-y-3 animate-fade-in max-w-4xl mx-auto lg:px-6 lg:py-6 lg:space-y-4 min-w-0 overflow-hidden">
+        <V360StaffPricingBanner />
         {/* Opportunity Summary Form - Full page when open */}
         {showOpportunitySummary ? (
           <OpportunitySummaryForm onClose={() => setShowOpportunitySummary(false)} />

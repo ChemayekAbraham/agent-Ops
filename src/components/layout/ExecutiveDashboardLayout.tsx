@@ -17,6 +17,7 @@ import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
 import { MissionBanner } from '@/components/mission/MissionBanner';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 /** Shared "My Work" tab, available on every executive dashboard. Lazy so
  *  dashboards that never open the tab do not pay for it. */
@@ -570,6 +571,7 @@ export default function ExecutiveDashboardLayout({
 
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-2 sm:p-4 lg:p-6 max-w-7xl mx-auto w-full overflow-y-auto overflow-x-hidden bg-muted/20">
+          <V360StaffPricingBanner />
           {activeTab !== 'mission-goals' && (
             <MissionBanner dashboardRole={role} className="mb-4" />
           )}
