@@ -174,8 +174,58 @@ async function sendWithFallback(phone: string, message: string) {
   };
 }
 
+// Who may send a test SMS: the roles of the two screens that call this
+// function. cto/super_admin open the CTO dashboard and bypass the dashboard
+// allowlist; every other role also needs an active allowlist grant for one of
+// those screens (Financial Ops tools, or the COO dashboard that embeds them).
+// Without this, anyone with the URL could send any text to any number on our
+// sender ID and our bill. verify_jwt is off, so the token is validated here.
+const BYPASS_ROLES = ["super_admin", "cto"];
+const ALLOWLISTED_ROLES = ["manager", "coo", "cfo", "employee", "operations"];
+const ALLOWED_DASHBOARDS = ["financial-ops", "coo"];
+
+// deno-lint-ignore no-explicit-any
+async function requireStaffCaller(admin: any, req: Request): Promise<Response | null> {
+  const deny = (status: number, error: string) =>
+    new Response(JSON.stringify({ ok: false, error }), {
+      status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return deny(401, "Unauthorized");
+  const { data: authData, error: authError } = await admin.auth.getUser(token);
+  const caller = authData?.user;
+  if (authError || !caller) return deny(401, "Unauthorized");
+
+  const { data: roleRows, error: roleError } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", caller.id)
+    .eq("enabled", true)
+    .in("role", [...BYPASS_ROLES, ...ALLOWLISTED_ROLES]);
+  if (roleError) return deny(500, "Authorisation check failed");
+  const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+  if (roles.some((r: string) => BYPASS_ROLES.includes(r))) return null;
+  if (roles.length === 0) return deny(403, "Forbidden");
+
+  const { data: grant, error: grantError } = await admin
+    .from("staff_permissions")
+    .select("id")
+    .eq("user_id", caller.id)
+    .in("permitted_dashboard", ALLOWED_DASHBOARDS)
+    .is("revoked_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (grantError) return deny(500, "Authorisation check failed");
+  return grant ? null : deny(403, "Forbidden");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const denied = await requireStaffCaller(admin, req);
+  if (denied) return denied;
 
   try {
     let phone = "0777607640";
@@ -207,9 +257,6 @@ Deno.serve(async (req) => {
 
     // Audit log so we have a trail
     try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const admin = createClient(supabaseUrl, serviceKey);
       await admin.from("audit_logs").insert({
         action_type: "sms_api_diagnostic_test",
         table_name: "sms_test",
