@@ -787,7 +787,7 @@ export async function executeConsultantWebSearch(
 }
 
 const WEB_PAGE_INJECTION_PATTERNS_RE =
-  /ignore\s+(?:all\s+|any\s+|previous\s+|prior\s+)*(?:instructions|rules|guards)|disregard\s+(?:all\s+|any\s+|previous\s+|prior\s+)*(?:instructions|rules)|system\s+prompt|developer\s+mode|jailbreak|draft_report_email|draft_staff_notification|draft_report_schedule|draft_reminder|send\s+an?\s+email\s+to|email\s+all\s+data\s+to|forward\s+this\s+to|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|BRAVE_SEARCH[_]API[_]KEY|<\/?UNTRUSTED_WEB_PAGE_DATA|<\/?UNTRUSTED_TOOL_DATA/gi;
+  /ignore\s+(?:all\s+|any\s+|previous\s+|prior\s+)*(?:instructions|rules|guards)|disregard\s+(?:all\s+|any\s+|previous\s+|prior\s+|safety\s+)*(?:instructions|rules)|forget\s+everything(?:\s+above)?|system\s+prompt:?|new\s+instructions:|developer\s+(?:mode|message:?)|jailbreak|you\s+must\s+now\s+call|reveal\s+(?:the\s+)?system\s+prompt|execute\s+sql:?|approve\s+(?:the\s+)?payout|prepare_staff_email|draft_report_email|draft_staff_notification|draft_report_schedule|draft_reminder|send\s+an?\s+email\s+to|email\s+all\s+data\s+to|forward\s+this\s+to|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|BRAVE_SEARCH[_]API[_]KEY|<\/?UNTRUSTED_WEB_PAGE_DATA|<\/?UNTRUSTED_TOOL_DATA/gi;
 
 /**
  * Strips scripts, styles, comments, and hidden elements from raw HTML, scrubs
@@ -820,7 +820,10 @@ export function extractAndSanitizeWebPageText(
     .replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, " ")
     .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, " ")
     .replace(/<template\b[^>]*>[\s\S]*?<\/template>/gi, " ")
-    .replace(/<[^>]+(?:display\s*:\s*none|visibility\s*:\s*hidden|aria-hidden\s*=\s*["']true["']|\bhidden\b)[^>]*>[\s\S]*?<\/[a-z0-9]+>/gi, " ")
+    .replace(
+      /<[^>]+(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\b|;)|font-size\s*:\s*0(?:px|em|rem|%)?|aria-hidden\s*=\s*["']true["']|\bhidden\b)[^>]*>[\s\S]*?<\/[a-z0-9]+>/gi,
+      " ",
+    )
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
