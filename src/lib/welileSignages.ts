@@ -22,6 +22,7 @@ export type SignageFootTraffic = 'low' | 'medium' | 'high';
 export type SignageStatus =
   | 'draft'
   | 'submitted'
+  | 'pending'
   | 'under_review'
   | 'changes_required'
   | 'rejected'
@@ -150,7 +151,8 @@ export interface SignageAgentReward {
 export function formatSignageStatus(status: SignageStatus): { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' } {
   switch (status) {
     case 'submitted':
-      return { label: 'Submitted', variant: 'secondary' };
+    case 'pending':
+      return { label: 'Pending', variant: 'secondary' };
     case 'under_review':
       return { label: 'Under Review', variant: 'secondary' };
     case 'approved_for_installation':
