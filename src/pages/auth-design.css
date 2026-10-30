@@ -157,7 +157,10 @@ html.auth-outfit [data-radix-popper-content-wrapper] * { font-family: 'Outfit', 
   cursor: pointer; transition: all 0.2s ease;
 }
 .welile-auth .auth-tab:hover { color: var(--welile-purple); }
-.welile-auth .auth-tab.active { background: #ffffff; color: var(--welile-purple-dark); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08); }
+/* The active tab carries the system primary colour as a filled pill,
+   so it reads as "where you are" without relying on text colour alone. */
+.welile-auth .auth-tab.active { background: var(--welile-purple); color: #ffffff; box-shadow: 0 2px 8px var(--welile-purple-glow); }
+.welile-auth .auth-tab.active:hover { color: #ffffff; background: var(--welile-purple-dark); }
 
 /* forms */
 .welile-auth .auth-form { display: flex; flex-direction: column; gap: 10px; }
