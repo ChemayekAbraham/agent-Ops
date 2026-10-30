@@ -40,6 +40,8 @@ describe('Welile Signages business rules & configuration', () => {
     expect(formatSignageStatus('active').label).toBe('Active (Billing)');
     expect(formatSignageStatus('active').variant).toBe('success');
     expect(formatSignageStatus('approved_for_installation').label).toBe('Approved for Installation');
+    expect(formatSignageStatus('rejected').label).toBe('Rejected');
+    expect(formatSignageStatus('rejected').variant).toBe('destructive');
   });
 
   it('validates property types include busy houses and shops', () => {
