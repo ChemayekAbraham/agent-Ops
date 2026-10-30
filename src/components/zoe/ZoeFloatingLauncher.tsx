@@ -47,10 +47,11 @@ export const ZoeFloatingLauncher: React.FC = () => {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="right"
-          className="flex w-full max-w-full flex-col p-2 sm:max-w-lg sm:p-4"
+          data-testid="zoe-floating-sheet"
+          className="flex h-[100dvh] w-full max-w-full flex-col p-0 sm:max-w-lg"
         >
           <SheetTitle className="sr-only">Ask Zoe — My Space Staff Assistant</SheetTitle>
-          <div className="mt-6 flex-1 min-h-0">
+          <div className="flex-1 min-h-0">
             <ZoeChatSurface
               compact
               messages={assistant.messages}
@@ -72,6 +73,7 @@ export const ZoeFloatingLauncher: React.FC = () => {
               onSelectConversation={assistant.selectConversation}
               onStartNewChat={assistant.startNewChat}
               onRenameConversation={assistant.renameConversation}
+              onDeleteConversation={assistant.deleteConversation}
               onRetry={assistant.retryLastMessage}
               onFeedback={assistant.submitFeedback}
               onClearHistory={assistant.clearHistory}
@@ -82,10 +84,10 @@ export const ZoeFloatingLauncher: React.FC = () => {
                 <Link
                   to="/me/zoe"
                   onClick={() => setOpen(false)}
-                  className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <span>Full view</span>
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </Link>
               }
             />
