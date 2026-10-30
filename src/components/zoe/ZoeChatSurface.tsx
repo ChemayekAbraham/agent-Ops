@@ -145,8 +145,11 @@ export interface ZoeChatSurfaceProps {
   isHistoryLoading?: boolean;
   streamingText?: string | null;
   statusLine?: string | null;
+  researchMode?: boolean;
+  researchPlanSteps?: string[];
   errorMessage?: string | null;
   remainingQuestionsToday?: number | null;
+  onToggleResearchMode?: (nextValue: boolean) => void;
   onSendMessage: (prompt: string) => void | Promise<void>;
   onStopGenerating?: () => void;
   onRegenerate?: () => void | Promise<void>;
@@ -284,8 +287,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   isHistoryLoading = false,
   streamingText = null,
   statusLine = null,
+  researchMode,
+  researchPlanSteps = [],
   errorMessage = null,
   remainingQuestionsToday = null,
+  onToggleResearchMode,
   onSendMessage,
   onStopGenerating,
   onRegenerate,
@@ -314,6 +320,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   className,
 }) => {
   const [draft, setDraft] = useState('');
+  const [internalResearchMode, setInternalResearchMode] = useState(false);
+  const activeResearchMode =
+    typeof researchMode === 'boolean' ? researchMode : internalResearchMode;
+  const handleToggleResearch = () => {
+    const next = !activeResearchMode;
+    setInternalResearchMode(next);
+    onToggleResearchMode?.(next);
+  };
   const [showTopMoreMenu, setShowTopMoreMenu] = useState(false);
   const [showConversationList, setShowConversationList] = useState(false);
   const [showNotesDrawer, setShowNotesDrawer] = useState(false);
@@ -1580,7 +1594,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
               );
             })}
 
-            {/* Deliverable (7): One quiet status line while working */}
+            {/* Deliverable (7): One quiet status line while working (plus Research plan steps when active) */}
             {isLoading && (
               <div
                 role="status"
@@ -1594,6 +1608,19 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     {statusLine || 'Zoe is reading official records...'}
                   </span>
                 </div>
+                {activeResearchMode && researchPlanSteps.length > 0 && (
+                  <ol
+                    data-testid="zoe-research-plan"
+                    className="w-full space-y-1 rounded-xl border border-border bg-muted/40 p-2.5 text-xs text-muted-foreground"
+                  >
+                    {researchPlanSteps.map((step, idx) => (
+                      <li key={step} className="flex items-start gap-1.5 leading-snug">
+                        <span className="font-medium text-foreground">{idx + 1}.</span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
                 {streamingText && (
                   <div className="w-full pt-1 text-foreground">
                     <ZoeMarkdown content={streamingText} />
@@ -1636,13 +1663,37 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           </div>
         </div>
 
-        {/* Deliverable (6): Rounded auto-growing composer (up to 6 lines), circular Send / Stop button, disclaimer line, safe area */}
+        {/* Deliverable (6) & Prompt 3 (4): Rounded auto-growing composer (up to 6 lines), Research toggle (off by default), circular Send / Stop button, disclaimer line, safe area */}
         <div className="sticky bottom-0 z-10 bg-background/95 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
           <div className="mx-auto w-full max-w-[720px] px-4">
             <form
               onSubmit={(e) => void handleSubmit(e)}
-              className="flex items-end gap-2 rounded-3xl border border-border bg-muted/30 p-1.5 pl-4 shadow-xs transition-colors focus-within:border-primary/50 focus-within:bg-background"
+              data-research-mode={activeResearchMode ? 'true' : 'false'}
+              className="flex items-end gap-2 rounded-3xl border border-border bg-muted/30 p-1.5 pl-3 shadow-xs transition-colors focus-within:border-primary/50 focus-within:bg-background"
             >
+              <button
+                type="button"
+                onClick={handleToggleResearch}
+                disabled={isLoading}
+                aria-pressed={activeResearchMode}
+                aria-label="Toggle Research mode"
+                title={
+                  activeResearchMode
+                    ? 'Research mode is on (multi-step plan + cited sources)'
+                    : 'Turn on Research mode for multi-step web and internal research'
+                }
+                data-testid="zoe-research-toggle"
+                className={cn(
+                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                  activeResearchMode
+                    ? 'border-primary/40 bg-primary/15 text-primary'
+                    : 'border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>Research</span>
+              </button>
+
               <label htmlFor="zoe-question-input" className="sr-only">
                 Ask Zoe a question
               </label>
@@ -1658,7 +1709,9 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 onKeyDown={handleComposerKeyDown}
                 maxLength={MAX_MESSAGE_LENGTH}
                 disabled={isLoading}
-                placeholder="Message Zoe..."
+                placeholder={
+                  activeResearchMode ? 'Ask Zoe to research a topic...' : 'Message Zoe...'
+                }
                 data-testid="zoe-input"
                 className="max-h-36 min-h-[44px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-xs leading-snug text-foreground placeholder:text-muted-foreground focus:outline-none sm:text-sm"
               />

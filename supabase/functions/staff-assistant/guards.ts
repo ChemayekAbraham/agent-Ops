@@ -27,7 +27,7 @@ export const DIRECT_PROMPT_INJECTION_RE =
   /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer mode|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
 
 export const WRITE_MUTATION_INTENT_RE =
-  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout)\b/i;
+  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket)\b/i;
 
 export function containsPromptOrSecretLeak(text: string): boolean {
   return SYSTEM_PROMPT_LEAK_RE.test(text);
@@ -248,9 +248,12 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
         }
         if (b > 0) {
           const div = a / b;
-          exactNumbers.add(Math.round(div));
-          exactNumbers.add(Number(div.toFixed(1)));
-          exactNumbers.add(Number(div.toFixed(2)));
+          const pctDiff = (diff / b) * 100;
+          for (const candidate of [div, pctDiff]) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
         }
       }
     }
