@@ -542,3 +542,15 @@ The indexes added in step 54 call `person_name_key()` on every profiles update, 
 **Fix (client only):** `src/hooks/auth/authOperations.ts` runs the same rule (`normalizeE164OrNull` in `phoneUtils.ts`, already documented as mirroring the database function) before `signUp` and `signUpWithoutRole`, and returns "That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda start with + and the country code, for example +250793903844." A blank phone is still allowed, as in the trigger. The database rule is unchanged: whether to accept a no-plus 11-15 digit number as international is a product decision, not made here.
 
 **Not covered:** `ActivatePartner.tsx` calls `auth.signUp` directly and was not changed.
+
+## Step 58: rescan, 24 h to 10-30 13:59 UTC
+
+Top refusals by count: `uq_sms_delivery_log_idempotency_key` 40 (duplicate guard, working as designed), `invalid column for filter user_id` 30 (realtime, source not in git), uuid `"null"` 24 / `"tenant"` 12 (client), statement timeouts 18, `Not authenticated` 18 and `Not authorised to view receivables` 17 (guards), several permission-denied bursts from signed-out sessions (`authenticated` holds the grants).
+
+**Fixed (two new errors):**
+- `v360_set_new_plans_enabled` updated the one-row `v360_settings` table with no WHERE, so the database refused it (`UPDATE requires a WHERE clause`, 10 times, last 06:08 UTC). The CFO/COO switch could not be changed and `new_plans_enabled` is still false; I did not flip it. Added `where id is not null`.
+- `get_tenant_receivables_location_breakdown` nested `jsonb_agg` over `sum()`/`count()` in two CTEs (`aggregate function calls cannot be nested`, 6 failures). Per-product sums are computed first and then packed; `scope_products` had no GROUP BY and now groups per product, which is what the `products` array is meant to be.
+
+Migration `20261030100000_v360_toggle_where_and_receivables_breakdown_nested_aggregates.sql`, applied by hand. Tested as a CFO in a rolled-back block: the toggle returns success; the breakdown returns 4 region rows (total UGX 478,481,420) and 66 district rows.
+
+**Still open, unchanged:** Twilio 20003, realtime `invalid column for filter user_id`, `"null"`/`"tenant"`/`"Partner"`/`"Rent Management Pool"` ids and role `partner` sent by the client, `cc_state_counts` and other report timeouts.
