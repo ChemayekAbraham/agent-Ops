@@ -12,7 +12,7 @@ import { normalizeE164OrNull } from '@/lib/phoneUtils';
 // person gets a message they can act on. A blank phone is allowed, as in the trigger.
 function signupPhoneError(phone: string): Error | null {
   if (!phone || !phone.trim() || normalizeE164OrNull(phone) !== null) return null;
-  return new Error('That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda start with + and the country code, for example +250793903844.');
+  return new Error('That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda the full number with its country code, for example +250793903844.');
 }
 
 // Maintenance lock removed 2026-05-08 — was silently returning a fake

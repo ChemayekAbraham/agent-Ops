@@ -554,3 +554,7 @@ Top refusals by count: `uq_sms_delivery_log_idempotency_key` 40 (duplicate guard
 Migration `20261030100000_v360_toggle_where_and_receivables_breakdown_nested_aggregates.sql`, applied by hand. Tested as a CFO in a rolled-back block: the toggle returns success; the breakdown returns 4 region rows (total UGX 478,481,420) and 66 district rows.
 
 **Still open, unchanged:** Twilio 20003, realtime `invalid column for filter user_id`, `"null"`/`"tenant"`/`"Partner"`/`"Rent Management Pool"` ids and role `partner` sent by the client, `cc_state_counts` and other report timeouts.
+
+## Step 59: accept every phone number (decision by Josh, 10-30)
+
+Decision: the system must accept every number, so a foreign number typed without the "+" (the 250793903844 case from step 57) is no longer refused. Migration `20261030110000_normalize_e164_phone_accept_international_without_plus.sql` (applied by hand): the international branch of `normalize_e164_phone` takes 9-15 digits with or without the "+". The two code copies of the rule changed the same way (`src/lib/phoneUtils.ts`, `supabase/functions/self-update-phone/index.ts`; the latter needs redeploying) and a test case was added. Checked in the database: 250793903844 -> +250793903844, 254712345678 -> +254712345678; Uganda forms unchanged; malformed Ugandan numbers (07827277378, 2567712345) and short ones (+25779, 072) are still refused, because they cannot be turned into a real number. The step 57 client message stays for those and now says "the full number with its country code".
