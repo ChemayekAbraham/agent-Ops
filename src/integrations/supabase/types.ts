@@ -85297,6 +85297,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      neexabot_ensure_partner_note: {
+        Args: { p_partner: string; p_trigger: string }
+        Returns: Json
+      }
+      neexabot_profile_id: { Args: never; Returns: string }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_email_for_match: { Args: { p_email: string }; Returns: string }
