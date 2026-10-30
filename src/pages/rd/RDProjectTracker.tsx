@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, CheckCircle2, Lock, Clock, Calendar } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Calendar,
+  Lock,
+  Search,
+  Check,
+  Layers,
+  FileCheck2,
+  Smartphone,
+  ShieldAlert,
+  Sparkles,
+} from 'lucide-react';
+import { Input } from '@/components/ui/input';
 
 export type MilestoneCategory = 'All' | 'Core' | 'Receipts & Signages' | 'Agent App' | 'Security & QA';
 export type MilestoneStatus = 'Completed' | 'In QA' | 'Planned';
@@ -16,7 +32,7 @@ export interface MilestoneItem {
   details?: string;
 }
 
-export const MILESTONES: MilestoneItem[] = [
+const MILESTONES: MilestoneItem[] = [
   {
     id: 'auth-rbac',
     title: 'Authentication & RBAC',
@@ -91,7 +107,7 @@ export const MILESTONES: MilestoneItem[] = [
   },
 ];
 
-export const CATEGORIES: MilestoneCategory[] = [
+const CATEGORIES: MilestoneCategory[] = [
   'All',
   'Core',
   'Receipts & Signages',
@@ -100,10 +116,67 @@ export const CATEGORIES: MilestoneCategory[] = [
 ];
 
 export default function RDProjectTracker() {
+  const [selectedCategory, setSelectedCategory] = useState<MilestoneCategory>('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredMilestones = useMemo(() => {
+    return MILESTONES.filter((m) => {
+      const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
+      const matchesSearch =
+        searchQuery.trim() === '' ||
+        m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.category.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [selectedCategory, searchQuery]);
+
   const completedCount = MILESTONES.filter((m) => m.status === 'Completed').length;
   const inQaCount = MILESTONES.filter((m) => m.status === 'In QA').length;
+  const plannedCount = MILESTONES.filter((m) => m.status === 'Planned').length;
   const totalCount = MILESTONES.length;
   const progressPercent = Math.round((completedCount / totalCount) * 100);
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'Core':
+        return <Layers className="h-3.5 w-3.5" />;
+      case 'Receipts & Signages':
+        return <FileCheck2 className="h-3.5 w-3.5" />;
+      case 'Agent App':
+        return <Smartphone className="h-3.5 w-3.5" />;
+      case 'Security & QA':
+        return <ShieldAlert className="h-3.5 w-3.5" />;
+      default:
+        return <Sparkles className="h-3.5 w-3.5" />;
+    }
+  };
+
+  const getStatusBadge = (status: MilestoneStatus) => {
+    switch (status) {
+      case 'Completed':
+        return (
+          <Badge variant="success" className="gap-1 px-2.5 py-0.5 text-xs font-semibold">
+            <Check className="h-3.5 w-3.5" />
+            Completed
+          </Badge>
+        );
+      case 'In QA':
+        return (
+          <Badge variant="warning" className="gap-1 px-2.5 py-0.5 text-xs font-semibold">
+            <Clock className="h-3.5 w-3.5" />
+            In QA
+          </Badge>
+        );
+      case 'Planned':
+        return (
+          <Badge variant="outline" className="gap-1 border-muted-foreground/30 bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5" />
+            Planned
+          </Badge>
+        );
+    }
+  };
 
   return (
     <div className="space-y-6 pb-8">
@@ -129,6 +202,7 @@ export default function RDProjectTracker() {
             </p>
           </div>
 
+          {/* Sprint progress badge */}
           <div className="flex shrink-0 items-center gap-3 rounded-xl border border-border/80 bg-background/80 p-3 backdrop-blur sm:p-4">
             <div className="text-right">
               <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -144,6 +218,7 @@ export default function RDProjectTracker() {
           </div>
         </div>
 
+        {/* Visual Progress Bar with milestone ticks */}
         <div className="mt-5 space-y-2">
           <div className="flex justify-between text-xs font-medium text-foreground">
             <span>Overall Sprint Completion</span>
@@ -159,6 +234,7 @@ export default function RDProjectTracker() {
 
       {/* 2. Key Health Metrics (4 Cards) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Completed Milestones */}
         <Card className="border-border/70 bg-card shadow-sm transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -178,6 +254,7 @@ export default function RDProjectTracker() {
           </CardContent>
         </Card>
 
+        {/* Active in QA */}
         <Card className="border-border/70 bg-card shadow-sm transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -197,6 +274,7 @@ export default function RDProjectTracker() {
           </CardContent>
         </Card>
 
+        {/* Automated Test Suites */}
         <Card className="border-border/70 bg-card shadow-sm transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -216,6 +294,7 @@ export default function RDProjectTracker() {
           </CardContent>
         </Card>
 
+        {/* Target Handover */}
         <Card className="border-border/70 bg-card shadow-sm transition-all">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -234,6 +313,124 @@ export default function RDProjectTracker() {
             </p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* 3. Milestones Checklist with Category Filter */}
+      <div className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-foreground">
+              Milestone Checklist &amp; Deliverables
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Categorized deliverable breakdown with module stage, verification dates, and engineering scopes.
+            </p>
+          </div>
+
+          {/* Quick search input */}
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search deliverables…"
+              className="h-9 pl-8 text-xs"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <Tabs
+          value={selectedCategory}
+          onValueChange={(val) => setSelectedCategory(val as MilestoneCategory)}
+          className="w-full"
+        >
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="h-auto w-full justify-start gap-1.5 rounded-xl border border-border/60 bg-muted/30 p-1 sm:w-auto">
+              {CATEGORIES.map((cat) => {
+                const count =
+                  cat === 'All'
+                    ? MILESTONES.length
+                    : MILESTONES.filter((m) => m.category === cat).length;
+                return (
+                  <TabsTrigger
+                    key={cat}
+                    value={cat}
+                    className="h-8 gap-1.5 rounded-lg px-3 text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                  >
+                    {cat}
+                    <span className="rounded-full bg-muted px-1.5 py-0.2 text-[10px] font-mono text-muted-foreground">
+                      {count}
+                    </span>
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+          </div>
+        </Tabs>
+
+        {/* Milestones List */}
+        <div className="grid gap-3">
+          {filteredMilestones.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 p-8 text-center">
+              <Search className="h-8 w-8 text-muted-foreground/60" />
+              <p className="mt-2 text-sm font-semibold text-foreground">No deliverables found</p>
+              <p className="text-xs text-muted-foreground">
+                No milestones match the current filter or search criteria.
+              </p>
+            </div>
+          ) : (
+            filteredMilestones.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-sm transition-all hover:border-primary/30 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="space-y-1.5 sm:max-w-[70%]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold text-foreground sm:text-base">
+                      {item.title}
+                    </h3>
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      {getCategoryIcon(item.category)}
+                      {item.category}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                  {item.details && (
+                    <p className="text-[11px] font-medium text-foreground/80">
+                      • {item.details}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border/50 pt-2 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
+                  {getStatusBadge(item.status)}
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    <span>{item.date}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* 4. Footer Notice */}
+      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-muted-foreground dark:border-amber-500/30 dark:bg-amber-500/10">
+        <div className="flex items-start gap-2.5">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <div className="space-y-0.5">
+            <span className="font-semibold text-foreground">Stakeholder Oversight Notice</span>
+            <p>
+              Modification and destructive triggers are restricted for this stakeholder view. All metrics, test suite
+              telemetry, and deliverable statuses reflect the live production R&amp;D repository in strict read-only mode.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
