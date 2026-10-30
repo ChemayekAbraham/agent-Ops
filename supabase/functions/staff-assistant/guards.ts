@@ -24,10 +24,13 @@ export const SYSTEM_PROMPT_LEAK_RE =
   /You are Zoe, Welile's read-only staff assistant|You are Zoe, the Welile My Space Staff Assistant|NON-NEGOTIABLE RULES \(enforced by server|SCOPE_CHECK_PROMPT|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|SECURITY DEFINER|<UNTRUSTED_TOOL_DATA/i;
 
 export const DIRECT_PROMPT_INJECTION_RE =
-  /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer mode|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
+  /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer (?:write )?mode|system override|drop table staff_assistant|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
 
 export const WRITE_MUTATION_INTENT_RE =
-  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket)\b/i;
+  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset|post|grant|revoke)\b.*\b(requisition|wallet|balance|float|ledger|journal|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket|role)\b/i;
+
+const POLICY_QUESTION_PREFIX_RE =
+  /^\s*(?:can\s+support\s+capacity|how\s+does|what\s+is|when\s+does|why\s+do|explain\b|where\s+do\s+i)\b/i;
 
 export function containsPromptOrSecretLeak(text: string): boolean {
   return SYSTEM_PROMPT_LEAK_RE.test(text);
@@ -38,6 +41,7 @@ export function isDirectPromptInjection(text: string): boolean {
 }
 
 export function isWriteMutationIntent(text: string): boolean {
+  if (POLICY_QUESTION_PREFIX_RE.test(text)) return false;
   return WRITE_MUTATION_INTENT_RE.test(text);
 }
 

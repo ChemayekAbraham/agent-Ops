@@ -1867,7 +1867,13 @@ export const STAFF_TOOLS: StaffTool[] = [
     },
     schema: z
       .object({
-        query: SearchField.optional(),
+        query: z
+          .string()
+          .trim()
+          .min(1)
+          .max(120)
+          .regex(/^[\p{L}\p{N}\s._'/+-]{1,120}$/u)
+          .optional(),
         category: z
           .enum([
             "glossary",
