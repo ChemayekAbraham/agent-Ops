@@ -35,6 +35,14 @@ export default function Index() {
     return <Navigate to={roleToSlug(authRole)} replace />;
   }
 
+  // Not logged in after a failed Google/Apple sign-in: the provider returns to the
+  // site root with ?error= / #error=. Hand it to /auth, which records and shows it,
+  // instead of dropping it on /welcome.
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (searchParams.get('error') || /[#&]error=/.test(hash)) {
+    return <Navigate to={{ pathname: '/auth', search: `?${searchParams.toString()}`, hash }} replace />;
+  }
+
   // Not logged in — send referral/role links to auth
   if (ref || role) {
     const params = new URLSearchParams();
