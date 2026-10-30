@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type WelileTab = 'overview' | 'applications' | 'landlords' | 'all';
+export type WelileTab = 'overview' | 'applications' | 'landlords';
 
 interface WelileHomesMobileBottomNavProps {
   active: WelileTab;
@@ -20,7 +20,6 @@ interface WelileHomesMobileBottomNavProps {
   counts?: {
     applications?: number;
     landlords?: number;
-    all?: number;
   };
 }
 
@@ -28,12 +27,11 @@ const TABS: {
   key: WelileTab;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  countKey?: 'applications' | 'landlords' | 'all';
+  countKey?: 'applications' | 'landlords';
 }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'applications', label: 'Applications', icon: ClipboardList, countKey: 'applications' },
-  { key: 'landlords', label: 'Enrolled', icon: Home, countKey: 'landlords' },
-  { key: 'all', label: 'Subscriptions', icon: Users, countKey: 'all' },
+  { key: 'landlords', label: 'Enrolled Portfolios', icon: Home, countKey: 'landlords' },
 ];
 
 export function WelileHomesMobileBottomNav({
@@ -52,7 +50,7 @@ export function WelileHomesMobileBottomNav({
       )}
       aria-label="Welile Homes mobile navigation"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-3">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = active === tab.key;
