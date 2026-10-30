@@ -7,8 +7,10 @@ import {
   type ConsultantChecklistScore,
   executeZoeTurn,
   FIXED_EVAL_DATE,
+  MSG,
   scoreConsultantAnswer,
   validateConsultantWebQuery,
+  ZOE_ERROR_CODES,
 } from "./runtime.ts";
 
 export interface LoggedFailureEvalCase {
@@ -1951,3 +1953,487 @@ export async function runRealWorldEvalPack(options?: {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Prompt 1 Parity & Resilience Evaluation Pack:
+//  - 7 missing functions broken one at a time
+//  - 20 general questions (no Welile tool needed, normal answer, no MSG.error)
+//  - 10 Welile-fact questions where the data is unavailable (tools: [] retry,
+//    plainly states what could not be checked, never invents figures)
+// ---------------------------------------------------------------------------
+
+export const SEVEN_MISSING_FUNCTIONS_LIST = [
+  {
+    fnName: "staff_assistant_get_config",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING,
+  },
+  {
+    fnName: "staff_assistant_can_user_read_report",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING,
+  },
+  {
+    fnName: "staff_assistant_save_draft",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING,
+  },
+  {
+    fnName: "assistant_staff_get_glossary",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+  },
+  {
+    fnName: "staff_assistant_hide_my_history",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+  },
+  {
+    fnName: "assistant_staff_run_query",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_ANALYST_QUERY_MISSING,
+  },
+  {
+    fnName: "assistant_staff_get_data_catalog",
+    expectedErrorCode: ZOE_ERROR_CODES.ERR_DB_ANALYST_CATALOG_MISSING,
+  },
+] as const;
+
+export interface GeneralQuestionEvalCase {
+  id: string;
+  callerRole: string;
+  question: string;
+  modelReply: string;
+}
+
+export const TWENTY_GENERAL_QUESTIONS_PACK: GeneralQuestionEvalCase[] = [
+  {
+    id: "GEN-01",
+    callerRole: "tenant_ops",
+    question: "what is receivables",
+    modelReply:
+      "In Welile, receivables are the remaining scheduled Rent Plan repayments that funded tenants owe across active Rent Plans.",
+  },
+  {
+    id: "GEN-02",
+    callerRole: "employee",
+    question: "explain like I'm five how a Rent Plan works",
+    modelReply:
+      "When a tenant needs help paying rent, Welile pays the verified landlord upfront and the tenant pays Welile back in small daily or weekly steps called a Rent Plan.",
+  },
+  {
+    id: "GEN-03",
+    callerRole: "hr",
+    question: "draft a polite reminder to a colleague to submit their weekly calling feedback",
+    modelReply:
+      "Hi team — a quick friendly reminder to submit your weekly Calling & Pipeline Feedback notes before the end of day so we can review them together tomorrow morning. Thank you!",
+  },
+  {
+    id: "GEN-04",
+    callerRole: "operations",
+    question: "what does iterative mean",
+    modelReply:
+      "Iterative means improving something step by step through repeated cycles—testing a small change, checking what happened, and refining it in the next round.",
+  },
+  {
+    id: "GEN-05",
+    callerRole: "partner_ops",
+    question: "Who is a Supporter in Welile?",
+    modelReply:
+      "A Supporter is a capital partner who contributes funds to back tenant Rent Plans and receives agreed Returns according to their Supporter agreement.",
+  },
+  {
+    id: "GEN-06",
+    callerRole: "partner_ops",
+    question: "What does Returns mean in Welile terminology?",
+    modelReply:
+      "Returns are the scheduled payouts earned by a Supporter on the capital they commit to fund Rent Plans.",
+  },
+  {
+    id: "GEN-07",
+    callerRole: "landlord_ops",
+    question: "Why do we verify a landlord and LC1 before disbursing rent?",
+    modelReply:
+      "Verifying the landlord and LC1 chairperson confirms property ownership, tenancy authenticity, and the landlord's mobile money payout details before any Rent Plan funds are disbursed.",
+  },
+  {
+    id: "GEN-08",
+    callerRole: "agent_ops",
+    question: "What is operational float for a field agent?",
+    modelReply:
+      "Operational float is the designated working balance assigned to an agent for approved field operations and landlord disbursements, kept separate from withdrawable commission.",
+  },
+  {
+    id: "GEN-09",
+    callerRole: "tenant_ops",
+    question: "What is the First 7 Days window on a newly funded Rent Plan?",
+    modelReply:
+      "The First 7 Days window tracks a tenant's repayment behaviour during the first seven Kampala days immediately after their Rent Plan is funded, helping teams spot early collection gaps.",
+  },
+  {
+    id: "GEN-10",
+    callerRole: "cfo",
+    question: "Explain the difference between expected repayments and collected repayments.",
+    modelReply:
+      "Expected repayments are the scheduled amounts due from active Rent Plans in a given period, while collected repayments are the actual cash receipts recorded against those bills.",
+  },
+  {
+    id: "GEN-11",
+    callerRole: "coo",
+    question: "Give me a 3-point checklist for running a short morning standup.",
+    modelReply:
+      "1. Review yesterday's completed outcomes against targets.\n2. Confirm today's top priority per desk.\n3. Surface any blockers that need cross-desk help right away.",
+  },
+  {
+    id: "GEN-12",
+    callerRole: "crm",
+    question: "How do I write a clear escalation note for the Service Centre?",
+    modelReply:
+      "Include the tenant or landlord name, the exact screen or Rent Plan stage, what was verified on the call, and the specific action needed from the receiving desk.",
+  },
+  {
+    id: "GEN-13",
+    callerRole: "financial_ops",
+    question: "What is reconciliation in financial operations?",
+    modelReply:
+      "Reconciliation is the process of comparing internal ledger records against external mobile money and bank statements to confirm every entry matches.",
+  },
+  {
+    id: "GEN-14",
+    callerRole: "hr",
+    question: "Draft a warm welcome message for a new Tenant Ops team member.",
+    modelReply:
+      "Welcome to the Welile Tenant Ops team! We are glad to have you onboard. Over your first week we will walk through the Calling Center, First 7 Days tracking, and Rent Plan stages together.",
+  },
+  {
+    id: "GEN-15",
+    callerRole: "employee",
+    question: "What does SLA mean in operations desks?",
+    modelReply:
+      "SLA stands for Service Level Agreement—the target turnaround time for a desk to review and complete a queued request.",
+  },
+  {
+    id: "GEN-16",
+    callerRole: "agent_ops",
+    question: "How should an agent prepare before visiting a landlord for verification?",
+    modelReply:
+      "Confirm the appointment time with the landlord and tenant, bring the required verification details, and ensure the landlord's registered payout phone number is ready to verify.",
+  },
+  {
+    id: "GEN-17",
+    callerRole: "tenant_ops",
+    question: "Summarize why polite, structured calling scripts help tenant retention.",
+    modelReply:
+      "Polite, structured scripts build trust, uncover genuine payment obstacles early, and ensure every tenant receives clear, respectful guidance on their Rent Plan schedule.",
+  },
+  {
+    id: "GEN-18",
+    callerRole: "ceo",
+    question: "What is the difference between a leading indicator and a lagging indicator?",
+    modelReply:
+      "A leading indicator signals future performance early (such as First 7 Days repayment consistency), whereas a lagging indicator measures results after the period ends (such as monthly write-offs).",
+  },
+  {
+    id: "GEN-19",
+    callerRole: "employee",
+    question: "Help me rephrase 'You didn't send the report' so it sounds collaborative.",
+    modelReply:
+      "Could you share the latest report when you have a moment so we can align our figures before the review?",
+  },
+  {
+    id: "GEN-20",
+    callerRole: "landlord_ops",
+    question: "What is a Maker-Checker approval workflow?",
+    modelReply:
+      "Maker-Checker means one authorised staff member prepares or verifies an item (the Maker) and a second independent authorised person reviews and approves it (the Checker).",
+  },
+];
+
+export interface DataUnavailableWelileEvalCase {
+  id: string;
+  callerRole: string;
+  question: string;
+  toolName: string;
+  unavailableRpc: string;
+  plainTextFallbackReply: string;
+}
+
+export const TEN_DATA_UNAVAILABLE_WELILE_QUESTIONS_PACK: DataUnavailableWelileEvalCase[] = [
+  {
+    id: "UNAVAIL-01",
+    callerRole: "tenant_ops",
+    question: "What is the Tenant Ops arrears ageing total right now?",
+    toolName: "get_tops_arrears_ageing",
+    unavailableRpc: "assistant_staff_tops_arrears_ageing",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_tops_arrears_ageing` right now because that database report is temporarily unavailable, so I cannot give live arrears ageing figures. You can view the current arrears ageing directly on the Tenant Ops dashboard.",
+  },
+  {
+    id: "UNAVAIL-02",
+    callerRole: "cfo",
+    question: "What is our CFO Treasury cash position today?",
+    toolName: "get_cfo_treasury_cash_position",
+    unavailableRpc: "assistant_staff_cfo_treasury_cash_position",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_cfo_treasury_cash_position` right now because the database report is unavailable, so I cannot quote today's Treasury cash position. Please check the Cash Position panel on the CFO dashboard.",
+  },
+  {
+    id: "UNAVAIL-03",
+    callerRole: "tenant_ops",
+    question: "How did First 7 Days perform over the last 30 days?",
+    toolName: "get_tops_first_seven_summary",
+    unavailableRpc: "assistant_staff_tops_first_seven_summary",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_tops_first_seven_summary` right now because that report could not be reached, so I cannot provide the First 7 Days numbers.",
+  },
+  {
+    id: "UNAVAIL-04",
+    callerRole: "cfo",
+    question: "Show me the Receivables and Payables forecast.",
+    toolName: "get_cfo_receivables_and_payables",
+    unavailableRpc: "assistant_staff_cfo_receivables_and_payables",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_cfo_receivables_and_payables` right now because the forecast report is unavailable in the database, so I cannot share live Receivables and Payables figures.",
+  },
+  {
+    id: "UNAVAIL-05",
+    callerRole: "hr",
+    question: "Give me the staff calling report for October.",
+    toolName: "get_hr_calling_detailed_report",
+    unavailableRpc: "assistant_staff_hr_calling_detailed_report",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_hr_calling_detailed_report` right now because that database function could not be read, so I cannot report the October calling counts.",
+  },
+  {
+    id: "UNAVAIL-06",
+    callerRole: "landlord_ops",
+    question: "How many landlords are waiting in the verification queue?",
+    toolName: "get_lops_verification_queue",
+    unavailableRpc: "assistant_staff_lops_verification_queue",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_lops_verification_queue` right now because the database report is unavailable, so I cannot give the exact landlord verification queue count.",
+  },
+  {
+    id: "UNAVAIL-07",
+    callerRole: "partner_ops",
+    question: "What Supporter Returns are due this week?",
+    toolName: "get_pops_returns_due",
+    unavailableRpc: "assistant_staff_pops_returns_due",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_pops_returns_due` right now because that report is unavailable, so I cannot list the Supporter Returns due this week.",
+  },
+  {
+    id: "UNAVAIL-08",
+    callerRole: "agent_ops",
+    question: "Show me the Agent Ops network metrics totals.",
+    toolName: "get_aops_metrics_totals",
+    unavailableRpc: "assistant_staff_aops_metrics_totals",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_aops_metrics_totals` right now because that database report could not be reached, so I cannot quote the live Agent Ops metrics.",
+  },
+  {
+    id: "UNAVAIL-09",
+    callerRole: "financial_ops",
+    question: "What disbursements were processed today?",
+    toolName: "get_fops_disbursements",
+    unavailableRpc: "assistant_staff_fops_disbursements",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_fops_disbursements` right now because that database report is unavailable, so I cannot list today's disbursements.",
+  },
+  {
+    id: "UNAVAIL-10",
+    callerRole: "coo",
+    question: "What are the current desk wait times across Rent Plan stages?",
+    toolName: "get_insight_desk_wait_times",
+    unavailableRpc: "assistant_staff_insight_desk_wait_times",
+    plainTextFallbackReply:
+      "I could not check `assistant_staff_insight_desk_wait_times` right now because that database function is not available, so I cannot report live desk wait times.",
+  },
+];
+
+export interface Prompt1ParityAndResilienceSummary {
+  missingFunctionsTested: number;
+  missingFunctionsPassed: number;
+  missingFunctionResults: Array<{
+    fnName: string;
+    expectedErrorCode: string;
+    generalQuestionAnswered: boolean;
+    noRawErrorShown: boolean;
+    errorCodeLogged: boolean;
+    passed: boolean;
+  }>;
+  generalQuestionsTotal: number;
+  generalQuestionsPassed: number;
+  dataUnavailableTotal: number;
+  dataUnavailablePassed: number;
+  aiUnreachableReturnsGenericError: boolean;
+}
+
+export async function runPrompt1ParityAndResilienceEval(): Promise<Prompt1ParityAndResilienceSummary> {
+  const missingFunctionResults: Prompt1ParityAndResilienceSummary["missingFunctionResults"] = [];
+
+  for (const item of SEVEN_MISSING_FUNCTIONS_LIST) {
+    // 1. Run a general question while this function is missing
+    const genTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops", "cfo", "coo"],
+      mfaAal2: true,
+      userMessage: "what is receivables",
+      modelToolCalls: [],
+      modelFinalText:
+        "In Welile, receivables are the remaining scheduled Rent Plan repayments that funded tenants owe across active Rent Plans.",
+      brokenRpcs: [item.fnName],
+    });
+
+    // 2. Also trigger the specific code path that calls `item.fnName` so its specific error_code is exercised
+    const featureErrorCodes: string[] = [...genTurn.degradedErrorCodes];
+    if (item.fnName === "staff_assistant_can_user_read_report") {
+      const t = await executeZoeTurn({
+        callerRoles: ["tenant_ops"],
+        mfaAal2: true,
+        userMessage: "Show Tenant Ops arrears ageing",
+        modelToolCalls: [{ name: "get_tops_arrears_ageing", args: {} }],
+        rpcDataByTool: {
+          get_tops_arrears_ageing: {
+            source: "assistant_staff_tops_arrears_ageing",
+            period: { as_of: FIXED_EVAL_DATE },
+            total_overdue_ugx: 1450000,
+          },
+        },
+        modelFinalText: "Overdue Rent Plans total UGX 1,450,000.",
+        brokenRpcs: [item.fnName],
+      });
+      featureErrorCodes.push(...t.degradedErrorCodes);
+    } else if (item.fnName === "staff_assistant_save_draft") {
+      const t = await executeZoeTurn({
+        callerRoles: ["tenant_ops"],
+        mfaAal2: true,
+        userMessage: "Remind me tomorrow to review arrears",
+        modelToolCalls: [
+          {
+            name: "draft_my_reminder",
+            args: { title: "Review arrears", due_date: "2026-10-27" },
+          },
+        ],
+        modelFinalText: "I prepared your reminder draft.",
+        brokenRpcs: [item.fnName],
+      });
+      featureErrorCodes.push(...t.degradedErrorCodes);
+    } else if (item.fnName === "staff_assistant_hide_my_history") {
+      const t = await executeZoeTurn({
+        callerRoles: ["tenant_ops"],
+        mfaAal2: true,
+        action: "clear_history",
+        userMessage: "clear history",
+        brokenRpcs: [item.fnName],
+      });
+      featureErrorCodes.push(...t.degradedErrorCodes);
+    } else if (item.fnName === "assistant_staff_run_query") {
+      const t = await executeZoeTurn({
+        callerRoles: ["cfo"],
+        mfaAal2: true,
+        userMessage: "Run an analyst breakdown of active Rent Plans by district",
+        modelToolCalls: [
+          {
+            name: "run_analyst_query",
+            args: {
+              sql: "SELECT district, active_plans FROM zoe_ro.finance_overview_v",
+              purpose: "District breakdown",
+            },
+          },
+        ],
+        modelFinalText:
+          "I could not check `assistant_staff_run_query` because the Analyst query function is unavailable.",
+        brokenRpcs: [item.fnName],
+      });
+      featureErrorCodes.push(...t.degradedErrorCodes);
+    } else if (item.fnName === "assistant_staff_get_data_catalog") {
+      const t = await executeZoeTurn({
+        callerRoles: ["cfo"],
+        mfaAal2: true,
+        userMessage: "Which read-only views exist in the Analyst catalog?",
+        modelToolCalls: [{ name: "get_data_catalog", args: { area: "finance" } }],
+        modelFinalText:
+          "I could not check `assistant_staff_get_data_catalog` because the Analyst catalog function is unavailable.",
+        brokenRpcs: [item.fnName],
+      });
+      featureErrorCodes.push(...t.degradedErrorCodes);
+    }
+
+    const generalQuestionAnswered = genTurn.outcome === "answered" && genTurn.reply.length > 15;
+    const noRawErrorShown = genTurn.reply !== MSG.error;
+    const errorCodeLogged = featureErrorCodes.includes(item.expectedErrorCode);
+    const passed = generalQuestionAnswered && noRawErrorShown && errorCodeLogged;
+
+    missingFunctionResults.push({
+      fnName: item.fnName,
+      expectedErrorCode: item.expectedErrorCode,
+      generalQuestionAnswered,
+      noRawErrorShown,
+      errorCodeLogged,
+      passed,
+    });
+  }
+
+  let generalQuestionsPassed = 0;
+  for (const gq of TWENTY_GENERAL_QUESTIONS_PACK) {
+    const turn = await executeZoeTurn({
+      callerRoles: [gq.callerRole],
+      mfaAal2: true,
+      userMessage: gq.question,
+      modelToolCalls: [],
+      modelFinalText: gq.modelReply,
+      // Even with all 7 optional functions missing simultaneously, general questions must succeed!
+      brokenRpcs: SEVEN_MISSING_FUNCTIONS_LIST.map((f) => f.fnName),
+    });
+    if (
+      turn.outcome === "answered" &&
+      turn.reply !== MSG.error &&
+      turn.reply.includes(gq.modelReply.slice(0, 25))
+    ) {
+      generalQuestionsPassed += 1;
+    }
+  }
+
+  let dataUnavailablePassed = 0;
+  for (const du of TEN_DATA_UNAVAILABLE_WELILE_QUESTIONS_PACK) {
+    const turn = await executeZoeTurn({
+      callerRoles: [du.callerRole],
+      mfaAal2: true,
+      userMessage: du.question,
+      modelToolCalls: [{ name: du.toolName, args: {} }],
+      modelFinalText: du.plainTextFallbackReply,
+      brokenRpcs: [du.unavailableRpc],
+    });
+    const mentionsUnavailableObject =
+      turn.reply.includes(du.unavailableRpc) || /could not check|unavailable/i.test(turn.reply);
+    const noInventedFigures = checkAnswer(turn.reply, [], du.question).ok;
+    if (
+      turn.outcome === "answered" &&
+      turn.reply !== MSG.error &&
+      mentionsUnavailableObject &&
+      noInventedFigures &&
+      turn.degradedErrorCodes.includes(ZOE_ERROR_CODES.ERR_DB_TOOL_RPC_FAILED)
+    ) {
+      dataUnavailablePassed += 1;
+    }
+  }
+
+  const unreachableTurn = await executeZoeTurn({
+    callerRoles: ["tenant_ops"],
+    mfaAal2: true,
+    userMessage: "what is receivables",
+    modelToolCalls: [],
+    modelFinalText: "Ignored when AI gateway is down",
+    aiGatewayUnreachable: true,
+  });
+  const aiUnreachableReturnsGenericError =
+    unreachableTurn.outcome === "error" &&
+    unreachableTurn.reply === MSG.error &&
+    unreachableTurn.degradedErrorCodes.includes(ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE);
+
+  return {
+    missingFunctionsTested: SEVEN_MISSING_FUNCTIONS_LIST.length,
+    missingFunctionsPassed: missingFunctionResults.filter((r) => r.passed).length,
+    missingFunctionResults,
+    generalQuestionsTotal: TWENTY_GENERAL_QUESTIONS_PACK.length,
+    generalQuestionsPassed,
+    dataUnavailableTotal: TEN_DATA_UNAVAILABLE_WELILE_QUESTIONS_PACK.length,
+    dataUnavailablePassed,
+    aiUnreachableReturnsGenericError,
+  };
+}
+

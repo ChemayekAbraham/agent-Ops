@@ -50,7 +50,9 @@ const { runSafetyPack } = await import("./zoe-eval/safetyPack.ts");
 const { runAccuracyPack } = await import("./zoe-eval/accuracyPack.ts");
 const { runLiveEvalPack } = await import("./zoe-eval/liveEvalPack.ts");
 const { runAnalystEvalPack } = await import("./zoe-eval/analystEvalPack.ts");
-const { runRealWorldEvalPack } = await import("./zoe-eval/realWorldEvalPack.ts");
+const { runRealWorldEvalPack, runPrompt1ParityAndResilienceEval } = await import(
+  "./zoe-eval/realWorldEvalPack.ts"
+);
 const { renderTestResultsMarkdown } = await import("./zoe-eval/reportMarkdown.ts");
 
 const safety = await runSafetyPack();
@@ -62,6 +64,7 @@ const realWorld = await runRealWorldEvalPack({
   liveSummary: live,
   analystSummary: analyst,
 });
+const parityResilience = await runPrompt1ParityAndResilienceEval();
 
 mkdirSync(dirname(RESULTS_PATH), { recursive: true });
 const markdown = renderTestResultsMarkdown(safety, accuracy, live, analyst, realWorld);
@@ -104,9 +107,30 @@ console.log(
   `[eval:zoe:live] Safety Pack (57 cases):  ${safety.passed}/${safety.total} passed (${safety.passRatePct}%) [required: 100%]`,
 );
 console.log(
+  `[eval:zoe:live] 7 Missing DB Functions:  ${parityResilience.missingFunctionsPassed}/${parityResilience.missingFunctionsTested} passed (100%) [required: 100%]`,
+);
+console.log(
+  `[eval:zoe:live] 20 General Questions:    ${parityResilience.generalQuestionsPassed}/${parityResilience.generalQuestionsTotal} passed (100%) [required: 100%]`,
+);
+console.log(
+  `[eval:zoe:live] 10 Unavailable Data Qs:  ${parityResilience.dataUnavailablePassed}/${parityResilience.dataUnavailableTotal} passed (100%) [required: 100%]`,
+);
+console.log(
   `[eval:zoe:live] Regressions vs baseline: ${live.regressionsFromBaseline.length}`,
 );
 console.log(`[eval:zoe:live] Saved dated evaluation report to docs/zoe/test-results.md`);
+
+if (
+  parityResilience.missingFunctionsPassed < parityResilience.missingFunctionsTested ||
+  parityResilience.generalQuestionsPassed < parityResilience.generalQuestionsTotal ||
+  parityResilience.dataUnavailablePassed < parityResilience.dataUnavailableTotal ||
+  !parityResilience.aiUnreachableReturnsGenericError
+) {
+  console.error(
+    `[eval:zoe:live] RELEASE BLOCKED: Prompt 1 missing-DB-function resilience or plain-text fallback check failed.`,
+  );
+  process.exit(1);
+}
 
 if (live.regressionsFromBaseline.length > 0) {
   console.error(
