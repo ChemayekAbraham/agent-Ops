@@ -180,6 +180,7 @@ export interface UseZoeAssistantReturn {
   selectConversation: (conversationId: string) => Promise<void>;
   startNewChat: () => Promise<void>;
   renameConversation: (conversationId: string, title: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   addNote: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
   deleteNote: (noteId: string) => Promise<{ ok: boolean }>;
   saveGlossaryEntry: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;

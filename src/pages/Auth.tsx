@@ -149,7 +149,7 @@ export default function Auth() {
   const stageText = loginStageLabel[loginStage] ?? 'Signing in…';
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
+  const { user, session, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
   const [resetMethod, setResetMethod] = useState<"sms" | "email">("sms");
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
 
@@ -472,7 +472,11 @@ export default function Auth() {
       >
 
         <div className="screen-top-header">
-          <Button variant="outline" className="order-last ml-auto rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button>
+          {/* Only signed-in users get the assistant launcher here; a visitor
+              with no session never sees it and never opens the chat. */}
+          {session && (
+            <Button variant="outline" className="order-last ml-auto rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button>
+          )}
           <button
             type="button"
             className="btn-circle-nav"
