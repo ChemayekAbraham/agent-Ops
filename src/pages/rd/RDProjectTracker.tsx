@@ -1,6 +1,7 @@
 import React from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ShieldCheck, CheckCircle2, Lock } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Lock, Clock, Calendar } from 'lucide-react';
 
 export type MilestoneCategory = 'All' | 'Core' | 'Receipts & Signages' | 'Agent App' | 'Security & QA';
 export type MilestoneStatus = 'Completed' | 'In QA' | 'Planned';
@@ -100,6 +101,7 @@ export const CATEGORIES: MilestoneCategory[] = [
 
 export default function RDProjectTracker() {
   const completedCount = MILESTONES.filter((m) => m.status === 'Completed').length;
+  const inQaCount = MILESTONES.filter((m) => m.status === 'In QA').length;
   const totalCount = MILESTONES.length;
   const progressPercent = Math.round((completedCount / totalCount) * 100);
 
@@ -153,6 +155,85 @@ export default function RDProjectTracker() {
             <span>Target Handover: Nov 15, 2026</span>
           </div>
         </div>
+      </div>
+
+      {/* 2. Key Health Metrics (4 Cards) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-border/70 bg-card shadow-sm transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Total Completed
+            </CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {completedCount} <span className="text-sm font-normal text-muted-foreground">/ {totalCount}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {progressPercent}% deliverables verified &amp; ready
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card shadow-sm transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Active in QA
+            </CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Clock className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {inQaCount} <span className="text-sm font-normal text-muted-foreground">Modules</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Mobile caching &amp; signage GPS maps
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card shadow-sm transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Test Suites Status
+            </CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-1.5 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              100% Passed
+            </div>
+            <p className="mt-1 truncate text-xs text-muted-foreground" title="welileSignages.test.ts (3/3 passing)">
+              welileSignages.test.ts (3/3 passing)
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card shadow-sm transition-all">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Target Handover
+            </CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <Calendar className="h-4 w-4" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              Nov 15, 2026
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Sprint 4 stakeholder release window
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
