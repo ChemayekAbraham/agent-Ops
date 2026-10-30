@@ -71,6 +71,8 @@ export interface ZoeMessage {
   clarification?: ZoeClarification | null;
   reportPayload?: Record<string, unknown> | null;
   followUpSuggestions?: string[];
+  researchMode?: boolean;
+  researchPlan?: string[];
   feedback?: ZoeFeedbackRating | null;
   createdAt?: string;
 }
@@ -87,6 +89,8 @@ interface StaffAssistantEdgeResponse {
   report_payload?: Record<string, unknown> | null;
   follow_up_suggestions?: string[];
   status_steps?: string[];
+  research_mode?: boolean;
+  research_plan?: string[];
   mfa_required?: boolean;
   remaining_questions_today?: number;
   conversations?: ZoeConversationListItem[];
@@ -102,6 +106,79 @@ interface StaffAssistantEdgeResponse {
     report_payload: Record<string, unknown> | null;
     created_at: string;
   }>;
+}
+
+/**
+ * Replaces a single paragraph at `paragraphIndex` (split on `\n\n+`) in `streamedText`
+ * when the server-side per-paragraph figure check (`checkStreamedParagraph`) emits
+ * `event: paragraph_replace` with `"I could not verify that figure"`.
+ */
+export function applyStreamParagraphReplacement(
+  streamedText: string,
+  paragraphIndex: number,
+  replacement = 'I could not verify that figure',
+): string {
+  const parts = (streamedText ?? '').split(/\n\n+/);
+  if (paragraphIndex < 0 || paragraphIndex >= parts.length) {
+    return streamedText;
+  }
+  parts[paragraphIndex] = replacement;
+  return parts.join('\n\n');
+}
+
+/**
+ * Parses an SSE stream body (`event: status`, `event: plan`, `event: token`,
+ * `event: paragraph_replace`, `event: done`) emitted by `staff-assistant` when `stream: true`.
+ */
+export function parseSseEventsFromChunk(
+  rawBuffer: string,
+  callbacks: {
+    onStatus?: (step: string) => void;
+    onPlan?: (steps: string[]) => void;
+    onToken?: (token: string) => void;
+    onParagraphReplace?: (index: number, replacement: string) => void;
+    onDone?: (payload: StaffAssistantEdgeResponse) => void;
+  },
+): string {
+  const frames = rawBuffer.split('\n\n');
+  const remainder = frames.pop() ?? '';
+
+  for (const frame of frames) {
+    const lines = frame.split('\n');
+    let eventName = 'message';
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+    if (dataLines.length === 0) continue;
+    try {
+      const parsed = JSON.parse(dataLines.join('\n')) as Record<string, unknown>;
+      if (eventName === 'status' && typeof parsed.step === 'string') {
+        callbacks.onStatus?.(parsed.step);
+      } else if (eventName === 'plan' && Array.isArray(parsed.steps)) {
+        callbacks.onPlan?.(parsed.steps.filter((s): s is string => typeof s === 'string'));
+      } else if (eventName === 'token' && typeof parsed.token === 'string') {
+        callbacks.onToken?.(parsed.token);
+      } else if (eventName === 'paragraph_replace' && typeof parsed.index === 'number') {
+        callbacks.onParagraphReplace?.(
+          parsed.index,
+          typeof parsed.replacement === 'string'
+            ? parsed.replacement
+            : 'I could not verify that figure',
+        );
+      } else if (eventName === 'done') {
+        callbacks.onDone?.(parsed as unknown as StaffAssistantEdgeResponse);
+      }
+    } catch {
+      /* ignore malformed frame */
+    }
+  }
+
+  return remainder;
 }
 
 const FALLBACK_ERROR = "I'm having trouble reading that report right now. Please try again in a moment.";
@@ -168,18 +245,26 @@ export interface UseZoeAssistantReturn {
   isHistoryLoading: boolean;
   streamingText: string | null;
   statusLine: string | null;
+  researchMode: boolean;
+  researchPlanSteps: string[];
   errorMessage: string | null;
   lastFailedPrompt: string | null;
   remainingQuestionsToday: number | null;
+  setResearchMode: (enabled: boolean | ((prev: boolean) => boolean)) => void;
   sendMessage: (prompt: string) => Promise<void>;
   stopGenerating: () => void;
   regenerateLastAnswer: () => Promise<void>;
   retryLastMessage: () => Promise<void>;
-  submitFeedback: (messageId: string, rating: ZoeFeedbackRating) => Promise<void>;
+  submitFeedback: (
+    messageId: string,
+    rating: ZoeFeedbackRating,
+    options?: { comment?: string; reportKind?: 'rating' | 'problem_report' },
+  ) => Promise<void>;
   clearHistory: () => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
   startNewChat: () => Promise<void>;
   renameConversation: (conversationId: string, title: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   addNote: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
   deleteNote: (noteId: string) => Promise<{ ok: boolean }>;
   saveGlossaryEntry: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;
@@ -197,6 +282,8 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [researchMode, setResearchMode] = useState<boolean>(false);
+  const [researchPlanSteps, setResearchPlanSteps] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [remainingQuestionsToday, setRemainingQuestionsToday] = useState<number | null>(null);
@@ -365,19 +452,39 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
       if (!prompt || inFlightRef.current || !user?.id) return;
 
       clearStreamTimer();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       inFlightRef.current = true;
       setIsLoading(true);
       setStreamingText(null);
-      setStatusLine(
-        /compare|difference|vs|last week|last month/i.test(prompt)
-          ? 'Comparing periods...'
-          : 'Looking up official records...',
-      );
+      if (researchMode) {
+        setResearchPlanSteps([
+          `Step 1: Clarify scope and definitions for "${prompt.slice(0, 60)}"`,
+          'Step 2: Gather certified Welile figures from official tools',
+          'Step 3: Search and read outside sources with links and dates',
+          'Step 4: Synthesize cited report with separate Welile vs Outside sections',
+        ]);
+        setStatusLine('Planning research steps...');
+      } else {
+        setResearchPlanSteps([]);
+        setStatusLine(
+          /compare|difference|vs|last week|last month/i.test(prompt)
+            ? 'Comparing periods...'
+            : 'Looking up official records...',
+        );
+      }
       setErrorMessage(null);
       setLastFailedPrompt(null);
 
       const userTurnId = safeUUID();
-      setMessages((prev) => [...prev, { id: userTurnId, role: 'user', content: prompt }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: userTurnId, role: 'user', content: prompt, researchMode },
+      ]);
       const generation = generationRef.current;
 
       try {
@@ -386,14 +493,46 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
             body: {
               action: 'message',
               message: prompt,
+              ...(researchMode ? { research_mode: true } : {}),
               ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
               client_context: { device: collectDevice() },
             },
           })
           .catch(() => ({ data: null, error: new Error(FALLBACK_ERROR) }));
 
-        if (generation !== generationRef.current) return;
-        const res = await readEdgeResponse(data, error);
+        if (generation !== generationRef.current || abortController.signal.aborted) return;
+
+        let res: StaffAssistantEdgeResponse;
+        if (typeof data === 'string' && data.includes('event:')) {
+          let donePayload: StaffAssistantEdgeResponse = {};
+          let liveAccumulated = '';
+          parseSseEventsFromChunk(`${data}\n\n`, {
+            onStatus: (step) => setStatusLine(step),
+            onPlan: (steps) => setResearchPlanSteps(steps),
+            onToken: (token) => {
+              liveAccumulated += token;
+              setStreamingText(liveAccumulated);
+            },
+            onParagraphReplace: (idx, replacement) => {
+              liveAccumulated = applyStreamParagraphReplacement(
+                liveAccumulated,
+                idx,
+                replacement,
+              );
+              setStreamingText(liveAccumulated);
+            },
+            onDone: (payload) => {
+              donePayload = payload;
+            },
+          });
+          res = donePayload;
+        } else {
+          res = await readEdgeResponse(data, error);
+        }
+
+        if (Array.isArray(res.research_plan) && res.research_plan.length > 0) {
+          setResearchPlanSteps(res.research_plan);
+        }
 
         if (res.conversation_id) {
           conversationIdRef.current = res.conversation_id;
@@ -455,15 +594,18 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
             clarification: res.clarification ?? null,
             reportPayload: res.report_payload ?? null,
             followUpSuggestions: followUps,
+            researchMode: res.research_mode === true || researchMode,
+            researchPlan: Array.isArray(res.research_plan) ? res.research_plan : undefined,
           },
         ]);
       } catch {
-        if (generation === generationRef.current) {
+        if (generation === generationRef.current && !abortController.signal.aborted) {
           setErrorMessage(FALLBACK_ERROR);
           setLastFailedPrompt(prompt);
         }
       } finally {
         if (generation === generationRef.current) {
+          abortControllerRef.current = null;
           inFlightRef.current = false;
           setIsLoading(false);
           setStreamingText(null);
@@ -471,7 +613,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         }
       }
     },
-    [user?.id, clearStreamTimer],
+    [user?.id, clearStreamTimer, researchMode],
   );
 
   const regenerateLastAnswer = useCallback(async () => {
@@ -792,9 +934,12 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     isHistoryLoading,
     streamingText,
     statusLine,
+    researchMode,
+    researchPlanSteps,
     errorMessage,
     lastFailedPrompt,
     remainingQuestionsToday,
+    setResearchMode,
     sendMessage,
     stopGenerating,
     regenerateLastAnswer,

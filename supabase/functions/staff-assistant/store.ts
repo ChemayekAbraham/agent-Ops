@@ -26,8 +26,9 @@ import type { ClientContext } from "./schemas.ts";
 
 
 const MAX_MESSAGES_PER_MINUTE = 10;
-/** Prompt 3 item (2): Send the last 20 turns (40 messages). */
+/** Prompt 3 item (6): Send the last 20 turns (40 messages) verbatim; summarise older turns. */
 export const RECENT_HISTORY_MESSAGES = 40;
+export const MAX_LOADED_HISTORY_MESSAGES = 80;
 const DEFAULT_MAX_QUESTIONS_PER_DAY = 50;
 
 export type TurnOutcome =
@@ -709,7 +710,7 @@ export async function loadRecentTurns(
       .eq("user_id", userId)
       .eq("hidden_by_user", false)
       .order("created_at", { ascending: false })
-      .limit(RECENT_HISTORY_MESSAGES);
+      .limit(MAX_LOADED_HISTORY_MESSAGES);
 
     if (error) {
       onDegraded?.(
@@ -722,7 +723,7 @@ export async function loadRecentTurns(
         .eq("conversation_id", conversationId)
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(RECENT_HISTORY_MESSAGES);
+        .limit(MAX_LOADED_HISTORY_MESSAGES);
       data = fallback.data;
     }
 

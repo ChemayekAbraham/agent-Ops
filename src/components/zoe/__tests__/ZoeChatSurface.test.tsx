@@ -2,8 +2,26 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    },
+    functions: {
+      invoke: vi.fn(),
+    },
+    rpc: vi.fn(),
+    from: vi.fn(),
+  },
+}));
+
 import { ZoeChatSurface } from '../ZoeChatSurface';
-import type { ZoeMessage } from '../useZoeAssistant';
+import {
+  applyStreamParagraphReplacement,
+  parseSseEventsFromChunk,
+  type ZoeMessage,
+} from '../useZoeAssistant';
 
 function renderSurface(props: Partial<React.ComponentProps<typeof ZoeChatSurface>> = {}) {
   const defaultProps: React.ComponentProps<typeof ZoeChatSurface> = {
@@ -813,5 +831,92 @@ describe('ZoeChatSurface', () => {
         value: origInnerWidth,
       });
     }
+  });
+
+  it('Prompt 3: renders the Research toggle (off by default), displays research plan steps when active, and handles SSE token/paragraph replacement', () => {
+    const onToggleResearchMode = vi.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <ZoeChatSurface
+          messages={[]}
+          roles={['cfo']}
+          isLoading={false}
+          isHistoryLoading={false}
+          errorMessage={null}
+          remainingQuestionsToday={45}
+          researchMode={false}
+          onToggleResearchMode={onToggleResearchMode}
+          onSendMessage={vi.fn()}
+          onRetry={vi.fn()}
+          onFeedback={vi.fn()}
+          onClearHistory={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const toggle = screen.getByTestId('zoe-research-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle.className).toContain('min-h-[44px]');
+    fireEvent.click(toggle);
+    expect(onToggleResearchMode).toHaveBeenCalledWith(true);
+
+    // Rerender with Research mode active and loading plan steps
+    rerender(
+      <MemoryRouter>
+        <ZoeChatSurface
+          messages={[{ id: 'u-r1', role: 'user', content: 'Research Uganda mobile money tax impact' }]}
+          roles={['cfo']}
+          isLoading={true}
+          isHistoryLoading={false}
+          errorMessage={null}
+          remainingQuestionsToday={44}
+          researchMode={true}
+          researchPlanSteps={[
+            'Step 1: Check Welile glossary & internal metrics',
+            'Step 2: Search public sources via Brave Search',
+            'Step 3: Read and verify top public sources',
+          ]}
+          onToggleResearchMode={onToggleResearchMode}
+          onSendMessage={vi.fn()}
+          onRetry={vi.fn()}
+          onFeedback={vi.fn()}
+          onClearHistory={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('zoe-research-toggle')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('zoe-research-plan')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-research-plan')).toHaveTextContent(
+      'Search public sources via Brave Search',
+    );
+
+    // Verify SSE parser and per-paragraph figure replacement helper
+    const rawSse = [
+      'event: status\ndata: {"step":"Reading treasury cash..."}\n\n',
+      'event: token\ndata: {"token":"Paragraph 1 is verified.\\n\\n"}\n\n',
+      'event: token\ndata: {"token":"Paragraph 2 has UGX 999,999,999.\\n\\n"}\n\n',
+      'event: paragraph_replace\ndata: {"index":1,"replacement":"I could not verify that figure"}\n\n',
+    ].join('');
+
+    const statusSteps: string[] = [];
+    const tokens: string[] = [];
+    const replacements: Array<{ index: number; replacement: string }> = [];
+    const remainder = parseSseEventsFromChunk(rawSse, {
+      onStatus: (s) => statusSteps.push(s),
+      onToken: (t) => tokens.push(t),
+      onParagraphReplace: (index, replacement) => replacements.push({ index, replacement }),
+    });
+    expect(remainder).toBe('');
+    expect(statusSteps).toEqual(['Reading treasury cash...']);
+    expect(tokens).toHaveLength(2);
+    expect(replacements).toEqual([{ index: 1, replacement: 'I could not verify that figure' }]);
+
+    const replaced = applyStreamParagraphReplacement(
+      'Paragraph 1 is verified.\n\nParagraph 2 has UGX 999,999,999.',
+      1,
+      'I could not verify that figure',
+    );
+    expect(replaced).toBe('Paragraph 1 is verified.\n\nI could not verify that figure');
   });
 });

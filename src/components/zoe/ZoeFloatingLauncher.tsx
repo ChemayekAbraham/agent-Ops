@@ -65,8 +65,11 @@ export const ZoeFloatingLauncher: React.FC = () => {
               isHistoryLoading={assistant.isHistoryLoading}
               streamingText={assistant.streamingText}
               statusLine={assistant.statusLine}
+              researchMode={assistant.researchMode}
+              researchPlanSteps={assistant.researchPlanSteps}
               errorMessage={assistant.errorMessage}
               remainingQuestionsToday={assistant.remainingQuestionsToday}
+              onToggleResearchMode={assistant.setResearchMode}
               onSendMessage={assistant.sendMessage}
               onStopGenerating={assistant.stopGenerating}
               onRegenerate={assistant.regenerateLastAnswer}

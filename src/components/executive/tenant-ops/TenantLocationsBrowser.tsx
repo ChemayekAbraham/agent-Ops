@@ -6,19 +6,31 @@
  * Nothing on this page writes, edits or infers a location.
  */
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
-  ArrowLeft, ChevronRight, Home, Loader2, MapPin, Phone, Search, User, Users, AlertTriangle,
+  ArrowLeft, ChevronRight, Home, Loader2, MapPin, Search, Users, AlertTriangle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import {
-  childLevelFor, hitToPath, useTlbChildren, useTlbLocationSearch, useTlbTenants,
-  type TlbPath, type TlbStatus,
+  childLevelFor, childToPath, hitToPath, placeFromChild, placeFromHit, useTlbChildren, useTlbLocationSearch,
+  useTlbTenants, useTlbTenantsMulti,
+  type TlbPath, type TlbSelectedPlace, type TlbStatus,
 } from '@/hooks/useTenantLocationsBrowser';
+import { useTlbSelection } from '@/hooks/useTlbSelection';
+import { useTlbPdfExport } from '@/hooks/useTlbPdfExport';
+import { allSelected } from '@/lib/tenantLocationSelection';
+import { TenantLocationTenantRow } from './TenantLocationTenantRow';
+import { TenantLocationsSelectionBar } from './TenantLocationsSelectionBar';
+import { TenantLocationsCombinedView } from './TenantLocationsCombinedView';
 
 const LEVEL_LABEL: Record<string, string> = {
   region: 'Regions',
@@ -36,6 +48,21 @@ const STATUS_TABS: { value: TlbStatus; label: string }[] = [
 ];
 
 const PAGE_SIZE = 50;
+/** The server accepts at most 200 places per request. */
+const MAX_SELECTED_PLACES = 200;
+
+/** A 44px tap target around the checkbox; tapping the place name still navigates. */
+function PlaceCheck({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
+  return (
+    <label className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onToggle}
+        aria-label={`Select ${label}`}
+      />
+    </label>
+  );
+}
 
 interface TenantLocationsBrowserProps {
   /** Opens the shared Tenant Ops tenant detail experience (same as All Tenants). */
@@ -48,6 +75,32 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
   const [searchInput, setSearchInput] = useState('');
   const search = useDebouncedValue(searchInput.trim(), 300);
   const [page, setPage] = useState(1);
+  const [viewingSelection, setViewingSelection] = useState(false);
+
+  const { user } = useAuth();
+  const { selection, places, toggle, addMany, remove, removeMany, clear } = useTlbSelection();
+  const pdf = useTlbPdfExport();
+
+  const { data: generatedBy } = useQuery({
+    enabled: !!user?.id,
+    queryKey: ['tlb-generated-by', user?.id],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('full_name').eq('id', user!.id).maybeSingle();
+      return data?.full_name?.trim() || user?.email || 'Welile staff';
+    },
+  });
+
+  // Distinct tenants across the selection (one row is enough to learn the total).
+  const { data: selectionCount } = useTlbTenantsMulti(places, status, true, 1);
+
+  const guardedToggle = (place: TlbSelectedPlace) => {
+    if (!selection[place.key] && places.length >= MAX_SELECTED_PLACES) {
+      toast.error(`You can select up to ${MAX_SELECTED_PLACES} places at a time.`);
+      return;
+    }
+    toggle(place);
+  };
 
   const level = childLevelFor(path);
   const jump = (p: TlbPath) => { setPath(p); setPage(1); };
@@ -90,16 +143,8 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
   const parentPath = crumbs.length > 1 ? crumbs[crumbs.length - 2].path : {};
 
   const openChild = (nodeId: number | null, label: string, unmapped: boolean) => {
-    if (unmapped) return jump({ unmapped: true });
-    switch (level) {
-      case 'region':    return jump({ region: label });
-      case 'district':  return jump({ ...path, districtId: nodeId!, districtName: label });
-      case 'county':    return jump({ ...path, countyId: nodeId!, countyName: label });
-      case 'subcounty': return jump({ ...path, subcountyId: nodeId!, subcountyName: label });
-      case 'parish':    return jump({ ...path, parishId: nodeId!, parishName: label });
-      case 'village':   return jump({ ...path, villageId: nodeId!, villageName: label });
-      default: return;
-    }
+    const next = childToPath(path, level, nodeId, label, unmapped);
+    if (next) jump(next);
   };
 
   const totalTenants = tenants?.total ?? 0;
@@ -173,33 +218,68 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
             </nav>
           </div>
 
-          {/* Location jump suggestions */}
-          {search.length >= 2 && (locationHits?.length ?? 0) > 0 && (
-            <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Jump to location
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {locationHits!.map((h, i) => (
-                  <button
-                    key={`${h.kind}-${h.village_id ?? h.subcounty_id ?? h.district_id}-${i}`}
-                    onClick={() => jump(hitToPath(h))}
-                    className="text-[11px] px-2 py-1 rounded-md border border-border bg-card hover:bg-muted"
+          {/* Location jump suggestions: tick to select, tap the name to open */}
+          {search.length >= 2 && (locationHits?.length ?? 0) > 0 && (() => {
+            const hitPlaces = locationHits!.map(placeFromHit);
+            const every = allSelected(selection, hitPlaces);
+            return (
+              <div className="rounded-lg border border-border bg-muted/30 p-2 space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Jump to location
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="min-h-[44px] px-2 text-xs"
+                    onClick={() => (every
+                      ? removeMany(hitPlaces.map((p) => p.key))
+                      : addMany(hitPlaces.slice(0, Math.max(0, MAX_SELECTED_PLACES - places.length + hitPlaces.filter((p) => selection[p.key]).length))))}
                   >
-                    <span className="font-medium">{h.label}</span>
-                    <span className="text-muted-foreground"> · {h.kind}</span>
-                    {h.path_label && <span className="text-muted-foreground"> · {h.path_label}</span>}
-                    <span className="ml-1 text-primary font-semibold">{h.tenant_count}</span>
-                  </button>
-                ))}
+                    {every ? 'Deselect all' : 'Select all'} ({hitPlaces.length})
+                  </Button>
+                </div>
+                <ul className="space-y-1">
+                  {locationHits!.map((h, i) => {
+                    const place = hitPlaces[i];
+                    return (
+                      <li
+                        key={`${h.kind}-${h.village_id ?? h.subcounty_id ?? h.district_id}-${i}`}
+                        className="flex items-center rounded-md border border-border bg-card"
+                      >
+                        <PlaceCheck checked={!!selection[place.key]} label={h.label} onToggle={() => guardedToggle(place)} />
+                        <button
+                          type="button"
+                          onClick={() => { setViewingSelection(false); jump(hitToPath(h)); }}
+                          className="min-h-[44px] flex-1 py-1 pr-2 text-left text-[11px] hover:bg-muted"
+                        >
+                          <span className="font-medium">{h.label}</span>
+                          <span className="text-muted-foreground"> · {h.kind}</span>
+                          {h.path_label && <span className="text-muted-foreground"> · {h.path_label}</span>}
+                          <span className="ml-1 text-primary font-semibold">{h.tenant_count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </CardContent>
       </Card>
 
+      {viewingSelection && places.length > 0 && (
+        <TenantLocationsCombinedView
+          places={places}
+          status={status}
+          onRemovePlace={remove}
+          onSelectTenant={onSelectTenant}
+        />
+      )}
+
       {/* Children of the current node */}
-      {level && (
+      {!viewingSelection && level && (
         <Card>
           <CardContent className="p-3 sm:p-4 space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -211,30 +291,41 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
               <p className="text-sm text-muted-foreground">No tenants recorded here for this filter.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {children.map((c) => (
-                  <button
-                    key={`${c.unmapped ? 'unmapped' : c.node_id ?? c.label}`}
-                    onClick={() => openChild(c.node_id, c.label, c.unmapped)}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 text-left hover:bg-muted/50 transition"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                        {c.unmapped
-                          ? <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                          : <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-                        {c.label}
-                      </p>
-                      {c.leaf_count > 0 && !c.unmapped && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {c.leaf_count} recorded at this level only
-                        </p>
+                {children.map((c) => {
+                  const place = placeFromChild(path, level, c.node_id, c.label, c.unmapped);
+                  return (
+                    <div
+                      key={`${c.unmapped ? 'unmapped' : c.node_id ?? c.label}`}
+                      className="flex items-center rounded-lg border border-border bg-card transition hover:bg-muted/50"
+                    >
+                      {place && (
+                        <PlaceCheck checked={!!selection[place.key]} label={c.label} onToggle={() => guardedToggle(place)} />
                       )}
+                      <button
+                        type="button"
+                        onClick={() => openChild(c.node_id, c.label, c.unmapped)}
+                        className={`flex min-h-[44px] flex-1 items-center justify-between gap-2 py-3 pr-3 text-left ${place ? '' : 'pl-3'}`}
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {c.unmapped
+                              ? <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+                              : <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                            {c.label}
+                          </p>
+                          {c.leaf_count > 0 && !c.unmapped && (
+                            <p className="text-[10px] text-muted-foreground">
+                              {c.leaf_count} recorded at this level only
+                            </p>
+                          )}
+                        </div>
+                        <span className="flex items-center gap-1 text-xs font-bold text-primary shrink-0">
+                          <Users className="h-3.5 w-3.5" />{c.tenant_count}
+                        </span>
+                      </button>
                     </div>
-                    <span className="flex items-center gap-1 text-xs font-bold text-primary shrink-0">
-                      <Users className="h-3.5 w-3.5" />{c.tenant_count}
-                    </span>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -242,7 +333,7 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
       )}
 
       {/* Tenants at this node */}
-      {tenantsEnabled && (
+      {!viewingSelection && tenantsEnabled && (
         <Card>
           <CardContent className="p-3 sm:p-4 space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -263,54 +354,12 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
             ) : (
               <ul className="space-y-1.5">
                 {tenants.rows.map((t) => (
-                  <li
+                  <TenantLocationTenantRow
                     key={t.tenant_id}
-                    className={`rounded-lg border border-border bg-card p-3 ${
-                      onSelectTenant ? 'cursor-pointer transition-colors hover:bg-accent/50' : ''
-                    }`}
-                    role={onSelectTenant ? 'button' : undefined}
-                    tabIndex={onSelectTenant ? 0 : undefined}
-                    onClick={onSelectTenant ? () => onSelectTenant(t.tenant_id, t.tenant_name) : undefined}
-                    onKeyDown={onSelectTenant ? (e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onSelectTenant(t.tenant_id, t.tenant_name);
-                      }
-                    } : undefined}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          {t.tenant_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                          <Phone className="h-3 w-3" />{t.tenant_phone || '—'}
-                          {t.agent_name && <span className="truncate"> · Agent: {t.agent_name}</span>}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {path.unmapped
-                            ? `Recorded location: ${t.legacy_location || '— none recorded —'}`
-                            : [t.village_name, t.parish_name, t.subcounty_name, t.county_name, t.district_name, t.region]
-                                .filter(Boolean).join(', ')}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <Badge
-                          className={t.is_active
-                            ? 'bg-emerald-100 text-emerald-700 text-[10px]'
-                            : 'bg-muted text-muted-foreground text-[10px]'}
-                        >
-                          {t.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                        {t.latest_status && (
-                          <span className="text-[10px] text-muted-foreground">
-                            {t.latest_status.replace(/_/g, ' ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </li>
+                    tenant={t}
+                    unmapped={!!path.unmapped}
+                    onSelectTenant={onSelectTenant}
+                  />
                 ))}
               </ul>
             )}
@@ -331,6 +380,19 @@ export function TenantLocationsBrowser({ onSelectTenant }: TenantLocationsBrowse
             {loadingTenants && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </CardContent>
         </Card>
+      )}
+
+      {places.length > 0 && (
+        <TenantLocationsSelectionBar
+          placeCount={places.length}
+          tenantCount={selectionCount?.total}
+          viewing={viewingSelection}
+          pdf={pdf.state}
+          onView={() => setViewingSelection((v) => !v)}
+          onDownload={() => void pdf.generate(places, status, generatedBy ?? 'Welile staff')}
+          onDeliver={() => void pdf.deliver()}
+          onClear={() => { clear(); setViewingSelection(false); pdf.reset(); }}
+        />
       )}
     </div>
   );

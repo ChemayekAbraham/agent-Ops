@@ -95,6 +95,10 @@ const prettyLedgerCategory = (c: string) =>
 
 const fmtDay = (d: string) => (d ? format(new Date(`${d}T00:00:00Z`), 'd MMM yyyy') : '');
 
+/** Verified wording for the Corrections tile. Does not recompute the tile amount. */
+export const CORRECTIONS_EXPLAINER =
+  'Corrections (≈UGX 900K/day) is mostly the automatic 0.5%/day payroll loyalty bonus credited to staff wallets on balances they keep with Welile (today: UGX 903,493 across 82 credits, posted 3:00 AM EAT). It is a real payout to staff, booked under system_balance_correction, and is separate from merchant-desk float adjustments.';
+
 export function PaidByCategory() {
   const [preset, setPreset] = useState<PresetKey>('all_time');
   const [customFrom, setCustomFrom] = useState('');
@@ -242,7 +246,7 @@ export function PaidByCategory() {
                   ? 'border-primary bg-primary/5'
                   : 'border-border/70 bg-card hover:bg-muted/40'
               }`}>
-              <p className="truncate text-[11px] font-semibold text-foreground" title={r.category_label}>{r.category_label}</p>
+              <p className="truncate text-[11px] font-semibold text-foreground" title={r.category_key === 'corrections' ? CORRECTIONS_EXPLAINER : r.category_label}>{r.category_label}</p>
               <p className="mt-1 text-sm font-bold tabular-nums">{formatUGX(r.amount)}</p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">
                 {r.tx_count.toLocaleString()} transactions · {r.pct.toFixed(2)}% of total
@@ -250,11 +254,13 @@ export function PaidByCategory() {
               <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
                 <span className="block h-full rounded-full bg-primary/70" style={{ width: `${Math.min(r.pct, 100)}%` }} />
               </span>
+              {r.category_key === 'corrections' && (
+                <p className="mt-2 text-[11px] font-normal leading-snug text-muted-foreground">{CORRECTIONS_EXPLAINER}</p>
+              )}
             </button>
           ))}
         </div>
       )}
-
 
       {/* Transaction table */}
 

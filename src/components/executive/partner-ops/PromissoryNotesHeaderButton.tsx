@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PROMISSORY_PENDING_COUNT_KEY, reconcilePromissoryPendingCount } from './promissoryPendingCount';
+import { countPromissoryQueue, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
+import type { PromissoryOpsReport } from '@/hooks/usePromissoryOpsReport';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -28,6 +30,18 @@ export function PromissoryNotesHeaderButton({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isLive, setIsLive] = useState(false);
+
+  const [listPending, setListPending] = useState<number | null>(null);
+  useEffect(() => {
+    const read = () => {
+      const data = queryClient.getQueryData<PromissoryOpsReport>(['promissory-ops-report', 'all']);
+      setListPending(data ? countPromissoryQueue(data.notes).pending : null);
+    };
+    read();
+    return queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryKey[0] === 'promissory-ops-report') read();
+    });
+  }, [queryClient]);
 
   const { data: promissoryPending = 0, refetch } = useQuery({
     queryKey: [...PROMISSORY_PENDING_COUNT_KEY],
@@ -85,9 +99,14 @@ export function PromissoryNotesHeaderButton({
     >
       <FileText className="h-3.5 w-3.5" />
       <span className="hidden sm:inline">Promissory Notes</span>
-      {promissoryPending > 0 && (
-        <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground">
-          {promissoryPending > 99 ? '99+' : promissoryPending}
+      {(listPending ?? promissoryPending) > 0 && (
+        <span
+          className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground"
+          title={listPending != null
+            ? PROMISSORY_COUNT_HELP.pending
+            : 'Notes stored as awaiting review. The Pending filter uses the same rule once the promissory list has loaded.'}
+        >
+          {(listPending ?? promissoryPending) > 99 ? '99+' : (listPending ?? promissoryPending)}
         </span>
       )}
       <span

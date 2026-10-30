@@ -15,7 +15,7 @@ export const MAX_FAST_TOOL_CALLS = 6;
 export const MAX_DEEP_MODEL_ROUNDS = 8;
 export const MAX_DEEP_TOOL_CALLS = 12;
 
-export const AI_CALL_TIMEOUT_MS = 18_000;
+export const AI_CALL_TIMEOUT_MS = 22_000;
 export const AI_MAX_RETRIES = 1;
 
 export interface ZoeModelTierConfig {
@@ -28,6 +28,7 @@ export interface ZoeModelTierConfig {
   maxFastToolCalls?: number;
   maxDeepModelRounds?: number;
   maxDeepToolCalls?: number;
+  researchMode?: boolean;
 }
 
 export interface SelectedModelTier {
@@ -88,14 +89,14 @@ export class AiGatewayError extends Error {
 }
 
 const DEEP_REASONING_RE =
-  /\b(why\b|analy[sz]e|analysis|compare|comparison|versus|\bvs\.?\b|trend|trends|advice|advise|recommend|recommendation|suggest|suggestion|improve|improvement|bottleneck|anomal(?:y|ies)|root\s+cause|explain\s+why|what\s+drove|what\s+caused|difference\s+between|how\s+can\s+we|what\s+should\s+we|deep\s+dive|correlat|forecast\s+vs|week[\s-]+on[\s-]+week|month[\s-]+on[\s-]+month)\b/i;
+  /\b(why\b|analy[sz]e|analysis|compare|comparison|versus|\bvs\.?\b|trend|trends|advice|advise|recommend|recommendation|suggest|suggestion|improve|improvement|bottleneck|anomal(?:y|ies)|root\s+cause|explain\s+why|what\s+drove|what\s+caused|difference\s+between|how\s+can\s+we|what\s+should\s+we|way\s+forward|plan\s+review|review\s+(?:this|my|our)\s+plan|research|deep\s+dive|correlat|forecast\s+vs|week[\s-]+on[\s-]+week|month[\s-]+on[\s-]+month)\b/i;
 
 /**
- * Determines whether a staff question asks for analysis, comparison, advice, or "why"
- * and therefore warrants the deep model tier (`ZOE_MODEL_DEEP`) and multi-step limits
- * (up to 8 thinking rounds and 12 tool calls).
+ * Determines whether a staff question asks for analysis, comparison, research, advice, or "why"
+ * and therefore warrants the deep model tier (`ZOE_MODEL_DEEP`) and multi-step limits.
  */
-export function isDeepQuestion(userMessage: string): boolean {
+export function isDeepQuestion(userMessage: string, researchMode = false): boolean {
+  if (researchMode) return true;
   const cleaned = (userMessage ?? "").trim();
   if (!cleaned) return false;
   return DEEP_REASONING_RE.test(cleaned);
@@ -121,7 +122,7 @@ export function selectModelTier(
   userMessage: string,
   config?: ZoeModelTierConfig,
 ): SelectedModelTier {
-  const deep = isDeepQuestion(userMessage);
+  const deep = isDeepQuestion(userMessage, Boolean(config?.researchMode));
   const fastModel =
     config?.modelFast?.trim() ||
     readEnvSafe("ZOE_MODEL_FAST") ||
@@ -192,7 +193,6 @@ export function estimateCallCostUsd(
   cachedTokens = 0,
 ): number {
   const m = (model || "").toLowerCase();
-  // Per-1M token rates in USD (conservative gateway estimates)
   let inputPer1M = 0.15;
   let outputPer1M = 0.60;
   if (m.includes("pro") || (m.includes("gpt-5") && !m.includes("mini") && !m.includes("nano"))) {
@@ -393,4 +393,215 @@ export async function chatCompletion(opts: {
   const resolvedModel = (data.model as string | undefined) ?? model;
   const usage = parseGatewayUsage(data.usage, resolvedModel);
   return { message: msg, model: resolvedModel, usage };
+}
+
+/**
+ * Deliverable (2): Real token streaming from the AI Gateway (`stream: true`).
+ * Forwards `AbortSignal` so clicking Stop in the browser cancels the upstream
+ * model call immediately. Emits each token delta via `onTokenDelta` as it arrives,
+ * while also assembling any streamed `tool_calls` and final `usage`.
+ * Falls back gracefully if a test mock returns a non-stream JSON response.
+ */
+export async function chatCompletionStream(opts: {
+  messages: ChatMessage[];
+  tools?: OpenAiTool[];
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  signal?: AbortSignal;
+  onTokenDelta?: (delta: string, accumulated: string) => void;
+}): Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }> {
+  const { apiKey, model, baseUrl } = getGatewayConfig(opts.model);
+  const temperature =
+    typeof opts.temperature === "number" ? opts.temperature : DEFAULT_CHAT_TEMPERATURE;
+  const maxTokens =
+    typeof opts.maxTokens === "number" ? opts.maxTokens : DEFAULT_CHAT_MAX_TOKENS;
+
+  if (opts.signal?.aborted) {
+    throw new AiGatewayError("Generation stopped by user", 499, "TIMEOUT");
+  }
+
+  const body: Record<string, unknown> = {
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    stream: true,
+    messages: opts.messages,
+  };
+  if (opts.tools && opts.tools.length > 0) {
+    body.tools = opts.tools;
+    body.tool_choice = "auto";
+  }
+
+  const controller = new AbortController();
+  const onExternalAbort = () => controller.abort();
+  opts.signal?.addEventListener("abort", onExternalAbort, { once: true });
+  const timer = setTimeout(() => controller.abort(), AI_CALL_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (res.status === 429) {
+      throw new AiGatewayError("AI Gateway rate limited", 429, "RATE_LIMITED");
+    }
+    if (res.status === 402) {
+      throw new AiGatewayError("AI Gateway credits exhausted", 402, "CREDITS_EXHAUSTED");
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new AiGatewayError(
+        `AI Gateway HTTP ${res.status}: ${text.slice(0, 200)}`,
+        res.status,
+        "UPSTREAM",
+      );
+    }
+
+    const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+    // If upstream (or a unit test mock) returned JSON instead of text/event-stream:
+    if (!contentType.includes("text/event-stream") || !res.body) {
+      const data = (await res.json()) as Record<string, unknown>;
+      const choices = data.choices as Array<{ message?: ChatMessage }> | undefined;
+      const msg = choices?.[0]?.message;
+      if (!msg) {
+        throw new AiGatewayError("AI Gateway returned an empty response", 502, "UPSTREAM");
+      }
+      if (typeof msg.content === "string" && msg.content.length > 0) {
+        opts.onTokenDelta?.(msg.content, msg.content);
+      }
+      const resolvedModel = (data.model as string | undefined) ?? model;
+      const usage = parseGatewayUsage(data.usage, resolvedModel);
+      return { message: msg, model: resolvedModel, usage };
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = "";
+    let accumulatedContent = "";
+    let resolvedModel = model;
+    let rawUsage: unknown = undefined;
+    const toolCallsByIndex = new Map<
+      number,
+      { id: string; name: string; arguments: string }
+    >();
+
+    while (true) {
+      if (opts.signal?.aborted) {
+        await reader.cancel().catch(() => {});
+        throw new AiGatewayError("Generation stopped by user", 499, "TIMEOUT");
+      }
+      const { value, done } = await reader.read();
+      if (done) break;
+      sseBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIdx: number;
+      while ((newlineIdx = sseBuffer.indexOf("\n")) >= 0) {
+        const rawLine = sseBuffer.slice(0, newlineIdx).trim();
+        sseBuffer = sseBuffer.slice(newlineIdx + 1);
+        if (!rawLine || !rawLine.startsWith("data:")) continue;
+        const payloadStr = rawLine.slice(5).trim();
+        if (!payloadStr || payloadStr === "[DONE]") continue;
+
+        try {
+          const chunk = JSON.parse(payloadStr) as Record<string, unknown>;
+          if (typeof chunk.model === "string" && chunk.model) {
+            resolvedModel = chunk.model;
+          }
+          if (chunk.usage) {
+            rawUsage = chunk.usage;
+          }
+          const choices = chunk.choices as
+            | Array<{
+                delta?: {
+                  content?: string | null;
+                  tool_calls?: Array<{
+                    index?: number;
+                    id?: string;
+                    function?: { name?: string; arguments?: string };
+                  }>;
+                };
+              }>
+            | undefined;
+          const delta = choices?.[0]?.delta;
+          if (!delta) continue;
+
+          if (typeof delta.content === "string" && delta.content.length > 0) {
+            accumulatedContent += delta.content;
+            opts.onTokenDelta?.(delta.content, accumulatedContent);
+          }
+
+          if (Array.isArray(delta.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              const idx = typeof tc.index === "number" ? tc.index : 0;
+              const existing = toolCallsByIndex.get(idx) ?? {
+                id: tc.id || `call_${idx}`,
+                name: "",
+                arguments: "",
+              };
+              if (tc.id) existing.id = tc.id;
+              if (tc.function?.name) existing.name += tc.function.name;
+              if (tc.function?.arguments) existing.arguments += tc.function.arguments;
+              toolCallsByIndex.set(idx, existing);
+            }
+          }
+        } catch {
+          /* ignore malformed SSE line */
+        }
+      }
+    }
+
+    const assembledToolCalls: ToolCall[] = [...toolCallsByIndex.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .filter(([, tc]) => Boolean(tc.name))
+      .map(([, tc]) => ({
+        id: tc.id,
+        type: "function" as const,
+        function: {
+          name: tc.name,
+          arguments: tc.arguments || "{}",
+        },
+      }));
+
+    const message: ChatMessage = {
+      role: "assistant",
+      content: accumulatedContent || null,
+      ...(assembledToolCalls.length > 0 ? { tool_calls: assembledToolCalls } : {}),
+    };
+
+    const usage = rawUsage
+      ? parseGatewayUsage(rawUsage, resolvedModel)
+      : parseGatewayUsage(
+          {
+            prompt_tokens: Math.ceil(JSON.stringify(opts.messages).length / 4),
+            completion_tokens: Math.ceil(accumulatedContent.length / 4),
+          },
+          resolvedModel,
+        );
+
+    return { message, model: resolvedModel, usage };
+  } catch (err) {
+    if (err instanceof AiGatewayError) throw err;
+    if (opts.signal?.aborted) {
+      throw new AiGatewayError("Generation stopped by user", 499, "TIMEOUT");
+    }
+    const isAbort = err instanceof DOMException && err.name === "AbortError";
+    if (isAbort) {
+      throw new AiGatewayError("AI Gateway timed out", 504, "TIMEOUT");
+    }
+    throw new AiGatewayError(
+      err instanceof Error ? err.message : "AI Gateway stream failed",
+      502,
+      "UPSTREAM",
+    );
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener("abort", onExternalAbort);
+  }
 }

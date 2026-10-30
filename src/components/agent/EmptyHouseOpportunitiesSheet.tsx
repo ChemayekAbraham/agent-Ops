@@ -154,6 +154,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
   // Partner mode only: "Promise a date" holds the houses for 7 days.
   const [promisedDate, setPromisedDate] = useState('');
+  const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
   const [fundingNow, setFundingNow] = useState(false);
 
 
@@ -176,7 +177,7 @@ export function EmptyHouseOpportunitiesSheet({
   const reset = () => {
     setSearch(''); setDebounced(''); setPage(0); setSelected({}); setStep('browse');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
-    setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
+    setWhatsappNumber(''); setPhoneNumber(''); setEmail(''); setFulfilmentDueOn('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
     setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
@@ -319,6 +320,7 @@ export function EmptyHouseOpportunitiesSheet({
     if (!isValidPhone(whatsappNumber)) out.push('WhatsApp number (10 digits)');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) out.push('Phone number (10 digits)');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
+    if (!fulfilmentDueOn) out.push('Fulfil by date');
     return out;
   };
 
@@ -353,6 +355,7 @@ export function EmptyHouseOpportunitiesSheet({
           email: (isPartner ? (selfEmail || '') : email).trim() || null,
           amount,
           contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+          ...(isPartner ? {} : { fulfilment_due_on: fulfilmentDueOn }),
         };
         if (isPartner && promisedDate) payload.promised_funding_date = promisedDate;
         if (contributionType === 'monthly') {
@@ -725,6 +728,16 @@ export function EmptyHouseOpportunitiesSheet({
                   <div>
                     <Label className="text-xs">Email</Label>
                     <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" type="email" className="mt-0.5 h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs" htmlFor="house-opportunity-fulfil-by">Fulfil by *</Label>
+                    <Input
+                      id="house-opportunity-fulfil-by"
+                      type="date"
+                      value={fulfilmentDueOn}
+                      onChange={(e) => setFulfilmentDueOn(e.target.value)}
+                      className="mt-0.5 h-9 text-xs"
+                    />
                   </div>
                 </>
               )}

@@ -12,8 +12,6 @@ const corsHeaders = {
 // In-memory rate limiting
 const resetAttempts = new Map<string, { count: number; firstAt: number }>();
 const MAX_RESETS_PER_HOUR = 3;
-const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
-const TWILIO_SENDER = "WELILE";
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -178,12 +176,11 @@ async function sendSMS(
     return r;
   };
 
-  type ProviderName = "yoola" | "africastalking" | "lana" | "twilio";
+  type ProviderName = "yoola" | "africastalking" | "lana";
   const primaryChain: Array<{ provider: ProviderName; fn: () => Promise<SmsResult> }> = [
     { provider: "yoola", fn: () => sendViaYoola(phone, message) },
     { provider: "africastalking", fn: () => sendViaAfricasTalking(phone, message) },
     { provider: "lana", fn: () => sendViaLana(phone, message) },
-    { provider: "twilio", fn: () => sendViaTwilio(phone, message) },
   ];
   // POLICY: Yoola is ALWAYS first, on first sends and on resends. The other
   // providers are fallbacks only (used when Yoola is unconfigured or rejects).
@@ -344,39 +341,6 @@ async function sendViaAfricasTalking(phone: string, message: string): Promise<Sm
     return { ok: false, reason: "No recipient response from SMS provider", response: data };
   } catch (error) {
     console.error("[password-reset-sms] SMS error:", error);
-    return { ok: false, reason: "Network error contacting SMS provider" };
-  }
-}
-
-async function sendViaTwilio(phone: string, message: string): Promise<SmsResult> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const twilioKey = Deno.env.get("TWILIO_API_KEY");
-  if (!lovableKey || !twilioKey) return { ok: false, reason: "twilio_not_configured" };
-
-  try {
-    const formattedPhone = formatPhoneInternational(phone);
-    const response = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": twilioKey,
-        "Content-Type": "application/x-www-form-urlencoded",
-        "Accept": "application/json",
-      },
-      body: new URLSearchParams({ To: formattedPhone, From: TWILIO_SENDER, Body: message }).toString(),
-    });
-    const text = await response.text();
-    console.log(`[password-reset-sms] Twilio response (${response.status}):`, text);
-    let data: Record<string, unknown> = {};
-    try { data = JSON.parse(text); } catch { data = { raw: text.slice(0, 500) }; }
-    const status = String(data?.status ?? "").toLowerCase();
-    const accepted = ["queued", "accepted", "sending", "sent", "delivered"].includes(status);
-    if (response.ok && accepted) {
-      return { ok: true, response: data, messageId: firstString(data?.sid, data?.messageId, data?.message_id), cost: null };
-    }
-    return { ok: false, reason: String(data?.error_message ?? data?.message ?? `Twilio rejected (${response.status})`), response: data };
-  } catch (error) {
-    console.error("[password-reset-sms] Twilio error:", error);
     return { ok: false, reason: "Network error contacting SMS provider" };
   }
 }

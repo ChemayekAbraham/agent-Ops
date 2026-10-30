@@ -14,11 +14,14 @@ import {
 } from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import {
+  buildResearchModePlan,
   CONSULTANT_FORBIDDEN_TOOLS,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   filterToolsForConsultantMode,
   isConsultantQuestion,
+  MAX_RESEARCH_SOURCES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_QUESTION,
   ReadWebPageArgsSchema,
   SearchWebArgsSchema,
   WEB_RESEARCH_TOOL_NAMES,
@@ -33,10 +36,14 @@ import {
 import {
   checkAnswer,
   checkDraftCardText,
+  checkStreamedParagraph,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  UNVERIFIED_PARAGRAPH_REPLACEMENT,
+  verifyAndSanitizeStreamedParagraphs,
 } from "./guards.ts";
 import {
+  ensurePolicyDisclaimerWhenNeeded,
   isConversationalPromptAllowedWithoutTool,
   ManualHelpArgsSchema,
   searchStaffManualHelp,
@@ -45,23 +52,25 @@ import {
   appendMemoryEntries,
   buildFollowUpSuggestions,
   buildMemoryEntryFromToolResult,
-  buildRollingConversationSummary,
   ConversationMemorySummary,
   extractChartFromReportPayload,
   formatConversationMemoryForPrompt,
   formatZoeNotesForPrompt,
   MemoryToolEntry,
   parseConversationMemory,
+  PROMPT_ACTIVE_TURNS,
+  splitTurnsForPromptMemory,
   statusLineForTool,
   synthesizePartialStepLimitReply,
   ZoeChartPayload,
   ZoeNoteRecord,
 } from "./memory.ts";
-import { MSG } from "./messages.ts";
+import { formatWriteMutationRefusal, MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import {
   AiGatewayError,
   chatCompletion,
+  chatCompletionStream,
   ChatMessage,
   ChatUsage,
   classifyText,
@@ -140,42 +149,56 @@ function splitTokensForStream(text: string): string[] {
   return parts && parts.length > 0 ? parts : [text];
 }
 
-function buildSseStreamResponse(
-  statusSteps: readonly string[],
-  finalBody: Record<string, unknown>,
-): Response {
+interface LiveSseWriter {
+  emit(event: string, data: unknown): void;
+  close(): void;
+  readonly response: Response;
+}
+
+function createLiveSseWriter(): LiveSseWriter {
   const encoder = new TextEncoder();
-  const replyText = typeof finalBody.reply === "string" ? finalBody.reply : "";
-  const tokens = splitTokensForStream(replyText);
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let closed = false;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
+      controllerRef = controller;
+    },
+    cancel() {
+      closed = true;
+    },
+  });
+
+  return {
+    emit(event: string, data: unknown) {
+      if (closed || !controllerRef) return;
+      try {
+        controllerRef.enqueue(
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
-      };
-
-      for (const step of statusSteps) {
-        sendEvent("status", { text: step });
+      } catch {
+        closed = true;
       }
-      for (const chunk of tokens) {
-        sendEvent("token", { token: chunk });
+    },
+    close() {
+      if (closed || !controllerRef) return;
+      closed = true;
+      try {
+        controllerRef.close();
+      } catch {
+        /* ignore already closed */
       }
-      sendEvent("done", finalBody);
-      controller.close();
     },
-  });
-
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    response: new Response(stream, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    }),
+  };
 }
 
 export interface StaffAssistantAiClient {
@@ -188,6 +211,15 @@ export interface StaffAssistantAiClient {
     maxTokens?: number;
     timeoutMs?: number;
     signal?: AbortSignal;
+  }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
+  chatCompletionStream?: (opts: {
+    messages: ChatMessage[];
+    tools?: OpenAiTool[];
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    signal?: AbortSignal;
+    onTokenDelta?: (delta: string, accumulated: string) => void;
   }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
 }
 
@@ -249,6 +281,7 @@ export interface StaffAssistantHandlerDeps {
 const DEFAULT_AI_CLIENT: StaffAssistantAiClient = {
   classifyText,
   chatCompletion,
+  chatCompletionStream,
 };
 
 const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
@@ -834,19 +867,22 @@ export async function handleStaffAssistantRequest(
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const userText = body.message;
+  const researchMode = body.research_mode === true;
   const consultantMode = isConsultantQuestion(userText);
-  const webResearchEnabled = consultantMode && budget.webResearchEnabled === true;
+  const isConsultantOrResearch = consultantMode || researchMode;
+  const webResearchEnabled = isConsultantOrResearch && budget.webResearchEnabled === true;
+  const researchPlan = researchMode ? buildResearchModePlan(userText) : [];
   const baseOpenAiTools = openAiToolsForRoles(callerRoles);
-  const allowedOpenAiTools = consultantMode
+  const allowedOpenAiTools = isConsultantOrResearch
     ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
     : baseOpenAiTools;
   const toolDescriptions = describeToolsForRoles(callerRoles).filter(
-    (line) => !consultantMode || !line.startsWith("draft_"),
+    (line) => !isConsultantOrResearch || !line.startsWith("draft_"),
   );
   if (webResearchEnabled) {
     toolDescriptions.push(
-      "search_web [Consultant mode — Outside source]: Generic public web search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
-      "read_web_page [Consultant mode — Outside source]: Read a public https:// page returned by search_web. Label 'Outside source' with link and date; never mix with Welile totals.",
+      "search_web [Outside source]: Generic public web search via Brave Search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
+      "read_web_page [Outside source]: Read a public https:// page returned by search_web (wrapped in <UNTRUSTED_WEB_PAGE_DATA>). Label 'Outside source' with link and date; never mix with Welile totals.",
     );
   }
 
@@ -875,18 +911,40 @@ export async function handleStaffAssistantRequest(
   const newMemoryEntries: MemoryToolEntry[] = [];
   const statusSteps: string[] = [];
   const wantsStream = body.stream === true;
+  const liveSse = wantsStream ? createLiveSseWriter() : null;
+  let streamedTokensAlreadySent = false;
   let updatedRollingSummary = conv.rollingSummary ?? "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
+  let webSearchesInQuestion = 0;
+  let webSourcesReadInQuestion = 0;
+  let webResearchSpentUsd = 0;
+  const maxWebSourcesThisQuestion = researchMode
+    ? MAX_RESEARCH_SOURCES_PER_QUESTION
+    : MAX_WEB_SEARCHES_PER_QUESTION;
+
+  const pushStatusStep = (stepText: string) => {
+    if (!stepText) return;
+    if (!statusSteps.includes(stepText)) {
+      statusSteps.push(stepText);
+    }
+    liveSse?.emit("status", { text: stepText });
+  };
+
+  if (researchMode && researchPlan.length > 0) {
+    liveSse?.emit("plan", { steps: researchPlan });
+    pushStatusStep(researchPlan[0]);
+  }
 
   const baseTier = selectModelTier(userText, {
     maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
     maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
     maxDeepModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
     maxDeepToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+    researchMode,
     ...(budget.modelConfig ?? {}),
   });
-  const selectedTier = consultantMode
+  const selectedTier = isConsultantOrResearch
     ? {
         ...baseTier,
         tier: "deep" as const,
@@ -1011,6 +1069,8 @@ export async function handleStaffAssistantRequest(
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
       consultant_mode: consultantMode,
+      research_mode: researchMode,
+      ...(researchPlan.length > 0 ? { research_plan: researchPlan } : {}),
       estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
       cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
@@ -1020,22 +1080,33 @@ export async function handleStaffAssistantRequest(
       degraded_error_codes: degradedErrors.map((d) => d.errorCode),
     };
 
-    if (wantsStream) {
-      return buildSseStreamResponse(statusSteps, responsePayload);
+    if (wantsStream && liveSse) {
+      if (!streamedTokensAlreadySent && typeof reply === "string" && reply.length > 0) {
+        for (const chunk of splitTokensForStream(reply)) {
+          liveSse.emit("token", { token: chunk });
+        }
+      }
+      liveSse.emit("done", responsePayload);
+      liveSse.close();
+      return liveSse.response;
     }
     return json(200, responsePayload);
   };
 
   try {
     // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
-    // Prompt 3 item (4): Drop the separate classifier call; let the main model decide in the same call.
-    if (isDirectPromptInjection(userText) || isWriteMutationIntent(userText)) {
+    if (isDirectPromptInjection(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
       });
     }
+    if (isWriteMutationIntent(userText)) {
+      return await finish(formatWriteMutationRefusal(userText), "out_of_scope", {
+        unansweredReason: "out_of_scope",
+      });
+    }
 
-    // ---- 8. Tool-calling loop (whole-conversation memory, Zoe notes, safe calculator) --------
+    // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
     const [history, userNotes] = await Promise.all([
       store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
         await recordDegraded(
@@ -1058,17 +1129,15 @@ export async function handleStaffAssistantRequest(
     const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
     const zoeNotesBlock = formatZoeNotesForPrompt(userNotes);
 
-    // Keep whole conversation: condense older turns into a rolling summary when long (> 12 messages)
-    const activeTurnWindow = history.length > 16 ? history.slice(-16) : history;
-    if (history.length > 16) {
-      updatedRollingSummary = buildRollingConversationSummary(
-        history.slice(0, history.length - 16),
-        conv.rollingSummary ?? "",
-      );
-    }
-    const rollingSummaryBlock = updatedRollingSummary
-      ? `EARLIER CONVERSATION ROLLING SUMMARY:\n${updatedRollingSummary}`
-      : "";
+    // Deliverable (6): Use the last 20 turns (40 messages) verbatim; summarise older turns
+    const splitMemory = splitTurnsForPromptMemory(
+      history,
+      conv.rollingSummary ?? "",
+      PROMPT_ACTIVE_TURNS,
+    );
+    const activeTurnWindow = splitMemory.activeTurnWindow;
+    updatedRollingSummary = splitMemory.rollingSummaryText;
+    const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;
 
     const messages: ChatMessage[] = [
       {
@@ -1079,6 +1148,7 @@ export async function handleStaffAssistantRequest(
           rollingSummaryBlock,
           modelTier: selectedTier.tier,
           consultantMode,
+          researchMode,
           webResearchEnabled,
         }),
       },
@@ -1215,20 +1285,60 @@ Answer the user's question in plain text without calling any tools:
       });
     };
 
+    let verifiedParagraphsSoFar = 0;
+
     for (let round = 0; round < maxModelRounds; round++) {
       if (round > 0 && totalQuestionCostUsd >= maxCostUsd) {
         hitStepOrCostLimit = true;
         break;
       }
 
-      const { message, model, usage } = await ai.chatCompletion({
-        messages,
-        tools: allowedOpenAiTools,
-        model: selectedTier.model,
-        temperature: selectedTier.temperature,
-        maxTokens: selectedTier.maxTokens,
-        signal: req.signal,
-      });
+      verifiedParagraphsSoFar = 0;
+      const onStreamTokenDelta = (delta: string, accumulated: string) => {
+        if (!liveSse) return;
+        streamedTokensAlreadySent = true;
+        liveSse.emit("token", { token: delta });
+
+        const paragraphs = accumulated.split(/\n\n+/);
+        // Any paragraph before the last element has finished its `\n\n` boundary
+        while (verifiedParagraphsSoFar < paragraphs.length - 1) {
+          const pIdx = verifiedParagraphsSoFar;
+          verifiedParagraphsSoFar += 1;
+          const pCheck = checkStreamedParagraph(
+            paragraphs[pIdx],
+            rawToolOutputs,
+            userText,
+          );
+          if (!pCheck.ok) {
+            liveSse.emit("paragraph_replace", {
+              paragraph_index: pIdx,
+              replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+              reason: pCheck.reason,
+            });
+          }
+        }
+      };
+
+      const { message, model, usage } =
+        wantsStream && typeof ai.chatCompletionStream === "function"
+          ? await ai.chatCompletionStream({
+              messages,
+              tools: allowedOpenAiTools,
+              model: selectedTier.model,
+              temperature: selectedTier.temperature,
+              maxTokens: selectedTier.maxTokens,
+              signal: req.signal,
+              onTokenDelta: onStreamTokenDelta,
+            })
+          : await ai.chatCompletion({
+              messages,
+              tools: allowedOpenAiTools,
+              model: selectedTier.model,
+              temperature: selectedTier.temperature,
+              maxTokens: selectedTier.maxTokens,
+              signal: req.signal,
+            });
+
       lastModel = model;
       if (usage) {
         totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
@@ -1237,6 +1347,13 @@ Answer the user's question in plain text without calling any tools:
 
       if (!message.tool_calls || message.tool_calls.length === 0) {
         finalText = (message.content ?? "").trim();
+        if (wantsStream && !streamedTokensAlreadySent && finalText.length > 0) {
+          let acc = "";
+          for (const chunk of splitTokensForStream(finalText)) {
+            acc += chunk;
+            onStreamTokenDelta(chunk, acc);
+          }
+        }
         break;
       }
 
@@ -1249,10 +1366,11 @@ Answer the user's question in plain text without calling any tools:
           break;
         }
 
-
         const stepText = statusLineForTool(call.function.name);
-        if (!statusSteps.includes(stepText)) {
-          statusSteps.push(stepText);
+        pushStatusStep(stepText);
+        if (researchMode && researchPlan.length >= 2) {
+          const nextPlanIdx = Math.min(toolsCalled.length + 1, researchPlan.length - 1);
+          pushStatusStep(researchPlan[nextPlanIdx]);
         }
 
         const rawArgs = (() => {
@@ -1379,8 +1497,8 @@ Answer the user's question in plain text without calling any tools:
           continue;
         }
 
-        // Prompt 4 item (1): Consultant mode blocks all write/action/export draft tools
-        if (consultantMode && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+        // Consultant & Research modes block all write/action/export draft tools
+        if (isConsultantOrResearch && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
           return await finish(MSG.outOfScope, "blocked", {
             tools: toolsCalled,
             model: lastModel,
@@ -1388,12 +1506,11 @@ Answer the user's question in plain text without calling any tools:
           });
         }
 
-        // Prompt 4 item (3): Admin-switched Web Research (`search_web`, `read_web_page`)
-        // Available ONLY in the Consultant path when `staff_assistant_config.web_research_enabled === true`.
+        // Deliverable (3) & (4): Admin-switched Web Research (`search_web`, `read_web_page`)
         if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
-          if (!consultantMode || !webResearchEnabled) {
+          if (!isConsultantOrResearch || !webResearchEnabled) {
             return await finish(
-              "Web research is currently disabled in staff_assistant_config (or outside Consultant mode).",
+              "Web research is currently disabled in staff_assistant_config (or outside Consultant / Research mode).",
               "blocked",
               {
                 tools: toolsCalled,
@@ -1415,18 +1532,35 @@ Answer the user's question in plain text without calling any tools:
             const webRes = await executeConsultantWebSearch(
               parsedSearch.data.query,
               rawToolOutputs,
+              fetch,
+              {
+                webResearchEnabled,
+                searchesUsedInQuestion: webSearchesInQuestion,
+                maxSearchesPerQuestion: maxWebSourcesThisQuestion,
+                spentUsdInQuestion: webResearchSpentUsd,
+                maxCostUsdPerQuestion: selectedTier.maxCostUsdPerQuestion,
+                signal: req.signal,
+              },
             );
             if (!webRes.ok) {
               return await finish(
-                `I cannot run that web search: ${webRes.error}`,
+                webRes.reason === "missing_api_key"
+                  ? MSG.webResearchNotConfigured
+                  : `I cannot run that web search: ${webRes.error}`,
                 "blocked",
                 {
                   tools: [...toolsCalled, "search_web"],
                   model: lastModel,
                   unansweredReason: "error",
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: webRes.error,
                 },
               );
             }
+            webSearchesInQuestion += 1;
+            webSourcesReadInQuestion += 1;
+            webResearchSpentUsd += webRes.costUsd;
+            totalQuestionCostUsd += webRes.costUsd;
             toolsCalled.push("search_web");
             const webJson = JSON.stringify(webRes.payload);
             rawToolOutputs.push(webJson);
@@ -1456,9 +1590,27 @@ Answer the user's question in plain text without calling any tools:
                 unansweredReason: "unmatched",
               });
             }
+            if (webSourcesReadInQuestion >= maxWebSourcesThisQuestion) {
+              return await finish(
+                `Per-question web source limit reached (${maxWebSourcesThisQuestion} sources).`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "read_web_page"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: "max_web_sources_reached",
+                },
+              );
+            }
             const pageRes = await executeConsultantReadWebPage(
               parsedPage.data.url,
               rawToolOutputs,
+              fetch,
+              {
+                webResearchEnabled,
+                signal: req.signal,
+              },
             );
             if (!pageRes.ok) {
               return await finish(
@@ -1468,9 +1620,12 @@ Answer the user's question in plain text without calling any tools:
                   tools: [...toolsCalled, "read_web_page"],
                   model: lastModel,
                   unansweredReason: "error",
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: pageRes.error,
                 },
               );
             }
+            webSourcesReadInQuestion += 1;
             toolsCalled.push("read_web_page");
             const pageJson = JSON.stringify(pageRes.payload);
             rawToolOutputs.push(pageJson);
@@ -2631,12 +2786,37 @@ Answer the user's question in plain text without calling any tools:
         });
       }
 
-      const convGuard = checkAnswer(finalText, rawToolOutputs, userText);
+      const policyTaggedText = ensurePolicyDisclaimerWhenNeeded(userText, finalText, toolsCalled);
+      const convGuard = checkAnswer(policyTaggedText, rawToolOutputs, userText);
       if (!convGuard.ok) {
         if (convGuard.reason === "prompt_leak") {
           return await finish(MSG.outOfScope, "blocked", {
             model: lastModel,
             unansweredReason: "out_of_scope",
+          });
+        }
+        if (wantsStream) {
+          const sanitized = verifyAndSanitizeStreamedParagraphs(
+            policyTaggedText,
+            rawToolOutputs,
+            userText,
+          );
+          for (const pIdx of sanitized.replacedIndices) {
+            liveSse?.emit("paragraph_replace", {
+              paragraph_index: pIdx,
+              replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+              sanitized_text: sanitized.sanitizedText,
+            });
+          }
+          return await finish(sanitized.sanitizedText, "answered", {
+            tools: [],
+            model: lastModel,
+            sourceLabel: null,
+            periodLabel: null,
+            reportPayload: null,
+            unansweredReason: "error",
+            errorCode: "ERR_STREAM_PARAGRAPH_UNVERIFIED",
+            errorDetail: `Replaced ${sanitized.replacedIndices.length} unverified paragraph(s): ${sanitized.reasons.join(", ")}`,
           });
         }
         return await finish(MSG.unmatched, "blocked", {
@@ -2645,7 +2825,7 @@ Answer the user's question in plain text without calling any tools:
         });
       }
 
-      return await finish(finalText, "answered", {
+      return await finish(policyTaggedText, "answered", {
         tools: [],
         model: lastModel,
         sourceLabel: null,
@@ -2660,7 +2840,7 @@ Answer the user's question in plain text without calling any tools:
     const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
 
     // Always add a "Source · dates" line whenever any tool was used
-    let answerWithCitation = finalText;
+    let answerWithCitation = ensurePolicyDisclaimerWhenNeeded(userText, finalText, toolsCalled);
     if (sourceLabel && !answerWithCitation.toLowerCase().includes("source:")) {
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
     }
@@ -2671,17 +2851,19 @@ Answer the user's question in plain text without calling any tools:
       answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
     }
 
+    const allowedOutputsForGuard = [
+      ...rawToolOutputs,
+      JSON.stringify({
+        source: sourceLabel,
+        period: periodLabel,
+        ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+      }),
+    ];
+
     // Requirement (d): Deterministic post-generation guard against tool results
     const guard = checkAnswer(
       answerWithCitation,
-      [
-        ...rawToolOutputs,
-        JSON.stringify({
-          source: sourceLabel,
-          period: periodLabel,
-          ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
-        }),
-      ],
+      allowedOutputsForGuard,
       userText,
     );
     if (!guard.ok) {
@@ -2691,6 +2873,30 @@ Answer the user's question in plain text without calling any tools:
           tools: toolsCalled,
           model: lastModel,
           unansweredReason: "out_of_scope",
+        });
+      }
+      if (wantsStream) {
+        const sanitized = verifyAndSanitizeStreamedParagraphs(
+          answerWithCitation,
+          allowedOutputsForGuard,
+          userText,
+        );
+        for (const pIdx of sanitized.replacedIndices) {
+          liveSse?.emit("paragraph_replace", {
+            paragraph_index: pIdx,
+            replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+            sanitized_text: sanitized.sanitizedText,
+          });
+        }
+        return await finish(sanitized.sanitizedText, "answered", {
+          tools: toolsCalled,
+          model: lastModel,
+          sourceLabel,
+          periodLabel,
+          reportPayload: lastReportPayload,
+          unansweredReason: "error",
+          errorCode: "ERR_STREAM_PARAGRAPH_UNVERIFIED",
+          errorDetail: `Replaced ${sanitized.replacedIndices.length} unverified paragraph(s): ${sanitized.reasons.join(", ")}`,
         });
       }
       return await finish(MSG.unmatched, "blocked", {
