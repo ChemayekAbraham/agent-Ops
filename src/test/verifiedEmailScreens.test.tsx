@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import EmailCollectionGate from '@/components/notifications/EmailCollectionGate';
+import { resetSessionPopupForTests } from '@/lib/sessionPopup';
 import EmailEditor from '@/components/profile/EmailEditor';
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: {
 } }));
 
 beforeEach(() => {
+  resetSessionPopupForTests();
   sessionStorage.clear();
   mocks.currentEmail = '0700000000@welile.agent';
   mocks.requestCode.mockReset().mockResolvedValue({ challengeId: 'challenge-1', expiresAt: '2026-10-21T10:00:00Z' });

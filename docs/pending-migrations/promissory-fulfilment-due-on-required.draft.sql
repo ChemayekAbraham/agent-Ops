@@ -1,0 +1,15 @@
+-- DRAFT ONLY. Do not apply.
+-- Benjamin: about half of promissory notes, and most pending ones, have no
+-- Fulfils by date. The agent create screens now require the date before
+-- insert. A constraint would reject historical rows, so this stays off until
+-- those rows are backfilled or the check is NOT VALID for new rows only.
+--
+-- Preferred later shape (still off):
+--
+-- ALTER TABLE public.promissory_notes
+--   ADD CONSTRAINT promissory_notes_fulfilment_due_on_required
+--   CHECK (fulfilment_due_on IS NOT NULL) NOT VALID;
+--
+-- NOT VALID does not scan existing rows. New inserts and updates that leave
+-- the date null would fail. Do not VALIDATE until backfill is agreed.
+-- Leave this file unapplied.

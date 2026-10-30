@@ -145,6 +145,26 @@ describe('CFO Paid by Category', () => {
     expect(screen.queryByText(/expected out — next 7 days/)).not.toBeInTheDocument();
   });
 
+  it('shows the verified Corrections caption under the tile and leaves the reported total', async () => {
+    const withCorrections = [
+      ...totals,
+      { category_key: 'corrections', category_label: 'Corrections', sort_order: 9, amount: 900000, tx_count: 82, pct: 1 },
+    ];
+    mocks.rpc.mockImplementation(async (name: string) => {
+      if (name === 'get_cfo_paid_by_category_totals') return { data: withCorrections, error: null };
+      if (name === 'get_cfo_paid_by_category_page') return { data: pageRows(1, 1), error: null };
+      return { data: [], error: null };
+    });
+    renderReport();
+    const caption = await screen.findByText(/payroll loyalty bonus credited to staff wallets/);
+    expect(caption).toHaveTextContent('Corrections (≈UGX 900K/day) is mostly the automatic 0.5%/day payroll loyalty bonus credited to staff wallets on balances they keep with Welile (today: UGX 903,493 across 82 credits, posted 3:00 AM EAT). It is a real payout to staff, booked under system_balance_correction, and is separate from merchant-desk float adjustments.');
+    const tile = screen.getByTitle(/payroll loyalty bonus/).closest('button');
+    if (!tile) throw new Error('Corrections tile missing');
+    expect(tile).toContainElement(caption);
+    expect(flat(tile)).toMatch(/UGX900[,.\u00a0\u202f]?000/);
+    expect(screen.getByText('Corrections')).toBeInTheDocument();
+  });
+
   it('opens on All time and switches to a picked period', async () => {
     renderReport();
     await screen.findByTitle('Partner Products and Services');
