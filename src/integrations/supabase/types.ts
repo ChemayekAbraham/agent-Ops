@@ -40782,6 +40782,36 @@ export type Database = {
           },
         ]
       }
+      payroll_loyalty_bonus_reversals: {
+        Row: {
+          created_at: string
+          credited: number
+          id: string
+          ledger_group: string | null
+          reversed: number
+          still_owed: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credited: number
+          id?: string
+          ledger_group?: string | null
+          reversed: number
+          still_owed: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credited?: number
+          id?: string
+          ledger_group?: string | null
+          reversed?: number
+          still_owed?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_wallet_operations: {
         Row: {
           account: string | null
@@ -81228,6 +81258,7 @@ export type Database = {
           withdrawal_id: string
         }[]
       }
+      get_payroll_loyalty_bonus_status: { Args: never; Returns: Json }
       get_pending_wallet_ops: {
         Args: { p_page?: number; p_page_size?: number }
         Returns: Json
@@ -83545,6 +83576,7 @@ export type Database = {
       is_partner_not_agent: { Args: { p_user_id: string }; Returns: boolean }
       is_partner_ops: { Args: { _uid: string }; Returns: boolean }
       is_payout_ops_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_payroll_loyalty_owner: { Args: never; Returns: boolean }
       is_phone_available: { Args: { p_phone: string }; Returns: boolean }
       is_platform_owner: { Args: never; Returns: boolean }
       is_platform_user_admin: { Args: { _user_id?: string }; Returns: boolean }
@@ -89807,6 +89839,10 @@ export type Database = {
           p_village: string
           p_village_id?: number
         }
+        Returns: Json
+      }
+      set_payroll_loyalty_bonus: {
+        Args: { p_enabled: boolean; p_reason?: string }
         Returns: Json
       }
       set_portfolio_payout_destinations: {
