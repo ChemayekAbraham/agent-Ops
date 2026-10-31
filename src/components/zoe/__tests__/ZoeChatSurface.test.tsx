@@ -919,4 +919,84 @@ describe('ZoeChatSurface', () => {
     );
     expect(replaced).toBe('Paragraph 1 is verified.\n\nI could not verify that figure');
   });
+
+  it('Prompt 4: renders personalised starters, "Remember this?" Save/No thanks card, Temporary chat badge, and editable Zoe notes with Memory off switch', async () => {
+    const onSendMessage = vi.fn();
+    const onAcceptMemorySuggestion = vi.fn().mockResolvedValue({ ok: true });
+    const onDismissMemorySuggestion = vi.fn().mockResolvedValue({ ok: true });
+    const onUpdateNote = vi.fn().mockResolvedValue({ ok: true });
+    const onToggleMemoryEnabled = vi.fn().mockResolvedValue({ ok: true });
+    const onToggleTemporaryChat = vi.fn();
+
+    renderSurface({
+      messages: [],
+      roles: ['cfo'],
+      onSendMessage,
+      personalisedStarters: [
+        {
+          id: 'ps-1',
+          topic: 'finance_cfo',
+          label: 'Treasury cash position (A1 + A5)',
+          prompt: 'What is our spendable Treasury Cash Position today?',
+          tool: 'get_cfo_treasury_cash_position',
+          reason: 'own_30d_topic_history',
+        },
+      ],
+      memorySuggestion: {
+        key: 'pref_in_millions',
+        note_text: 'Format large amounts in millions',
+        prompt: 'Remember this?',
+      },
+      onAcceptMemorySuggestion,
+      onDismissMemorySuggestion,
+      temporaryChat: true,
+      onToggleTemporaryChat,
+      memoryEnabled: true,
+      onToggleMemoryEnabled,
+      userNotes: [
+        {
+          id: 'note-1',
+          note_text: 'Keep answers short and concise',
+          created_at: '2026-10-30T08:00:00Z',
+        },
+      ],
+      onUpdateNote,
+    });
+
+    // 1. Personalised starters render and trigger onSendMessage
+    expect(screen.getByTestId('zoe-suggestion-list')).toBeInTheDocument();
+    const starterChip = screen.getByTestId('zoe-suggestion-ps-1');
+    expect(starterChip).toHaveTextContent('Treasury cash position (A1 + A5)');
+    fireEvent.click(starterChip);
+    expect(onSendMessage).toHaveBeenCalledWith(
+      'What is our spendable Treasury Cash Position today?',
+    );
+
+    // 2. Temporary chat badge renders in top bar and suppresses memory suggestions
+    expect(screen.getByTestId('zoe-temporary-chat-badge')).toHaveTextContent('Temporary');
+    expect(screen.queryByTestId('zoe-memory-suggestion')).not.toBeInTheDocument();
+
+    // 3. When temporaryChat is false, "Remember this?" card renders with Save and No thanks buttons
+    renderSurface({
+      messages: [],
+      roles: ['cfo'],
+      onSendMessage,
+      memorySuggestion: {
+        key: 'pref_in_millions',
+        note_text: 'Format large amounts in millions',
+        prompt: 'Remember this?',
+      },
+      onAcceptMemorySuggestion,
+      onDismissMemorySuggestion,
+      temporaryChat: false,
+      memoryEnabled: true,
+    });
+    const memCard = screen.getByTestId('zoe-memory-suggestion');
+    expect(memCard).toHaveTextContent('Remember this?');
+    expect(memCard).toHaveTextContent('Format large amounts in millions');
+    fireEvent.click(screen.getByTestId('zoe-memory-suggestion-save'));
+    expect(onAcceptMemorySuggestion).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('zoe-memory-suggestion-dismiss'));
+    expect(onDismissMemorySuggestion).toHaveBeenCalledTimes(1);
+  });
 });
