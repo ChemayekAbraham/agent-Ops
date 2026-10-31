@@ -2051,6 +2051,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       </LazyModal>
       <LazyModal when={rentRequestOpen}>
       <AgentRentRequestDialog 
+        presentation="chat"
         open={rentRequestOpen} 
         onOpenChange={setRentRequestOpen} 
         onSuccess={() => setRentRequestOpen(false)}

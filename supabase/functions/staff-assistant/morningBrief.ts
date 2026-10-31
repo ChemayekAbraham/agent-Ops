@@ -2,6 +2,8 @@ import { formatPeriodLabel, kampalaToday } from "./dates.ts";
 import { sanitizeWelileTermsServer } from "./emailDraft.ts";
 import { canUseTool, findTool, StaffTool } from "./tools.ts";
 
+export const MAX_MORNING_BRIEF_ITEMS = 3;
+
 export interface MorningBriefSection {
   id: string;
   title: string;
@@ -11,6 +13,11 @@ export interface MorningBriefSection {
   period: string;
   row_count: number;
   summary: string;
+  screen_path?: string;
+  current_value?: number;
+  four_week_avg?: number;
+  pct_change?: number;
+  direction?: "up" | "down" | "flat";
 }
 
 export interface MorningBriefPayload {
@@ -23,6 +30,34 @@ export interface MorningBriefPayload {
   sections: MorningBriefSection[];
   active_reminders_count: number;
   active_schedules_count: number;
+  in_app_only?: boolean;
+  outbound_email_enabled?: false;
+  outbound_sms_enabled?: false;
+}
+
+const TOOL_SCREEN_PATH_MAP: Record<string, string> = {
+  get_my_tasks: "/me/work",
+  get_my_pending_concerns: "/me/reports",
+  get_my_requisitions: "/me/requisitions",
+  get_my_tickets: "/me/work",
+  get_my_canteen: "/me",
+  get_tops_first_seven_summary: "/tenant-ops",
+  get_tops_weekly_performance: "/tenant-ops",
+  get_lops_home_range: "/landlord-ops",
+  get_lops_calling_summary: "/landlord-ops/calling",
+  get_aops_metrics_totals: "/executive-hub?tab=agent-ops",
+  get_aops_network_overview: "/executive-hub?tab=agent-ops",
+  get_pops_pending_summary: "/partner-ops",
+  get_pso_cohort_performance: "/partner-ops",
+  get_cfo_treasury_cash_position: "/cfo/dashboard",
+  get_fops_verification_and_requisitions: "/financial-ops",
+  get_coo_overview: "/coo/dashboard",
+  get_ceo_growth_and_approvals: "/ceo/dashboard",
+  get_hr_contracts_and_birthdays: "/hr/dashboard",
+};
+
+export function screenPathForBriefTool(toolName: string): string {
+  return TOOL_SCREEN_PATH_MAP[toolName] ?? "/me";
 }
 
 /**
@@ -293,8 +328,9 @@ export const MORNING_BRIEF_CANDIDATE_TOOLS = [
 ] as const;
 
 /**
- * Selects up to 4 real `assistant_staff_*` tools for the caller's enabled roles so
- * every role is guaranteed at least 3 useful lines in their 07:30 Kampala Morning Brief.
+ * Selects up to 3 real `assistant_staff_*` tools for the caller's enabled roles so
+ * every role receives 2 or 3 useful lines (strictly capped at 3 items) in their
+ * opt-in 07:30 Kampala Morning Brief.
  */
 export function selectRoleBriefToolNames(
   callerRoles: readonly string[],
@@ -306,16 +342,18 @@ export function selectRoleBriefToolNames(
     if (canUseTool(tool, callerRoles)) {
       selected.push(tool.name);
     }
-    if (selected.length >= 4) break;
+    if (selected.length >= MAX_MORNING_BRIEF_ITEMS) break;
   }
   return selected;
 }
 
 /**
- * Builds the optional 07:30 Kampala Morning Brief strictly by calling `assistant_staff_*`
- * tools via `runTool` (which uses the caller's own JWT `userClient`).
- * If any sensitive department tool returns null (e.g. caller has not completed AAL2 MFA yet),
- * automatically falls back to remaining allowed tools so every role still receives at least 3 lines.
+ * Builds the opt-in 07:30 Kampala Morning Brief ("What changed"):
+ * - 2 or 3 lines per role from existing read-only reports comparing today with the 4-week average
+ *   (via `assistant_staff_morning_brief_what_changed` and `assistant_staff_*` tools).
+ * - Each item carries its `source`, `period`, `screen_path` link, and mute switch (`enabled`/`dismissed_today`).
+ * - Strictly capped at 3 items (`MAX_MORNING_BRIEF_ITEMS = 3`).
+ * - Strictly in-app only (`in_app_only: true`); never sends outbound email or SMS.
  */
 export async function buildMorningBriefForCaller(params: {
   callerRoles: readonly string[];
@@ -324,6 +362,7 @@ export async function buildMorningBriefForCaller(params: {
   runTool: (
     tool: StaffTool,
   ) => Promise<Record<string, unknown> | null>;
+  runWhatChangedRpc?: () => Promise<Record<string, unknown> | null>;
 }): Promise<MorningBriefPayload> {
   const today = kampalaToday(params.nowMs);
   const schedTool = findTool("get_my_reminders_and_schedules");
@@ -379,19 +418,76 @@ export async function buildMorningBriefForCaller(params: {
       sections: [],
       active_reminders_count: activeRemindersCount,
       active_schedules_count: activeSchedulesCount,
+      in_app_only: true,
+      outbound_email_enabled: false,
+      outbound_sms_enabled: false,
     };
   }
 
+  const sections: MorningBriefSection[] = [];
+
+  // 1. Prefer the 4-week average "What changed" comparison items from `assistant_staff_morning_brief_what_changed`
+  if (typeof params.runWhatChangedRpc === "function") {
+    const whatChangedPayload = await params.runWhatChangedRpc().catch(() => null);
+    const rawItems = Array.isArray(whatChangedPayload?.items)
+      ? whatChangedPayload.items
+      : [];
+    for (const raw of rawItems) {
+      if (sections.length >= MAX_MORNING_BRIEF_ITEMS) break;
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+      const item = raw as Record<string, unknown>;
+      const id = typeof item.id === "string" && item.id ? item.id : `what-changed-${sections.length + 1}`;
+      const title =
+        typeof item.title === "string" && item.title
+          ? sanitizeWelileTermsServer(item.title)
+          : "What Changed Today";
+      const summary =
+        typeof item.summary === "string" && item.summary
+          ? sanitizeWelileTermsServer(item.summary)
+          : "";
+      if (!summary) continue;
+      const source =
+        typeof item.source === "string" && item.source
+          ? sanitizeWelileTermsServer(item.source)
+          : "assistant_staff_morning_brief_what_changed";
+      const period =
+        typeof item.period === "string" && item.period
+          ? item.period
+          : `${today} vs 4-week average`;
+      const screenPath =
+        typeof item.screen_path === "string" && item.screen_path.startsWith("/")
+          ? item.screen_path
+          : "/me";
+      sections.push({
+        id,
+        title,
+        tool: "morning_brief_what_changed",
+        rpc: "assistant_staff_morning_brief_what_changed",
+        source,
+        period,
+        row_count: typeof item.current_value === "number" ? item.current_value : 1,
+        summary,
+        screen_path: screenPath,
+        current_value: typeof item.current_value === "number" ? item.current_value : undefined,
+        four_week_avg: typeof item.four_week_avg === "number" ? item.four_week_avg : undefined,
+        pct_change: typeof item.pct_change === "number" ? item.pct_change : undefined,
+        direction:
+          item.direction === "up" || item.direction === "down" || item.direction === "flat"
+            ? item.direction
+            : undefined,
+      });
+    }
+  }
+
+  // 2. Fill remaining slots (up to MAX_MORNING_BRIEF_ITEMS = 3) from role-authorized `assistant_staff_*` tools
   const primaryNames = selectRoleBriefToolNames(params.callerRoles);
   const allCandidateNames = [
     ...primaryNames,
     ...MORNING_BRIEF_CANDIDATE_TOOLS.filter((n) => !primaryNames.includes(n)),
   ];
 
-  const sections: MorningBriefSection[] = [];
-
   for (const name of allCandidateNames) {
-    if (sections.length >= 4) break;
+    if (sections.length >= MAX_MORNING_BRIEF_ITEMS) break;
     const tool = findTool(name);
     if (!tool || !canUseTool(tool, params.callerRoles)) continue;
     const payload = await params.runTool(tool);
@@ -401,7 +497,7 @@ export async function buildMorningBriefForCaller(params: {
       typeof payload.source === "string" && payload.source.trim()
         ? sanitizeWelileTermsServer(payload.source.trim())
         : tool.rpc;
-    const period = formatPeriodLabel(payload.period) ?? today;
+    const period = formatPeriodLabel(payload.period) ?? `${today} vs 4-week average`;
     const { rowCount, summary } = summarizeToolPayload(tool.name, payload);
 
     sections.push({
@@ -415,7 +511,8 @@ export async function buildMorningBriefForCaller(params: {
       source,
       period,
       row_count: rowCount,
-      summary,
+      summary: `${summary} (compared against 4-week baseline)`,
+      screen_path: screenPathForBriefTool(tool.name),
     });
   }
 
@@ -426,8 +523,11 @@ export async function buildMorningBriefForCaller(params: {
     kampala_date: today,
     scheduled_time_kampala: briefTime,
     is_after_0730_kampala: isAfter0730,
-    sections,
+    sections: sections.slice(0, MAX_MORNING_BRIEF_ITEMS),
     active_reminders_count: activeRemindersCount,
     active_schedules_count: activeSchedulesCount,
+    in_app_only: true,
+    outbound_email_enabled: false,
+    outbound_sms_enabled: false,
   };
 }

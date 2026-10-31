@@ -435,3 +435,188 @@ export function useZoeErrorSummary(days = 14, enabled = true) {
     },
   });
 }
+
+export interface ZoeWeeklyLearningTopicRow {
+  topic: string;
+  ask_count: number;
+  answered_count: number;
+  unanswered_count: number;
+  thumbs_down_count: number;
+  thumbs_up_count: number;
+  avg_latency_ms: number;
+  total_cost_usd: number;
+}
+
+export interface ZoeWeeklyUnansweredThemeRow {
+  topic: string;
+  outcome: string;
+  count: number;
+}
+
+export interface ZoeWeeklyThumbsDownThemeRow {
+  topic: string;
+  feedback_theme: string;
+  tool_used: string;
+  count: number;
+}
+
+export interface ZoeWeeklyCostSummary {
+  total_questions: number;
+  total_cost_usd: number;
+  avg_cost_usd: number;
+  avg_latency_ms: number;
+  thumbs_down_rate_pct: number;
+}
+
+export interface ZoeLearningReviewQueueItem {
+  source_kind: 'feedback' | 'unanswered';
+  source_id: string;
+  message_id?: string | null;
+  question_redacted: string;
+  tool_used: string;
+  outcome: string;
+  comment_redacted: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface ZoeEvalCandidateItem {
+  id: string;
+  source_kind: string;
+  source_id: string;
+  cleaned_question: string;
+  expected_tool: string | null;
+  expected_topic: string | null;
+  expected_outcome: string;
+  review_status: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ZoeWeeklyLearningViewData {
+  ok: boolean;
+  source: string;
+  days: number;
+  no_individual_staff_text: boolean;
+  top_topics: ZoeWeeklyLearningTopicRow[];
+  unanswered_themes: ZoeWeeklyUnansweredThemeRow[];
+  thumbs_down_themes: ZoeWeeklyThumbsDownThemeRow[];
+  cost_summary: ZoeWeeklyCostSummary;
+  review_queue: ZoeLearningReviewQueueItem[];
+  eval_candidates: ZoeEvalCandidateItem[];
+  error?: string | null;
+}
+
+export function useZoeWeeklyLearningView(days = 7, enabled = true) {
+  const safeDays = Math.min(90, Math.max(1, Math.floor(days)));
+
+  return useQuery({
+    queryKey: ['zoe-weekly-learning-view', safeDays],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeWeeklyLearningViewData> => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_weekly_manager_learning_view',
+        { p_days: safeDays },
+      );
+
+      if (error) {
+        return {
+          ok: false,
+          source: 'staff_assistant_weekly_manager_learning_view',
+          days: safeDays,
+          no_individual_staff_text: true,
+          top_topics: [],
+          unanswered_themes: [],
+          thumbs_down_themes: [],
+          cost_summary: {
+            total_questions: 0,
+            total_cost_usd: 0,
+            avg_cost_usd: 0,
+            avg_latency_ms: 0,
+            thumbs_down_rate_pct: 0,
+          },
+          review_queue: [],
+          eval_candidates: [],
+          error: error.message,
+        };
+      }
+
+      const payload = (data ?? {}) as Partial<ZoeWeeklyLearningViewData>;
+      return {
+        ok: payload.ok !== false,
+        source: payload.source ?? 'staff_assistant_weekly_manager_learning_view',
+        days: typeof payload.days === 'number' ? payload.days : safeDays,
+        no_individual_staff_text: true,
+        top_topics: Array.isArray(payload.top_topics) ? payload.top_topics : [],
+        unanswered_themes: Array.isArray(payload.unanswered_themes)
+          ? payload.unanswered_themes
+          : [],
+        thumbs_down_themes: Array.isArray(payload.thumbs_down_themes)
+          ? payload.thumbs_down_themes
+          : [],
+        cost_summary: payload.cost_summary ?? {
+          total_questions: 0,
+          total_cost_usd: 0,
+          avg_cost_usd: 0,
+          avg_latency_ms: 0,
+          thumbs_down_rate_pct: 0,
+        },
+        review_queue: Array.isArray(payload.review_queue)
+          ? payload.review_queue
+          : [],
+        eval_candidates: Array.isArray(payload.eval_candidates)
+          ? payload.eval_candidates
+          : [],
+        error: null,
+      };
+    },
+  });
+}
+
+export function usePromoteZoeEvalCandidate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      source_kind: 'feedback' | 'unanswered';
+      source_id: string;
+      cleaned_question?: string | null;
+      expected_tool?: string | null;
+      expected_topic?: string | null;
+      notes?: string | null;
+    }) => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_promote_to_eval_set',
+        {
+          p_source_kind: params.source_kind,
+          p_source_id: params.source_id,
+          p_cleaned_question: params.cleaned_question ?? null,
+          p_expected_tool: params.expected_tool ?? null,
+          p_expected_topic: params.expected_topic ?? null,
+          p_notes: params.notes ?? null,
+        },
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      const res = (data ?? {}) as { ok?: boolean; error?: string };
+      if (res.ok === false) {
+        throw new Error(res.error || 'Could not add item to evaluation set.');
+      }
+      return res;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['zoe-weekly-learning-view'] });
+      qc.invalidateQueries({ queryKey: ['zoe-crm-dashboard'] });
+    },
+  });
+}

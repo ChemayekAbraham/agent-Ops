@@ -19,6 +19,7 @@ import { useHapticSettings, hapticIntensityOptions } from '@/hooks/useHapticSett
 import { useReducedMotion, reducedMotionOptions } from '@/hooks/useCombinedSettings';
 import { hapticSelection } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
+import { changeOwnPassword } from '@/hooks/auth/changeOwnPassword';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -684,15 +685,11 @@ export default function Settings() {
                                 <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type={showNewPassword ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password (min 6 chars)" className="pl-10 pr-10 h-11 rounded-xl" /><Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setShowNewPassword(!showNewPassword)}>{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div>
                                 <div className="relative"><Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} placeholder="Confirm new password" className="pl-10 h-11 rounded-xl" /></div>
                                 <Button size="sm" className="w-full gap-2 h-11 rounded-xl" disabled={changingPassword || !currentPassword || !newPassword || !confirmNewPassword} onClick={async () => {
-                                  if (newPassword.length < 6) { toast.error('Min 6 characters'); return; }
-                                  if (newPassword !== confirmNewPassword) { toast.error("Passwords don't match"); return; }
                                   setChangingPassword(true);
                                   try {
-                                    const { error: signInError } = await supabase.auth.signInWithPassword({ email: profile?.email || '', password: currentPassword });
-                                    if (signInError) { toast.error('Current password is incorrect'); setChangingPassword(false); return; }
-                                    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-                                    if (updateError) toast.error('Failed: ' + updateError.message);
-                                    else { supabase.functions.invoke('record-password-change').catch(() => {}); toast.success('Password updated!'); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setShowPasswordForm(false); }
+                                    const result = await changeOwnPassword({ currentPassword, newPassword, confirmPassword: confirmNewPassword });
+                                    if (!result.ok) toast.error(result.message);
+                                    else { toast.success('Password updated!'); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); setShowPasswordForm(false); }
                                   } catch { toast.error('An error occurred'); }
                                   setChangingPassword(false);
                                 }}>{changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update Password</Button>

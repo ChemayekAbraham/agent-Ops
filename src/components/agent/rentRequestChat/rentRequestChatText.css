@@ -1,0 +1,125 @@
+/* Chat-only type scale. Scoped to the agent rent-request chat root so the
+   classic dialog and the rest of the app keep their own type. Face is the
+   existing body stack (DM Sans, then Plus Jakarta Sans, then system). */
+
+[data-rent-chat-text] {
+  --rrc-body: 20px;
+  --rrc-secondary: 17px;
+  --rrc-leading: 1.5;
+  --rrc-input-min: 3.25rem;
+  font-family: 'DM Sans', 'Plus Jakarta Sans', 'Segoe UI', 'Roboto', -apple-system, sans-serif;
+}
+
+[data-rent-chat-text="medium"] {
+  --rrc-body: 16px;
+  --rrc-secondary: 15px;
+  --rrc-leading: 1.45;
+  --rrc-input-min: 3rem;
+}
+
+[data-rent-chat-text="small"] {
+  --rrc-body: 14px;
+  --rrc-secondary: 13px;
+  --rrc-leading: 1.4;
+  --rrc-input-min: 2.75rem;
+}
+
+[data-rent-chat-text] [data-rrc-bubble] {
+  font-size: var(--rrc-body);
+  line-height: var(--rrc-leading);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+[data-rent-chat-text] [data-rrc-progress] {
+  font-size: var(--rrc-secondary);
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+[data-rent-chat-text] [data-rrc-footer] [role="alert"] {
+  font-size: var(--rrc-secondary);
+  line-height: 1.4;
+  font-weight: 700;
+}
+
+[data-rent-chat-text] [data-rrc-footer] button {
+  font-size: var(--rrc-body);
+  line-height: 1.25;
+  min-height: 44px;
+  height: auto;
+  white-space: normal;
+}
+
+[data-rent-chat-text] [data-rrc-scroll] label {
+  font-size: var(--rrc-body);
+  line-height: 1.35;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+[data-rent-chat-text] [data-rrc-scroll] input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+[data-rent-chat-text] [data-rrc-scroll] textarea,
+[data-rent-chat-text] [data-rrc-scroll] select,
+[data-rent-chat-text] [data-rrc-scroll] [role="combobox"] {
+  font-size: var(--rrc-body);
+  line-height: 1.4;
+  min-height: var(--rrc-input-min);
+  height: auto;
+  color: hsl(var(--foreground));
+}
+
+/* The app locks inputs at 16px on phones so iOS does not zoom. This chat
+   is the exception: Large, Medium, and Small must reach the field itself. */
+@media (max-width: 768px) {
+  [data-rent-chat-text] [data-rrc-scroll] input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  [data-rent-chat-text] [data-rrc-scroll] textarea,
+  [data-rent-chat-text] [data-rrc-scroll] select,
+  [data-rent-chat-text] [data-rrc-scroll] input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+  [data-rent-chat-text] [data-rrc-scroll] textarea:focus,
+  [data-rent-chat-text] [data-rrc-scroll] select:focus {
+    font-size: var(--rrc-body) !important;
+  }
+}
+
+[data-rent-chat-text] [data-rrc-scroll] span.absolute.left-4 {
+  font-size: var(--rrc-body);
+  line-height: 1;
+  color: hsl(var(--foreground));
+}
+
+/* The UGX prefix sits inside the field. Give the number room so Large
+   does not draw the prefix on top of the amount. */
+[data-rent-chat-text="large"] [data-rrc-scroll] .relative:has(> span.absolute.left-4) > input {
+  padding-left: 4.6rem;
+}
+[data-rent-chat-text="medium"] [data-rrc-scroll] .relative:has(> span.absolute.left-4) > input {
+  padding-left: 4rem;
+}
+[data-rent-chat-text="small"] [data-rrc-scroll] .relative:has(> span.absolute.left-4) > input {
+  padding-left: 3.6rem;
+}
+
+[data-rent-chat-text] [data-rrc-scroll] button {
+  font-size: var(--rrc-body);
+  line-height: 1.35;
+  min-height: 44px;
+  height: auto;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+[data-rent-chat-text] [data-rrc-scroll] .text-xs,
+[data-rent-chat-text] [data-rrc-scroll] .text-\[11px\],
+[data-rent-chat-text] [data-rrc-scroll] .text-\[10px\] {
+  font-size: var(--rrc-secondary);
+  line-height: var(--rrc-leading);
+}
+
+[data-rent-chat-text] [data-rrc-scroll] .text-muted-foreground,
+[data-rent-chat-text] [data-rrc-scroll] .text-primary\/60,
+[data-rent-chat-text] [data-rrc-scroll] .text-primary\/70,
+[data-rent-chat-text] [data-rrc-scroll] .text-primary\/80 {
+  color: hsl(var(--foreground) / 0.82);
+}

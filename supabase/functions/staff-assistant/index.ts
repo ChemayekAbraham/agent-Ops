@@ -52,17 +52,21 @@ import {
   appendMemoryEntries,
   buildFollowUpSuggestions,
   buildMemoryEntryFromToolResult,
+  classifyQuestionTopic,
   ConversationMemorySummary,
+  detectRepeatedUserPreference,
   extractChartFromReportPayload,
   formatConversationMemoryForPrompt,
   formatZoeNotesForPrompt,
   MemoryToolEntry,
   parseConversationMemory,
   PROMPT_ACTIVE_TURNS,
+  selectRoleVerifiedStarters,
   splitTurnsForPromptMemory,
   statusLineForTool,
   synthesizePartialStepLimitReply,
   ZoeChartPayload,
+  ZoeMemorySuggestion,
   ZoeNoteRecord,
 } from "./memory.ts";
 import { formatWriteMutationRefusal, MSG } from "./messages.ts";
@@ -92,6 +96,7 @@ import {
   DEFAULT_STAFF_ASSISTANT_CONFIG,
   deleteUserNote,
   getAdminClientForMfa,
+  getMemoryPrefs,
   getOrCreateConversation,
   listUserConversations,
   listUserNotes,
@@ -100,15 +105,19 @@ import {
   loadRecentTurns,
   logAnalystQuery,
   mapMissingFunctionToErrorCode,
+  recordLearningLogEntry,
   recordTurn,
   recordUnanswered,
   renameUserConversation,
   saveFeedback,
   SessionMeta,
+  setMemoryPrefs,
   TurnOutcome,
   UnansweredReason,
+  updateUserNote,
   ZOE_ERROR_CODES,
   ZoeErrorCode,
+  ZoeMemoryPrefs,
 } from "./store.ts";
 
 import {
@@ -268,6 +277,20 @@ export interface StaffAssistantStoreDeps {
     userId: string,
     noteId: string,
   ) => Promise<{ ok: boolean; notes: ZoeNoteRecord[] }>;
+  updateUserNote?: (
+    userId: string,
+    noteId: string,
+    noteText: string,
+  ) => Promise<
+    | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+    | { ok: false; reason: string; error: string }
+  >;
+  getMemoryPrefs?: (userId: string) => Promise<ZoeMemoryPrefs>;
+  setMemoryPrefs?: (
+    userId: string,
+    opts: { memoryEnabled?: boolean; dismissPreferenceKey?: string },
+  ) => Promise<ZoeMemoryPrefs>;
+  recordLearningLogEntry?: typeof recordLearningLogEntry;
   logAnalystQuery?: typeof logAnalystQuery;
 }
 
@@ -300,6 +323,10 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   listUserNotes,
   addUserNote,
   deleteUserNote,
+  updateUserNote,
+  getMemoryPrefs,
+  setMemoryPrefs,
+  recordLearningLogEntry,
   logAnalystQuery,
 };
 
@@ -672,6 +699,13 @@ export async function handleStaffAssistantRequest(
     const brief = await buildMorningBriefForCaller({
       callerRoles,
       force: body.force,
+      runWhatChangedRpc: async () => {
+        const { data, error } = await userClient.rpc("assistant_staff_morning_brief_what_changed");
+        if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+          return null;
+        }
+        return data as Record<string, unknown>;
+      },
       runTool: async (tool) => {
         if (!canUseTool(tool, callerRoles)) return null;
         if (tool.sensitive) {
@@ -696,18 +730,58 @@ export async function handleStaffAssistantRequest(
     return json(200, { ok: true, morning_brief: brief });
   }
 
-  // Prompt 2 item (5): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
-  if (body.action === "list_notes") {
-    const notes = store.listUserNotes
-      ? await store.listUserNotes(user.id).catch(async (err) => {
-          await recordDegraded(
-            ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
-            err instanceof Error ? err.message : "listUserNotes failed",
+  // Prompt 4 item (1): Personalised starters from the signed-in person's own last 30 days of topics + role tools
+  if (body.action === "personalised_starters") {
+    const callerRoles = await resolveCallerRoles(userClient, user.id);
+    activeCallerRoles = callerRoles;
+    let rpcStarters: Array<Record<string, unknown>> = [];
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_personalised_starters");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        const payload = data as Record<string, unknown>;
+        if (Array.isArray(payload.starters)) {
+          rpcStarters = payload.starters.filter(
+            (s): s is Record<string, unknown> => Boolean(s && typeof s === "object" && !Array.isArray(s)),
           );
-          return [];
-        })
-      : [];
-    return json(200, { ok: true, notes });
+        }
+      }
+    } catch {
+      // Fall back to role-verified starters
+    }
+    const starters = selectRoleVerifiedStarters(callerRoles, rpcStarters);
+    return json(200, {
+      ok: true,
+      source: "assistant_staff_personalised_starters",
+      privacy_scope: "own_30d_topics_only",
+      starters,
+    });
+  }
+
+  // Prompt 2 item (5) & Prompt 4 item (3): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
+  if (body.action === "list_notes") {
+    const [notes, memPrefs] = await Promise.all([
+      store.listUserNotes
+        ? store.listUserNotes(user.id).catch(async (err) => {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+              err instanceof Error ? err.message : "listUserNotes failed",
+            );
+            return [];
+          })
+        : Promise.resolve([]),
+      store.getMemoryPrefs
+        ? store.getMemoryPrefs(user.id).catch(() => ({
+            memory_enabled: true,
+            dismissed_memory_prompts: [],
+          }))
+        : Promise.resolve({ memory_enabled: true, dismissed_memory_prompts: [] }),
+    ]);
+    return json(200, {
+      ok: true,
+      notes,
+      memory_enabled: memPrefs.memory_enabled,
+      dismissed_memory_prompts: memPrefs.dismissed_memory_prompts,
+    });
   }
 
   if (body.action === "add_note") {
@@ -734,6 +808,30 @@ export async function handleStaffAssistantRequest(
     }
   }
 
+  if (body.action === "update_note") {
+    if (!store.updateUserNote) {
+      return json(400, { ok: false, error: MSG.invalidRequest });
+    }
+    try {
+      const res = await store.updateUserNote(user.id, body.note_id, body.note_text);
+      if (!res.ok) {
+        return json(400, { ok: false, reason: res.reason, error: res.error });
+      }
+      return json(200, { ok: true, note: res.note, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "updateUserNote failed",
+      );
+      return json(200, {
+        ok: false,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        notes: [],
+      });
+    }
+  }
+
   if (body.action === "delete_note") {
     try {
       const res = store.deleteUserNote
@@ -747,6 +845,67 @@ export async function handleStaffAssistantRequest(
       );
       return json(200, { ok: true, notes: [] });
     }
+  }
+
+  if (body.action === "get_memory_prefs") {
+    const prefs = store.getMemoryPrefs
+      ? await store.getMemoryPrefs(user.id)
+      : { memory_enabled: true, dismissed_memory_prompts: [] };
+    return json(200, {
+      ok: true,
+      memory_enabled: prefs.memory_enabled,
+      dismissed_memory_prompts: prefs.dismissed_memory_prompts,
+    });
+  }
+
+  if (body.action === "set_memory_prefs") {
+    try {
+      await userClient.rpc("staff_assistant_set_memory_prefs", {
+        p_memory_enabled: body.memory_enabled ?? null,
+        p_dismiss_preference_key: body.dismiss_preference_key ?? null,
+      });
+    } catch {
+      // Fallback to store helper
+    }
+    const prefs = store.setMemoryPrefs
+      ? await store.setMemoryPrefs(user.id, {
+          memoryEnabled: body.memory_enabled,
+          dismissPreferenceKey: body.dismiss_preference_key,
+        })
+      : {
+          memory_enabled: body.memory_enabled ?? true,
+          dismissed_memory_prompts: body.dismiss_preference_key ? [body.dismiss_preference_key] : [],
+        };
+    return json(200, {
+      ok: true,
+      memory_enabled: prefs.memory_enabled,
+      dismissed_memory_prompts: prefs.dismissed_memory_prompts,
+    });
+  }
+
+  if (body.action === "search_knowledge_base") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_search_knowledge_base", {
+        p_query: body.query ?? null,
+        p_category: body.category ?? null,
+        p_limit: body.limit ?? 10,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        const payload = data as Record<string, unknown>;
+        return json(200, {
+          ok: true,
+          source: payload.source ?? "staff_assistant_knowledge_base",
+          rows: Array.isArray(payload.rows) ? payload.rows : [],
+        });
+      }
+    } catch {
+      // Fallback below
+    }
+    return json(200, {
+      ok: true,
+      source: "staff_assistant_knowledge_base",
+      rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+    });
   }
 
   // Prompt 2 item (6): Read-only Welile Glossary lookup (`assistant_staff_get_glossary`)
@@ -867,6 +1026,18 @@ export async function handleStaffAssistantRequest(
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const userText = body.message;
+  const temporaryChat = body.temporary_chat === true;
+  const memPrefs = store.getMemoryPrefs
+    ? await store.getMemoryPrefs(user.id).catch(() => ({
+        memory_enabled: true,
+        dismissed_memory_prompts: [],
+      }))
+    : { memory_enabled: true, dismissed_memory_prompts: [] };
+  const memoryEnabled =
+    !temporaryChat &&
+    body.memory_enabled !== false &&
+    memPrefs.memory_enabled !== false;
+
   const researchMode = body.research_mode === true;
   const consultantMode = isConsultantQuestion(userText);
   const isConsultantOrResearch = consultantMode || researchMode;
@@ -892,33 +1063,44 @@ export async function handleStaffAssistantRequest(
     memory?: ConversationMemorySummary;
     rollingSummary?: string;
   };
-  try {
-    conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
-  } catch (err) {
-    await recordDegraded(
-      ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
-      err instanceof Error ? err.message : "getOrCreateConversation failed",
-    );
+  if (temporaryChat) {
     conv = {
       id: body.conversation_id ?? crypto.randomUUID(),
-      status: "open",
+      status: "temporary",
       rollingSummary: "",
     };
+  } else {
+    try {
+      conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+        err instanceof Error ? err.message : "getOrCreateConversation failed",
+      );
+      conv = {
+        id: body.conversation_id ?? crypto.randomUUID(),
+        status: "open",
+        rollingSummary: "",
+      };
+    }
   }
   activeConvId = conv.id;
 
-  const existingMemory = parseConversationMemory(conv.memory);
+  const existingMemory = memoryEnabled
+    ? parseConversationMemory(conv.memory)
+    : { entries: [] };
   const newMemoryEntries: MemoryToolEntry[] = [];
   const statusSteps: string[] = [];
   const wantsStream = body.stream === true;
   const liveSse = wantsStream ? createLiveSseWriter() : null;
   let streamedTokensAlreadySent = false;
-  let updatedRollingSummary = conv.rollingSummary ?? "";
+  let updatedRollingSummary = memoryEnabled ? (conv.rollingSummary ?? "") : "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
   let webSearchesInQuestion = 0;
   let webSourcesReadInQuestion = 0;
   let webResearchSpentUsd = 0;
+  let detectedMemorySuggestion: ZoeMemorySuggestion | null = null;
   const maxWebSourcesThisQuestion = researchMode
     ? MAX_RESEARCH_SOURCES_PER_QUESTION
     : MAX_WEB_SEARCHES_PER_QUESTION;
@@ -972,7 +1154,9 @@ export async function handleStaffAssistantRequest(
       mfaRequired?: boolean;
     },
   ) => {
-    const updatedMemory = appendMemoryEntries(existingMemory, newMemoryEntries);
+    const updatedMemory = memoryEnabled
+      ? appendMemoryEntries(existingMemory, newMemoryEntries)
+      : { entries: [] };
     const chart =
       opts?.chart !== undefined
         ? opts.chart
@@ -985,6 +1169,8 @@ export async function handleStaffAssistantRequest(
         ? buildFollowUpSuggestions({
             toolsCalled: opts?.tools ?? [],
             callerRoles,
+            reportPayload: opts?.reportPayload ?? null,
+            userMessage: userText,
           })
         : []);
 
@@ -996,62 +1182,99 @@ export async function handleStaffAssistantRequest(
           ...(followUpSuggestions.length > 0
             ? { follow_up_suggestions: followUpSuggestions }
             : {}),
+          ...(detectedMemorySuggestion
+            ? { memory_suggestion: detectedMemorySuggestion }
+            : {}),
         }
-      : chart
+      : chart || detectedMemorySuggestion
       ? {
           ...(consultantMode ? { consultant_mode: true } : {}),
-          chart,
+          ...(chart ? { chart } : {}),
           follow_up_suggestions: followUpSuggestions,
+          ...(detectedMemorySuggestion
+            ? { memory_suggestion: detectedMemorySuggestion }
+            : {}),
         }
       : consultantMode
       ? { consultant_mode: true }
       : null;
 
     let assistantMessageId = crypto.randomUUID();
-    try {
-      const turnRes = await store.recordTurn({
-        conversationId: conv.id,
-        userId: user.id,
-        userMessage: userText,
-        assistantMessage: reply,
-        outcome,
-        toolsCalled: opts?.tools,
-        sourceLabel: opts?.sourceLabel ?? null,
-        periodLabel: opts?.periodLabel ?? null,
-        reportPayload: enrichedReportPayload,
-        conversationSummary: updatedMemory,
-        rollingSummary: updatedRollingSummary,
-        model: opts?.model,
-        latencyMs: Date.now() - startedAt,
-      });
-      assistantMessageId = turnRes.assistantMessageId;
-      if (turnRes.errorCode) {
+    const latencyMs = Date.now() - startedAt;
+
+    if (!temporaryChat) {
+      try {
+        const turnRes = await store.recordTurn({
+          conversationId: conv.id,
+          userId: user.id,
+          userMessage: userText,
+          assistantMessage: reply,
+          outcome,
+          toolsCalled: opts?.tools,
+          sourceLabel: opts?.sourceLabel ?? null,
+          periodLabel: opts?.periodLabel ?? null,
+          reportPayload: enrichedReportPayload,
+          conversationSummary: updatedMemory,
+          rollingSummary: updatedRollingSummary,
+          model: opts?.model,
+          latencyMs,
+        });
+        assistantMessageId = turnRes.assistantMessageId;
+        if (turnRes.errorCode) {
+          await recordDegraded(
+            turnRes.errorCode as ZoeErrorCode,
+            turnRes.errorDetail ?? turnRes.errorCode,
+          );
+        }
+      } catch (err) {
         await recordDegraded(
-          turnRes.errorCode as ZoeErrorCode,
-          turnRes.errorDetail ?? turnRes.errorCode,
+          ZOE_ERROR_CODES.ERR_DB_USAGE_LOG_FAILED,
+          err instanceof Error ? err.message : "recordTurn failed",
         );
       }
-    } catch (err) {
-      await recordDegraded(
-        ZOE_ERROR_CODES.ERR_DB_USAGE_LOG_FAILED,
-        err instanceof Error ? err.message : "recordTurn failed",
-      );
-    }
 
-    if (opts?.unansweredReason) {
-      try {
-        await store.recordUnanswered({
-          conversationId: conv.id,
-          messageId: assistantMessageId,
-          userId: user.id,
-          callerRoles,
-          questionText: userText,
-          reason: opts.unansweredReason,
-          errorCode: opts.errorCode ?? null,
-          errorDetail: opts.errorDetail ?? null,
-        });
-      } catch {
-        // best effort
+      if (opts?.unansweredReason) {
+        try {
+          await store.recordUnanswered({
+            conversationId: conv.id,
+            messageId: assistantMessageId,
+            userId: user.id,
+            callerRoles,
+            questionText: userText,
+            reason: opts.unansweredReason,
+            errorCode: opts.errorCode ?? null,
+            errorDetail: opts.errorDetail ?? null,
+          });
+        } catch {
+          // best effort
+        }
+      }
+
+      // Prompt 4 item (5): Log question topic, tool used, outcome, latency, and cost
+      // WITHOUT storing a second copy of the question text.
+      if (store.recordLearningLogEntry) {
+        try {
+          const topic = classifyQuestionTopic({
+            userMessage: userText,
+            toolsCalled: opts?.tools ?? [],
+            consultantMode,
+            researchMode,
+          });
+          await store.recordLearningLogEntry({
+            messageId: assistantMessageId,
+            conversationId: conv.id,
+            userId: user.id,
+            callerRoles,
+            topic,
+            toolUsed: opts?.tools && opts.tools.length > 0 ? opts.tools[0] : null,
+            outcome,
+            latencyMs,
+            costUsd: totalQuestionCostUsd,
+            modelTier: selectedTier.tier,
+          });
+        } catch {
+          // best effort
+        }
       }
     }
 
@@ -1066,6 +1289,9 @@ export async function handleStaffAssistantRequest(
       report_payload: enrichedReportPayload,
       chart: chart ?? null,
       follow_up_suggestions: followUpSuggestions,
+      memory_suggestion: detectedMemorySuggestion,
+      temporary_chat: temporaryChat,
+      memory_enabled: memoryEnabled,
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
       consultant_mode: consultantMode,
@@ -1107,34 +1333,57 @@ export async function handleStaffAssistantRequest(
     }
 
     // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
-    const [history, userNotes] = await Promise.all([
-      store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
-        await recordDegraded(
-          ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
-          err instanceof Error ? err.message : "loadRecentTurns failed",
-        );
-        return [] as ChatMessage[];
-      }),
-      store.listUserNotes
-        ? store.listUserNotes(user.id).catch(async (err) => {
+    // When `temporaryChat === true` or `memoryEnabled === false`, read NO memory.
+    const [history, userNotes] = memoryEnabled
+      ? await Promise.all([
+          store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
             await recordDegraded(
-              ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
-              err instanceof Error ? err.message : "listUserNotes failed",
+              ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+              err instanceof Error ? err.message : "loadRecentTurns failed",
             );
-            return [] as ZoeNoteRecord[];
-          })
-        : Promise.resolve([] as ZoeNoteRecord[]),
-    ]);
+            return [] as ChatMessage[];
+          }),
+          store.listUserNotes
+            ? store.listUserNotes(user.id).catch(async (err) => {
+                await recordDegraded(
+                  ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+                  err instanceof Error ? err.message : "listUserNotes failed",
+                );
+                return [] as ZoeNoteRecord[];
+              })
+            : Promise.resolve([] as ZoeNoteRecord[]),
+        ])
+      : [[] as ChatMessage[], [] as ZoeNoteRecord[]];
+
+    // Prompt 4 item (3): Detect repeated safe preference across recent user turns
+    detectedMemorySuggestion = detectRepeatedUserPreference({
+      currentMessage: userText,
+      recentUserMessages: history
+        .filter((h) => h.role === "user" && typeof h.content === "string")
+        .map((h) => h.content as string),
+      existingNotes: userNotes,
+      dismissedPromptKeys: memPrefs.dismissed_memory_prompts,
+      memoryEnabled,
+      temporaryChat,
+    });
+
     const today = kampalaToday();
-    const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
-    const zoeNotesBlock = formatZoeNotesForPrompt(userNotes);
+    const memoryBlock = memoryEnabled ? formatConversationMemoryForPrompt(existingMemory) : "";
+    const zoeNotesBlock = memoryEnabled ? formatZoeNotesForPrompt(userNotes) : "";
 
     // Deliverable (6): Use the last 20 turns (40 messages) verbatim; summarise older turns
-    const splitMemory = splitTurnsForPromptMemory(
-      history,
-      conv.rollingSummary ?? "",
-      PROMPT_ACTIVE_TURNS,
-    );
+    const splitMemory = memoryEnabled
+      ? splitTurnsForPromptMemory(
+          history,
+          conv.rollingSummary ?? "",
+          PROMPT_ACTIVE_TURNS,
+        )
+      : {
+          activeTurnWindow: [] as ChatMessage[],
+          olderTurnWindow: [] as ChatMessage[],
+          rollingSummaryText: "",
+          rollingSummaryPromptBlock: "",
+        };
     const activeTurnWindow = splitMemory.activeTurnWindow;
     updatedRollingSummary = splitMemory.rollingSummaryText;
     const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;

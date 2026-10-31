@@ -5,10 +5,12 @@ import { kampalaToday } from "./dates.ts";
 import { validateZoeNoteText } from "./guards.ts";
 import {
   buildRollingConversationSummary,
+  classifyFeedbackTheme,
   ConversationMemorySummary,
   MAX_ZOE_NOTES_PER_USER,
   parseConversationMemory,
   ZoeNoteRecord,
+  ZoeQuestionTopic,
 } from "./memory.ts";
 import { MSG } from "./messages.ts";
 import {
@@ -992,6 +994,23 @@ export async function saveFeedback(args: {
     error = fallback.error;
   }
 
+  // Also stamp feedback_rating (-1 / 1) and feedback_theme onto `staff_assistant_learning_log`
+  try {
+    const numericRating = args.rating === "down" ? -1 : 1;
+    const theme =
+      args.rating === "down" ? classifyFeedbackTheme(args.comment, reportKind) : null;
+    await db
+      .from("staff_assistant_learning_log")
+      .update({
+        feedback_rating: numericRating,
+        feedback_theme: theme,
+      })
+      .eq("message_id", args.messageId)
+      .eq("user_id", args.userId);
+  } catch {
+    // best-effort learning log feedback update
+  }
+
   return { ok: !error };
 }
 
@@ -1397,6 +1416,186 @@ export async function deleteUserNote(
 
   const notes = await listUserNotes(userId, db);
   return { ok: true, notes };
+}
+
+/**
+ * Prompt 4 item (3): Updates an existing Zoe note (`staff_assistant_notes`),
+ * enforcing `validateZoeNoteText` (blocks figures, phones, emails, IDs, and details about others).
+ */
+export async function updateUserNote(
+  userId: string,
+  noteId: string,
+  noteText: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<
+  | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+  | { ok: false; reason: string; error: string }
+> {
+  const check = validateZoeNoteText(noteText);
+  if (!check.ok) {
+    return {
+      ok: false,
+      reason: check.reason,
+      error: MSG.noteRejectedPiiOrFigures,
+    };
+  }
+
+  const db = dbOverride ?? admin();
+  const nowIso = new Date().toISOString();
+  const { data: updated, error } = await db
+    .from("staff_assistant_notes")
+    .update({
+      note_text: check.cleaned,
+      updated_at: nowIso,
+    })
+    .eq("id", noteId)
+    .eq("user_id", userId)
+    .eq("is_deleted", false)
+    .select("id, note_text, created_at")
+    .maybeSingle();
+
+  if (error || !updated) {
+    return {
+      ok: false,
+      reason: "not_found",
+      error: "Could not update Zoe note right now.",
+    };
+  }
+
+  const notes = await listUserNotes(userId, db);
+  return {
+    ok: true,
+    note: {
+      id: String(updated.id),
+      note_text: String(updated.note_text),
+      created_at: typeof updated.created_at === "string" ? updated.created_at : nowIso,
+    },
+    notes,
+  };
+}
+
+export interface ZoeMemoryPrefs {
+  memory_enabled: boolean;
+  dismissed_memory_prompts: string[];
+}
+
+export async function getMemoryPrefs(
+  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<ZoeMemoryPrefs> {
+  if (!dbOverride && (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL"))) {
+    return { memory_enabled: true, dismissed_memory_prompts: [] };
+  }
+  try {
+    const db = dbOverride ?? admin();
+    const { data, error } = await db
+      .from("staff_assistant_preferences")
+      .select("memory_enabled, dismissed_memory_prompts")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error || !data) {
+      return { memory_enabled: true, dismissed_memory_prompts: [] };
+    }
+    const row = data as Record<string, unknown>;
+    return {
+      memory_enabled: typeof row.memory_enabled === "boolean" ? row.memory_enabled : true,
+      dismissed_memory_prompts: Array.isArray(row.dismissed_memory_prompts)
+        ? row.dismissed_memory_prompts.filter((x): x is string => typeof x === "string")
+        : [],
+    };
+  } catch {
+    return { memory_enabled: true, dismissed_memory_prompts: [] };
+  }
+}
+
+export async function setMemoryPrefs(
+  userId: string,
+  opts: { memoryEnabled?: boolean; dismissPreferenceKey?: string },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<ZoeMemoryPrefs> {
+  if (!dbOverride && (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL"))) {
+    return {
+      memory_enabled: opts.memoryEnabled ?? true,
+      dismissed_memory_prompts: opts.dismissPreferenceKey ? [opts.dismissPreferenceKey] : [],
+    };
+  }
+  try {
+    const db = dbOverride ?? admin();
+    const current = await getMemoryPrefs(userId, db);
+    const nextMemoryEnabled =
+      typeof opts.memoryEnabled === "boolean" ? opts.memoryEnabled : current.memory_enabled;
+    const cleanKey = (opts.dismissPreferenceKey ?? "").trim().slice(0, 80);
+    const nextDismissed =
+      cleanKey && !current.dismissed_memory_prompts.includes(cleanKey)
+        ? [...current.dismissed_memory_prompts, cleanKey]
+        : current.dismissed_memory_prompts;
+
+    await db.from("staff_assistant_preferences").upsert(
+      {
+        user_id: userId,
+        memory_enabled: nextMemoryEnabled,
+        dismissed_memory_prompts: nextDismissed,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+
+    return {
+      memory_enabled: nextMemoryEnabled,
+      dismissed_memory_prompts: nextDismissed,
+    };
+  } catch {
+    return {
+      memory_enabled: opts.memoryEnabled ?? true,
+      dismissed_memory_prompts: opts.dismissPreferenceKey ? [opts.dismissPreferenceKey] : [],
+    };
+  }
+}
+
+/**
+ * Prompt 4 item (5): Logs each question's topic (from a fixed list), tool used,
+ * outcome, latency, cost, and model tier into `staff_assistant_learning_log`
+ * WITHOUT storing a second copy of the question text.
+ */
+export async function recordLearningLogEntry(
+  args: {
+    messageId: string | null;
+    conversationId: string | null;
+    userId: string;
+    callerRoles: readonly string[];
+    topic: ZoeQuestionTopic;
+    toolUsed: string | null;
+    outcome: TurnOutcome;
+    latencyMs: number;
+    costUsd: number;
+    modelTier: "fast" | "deep";
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  dbOverride?: any,
+): Promise<void> {
+  if (!dbOverride && (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL"))) {
+    return;
+  }
+  try {
+    const db = dbOverride ?? admin();
+    await db.from("staff_assistant_learning_log").insert({
+      message_id: args.messageId,
+      conversation_id: args.conversationId,
+      user_id: args.userId,
+      caller_roles: [...args.callerRoles],
+      topic: args.topic,
+      tool_used: args.toolUsed,
+      outcome: args.outcome,
+      latency_ms: Math.max(0, Math.round(args.latencyMs || 0)),
+      cost_usd: Number(Math.max(0, args.costUsd || 0).toFixed(6)),
+      model_tier: args.modelTier,
+    });
+  } catch (err) {
+    console.warn("[staff-assistant] recordLearningLogEntry failed:", err);
+  }
 }
 
 /**
