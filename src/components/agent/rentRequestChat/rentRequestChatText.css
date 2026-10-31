@@ -196,3 +196,11 @@
   background-color: hsl(var(--background));
   background-image: linear-gradient(hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.10));
 }
+
+/* The purple answer bubble is a solid colour first, because the global
+   .save-data rule flattens any .bg-gradient-to-* element to the page
+   background (white text on it then disappears). The gradient is added here,
+   only when neither Data Saver nor lite-mode is on. */
+html:not(.save-data):not(.lite-mode) [data-rent-chat-text] [data-rrc-row="me"] [data-rrc-bubble] {
+  background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.85));
+}

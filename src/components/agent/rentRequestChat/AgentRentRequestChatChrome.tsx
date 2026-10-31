@@ -150,7 +150,7 @@ export function RentRequestChatBubble({
         className={cn(
           'max-w-[80%] px-4 py-2.5 whitespace-pre-wrap break-words',
           mine
-            ? 'bg-gradient-to-r from-primary to-primary/85 text-primary-foreground rounded-2xl rounded-tr-md shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.45)]'
+            ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-md shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.45)]'
             : 'bg-card text-card-foreground border border-primary/15 rounded-2xl rounded-tl-md shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)]',
         )}
       >
