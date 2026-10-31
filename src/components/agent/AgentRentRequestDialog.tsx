@@ -1,7 +1,8 @@
 import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
 import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
+import { lazyNamed, lazyWithRetry } from '@/lib/lazyWithRetry';
 import { addDays, format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
@@ -16,8 +17,6 @@ import {
 import { archiveToDrive } from '@/lib/archiveToDrive';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
-import RegisterLandlordDialog from '@/components/agent/RegisterLandlordDialog';
-import { ListEmptyHouseDialog } from '@/components/agent/ListEmptyHouseDialog';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import { ExistingTenantPhoneNotice } from '@/components/agent/ExistingTenantPhoneNotice';
 import { TenantDuplicateNotice } from '@/components/agent/TenantDuplicateNotice';
@@ -32,7 +31,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
 import { useListingDaytimeGuard } from '@/hooks/useListingDaytimeGuard';
 import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThresholdPopover';
-import { EntityDetailSheet } from '@/components/executive/EntityDetailSheet';
 import {
   Dialog,
   DialogContent,
@@ -100,7 +98,6 @@ import { normalizeDistrict, districtWarning } from '@/lib/ugandaDistricts';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { generateRentRequestFormPdf } from '@/lib/rentRequestFormPdf';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AgentEditRentRequestDialog } from '@/components/agent/AgentEditRentRequestDialog';
 import { STAGE_LABEL, type AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import {
@@ -121,7 +118,21 @@ import {
   RentRequestChatHeader,
   RentRequestChatProgress,
 } from '@/components/agent/rentRequestChat/AgentRentRequestChatChrome';
-import { useRentRequestChatTextSize } from '@/components/agent/rentRequestChat/useRentRequestChatTextSize';
+
+// Rarely-opened sub-dialogs stay out of the first-open download of this dialog;
+// each loads the first time it is opened and then stays mounted (so close
+// animations still play).
+const RegisterLandlordDialog = lazyWithRetry(() => import('@/components/agent/RegisterLandlordDialog'));
+const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
+const EntityDetailSheet = lazyNamed(() => import('@/components/executive/EntityDetailSheet'), 'EntityDetailSheet');
+const AgentEditRentRequestDialog = lazyNamed(() => import('@/components/agent/AgentEditRentRequestDialog'), 'AgentEditRentRequestDialog');
+
+function useMountedOnce(flag: boolean): boolean {
+  const [seen, setSeen] = useState(flag);
+  if (flag && !seen) setSeen(true);
+  return seen || flag;
+}
+
 
 interface AgentRentRequestDialogProps {
   open: boolean;
@@ -691,7 +702,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   // Current sub-step inside the standard flow's guided wizard (0-based).
   const [detailStep, setDetailStep] = useState(0);
   const chatMode = presentation === 'chat';
-  const [chatTextSize, setChatTextSize] = useRentRequestChatTextSize(user?.id);
   const [chatBeat, setChatBeat] = useState(0);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1123,6 +1133,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const [outstandingRentAmount, setOutstandingRentAmount] = useState('');
   const [outstandingDaysRemaining, setOutstandingDaysRemaining] = useState('');
   const [showRegisterLandlord, setShowRegisterLandlord] = useState(false);
+  const mountRegisterLandlord = useMountedOnce(showRegisterLandlord);
+  const mountListHouse = useMountedOnce(showListHouse);
+  const mountLandlordProfile = useMountedOnce(!!landlordProfile);
+  const mountResubmit = useMountedOnce(!!resubmitTarget);
   const [landlordPickerKey, setLandlordPickerKey] = useState(0);
   const [landlordSearchOpenSignal, setLandlordSearchOpenSignal] = useState(0);
   const [showLinkedBanner, setShowLinkedBanner] = useState(false);
@@ -3686,7 +3700,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        data-rent-chat-text={chatMode ? chatTextSize : undefined}
+        data-rent-chat-text={chatMode ? 'medium' : undefined}
         style={chatMode ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' } : undefined}
         className={chatMode
         ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
@@ -3702,8 +3716,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               onForm={openFieldFormPreview}
               formBusy={fieldFormGenerating}
               savedHint={savedHint}
-              textSize={chatTextSize}
-              onTextSize={setChatTextSize}
             />
             {!success && (
               <RentRequestChatProgress
@@ -6258,6 +6270,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           </div>
         </div>
       )}
+      {mountRegisterLandlord && (
+      <Suspense fallback={null}>
       <RegisterLandlordDialog
         open={showRegisterLandlord}
         onOpenChange={setShowRegisterLandlord}
@@ -6276,6 +6290,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           }
         }}
       />
+      </Suspense>
+      )}
+      {mountListHouse && (
+      <Suspense fallback={null}>
       <ListEmptyHouseDialog
         open={showListHouse}
         onOpenChange={setShowListHouse}
@@ -6296,6 +6314,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           toast.success('House listed — landlord & LC1 registered. They must be verified before you can post.');
         }}
       />
+      </Suspense>
+      )}
       <AlertDialog open={confirmCloseDialog} onOpenChange={setConfirmCloseDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -6417,6 +6437,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         </div>
       </DialogContent>
     </Dialog>
+    {mountLandlordProfile && (
+    <Suspense fallback={null}>
     <EntityDetailSheet
       open={!!landlordProfile}
       onClose={() => setLandlordProfile(null)}
@@ -6453,8 +6475,12 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         Confirm and select landlord
       </Button>
     </EntityDetailSheet>
+    </Suspense>
+    )}
 
     {/* Duplicate blocked → resubmit the existing rejected request instead */}
+    {mountResubmit && (
+    <Suspense fallback={null}>
     <AgentEditRentRequestDialog
       request={resubmitTarget}
       open={!!resubmitTarget}
@@ -6465,6 +6491,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         onOpenChange(false);
       }}
     />
+    </Suspense>
+    )}
     </>
   );
 }

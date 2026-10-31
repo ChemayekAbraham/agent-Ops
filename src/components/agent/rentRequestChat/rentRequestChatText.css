@@ -123,3 +123,84 @@
 [data-rent-chat-text] [data-rrc-scroll] .text-primary\/80 {
   color: hsl(var(--foreground) / 0.82);
 }
+
+/* Chat motion. Pure CSS (no framer-motion, which tears on low-end Android);
+   html.lite-mode zeroes every animation duration globally, and the
+   reduced-motion block below does the same for OS-level preferences. */
+@keyframes rrc-bubble-in-bot {
+  from { opacity: 0; transform: translate3d(-20px, 12px, 0) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rrc-bubble-in-me {
+  from { opacity: 0; transform: translate3d(20px, 12px, 0) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes rrc-chip-in {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+[data-rent-chat-text] [data-rrc-row="bot"] {
+  animation: rrc-bubble-in-bot 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+[data-rent-chat-text] [data-rrc-row="me"] {
+  animation: rrc-bubble-in-me 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+[data-rent-chat-text] [data-rrc-scroll] {
+  scroll-behavior: smooth;
+}
+
+/* Answer chips arrive one after another once the question has landed. */
+[data-rent-chat-text] [role="group"] > button {
+  animation: rrc-chip-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+[data-rent-chat-text] [role="group"] > button:nth-child(1) { animation-delay: 0.15s; }
+[data-rent-chat-text] [role="group"] > button:nth-child(2) { animation-delay: 0.22s; }
+[data-rent-chat-text] [role="group"] > button:nth-child(3) { animation-delay: 0.29s; }
+[data-rent-chat-text] [role="group"] > button:nth-child(4) { animation-delay: 0.36s; }
+[data-rent-chat-text] [role="group"] > button:nth-child(n+5) { animation-delay: 0.42s; }
+
+@media (hover: hover) {
+  [data-rent-chat-text] [role="group"] > button:hover {
+    transform: translateY(-1px) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-rent-chat-text] [data-rrc-row],
+  [data-rent-chat-text] [role="group"] > button {
+    animation: none;
+    transition: none;
+  }
+  [data-rent-chat-text] [data-rrc-scroll] { scroll-behavior: auto; }
+}
+
+/* Conversation backdrop: a faint lavender wash tinted from the theme primary,
+   over a solid base so the page behind the dialog never bleeds through. White
+   cards and the purple answer bubbles both sit cleanly on it. */
+[data-rent-chat-text] [data-rrc-scroll] {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(120% 60% at 100% 0%, hsl(var(--primary) / 0.10), transparent 60%),
+    radial-gradient(100% 50% at 0% 100%, hsl(var(--primary) / 0.08), transparent 65%),
+    linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.11));
+}
+
+[data-rent-chat-text] [data-rrc-footer] {
+  background-color: hsl(var(--background));
+  background-image: linear-gradient(hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.10));
+}
+
+/* The purple answer bubble is a solid colour first, because the global
+   .save-data rule flattens any .bg-gradient-to-* element to the page
+   background (white text on it then disappears). The gradient is added here,
+   only when neither Data Saver nor lite-mode is on. */
+html:not(.save-data):not(.lite-mode) [data-rent-chat-text] [data-rrc-row="me"] [data-rrc-bubble] {
+  background-image: linear-gradient(to right, hsl(var(--primary)), hsl(var(--primary) / 0.85));
+}

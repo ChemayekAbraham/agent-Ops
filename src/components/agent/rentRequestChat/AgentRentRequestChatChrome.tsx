@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ArrowLeft, Check, FileText, Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import welileLogo from '@/assets/welile-logo-small.png';
 import {
   RENT_REQUEST_CHAT_TEXT_SIZES,
   type RentRequestChatTextSize,
@@ -132,14 +133,25 @@ export function RentRequestChatBubble({
 }) {
   const mine = from === 'me';
   return (
-    <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+    <div data-rrc-row={from} className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+      {!mine && (
+        <img
+          data-rrc-avatar=""
+          src={welileLogo}
+          alt=""
+          aria-hidden="true"
+          width={32}
+          height={32}
+          className="mb-0.5 h-8 w-8 shrink-0 rounded-full bg-white object-cover shadow-sm ring-1 ring-primary/15"
+        />
+      )}
       <div
         data-rrc-bubble=""
         className={cn(
-          'max-w-[85%] px-3 py-2.5 shadow-sm whitespace-pre-wrap break-words',
+          'max-w-[80%] px-4 py-2.5 whitespace-pre-wrap break-words',
           mine
-            ? 'bg-primary/30 text-foreground border border-primary/25 rounded-2xl rounded-tr-sm'
-            : 'bg-card text-card-foreground rounded-2xl rounded-tl-sm',
+            ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-md shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.45)]'
+            : 'bg-card text-card-foreground border border-primary/15 rounded-2xl rounded-tl-md shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)]',
         )}
       >
         {children}
@@ -193,7 +205,7 @@ export function RentRequestChatFooter({
         )}
         <Button
           type="button"
-          className="min-h-11 h-auto flex-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+          className="min-h-11 h-auto flex-1 rounded-full bg-success text-white hover:bg-success/90 font-semibold"
           onClick={onSend}
           disabled={busy}
           aria-label={sendLabel}
