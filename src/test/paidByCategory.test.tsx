@@ -145,7 +145,7 @@ describe('CFO Paid by Category', () => {
     expect(screen.queryByText(/expected out — next 7 days/)).not.toBeInTheDocument();
   });
 
-  it('keeps the Corrections tile and its reported total, with no explainer paragraph', async () => {
+  it('keeps the Corrections tile and its reported total, with no explainer anywhere', async () => {
     const withCorrections = [
       ...totals,
       { category_key: 'corrections', category_label: 'Corrections', sort_order: 9, amount: 900000, tx_count: 82, pct: 1 },
@@ -156,16 +156,19 @@ describe('CFO Paid by Category', () => {
       return { data: [], error: null };
     });
     renderReport();
-    const tile = (await screen.findByTitle(/payroll loyalty bonus/)).closest('button');
+    const label = await screen.findByTitle('Corrections');
+    const tile = label.closest('button');
     if (!tile) throw new Error('Corrections tile missing');
     // The reported total and count still stand.
     expect(flat(tile)).toMatch(/UGX900[,.\u00a0\u202f]?000/);
     expect(flat(tile)).toMatch(/82transactions/);
-    expect(screen.getByText('Corrections')).toBeInTheDocument();
-    // The long explainer paragraph is no longer rendered on the tile or anywhere else.
+    // The long explainer paragraph is gone from the tile and from its hover text.
+    expect(label.getAttribute('title')).toBe('Corrections');
+
     expect(screen.queryByText(/payroll loyalty bonus credited to staff wallets/)).not.toBeInTheDocument();
     expect(screen.queryByText(/system_balance_correction/)).not.toBeInTheDocument();
   });
+
 
   it('opens on All time and switches to a picked period', async () => {
     renderReport();
