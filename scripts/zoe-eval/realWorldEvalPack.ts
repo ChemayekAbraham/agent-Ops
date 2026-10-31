@@ -7,15 +7,10 @@ import {
   type ConsultantChecklistScore,
   executeZoeTurn,
   FIXED_EVAL_DATE,
-<<<<<<< HEAD
-  scoreConsultantAnswer,
-  validateConsultantWebQuery,
-=======
   MSG,
   scoreConsultantAnswer,
   validateConsultantWebQuery,
   ZOE_ERROR_CODES,
->>>>>>> origin/lovable
 } from "./runtime.ts";
 
 export interface LoggedFailureEvalCase {
@@ -1958,8 +1953,6 @@ export async function runRealWorldEvalPack(options?: {
     },
   };
 }
-<<<<<<< HEAD
-=======
 
 // ---------------------------------------------------------------------------
 // Prompt 1 Parity & Resilience Evaluation Pack:
@@ -2444,4 +2437,3 @@ export async function runPrompt1ParityAndResilienceEval(): Promise<Prompt1Parity
   };
 }
 
->>>>>>> origin/lovable

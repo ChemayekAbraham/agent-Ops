@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-<<<<<<< HEAD
-  CONSULTANT_FORBIDDEN_TOOLS,
-  filterToolsForConsultantMode,
-  isConsultantQuestion,
-=======
   BRAVE_SEARCH_PROVIDER,
   buildResearchModePlan,
   CONSULTANT_FORBIDDEN_TOOLS,
@@ -17,15 +12,12 @@ import {
   MAX_WEB_PAGE_TEXT_CHARS,
   MAX_WEB_SEARCHES_PER_QUESTION,
   MAX_WEB_SEARCHES_PER_USER_PER_DAY,
->>>>>>> origin/lovable
   READ_WEB_PAGE_OPENAI_TOOL,
   SEARCH_WEB_OPENAI_TOOL,
   scoreConsultantAnswer,
   validateConsultantWebQuery,
   validateConsultantWebUrl,
 } from "../../../../supabase/functions/staff-assistant/consultant";
-<<<<<<< HEAD
-=======
 import {
   checkStreamedParagraph,
   UNVERIFIED_PARAGRAPH_REPLACEMENT,
@@ -43,7 +35,6 @@ import {
   MSG,
 } from "../../../../supabase/functions/staff-assistant/messages";
 import { buildSystemPrompt } from "../../../../supabase/functions/staff-assistant/prompt";
->>>>>>> origin/lovable
 import { openAiToolsForRoles } from "../../../../supabase/functions/staff-assistant/tools";
 import {
   extractZoeExportableReport,
@@ -270,8 +261,6 @@ describe("Prompt 4 — Consultant Mode, Web Research Guards & Safety Invariants"
       expect(decision.fileCreated).toBe(false);
     });
   });
-<<<<<<< HEAD
-=======
 
   describe("Prompt 3 — 20 Prompt-Injection Web Pages (Untrusted Reader Defense)", () => {
     const TWENTY_INJECTION_PAGES: Array<{
@@ -764,5 +753,4 @@ describe("Prompt 4 — Consultant Mode, Web Research Guards & Safety Invariants"
       expect(sysPrompt).not.toContain("500,000,000");
     });
   });
->>>>>>> origin/lovable
 });

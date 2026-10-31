@@ -3,10 +3,10 @@
 // supabase function: mcp-public
 // Bundled from src/lib/mcp-public/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp-public/index.ts
-import { defineMcp } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineMcp } from "npm:@lovable.dev/mcp-js@0.26.1";
 
 // src/lib/mcp-public/tools/how-welile-works.ts
-import { defineTool } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z } from "npm:zod@^4.4.3";
 
 // src/lib/mcp-public/links.ts
@@ -141,7 +141,7 @@ function installCallerCapture() {
   const deno = g.Deno;
   const originalServe = deno?.serve;
   if (!deno || typeof originalServe !== "function") return;
-  deno.serve = ((...args) => {
+  deno.serve = (...args) => {
     const wrapped = args.map(
       (arg) => typeof arg === "function" ? (request, info) => {
         const caller = callerFromRequest(request, info);
@@ -151,7 +151,7 @@ function installCallerCapture() {
       } : arg
     );
     return originalServe.apply(deno, wrapped);
-  });
+  };
   void (async () => {
     try {
       const mod = await import(
@@ -352,7 +352,7 @@ ${GUIDED_PROMPTS.map((p) => `\u2022 ${p}`).join("\n")}`],
 });
 
 // src/lib/mcp-public/tools/explore-welile.ts
-import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z2 } from "npm:zod@^4.4.3";
 var FEATURES = [
   {
@@ -487,7 +487,7 @@ var explore_welile_default = defineTool2({
 });
 
 // src/lib/mcp-public/tools/estimate-rent-access.ts
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z3 } from "npm:zod@^4.4.3";
 
 // src/lib/contractEngine360.ts
@@ -709,7 +709,7 @@ var estimate_rent_access_default = defineTool3({
 });
 
 // src/lib/mcp-public/tools/estimate-supporter-returns.ts
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z4 } from "npm:zod@^4.4.3";
 var REWARD_RATE = 0.15;
 var DEFAULT_DURATIONS2 = [3, 6, 12];
@@ -852,7 +852,7 @@ var estimate_supporter_returns_default = defineTool4({
 
 // src/lib/mcp-public/tools/find-available-houses.ts
 import { createClient as createClient2 } from "npm:@supabase/supabase-js@2.89.0";
-import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z5 } from "npm:zod@^4.4.3";
 var DEFAULT_LIMIT = 5;
 var MAX_LIMIT = 10;
@@ -1015,7 +1015,7 @@ var find_available_houses_default = defineTool5({
 });
 
 // src/lib/mcp-public/tools/check-eligibility.ts
-import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z6 } from "npm:zod@^4.4.3";
 
 // src/lib/mcp-public/roles.ts
@@ -1563,7 +1563,7 @@ ${guide.who_it_is_for}`,
 });
 
 // src/lib/mcp-public/tools/onboarding-steps.ts
-import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.26.3";
+import { defineTool as defineTool7 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z7 } from "npm:zod@^4.4.3";
 var onboarding_steps_default = defineTool7({
   name: "get_onboarding_steps",
@@ -1739,5 +1739,5 @@ var mcp_public_default = defineMcp({
 });
 
 // lovable-mcp-supabase-entry.ts
-import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.26.3/stacks/supabase";
+import { createSupabaseHandler } from "npm:@lovable.dev/mcp-js@0.26.1/stacks/supabase";
 Deno.serve(createSupabaseHandler(mcp_public_default, { functionName: "mcp-public" }));

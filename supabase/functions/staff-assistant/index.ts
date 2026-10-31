@@ -14,20 +14,14 @@ import {
 } from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import {
-<<<<<<< HEAD
-=======
   buildResearchModePlan,
->>>>>>> origin/lovable
   CONSULTANT_FORBIDDEN_TOOLS,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   filterToolsForConsultantMode,
   isConsultantQuestion,
-<<<<<<< HEAD
-=======
   MAX_RESEARCH_SOURCES_PER_QUESTION,
   MAX_WEB_SEARCHES_PER_QUESTION,
->>>>>>> origin/lovable
   ReadWebPageArgsSchema,
   SearchWebArgsSchema,
   WEB_RESEARCH_TOOL_NAMES,
@@ -1031,25 +1025,6 @@ export async function handleStaffAssistantRequest(
   };
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
-<<<<<<< HEAD
-  const callerRoles = await resolveCallerRoles(userClient, user.id);
-  const userText = body.message;
-  const consultantMode = isConsultantQuestion(userText);
-  const webResearchEnabled = consultantMode && budget.webResearchEnabled === true;
-  const baseOpenAiTools = openAiToolsForRoles(callerRoles);
-  const allowedOpenAiTools = consultantMode
-    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
-    : baseOpenAiTools;
-  const toolDescriptions = describeToolsForRoles(callerRoles).filter(
-    (line) => !consultantMode || !line.startsWith("draft_"),
-  );
-  if (webResearchEnabled) {
-    toolDescriptions.push(
-      "search_web [Consultant mode — Outside source]: Generic public web search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
-      "read_web_page [Consultant mode — Outside source]: Read a public https:// page returned by search_web. Label 'Outside source' with link and date; never mix with Welile totals.",
-    );
-  }
-=======
   const userText = body.message;
   const temporaryChat = body.temporary_chat === true;
   const memPrefs = store.getMemoryPrefs
@@ -1062,7 +1037,6 @@ export async function handleStaffAssistantRequest(
     !temporaryChat &&
     body.memory_enabled !== false &&
     memPrefs.memory_enabled !== false;
->>>>>>> origin/lovable
 
   const researchMode = body.research_mode === true;
   const consultantMode = isConsultantQuestion(userText);
@@ -1131,8 +1105,6 @@ export async function handleStaffAssistantRequest(
     ? MAX_RESEARCH_SOURCES_PER_QUESTION
     : MAX_WEB_SEARCHES_PER_QUESTION;
 
-<<<<<<< HEAD
-=======
   const pushStatusStep = (stepText: string) => {
     if (!stepText) return;
     if (!statusSteps.includes(stepText)) {
@@ -1146,7 +1118,6 @@ export async function handleStaffAssistantRequest(
     pushStatusStep(researchPlan[0]);
   }
 
->>>>>>> origin/lovable
   const baseTier = selectModelTier(userText, {
     maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
     maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
@@ -1155,11 +1126,7 @@ export async function handleStaffAssistantRequest(
     researchMode,
     ...(budget.modelConfig ?? {}),
   });
-<<<<<<< HEAD
-  const selectedTier = consultantMode
-=======
   const selectedTier = isConsultantOrResearch
->>>>>>> origin/lovable
     ? {
         ...baseTier,
         tier: "deep" as const,
@@ -1219,13 +1186,6 @@ export async function handleStaffAssistantRequest(
             ? { memory_suggestion: detectedMemorySuggestion }
             : {}),
         }
-<<<<<<< HEAD
-      : chart
-      ? {
-          ...(consultantMode ? { consultant_mode: true } : {}),
-          chart,
-          follow_up_suggestions: followUpSuggestions,
-=======
       : chart || detectedMemorySuggestion
       ? {
           ...(consultantMode ? { consultant_mode: true } : {}),
@@ -1234,7 +1194,6 @@ export async function handleStaffAssistantRequest(
           ...(detectedMemorySuggestion
             ? { memory_suggestion: detectedMemorySuggestion }
             : {}),
->>>>>>> origin/lovable
         }
       : consultantMode
       ? { consultant_mode: true }
@@ -1336,11 +1295,8 @@ export async function handleStaffAssistantRequest(
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
       consultant_mode: consultantMode,
-<<<<<<< HEAD
-=======
       research_mode: researchMode,
       ...(researchPlan.length > 0 ? { research_plan: researchPlan } : {}),
->>>>>>> origin/lovable
       estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
       cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
@@ -1441,10 +1397,7 @@ export async function handleStaffAssistantRequest(
           rollingSummaryBlock,
           modelTier: selectedTier.tier,
           consultantMode,
-<<<<<<< HEAD
-=======
           researchMode,
->>>>>>> origin/lovable
           webResearchEnabled,
         }),
       },
@@ -1793,13 +1746,8 @@ Answer the user's question in plain text without calling any tools:
           continue;
         }
 
-<<<<<<< HEAD
-        // Prompt 4 item (1): Consultant mode blocks all write/action/export draft tools
-        if (consultantMode && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
-=======
         // Consultant & Research modes block all write/action/export draft tools
         if (isConsultantOrResearch && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
->>>>>>> origin/lovable
           return await finish(MSG.outOfScope, "blocked", {
             tools: toolsCalled,
             model: lastModel,
@@ -1807,20 +1755,11 @@ Answer the user's question in plain text without calling any tools:
           });
         }
 
-<<<<<<< HEAD
-        // Prompt 4 item (3): Admin-switched Web Research (`search_web`, `read_web_page`)
-        // Available ONLY in the Consultant path when `staff_assistant_config.web_research_enabled === true`.
-        if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
-          if (!consultantMode || !webResearchEnabled) {
-            return await finish(
-              "Web research is currently disabled in staff_assistant_config (or outside Consultant mode).",
-=======
         // Deliverable (3) & (4): Admin-switched Web Research (`search_web`, `read_web_page`)
         if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
           if (!isConsultantOrResearch || !webResearchEnabled) {
             return await finish(
               "Web research is currently disabled in staff_assistant_config (or outside Consultant / Research mode).",
->>>>>>> origin/lovable
               "blocked",
               {
                 tools: toolsCalled,
@@ -1842,12 +1781,6 @@ Answer the user's question in plain text without calling any tools:
             const webRes = await executeConsultantWebSearch(
               parsedSearch.data.query,
               rawToolOutputs,
-<<<<<<< HEAD
-            );
-            if (!webRes.ok) {
-              return await finish(
-                `I cannot run that web search: ${webRes.error}`,
-=======
               fetch,
               {
                 webResearchEnabled,
@@ -1863,17 +1796,11 @@ Answer the user's question in plain text without calling any tools:
                 webRes.reason === "missing_api_key"
                   ? MSG.webResearchNotConfigured
                   : `I cannot run that web search: ${webRes.error}`,
->>>>>>> origin/lovable
                 "blocked",
                 {
                   tools: [...toolsCalled, "search_web"],
                   model: lastModel,
                   unansweredReason: "error",
-<<<<<<< HEAD
-                },
-              );
-            }
-=======
                   errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
                   errorDetail: webRes.error,
                 },
@@ -1883,7 +1810,6 @@ Answer the user's question in plain text without calling any tools:
             webSourcesReadInQuestion += 1;
             webResearchSpentUsd += webRes.costUsd;
             totalQuestionCostUsd += webRes.costUsd;
->>>>>>> origin/lovable
             toolsCalled.push("search_web");
             const webJson = JSON.stringify(webRes.payload);
             rawToolOutputs.push(webJson);
@@ -1913,11 +1839,6 @@ Answer the user's question in plain text without calling any tools:
                 unansweredReason: "unmatched",
               });
             }
-<<<<<<< HEAD
-            const pageRes = await executeConsultantReadWebPage(
-              parsedPage.data.url,
-              rawToolOutputs,
-=======
             if (webSourcesReadInQuestion >= maxWebSourcesThisQuestion) {
               return await finish(
                 `Per-question web source limit reached (${maxWebSourcesThisQuestion} sources).`,
@@ -1939,7 +1860,6 @@ Answer the user's question in plain text without calling any tools:
                 webResearchEnabled,
                 signal: req.signal,
               },
->>>>>>> origin/lovable
             );
             if (!pageRes.ok) {
               return await finish(
@@ -1949,18 +1869,12 @@ Answer the user's question in plain text without calling any tools:
                   tools: [...toolsCalled, "read_web_page"],
                   model: lastModel,
                   unansweredReason: "error",
-<<<<<<< HEAD
-                },
-              );
-            }
-=======
                   errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
                   errorDetail: pageRes.error,
                 },
               );
             }
             webSourcesReadInQuestion += 1;
->>>>>>> origin/lovable
             toolsCalled.push("read_web_page");
             const pageJson = JSON.stringify(pageRes.payload);
             rawToolOutputs.push(pageJson);

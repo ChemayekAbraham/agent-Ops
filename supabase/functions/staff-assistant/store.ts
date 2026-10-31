@@ -319,55 +319,6 @@ export function getAdminClientForMfa(): SupabaseClient {
   return admin();
 }
 
-<<<<<<< HEAD
-export async function loadStaffAssistantConfig(): Promise<StaffAssistantConfig> {
-  if (typeof Deno === "undefined" || !Deno.env?.get("SUPABASE_URL")) {
-    return {
-      enabled: true,
-      maxQuestionsPerDay: DEFAULT_MAX_QUESTIONS_PER_DAY,
-      maxEmailsPerDay: 30,
-      maxModelRounds: 4,
-      maxToolCalls: 6,
-      historyDays: 90,
-      modelFast: DEFAULT_ZOE_MODEL_FAST,
-      modelDeep: DEFAULT_ZOE_MODEL_DEEP,
-      temperature: DEFAULT_CHAT_TEMPERATURE,
-      maxTokens: DEFAULT_CHAT_MAX_TOKENS,
-      maxDeepModelRounds: MAX_DEEP_MODEL_ROUNDS,
-      maxDeepToolCalls: MAX_DEEP_TOOL_CALLS,
-      maxCostUsdPerQuestion: DEFAULT_MAX_COST_USD_PER_QUESTION,
-      webResearchEnabled: false,
-    };
-  }
-  const db = admin();
-  let { data, error } = await db
-    .from("staff_assistant_config")
-    .select(
-      "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days, model_fast, model_deep, temperature, max_tokens, max_deep_model_rounds, max_deep_tool_calls, max_cost_usd_per_question, web_research_enabled",
-    )
-    .eq("id", true)
-    .maybeSingle();
-
-  if (error) {
-    const fallback = await db
-      .from("staff_assistant_config")
-      .select(
-        "enabled, max_questions_per_day, max_emails_per_day, max_model_rounds, max_tool_calls, history_days",
-      )
-      .eq("id", true)
-      .maybeSingle();
-    data = fallback.data
-      ? {
-          ...fallback.data,
-          model_fast: DEFAULT_ZOE_MODEL_FAST,
-          model_deep: DEFAULT_ZOE_MODEL_DEEP,
-          temperature: DEFAULT_CHAT_TEMPERATURE,
-          max_tokens: DEFAULT_CHAT_MAX_TOKENS,
-          max_deep_model_rounds: MAX_DEEP_MODEL_ROUNDS,
-          max_deep_tool_calls: MAX_DEEP_TOOL_CALLS,
-          max_cost_usd_per_question: DEFAULT_MAX_COST_USD_PER_QUESTION,
-          web_research_enabled: false,
-=======
 export const DEFAULT_STAFF_ASSISTANT_CONFIG: StaffAssistantConfig = {
   enabled: true,
   maxQuestionsPerDay: DEFAULT_MAX_QUESTIONS_PER_DAY,
@@ -435,52 +386,12 @@ export async function loadStaffAssistantConfig(
           .maybeSingle();
         if (minimalRes?.data && typeof minimalRes.data === "object") {
           rowData = minimalRes.data as Record<string, unknown>;
->>>>>>> origin/lovable
         }
       } else if (fullRes?.data && typeof fullRes.data === "object") {
         rowData = fullRes.data as Record<string, unknown>;
       }
     }
 
-<<<<<<< HEAD
-  const row = (data ?? {}) as Record<string, unknown>;
-  return {
-    enabled: typeof row.enabled === "boolean" ? row.enabled : true,
-    maxQuestionsPerDay:
-      typeof row.max_questions_per_day === "number"
-        ? row.max_questions_per_day
-        : DEFAULT_MAX_QUESTIONS_PER_DAY,
-    maxEmailsPerDay: typeof row.max_emails_per_day === "number" ? row.max_emails_per_day : 30,
-    maxModelRounds: typeof row.max_model_rounds === "number" ? row.max_model_rounds : 4,
-    maxToolCalls: typeof row.max_tool_calls === "number" ? row.max_tool_calls : 6,
-    historyDays: typeof row.history_days === "number" ? row.history_days : 90,
-    modelFast:
-      typeof row.model_fast === "string" && row.model_fast.trim()
-        ? row.model_fast.trim()
-        : DEFAULT_ZOE_MODEL_FAST,
-    modelDeep:
-      typeof row.model_deep === "string" && row.model_deep.trim()
-        ? row.model_deep.trim()
-        : DEFAULT_ZOE_MODEL_DEEP,
-    temperature:
-      typeof row.temperature === "number" || typeof row.temperature === "string"
-        ? Number(row.temperature)
-        : DEFAULT_CHAT_TEMPERATURE,
-    maxTokens: typeof row.max_tokens === "number" ? row.max_tokens : DEFAULT_CHAT_MAX_TOKENS,
-    maxDeepModelRounds:
-      typeof row.max_deep_model_rounds === "number"
-        ? row.max_deep_model_rounds
-        : MAX_DEEP_MODEL_ROUNDS,
-    maxDeepToolCalls:
-      typeof row.max_deep_tool_calls === "number" ? row.max_deep_tool_calls : MAX_DEEP_TOOL_CALLS,
-    maxCostUsdPerQuestion:
-      typeof row.max_cost_usd_per_question === "number" ||
-      typeof row.max_cost_usd_per_question === "string"
-        ? Number(row.max_cost_usd_per_question)
-        : DEFAULT_MAX_COST_USD_PER_QUESTION,
-    webResearchEnabled: row.web_research_enabled === true,
-  };
-=======
     const row = (rowData ?? {}) as Record<string, unknown>;
     return {
       enabled: typeof row.enabled === "boolean" ? row.enabled : DEFAULT_STAFF_ASSISTANT_CONFIG.enabled,
@@ -537,7 +448,6 @@ export async function loadStaffAssistantConfig(
     );
     return { ...DEFAULT_STAFF_ASSISTANT_CONFIG };
   }
->>>>>>> origin/lovable
 }
 
 export type BudgetCheckResult =
@@ -651,45 +561,6 @@ export async function checkQuestionBudget(
       maxToolCalls: cfg.maxToolCalls,
       modelConfig,
       webResearchEnabled: cfg.webResearchEnabled,
-<<<<<<< HEAD
-    };
-  }
-
-  const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-  const { count: burstCount } = await db
-    .from("staff_assistant_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("role", "user")
-    .gte("created_at", oneMinuteAgo);
-
-  if ((burstCount ?? 0) >= MAX_MESSAGES_PER_MINUTE) {
-    return { allowed: false, reason: "burst", maxQuestionsPerDay: cfg.maxQuestionsPerDay };
-  }
-
-  const todayKampalaStart = `${kampalaToday()}T00:00:00+03:00`;
-  const { count: todayCount } = await db
-    .from("staff_assistant_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("role", "user")
-    .gte("created_at", todayKampalaStart);
-
-  const usedToday = todayCount ?? 0;
-  if (usedToday >= cfg.maxQuestionsPerDay) {
-    return { allowed: false, reason: "daily_budget", maxQuestionsPerDay: cfg.maxQuestionsPerDay };
-  }
-
-  return {
-    allowed: true,
-    remainingToday: Math.max(cfg.maxQuestionsPerDay - usedToday - 1, 0),
-    maxQuestionsPerDay: cfg.maxQuestionsPerDay,
-    maxModelRounds: cfg.maxModelRounds,
-    maxToolCalls: cfg.maxToolCalls,
-    modelConfig,
-    webResearchEnabled: cfg.webResearchEnabled,
-  };
-=======
     };
   } catch (err) {
     onDegraded?.(
@@ -706,7 +577,6 @@ export async function checkQuestionBudget(
       webResearchEnabled: cfg.webResearchEnabled,
     };
   }
->>>>>>> origin/lovable
 }
 
 
@@ -1124,8 +994,6 @@ export async function saveFeedback(args: {
     error = fallback.error;
   }
 
-<<<<<<< HEAD
-=======
   // Also stamp feedback_rating (-1 / 1) and feedback_theme onto `staff_assistant_learning_log`
   try {
     const numericRating = args.rating === "down" ? -1 : 1;
@@ -1143,7 +1011,6 @@ export async function saveFeedback(args: {
     // best-effort learning log feedback update
   }
 
->>>>>>> origin/lovable
   return { ok: !error };
 }
 

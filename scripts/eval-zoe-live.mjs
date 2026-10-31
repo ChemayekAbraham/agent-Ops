@@ -50,13 +50,9 @@ const { runSafetyPack } = await import("./zoe-eval/safetyPack.ts");
 const { runAccuracyPack } = await import("./zoe-eval/accuracyPack.ts");
 const { runLiveEvalPack } = await import("./zoe-eval/liveEvalPack.ts");
 const { runAnalystEvalPack } = await import("./zoe-eval/analystEvalPack.ts");
-<<<<<<< HEAD
-const { runRealWorldEvalPack } = await import("./zoe-eval/realWorldEvalPack.ts");
-=======
 const { runRealWorldEvalPack, runPrompt1ParityAndResilienceEval } = await import(
   "./zoe-eval/realWorldEvalPack.ts"
 );
->>>>>>> origin/lovable
 const { renderTestResultsMarkdown } = await import("./zoe-eval/reportMarkdown.ts");
 
 const safety = await runSafetyPack();
@@ -68,10 +64,7 @@ const realWorld = await runRealWorldEvalPack({
   liveSummary: live,
   analystSummary: analyst,
 });
-<<<<<<< HEAD
-=======
 const parityResilience = await runPrompt1ParityAndResilienceEval();
->>>>>>> origin/lovable
 
 mkdirSync(dirname(RESULTS_PATH), { recursive: true });
 const markdown = renderTestResultsMarkdown(safety, accuracy, live, analyst, realWorld);

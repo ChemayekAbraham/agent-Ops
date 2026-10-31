@@ -22,18 +22,6 @@ import {
   type ZoeRoViewCatalogEntry,
 } from "../../supabase/functions/staff-assistant/analyst.ts";
 import {
-<<<<<<< HEAD
-  CONSULTANT_FORBIDDEN_TOOLS,
-  type ConsultantChecklistScore,
-  executeConsultantReadWebPage,
-  executeConsultantWebSearch,
-  filterToolsForConsultantMode,
-  isConsultantQuestion,
-  scoreConsultantAnswer,
-  validateConsultantWebQuery,
-  validateConsultantWebUrl,
-  WEB_RESEARCH_TOOL_NAMES,
-=======
   BRAVE_SEARCH_PROVIDER,
   buildResearchModePlan,
   checkWebResearchQuota,
@@ -55,7 +43,6 @@ import {
   validateConsultantWebUrl,
   WEB_RESEARCH_TOOL_NAMES,
   type WebSearchProvider,
->>>>>>> origin/lovable
 } from "../../supabase/functions/staff-assistant/consultant.ts";
 import {
   currentWednesdayWeekStart,
@@ -225,12 +212,6 @@ export {
   ensureAdHocCertificationNotice,
   ensurePolicyDisclaimerWhenNeeded,
   estimateCallCostUsd,
-<<<<<<< HEAD
-  executeConsultantReadWebPage,
-  executeConsultantWebSearch,
-  extractRecipientQuery,
-  extractReportTableFromFreshRpc,
-=======
   EXA_SEARCH_PROVIDER,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
@@ -238,7 +219,6 @@ export {
   extractRecipientQuery,
   extractReportTableFromFreshRpc,
   FALLBACK_ROLE_STARTERS,
->>>>>>> origin/lovable
   filterToolsForConsultantMode,
   findTool,
   FORBIDDEN_ANALYST_PII_COLUMNS,
@@ -296,15 +276,11 @@ export {
   validateConsultantWebQuery,
   validateConsultantWebUrl,
   validateZoeNoteText,
-<<<<<<< HEAD
-  WEB_RESEARCH_TOOL_NAMES,
-=======
   verifyAndSanitizeStreamedParagraphs,
   WEB_RESEARCH_TOOL_NAMES,
   type WebSearchProvider,
   ZOE_ERROR_CODES,
   ZOE_FIXED_TOPICS,
->>>>>>> origin/lovable
   ZOE_REPORT_EMAIL_DISPLAY_NAME,
   ZOE_REPORT_EMAIL_TEMPLATE,
   ZOE_RO_AREA_ROLES,

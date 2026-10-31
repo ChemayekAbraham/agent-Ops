@@ -231,11 +231,7 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
       exactNumbers.add(Math.round(diff));
       exactNumbers.add(Number(diff.toFixed(1)));
       exactNumbers.add(Number(diff.toFixed(2)));
-<<<<<<< HEAD
-      if (a <= b && b > 0) {
-=======
       if (b > 0 && a <= b) {
->>>>>>> origin/lovable
         const pct = (a / b) * 100;
         exactNumbers.add(Math.round(pct));
         exactNumbers.add(Number(pct.toFixed(1)));
