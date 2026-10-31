@@ -205,7 +205,7 @@ export function RentRequestChatFooter({
         )}
         <Button
           type="button"
-          className="min-h-11 h-auto flex-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+          className="min-h-11 h-auto flex-1 rounded-full bg-success text-white hover:bg-success/90 font-semibold"
           onClick={onSend}
           disabled={busy}
           aria-label={sendLabel}
