@@ -180,3 +180,19 @@
   }
   [data-rent-chat-text] [data-rrc-scroll] { scroll-behavior: auto; }
 }
+
+/* Conversation backdrop: a faint lavender wash tinted from the theme primary,
+   over a solid base so the page behind the dialog never bleeds through. White
+   cards and the purple answer bubbles both sit cleanly on it. */
+[data-rent-chat-text] [data-rrc-scroll] {
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(120% 60% at 100% 0%, hsl(var(--primary) / 0.10), transparent 60%),
+    radial-gradient(100% 50% at 0% 100%, hsl(var(--primary) / 0.08), transparent 65%),
+    linear-gradient(180deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.11));
+}
+
+[data-rent-chat-text] [data-rrc-footer] {
+  background-color: hsl(var(--background));
+  background-image: linear-gradient(hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.10));
+}
