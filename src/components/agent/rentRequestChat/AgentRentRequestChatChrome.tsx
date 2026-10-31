@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowLeft, Check, FileText, Loader2, Send } from 'lucide-react';
+import { ArrowLeft, Check, FileText, Loader2, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -132,14 +132,23 @@ export function RentRequestChatBubble({
 }) {
   const mine = from === 'me';
   return (
-    <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+    <div data-rrc-row={from} className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+      {!mine && (
+        <span
+          data-rrc-avatar=""
+          aria-hidden="true"
+          className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm"
+        >
+          <Sparkles className="h-4 w-4" />
+        </span>
+      )}
       <div
         data-rrc-bubble=""
         className={cn(
-          'max-w-[85%] px-3 py-2.5 shadow-sm whitespace-pre-wrap break-words',
+          'max-w-[80%] px-4 py-2.5 whitespace-pre-wrap break-words',
           mine
-            ? 'bg-primary/30 text-foreground border border-primary/25 rounded-2xl rounded-tr-sm'
-            : 'bg-card text-card-foreground rounded-2xl rounded-tl-sm',
+            ? 'bg-gradient-to-r from-primary to-primary/85 text-primary-foreground rounded-2xl rounded-tr-md shadow-[0_8px_24px_-6px_hsl(var(--primary)/0.45)]'
+            : 'bg-card text-card-foreground border border-primary/15 rounded-2xl rounded-tl-md shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)]',
         )}
       >
         {children}
