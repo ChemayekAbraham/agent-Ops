@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { ArrowLeft, Check, FileText, Loader2, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, FileText, Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import welileLogo from '@/assets/welile-logo-small.png';
 import {
   RENT_REQUEST_CHAT_TEXT_SIZES,
   type RentRequestChatTextSize,
@@ -134,13 +135,15 @@ export function RentRequestChatBubble({
   return (
     <div data-rrc-row={from} className={cn('flex w-full items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
       {!mine && (
-        <span
+        <img
           data-rrc-avatar=""
+          src={welileLogo}
+          alt=""
           aria-hidden="true"
-          className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/70 text-primary-foreground shadow-sm"
-        >
-          <Sparkles className="h-4 w-4" />
-        </span>
+          width={32}
+          height={32}
+          className="mb-0.5 h-8 w-8 shrink-0 rounded-full bg-white object-cover shadow-sm ring-1 ring-primary/15"
+        />
       )}
       <div
         data-rrc-bubble=""
