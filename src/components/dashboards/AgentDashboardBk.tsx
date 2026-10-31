@@ -68,7 +68,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, Loader2 } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
@@ -205,7 +205,22 @@ const AgentMenuDrawer = lazyNamed(() => import('@/components/agent-bk/AgentMenuD
 const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'));
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
-const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+// One shared loader so the chunk can be fetched ahead of the first tap
+// (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
+const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
+const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
+
+/** Fetch the rent-request dialog ahead of time; safe to call repeatedly. */
+function preloadAgentRentRequestDialog() {
+  void loadAgentRentRequestDialog().catch(() => {});
+}
+
+/** Skip speculative downloads on Data Saver or very slow connections. */
+function shouldPrefetchOnIdle(): boolean {
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (conn?.saveData) return false;
+  return !(conn?.effectiveType && /(^|-)2g$/.test(conn.effectiveType));
+}
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -255,9 +270,29 @@ const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/Field
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
-function LazyModal({ when, children }: { when: unknown; children: ReactNode }) {
+function LazyModal({ when, children, fallback = null }: { when: unknown; children: ReactNode; fallback?: ReactNode }) {
   if (!when) return null;
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return <Suspense fallback={fallback}>{children}</Suspense>;
+}
+
+// Shown for the instant between the tap and the dialog's first paint when its
+// chunk is still downloading, so the tap never looks ignored.
+function RentRequestLoadingShell() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-[150] flex flex-col bg-background"
+    >
+      <div className="shrink-0 bg-primary px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-primary-foreground">
+        <p className="text-[15px] font-semibold leading-tight">Rent request</p>
+        <p className="text-[11px] text-primary-foreground/80">Getting your form ready…</p>
+      </div>
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </div>
+    </div>
+  );
 }
 
 interface AgentDashboardProps {
@@ -981,6 +1016,19 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
+  // Rent request is the dashboard's main action: fetch its dialog once the page
+  // has settled, so the first tap opens instantly instead of waiting on the download.
+  useEffect(() => {
+    if (!shouldPrefetchOnIdle()) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
+    if (typeof w.requestIdleCallback === 'function') {
+      const h = w.requestIdleCallback(preloadAgentRentRequestDialog, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(h);
+    }
+    const t = window.setTimeout(preloadAgentRentRequestDialog, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
+
   // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -1321,6 +1369,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               <SignatureRentRequestCard
                 fullName={profile?.full_name}
                 onPostRequest={() => { setRentRequestOpen(true); }}
+                onIntent={preloadAgentRentRequestDialog}
               />
               <AgentNudgePreviewButton userId={user?.id} />
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
@@ -2049,7 +2098,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         onOpenChange={setTenantInviteOpen}
       />
       </LazyModal>
-      <LazyModal when={rentRequestOpen}>
+      <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
       <AgentRentRequestDialog 
         presentation="chat"
         open={rentRequestOpen} 
