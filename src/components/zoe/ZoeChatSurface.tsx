@@ -418,6 +418,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
         id: s.id,
         label: s.label,
         prompt: s.prompt,
+        category: 'my_space' as const,
       }));
     }
     const recentTopics = conversations.slice(0, 5).map((c) => c.title);

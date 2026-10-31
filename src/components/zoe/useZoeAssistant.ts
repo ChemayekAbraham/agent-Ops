@@ -108,6 +108,7 @@ export interface ZoePersonalisedStarter {
   prompt: string;
   topic?: string;
   tool?: string;
+  reason?: string;
 }
 
 export interface ZoeMessage {
