@@ -29,6 +29,19 @@ export function CreditLoadingDebugPanel() {
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<CreditLoadingEntry[]>(() => getCreditDebugLog());
   const isPrimary = useRef(false);
+  const onCreditPage = CREDIT_DEBUG_ROUTES.test(pathname);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Sit on the dashboard page itself, never on top of an open dialog or sheet
+  // (it covered the rent-request chat's Send button).
+  useEffect(() => {
+    if (!enabled || !onCreditPage) return;
+    const sync = () => setDialogOpen(!!document.querySelector('[role="dialog"][data-state="open"]'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] });
+    return () => observer.disconnect();
+  }, [enabled, onCreditPage]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -45,7 +58,7 @@ export function CreditLoadingDebugPanel() {
     return () => window.removeEventListener(CREDIT_DEBUG_EVENT, handler);
   }, [enabled]);
 
-  if (!enabled || !isPrimary.current || !CREDIT_DEBUG_ROUTES.test(pathname)) return null;
+  if (!enabled || !isPrimary.current || !onCreditPage || dialogOpen) return null;
 
   const coldLoads = entries.filter((e) => e.type === 'cold-load').length;
 
