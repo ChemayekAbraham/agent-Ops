@@ -953,13 +953,6 @@ describe('ZoeChatSurface', () => {
       onToggleTemporaryChat,
       memoryEnabled: true,
       onToggleMemoryEnabled,
-      userNotes: [
-        {
-          id: 'note-1',
-          note_text: 'Keep answers short and concise',
-          created_at: '2026-10-30T08:00:00Z',
-        },
-      ],
       onUpdateNote,
     });
 
