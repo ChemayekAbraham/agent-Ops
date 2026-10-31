@@ -121,6 +121,7 @@ import {
   RentRequestChatHeader,
   RentRequestChatProgress,
 } from '@/components/agent/rentRequestChat/AgentRentRequestChatChrome';
+import { useRentRequestChatTextSize } from '@/components/agent/rentRequestChat/useRentRequestChatTextSize';
 
 interface AgentRentRequestDialogProps {
   open: boolean;
@@ -690,6 +691,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   // Current sub-step inside the standard flow's guided wizard (0-based).
   const [detailStep, setDetailStep] = useState(0);
   const chatMode = presentation === 'chat';
+  const [chatTextSize, setChatTextSize] = useRentRequestChatTextSize(user?.id);
   const [chatBeat, setChatBeat] = useState(0);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -3684,6 +3686,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
+        data-rent-chat-text={chatMode ? chatTextSize : undefined}
         style={chatMode ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' } : undefined}
         className={chatMode
         ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
@@ -3699,6 +3702,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               onForm={openFieldFormPreview}
               formBusy={fieldFormGenerating}
               savedHint={savedHint}
+              textSize={chatTextSize}
+              onTextSize={setChatTextSize}
             />
             {!success && (
               <RentRequestChatProgress
@@ -3753,6 +3758,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
         <div
           ref={chatScrollRef}
+          data-rrc-scroll={chatMode ? '' : undefined}
           className={chatMode ? "min-h-0 flex-1 overflow-y-auto px-3 py-3 space-y-2" : "min-w-0"}
         >
         {chatMode && !success && chatBeat > 0 && chatBeats.slice(0, chatBeat).map((id) => (

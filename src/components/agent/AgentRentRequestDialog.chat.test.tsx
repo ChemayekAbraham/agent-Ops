@@ -93,4 +93,23 @@ describe('Agent rent request chat', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Outstanding' }));
     expect(await screen.findByText('Who is the landlord for this outstanding balance?')).toBeInTheDocument();
   });
+
+  it('defaults chat text to Large and keeps Medium or Small', async () => {
+    const view = renderChat();
+    const large = await screen.findByRole('radio', { name: 'Large' });
+    expect(large).toHaveAttribute('aria-checked', 'true');
+    const root = screen.getByTestId('rent-request-chat').closest('[data-rent-chat-text]');
+    expect(root).toHaveAttribute('data-rent-chat-text', 'large');
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Small' }));
+    expect(screen.getByRole('radio', { name: 'Small' })).toHaveAttribute('aria-checked', 'true');
+    expect(root).toHaveAttribute('data-rent-chat-text', 'small');
+    expect(localStorage.getItem('welile.rent-request-chat.text-size:agent-1')).toBe('small');
+
+    view.unmount();
+    renderChat();
+    expect(await screen.findByRole('radio', { name: 'Small' })).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: 'Medium' }));
+    expect(localStorage.getItem('welile.rent-request-chat.text-size:agent-1')).toBe('medium');
+  });
 });
