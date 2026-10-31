@@ -17,7 +17,7 @@ export function RentRequestChatHeader({
   return (
     <header
       data-testid="rent-request-chat"
-      className="shrink-0 bg-[#075E54] text-white px-2 pt-[max(0.4rem,env(safe-area-inset-top))] pb-2 flex items-center gap-1"
+      className="shrink-0 bg-primary text-primary-foreground px-2 pt-[max(0.4rem,env(safe-area-inset-top))] pb-2 flex items-center gap-1"
     >
       <button
         type="button"
@@ -29,7 +29,7 @@ export function RentRequestChatHeader({
       </button>
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold leading-tight truncate">Rent request</p>
-        <p className="text-[11px] text-white/80 truncate">
+        <p className="text-[11px] text-primary-foreground/80 truncate">
           {savedHint || 'One question at a time'}
         </p>
       </div>
@@ -60,13 +60,13 @@ export function RentRequestChatProgress({
 }) {
   const pct = total > 0 ? Math.round(((index + 1) / total) * 100) : 0;
   return (
-    <div className="shrink-0 bg-[#075E54] px-3 pb-2" aria-live="polite">
-      <div className="flex items-center justify-between text-[11px] font-semibold text-white/90 mb-1">
+    <div className="shrink-0 bg-primary px-3 pb-2" aria-live="polite">
+      <div className="flex items-center justify-between text-[11px] font-semibold text-primary-foreground/90 mb-1">
         <span>{label}</span>
         <span>{index + 1} of {total}</span>
       </div>
-      <div className="h-1 rounded-full bg-white/25 overflow-hidden">
-        <div className="h-full bg-[#25D366] transition-all duration-300" style={{ width: `${pct}%` }} />
+      <div className="h-1 rounded-full bg-primary-foreground/25 overflow-hidden">
+        <div className="h-full bg-primary-foreground transition-all duration-300" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -86,8 +86,8 @@ export function RentRequestChatBubble({
         className={cn(
           'max-w-[85%] px-3 py-2 text-[14px] leading-snug shadow-sm whitespace-pre-wrap',
           mine
-            ? 'bg-[#DCF8C6] text-[#111] rounded-2xl rounded-tr-sm'
-            : 'bg-white text-[#111] rounded-2xl rounded-tl-sm',
+            ? 'bg-primary/30 text-foreground border border-primary/25 rounded-2xl rounded-tr-sm'
+            : 'bg-card text-card-foreground rounded-2xl rounded-tl-sm',
         )}
       >
         {children}
@@ -112,7 +112,7 @@ export function RentRequestChatFooter({
   busy?: boolean;
 }) {
   return (
-    <div className="shrink-0 border-t border-black/5 bg-[#F0F0F0] px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1.5">
+    <div className="shrink-0 border-t border-primary/20 bg-primary/10 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] space-y-1.5">
       {error && (
         <p role="alert" className="px-2 text-[12px] font-semibold text-red-700">
           {error}
@@ -141,7 +141,7 @@ export function RentRequestChatFooter({
         )}
         <Button
           type="button"
-          className="h-11 flex-1 rounded-full bg-[#128C7E] hover:bg-[#075E54] text-white font-semibold"
+          className="h-11 flex-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
           onClick={onSend}
           disabled={busy}
           aria-label={sendLabel}

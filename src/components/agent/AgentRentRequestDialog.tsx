@@ -3686,7 +3686,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       <DialogContent
         style={chatMode ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' } : undefined}
         className={chatMode
-        ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-[#ECE5DD] p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
+        ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
         : "w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain"}>
         {chatMode ? (
           <>
@@ -3890,7 +3890,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       key={kind}
                       type="button"
                       onClick={() => chooseIncome(kind)}
-                      className="rounded-full border border-black/5 bg-white px-4 py-2.5 text-sm font-semibold shadow-sm active:scale-95"
+                      className="rounded-full border border-primary/25 bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm active:scale-95"
                     >
                       {label}
                     </button>
@@ -4232,7 +4232,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                               key={l.value}
                               type="button"
                               onClick={() => { setPreferredLanguage(l.value); setChatError(null); setChatBeat((b) => b + 1); }}
-                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${preferredLanguage === l.value ? 'bg-[#DCF8C6] border-[#128C7E]' : 'bg-white'}`}
+                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${preferredLanguage === l.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
                             >
                               {l.label}
                             </button>
@@ -4350,7 +4350,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                               key={cat.value}
                               type="button"
                               onClick={() => setOutstandingHouseCategory(cat.value)}
-                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${outstandingHouseCategory === cat.value ? 'bg-[#DCF8C6] border-[#128C7E]' : 'bg-white'}`}
+                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${outstandingHouseCategory === cat.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
                             >
                               {cat.label}
                             </button>
@@ -4720,8 +4720,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 {/* No Smartphone Toggle */}
                 {showBeat('noPhone') && (chatMode ? (
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" className="rounded-full bg-[#DCF8C6] px-4 py-2 text-sm font-semibold" onClick={() => { setNoSmartphone(false); setChatError(null); setChatBeat((b) => b + 1); }}>Has a smartphone</button>
-                    <button type="button" className="rounded-full bg-white border px-4 py-2 text-sm font-semibold" onClick={() => { setNoSmartphone(true); setChatError(null); setChatBeat((b) => b + 1); }}>No smartphone</button>
+                    <button type="button" className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" onClick={() => { setNoSmartphone(false); setChatError(null); setChatBeat((b) => b + 1); }}>Has a smartphone</button>
+                    <button type="button" className="rounded-full border border-primary/25 bg-card px-4 py-2 text-sm font-semibold text-foreground" onClick={() => { setNoSmartphone(true); setChatError(null); setChatBeat((b) => b + 1); }}>No smartphone</button>
                   </div>
                 ) : (
                 <button
@@ -4832,7 +4832,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           key={l.value}
                           type="button"
                           onClick={() => { setPreferredLanguage(l.value); setChatError(null); setChatBeat((b) => b + 1); }}
-                          className={`rounded-full px-3 py-2 text-sm font-semibold border ${preferredLanguage === l.value ? 'bg-[#DCF8C6] border-[#128C7E]' : 'bg-white'}`}
+                          className={`rounded-full px-3 py-2 text-sm font-semibold border ${preferredLanguage === l.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
                         >
                           {l.label}
                         </button>
@@ -4879,7 +4879,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         key={cat.value}
                         type="button"
                         onClick={() => { setHouseCategory(cat.value); setChatError(null); setChatBeat((b) => b + 1); }}
-                        className={`rounded-full border px-3 py-2 text-sm font-semibold ${houseCategory === cat.value ? 'bg-[#DCF8C6] border-[#128C7E]' : 'bg-white'}`}
+                        className={`rounded-full border px-3 py-2 text-sm font-semibold ${houseCategory === cat.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
                       >
                         {cat.label}
                       </button>
