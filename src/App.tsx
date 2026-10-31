@@ -54,6 +54,9 @@ const ItemSwipePickerHarness = lazyWithRetry(
 const ProxyPartnerWithdrawalHarness = lazyWithRetry(
   () => import("@/pages/__e2e/ProxyPartnerWithdrawalHarness"),
 );
+const RentRequestChatHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/RentRequestChatHarness"),
+);
 
 // Language provider is imported statically: as a lazy chunk its module namespace
 // could resolve undefined under manual chunking, blanking the whole app.
@@ -681,6 +684,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <ProxyPartnerWithdrawalHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/rent-request-chat"
+              element={
+                <Suspense fallback={null}>
+                  <RentRequestChatHarness />
                 </Suspense>
               }
             />
