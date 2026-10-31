@@ -254,9 +254,6 @@ export function PaidByCategory() {
               <span className="mt-2 block h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
                 <span className="block h-full rounded-full bg-primary/70" style={{ width: `${Math.min(r.pct, 100)}%` }} />
               </span>
-              {r.category_key === 'corrections' && (
-                <p className="mt-2 text-[11px] font-normal leading-snug text-muted-foreground">{CORRECTIONS_EXPLAINER}</p>
-              )}
             </button>
           ))}
         </div>
