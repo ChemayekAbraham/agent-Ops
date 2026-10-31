@@ -156,13 +156,15 @@ describe('CFO Paid by Category', () => {
       return { data: [], error: null };
     });
     renderReport();
-    const tile = (await screen.findByTitle('Corrections')).closest('button');
+    const label = await screen.findByTitle('Corrections');
+    const tile = label.closest('button');
     if (!tile) throw new Error('Corrections tile missing');
     // The reported total and count still stand.
     expect(flat(tile)).toMatch(/UGX900[,.\u00a0\u202f]?000/);
     expect(flat(tile)).toMatch(/82transactions/);
     // The long explainer paragraph is gone from the tile and from its hover text.
-    expect(tile.getAttribute('title')).toBe('Corrections');
+    expect(label.getAttribute('title')).toBe('Corrections');
+
     expect(screen.queryByText(/payroll loyalty bonus credited to staff wallets/)).not.toBeInTheDocument();
     expect(screen.queryByText(/system_balance_correction/)).not.toBeInTheDocument();
   });
