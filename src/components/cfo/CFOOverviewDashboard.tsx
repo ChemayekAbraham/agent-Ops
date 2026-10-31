@@ -288,8 +288,11 @@ export function CFOOverviewDashboard({
           how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-6">
+<<<<<<< HEAD
         {!cashPositionOnly && <V360NewPlansSwitch />}
 
+=======
+>>>>>>> origin/lovable
         {/* ─────────── 1 · CASH POSITION ─────────── */}
         {showCashPosition && <Band
           title="Cash Position"

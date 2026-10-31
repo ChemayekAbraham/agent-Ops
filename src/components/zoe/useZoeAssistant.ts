@@ -60,6 +60,56 @@ export interface ZoeGlossaryUpsertInput {
   is_active?: boolean;
 }
 
+export type ZoeKnowledgeCategory =
+  | 'glossary'
+  | 'product_policy'
+  | 'process_explanation'
+  | 'where_to_find'
+  | 'measurement_gotcha';
+
+export interface ZoeKnowledgeEntry {
+  slug: string;
+  title: string;
+  category: ZoeKnowledgeCategory;
+  summary: string;
+  body: string;
+  measurement_gotcha: string;
+  where_to_find: string;
+  screen_path: string;
+  official_source: string;
+  keywords?: string[];
+  is_published?: boolean;
+  updated_at?: string;
+}
+
+export interface ZoeKnowledgeUpsertInput {
+  slug: string;
+  title: string;
+  category: ZoeKnowledgeCategory;
+  summary: string;
+  body?: string;
+  measurement_gotcha?: string;
+  where_to_find?: string;
+  screen_path?: string;
+  official_source?: string;
+  keywords?: string[];
+  is_published?: boolean;
+}
+
+export interface ZoeMemorySuggestion {
+  key: string;
+  note_text: string;
+  prompt: string;
+}
+
+export interface ZoePersonalisedStarter {
+  id: string;
+  label: string;
+  prompt: string;
+  topic?: string;
+  tool?: string;
+  reason?: string;
+}
 
 export interface ZoeMessage {
   id: string;
@@ -71,6 +121,8 @@ export interface ZoeMessage {
   clarification?: ZoeClarification | null;
   reportPayload?: Record<string, unknown> | null;
   followUpSuggestions?: string[];
+  researchMode?: boolean;
+  researchPlan?: string[];
   feedback?: ZoeFeedbackRating | null;
   createdAt?: string;
 }
@@ -86,7 +138,12 @@ interface StaffAssistantEdgeResponse {
   period?: string | null;
   report_payload?: Record<string, unknown> | null;
   follow_up_suggestions?: string[];
+  memory_suggestion?: ZoeMemorySuggestion | null;
+  temporary_chat?: boolean;
+  memory_enabled?: boolean;
   status_steps?: string[];
+  research_mode?: boolean;
+  research_plan?: string[];
   mfa_required?: boolean;
   remaining_questions_today?: number;
   conversations?: ZoeConversationListItem[];
@@ -102,6 +159,79 @@ interface StaffAssistantEdgeResponse {
     report_payload: Record<string, unknown> | null;
     created_at: string;
   }>;
+}
+
+/**
+ * Replaces a single paragraph at `paragraphIndex` (split on `\n\n+`) in `streamedText`
+ * when the server-side per-paragraph figure check (`checkStreamedParagraph`) emits
+ * `event: paragraph_replace` with `"I could not verify that figure"`.
+ */
+export function applyStreamParagraphReplacement(
+  streamedText: string,
+  paragraphIndex: number,
+  replacement = 'I could not verify that figure',
+): string {
+  const parts = (streamedText ?? '').split(/\n\n+/);
+  if (paragraphIndex < 0 || paragraphIndex >= parts.length) {
+    return streamedText;
+  }
+  parts[paragraphIndex] = replacement;
+  return parts.join('\n\n');
+}
+
+/**
+ * Parses an SSE stream body (`event: status`, `event: plan`, `event: token`,
+ * `event: paragraph_replace`, `event: done`) emitted by `staff-assistant` when `stream: true`.
+ */
+export function parseSseEventsFromChunk(
+  rawBuffer: string,
+  callbacks: {
+    onStatus?: (step: string) => void;
+    onPlan?: (steps: string[]) => void;
+    onToken?: (token: string) => void;
+    onParagraphReplace?: (index: number, replacement: string) => void;
+    onDone?: (payload: StaffAssistantEdgeResponse) => void;
+  },
+): string {
+  const frames = rawBuffer.split('\n\n');
+  const remainder = frames.pop() ?? '';
+
+  for (const frame of frames) {
+    const lines = frame.split('\n');
+    let eventName = 'message';
+    const dataLines: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith('event:')) {
+        eventName = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim());
+      }
+    }
+    if (dataLines.length === 0) continue;
+    try {
+      const parsed = JSON.parse(dataLines.join('\n')) as Record<string, unknown>;
+      if (eventName === 'status' && typeof parsed.step === 'string') {
+        callbacks.onStatus?.(parsed.step);
+      } else if (eventName === 'plan' && Array.isArray(parsed.steps)) {
+        callbacks.onPlan?.(parsed.steps.filter((s): s is string => typeof s === 'string'));
+      } else if (eventName === 'token' && typeof parsed.token === 'string') {
+        callbacks.onToken?.(parsed.token);
+      } else if (eventName === 'paragraph_replace' && typeof parsed.index === 'number') {
+        callbacks.onParagraphReplace?.(
+          parsed.index,
+          typeof parsed.replacement === 'string'
+            ? parsed.replacement
+            : 'I could not verify that figure',
+        );
+      } else if (eventName === 'done') {
+        callbacks.onDone?.(parsed as unknown as StaffAssistantEdgeResponse);
+      }
+    } catch {
+      /* ignore malformed frame */
+    }
+  }
+
+  return remainder;
 }
 
 const FALLBACK_ERROR = "I'm having trouble reading that report right now. Please try again in a moment.";
@@ -164,25 +294,44 @@ export interface UseZoeAssistantReturn {
   morningBrief: ZoeMorningBriefPayload | null;
   notes: ZoeNoteItem[];
   glossaryEntries: ZoeGlossaryEntry[];
+  knowledgeEntries: ZoeKnowledgeEntry[];
+  personalisedStarters: ZoePersonalisedStarter[];
+  memoryEnabled: boolean;
+  temporaryChat: boolean;
+  memorySuggestion: ZoeMemorySuggestion | null;
   isLoading: boolean;
   isHistoryLoading: boolean;
   streamingText: string | null;
   statusLine: string | null;
+  researchMode: boolean;
+  researchPlanSteps: string[];
   errorMessage: string | null;
   lastFailedPrompt: string | null;
   remainingQuestionsToday: number | null;
+  setResearchMode: (enabled: boolean | ((prev: boolean) => boolean)) => void;
+  setMemoryEnabled: (enabled: boolean) => Promise<void>;
+  setTemporaryChat: (enabled: boolean) => void;
+  acceptMemorySuggestion: () => Promise<{ ok: boolean; error?: string }>;
+  dismissMemorySuggestion: () => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
   stopGenerating: () => void;
   regenerateLastAnswer: () => Promise<void>;
   retryLastMessage: () => Promise<void>;
-  submitFeedback: (messageId: string, rating: ZoeFeedbackRating) => Promise<void>;
+  submitFeedback: (
+    messageId: string,
+    rating: ZoeFeedbackRating,
+    options?: { comment?: string; reportKind?: 'rating' | 'problem_report' },
+  ) => Promise<void>;
   clearHistory: () => Promise<void>;
   selectConversation: (conversationId: string) => Promise<void>;
   startNewChat: () => Promise<void>;
   renameConversation: (conversationId: string, title: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
   addNote: (noteText: string) => Promise<{ ok: boolean; error?: string }>;
+  updateNote: (noteId: string, noteText: string) => Promise<{ ok: boolean; error?: string }>;
   deleteNote: (noteId: string) => Promise<{ ok: boolean }>;
   saveGlossaryEntry: (input: ZoeGlossaryUpsertInput) => Promise<{ ok: boolean; error?: string }>;
+  saveKnowledgeEntry: (input: ZoeKnowledgeUpsertInput) => Promise<{ ok: boolean; error?: string }>;
 }
 
 export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
@@ -193,10 +342,17 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const [morningBrief, setMorningBrief] = useState<ZoeMorningBriefPayload | null>(null);
   const [notes, setNotes] = useState<ZoeNoteItem[]>([]);
   const [glossaryEntries, setGlossaryEntries] = useState<ZoeGlossaryEntry[]>([]);
+  const [knowledgeEntries, setKnowledgeEntries] = useState<ZoeKnowledgeEntry[]>([]);
+  const [personalisedStarters, setPersonalisedStarters] = useState<ZoePersonalisedStarter[]>([]);
+  const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(true);
+  const [temporaryChat, setTemporaryChatState] = useState<boolean>(false);
+  const [memorySuggestion, setMemorySuggestion] = useState<ZoeMemorySuggestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [statusLine, setStatusLine] = useState<string | null>(null);
+  const [researchMode, setResearchMode] = useState<boolean>(false);
+  const [researchPlanSteps, setResearchPlanSteps] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [remainingQuestionsToday, setRemainingQuestionsToday] = useState<number | null>(null);
@@ -339,6 +495,51 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         /* ignore glossary load error */
       });
 
+    // Load personalised starters (up to 3 from caller's own last 30 days of topics, role & tools)
+    supabase.functions
+      .invoke<{ starters?: ZoePersonalisedStarter[] }>('staff-assistant', {
+        body: { action: 'personalised_starters' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.starters)) {
+          setPersonalisedStarters(data.starters.slice(0, 3));
+        }
+      })
+      .catch(() => {
+        /* ignore starter load error */
+      });
+
+    // Load caller's memory preferences ("Memory off" switch & dismissed suggestions)
+    supabase.functions
+      .invoke<{ memory_enabled?: boolean }>('staff-assistant', {
+        body: { action: 'get_memory_prefs' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (typeof data?.memory_enabled === 'boolean') {
+          setMemoryEnabledState(data.memory_enabled);
+        }
+      })
+      .catch(() => {
+        /* ignore memory prefs load error */
+      });
+
+    // Load curated Knowledge Base entries
+    supabase.functions
+      .invoke<{ rows?: ZoeKnowledgeEntry[] }>('staff-assistant', {
+        body: { action: 'search_knowledge_base', query: '', limit: 25 },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.rows)) {
+          setKnowledgeEntries(data.rows);
+        }
+      })
+      .catch(() => {
+        /* ignore knowledge base load error */
+      });
+
     return () => {
       cancelled = true;
       clearStreamTimer();
@@ -358,6 +559,33 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     setStatusLine(null);
   }, [clearStreamTimer]);
 
+  const setMemoryEnabled = useCallback(
+    async (nextEnabled: boolean) => {
+      setMemoryEnabledState(nextEnabled);
+      if (!nextEnabled) {
+        setMemorySuggestion(null);
+      }
+      if (!user?.id) return;
+      try {
+        await supabase.functions.invoke('staff-assistant', {
+          body: {
+            action: 'set_memory_prefs',
+            memory_enabled: nextEnabled,
+          },
+        });
+      } catch {
+        /* non-blocking */
+      }
+    },
+    [user?.id],
+  );
+
+  const setTemporaryChat = useCallback((nextTemp: boolean) => {
+    setTemporaryChatState(nextTemp);
+    if (nextTemp) {
+      setMemorySuggestion(null);
+    }
+  }, []);
 
   const sendMessage = useCallback(
     async (rawText: string) => {
@@ -365,19 +593,39 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
       if (!prompt || inFlightRef.current || !user?.id) return;
 
       clearStreamTimer();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       inFlightRef.current = true;
       setIsLoading(true);
       setStreamingText(null);
-      setStatusLine(
-        /compare|difference|vs|last week|last month/i.test(prompt)
-          ? 'Comparing periods...'
-          : 'Looking up official records...',
-      );
+      if (researchMode) {
+        setResearchPlanSteps([
+          `Step 1: Clarify scope and definitions for "${prompt.slice(0, 60)}"`,
+          'Step 2: Gather certified Welile figures from official tools',
+          'Step 3: Search and read outside sources with links and dates',
+          'Step 4: Synthesize cited report with separate Welile vs Outside sections',
+        ]);
+        setStatusLine('Planning research steps...');
+      } else {
+        setResearchPlanSteps([]);
+        setStatusLine(
+          /compare|difference|vs|last week|last month/i.test(prompt)
+            ? 'Comparing periods...'
+            : 'Looking up official records...',
+        );
+      }
       setErrorMessage(null);
       setLastFailedPrompt(null);
 
       const userTurnId = safeUUID();
-      setMessages((prev) => [...prev, { id: userTurnId, role: 'user', content: prompt }]);
+      setMessages((prev) => [
+        ...prev,
+        { id: userTurnId, role: 'user', content: prompt, researchMode },
+      ]);
       const generation = generationRef.current;
 
       try {
@@ -386,16 +634,56 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
             body: {
               action: 'message',
               message: prompt,
-              ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
+              ...(researchMode ? { research_mode: true } : {}),
+              ...(temporaryChat ? { temporary_chat: true } : {}),
+              memory_enabled: memoryEnabled && !temporaryChat,
+              ...(!temporaryChat && conversationIdRef.current
+                ? { conversation_id: conversationIdRef.current }
+                : {}),
               client_context: { device: collectDevice() },
             },
           })
           .catch(() => ({ data: null, error: new Error(FALLBACK_ERROR) }));
 
-        if (generation !== generationRef.current) return;
-        const res = await readEdgeResponse(data, error);
+        if (generation !== generationRef.current || abortController.signal.aborted) return;
 
-        if (res.conversation_id) {
+        let res: StaffAssistantEdgeResponse;
+        if (typeof data === 'string' && data.includes('event:')) {
+          let donePayload: StaffAssistantEdgeResponse = {};
+          let liveAccumulated = '';
+          parseSseEventsFromChunk(`${data}\n\n`, {
+            onStatus: (step) => setStatusLine(step),
+            onPlan: (steps) => setResearchPlanSteps(steps),
+            onToken: (token) => {
+              liveAccumulated += token;
+              setStreamingText(liveAccumulated);
+            },
+            onParagraphReplace: (idx, replacement) => {
+              liveAccumulated = applyStreamParagraphReplacement(
+                liveAccumulated,
+                idx,
+                replacement,
+              );
+              setStreamingText(liveAccumulated);
+            },
+            onDone: (payload) => {
+              donePayload = payload;
+            },
+          });
+          res = donePayload;
+        } else {
+          res = await readEdgeResponse(data, error);
+        }
+
+        if (Array.isArray(res.research_plan) && res.research_plan.length > 0) {
+          setResearchPlanSteps(res.research_plan);
+        }
+
+        if (res.memory_suggestion && memoryEnabled && !temporaryChat) {
+          setMemorySuggestion(res.memory_suggestion);
+        }
+
+        if (res.conversation_id && !temporaryChat) {
           conversationIdRef.current = res.conversation_id;
           setActiveConversationId(res.conversation_id);
           setConversations((prev) => {
@@ -455,15 +743,18 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
             clarification: res.clarification ?? null,
             reportPayload: res.report_payload ?? null,
             followUpSuggestions: followUps,
+            researchMode: res.research_mode === true || researchMode,
+            researchPlan: Array.isArray(res.research_plan) ? res.research_plan : undefined,
           },
         ]);
       } catch {
-        if (generation === generationRef.current) {
+        if (generation === generationRef.current && !abortController.signal.aborted) {
           setErrorMessage(FALLBACK_ERROR);
           setLastFailedPrompt(prompt);
         }
       } finally {
         if (generation === generationRef.current) {
+          abortControllerRef.current = null;
           inFlightRef.current = false;
           setIsLoading(false);
           setStreamingText(null);
@@ -471,7 +762,7 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         }
       }
     },
-    [user?.id, clearStreamTimer],
+    [user?.id, clearStreamTimer, researchMode, temporaryChat, memoryEnabled],
   );
 
   const regenerateLastAnswer = useCallback(async () => {
@@ -622,6 +913,38 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      if (!conversationId) return;
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (conversationIdRef.current === conversationId) {
+        generationRef.current += 1;
+        clearStreamTimer();
+        inFlightRef.current = false;
+        conversationIdRef.current = undefined;
+        setActiveConversationId(null);
+        setMessages([]);
+        setIsLoading(false);
+        setStreamingText(null);
+        setStatusLine(null);
+        setErrorMessage(null);
+        setLastFailedPrompt(null);
+      }
+      if (!user?.id) return;
+      await supabase.functions
+        .invoke('staff-assistant', {
+          body: {
+            action: 'clear_history',
+            conversation_id: conversationId,
+          },
+        })
+        .catch(() => {
+          /* ignore */
+        });
+    },
+    [user?.id, clearStreamTimer],
+  );
+
   const clearHistory = useCallback(async () => {
     const convId = conversationIdRef.current;
     generationRef.current += 1;
@@ -682,6 +1005,64 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     },
     [user?.id],
   );
+
+  const updateNote = useCallback(
+    async (noteId: string, noteText: string): Promise<{ ok: boolean; error?: string }> => {
+      const cleaned = noteText.trim();
+      if (!noteId || !cleaned || !user?.id) {
+        return { ok: false, error: 'Please enter a short preference note (2–240 characters).' };
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          ok?: boolean;
+          error?: string;
+          notes?: ZoeNoteItem[];
+        }>('staff-assistant', {
+          body: { action: 'update_note', note_id: noteId, note_text: cleaned },
+        });
+        const res = await readEdgeResponse(data, error);
+        if (Array.isArray((data as { notes?: ZoeNoteItem[] } | null)?.notes)) {
+          setNotes((data as { notes: ZoeNoteItem[] }).notes);
+        }
+        if ((data as { ok?: boolean } | null)?.ok === false || error) {
+          return {
+            ok: false,
+            error:
+              res.error ||
+              'Zoe notes may only store short preferences and must never contain business figures or personal data.',
+          };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Could not update Zoe note right now.' };
+      }
+    },
+    [user?.id],
+  );
+
+  const acceptMemorySuggestion = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!memorySuggestion) return { ok: false, error: 'No memory suggestion active.' };
+    const textToSave = memorySuggestion.note_text;
+    setMemorySuggestion(null);
+    return addNote(textToSave);
+  }, [memorySuggestion, addNote]);
+
+  const dismissMemorySuggestion = useCallback(async () => {
+    const key = memorySuggestion?.key;
+    setMemorySuggestion(null);
+    if (!key || !user?.id) return;
+    try {
+      await supabase.functions.invoke('staff-assistant', {
+        body: {
+          action: 'set_memory_prefs',
+          memory_enabled: memoryEnabled,
+          dismiss_preference_key: key,
+        },
+      });
+    } catch {
+      /* non-blocking */
+    }
+  }, [memorySuggestion, user?.id, memoryEnabled]);
 
   const deleteNote = useCallback(
     async (noteId: string): Promise<{ ok: boolean }> => {
@@ -749,6 +1130,65 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const saveKnowledgeEntry = useCallback(
+    async (input: ZoeKnowledgeUpsertInput): Promise<{ ok: boolean; error?: string }> => {
+      if (!user?.id) return { ok: false, error: 'Not signed in.' };
+      try {
+        const { data, error } = await supabase.rpc(
+          'staff_assistant_upsert_knowledge_entry' as never,
+          {
+            p_slug: input.slug,
+            p_title: input.title,
+            p_category: input.category,
+            p_summary: input.summary,
+            p_body: input.body || input.where_to_find || input.summary,
+            p_measurement_gotcha: input.measurement_gotcha ?? '',
+            p_official_source: input.official_source ?? 'SYSTEM_CONTEXT.md',
+            p_screen_path: input.screen_path ?? '/me',
+            p_keywords: input.keywords ?? [],
+            p_review_status: input.is_published === false ? 'draft' : 'published',
+          } as never,
+        );
+        if (error) {
+          return { ok: false, error: error.message };
+        }
+        const raw = (data ?? {}) as { ok?: boolean; error?: string; slug?: string };
+        if (raw.ok === false) {
+          return { ok: false, error: raw.error || 'Could not save knowledge base entry.' };
+        }
+        const nextEntry: ZoeKnowledgeEntry = {
+          slug: raw.slug || input.slug,
+          title: input.title,
+          category: input.category,
+          summary: input.summary,
+          body: input.body ?? '',
+          measurement_gotcha: input.measurement_gotcha ?? '',
+          where_to_find: input.where_to_find ?? '',
+          screen_path: input.screen_path ?? '/me',
+          official_source: input.official_source ?? 'SYSTEM_CONTEXT.md',
+          keywords: input.keywords ?? [],
+          is_published: input.is_published ?? true,
+        };
+        setKnowledgeEntries((prev) => {
+          const idx = prev.findIndex((e) => e.slug === nextEntry.slug);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = nextEntry;
+            return next;
+          }
+          return [nextEntry, ...prev];
+        });
+        return { ok: true };
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : 'Could not save knowledge base entry.',
+        };
+      }
+    },
+    [user?.id],
+  );
+
   return {
     messages,
     conversations,
@@ -756,13 +1196,25 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     morningBrief,
     notes,
     glossaryEntries,
+    knowledgeEntries,
+    personalisedStarters,
+    memoryEnabled,
+    temporaryChat,
+    memorySuggestion,
     isLoading,
     isHistoryLoading,
     streamingText,
     statusLine,
+    researchMode,
+    researchPlanSteps,
     errorMessage,
     lastFailedPrompt,
     remainingQuestionsToday,
+    setResearchMode,
+    setMemoryEnabled,
+    setTemporaryChat,
+    acceptMemorySuggestion,
+    dismissMemorySuggestion,
     sendMessage,
     stopGenerating,
     regenerateLastAnswer,
@@ -772,9 +1224,12 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     selectConversation,
     startNewChat,
     renameConversation,
+    deleteConversation,
     addNote,
+    updateNote,
     deleteNote,
     saveGlossaryEntry,
+    saveKnowledgeEntry,
   };
 }
 

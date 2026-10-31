@@ -22,6 +22,7 @@ export type SignageFootTraffic = 'low' | 'medium' | 'high';
 export type SignageStatus =
   | 'draft'
   | 'submitted'
+  | 'pending'
   | 'under_review'
   | 'changes_required'
   | 'rejected'
@@ -108,6 +109,17 @@ export interface SignageRecord {
   activated_at?: string;
   removal_effective_at?: string;
 
+  // CFO Disbursement Tracking
+  agent_reward_status?: 'eligible' | 'pending' | 'disbursed';
+  agent_reward_disbursed_at?: string;
+  agent_reward_disbursed_by?: string;
+  agent_reward_tx_ref?: string;
+
+  owner_rent_status?: 'pending' | 'disbursed';
+  owner_rent_disbursed_at?: string;
+  owner_rent_disbursed_by?: string;
+  owner_rent_tx_ref?: string;
+
   created_at: string;
   updated_at: string;
 }
@@ -139,7 +151,8 @@ export interface SignageAgentReward {
 export function formatSignageStatus(status: SignageStatus): { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' | 'success' } {
   switch (status) {
     case 'submitted':
-      return { label: 'Submitted', variant: 'secondary' };
+    case 'pending':
+      return { label: 'Pending', variant: 'secondary' };
     case 'under_review':
       return { label: 'Under Review', variant: 'secondary' };
     case 'approved_for_installation':

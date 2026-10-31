@@ -13,8 +13,11 @@ import { MerchantAgentFloatAllocationPanel } from './MerchantAgentFloatAllocatio
 import { MerchantBalanceDisputesPanel } from './MerchantBalanceDisputesPanel';
 import { PhonePlatformReconciliationCard } from './PhonePlatformReconciliationCard';
 import { AutoCreditSuccessRateTile } from './AutoCreditSuccessRateTile';
+<<<<<<< HEAD
 import { V360NewPlansSwitch } from '@/components/v360/V360NewPlansSwitch';
 
+=======
+>>>>>>> origin/lovable
 // Everything below is code-split — a panel's JS is only fetched when its
 // tool/view is opened. Keeps /admin/financial-ops first paint fast.
 const lz = (

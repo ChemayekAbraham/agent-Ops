@@ -22,6 +22,7 @@ import {
   type ZoeRoViewCatalogEntry,
 } from "../../supabase/functions/staff-assistant/analyst.ts";
 import {
+<<<<<<< HEAD
   CONSULTANT_FORBIDDEN_TOOLS,
   type ConsultantChecklistScore,
   executeConsultantReadWebPage,
@@ -32,6 +33,29 @@ import {
   validateConsultantWebQuery,
   validateConsultantWebUrl,
   WEB_RESEARCH_TOOL_NAMES,
+=======
+  BRAVE_SEARCH_PROVIDER,
+  buildResearchModePlan,
+  checkWebResearchQuota,
+  CONSULTANT_FORBIDDEN_TOOLS,
+  type ConsultantChecklistScore,
+  EXA_SEARCH_PROVIDER,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
+  extractAndSanitizeWebPageText,
+  filterToolsForConsultantMode,
+  isConsultantQuestion,
+  MAX_RESEARCH_SOURCES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_USER_PER_DAY,
+  resolveWebSearchProvider,
+  scoreConsultantAnswer,
+  TAVILY_SEARCH_PROVIDER,
+  validateConsultantWebQuery,
+  validateConsultantWebUrl,
+  WEB_RESEARCH_TOOL_NAMES,
+  type WebSearchProvider,
+>>>>>>> origin/lovable
 } from "../../supabase/functions/staff-assistant/consultant.ts";
 import {
   currentWednesdayWeekStart,
@@ -52,11 +76,14 @@ import {
 import {
   checkAnswer,
   checkDraftCardText,
+  checkStreamedParagraph,
   containsPromptOrSecretLeak,
   GuardResult,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  UNVERIFIED_PARAGRAPH_REPLACEMENT,
   validateZoeNoteText,
+  verifyAndSanitizeStreamedParagraphs,
 } from "../../supabase/functions/staff-assistant/guards.ts";
 import {
   handleStaffAssistantRequest,
@@ -64,15 +91,32 @@ import {
   StaffAssistantHandlerDeps,
   StaffAssistantStoreDeps,
 } from "../../supabase/functions/staff-assistant/index.ts";
-import { isConversationalPromptAllowedWithoutTool } from "../../supabase/functions/staff-assistant/manualHelp.ts";
 import {
+  ensurePolicyDisclaimerWhenNeeded,
+  isConversationalPromptAllowedWithoutTool,
+  POLICY_DISCLAIMER_TAG,
+} from "../../supabase/functions/staff-assistant/manualHelp.ts";
+import {
+  buildFollowUpSuggestions,
   buildRollingConversationSummary,
+  classifyFeedbackTheme,
+  classifyQuestionTopic,
+  detectRepeatedUserPreference,
+  FALLBACK_ROLE_STARTERS,
   formatZoeNotesForPrompt,
   MAX_ZOE_NOTES_PER_USER,
+  PersonalisedStarterItem,
+  PROMPT_ACTIVE_MESSAGES,
+  PROMPT_ACTIVE_TURNS,
+  selectRoleVerifiedStarters,
+  splitTurnsForPromptMemory,
   synthesizePartialStepLimitReply,
+  ZOE_FIXED_TOPICS,
+  ZoeMemorySuggestion,
+  ZoeQuestionTopic,
   ZoeUserNote,
 } from "../../supabase/functions/staff-assistant/memory.ts";
-import { MSG } from "../../supabase/functions/staff-assistant/messages.ts";
+import { formatWriteMutationRefusal, MSG } from "../../supabase/functions/staff-assistant/messages.ts";
 import {
   buildMorningBriefForCaller,
   isPastKampalaBriefTime,
@@ -82,6 +126,7 @@ import {
 } from "../../supabase/functions/staff-assistant/morningBrief.ts";
 import {
   type ChatMessage,
+  chatCompletionStream,
   DEFAULT_CHAT_MAX_TOKENS,
   DEFAULT_CHAT_TEMPERATURE,
   DEFAULT_MAX_COST_USD_PER_QUESTION,
@@ -100,7 +145,15 @@ import {
   STATIC_SYSTEM_PROMPT_PREFIX,
 } from "../../supabase/functions/staff-assistant/prompt.ts";
 import { cleanMessage, RequestSchema } from "../../supabase/functions/staff-assistant/schemas.ts";
-import type { BudgetCheckResult } from "../../supabase/functions/staff-assistant/store.ts";
+import {
+  type BudgetCheckResult,
+  checkStaffAssistantHealth,
+  DEFAULT_STAFF_ASSISTANT_CONFIG,
+  mapMissingFunctionToErrorCode,
+  resetStaffAssistantHealthCache,
+  ZOE_ERROR_CODES,
+  type ZoeErrorCode,
+} from "../../supabase/functions/staff-assistant/store.ts";
 import {
   canUseTool,
   ClarificationArgsSchema,
@@ -133,18 +186,27 @@ import {
 export {
   ALLOWED_ANALYST_SQL_FUNCTIONS,
   areaRequiresStaffAal2,
+  BRAVE_SEARCH_PROVIDER,
+  buildFollowUpSuggestions,
   buildMorningBriefForCaller,
   buildReminderDraft,
   buildReportEmailDraft,
   buildReportScheduleDraft,
+  buildResearchModePlan,
   buildRollingConversationSummary,
   buildStaffNotificationDraft,
   buildSystemPrompt,
   canCallerAccessZoeRoArea,
   canUseTool,
+  chatCompletionStream,
   checkAnswer,
   checkDraftCardText,
+  checkStaffAssistantHealth,
+  checkStreamedParagraph,
+  checkWebResearchQuota,
   ClarificationArgsSchema,
+  classifyFeedbackTheme,
+  classifyQuestionTopic,
   cleanMessage,
   CONSULTANT_FORBIDDEN_TOOLS,
   containsPromptOrSecretLeak,
@@ -154,20 +216,34 @@ export {
   DEFAULT_CHAT_TEMPERATURE,
   DEFAULT_MAX_COST_USD_PER_QUESTION,
   DEFAULT_MAX_EMAILS_PER_DAY,
+  DEFAULT_STAFF_ASSISTANT_CONFIG,
   DEFAULT_ZOE_MODEL_DEEP,
   DEFAULT_ZOE_MODEL_FAST,
   describeToolsForRoles,
+  detectRepeatedUserPreference,
   DraftReportEmailArgsSchema,
   ensureAdHocCertificationNotice,
+  ensurePolicyDisclaimerWhenNeeded,
   estimateCallCostUsd,
+<<<<<<< HEAD
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   extractRecipientQuery,
   extractReportTableFromFreshRpc,
+=======
+  EXA_SEARCH_PROVIDER,
+  executeConsultantReadWebPage,
+  executeConsultantWebSearch,
+  extractAndSanitizeWebPageText,
+  extractRecipientQuery,
+  extractReportTableFromFreshRpc,
+  FALLBACK_ROLE_STARTERS,
+>>>>>>> origin/lovable
   filterToolsForConsultantMode,
   findTool,
   FORBIDDEN_ANALYST_PII_COLUMNS,
   formatPeriodLabel,
+  formatWriteMutationRefusal,
   formatZoeNotesForPrompt,
   handleStaffAssistantRequest,
   handleStaffAssistantSendEmail,
@@ -181,32 +257,54 @@ export {
   isValueFromToolDataOnly,
   isWriteMutationIntent,
   kampalaToday,
+  mapMissingFunctionToErrorCode,
   MAX_DEEP_MODEL_ROUNDS,
   MAX_DEEP_TOOL_CALLS,
+  MAX_RESEARCH_SOURCES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_USER_PER_DAY,
   MAX_ZOE_NOTES_PER_USER,
   MORNING_BRIEF_CANDIDATE_TOOLS,
   MSG,
   normalizeStaffRecipients,
   openAiToolsForRoles,
+  POLICY_DISCLAIMER_TAG,
   prepareToolOutputForModel,
+  PROMPT_ACTIVE_MESSAGES,
+  PROMPT_ACTIVE_TURNS,
   RequestSchema,
+  resetStaffAssistantHealthCache,
+  resetStaffAssistantHealthCache as resetStaffAssistantHealthCacheForTest,
   resolvePeriod,
   resolveReminderTimestamp,
+  resolveWebSearchProvider,
   sanitizeUntrustedFreeText,
   sanitizeWelileTermsServer,
   SCOPE_CHECK_PROMPT,
   scoreConsultantAnswer,
   selectModelTier,
   selectRoleBriefToolNames,
+  selectRoleVerifiedStarters,
+  splitTurnsForPromptMemory,
   STAFF_TOOLS,
   STATIC_SYSTEM_PROMPT_PREFIX,
   synthesizePartialStepLimitReply,
+  TAVILY_SEARCH_PROVIDER,
   toolsForRoles,
+  UNVERIFIED_PARAGRAPH_REPLACEMENT,
   validateAnalystSqlQuery,
   validateConsultantWebQuery,
   validateConsultantWebUrl,
   validateZoeNoteText,
+<<<<<<< HEAD
   WEB_RESEARCH_TOOL_NAMES,
+=======
+  verifyAndSanitizeStreamedParagraphs,
+  WEB_RESEARCH_TOOL_NAMES,
+  type WebSearchProvider,
+  ZOE_ERROR_CODES,
+  ZOE_FIXED_TOPICS,
+>>>>>>> origin/lovable
   ZOE_REPORT_EMAIL_DISPLAY_NAME,
   ZOE_REPORT_EMAIL_TEMPLATE,
   ZOE_RO_AREA_ROLES,
@@ -222,6 +320,7 @@ export type {
   MorningBriefPayload,
   OpenAiTool,
   Period,
+  PersonalisedStarterItem,
   PreparedToolOutput,
   SendEmailDependencies,
   SendEmailResult,
@@ -231,7 +330,10 @@ export type {
   StaffEmailRecipient,
   StaffTool,
   ZoeActionDraft,
+  ZoeErrorCode,
+  ZoeMemorySuggestion,
   ZoeNotificationDraft,
+  ZoeQuestionTopic,
   ZoeReminderDraft,
   ZoeRoArea,
   ZoeRoViewCatalogEntry,
@@ -283,6 +385,7 @@ export interface ExecuteZoeTurnInput {
   callerRoles: string[];
   mfaAal2?: boolean;
   userMessage: string;
+  action?: string;
   conversationId?: string;
   requestExtraFields?: Record<string, unknown>;
   scopeClassification?: "in_scope" | "out_of_scope";
@@ -290,6 +393,9 @@ export interface ExecuteZoeTurnInput {
   modelToolCallRounds?: SimulatedToolCall[][];
   modelFinalText?: string;
   rpcDataByTool?: Record<string, Record<string, unknown> | { errorCode: string; message: string }>;
+  missingFunctions?: string[];
+  brokenRpcs?: string[];
+  aiGatewayUnreachable?: boolean;
   staffDirectory?: StaffEmailRecipient[];
   recentTurns?: ChatMessage[];
   userNotes?: ZoeUserNote[];
@@ -331,8 +437,31 @@ export interface ExecuteZoeTurnResult {
     status: "ok" | "refused" | "error";
     errorMessage?: string;
   }>;
+  unansweredLogs: Array<{
+    reason: string;
+    errorCode?: string | null;
+    errorDetail?: string | null;
+    questionText: string;
+  }>;
+  degradedErrorCodes: string[];
+  databaseStatus?: string;
   modelTier?: "fast" | "deep";
+  consultantMode?: boolean;
   statusSteps?: string[];
+  followUpSuggestions?: string[];
+  memorySuggestion?: ZoeMemorySuggestion | null;
+  temporaryChat?: boolean;
+  memoryEnabled?: boolean;
+  estimatedCostUsd?: number;
+  ttfbMs?: number;
+  learningLogs?: Array<{
+    topic: string;
+    toolUsed: string | null;
+    outcome: string;
+    latencyMs: number;
+    costUsd: number;
+    modelTier: "fast" | "deep";
+  }>;
 }
 
 const ENABLED_STAFF_ROLES = new Set([
@@ -372,8 +501,17 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
     const savedDrafts: Array<{ kind: string; payload: Record<string, unknown>; draftId: string }> =
       [];
     const loggedAnalystQueries: ExecuteZoeTurnResult["loggedAnalystQueries"] = [];
+    const unansweredLogs: ExecuteZoeTurnResult["unansweredLogs"] = [];
+    const learningLogs: NonNullable<ExecuteZoeTurnResult["learningLogs"]> = [];
     let recordedToolsCalled: string[] = [];
     let toolsOfferedFromRound: string[] = [];
+    const perfStart = performance.now();
+
+    const missingSet = new Set(
+      [...(input.missingFunctions ?? []), ...(input.brokenRpcs ?? [])].map((f) =>
+        f.toLowerCase().trim(),
+      ),
+    );
 
     const mockUserClient = {
       auth: {
@@ -408,8 +546,57 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
         }),
       }),
       rpc: async (fnName: string, rpcArgs?: Record<string, unknown>) => {
+        const lowerFn = fnName.toLowerCase().trim();
+        if (missingSet.has(lowerFn)) {
+          return {
+            data: null,
+            error: {
+              code: "PGRST202",
+              message: `Could not find the function public.${fnName} in the schema cache`,
+            },
+          };
+        }
+
         if (fnName === "staff_assistant_has_access") {
           return { data: hasAccess, error: null };
+        }
+        if (fnName === "staff_assistant_health") {
+          const missingFns = [...missingSet];
+          return {
+            data: {
+              ok: missingFns.length === 0,
+              status: missingFns.length > 0 ? "zoe_database_behind" : "ok",
+              missing_functions: missingFns,
+              missing_tables: [],
+              missing_columns: [],
+              missing_views: [],
+              missing_objects: missingFns.map((f) => `function:${f}`),
+            },
+            error: null,
+          };
+        }
+        if (fnName === "staff_assistant_get_config") {
+          return {
+            data: {
+              id: true,
+              enabled: true,
+              max_questions_per_day: 50,
+              max_emails_per_day: 10,
+              max_notifications_per_day: 20,
+              history_days: 30,
+              max_model_rounds: 4,
+              max_tool_calls: 6,
+              model_fast: "google/gemini-2.5-flash",
+              model_deep: "google/gemini-2.5-pro",
+              temperature: 0.2,
+              max_tokens: 3200,
+              max_deep_model_rounds: 8,
+              max_deep_tool_calls: 12,
+              max_cost_usd_per_question: 0.08,
+              web_research_enabled: Boolean(input.budgetCheckResult?.webResearchEnabled),
+            },
+            error: null,
+          };
         }
         if (fnName === "staff_assistant_email_recipients") {
           const query = String(rpcArgs?.p_search ?? "").toLowerCase().trim();
@@ -437,10 +624,19 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           return { data: { ok: true, draft_id: draftId }, error: null };
         }
 
-        // Find matching tool by RPC name
-        const tool = STAFF_TOOLS.find((t) => t.rpc === fnName);
+        // Find matching tool by RPC name (including canonical alias assistant_staff_get_data_catalog)
+        const tool = STAFF_TOOLS.find(
+          (t) =>
+            t.rpc === fnName ||
+            (fnName === "assistant_staff_get_data_catalog" && t.name === "get_data_catalog"),
+        );
         const toolKey = tool?.name ?? fnName;
-        const mockRes = input.rpcDataByTool?.[toolKey] ?? input.rpcDataByTool?.[fnName];
+        const mockRes =
+          input.rpcDataByTool?.[toolKey] ??
+          input.rpcDataByTool?.[fnName] ??
+          (fnName === "assistant_staff_get_data_catalog"
+            ? input.rpcDataByTool?.["assistant_staff_data_catalog"]
+            : undefined);
 
         if (mockRes && typeof mockRes === "object" && "errorCode" in mockRes) {
           return {
@@ -453,7 +649,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
         }
 
         const payload = (mockRes as Record<string, unknown> | undefined) ?? {
-          source: fnName,
+          source: tool?.rpc ?? fnName,
           period: { as_of: FIXED_EVAL_DATE },
           row_count: 1,
           rows: [],
@@ -469,8 +665,11 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
         return JSON.stringify({ category: cat });
       },
       chatCompletion: async (opts) => {
+        if (input.aiGatewayUnreachable) {
+          throw new Error("AI gateway unreachable: connection refused");
+        }
         modelMessagesSeen.push([...opts.messages]);
-        if (opts.tools && toolsOfferedFromRound.length === 0) {
+        if (opts.tools && opts.tools.length > 0 && toolsOfferedFromRound.length === 0) {
           toolsOfferedFromRound = opts.tools.map((t) => t.function.name);
         }
         const currentRound = chatRound++;
@@ -480,9 +679,19 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
             ? [input.modelToolCalls]
             : []);
         const configuredCalls = roundsList[currentRound] ?? [];
-        if (configuredCalls.length > 0) {
+        const toolsAllowedThisCall = !opts.tools || opts.tools.length > 0;
+        const usedModel = opts.model ?? "google/gemini-2.5-flash";
+        const isDeep = usedModel.includes("pro") || usedModel.includes("deep");
+        const roundCostUsd = isDeep ? 0.0042 : 0.0005;
+        if (configuredCalls.length > 0 && toolsAllowedThisCall) {
           return {
-            model: opts.model ?? "google/gemini-2.5-flash",
+            model: usedModel,
+            usage: {
+              promptTokens: 2100,
+              completionTokens: 120,
+              cachedTokens: 1600,
+              estimatedCostUsd: roundCostUsd,
+            },
             message: {
               role: "assistant",
               content: null,
@@ -498,7 +707,13 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           };
         }
         return {
-          model: opts.model ?? "google/gemini-2.5-flash",
+          model: usedModel,
+          usage: {
+            promptTokens: 2300,
+            completionTokens: 220,
+            cachedTokens: 1600,
+            estimatedCostUsd: roundCostUsd,
+          },
           message: {
             role: "assistant",
             content: input.modelFinalText ?? "",
@@ -538,7 +753,24 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
           assistantMessageId: "33333333-4444-4555-8666-777777777777",
         };
       },
-      recordUnanswered: async () => {},
+      recordUnanswered: async (entry) => {
+        unansweredLogs.push({
+          reason: entry.reason,
+          errorCode: entry.errorCode ?? null,
+          errorDetail: entry.errorDetail ?? null,
+          questionText: entry.questionText,
+        });
+      },
+      recordLearningLogEntry: async (entry) => {
+        learningLogs.push({
+          topic: entry.topic,
+          toolUsed: entry.toolUsed,
+          outcome: entry.outcome,
+          latencyMs: entry.latencyMs,
+          costUsd: entry.costUsd,
+          modelTier: entry.modelTier,
+        });
+      },
       logAnalystQuery: async (entry) => {
         loggedAnalystQueries.push({
           question: entry.question,
@@ -554,8 +786,8 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
     };
 
     const rawBody = {
-      action: "message",
-      message: input.userMessage,
+      action: input.action ?? "message",
+      ...(input.action && input.action !== "message" ? {} : { message: input.userMessage }),
       ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
       ...(input.requestExtraFields ?? {}),
     };
@@ -581,6 +813,7 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
       checkMfaAal2: async () => ({ ok: input.mfaAal2 !== false }),
     });
 
+    const ttfbMs = Math.max(1, Math.round(performance.now() - perfStart));
     const resBody = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     const httpStatus = response.status;
 
@@ -618,6 +851,19 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
       modelMessagesSeen,
       savedDrafts,
       loggedAnalystQueries,
+      unansweredLogs,
+      degradedErrorCodes: Array.from(
+        new Set([
+          ...(Array.isArray(resBody.degraded_error_codes)
+            ? (resBody.degraded_error_codes as string[])
+            : []),
+          ...unansweredLogs
+            .map((u) => u.errorCode)
+            .filter((c): c is string => typeof c === "string" && c.length > 0),
+        ]),
+      ),
+      databaseStatus:
+        typeof resBody.database_status === "string" ? resBody.database_status : undefined,
       modelTier:
         resBody.model_tier === "deep" || resBody.model_tier === "fast"
           ? resBody.model_tier
@@ -626,6 +872,19 @@ export async function executeZoeTurn(input: ExecuteZoeTurnInput): Promise<Execut
       statusSteps: Array.isArray(resBody.status_steps)
         ? (resBody.status_steps as string[])
         : undefined,
+      followUpSuggestions: Array.isArray(resBody.follow_up_suggestions)
+        ? (resBody.follow_up_suggestions as string[])
+        : [],
+      memorySuggestion:
+        resBody.memory_suggestion && typeof resBody.memory_suggestion === "object"
+          ? (resBody.memory_suggestion as ZoeMemorySuggestion)
+          : null,
+      temporaryChat: Boolean(resBody.temporary_chat),
+      memoryEnabled: resBody.memory_enabled !== false,
+      estimatedCostUsd:
+        typeof resBody.estimated_cost_usd === "number" ? resBody.estimated_cost_usd : 0,
+      ttfbMs,
+      learningLogs,
     };
   });
 }

@@ -307,6 +307,81 @@ export function getSuggestionsForRoles(roles: readonly string[] = []): ZoeSugges
 }
 
 /**
+ * Returns at most `limit` (default 3) starter prompts for an empty chat,
+ * chosen from the person's active roles and recent conversation topics.
+ */
+export function getStarterSuggestionsForRoles(
+  roles: readonly string[] = [],
+  recentTopics: readonly string[] = [],
+  limit = 3,
+): ZoeSuggestion[] {
+  const pool = getSuggestionsForRoles(roles);
+  if (pool.length <= limit) return pool;
+
+  const cleanTopics = recentTopics
+    .map((t) => (t ?? '').trim().toLowerCase())
+    .filter((t) => t.length >= 3 && t !== 'new chat');
+
+  // Build a balanced base of up to 2 my_space + role-specific items first
+  const personal = pool.filter((item) => item.category === 'my_space');
+  const department = pool.filter((item) => item.category !== 'my_space');
+
+  const baseOrder: ZoeSuggestion[] = [];
+  if (department.length > 0) {
+    baseOrder.push(...personal.slice(0, 2), ...department, ...personal.slice(2));
+  } else {
+    baseOrder.push(...pool);
+  }
+
+  if (cleanTopics.length === 0) {
+    return baseOrder.slice(0, limit);
+  }
+
+  const scored = baseOrder.map((item, idx) => {
+    const haystack = `${item.label} ${item.prompt} ${item.category}`.toLowerCase();
+    let score = 0;
+    for (const topic of cleanTopics) {
+      const words = topic.split(/\s+/).filter((w) => w.length >= 4);
+      for (const word of words) {
+        if (haystack.includes(word)) score += 2;
+      }
+    }
+    return { item, score, idx };
+  });
+
+  scored.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.idx - b.idx));
+  return scored.slice(0, limit).map((s) => s.item);
+}
+
+/**
+ * Translates raw or generic error strings into calm, plain-language explanations
+ * suitable for an inline note inside the chat.
+ */
+export function formatPlainZoeErrorMessage(rawError?: string | null): string {
+  const text = (rawError ?? '').trim();
+  if (!text) return "Zoe's data service is being updated. Please try again in a moment.";
+
+  const lower = text.toLowerCase();
+  if (
+    lower.includes('having trouble reading that report') ||
+    lower.includes('zoe_database_behind') ||
+    lower.includes('schema cache') ||
+    lower.includes('could not find the function') ||
+    lower.includes('does not exist') ||
+    lower.includes('service is being updated')
+  ) {
+    return "Zoe's data service is being updated. Please try again shortly.";
+  }
+  if (lower.includes('failed to fetch') || lower.includes('networkerror') || lower.includes('network')) {
+    return 'Connection was interrupted before Zoe finished answering.';
+  }
+  if (lower.includes('429') || lower.includes('daily limit') || lower.includes('rate limit')) {
+    return 'You have reached the question limit for right now.';
+  }
+  return text;
+}
+
+/**
  * Maps an official RPC/table `source` label returned by Zoe to the matching My Space
  * or department screen link so the user can jump directly to the live screen.
  */

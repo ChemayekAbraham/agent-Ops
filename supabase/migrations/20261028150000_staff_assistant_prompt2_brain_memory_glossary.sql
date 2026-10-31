@@ -61,7 +61,7 @@ UPDATE public.staff_assistant_config
        max_deep_tool_calls       = COALESCE(max_deep_tool_calls, 12),
        max_cost_usd_per_question = COALESCE(max_cost_usd_per_question, 0.0800),
        updated_at                = now()
- WHERE id = 1;
+ WHERE id = true;
 
 -- -----------------------------------------------------------------------------
 -- 2. Add `rolling_summary` to `public.staff_assistant_conversations`

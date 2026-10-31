@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
+import { dismissSessionPopup, type SessionPopupPhase } from '@/lib/sessionPopup';
+import { useSessionPopup } from '@/hooks/useSessionPopup';
 import {
   Dialog,
   DialogContent,
@@ -57,7 +59,9 @@ function markDismissed() {
 
 export default function EmailCollectionGate() {
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [phase, setPhase] = useState<SessionPopupPhase>(() => (wasDismissedThisSession() ? 'idle' : 'unknown'));
+  const granted = useSessionPopup('email', phase);
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -68,7 +72,12 @@ export default function EmailCollectionGate() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!user?.id || wasDismissedThisSession()) return;
+    if (!user?.id || wasDismissedThisSession()) {
+      setPhase('idle');
+      setNeedsEmail(false);
+      return;
+    }
+    setPhase('unknown');
 
     void (async () => {
       const { data, error } = await supabase
@@ -76,8 +85,14 @@ export default function EmailCollectionGate() {
         .select('email')
         .eq('id', user.id)
         .maybeSingle();
-      if (cancelled || error || !data) return;
-      if (needsValidEmail(data.email)) setOpen(true);
+      if (cancelled) return;
+      if (error || !data || !needsValidEmail(data.email)) {
+        setPhase('idle');
+        setNeedsEmail(false);
+        return;
+      }
+      setNeedsEmail(true);
+      setPhase('ready');
     })();
 
     return () => { cancelled = true; };
@@ -85,7 +100,9 @@ export default function EmailCollectionGate() {
 
   const dismiss = useCallback(() => {
     markDismissed();
-    setOpen(false);
+    dismissSessionPopup();
+    setNeedsEmail(false);
+    setPhase('idle');
   }, []);
 
   const sendCode = async () => {
@@ -120,7 +137,9 @@ export default function EmailCollectionGate() {
         });
       }
       markDismissed();
-      setOpen(false);
+      dismissSessionPopup();
+      setNeedsEmail(false);
+      setPhase('idle');
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not confirm the code';
       setFormError(message);
@@ -128,10 +147,8 @@ export default function EmailCollectionGate() {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) dismiss(); }}>
+    <Dialog open={granted && needsEmail} onOpenChange={(next) => { if (!next) dismiss(); }}>
       <DialogContent className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-y-auto rounded-2xl p-0 max-h-[calc(100dvh-2rem)]">
         <div className="border-b border-primary/15 bg-primary/5 px-6 pb-5 pt-6">
           <DialogHeader className="space-y-3 text-left">

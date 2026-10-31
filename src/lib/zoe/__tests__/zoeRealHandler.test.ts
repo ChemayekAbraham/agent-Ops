@@ -387,8 +387,8 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
     }
 
     // Also confirm STAFF_TOOLS and openAiToolsForRoles contain zero write tools
-    expect(STAFF_TOOLS.length).toBe(62);
-    expect(openAiToolsForRoles(["super_admin"]).length).toBe(70);
+    expect(STAFF_TOOLS.length).toBe(63);
+    expect(openAiToolsForRoles(["super_admin"]).length).toBe(71);
   });
 
   it("verifies Prompt 4 advisor insight tools are STABLE, write nothing, enforce finance/staff role gates, and draft_welile_idea creates a click-confirmed draft verified by checkDraftCardText", async () => {
@@ -997,5 +997,146 @@ describe("Zoe Real Request Handler, Number Check, Prompt Injection & Morning Bri
         },
       ]),
     ).toContain("I reached my limit, here is what I have so far:");
+  });
+
+  it("verifies Prompt 4 predictive starters, grounded follow-ups, memory that learns, temporary chat, learning loop, and curated knowledge base search", async () => {
+    const {
+      buildFollowUpSuggestions,
+      classifyFeedbackTheme,
+      classifyQuestionTopic,
+      detectRepeatedUserPreference,
+      selectRoleVerifiedStarters,
+      ZOE_FIXED_TOPICS,
+    } = await import("../../../../scripts/zoe-eval/runtime.ts");
+
+    // 1. Personalised starters: returns up to 3 role-verified starters and strips tools outside the caller's role
+    const employeeStarters = selectRoleVerifiedStarters(
+      ["employee"],
+      [
+        {
+          id: "cfo-only-starter",
+          topic: "finance_cfo",
+          label: "Treasury cash position",
+          prompt: "What is our spendable Treasury Cash Position today?",
+          tool: "get_cfo_treasury_cash_position",
+        },
+        {
+          id: "emp-tasks-starter",
+          topic: "my_space",
+          label: "My pending tasks",
+          prompt: "Show my pending tasks in My Work.",
+          tool: "get_my_tasks",
+        },
+      ],
+    );
+    expect(employeeStarters.length).toBeLessThanOrEqual(3);
+    expect(employeeStarters.some((s) => s.tool === "get_cfo_treasury_cash_position")).toBe(false);
+    expect(employeeStarters[0].id).toBe("emp-tasks-starter");
+
+    // 2. Next-question suggestions grounded in answer columns and verified against role tools
+    const topsFollowUps = buildFollowUpSuggestions({
+      toolsCalled: ["get_tops_arrears_ageing"],
+      callerRoles: ["tenant_ops"],
+      reportPayload: {
+        arrears_ugx: 41900429,
+        rows: [{ agent_name: "Kato", city: "Kampala", arrears_ugx: 1500000 }],
+      },
+    });
+    expect(topsFollowUps.length).toBeLessThanOrEqual(3);
+    expect(topsFollowUps.some((s) => /below target|no recent payment|last week|city|agent/i.test(s))).toBe(true);
+
+    // 3. Memory that learns: offers once ("Remember this?") on repeated preference, blocks when dismissed or memory off or temporary chat
+    const suggestion = detectRepeatedUserPreference({
+      currentMessage: "Show the breakdown in millions please",
+      recentUserMessages: ["Give me the summary in millions"],
+      existingNotes: [],
+      dismissedPromptKeys: [],
+      memoryEnabled: true,
+      temporaryChat: false,
+    });
+    expect(suggestion).not.toBeNull();
+    expect(suggestion?.prompt).toBe("Remember this?");
+    expect(suggestion?.note_text).toBe("Format large amounts in millions");
+
+    // Suppressed if dismissed
+    expect(
+      detectRepeatedUserPreference({
+        currentMessage: "Show the breakdown in millions please",
+        recentUserMessages: ["Give me the summary in millions"],
+        existingNotes: [],
+        dismissedPromptKeys: ["pref_in_millions"],
+        memoryEnabled: true,
+        temporaryChat: false,
+      }),
+    ).toBeNull();
+
+    // Suppressed when memoryEnabled is false or temporaryChat is true
+    expect(
+      detectRepeatedUserPreference({
+        currentMessage: "Always keep it short",
+        recentUserMessages: ["Keep it short"],
+        existingNotes: [],
+        memoryEnabled: false,
+      }),
+    ).toBeNull();
+    expect(
+      detectRepeatedUserPreference({
+        currentMessage: "Always keep it short",
+        recentUserMessages: ["Keep it short"],
+        existingNotes: [],
+        temporaryChat: true,
+      }),
+    ).toBeNull();
+
+    // 4. Temporary chat turn reads no memory and writes no learning log or conversation turn
+    const tempTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      mfaAal2: true,
+      userMessage: "What is working capital in accounting?",
+      requestExtraFields: { temporary_chat: true, memory_enabled: false },
+      userNotes: [{ id: "n1", note_text: "Keep answers short and concise", created_at: "2026-10-30" }],
+      modelToolCalls: [],
+      modelFinalText:
+        "Working capital is the difference between current assets and current liabilities.",
+    });
+    expect(tempTurn.outcome).toBe("answered");
+    expect(tempTurn.temporaryChat).toBe(true);
+    expect(tempTurn.memoryEnabled).toBe(false);
+    expect(tempTurn.learningLogs).toHaveLength(0);
+
+    // 5. Normal turn with Curated Knowledge Base search logs topic to learningLogs without storing question text
+    const kbTurn = await executeZoeTurn({
+      callerRoles: ["tenant_ops"],
+      mfaAal2: true,
+      userMessage: "Explain Expected vs Collected rent from the Knowledge Base in millions",
+      recentTurns: [{ role: "user", content: "Show the summary in millions" }],
+      modelToolCalls: [
+        { name: "search_knowledge_base", args: { query: "Expected vs Collected rent" } },
+      ],
+      rpcDataByTool: {
+        search_knowledge_base: {
+          source: "staff_assistant_knowledge_base",
+          period: { as_of: "2026-10-26" },
+          row_count: 1,
+          rows: [
+            {
+              slug: "gotcha-expected-vs-collected-rent",
+              title: "Expected vs Collected Rent",
+              summary: "Expected is daily contractual rent due; Collected is verified repayments.",
+            },
+          ],
+        },
+      },
+      modelFinalText:
+        "Per Welile Knowledge Base (`gotcha-expected-vs-collected-rent`), Expected rent is daily contractual rent due, while Collected rent is verified repayments posted to the ledger.\n\nSource: staff_assistant_knowledge_base · Period: as of 2026-10-26",
+    });
+    expect(kbTurn.outcome).toBe("answered");
+    expect(kbTurn.toolsCalled).toContain("search_knowledge_base");
+    expect(kbTurn.memorySuggestion?.key).toBe("pref_in_millions");
+    expect(kbTurn.learningLogs).toHaveLength(1);
+    expect(ZOE_FIXED_TOPICS).toContain(kbTurn.learningLogs?.[0].topic);
+    expect(kbTurn.learningLogs?.[0].topic).toBe("welile_glossary_process");
+    expect(classifyQuestionTopic({ userMessage: "Show CFO treasury cash", toolsCalled: ["get_cfo_treasury_cash_position"] })).toBe("finance_cfo");
+    expect(classifyFeedbackTheme("The number looked wrong compared to the screen", "rating")).toBe("figure_mismatch");
   });
 });

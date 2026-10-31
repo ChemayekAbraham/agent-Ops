@@ -23,6 +23,8 @@ import {
 } from './approvalToast';
 import { cn } from '@/lib/utils';
 import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
+import { ReceiptMatchNotice, assessReceiptPayout } from './ReceiptMatchNotice';
+import { receiptMatchCompact } from '../../../supabase/functions/_shared/requisitionReceiptMatch';
 import {
   Loader2, CheckCircle2, XCircle, Clock, HelpCircle, Wallet, RefreshCw, AlertTriangle, Building2,
   ChevronLeft, ChevronRight, ArrowDownCircle,
@@ -61,6 +63,15 @@ export interface StaffRequisition {
   wallet_transaction_id: string | null;
   credited_at: string | null;
   created_at: string;
+  receipt_match_status?: string | null;
+  requisition_receipt_paths?: string[] | null;
+  receipt_ocr_amount?: number | null;
+  receipt_ocr_confidence?: string | null;
+  receipt_ocr_error?: string | null;
+  receipt_ocr_at?: string | null;
+  receipt_gap_cleared_at?: string | null;
+  receipt_gap_cleared_typed_amount?: number | null;
+  receipt_gap_cleared_ocr_amount?: number | null;
 }
 
 interface ReqEvent {
@@ -207,6 +218,9 @@ export function StaffRequisitionQueue() {
   const [actionType, setActionType] = useState<'approve' | 'reject'>('approve');
   const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
+  const [clearGap, setClearGap] = useState(false);
+  const [gapNote, setGapNote] = useState('');
+  const [clearingGap, setClearingGap] = useState(false);
   const [amountOverride, setAmountOverride] = useState('');
   const [acting, setActing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
@@ -401,6 +415,7 @@ export function StaffRequisitionQueue() {
     setActionType(type);
     setReduceMode(reduce);
     setComment('');
+    setClearGap(false);
     setAmountOverride(String(row.approved_amount ?? row.amount));
     void loadEvents(row.id);
   };
@@ -439,6 +454,19 @@ export function StaffRequisitionQueue() {
         return;
       }
     }
+    const receiptVerdict = assessReceiptPayout(active);
+    const mustClear = actionType === 'approve'
+      && active.stage === active.final_stage
+      && receiptVerdict.active
+      && !receiptVerdict.allowed;
+    if (mustClear && !clearGap) {
+      toast.error('Payout is frozen', { description: receiptVerdict.message });
+      return;
+    }
+    if (mustClear && comment.trim().length < 10) {
+      toast.error('Clearing the receipt gap needs a note of at least 10 characters');
+      return;
+    }
 
     setActing(true);
     // On the CFO dashboard, re-read the requisition's live stage before approving.
@@ -471,6 +499,7 @@ export function StaffRequisitionQueue() {
         action: actionType,
         comment: comment.trim(),
         ...(actionType === 'approve' ? { amount } : {}),
+        ...(actionType === 'approve' && clearGap ? { clear_receipt_gap: true } : {}),
       },
       errorTitle: 'Decision failed',
       silent: true,
@@ -529,6 +558,27 @@ export function StaffRequisitionQueue() {
     await fetchAll();
   };
 
+  const clearReceiptGap = async (row: StaffRequisition) => {
+    if (gapNote.trim().length < 10) {
+      toast.error('Clearing the receipt gap needs a note of at least 10 characters');
+      return;
+    }
+    setClearingGap(true);
+    const { data, error } = await invokeEdgeFunction<{ message?: string }>('staff-requisition-decide', {
+      body: { requisition_id: row.id, action: 'clear_receipt_gap', comment: gapNote.trim() },
+      silent: true,
+    });
+    setClearingGap(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(data?.message || 'Receipt gap cleared. Final approval still credits the wallet.');
+    setGapNote('');
+    setDetail(null);
+    await fetchAll();
+  };
+
   const retryCredit = async (id: string) => {
     setRetrying(id);
     const { data, error } = await invokeEdgeFunction('requisition-credit-retry', {
@@ -578,8 +628,9 @@ export function StaffRequisitionQueue() {
           <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-primary" /> Staff requisitions
         </h2>
         <p className="text-xs sm:text-sm text-muted-foreground">
-          Raised from My Space, reviewed by the department head, then the COO, then the CFO. The requester's
-          wallet is credited automatically on final approval.
+          Raised from My Space, reviewed by the department head, then the COO, then the CFO. Final approval
+          credits the requester's wallet. If a receipt does not match the typed amount, payout stays frozen
+          until it matches or the CFO clears the gap. Nothing is taken back from a wallet.
         </p>
       </div>
 
@@ -726,6 +777,9 @@ export function StaffRequisitionQueue() {
                       <td className="px-3 py-2 max-w-[220px]">
                         <p className="truncate font-medium">{row.title}</p>
                         <p className="truncate text-[11px] text-muted-foreground">{row.reason}</p>
+                        {receiptMatchCompact(assessReceiptPayout(row)) && (
+                          <p className="truncate text-[11px] text-amber-700">{receiptMatchCompact(assessReceiptPayout(row))}</p>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-right font-mono">{formatUGX(requested)}</td>
                       <td className={cn('px-3 py-2 text-right font-mono font-bold', current < requested ? 'text-amber-700' : 'text-primary')}>
@@ -827,6 +881,26 @@ export function StaffRequisitionQueue() {
               <p className="text-xs text-muted-foreground">{routeNote(detail)}</p>
               {detail.needed_by && <p className="text-xs text-muted-foreground">Needed by {detail.needed_by}</p>}
               <p className="whitespace-pre-wrap text-sm text-muted-foreground">{detail.reason}</p>
+              <ReceiptMatchNotice row={detail} />
+              {(roles as string[]).includes('cfo') && assessReceiptPayout(detail).payoutFrozen && (
+                <div className="space-y-2">
+                  <Label htmlFor="receipt-gap-note">Clear the unaccounted gap</Label>
+                  <Textarea
+                    id="receipt-gap-note"
+                    rows={2}
+                    value={gapNote}
+                    onChange={(e) => setGapNote(e.target.value)}
+                    placeholder="Why this gap can be paid (at least 10 characters)"
+                  />
+                  <Button size="sm" variant="outline" disabled={clearingGap} onClick={() => void clearReceiptGap(detail)}>
+                    {clearingGap && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Record CFO clearance
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    This does not credit the wallet. Final approval does, once the gap is cleared.
+                  </p>
+                </div>
+              )}
 
               {budgetFor(detail) && (
                 <div className="flex flex-wrap gap-4 rounded-xl border bg-muted/40 p-3 text-xs">
@@ -965,15 +1039,30 @@ export function StaffRequisitionQueue() {
               )}
               {active?.stage === active?.final_stage && (
                 <p className="text-xs text-muted-foreground">
-                  Final approval — this credits the requester's wallet immediately.
+                  Final approval credits the requester's wallet, unless the receipt does not match the typed amount.
                 </p>
+              )}
+              {active && <ReceiptMatchNotice row={active} />}
+              {active && actionType === 'approve' && (roles as string[]).includes('cfo') && active.stage === active.final_stage && !assessReceiptPayout(active).allowed && (
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={clearGap}
+                    onChange={(e) => setClearGap(e.target.checked)}
+                  />
+                  <span>
+                    Clear this unaccounted gap and release payout. A note of at least 10 characters is required.
+                    The wallet is credited only when you confirm. Nothing is taken back.
+                  </span>
+                </label>
               )}
             </div>
           )}
 
           <div className="space-y-2">
             <Label htmlFor="req-comment">
-              Comment {actionType === 'approve' && !reduceMode ? '(optional)' : '(required, min 10 characters)'}
+              Comment {actionType === 'approve' && !reduceMode && !clearGap ? '(optional)' : '(required, min 10 characters)'}
             </Label>
             <Textarea
               id="req-comment"

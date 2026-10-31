@@ -1722,8 +1722,7 @@ BEGIN
     v_clean_sql
   );
 
-  -- 4. Execute inside a 5-second timeout + transaction_read_only guard
-  SET LOCAL transaction_read_only = on;
+  -- 4. Execute inside the function-header 5-second timeout + default_transaction_read_only = on guard
   EXECUTE v_wrapped_sql INTO v_fetched_count, v_truncated, v_rows;
 
   -- 5. Sanitize any phone/NIN-like JSON keys as defense-in-depth

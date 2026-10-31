@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
+import { dismissSessionPopup, type SessionPopupPhase } from '@/lib/sessionPopup';
+import { useSessionPopup } from '@/hooks/useSessionPopup';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -15,15 +16,10 @@ import { CONCERN_PRIORITY_LABEL, CONCERN_STATUS_LABEL } from '@/hooks/useCalling
  * ConcernAssignmentGate — popup telling a staff member that a Calling Center
  * concern has been passed to them (from Made Calls or Received Calls).
  *
- * Follows the same shape as RequisitionUsageReportGate: one global shadcn
- * Dialog, driven purely by a live "is anything still open" query, opened on
- * first discovery and re-opened every REMIND_INTERVAL_MS while something
- * stays open, kept fresh by a realtime subscription. Closing it (or clicking
- * View Concerns) only snoozes it — the concern's own status is the sole
- * authority for whether it keeps coming back, so it reappears on every login
- * and every refresh for as long as any concern forwarded to this person is
- * not 'completed', exactly like the Requisitions gate reappears while a
- * report is outstanding.
+ * One dialog per browser session, shared with the email prompt and the
+ * budget reminder. Closing it (Escape, click outside, Close, or View
+ * Concerns) snoozes every interruption dialog until the next session. The
+ * concern list itself is unchanged.
  *
  * Concerns that are finished (status = 'completed') never appear. Nothing
  * about forwarding rules, concern statuses or the audit trail is touched —
@@ -31,8 +27,6 @@ import { CONCERN_PRIORITY_LABEL, CONCERN_STATUS_LABEL } from '@/hooks/useCalling
  * the separate "Confirmed" badge in ConcernParticipantsPanel and has no
  * bearing on whether this popup shows.
  */
-
-const REMIND_INTERVAL_MS = 5 * 60 * 1000;
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—';
@@ -47,10 +41,16 @@ const priorityTone = (priority: string) =>
 export function ConcernAssignmentGate() {
   const signedIn = useAuthenticatedAudience();
   const navigate = useNavigate();
-  const { data: pending = [], refetch } = useMyPendingConcerns(signedIn);
+  const { data: pending = [], isFetched, isError, refetch } = useMyPendingConcerns(signedIn);
   const acknowledge = useAcknowledgeConcerns();
-  const [open, setOpen] = useState(false);
-  const openedOnceRef = useRef(false);
+  const phase: SessionPopupPhase = !signedIn || isError
+    ? 'idle'
+    : !isFetched
+      ? 'unknown'
+      : pending.length > 0
+        ? 'ready'
+        : 'idle';
+  const granted = useSessionPopup('concerns', phase);
 
   // Keep the list current: a new hand-off, or being added to an existing
   // concern, writes a cc_concern_reviewers row for this person. Polled every
@@ -58,37 +58,23 @@ export function ConcernAssignmentGate() {
   // on cc_concern_reviewers, which is not in the publication (doc 147).
   usePolling(() => refetch(), 60_000, { enabled: signedIn });
 
-  // Open on first discovery (login, and again after every refresh while
-  // anything is still open), then keep re-opening on a timer for as long as
-  // the tab stays open and something remains unresolved — same shape as
-  // RequisitionUsageReportGate.
-  useEffect(() => {
-    if (pending.length === 0) { openedOnceRef.current = false; setOpen(false); return; }
-    if (!openedOnceRef.current) {
-      openedOnceRef.current = true;
-      setOpen(true);
-    }
-    const timer = window.setInterval(() => setOpen(true), REMIND_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [pending.length]);
-
   const dismiss = async () => {
-    setOpen(false);
+    dismissSessionPopup();
     try { await acknowledge.mutateAsync(null); } catch { /* retried on next load */ }
   };
 
   const viewConcerns = async () => {
-    setOpen(false);
+    dismissSessionPopup();
     try { await acknowledge.mutateAsync(null); } catch { /* retried on next load */ }
     navigate('/me/concerns');
   };
 
-  if (!signedIn || pending.length === 0) return null;
+  if (!signedIn || !granted) return null;
 
   const many = pending.length > 1;
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) void dismiss(); }}>
+    <Dialog open onOpenChange={(o) => { if (!o) void dismiss(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

@@ -496,3 +496,70 @@ A first public key Josh supplied did not match the fingerprint Supabase showed o
 Change: `src/lib/webPush.ts` and the fallback literal in `supabase/functions/_shared/webPushSend.ts` now hold the new public key `BKeWfSge…6aCrc` (87 characters, 65 bytes, valid P-256 point). **Fingerprint to check against the secret in the Supabase secrets page: sha256 `721b3b1ccb7a34ee3ec91bea79f1eae21472792659a998a6dce749a0ed56a636`** (starts `721b3b1c`, ends `a636`). If the secret shows anything else, the secret and the code disagree and push will keep failing.
 
 How it recovers: `subscriptionUsesCurrentVapidKey` compares each browser subscription with the key in the code, so on the next app open an old subscription is dropped and a new one is made with the new key; push resumes user by user, expect a dip in opted-in devices for a day or two. Endpoints whose push service answers 404/410 are already removed by the send code; 403/400 ones are not, and will keep appearing until their owner opens the app (a clean-up of subscriptions older than the cutover is an option if the count stays high after a week). Edge functions to redeploy so the fallback matches: `send-push-notification`, `requisition-approval-push`, `tenant-rent-limit-notices`, `notify-listing-rejected`, `payment-reminder` (the secret already wins over the fallback, so this is housekeeping, not urgent). The private key exists only as the Supabase secret; the terminal output must not be kept.
+<<<<<<< HEAD
+=======
+
+## Step 53 (2026-10-29 ~07:30 UTC): rescan after the VAPID publish
+
+Stability: no database restart since 10-28 14:26 UTC (about 17 hours); the cause is still unconfirmed, so the support ticket stands.
+
+**Fixed:**
+- **53a `payment-reminder` and `send-push-notification`: `Error fetching subscriptions: TypeError: Invalid URL .../push_subscriptions?select=*&user_id=in.(...)` (2, 06:43 and 06:49).** PostgREST carries the `in (...)` list in the request URL; with hundreds of tenant or user ids the URL is too long and the call fails before reaching the database, so the whole reminder or broadcast fetched no subscriptions. New `supabase/functions/_shared/inChunks.ts` (`selectInChunks`, 100 ids per call); `payment-reminder` now chunks its repayments, push-subscription and profile lookups, and `send-push-notification` chunks the `userIds` lookup (the `all` path is unchanged). Syntax checked only (no Deno on this machine); takes effect on deploy of those two functions.
+- **53b `staff_requisition_events_action_check` (3):** `staff-requisition-add-attachment` logs `receipt_attached`, which was not an allowed action. The receipt was stored and attached correctly; only the history event was refused. Value added (superset). Migration `20261029080000_staff_requisition_events_allow_receipt_attached.sql`, applied by hand.
+
+**Found, NOT changed (Lovable's work in progress): the CFO "Paid by category" screen fails on every call since 10-28 22:33 UTC.** `get_cfo_paid_by_category_totals` and `get_cfo_paid_by_category_page` call `_cfo_paid_lunch_correction_ok(g.transaction_group_id)` (one argument), but the only helper in the database takes four (`id, group, amount, timestamp`), so each call raises `function public._cfo_paid_lunch_correction_ok(uuid) does not exist` (17 occurrences, last 07:14 UTC today). Lovable's migrations `20261028223138` and `20261028223308` replaced both functions with a different version than the one in `20261028220340` (which calls the four-argument helper, has the row-limit clamp and the category filter); the one-argument helper was never created. Which version is intended is Lovable's decision; the helper holds accounting logic for lunch-allowance corrections and was not reinvented here. Either restore the `220340` definitions or create the one-argument helper that `223308` expects.
+
+**Checked, working as designed:** `approve_promissory_note` refusals (`NOTE_ALREADY_APPROVED` 240, `EARLIER_NOTE_FIRST`; one bulk flow retrying about 6-12 times per name), `unique_subagent`, `uq_general_ledger_reference_dedupe`, `uq_sms_delivery_log_idempotency_key`, `get_merchant_float_positions` permission-denied bursts (signed-out sessions; `authenticated` holds execute), `GPS_REQUIRED`, `AGENT_NOT_VETTED`, `LC1_DUPLICATE`.
+
+**Still open, unchanged:** Twilio 20003 (10 in 3 h), `integer out of range` on `login_phase_events` (client fix not merged), `invalid column for filter user_id` (6), uuid `"null"` / `"tenant"` lookups (client), `crm-voice-capability-token` 400, push 403/400 until users reopen the app on the new key.
+
+## Step 54: rescan 10-29 11:25 UTC
+
+**Fixed: national ID submission timing out.** `submit_national_id_details` calls `national_id_name_twins`, which evaluates `person_name_key()` (two regexps) on `full_name` and `national_id_name` for every one of the ~97,800 profiles, with no index. Three calls hit the statement timeout (last 11:20 UTC), so the person's ID details were not saved. Migration `20261029120000_profiles_person_name_key_indexes.sql` adds two expression indexes (the function is IMMUTABLE); the lookup now plans as a BitmapOr and runs in 0.2 ms. Applied by hand.
+
+**Found, NOT changed:**
+- **Gateway outage 09:05-09:10 UTC.** About 1,160 requests got 503/520/521/522/525 from the API edge in one five-minute bucket (profiles, treasury_controls, login_devices and others). Postgres logged normally through those minutes (no restart, no gap), so this was the API gateway, not the database. One-off; none since.
+- **Statement timeouts (129 since 07:15):** `get_agent_ops_overview` (31) and `get_agent_active_breakdown` (29) stopped at 07:50; `cc_state_counts` (23, still happening, last 10:45), `get_agent_collections_command_center` (14, last 09:00), `get_tenant_ops_*`, `get_promissory_ops_report`, `get_cfo_received_by_category_*` (Lovable re-applied it at 10:58). `cc_state_counts` runs a dynamic query over `v_cc_call_queue`; the slow part is inside that view and needs its own plan analysis.
+- `assistant_staff_my_calls(p_from, p_to)` is missing (PGRST202): the unapplied `staff_assistant_*` Lovable migrations.
+- Push failures continue from old subscriptions (about 70 per endpoint per run), as expected until users reopen the app.
+
+## Step 55: fix for step 54 (my regression)
+
+The indexes added in step 54 call `person_name_key()` on every profiles update, as the updating user. The function was closed by default (owner and `service_role` only), so from 11:25 UTC every profiles UPDATE by a signed-in user, mainly the `last_active_at` heartbeat, failed with `permission denied for function person_name_key` (311 times by 13:23). Migration `20261030120000_grant_execute_person_name_key.sql` grants execute to `authenticated` and `anon` (pure IMMUTABLE text helper); applied by hand and verified with a rolled-back update as `authenticated`. Lesson recorded in CLAUDE.md terms: a function used by an index or policy must stay callable by the roles that write the table; test a write as `authenticated` after adding an expression index.
+
+## Step 56: rescan 10-30 05:45 UTC
+
+**Fixed: house activity timeline.** `get_house_activity_timeline` failed with `column reference "id" is ambiguous` (17 times, last 02:44 UTC): its first lookup `WHERE id = p_house_id` clashed with the function's own output column `id`. The timeline filter also compared `audit_logs.record_id` (text) with a uuid, which would have failed next. Migration `20261030120100_get_house_activity_timeline_fix_ambiguous_id.sql` qualifies the lookup and casts the id; applied by hand, tested as a manager (rolled back) and it runs.
+
+**Confirmed working:** the Send Email hook. At 05:13 UTC a signup reached `auth-email-hook` (200, "Auth email enqueued", processed by `process-email-queue`). The hook secret is set and Supabase signup emails no longer go through its own limited mailer. No "email rate limit" errors in this window. The permission-denied fix from step 55 held (no `person_name_key` errors). No database restart since 12:21 UTC on 10-29.
+
+**Checked, not a bug:** `permission denied` for `has_active_smartphone_plan`, `hr_pay_bonus_pending_for_me`, `get_agent_lp_float_available`, `agent_expected_week`, `crm_communication_inbox`, `staff_permissions`, `agent_posting_gate_exemptions`, `phone_collection_prompt_events`: `authenticated` holds every one of these grants, so the refusals come from signed-out sessions. The `record "new" has no field "amount"` trigger error (4, 14:30 on 10-29) is gone from the live functions.
+
+**Found, NOT changed:** signup with phone `250793903844` returns 500 `unexpected_failure` (the phone check constraint refuses a non-Ugandan number; the client should show a clear message); `invalid input value for enum app_role: "partner"` (5, client sends a role that does not exist); `get_agent_ops_overview` 500s (6, last 15:37); Twilio 20003 (36); `generate_merchant_cashout_daily_report` and `get_cto_daily_report` timed out at 21:00 UTC.
+
+## Step 57: signup 500 for a number typed without "+"
+
+**Cause (checked in the auth log, 24 h to 10-30 05:45 UTC):** 20 signups, 17 succeeded, 2 refused with 4xx, 1 returned `500 unexpected_failure` (05:33). The 500 is the profiles insert trigger `trg_normalize_validate_profile_phone` raising `invalid_phone_number: "250793903844"`. `normalize_e164_phone` accepts a number only as `07XXXXXXXX`, `256…`, a bare 9-digit local number, or `+` followed by 9-15 digits; a Rwandan number typed without the `+` is none of these. Auth wraps the trigger's check violation into a bare 500 ("Database error saving new user"), so the person sees a server error and no hint.
+
+**Fix (client only):** `src/hooks/auth/authOperations.ts` runs the same rule (`normalizeE164OrNull` in `phoneUtils.ts`, already documented as mirroring the database function) before `signUp` and `signUpWithoutRole`, and returns "That phone number is not valid. Use 07XXXXXXXX, or for a number outside Uganda start with + and the country code, for example +250793903844." A blank phone is still allowed, as in the trigger. The database rule is unchanged: whether to accept a no-plus 11-15 digit number as international is a product decision, not made here.
+
+**Not covered:** `ActivatePartner.tsx` calls `auth.signUp` directly and was not changed.
+
+## Step 58: rescan, 24 h to 10-30 13:59 UTC
+
+Top refusals by count: `uq_sms_delivery_log_idempotency_key` 40 (duplicate guard, working as designed), `invalid column for filter user_id` 30 (realtime, source not in git), uuid `"null"` 24 / `"tenant"` 12 (client), statement timeouts 18, `Not authenticated` 18 and `Not authorised to view receivables` 17 (guards), several permission-denied bursts from signed-out sessions (`authenticated` holds the grants).
+
+**Fixed (two new errors):**
+- `v360_set_new_plans_enabled` updated the one-row `v360_settings` table with no WHERE, so the database refused it (`UPDATE requires a WHERE clause`, 10 times, last 06:08 UTC). The CFO/COO switch could not be changed and `new_plans_enabled` is still false; I did not flip it. Added `where id is not null`.
+- `get_tenant_receivables_location_breakdown` nested `jsonb_agg` over `sum()`/`count()` in two CTEs (`aggregate function calls cannot be nested`, 6 failures). Per-product sums are computed first and then packed; `scope_products` had no GROUP BY and now groups per product, which is what the `products` array is meant to be.
+
+Migration `20261030120200_v360_toggle_where_and_receivables_breakdown_nested_aggregates.sql`, applied by hand. Tested as a CFO in a rolled-back block: the toggle returns success; the breakdown returns 4 region rows (total UGX 478,481,420) and 66 district rows.
+
+**Still open, unchanged:** Twilio 20003, realtime `invalid column for filter user_id`, `"null"`/`"tenant"`/`"Partner"`/`"Rent Management Pool"` ids and role `partner` sent by the client, `cc_state_counts` and other report timeouts.
+
+## Step 59: accept every phone number (decision by Josh, 10-30)
+
+Decision: the system must accept every number, so a foreign number typed without the "+" (the 250793903844 case from step 57) is no longer refused. Migration `20261030120300_normalize_e164_phone_accept_international_without_plus.sql` (applied by hand): the international branch of `normalize_e164_phone` takes 9-15 digits with or without the "+". The two code copies of the rule changed the same way (`src/lib/phoneUtils.ts`, `supabase/functions/self-update-phone/index.ts`; the latter needs redeploying) and a test case was added. Checked in the database: 250793903844 -> +250793903844, 254712345678 -> +254712345678; Uganda forms unchanged; malformed Ugandan numbers (07827277378, 2567712345) and short ones (+25779, 072) are still refused, because they cannot be turned into a real number. The step 57 client message stays for those and now says "the full number with its country code".
+
+**Migration file renumbering (10-30):** `lovable` already carried other migrations numbered `20261029130000` and `20261030100000`, so the four files from steps 55, 56, 58 and 59 were renamed to `20261030120000`, `20261030120100`, `20261030120200`, `20261030120300` (contents unchanged). Production was changed by hand, so only the file names differ from what ran. The step 54 index file `20261029120000_profiles_person_name_key_indexes.sql` shares its number with a Lovable file (`20261029120000_growth_metrics_split_snapshot_sources.sql`) and was left as is, since it is already on `lovable`.
+>>>>>>> origin/lovable

@@ -260,6 +260,11 @@ verify_jwt = false
 [functions.staff-requisition-decide]
 verify_jwt = false
 
+# Reads stored receipt files and records the gap. Auth is checked inside.
+# Does not credit a wallet.
+[functions.staff-requisition-read-receipt]
+verify_jwt = false
+
 [functions.tenant-self-onboarding]
 verify_jwt = false
 

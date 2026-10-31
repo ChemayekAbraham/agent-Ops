@@ -205,12 +205,13 @@ export function fulfilmentKpis(notes: PromissoryNoteRow[]) {
  * Single round-trip report powering the Promissory Notes tab
  * (KPIs + notes list + proxy agent performance). No N+1 client fetches.
  */
-export function usePromissoryOpsReport() {
+export function usePromissoryOpsReport(options?: { enabled?: boolean }) {
   const [range, setRange] = useState<PromissoryRange>('all');
   const bounds = useMemo(() => resolveRange(range), [range]);
 
   const query = useQuery({
     queryKey: ['promissory-ops-report', range],
+    enabled: options?.enabled !== false,
     queryFn: async (): Promise<PromissoryOpsReport> => {
       const { data, error } = await supabase.rpc('get_promissory_ops_report' as any, {
         p_from: bounds.from,

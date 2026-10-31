@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { staffLoanSchedule, MONTH_WORDS } from '@/lib/staffLoanSchedule';
 import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
 import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
+import { ReceiptMatchNotice } from '@/components/requisitions/ReceiptMatchNotice';
 
 type RequestKind = 'requisition' | 'staff_loan' | 'facilitation';
 
@@ -76,6 +77,15 @@ interface Requisition {
   credited_at: string | null;
   created_at: string;
   attachment_urls: string[] | null;
+  receipt_match_status?: string | null;
+  requisition_receipt_paths?: string[] | null;
+  receipt_ocr_amount?: number | null;
+  receipt_ocr_confidence?: string | null;
+  receipt_ocr_error?: string | null;
+  receipt_ocr_at?: string | null;
+  receipt_gap_cleared_at?: string | null;
+  receipt_gap_cleared_typed_amount?: number | null;
+  receipt_gap_cleared_ocr_amount?: number | null;
   request_kind: RequestKind | null;
   loan_months: number | null;
   loan_monthly_rate: number | null;
@@ -382,11 +392,14 @@ const MyRequisitions = () => {
           const formData = new FormData();
           formData.append('requisition_id', targetId);
           formData.append('file', file);
-          await invokeEdgeFunction('staff-requisition-add-attachment', {
+          const { data: attached, error: attachErr } = await invokeEdgeFunction<{ payout_frozen?: boolean; message?: string }>('staff-requisition-add-attachment', {
             body: formData,
             errorTitle: `Could not attach ${file.name}`,
             silent: true,
           });
+          if (!attachErr && attached?.payout_frozen && attached.message) {
+            toast.warning('Receipt does not match the amount you typed', { description: attached.message });
+          }
         }
       }
 
@@ -410,13 +423,16 @@ const MyRequisitions = () => {
     const form = new FormData();
     form.append('requisition_id', row.id);
     form.append('file', file);
-    const { error } = await invokeEdgeFunction('staff-requisition-add-attachment', {
+    const { data, error } = await invokeEdgeFunction<{ payout_frozen?: boolean; message?: string }>('staff-requisition-add-attachment', {
       body: form,
       errorTitle: 'Could not attach receipt',
     });
     setUploadingId(null);
     if (!error) {
       toast.success('Receipt attached');
+      if (data?.payout_frozen && data.message) {
+        toast.warning('Receipt does not match the amount you typed', { description: data.message });
+      }
       await fetchRows();
     }
   };
@@ -603,6 +619,9 @@ const MyRequisitions = () => {
                       <span>Attachments / Receipts <span className="text-xs text-muted-foreground font-normal">(optional)</span></span>
                       <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
                     </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      A receipt is read and compared with the amount you type. You can still submit. If the figures differ, payout waits until they match or the CFO clears the gap.
+                    </p>
                     <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
                       <label className="cursor-pointer flex flex-col items-center justify-center gap-1">
                         <Upload className="h-4 w-4 text-muted-foreground" />
@@ -821,6 +840,8 @@ const MyRequisitions = () => {
                     )}
                   </div>
                 )}
+
+                <ReceiptMatchNotice row={row} className="mt-3" />
 
                 {(row.attachment_urls?.length ?? 0) > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">

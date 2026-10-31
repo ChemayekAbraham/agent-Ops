@@ -20,6 +20,7 @@ import RunBackupNowButton from '@/components/admin/RunBackupNowButton';
 import RentAccessLimitParamsPanel from '@/components/admin/RentAccessLimitParamsPanel';
 import RunGscVerifyButton from '@/components/admin/RunGscVerifyButton';
 import ScreenLoader from '@/components/common/ScreenLoader';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 interface DashboardCard {
   label: string;
@@ -150,6 +151,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto max-w-5xl mx-auto px-4 py-8 space-y-8 w-full">
+        <V360StaffPricingBanner />
         <div>
           <h1 className="text-2xl font-black text-foreground">Dashboard Access Panel</h1>
           <p className="text-sm text-muted-foreground mt-1">Open any executive or operations dashboard you have access to</p>

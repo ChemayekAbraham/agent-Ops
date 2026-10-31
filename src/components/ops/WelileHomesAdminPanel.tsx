@@ -49,7 +49,7 @@ import {
   Cell,
 } from 'recharts';
 
-export type WelileTab = 'overview' | 'applications' | 'landlords' | 'all';
+export type WelileTab = 'overview' | 'applications' | 'landlords';
 export type SubscriptionFilter = 'all' | 'float' | 'wallet' | 'smartphone' | 'high_outstanding';
 
 export interface AttachedTenant {
@@ -242,9 +242,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const [activeTab, setActiveTab] = useState<WelileTab>('overview');
   const [subFilter, setSubFilter] = useState<SubscriptionFilter>('all');
 
-  const openSubscriptions = (filter: SubscriptionFilter = 'all') => {
-    setSubFilter(filter);
-    setActiveTab('all');
+  const openSubscriptions = (_filter: SubscriptionFilter = 'all') => {
+    setActiveTab('landlords');
   };
   const [stats, setStats] = useState({ collectedThisMonth: 0, welileNet: 0, pendingPayouts: 0 });
   const [activeDrill, setActiveDrill] = useState<DrillMetric | null>(null);
@@ -1105,7 +1104,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     }
   };
 
-  // Tabs definition - 4 primary tabs
+  // Tabs definition - 3 primary tabs
   const tabs = useMemo(() => [
     { id: 'overview' as const, label: 'Overview', badge: 'Live Book', icon: LayoutDashboard },
     {
@@ -1115,13 +1114,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       icon: ClipboardList,
     },
     { id: 'landlords' as const, label: 'Enrolled Portfolios', count: enrolledLandlordsBreakdown.length, icon: Home },
-    {
-      id: 'all' as const,
-      label: 'Subscriptions',
-      count: rows.length,
-      icon: Users,
-    },
-  ], [rows.length, enrolledLandlordsBreakdown.length, pendingFloatRequestsCount]);
+  ], [activeRows.length, enrolledLandlordsBreakdown.length]);
 
   // Filtering
   const filtered = useMemo(() => {
@@ -1782,22 +1775,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </div>
               </button>
 
-              <button
-                type="button"
-                onClick={() => openSubscriptions('all')}
-                className="text-left p-3 rounded-xl border border-border/70 bg-card hover:bg-muted/40 hover:border-primary/50 transition-all flex flex-col justify-between min-h-[90px] cursor-pointer group shadow-2xs"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Users className="h-4 w-4" />
-                  </div>
-                  <Badge variant="secondary" className="text-[10px] font-bold">{rows.length}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors">All Subscriptions</p>
-                  <p className="text-[10px] text-muted-foreground">Full active book →</p>
-                </div>
-              </button>
 
               <button
                 type="button"
@@ -2031,58 +2008,211 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 Rejecting a request keeps its tenants enrolled. The agent then sends a new request from their
                 Welile Homes screen, which links the exact tenants it covers.
               </p>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {floatRequests
                   .filter((f) => f.status === 'pending')
-                  .map((req) => (
-                    <div
-                      key={req.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-card border border-border/60"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs sm:text-sm font-bold text-foreground">{req.agent_name || 'Agent'}</span>
-                          {req.agent_phone && (
-                            <span className="text-[11px] text-muted-foreground">({req.agent_phone})</span>
-                          )}
-                          <span className="text-xs font-bold text-primary tabular-nums">
-                            {formatUGX(Number(req.requested_amount) || 0)}
-                          </span>
+                  .map((req) => {
+                    const reasonLandlord = req.reason?.match(/For:\s*([^,\n\r]+)/i)?.[1]?.trim();
+                    const matchingTenants = rows.filter((r) => {
+                      if (r.agent_id !== req.agent_id) return false;
+                      if (reasonLandlord && r.landlord_name) {
+                        return (
+                          r.landlord_name.toLowerCase().includes(reasonLandlord.toLowerCase()) ||
+                          reasonLandlord.toLowerCase().includes(r.landlord_name.toLowerCase())
+                        );
+                      }
+                      return true;
+                    });
+                    const landlordName = reasonLandlord || matchingTenants[0]?.landlord_name || 'Landlord Float Request';
+                    const landlordPhone = matchingTenants[0]?.landlord_phone || req.expected_recipient_phone || '';
+                    const tenantCount =
+                      matchingTenants.length > 0
+                        ? matchingTenants.length
+                        : Number(req.reason?.match(/(\d+)\s*tenants?/i)?.[1]) || 1;
+                    const isExpanded = !!expandedAppLandlords[req.id];
+
+                    return (
+                      <Card
+                        key={req.id}
+                        className="rounded-2xl border border-border/70 bg-card overflow-hidden shadow-2xs hover:border-primary/40 transition-all"
+                      >
+                        {/* Landlord Card Header */}
+                        <div
+                          onClick={() => {
+                            setExpandedAppLandlords((prev) => ({ ...prev, [req.id]: !prev[req.id] }));
+                          }}
+                          className="p-3.5 sm:p-4 flex items-center justify-between gap-3 cursor-pointer select-none bg-muted/20 hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                              <Home className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs sm:text-sm font-bold text-foreground truncate uppercase">
+                                  {landlordName}
+                                </span>
+                                {landlordPhone && (
+                                  <span className="text-[11px] text-muted-foreground font-normal">
+                                    ({landlordPhone})
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (req.agent_id) setProfileAgentId(req.agent_id);
+                                    else toast.info(`Agent: ${req.agent_name || 'Agent'} (no ID linked)`);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 transition-all cursor-pointer"
+                                  title="Click to inspect Agent 360 Performance across products"
+                                >
+                                  <Sparkles className="h-3 w-3 text-amber-500" />
+                                  <span>Agent: {req.agent_name || 'Agent'}</span>
+                                  <span className="text-[9px] font-bold uppercase tracking-wider bg-primary/20 px-1 rounded ml-0.5">360°</span>
+                                </button>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-purple-500/30 text-purple-600 bg-purple-500/10">
+                                  Welile Homes
+                                </Badge>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/40 text-amber-600 bg-amber-500/10 gap-1">
+                                  <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                  Pending Agent Ops
+                                </Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                {tenantCount} {tenantCount === 1 ? 'tenant' : 'tenants'} · Total float: <span className="font-semibold text-foreground">{formatUGX(Number(req.requested_amount) || 0)}</span>
+                                <span className="text-[10px] text-muted-foreground ml-2">Requested {new Date(req.created_at).toLocaleDateString()}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 font-bold text-xs px-2.5 py-0.5">
+                              {formatUGX(Number(req.requested_amount) || 0)}
+                            </Badge>
+
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                forwardToTenantOps(req.id);
+                              }}
+                              disabled={forwardingId === req.id || rejectingReq}
+                              className="h-8 px-2.5 sm:px-3 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              {forwardingId === req.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              )}
+                              <span className="hidden sm:inline">Approve & Forward to Tenant Ops</span>
+                              <span className="sm:hidden">Forward</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRejectRequest(req);
+                              }}
+                              disabled={forwardingId === req.id || rejectingReq}
+                              className="h-8 px-2.5 sm:px-3 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              <span>Reject with note</span>
+                            </Button>
+
+                            <div className="text-muted-foreground">
+                              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
-                          {req.reason || 'Welile Homes landlord float'}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          Requested {new Date(req.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                        <Button
-                          size="sm"
-                          onClick={() => forwardToTenantOps(req.id)}
-                          disabled={forwardingId === req.id || rejectingReq}
-                          className="h-8 px-3 text-xs font-semibold gap-1.5 cursor-pointer"
-                        >
-                          {forwardingId === req.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          )}
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openRejectRequest(req)}
-                          disabled={forwardingId === req.id || rejectingReq}
-                          className="h-8 px-3 text-xs font-semibold gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                        >
-                          <XCircle className="h-3.5 w-3.5" />
-                          Reject with note
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+
+                        {/* Attached Tenant Applications */}
+                        {isExpanded && (
+                          <div className="p-3 sm:p-4 pt-2 sm:pt-2 space-y-2.5 bg-muted/5 border-t border-border/40">
+                            {matchingTenants.length > 0 ? (
+                              matchingTenants.map((t) => (
+                                <div
+                                  key={t.id}
+                                  className="rounded-2xl border p-3.5 sm:p-4 transition-all border-primary/25 bg-primary/5 hover:bg-primary/8"
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wide">
+                                            {t.tenant_name}
+                                          </span>
+                                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                            {t.landlord_uses_wallet ? 'Welile Wallet' : 'Agent Float'}
+                                          </Badge>
+                                          <Badge
+                                            variant="outline"
+                                            className={cn(
+                                              "text-[10px] px-1.5 py-0 font-normal gap-1",
+                                              t.tenant_verified
+                                                ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600"
+                                                : "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                                            )}
+                                          >
+                                            {t.tenant_verified ? <CheckCircle2 className="h-2.5 w-2.5" /> : <Clock className="h-2.5 w-2.5" />}
+                                            {t.tenant_verified ? 'Verified' : 'Unverified'}
+                                          </Badge>
+                                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/40 text-amber-600 bg-amber-500/10 gap-1">
+                                            <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                            Pending Agent Ops
+                                          </Badge>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => setHistorySub(t)}
+                                          className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 mt-0.5 cursor-pointer text-left"
+                                        >
+                                          <span>{t.tenant_phone || 'No phone'}</span>
+                                          <span>· Tap for payment history</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-3 gap-2 py-2.5 border-y border-border/40 text-xs">
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Monthly Rent</span>
+                                      <span className="font-bold text-foreground tabular-nums text-xs sm:text-sm">
+                                        {formatUGX(Number(t.monthly_rent) || 0)}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Outstanding</span>
+                                      <span className="font-bold text-destructive tabular-nums text-xs sm:text-sm">
+                                        {formatUGX(Number(t.outstanding_balance) || 0)}
+                                      </span>
+                                    </div>
+                                    <div>
+                                      <span className="text-muted-foreground block text-[11px]">Payout Day</span>
+                                      <span className="font-bold text-foreground text-xs sm:text-sm">
+                                        {t.payout_day ? `Day ${t.payout_day}` : '—'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-3 rounded-xl bg-card border border-border/60 text-xs space-y-1 text-muted-foreground">
+                                <p className="font-semibold text-foreground">Request Details</p>
+                                <p>{req.reason || 'Welile Homes landlord float'}</p>
+                                {req.expected_recipient_phone && (
+                                  <p>Recipient Phone: <span className="text-foreground font-medium">{req.expected_recipient_phone}</span></p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
               </div>
             </Card>
           )}
@@ -2434,7 +2564,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             </div>
           )}
         </div>
-      ) : activeTab === 'landlords' ? (
+      ) : (
         <div className="space-y-4">
           {/* Executive Profitability Banner */}
           <div className="p-4 sm:p-5 rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card shadow-xs">
@@ -2590,7 +2720,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             ) : (
               filteredLandlords.map((l, index) => {
                 const isAlternate = index % 2 === 1;
-                const isExpanded = !!expandedEnrolledLandlords[l.name]; // Default to collapsed
+                const isExpanded = !!expandedEnrolledLandlords[l.name] || !!q.trim();
                 return (
                   <Card
                     key={l.name}
@@ -2793,436 +2923,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               })
             )}
           </div>
-        </div>
-      ) : (
-        /* ALL SUBSCRIPTIONS VIEW WITH INTERACTIVE FILTERS */
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-foreground">
-              All Subscriptions Directory
-            </span>
-            <span className="text-[11px] text-muted-foreground">
-              Showing {filtered.length} of {rows.length} subscriptions
-            </span>
-          </div>
-          {/* SUBSCRIPTIONS BANNER */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/70 bg-card shadow-2xs">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                {subFilter === 'float' && <Banknote className="h-5 w-5 text-amber-600" />}
-                {subFilter === 'wallet' && <Wallet className="h-5 w-5 text-primary" />}
-                {subFilter === 'smartphone' && <Smartphone className="h-5 w-5 text-emerald-600" />}
-                {subFilter === 'high_outstanding' && <Clock className="h-5 w-5 text-rose-600" />}
-                {subFilter === 'all' && <Users className="h-5 w-5 text-primary" />}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground">
-                    {subFilter === 'all' && 'All Active Subscriptions'}
-                    {subFilter === 'float' && 'Agent Float Subscriptions'}
-                    {subFilter === 'wallet' && 'Welile Wallet Subscriptions'}
-                    {subFilter === 'smartphone' && 'Smartphone Self-Managed Subscriptions'}
-                    {subFilter === 'high_outstanding' && 'High Outstanding Balances (>6M)'}
-                  </h3>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {subFilter === 'all' ? `${filtered.length} Subscriptions` : `${filtered.length} of ${rows.length}`}
-                  </Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                  {subFilter === 'all' && 'Complete active 12-month advance tenant subscription portfolio.'}
-                  {subFilter === 'float' && 'Subscriptions where landlords receive payout via agent float disbursement.'}
-                  {subFilter === 'wallet' && 'Subscriptions where landlords receive direct automated Welile Wallet transfers.'}
-                  {subFilter === 'smartphone' && 'Tenants managing their repayments independently via smartphone app.'}
-                  {subFilter === 'high_outstanding' && 'Subscriptions with remaining balance higher than 6 months of rent.'}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setActiveTab('overview')}
-              className="hidden md:inline-flex text-xs text-primary shrink-0 self-start sm:self-auto h-8 px-2.5 cursor-pointer"
-            >
-              ← Back to Overview
-            </Button>
-          </div>
-
-          {/* Interactive Category Filter Pills */}
-          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5">
-            <button
-              type="button"
-              onClick={() => setSubFilter('all')}
-              className={cn(
-                'h-8 sm:h-9 px-3 rounded-xl text-xs font-semibold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer',
-                subFilter === 'all'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground border border-border/70'
-              )}
-            >
-              <Users className="h-3.5 w-3.5" />
-              <span>All</span>
-              <Badge
-                variant="secondary"
-                className={cn('text-[9px] px-1 py-0 font-bold', subFilter === 'all' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground')}
-              >
-                {rows.length}
-              </Badge>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubFilter('float')}
-              className={cn(
-                'h-8 sm:h-9 px-3 rounded-xl text-xs font-semibold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer',
-                subFilter === 'float'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground border border-border/70'
-              )}
-            >
-              <Banknote className="h-3.5 w-3.5 text-amber-500" />
-              <span>Agent Float</span>
-              <Badge
-                variant="secondary"
-                className={cn('text-[9px] px-1 py-0 font-bold', subFilter === 'float' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}
-              >
-                {floatLandlordsCount}
-              </Badge>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubFilter('wallet')}
-              className={cn(
-                'h-8 sm:h-9 px-3 rounded-xl text-xs font-semibold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer',
-                subFilter === 'wallet'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground border border-border/70'
-              )}
-            >
-              <Wallet className="h-3.5 w-3.5" />
-              <span>Welile Wallet</span>
-              <Badge
-                variant="secondary"
-                className={cn('text-[9px] px-1 py-0 font-bold', subFilter === 'wallet' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground')}
-              >
-                {walletLandlordsCount}
-              </Badge>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubFilter('smartphone')}
-              className={cn(
-                'h-8 sm:h-9 px-3 rounded-xl text-xs font-semibold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer',
-                subFilter === 'smartphone'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground border border-border/70'
-              )}
-            >
-              <Smartphone className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Has Smartphone</span>
-              <Badge
-                variant="secondary"
-                className={cn('text-[9px] px-1 py-0 font-bold', subFilter === 'smartphone' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}
-              >
-                {smartphoneCount}
-              </Badge>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubFilter('high_outstanding')}
-              className={cn(
-                'h-8 sm:h-9 px-3 rounded-xl text-xs font-semibold shrink-0 transition-all flex items-center gap-1.5 cursor-pointer',
-                subFilter === 'high_outstanding'
-                  ? 'bg-rose-600 text-white shadow-xs'
-                  : 'bg-card hover:bg-muted/60 text-muted-foreground hover:text-foreground border border-border/70'
-              )}
-            >
-              <Clock className="h-3.5 w-3.5 text-rose-500" />
-              <span>High Balance (&gt;6M)</span>
-              <Badge
-                variant="secondary"
-                className={cn('text-[9px] px-1 py-0 font-bold', subFilter === 'high_outstanding' ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')}
-              >
-                {highBalanceCount}
-              </Badge>
-            </button>
-
-            {subFilter !== 'all' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSubFilter('all')}
-                className="h-8 text-xs text-primary hover:bg-primary/10 gap-1 px-2.5 shrink-0"
-              >
-                <span>Reset to All</span>
-              </Button>
-            )}
-          </div>
-
-          {/* Search & Actions Bar */}
-          <div className="space-y-3">
-
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5 sm:items-center">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search by tenant name, phone, agent, or landlord..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              className="pl-8 pr-8 h-9 sm:h-10 text-xs bg-card border-border/70 rounded-xl shadow-2xs w-full"
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={exportToCSV}
-              className="flex-1 sm:flex-initial h-9 sm:h-10 gap-1.5 rounded-xl border-border/70 text-xs font-medium"
-            >
-              <Download className="h-3.5 w-3.5" /> <span>Export CSV</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={load}
-              disabled={loading}
-              className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border-border/70 shrink-0"
-              title="Refresh data"
-            >
-              <RefreshCw className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', loading && 'animate-spin')} />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* MOBILE CARDS VIEW (Clean responsive native cards for small screens) */}
-      <div className="block md:hidden space-y-2.5">
-        {loading ? (
-          <div className="p-8 text-center bg-card rounded-2xl border border-border/60">
-            <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
-            <p className="text-xs text-muted-foreground">Loading subscriptions...</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center bg-card rounded-2xl border border-border/60">
-            <Building2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-            <p className="text-sm font-semibold text-foreground">No subscriptions found</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {q ? `No match for "${q}".` : 'No subscriptions in this view.'}
-            </p>
-            {q && (
-              <Button variant="ghost" size="sm" onClick={() => setQ('')} className="mt-3 text-xs text-primary">
-                Clear search
-              </Button>
-            )}
-          </div>
-        ) : (
-          filtered.map((r) => {
-            const repaidRatio = r.receivable_total > 0
-              ? Math.min(100, Math.max(0, ((r.receivable_total - r.outstanding_balance) / r.receivable_total) * 100))
-              : 0;
-
-            return (
-              <div key={r.id} className="p-3.5 rounded-2xl border border-border/60 bg-card shadow-2xs space-y-2.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                      {(r.tenant_name || 'T').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-xs text-foreground truncate">{r.tenant_name}</p>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
-                        {r.tenant_phone || 'No phone'}
-                        {r.has_smartphone && (
-                          <span className="text-[9px] text-emerald-600 bg-emerald-500/10 px-1 py-0.2 rounded font-sans">
-                            Smartphone
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  {r.landlord_uses_wallet ? (
-                    <Badge className="text-[9px] bg-primary/10 text-primary border-primary/30 shrink-0">
-                      <Wallet className="h-2.5 w-2.5 mr-1" /> Wallet
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="text-[9px] shrink-0">
-                      <Banknote className="h-2.5 w-2.5 mr-1 text-amber-600" /> Float
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/40">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">Monthly Rent</span>
-                    <span className="font-bold text-foreground">{formatUGX(r.monthly_rent)}/mo</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block">Outstanding</span>
-                    <span className="font-bold text-amber-600">{formatUGX(r.outstanding_balance)}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span>Receivable: {formatUGX(r.receivable_total)}</span>
-                    <span className="font-semibold text-foreground">{repaidRatio.toFixed(0)}% paid</span>
-                  </div>
-                  <Progress value={repaidRatio} className="h-1.5 bg-muted rounded-full" />
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
-                  <span className="truncate max-w-[140px] flex items-center gap-1">
-                    <UserCheck className="h-3 w-3 text-muted-foreground shrink-0" /> {r.agent_name}
-                  </span>
-                  <span className="shrink-0 font-medium">Day {r.payout_day} payout</span>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* DESKTOP TABLE VIEW (Full table for tablet and desktop) */}
-      <Card className="rounded-2xl border-border/60 overflow-hidden shadow-2xs hidden md:block">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40 border-b border-border/60">
-                  <TableHead className="text-xs font-semibold">Tenant</TableHead>
-                  <TableHead className="text-xs font-semibold">Assigned Agent</TableHead>
-                  <TableHead className="text-xs font-semibold">Monthly Rent</TableHead>
-                  <TableHead className="text-xs font-semibold">Receivable (×12)</TableHead>
-                  <TableHead className="text-xs font-semibold">Outstanding Balance</TableHead>
-                  <TableHead className="text-xs font-semibold">Payout Schedule</TableHead>
-                  <TableHead className="text-xs font-semibold">Landlord Settlement</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary mb-2" />
-                      <p className="text-xs text-muted-foreground">Loading Welile Homes operations data...</p>
-                    </TableCell>
-                  </TableRow>
-                ) : filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12">
-                      <Building2 className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-foreground">No Welile Homes subscriptions found</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {q ? `No match for "${q}" in this category.` : 'No tenants matching the selected criteria.'}
-                      </p>
-                      {q && (
-                        <Button variant="ghost" size="sm" onClick={() => setQ('')} className="mt-3 text-xs text-primary">
-                          Clear search
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filtered.map((r) => {
-                    const repaidRatio = r.receivable_total > 0
-                      ? Math.min(100, Math.max(0, ((r.receivable_total - r.outstanding_balance) / r.receivable_total) * 100))
-                      : 0;
-
-                    return (
-                      <TableRow key={r.id} className="hover:bg-muted/30 transition-colors">
-                        {/* Tenant */}
-                        <TableCell className="py-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                              {(r.tenant_name || 'T').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-semibold text-foreground truncate text-xs sm:text-sm">{r.tenant_name}</p>
-                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
-                                {r.tenant_phone || 'No phone'}
-                                {r.has_smartphone && (
-                                  <span title="Has smartphone"><Smartphone className="h-3 w-3 text-emerald-600 inline ml-0.5" /></span>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        {/* Agent */}
-                        <TableCell className="text-xs font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <UserCheck className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate">{r.agent_name}</span>
-                          </div>
-                        </TableCell>
-
-                        {/* Monthly Rent */}
-                        <TableCell className="font-bold text-xs tabular-nums">
-                          {formatUGX(r.monthly_rent)}
-                          <span className="block text-[10px] font-normal text-muted-foreground">/ month</span>
-                        </TableCell>
-
-                        {/* Receivable total */}
-                        <TableCell className="text-xs tabular-nums text-muted-foreground">
-                          {formatUGX(r.receivable_total)}
-                        </TableCell>
-
-                        {/* Outstanding Balance */}
-                        <TableCell className="py-3">
-                          <div className="space-y-1 min-w-[120px]">
-                            <div className="flex items-center justify-between text-xs tabular-nums">
-                              <span className="font-bold text-amber-600 dark:text-amber-500">
-                                {formatUGX(r.outstanding_balance)}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground font-medium">
-                                {repaidRatio.toFixed(0)}% paid
-                              </span>
-                            </div>
-                            <Progress value={repaidRatio} className="h-1.5 bg-muted" />
-                          </div>
-                        </TableCell>
-
-                        {/* Payout Day */}
-                        <TableCell>
-                          <Badge variant="outline" className="text-[11px] font-medium border-border/80 bg-background/50">
-                            Day {r.payout_day} of month
-                          </Badge>
-                        </TableCell>
-
-                        {/* Landlord Settlement */}
-                        <TableCell>
-                          {r.landlord_uses_wallet ? (
-                            <Badge className="text-[10px] bg-primary/10 text-primary border-primary/30 font-medium hover:bg-primary/15">
-                              <Wallet className="h-3 w-3 mr-1" /> Welile Wallet
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-[10px] font-medium bg-muted/80 text-foreground border border-border/60">
-                              <Banknote className="h-3 w-3 mr-1 text-amber-600" />
-                              Agent float{r.landlord_name ? ` · ${r.landlord_name}` : ''}
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
         </div>
       )}
 
@@ -3634,12 +3334,12 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           variant="outline"
                           onClick={() => {
                             setQ(t.tenant_name || '');
-                            setActiveTab('all');
+                            setActiveTab('landlords');
                             setActiveDrill(null);
                           }}
                           className="h-7 text-[11px] gap-1 rounded-lg shrink-0"
                         >
-                          <Filter className="h-3 w-3" /> Filter Table
+                          <Filter className="h-3 w-3" /> View in Portfolios
                         </Button>
                       </div>
                     </div>
@@ -3683,7 +3383,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                           variant="outline"
                           onClick={() => {
                             setQ(a.name);
-                            setActiveTab('all');
+                            setActiveTab('landlords');
                             setActiveDrill(null);
                           }}
                           className="h-8 text-[11px] gap-1 rounded-lg shrink-0 border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
@@ -4455,7 +4155,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         counts={{
           applications: rows.length,
           landlords: enrolledLandlordsBreakdown.length,
-          all: rows.length,
         }}
       />
 

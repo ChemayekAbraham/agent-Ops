@@ -30,6 +30,7 @@ import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpen
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
 import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
 import { CFOWelileHomesDisbursementDesk } from '@/components/cfo/CFOWelileHomesDisbursementDesk';
+import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
 import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
 import { RevenueExpenseDashboard } from '@/components/cfo/RevenueExpenseDashboard';
 import RoiDisbursementReportPanel from '@/components/cfo/RoiDisbursementReportPanel';
@@ -426,6 +427,13 @@ export default function CFODashboardPage() {
         return (
           <div className="space-y-4">
             <CFOWelileHomesDisbursementDesk />
+          </div>
+        );
+      case 'signages':
+      case 'cfo-signages':
+        return (
+          <div className="space-y-4">
+            <CFOSignagesDesk />
           </div>
         );
       case 'already-funded-landlords':

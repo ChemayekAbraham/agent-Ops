@@ -43,11 +43,15 @@ import {
   canReviewZoeConversations,
   computeBudgetUtilizationPct,
   filterZoeConversations,
+  usePromoteZoeEvalCandidate,
   useUpdateZoeUnanswered,
   useZoeCrmDashboard,
   useZoeCrmThread,
+  useZoeErrorSummary,
+  useZoeWeeklyLearningView,
   ZOE_CRM_REVIEWER_ROLES,
   type ZoeCrmConversationRow,
+  type ZoeLearningReviewQueueItem,
   type ZoeUnansweredStatus,
   type ZoeWeeklyUnansweredRow,
 } from '@/hooks/useZoeCrm';
@@ -112,9 +116,42 @@ export function ZoeConversationsPanel() {
       ? selectedConversation.id
       : null,
   );
+  const errorSummaryQuery = useZoeErrorSummary(14, isAuthorizedReviewer);
+  const weeklyLearningQuery = useZoeWeeklyLearningView(7, isAuthorizedReviewer);
   const updateUnanswered = useUpdateZoeUnanswered();
+  const promoteEvalCandidate = usePromoteZoeEvalCandidate();
 
   const data = dashboardQuery.data;
+  const weeklyLearning = weeklyLearningQuery.data ?? {
+    ok: true,
+    source: 'staff_assistant_weekly_manager_learning_view',
+    days: 7,
+    no_individual_staff_text: true,
+    top_topics: [],
+    unanswered_themes: [],
+    thumbs_down_themes: [],
+    cost_summary: {
+      total_questions: 0,
+      total_cost_usd: 0,
+      avg_cost_usd: 0,
+      avg_latency_ms: 0,
+      thumbs_down_rate_pct: 0,
+    },
+    review_queue: [],
+    eval_candidates: [],
+    error: null,
+  };
+  const errorSummary = errorSummaryQuery.data ?? {
+    ok: true,
+    source: 'staff_assistant_error_summary',
+    days: 14,
+    from_date: '',
+    to_date: '',
+    total_errors: 0,
+    by_code: [],
+    by_day: [],
+    error: null,
+  };
 
   const filteredConversations = useMemo(() => {
     const raw = data?.conversations ?? [];
@@ -374,6 +411,12 @@ export function ZoeConversationsPanel() {
           </TabsTrigger>
           <TabsTrigger value="daily-usage" data-testid="zoe-tab-daily-usage">
             Daily Usage vs Budget ({dailyUsageRows.length})
+          </TabsTrigger>
+          <TabsTrigger value="error-summary" data-testid="zoe-tab-error-summary">
+            Error Summary ({errorSummary.total_errors})
+          </TabsTrigger>
+          <TabsTrigger value="learning-loop" data-testid="zoe-tab-learning-loop">
+            Weekly Learning &amp; Review Queue ({weeklyLearning.review_queue.length})
           </TabsTrigger>
         </TabsList>
 
@@ -939,6 +982,354 @@ export function ZoeConversationsPanel() {
                       </Card>
                     );
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 4: ADMIN ERROR SUMMARY BY ERROR_CODE AND DAY (NO USER TEXT) */}
+        <TabsContent
+          value="error-summary"
+          forceMount
+          className="space-y-3 data-[state=inactive]:hidden"
+        >
+          <Card data-testid="zoe-error-summary-card">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    Technical Error Summary (Last {errorSummary.days} Days · No User Text)
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Counts of degraded dependencies and database parity errors by{' '}
+                    <code className="font-mono">error_code</code> and Kampala day from{' '}
+                    <code className="font-mono">staff_assistant_error_summary</code>. Zero
+                    user text or financial figures are included.
+                  </p>
+                </div>
+                <Badge
+                  variant={errorSummary.total_errors > 0 ? 'destructive' : 'secondary'}
+                  className="text-xs"
+                  data-testid="zoe-error-summary-total"
+                >
+                  Total logged errors: {errorSummary.total_errors}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {errorSummary.by_code.length === 0 ? (
+                <div
+                  className="p-6 text-center text-xs text-muted-foreground"
+                  data-testid="zoe-error-summary-empty"
+                >
+                  No technical error codes logged in the last {errorSummary.days} days.
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2" data-testid="zoe-error-summary-by-code">
+                    <h3 className="text-xs font-semibold text-foreground">
+                      Counts by Error Code
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {errorSummary.by_code.map((item) => (
+                        <div
+                          key={item.error_code}
+                          data-testid={`zoe-error-code-row-${item.error_code}`}
+                          className="rounded-lg border border-border p-3 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs font-mono font-semibold text-foreground truncate">
+                              {item.error_code}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.unique_staff_count} staff · Last seen{' '}
+                              {formatRelativeTime(item.last_seen_at)}
+                            </p>
+                          </div>
+                          <Badge variant="destructive" className="text-xs shrink-0">
+                            {item.total_count}x
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {errorSummary.by_day.length > 0 && (
+                    <div className="space-y-2" data-testid="zoe-error-summary-by-day">
+                      <h3 className="text-xs font-semibold text-foreground">
+                        Daily Breakdown (Kampala Day)
+                      </h3>
+                      <div className="space-y-1.5">
+                        {errorSummary.by_day.map((dayRow, idx) => (
+                          <div
+                            key={`${dayRow.day_kampala}-${dayRow.error_code}-${idx}`}
+                            data-testid={`zoe-error-day-row-${dayRow.day_kampala}-${dayRow.error_code}`}
+                            className="rounded border border-border/70 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs font-mono">
+                                {dayRow.day_kampala}
+                              </Badge>
+                              <span className="font-mono font-medium text-foreground">
+                                {dayRow.error_code}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <span>{dayRow.unique_staff_count} staff</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {dayRow.error_count}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 5: PROMPT 4 WEEKLY LEARNING VIEW & REDACTED REVIEW QUEUE ("ADD TO TESTS") */}
+        <TabsContent
+          value="learning-loop"
+          forceMount
+          className="space-y-3 data-[state=inactive]:hidden"
+        >
+          <Card data-testid="zoe-weekly-learning-card">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <Bot className="h-4 w-4 text-primary" />
+                    Weekly Manager Learning View (Last {weeklyLearning.days} Days · No Individual Staff Text)
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Top topics, unanswered themes, thumbs-down themes, and cost from{' '}
+                    <code className="font-mono">staff_assistant_learning_log</code>, plus the redacted review queue with one-tap promotion to{' '}
+                    <code className="font-mono">staff_assistant_eval_candidates</code>.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                  <Badge variant="outline" data-testid="zoe-learning-total-cost">
+                    Cost: ${Number(weeklyLearning.cost_summary.total_cost_usd ?? 0).toFixed(4)}
+                  </Badge>
+                  <Badge variant="secondary" data-testid="zoe-learning-avg-latency">
+                    Avg latency: {Math.round(Number(weeklyLearning.cost_summary.avg_latency_ms ?? 0))} ms
+                  </Badge>
+                  <Badge variant="outline" data-testid="zoe-learning-thumbs-down-rate">
+                    Thumbs-down: {Number(weeklyLearning.cost_summary.thumbs_down_rate_pct ?? 0).toFixed(1)}%
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Top Topics (No individual staff text) */}
+              <div className="space-y-2" data-testid="zoe-learning-top-topics">
+                <h3 className="text-xs font-semibold text-foreground">
+                  Top Topics (Fixed Topic List · No Individual Staff Text)
+                </h3>
+                {weeklyLearning.top_topics.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No learning log topics recorded in the last {weeklyLearning.days} days.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {weeklyLearning.top_topics.map((topicRow) => (
+                      <div
+                        key={topicRow.topic}
+                        data-testid={`zoe-learning-topic-${topicRow.topic}`}
+                        className="rounded-lg border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-foreground">
+                            {topicRow.topic.replace(/_/g, ' ')}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Answered {topicRow.answered_count} · Unanswered {topicRow.unanswered_count} · Avg {topicRow.avg_latency_ms} ms
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary" className="text-xs">
+                            {topicRow.ask_count} asks
+                          </Badge>
+                          {topicRow.thumbs_down_count > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              {topicRow.thumbs_down_count} down
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Thumbs-down & Unanswered Themes */}
+              {(weeklyLearning.thumbs_down_themes.length > 0 ||
+                weeklyLearning.unanswered_themes.length > 0) && (
+                <div
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                  data-testid="zoe-learning-themes"
+                >
+                  <div className="rounded-lg border border-border p-3 space-y-1.5">
+                    <h4 className="text-xs font-semibold text-foreground">
+                      Thumbs-Down Themes
+                    </h4>
+                    {weeklyLearning.thumbs_down_themes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">None recorded.</p>
+                    ) : (
+                      weeklyLearning.thumbs_down_themes.map((th, idx) => (
+                        <div
+                          key={`${th.topic}-${th.feedback_theme}-${idx}`}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="text-foreground">
+                            {th.topic.replace(/_/g, ' ')} · {th.feedback_theme.replace(/_/g, ' ')} ({th.tool_used})
+                          </span>
+                          <Badge variant="destructive" className="text-xs">
+                            {th.count}x
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="rounded-lg border border-border p-3 space-y-1.5">
+                    <h4 className="text-xs font-semibold text-foreground">
+                      Questions Zoe Could Not Answer (By Topic)
+                    </h4>
+                    {weeklyLearning.unanswered_themes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">None recorded.</p>
+                    ) : (
+                      weeklyLearning.unanswered_themes.map((ut, idx) => (
+                        <div
+                          key={`${ut.topic}-${ut.outcome}-${idx}`}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span className="text-foreground">
+                            {ut.topic.replace(/_/g, ' ')} ({ut.outcome})
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {ut.count}x
+                          </Badge>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Redacted Review Queue with "Add to tests" */}
+              <div className="space-y-2" data-testid="zoe-learning-review-queue">
+                <h3 className="text-xs font-semibold text-foreground">
+                  Redacted Review Queue (Thumbs-Down &amp; Problem Reports)
+                </h3>
+                {weeklyLearning.review_queue.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    No open items in the review queue.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {weeklyLearning.review_queue.map((item: ZoeLearningReviewQueueItem) => (
+                      <div
+                        key={`${item.source_kind}-${item.source_id}`}
+                        data-testid={`zoe-review-queue-item-${item.source_id}`}
+                        className="rounded-lg border border-border p-3 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="text-xs">
+                              {item.source_kind}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              Tool: {item.tool_used}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              Outcome: {item.outcome}
+                            </Badge>
+                          </div>
+                          <p className="font-medium text-foreground break-words">
+                            {item.question_redacted}
+                          </p>
+                          {item.comment_redacted && (
+                            <p className="text-muted-foreground break-words">
+                              Comment (redacted): {item.comment_redacted}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={promoteEvalCandidate.isPending}
+                          data-testid={`zoe-add-to-tests-${item.source_id}`}
+                          onClick={() => {
+                            promoteEvalCandidate.mutate(
+                              {
+                                source_kind: item.source_kind,
+                                source_id: item.source_id,
+                                cleaned_question: item.question_redacted,
+                                expected_tool:
+                                  item.tool_used && item.tool_used !== 'none'
+                                    ? item.tool_used
+                                    : null,
+                              },
+                              {
+                                onSuccess: () => {
+                                  toast.success('Added cleaned question to evaluation set');
+                                },
+                                onError: (err) => {
+                                  toast.error(
+                                    err instanceof Error
+                                      ? err.message
+                                      : 'Could not add to evaluation set',
+                                  );
+                                },
+                              },
+                            );
+                          }}
+                          className="text-xs"
+                        >
+                          Add to tests
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Promoted Evaluation Set Candidates */}
+              {weeklyLearning.eval_candidates.length > 0 && (
+                <div className="space-y-2" data-testid="zoe-eval-candidates-list">
+                  <h3 className="text-xs font-semibold text-foreground">
+                    Promoted Evaluation Candidates ({weeklyLearning.eval_candidates.length})
+                  </h3>
+                  <div className="space-y-1.5">
+                    {weeklyLearning.eval_candidates.map((cand) => (
+                      <div
+                        key={cand.id}
+                        data-testid={`zoe-eval-candidate-${cand.id}`}
+                        className="rounded border border-border/70 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      >
+                        <span className="font-medium text-foreground break-words">
+                          {cand.cleaned_question}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {cand.expected_tool && (
+                            <Badge variant="secondary" className="text-xs">
+                              {cand.expected_tool}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-xs">
+                            {cand.review_status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>

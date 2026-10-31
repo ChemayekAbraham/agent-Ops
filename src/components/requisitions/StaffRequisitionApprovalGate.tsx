@@ -16,6 +16,8 @@ import {
   APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
 } from './approvalToast';
 import { StaffRequisitionNoticeGate } from './StaffRequisitionNoticeGate';
+import { ReceiptMatchNotice, assessReceiptPayout } from './ReceiptMatchNotice';
+import type { ReceiptFacts } from '../../../supabase/functions/_shared/requisitionReceiptMatch';
 
 /**
  * Blocking requisition prompt — for the named approver only, at the COO, CEO
@@ -75,6 +77,9 @@ export function StaffRequisitionApprovalGate(
   const [declining, setDeclining] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [working, setWorking] = useState(false);
+  const [clearGap, setClearGap] = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [receiptRow, setReceiptRow] = useState<ReceiptFacts | null>(null);
   const [viewingPath, setViewingPath] = useState<string | null>(null);
   const [openedAttachment, setOpenedAttachment] = useState(false);
   const suppressedUntilRef = useRef(0);
@@ -106,16 +111,20 @@ export function StaffRequisitionApprovalGate(
     setDeclining(false);
     setRejectReason('');
     setOpenedAttachment(false);
+    setClearGap(false);
+    setApproveNote('');
   }, [prompt?.prompt_id]);
 
   const [budget, setBudget] = useState<{ department_name: string; approved_budget: number; committed_amount: number; remaining_budget: number } | null>(null);
   useEffect(() => {
     setBudget(null);
+    setReceiptRow(null);
     const reqId = prompt?.requisition_id;
     if (!reqId) return;
     let cancelled = false;
     (async () => {
-      const { data: req } = await supabase.from('staff_requisitions').select('department_id').eq('id', reqId).maybeSingle();
+      const { data: req } = await supabase.from('staff_requisitions').select('*').eq('id', reqId).maybeSingle();
+      if (!cancelled && req) setReceiptRow(req as ReceiptFacts);
       const deptId = (req as { department_id?: string } | null)?.department_id;
       if (!deptId) return;
       const { data: b } = await supabase.from('v_staff_requisition_budget_context').select('*').eq('department_id', deptId).maybeSingle();
@@ -152,7 +161,7 @@ export function StaffRequisitionApprovalGate(
     setOpenedAttachment(true);
   };
 
-  const decide = async (action: 'approve' | 'reject', comment: string) => {
+  const decide = async (action: 'approve' | 'reject', comment: string, clearGap = false) => {
     if (!prompt) return;
     setWorking(true);
     const { error } = await invokeEdgeFunction('staff-requisition-decide', {
@@ -161,6 +170,7 @@ export function StaffRequisitionApprovalGate(
         action,
         comment,
         ...(action === 'approve' ? { amount } : {}),
+        ...(clearGap ? { clear_receipt_gap: true } : {}),
       },
       errorTitle: 'Decision failed',
       silent: true,
@@ -267,6 +277,8 @@ export function StaffRequisitionApprovalGate(
             <p className="text-xs text-muted-foreground">Already approved by — {earlier}</p>
           )}
 
+          {receiptRow && <ReceiptMatchNotice row={receiptRow} />}
+
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {attachments.map((path, i) => (
@@ -283,6 +295,29 @@ export function StaffRequisitionApprovalGate(
                   Receipt {i + 1}
                 </Button>
               ))}
+            </div>
+          )}
+
+          {prompt.stage === 'cfo' && receiptRow && !assessReceiptPayout(receiptRow).allowed && !declining && (
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={clearGap}
+                  onChange={(e) => setClearGap(e.target.checked)}
+                />
+                <span>
+                  Clear this unaccounted gap and release payout. The wallet is credited only when you accept.
+                  Nothing is taken back.
+                </span>
+              </label>
+              <Textarea
+                rows={3}
+                value={approveNote}
+                onChange={(e) => setApproveNote(e.target.value)}
+                placeholder="Note for the receipt gap (at least 10 characters)"
+              />
             </div>
           )}
 
@@ -309,7 +344,10 @@ export function StaffRequisitionApprovalGate(
                 </>
               ) : (
                 <>
-                  <Button onClick={() => void decide('approve', '')} disabled={working || needsReceipt}>
+                  <Button
+                    onClick={() => void decide('approve', clearGap ? approveNote.trim() : '', clearGap)}
+                    disabled={working || needsReceipt || (prompt.stage === 'cfo' && !!receiptRow && !assessReceiptPayout(receiptRow).allowed && (!clearGap || approveNote.trim().length < 10))}
+                  >
                     {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Accept
                   </Button>

@@ -95,6 +95,7 @@ const prettyLedgerCategory = (c: string) =>
 
 const fmtDay = (d: string) => (d ? format(new Date(`${d}T00:00:00Z`), 'd MMM yyyy') : '');
 
+
 export function PaidByCategory() {
   const [preset, setPreset] = useState<PresetKey>('all_time');
   const [customFrom, setCustomFrom] = useState('');
@@ -254,7 +255,6 @@ export function PaidByCategory() {
           ))}
         </div>
       )}
-
 
       {/* Transaction table */}
 

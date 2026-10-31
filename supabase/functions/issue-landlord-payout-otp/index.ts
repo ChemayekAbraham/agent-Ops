@@ -150,54 +150,44 @@ async function sendSms(phone: string, message: string): Promise<SmsResult> {
   }
 }
 
-// Twilio fallback sender. Routed through the Lovable connector gateway, which
-// injects Twilio auth + the Account SID prefix, so we only POST /Messages.json.
-// Twilio returns a JSON body with sid (our message id) and status; queued/
-// accepted/sending/sent are accepted-by-gateway states. error_code/error_message
-// describe rejections (invalid number, unsupported sender id, etc.).
-const TWILIO_GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
-const TWILIO_SENDER = "WELILE";
-async function sendTwilioSms(phone: string, message: string): Promise<SmsResult> {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const twilioKey = Deno.env.get("TWILIO_API_KEY");
-  if (!lovableKey || !twilioKey) {
-    return { ok: false, reason: "Twilio fallback not configured", provider: "twilio" };
+// LANA is the last fallback. Form body { phone, sender_id, message } with a
+// Bearer key; { status: true } or { status: "success" } = accepted. Phone must
+// be country-code digits WITHOUT a leading "+".
+async function sendLanaSms(phone: string, message: string): Promise<SmsResult> {
+  const apiKey = (Deno.env.get("LANA_SMS_API_KEY") || "").trim();
+  if (!apiKey) {
+    return { ok: false, reason: "LANA not configured", provider: "lana" };
   }
   try {
-    const res = await fetch(`${TWILIO_GATEWAY_URL}/Messages.json`, {
+    const res = await fetch("https://api.lanasms.com/v1/send", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": twilioKey,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
       },
-      body: new URLSearchParams({ To: phone, From: TWILIO_SENDER, Body: message }).toString(),
+      body: new URLSearchParams({ phone: phone.replace(/\D/g, ""), sender_id: "WELILE", message }).toString(),
     });
     const text = await res.text();
     let data: any = null;
     try { data = JSON.parse(text); } catch { /* keep raw text */ }
-    if (!res.ok) {
-      const reason = data?.error_message || data?.message || `Twilio HTTP ${res.status}: ${text.slice(0, 200)}`;
-      return { ok: false, reason, raw: data ?? text, provider: "twilio" };
-    }
-    const status = (data?.status ?? "").toString().toLowerCase();
-    const accepted = ["queued", "accepted", "sending", "sent", "delivered"].includes(status);
+    const accepted = res.ok && (data?.status === true || String(data?.status ?? "").toLowerCase() === "success");
     return {
       ok: accepted,
-      status: data?.status ?? undefined,
-      reason: accepted ? undefined : (data?.error_message || `Twilio status ${data?.status ?? "unknown"}`),
-      messageId: data?.sid ?? undefined,
+      status: data?.status !== undefined ? String(data.status) : undefined,
+      reason: accepted ? undefined : (data?.message || `LANA HTTP ${res.status}`),
+      messageId: data?.message_id ?? data?.id ?? undefined,
       raw: data ?? text,
-      provider: "twilio",
+      provider: "lana",
     };
   } catch (e) {
-    console.error("[issue-landlord-payout-otp] Twilio error:", e);
-    return { ok: false, reason: e instanceof Error ? e.message : "Twilio network error", provider: "twilio" };
+    console.error("[issue-landlord-payout-otp] LANA error:", e);
+    return { ok: false, reason: e instanceof Error ? e.message : "LANA network error", provider: "lana" };
   }
 }
 
 // Yoola is PRIMARY. If Yoola is not accepted, fall back to Africa's Talking, then
-// Twilio — reissuing the same OTP. The returned result reflects whichever
+// LANA — reissuing the same OTP. The returned result reflects whichever
 // provider ultimately delivered, with fallback metadata preserved for the audit
 // trail.
 async function sendOtpWithFallback(phone: string, message: string): Promise<SmsResult> {
@@ -253,9 +243,9 @@ async function sendOtpWithFallback(phone: string, message: string): Promise<SmsR
     };
   }
   console.warn(
-    `[issue-landlord-payout-otp] AT send failed (${at.reason ?? "unknown"}) — falling back to Twilio`,
+    `[issue-landlord-payout-otp] AT send failed (${at.reason ?? "unknown"}) — falling back to LANA`,
   );
-  const fallback = await run("twilio", () => sendTwilioSms(phone, message));
+  const fallback = await run("lana", () => sendLanaSms(phone, message));
   return {
     ...fallback,
     fallbackUsed: true,
@@ -415,7 +405,7 @@ Deno.serve(async (req) => {
         otp_expires_at,
         detail: resent.ok
           ? (resent.fallbackUsed
-            ? `OTP resent via Twilio fallback (Africa's Talking failed: ${resent.primaryReason ?? "unknown"})`
+            ? `OTP resent via ${resent.provider ?? "backup"} fallback (Yoola failed: ${resent.primaryReason ?? "unknown"})`
             : "OTP resent via SMS")
           : `OTP regenerated (SMS NOT delivered: ${resent.reason ?? "unknown"})`,
         failure_reason: resent.ok ? null : (resent.reason ?? "sms_not_delivered"),
@@ -578,12 +568,12 @@ Deno.serve(async (req) => {
       detail: normalizedTrigger === "auto"
         ? (sent.ok
           ? (sent.fallbackUsed
-            ? `OTP auto-sent via Twilio fallback on withdraw float tap (Africa's Talking failed: ${sent.primaryReason ?? "unknown"})`
+            ? `OTP auto-sent via ${sent.provider ?? "backup"} fallback on withdraw float tap (Yoola failed: ${sent.primaryReason ?? "unknown"})`
             : "OTP auto-sent via SMS on withdraw float tap")
           : `OTP auto-created on withdraw float tap (SMS NOT delivered: ${sent.reason ?? "unknown"})`)
         : (sent.ok
           ? (sent.fallbackUsed
-            ? `OTP sent via Twilio fallback (Africa's Talking failed: ${sent.primaryReason ?? "unknown"})`
+            ? `OTP sent via ${sent.provider ?? "backup"} fallback (Yoola failed: ${sent.primaryReason ?? "unknown"})`
             : "OTP sent via SMS")
           : `OTP created (SMS NOT delivered: ${sent.reason ?? "unknown"})`),
       failure_reason: sent.ok ? null : (sent.reason ?? "sms_not_delivered"),

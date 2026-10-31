@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
+<<<<<<< HEAD
 import { useNavigate } from 'react-router-dom';
+=======
+import { Link, useNavigate } from 'react-router-dom';
+>>>>>>> origin/lovable
 import { ArrowLeft, Check, ExternalLink, Fingerprint, Loader2, RefreshCw, Search, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -69,15 +73,40 @@ export default function AgentVerificationReview() {
   };
   const openReview = (id: string) => { setReviewTrail([]); setOpenId(id); };
   const refresh = () => { q.refetch(); overview.refetch(); if (data?.rows.length) identities.refetch(); };
+<<<<<<< HEAD
+=======
+
+  const handleBack = () => {
+    if (window.history.state && typeof window.history.state.idx === 'number' && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/agent-ops');
+    }
+  };
+>>>>>>> origin/lovable
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-4 sm:px-6">
+<<<<<<< HEAD
           <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => navigate(-1)} aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="min-w-0 flex-1"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5" />Agent Operations / Identity & compliance</p><h1 className="text-xl font-semibold sm:text-2xl">Agent KYC Command Center</h1></div>
+=======
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={handleBack} aria-label="Back to Agent Operations" title="Back to Agent Operations">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <p className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <Link to="/agent-ops" className="hover:underline hover:text-foreground">Agent Operations</Link>
+              <span>/ Identity &amp; compliance</span>
+            </p>
+            <h1 className="text-xl font-semibold sm:text-2xl">Agent KYC Command Center</h1>
+          </div>
+>>>>>>> origin/lovable
           <Button variant="outline" size="icon" className="h-11 w-11 shrink-0" aria-label="Refresh KYC reports" title="Refresh KYC reports" disabled={q.isFetching || overview.isFetching} onClick={refresh}><RefreshCw className={`h-4 w-4 ${q.isFetching || overview.isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} /></Button>
         </div>
       </header>

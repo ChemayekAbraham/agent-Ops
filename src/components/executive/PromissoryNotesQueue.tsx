@@ -36,6 +36,9 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
+import { countPromissoryQueue, isPromissoryOverdue, promissoryFilterCount, promissoryFilterHelp, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
+import { PromissoryNoteReviewActions } from './partner-ops/PromissoryNoteReviewActions';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatUGX } from '@/lib/rentCalculations';
 import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 import { PromissoryFulfilmentTracker } from './partner-ops/PromissoryFulfilmentTracker';
@@ -237,10 +240,13 @@ export function PromissoryNotesQueue({
   initialStatusFilter,
   initialSearch,
   initialRange,
+  reportState,
 }: {
   initialStatusFilter?: string;
   initialSearch?: string;
   initialRange?: string;
+  /** Shared with the summary tile so Pending / Approved cannot drift. */
+  reportState?: ReturnType<typeof usePromissoryOpsReport>;
 }) {
   const queryClient = useQueryClient();
   const { roles } = useAuth();
@@ -249,7 +255,8 @@ export function PromissoryNotesQueue({
   const [statusFilter, setStatusFilter] = useState<string>(() =>
     initialStatusFilter ?? localStorage.getItem('promissory-queue-status-filter') ?? 'all'
   );
-  const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
+  const ownedReport = usePromissoryOpsReport({ enabled: !reportState });
+  const { range, setRange, report, isLoading, refetch, error: reportError } = reportState ?? ownedReport;
   useEffect(() => {
     if (initialRange && initialRange !== range) {
       setRange(initialRange as any);
@@ -583,15 +590,7 @@ export function PromissoryNotesQueue({
     return map;
   }, [report.proxy_agents]);
 
-  const isOverdue = (n: any) => {
-    if (!n.fulfilment_due_on) return false;
-    const due = new Date(n.fulfilment_due_on);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (due >= today) return false;
-    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
-    return outstanding > 0;
-  };
+  const isOverdue = (n: any) => isPromissoryOverdue(n);
 
   const isDueSoon = (n: any) => {
     if (!n.fulfilment_due_on) return false;
@@ -634,6 +633,8 @@ export function PromissoryNotesQueue({
         ? true
         : statusFilter === 'overdue'
         ? isOverdue(n)
+        : statusFilter === 'missing_fulfilment'
+        ? !n.fulfilment_due_on
         : statusFilter === 'came_in'
         ? !!n.came_in
         : statusFilter === 'not_registered'
@@ -652,11 +653,7 @@ export function PromissoryNotesQueue({
     return sortBy === 'fulfilment_asc' ? aDate - bDate : bDate - aDate;
   });
 
-  const statusCounts = notes.reduce((acc, n) => {
-    acc[n.status] = (acc[n.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  const overdueCount = notes.filter(isOverdue).length;
+  const queueCounts = useMemo(() => countPromissoryQueue(notes), [notes]);
 
   const exportRows = sortedFiltered.map(n => ({
     Partner: n.partner_name || '',
@@ -860,10 +857,11 @@ export function PromissoryNotesQueue({
     { value: 'fulfilled', label: 'Fulfilled' },
     { value: 'defaulted', label: 'Defaulted' },
     { value: 'overdue', label: 'Overdue' },
+    { value: 'missing_fulfilment', label: 'Missing Fulfils by' },
   ];
 
-  const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string; metric: PromissoryKpiMetric }[] = [
-    { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20', metric: 'notes_count' },
+  const kpiCards: { label: string; value: React.ReactNode; hint?: string; help?: string; tone: string; metric: PromissoryKpiMetric }[] = [
+    { label: 'Promissory notes', value: kpis.notes_count, hint: `${queueCounts.approved.toLocaleString()} approved`, help: PROMISSORY_COUNT_HELP.approved, tone: 'bg-primary/5 border-primary/20', metric: 'notes_count' },
     { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200', metric: 'partners_came_in' },
     { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200', metric: 'partners_with_portfolio' },
     { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200', metric: 'receivable' },
@@ -925,18 +923,29 @@ export function PromissoryNotesQueue({
         {kpiCards.map(k => (
           <Card key={k.label} className={cn(k.tone, 'transition-shadow hover:shadow-md')}>
             <CardContent className="p-0">
-              <button
-                type="button"
-                onClick={() => setKpiDetail({ metric: k.metric, label: k.label })}
-                aria-label={`See details and trend for ${k.label}`}
-                className="w-full text-left p-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
-                <p className="text-base font-bold mt-0.5 underline decoration-dotted decoration-from-font underline-offset-2">
-                  {k.value}
-                </p>
-                {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
-              </button>
+              {(() => {
+                const button = (
+                  <button
+                    type="button"
+                    onClick={() => setKpiDetail({ metric: k.metric, label: k.label })}
+                    aria-label={`See details and trend for ${k.label}`}
+                    className="w-full text-left p-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
+                    <p className="text-base font-bold mt-0.5 underline decoration-dotted decoration-from-font underline-offset-2">
+                      {k.value}
+                    </p>
+                    {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
+                  </button>
+                );
+                if (!k.help) return button;
+                return (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{button}</TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs">{k.help}</TooltipContent>
+                  </Tooltip>
+                );
+              })()}
             </CardContent>
           </Card>
         ))}
@@ -970,24 +979,24 @@ export function PromissoryNotesQueue({
 
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
         {statuses.map(s => {
-          const count =
-            s.value === 'all'
-              ? notes.length
-              : s.value === 'overdue'
-              ? overdueCount
-              : (statusCounts[s.value] || 0);
+          const count = promissoryFilterCount(queueCounts, s.value);
+          const help = promissoryFilterHelp(s.value);
           return (
-            <button
-              key={s.value}
-              onClick={() => setStatusFilter(s.value)}
-              aria-pressed={statusFilter === s.value}
-              className={cn(
-                'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
-                statusFilter === s.value ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
-              )}
-            >
-              {`${s.label} (${count})`}
-            </button>
+            <Tooltip key={s.value}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setStatusFilter(s.value)}
+                  aria-pressed={statusFilter === s.value}
+                  className={cn(
+                    'px-3.5 py-2 sm:py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+                    statusFilter === s.value ? 'bg-primary text-primary-foreground ring-2 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  {`${s.label} (${count})`}
+                </button>
+              </TooltipTrigger>
+              {help && <TooltipContent className="max-w-xs text-xs">{help}</TooltipContent>}
+            </Tooltip>
           );
         })}
         <button
@@ -1635,41 +1644,14 @@ export function PromissoryNotesQueue({
                   </CardContent>
                 </Card>
 
-                {/* Danger zone: delete with audit trail */}
-                <div className="flex gap-2">
-                  {!selectedNote.approval_bonus_paid ? (
-                    <Button
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => { setApproveReason(''); setApproveTarget(selectedNote); }}
-                    >
-                      <BadgeCheck className="h-4 w-4 mr-2" />
-                      Approve & Pay UGX 1,500
-                    </Button>
-                  ) : (
-                    <Button className="flex-1" variant="outline" disabled>
-                      <CheckCircle className="h-4 w-4 mr-2 text-emerald-600" />
-                      Approved
-                    </Button>
-                  )}
-                  {selectedNote.approval_bonus_paid && canReverseBonus && (
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
-                      onClick={() => { setRejectReason(''); setRejectTarget(selectedNote); }}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject & Reverse Bonus
-                    </Button>
-                  )}
-                  <Button
-                    variant="destructive"
-                    className="flex-1"
-                    onClick={() => { setDeleteReason(''); setDeleteTarget(selectedNote); }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete Promissory Note
-                  </Button>
-                </div>
+                <PromissoryNoteReviewActions
+                  showApprove={!selectedNote.approval_bonus_paid}
+                  approvedAlready={!!selectedNote.approval_bonus_paid}
+                  onApprove={() => { setApproveReason(''); setApproveTarget(selectedNote); }}
+                  showReject={!!selectedNote.approval_bonus_paid && canReverseBonus}
+                  onReject={() => { setRejectReason(''); setRejectTarget(selectedNote); }}
+                  onDelete={() => { setDeleteReason(''); setDeleteTarget(selectedNote); }}
+                />
               </div>
             );
           })()}

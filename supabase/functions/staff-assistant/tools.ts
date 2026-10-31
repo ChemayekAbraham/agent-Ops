@@ -1830,6 +1830,68 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_category: (p.category as string | undefined) ?? null,
     }),
   },
+  {
+    name: "search_knowledge_base",
+    rpc: "assistant_staff_search_knowledge_base",
+    description:
+      "Search the curated Welile Knowledge Base using Postgres full-text search BEFORE searching the web: Welile glossary, product and policy summaries, process explanations, 'where do I find X' navigation help, and known measurement gotchas (expected vs collected, Treasury cash A1+A5 vs Agent Float A2, active Rent Plan repayment clock, Calling Center deduplication). Always cite the returned entry ('Welile Knowledge Base: <title> (<slug>)').",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Search phrase or keywords (e.g. 'expected vs collected', 'treasury cash position', 'active rent plan clock', 'where do I find requisitions', 'supporter returns').",
+        },
+        category: {
+          type: "string",
+          enum: [
+            "glossary",
+            "product_policy",
+            "process_explanation",
+            "where_to_find",
+            "measurement_gotcha",
+          ],
+          description: "Optional knowledge base category filter.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 20,
+          description: "Maximum entries to return (default 8, max 20).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        query: z
+          .string()
+          .trim()
+          .min(1)
+          .max(120)
+          .regex(/^[\p{L}\p{N}\s._'/+-]{1,120}$/u)
+          .optional(),
+        category: z
+          .enum([
+            "glossary",
+            "product_policy",
+            "process_explanation",
+            "where_to_find",
+            "measurement_gotcha",
+          ])
+          .optional(),
+        limit: z.number().int().min(1).max(20).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_query: (p.query as string | undefined) ?? null,
+      p_category: (p.category as string | undefined) ?? null,
+      p_limit: (p.limit as number | undefined) ?? 8,
+    }),
+  },
 
   // ===========================================================================
   // GROUP K — THE ANALYST LANE (PROMPT 3: AD-HOC READ-ONLY `zoe_ro` QUERIES)

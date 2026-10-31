@@ -1934,6 +1934,20 @@ $do$;
 -- cannot SELECT content or report_payload directly from the table
 DROP POLICY IF EXISTS "CRM team reads staff_assistant_messages" ON public.staff_assistant_messages;
 
+-- Alias helper: `staff_assistant_crm_can_review()` -> `staff_assistant_is_crm_reviewer()`
+CREATE OR REPLACE FUNCTION public.staff_assistant_crm_can_review()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+  SELECT public.staff_assistant_is_crm_reviewer();
+$function$;
+
+REVOKE ALL ON FUNCTION public.staff_assistant_crm_can_review() FROM PUBLIC, anon, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_assistant_crm_can_review() TO authenticated;
+
 -- Create a redacted view for CRM reviewers that strips assistant answer text and report_payload
 CREATE OR REPLACE VIEW public.v_staff_assistant_crm_messages_redacted
 WITH (security_invoker = false)

@@ -83,13 +83,13 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
           data-testid="zoe-markdown-table"
           className="my-2 w-full overflow-x-auto rounded-lg border border-border bg-background"
         >
-          <table className="w-full min-w-[280px] border-collapse text-left text-xs">
+          <table className="w-full min-w-[320px] border-collapse text-left text-xs">
             <thead>
               <tr className="border-b border-border bg-muted/60">
                 {headers.map((h, hIdx) => (
                   <th
                     key={hIdx}
-                    className="px-2.5 py-2 font-semibold text-foreground whitespace-nowrap"
+                    className="whitespace-nowrap px-2.5 py-2 font-semibold text-foreground first:sticky first:left-0 first:z-10 first:border-r first:border-border/70 first:bg-muted/95"
                   >
                     {renderInlineFormatting(h)}
                   </th>
@@ -102,7 +102,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
                   {headers.map((_, cIdx) => (
                     <td
                       key={cIdx}
-                      className="px-2.5 py-1.5 text-xs text-foreground align-top"
+                      className="whitespace-nowrap px-2.5 py-1.5 text-xs text-foreground align-top first:sticky first:left-0 first:z-10 first:border-r first:border-border/70 first:bg-background/95 first:font-medium"
                     >
                       {renderInlineFormatting(r[cIdx] ?? '')}
                     </td>
@@ -123,7 +123,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
         <h3
           key={`h-${i}`}
           data-testid="zoe-markdown-heading"
-          className="mt-2 text-xs font-bold uppercase tracking-wide text-foreground sm:text-sm"
+          className="mt-2.5 text-xs font-bold uppercase tracking-wide text-foreground sm:text-sm"
         >
           {renderInlineFormatting(headingMatch[2])}
         </h3>,
@@ -142,7 +142,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
       blocks.push(
         <ul
           key={`ul-${i}`}
-          className="my-1.5 list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground sm:text-sm"
+          className="my-1.5 max-w-[68ch] list-disc space-y-1 pl-4 text-xs leading-relaxed text-foreground sm:text-sm"
         >
           {items.map((item, idx) => (
             <li key={idx} className="break-words">
@@ -164,7 +164,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
       blocks.push(
         <ol
           key={`ol-${i}`}
-          className="my-1.5 list-decimal space-y-1 pl-4 text-xs leading-relaxed text-foreground sm:text-sm"
+          className="my-1.5 max-w-[68ch] list-decimal space-y-1 pl-4 text-xs leading-relaxed text-foreground sm:text-sm"
         >
           {items.map((item, idx) => (
             <li key={idx} className="break-words">
@@ -197,7 +197,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
     blocks.push(
       <p
         key={`p-${i}`}
-        className="whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground sm:text-sm"
+        className="max-w-[68ch] whitespace-pre-wrap break-words text-xs leading-relaxed text-foreground sm:text-sm"
       >
         {renderInlineFormatting(paraLines.join('\n'))}
       </p>,
@@ -205,7 +205,7 @@ export const ZoeMarkdown: React.FC<ZoeMarkdownProps> = ({ content, className }) 
   }
 
   return (
-    <div data-testid="zoe-markdown" className={cn('space-y-2', className)}>
+    <div data-testid="zoe-markdown" className={cn('space-y-2.5', className)}>
       {blocks}
     </div>
   );

@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useV360SetNewPlansEnabled, useV360Settings } from '@/hooks/useV360Plan';
+<<<<<<< HEAD
+=======
+import { canChangeV360NewPlans } from '@/lib/v360StaffAccess';
+>>>>>>> origin/lovable
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+<<<<<<< HEAD
 const CAN_CHANGE = new Set(['cfo', 'coo', 'super_admin']);
 
 /**
@@ -23,6 +28,18 @@ const CAN_CHANGE = new Set(['cfo', 'coo', 'super_admin']);
 export function V360NewPlansSwitch() {
   const { enabledRoles, rolesResolved } = useAuth();
   const canChange = rolesResolved && enabledRoles.some((role) => CAN_CHANGE.has(role));
+=======
+/**
+ * CFO / COO / super admin control for v360_settings.new_plans_enabled.
+ * Reads the row and calls v360_set_new_plans_enabled only after a confirm.
+ * This screen does not turn the switch on by itself.
+ *
+ * `embedded` renders only the switch and confirm dialog, for the staff banner.
+ */
+export function V360NewPlansSwitch({ embedded = false }: { embedded?: boolean }) {
+  const { enabledRoles, rolesResolved } = useAuth();
+  const canChange = rolesResolved && canChangeV360NewPlans(enabledRoles);
+>>>>>>> origin/lovable
   const settings = useV360Settings(canChange);
   const setEnabled = useV360SetNewPlansEnabled();
   const [pending, setPending] = useState<boolean | null>(null);
@@ -44,6 +61,49 @@ export function V360NewPlansSwitch() {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const controls = (
+    <>
+      <Switch
+        checked={enabled}
+        disabled={settings.isLoading || settings.isError || setEnabled.isPending}
+        onCheckedChange={(next) => { setError(null); setPending(next); }}
+        aria-label="360-day pricing for new Rent Plans"
+      />
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <AlertDialog open={pending != null} onOpenChange={(open) => { if (!open && !setEnabled.isPending) setPending(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pending ? 'Turn on 360-day pricing for new Rent Plans?' : 'Turn off 360-day pricing for new Rent Plans?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending
+                ? 'Only Rent Plans created after this change are stamped 360-day. Existing Rent Plans keep their current terms. This does not move money.'
+                : 'Rent Plans created after this change stay on current pricing. Plans already stamped 360-day keep those terms. Legacy plans stay unchanged.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={setEnabled.isPending}>Cancel</AlertDialogCancel>
+            <Button type="button" disabled={setEnabled.isPending} onClick={confirm}>
+              {setEnabled.isPending ? 'Saving…' : pending ? 'Turn on' : 'Turn off'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <div className="flex flex-col items-end gap-2" data-testid="v360-new-plans-switch">
+        {controls}
+      </div>
+    );
+  }
+
+>>>>>>> origin/lovable
   return (
     <section
       className="rounded-xl border border-border bg-card p-4"
@@ -75,6 +135,7 @@ export function V360NewPlansSwitch() {
           >
             {stateLabel}
           </span>
+<<<<<<< HEAD
           <Switch
             checked={enabled}
             disabled={settings.isLoading || settings.isError || setEnabled.isPending}
@@ -105,6 +166,11 @@ export function V360NewPlansSwitch() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+=======
+          {controls}
+        </div>
+      </div>
+>>>>>>> origin/lovable
     </section>
   );
 }

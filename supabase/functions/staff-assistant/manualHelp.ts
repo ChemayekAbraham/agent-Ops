@@ -89,7 +89,7 @@ export const STAFF_MANUAL_ENTRIES: readonly StaffManualEntry[] = [
     keywords: ["what can you do", "help", "capabilities", "how to use zoe", "commands", "export pdf", "email report", "schedule"],
     roles: ["*"],
     guide:
-      "Zoe is your read-only My Space assistant. You can: (1) ask about your own tasks, payslips, requisitions, advances, concerns, wallet, and calls; (2) query official department reports your role can access; (3) compare periods using Zoe's built-in calculator ('and last week?', 'what is the difference?'); (4) ask for an Excel (.xlsx) or PDF export of any table answer; and (5) draft report emails, personal reminders, colleague notifications, or recurring report schedules that only send after you click Confirm/Send.",
+      "Zoe is your read-only My Space assistant. You can: (1) ask general accounting, finance, maths, planning, and writing questions; (2) ask about your own tasks, payslips, requisitions, advances, concerns, wallet, and calls; (3) query official department reports your role can access; (4) compare periods using Zoe's built-in calculator ('and last week?', 'what is the difference?'); (5) ask for an Excel (.xlsx) or PDF export of any table answer; and (6) draft report emails, personal reminders, colleague notifications, or recurring report schedules that only send after you click Confirm/Send.",
   },
 ];
 
@@ -151,25 +151,59 @@ export function searchStaffManualHelp(query: string): {
   };
 }
 
-const CONVERSATIONAL_INTENT_RE =
-  /^(?:(?:hi+|hello+|hey+|y+o+|howdy|sup|wass+up|what'?s\s+up|good\s+(?:morning|afternoon|evening)|morning|afternoon|evening|greetings)(?:\s+(?:there|zoe|team|wass+up|what'?s\s+up|how\s+are\s+you.*|how'?s\s+it\s+going.*))?(?:[\s,!.?]+(?:who\s+are\s+you|what\s+can\s+you\s+do.*|how\s+can\s+you\s+help.*|wass+up.*|what'?s\s+up.*))?|how\s+are\s+you(?:\s+doing|\s+today|\s+zoe)?|how'?s\s+it\s+going(?:\s+zoe)?|thanks|thank\s+you.*|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do(?:\s+.*)?|what\s+do\s+you\s+do(?:\s+.*)?|help|how\s+can\s+you\s+help(?:\s+.*)?|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|explain\b.*|what\s+is\b.*|what\s+are\b.*|define\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*|draft\b.*|write\b.*|help\s+me\s+(?:draft|write|plan|prepare|brainstorm|organize|summarise|summarize|word|phrase|reply)\b.*|brainstorm\b.*|suggest\s+(?:ways|ideas|agenda|checklist|questions|steps)\b.*|summarize\s+this\b.*|summarise\s+this\b.*|rewrite\b.*|rephrase\b.*)[?!.]*$/i;
+export const POLICY_DISCLAIMER_TAG = "general explanation, check with your manager for Welile's rule";
+
+const WELILE_POLICY_TOPIC_RE =
+  /\b(policy|policies|leave\s+days?|sick\s+leave|maternity|paternity|annual\s+leave|disciplinary|probation|overtime|reimbursement|allowance\s+rule|dress\s+code|working\s+hours|late\s+coming|termination|notice\s+period|grievance|code\s+of\s+conduct|hr\s+rule)\b/i;
+
+/**
+ * Marks any general explanation that touches Welile's own policy with
+ * `"general explanation, check with your manager for Welile's rule"`
+ * unless the glossary (`get_welile_glossary`) supplied the answer.
+ */
+export function ensurePolicyDisclaimerWhenNeeded(
+  userMessage: string,
+  assistantReply: string,
+  toolsCalled: readonly string[],
+): string {
+  const reply = (assistantReply ?? "").trim();
+  if (!reply) return reply;
+  if (toolsCalled.includes("get_welile_glossary")) return reply;
+  if (reply.toLowerCase().includes(POLICY_DISCLAIMER_TAG)) return reply;
+
+  const combined = `${userMessage ?? ""}\n${reply}`;
+  if (WELILE_POLICY_TOPIC_RE.test(combined)) {
+    return `${reply}\n\nNote: ${POLICY_DISCLAIMER_TAG}.`;
+  }
+  return reply;
+}
+
+const CONVERSATIONAL_OR_GENERAL_KNOWLEDGE_RE =
+  /^(?:(?:hi+|hello+|hey+|y+o+|howdy|sup|wass+up|what'?s\s+up|good\s+(?:morning|afternoon|evening)|morning|afternoon|evening|greetings)(?:\s+(?:there|zoe|team|wass+up|what'?s\s+up|how\s+are\s+you.*|how'?s\s+it\s+going.*))?(?:[\s,!.?]+(?:who\s+are\s+you|what\s+can\s+you\s+do.*|how\s+can\s+you\s+help.*|wass+up.*|what'?s\s+up.*))?|how\s+are\s+you(?:\s+doing|\s+today|\s+zoe)?|how'?s\s+it\s+going(?:\s+zoe)?|thanks|thank\s+you.*|thx|appreciate\s+it|ok\s+thanks|got\s+it|who\s+are\s+you|what\s+can\s+you\s+do(?:\s+.*)?|what\s+do\s+you\s+do(?:\s+.*)?|help|how\s+can\s+you\s+help(?:\s+.*)?|explain\s+that(?:\s+.*)?|what\s+does\s+that\s+mean|can\s+you\s+explain\b.*|explain\b.*|what\s+is\b.*|what\s+are\b.*|define\b.*|meaning\s+of\b.*|difference\s+between\b.*|like\s+i'?m\s+five\b.*|eli5\b.*|how\s+do\s+i\b.*|where\s+do\s+i\s+find\b.*|where\s+can\s+i\s+find\b.*|where\s+is\s+the\b.*\s+(?:screen|page|tab|menu|button)\b.*|draft\b.*|write\b.*|help\s+me\s+(?:draft|write|plan|prepare|brainstorm|organize|summarise|summarize|word|phrase|reply|calculate)\b.*|brainstorm\b.*|plan\b.*|suggest\s+(?:ways|ideas|agenda|checklist|questions|steps)\b.*|summarize\b.*|summarise\b.*|rewrite\b.*|rephrase\b.*|calculate\b.*|what\s+is\s+\d+.*)[?!.]*$/i;
+
+const GENERAL_FINANCE_OR_CONCEPT_KEYWORDS_RE =
+  /\b(receivables|accruals?|working\s+capital|cash\s+flow|balance\s+sheet|income\s+statement|trial\s+balance|depreciation|amortization|liquidity|solvency|general\s+ledger|double[-_\s]entry|debit\s+and\s+credit|provision|prepayment|deferred\s+revenue|retained\s+earnings|like\s+i'?m\s+five|like\s+i\s+am\s+five|in\s+simple\s+terms|in\s+plain\s+english)\b/i;
 
 const DATA_UNAVAILABLE_EXPLANATION_RE =
-  /\b(checked|tried|do\s+not\s+have\s+a\s+(?:live|verified)?\s*(?:tool|report|dataset)|cannot\s+find\s+that\s+(?:specific\s+)?(?:data|figure|report)|closest\s+(?:available\s+)?(?:report|screen|alternative)|suggest\s+(?:checking|asking|opening)|ask\s+(?:your|the)\s+(?:manager|department|operations|hr|cfo|coo))\b/i;
+  /\b(i\s+don'?t\s+have\s+that\s+on\s+file|checked|tried|do\s+not\s+have\s+a\s+(?:live|verified)?\s*(?:tool|report|dataset)|cannot\s+find\s+that\s+(?:specific\s+)?(?:data|figure|report)|closest\s+(?:available\s+)?(?:report|screen|alternative)|suggest\s+(?:checking|asking|opening)|ask\s+(?:your|the)\s+(?:manager|department|operations|hr|cfo|coo))\b/i;
 
 /**
  * Returns true when the user message (or Zoe's non-numeric natural reply) is a
- * conversational greeting, explanation, drafting, brainstorming, general work help,
- * or a transparent "here is what I checked and the closest alternative/person" reply
- * where Zoe may answer without calling a live business data tool (still verified by
- * `checkAnswer` so zero invented numbers can pass).
+ * general-knowledge explanation (accounting/finance terms, "like I'm five", maths,
+ * writing/drafting, planning), a conversational greeting, or a transparent
+ * `"I don't have that on file"` reply where Zoe may answer without calling a live
+ * business data tool (still verified by `checkAnswer` so zero invented Welile
+ * numbers can pass).
  */
 export function isConversationalPromptAllowedWithoutTool(
   userMessage: string,
   assistantReply?: string,
 ): boolean {
   const cleanedUser = (userMessage ?? "").trim();
-  if (CONVERSATIONAL_INTENT_RE.test(cleanedUser)) {
+  if (
+    CONVERSATIONAL_OR_GENERAL_KNOWLEDGE_RE.test(cleanedUser) ||
+    GENERAL_FINANCE_OR_CONCEPT_KEYWORDS_RE.test(cleanedUser)
+  ) {
     return true;
   }
   const cleanedReply = (assistantReply ?? "").trim();
@@ -187,4 +221,3 @@ export function isConversationalPromptAllowedWithoutTool(
   }
   return false;
 }
-

@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   AlertCircle,
+  ExternalLink,
   Loader2,
   RefreshCw,
   Sunrise,
+  TrendingDown,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import {
@@ -12,6 +16,8 @@ import {
   type ConfirmZoeActionResult,
   type ZoeMorningBriefPayload,
 } from '@/lib/zoe';
+
+export const MAX_MORNING_BRIEF_DISPLAY_ITEMS = 3;
 
 export interface ZoeMorningBriefCardProps {
   brief: ZoeMorningBriefPayload | null;
@@ -24,12 +30,14 @@ export interface ZoeMorningBriefCardProps {
 }
 
 /**
- * Optional 07:30 Kampala Morning Brief card shown inside Zoe.
+ * Optional 07:30 Kampala Morning Brief ("What changed") card shown inside Zoe.
  *
- * Rules:
- *   - Off by default, turned on per person (`staff_assistant_preferences.morning_brief_enabled`).
- *   - Built only from `assistant_staff_*` tools on the server (`action: 'morning_brief'`).
- *   - Every section cites its `Source · Period`.
+ * Rules (Prompt 4 Deliverable 4):
+ *   - Opt-in per person (`staff_assistant_preferences.morning_brief_enabled`), off by default.
+ *   - Two or three lines per role from the existing read-only reports, comparing today with the 4-week average.
+ *   - Every item includes its source, a mute switch, and a link to the screen.
+ *   - Capped strictly at 3 items (`MAX_MORNING_BRIEF_DISPLAY_ITEMS = 3`).
+ *   - In-app only: no outbound email or SMS from this feature.
  */
 export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
   brief: initialBrief,
@@ -47,6 +55,9 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
 
   if (!brief || isDismissedToday) return null;
 
+  const briefTime = brief.scheduled_time_kampala || brief.brief_time_kampala || '07:30';
+  const cappedSections = (brief.sections ?? []).slice(0, MAX_MORNING_BRIEF_DISPLAY_ITEMS);
+
   const handleToggleEnabled = async (nextEnabled: boolean) => {
     if (isUpdating) return;
     setIsUpdating(true);
@@ -54,7 +65,7 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
     try {
       const res = await onUpdatePrefs({
         enabled: nextEnabled,
-        brief_time: brief.scheduled_time_kampala || '07:30',
+        brief_time: briefTime,
       });
       if (!res.ok) {
         setErrorMessage(res.error || 'Could not update Morning Brief preference.');
@@ -65,10 +76,16 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
         if (refreshed) {
           setBrief(refreshed);
         } else {
-          setBrief({ ...brief, enabled: true, should_display_now: true });
+          setBrief({ ...brief, enabled: true, should_display_now: true, should_display: true });
         }
       } else {
-        setBrief({ ...brief, enabled: false, should_display_now: false, sections: [] });
+        setBrief({
+          ...brief,
+          enabled: false,
+          should_display_now: false,
+          should_display: false,
+          sections: [],
+        });
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Could not update preference.');
@@ -98,7 +115,7 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
     try {
       await onUpdatePrefs({
         enabled: brief.enabled,
-        brief_time: brief.scheduled_time_kampala || '07:30',
+        brief_time: briefTime,
         dismiss_today: true,
       });
     } catch {
@@ -109,6 +126,7 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
   return (
     <div
       data-testid="zoe-morning-brief-card"
+      data-in-app-only="true"
       className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 text-card-foreground shadow-sm sm:p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -121,7 +139,8 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
               07:30 Kampala Morning Brief · {brief.enabled ? 'Enabled' : 'Off by default'}
             </h3>
             <p className="text-xs text-muted-foreground">
-              {brief.headline}
+              {brief.headline ||
+                'What changed today vs your 4-week average (in-app only · no email or SMS)'}
             </p>
           </div>
         </div>
@@ -156,7 +175,7 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
             </button>
           )}
 
-          {brief.enabled && brief.sections.length > 0 && (
+          {brief.enabled && cappedSections.length > 0 && (
             <button
               type="button"
               disabled={isUpdating}
@@ -182,27 +201,62 @@ export const ZoeMorningBriefCard: React.FC<ZoeMorningBriefCardProps> = ({
         </div>
       )}
 
-      {brief.enabled && brief.sections.length > 0 && (
+      {brief.enabled && cappedSections.length > 0 && (
         <div
           data-testid="zoe-morning-brief-sections"
           className="mt-3 grid gap-2 sm:grid-cols-2"
         >
-          {brief.sections.map((section) => (
-            <div
-              key={section.tool}
-              data-testid={`zoe-brief-section-${section.tool}`}
-              className="rounded-lg border border-border bg-card p-3 text-xs"
-            >
-              <p className="font-semibold text-foreground">{section.title}</p>
-              <p className="mt-1 leading-relaxed text-foreground/90">{section.summary}</p>
-              <p
-                data-testid={`zoe-brief-source-${section.tool}`}
-                className="mt-2 border-t border-border/60 pt-1.5 text-muted-foreground"
+          {cappedSections.map((section) => {
+            const key = section.id || section.tool;
+            const screenPath =
+              typeof section.screen_path === 'string' && section.screen_path.startsWith('/')
+                ? section.screen_path
+                : '/me';
+            const hasPctChange = typeof section.pct_change === 'number' && Number.isFinite(section.pct_change);
+            return (
+              <div
+                key={key}
+                data-testid={`zoe-brief-section-${section.tool}`}
+                className="rounded-lg border border-border bg-card p-3 text-xs"
               >
-                Source: {section.source} · {section.period}
-              </p>
-            </div>
-          ))}
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <p className="font-semibold text-foreground">{section.title}</p>
+                  {hasPctChange && (
+                    <span
+                      data-testid={`zoe-brief-delta-${section.tool}`}
+                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground"
+                    >
+                      {section.direction === 'up' ? (
+                        <TrendingUp className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+                      ) : section.direction === 'down' ? (
+                        <TrendingDown className="h-3 w-3 text-amber-600" aria-hidden="true" />
+                      ) : null}
+                      <span>
+                        {section.pct_change! > 0 ? `+${section.pct_change}%` : `${section.pct_change}%`} vs 4-wk avg
+                      </span>
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 leading-relaxed text-foreground/90">{section.summary}</p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-1.5">
+                  <p
+                    data-testid={`zoe-brief-source-${section.tool}`}
+                    className="text-muted-foreground"
+                  >
+                    Source: {section.source} · {section.period}
+                  </p>
+                  <Link
+                    to={screenPath}
+                    data-testid={`zoe-brief-link-${section.tool}`}
+                    className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    <span>Open screen</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

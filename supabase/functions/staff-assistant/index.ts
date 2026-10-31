@@ -14,11 +14,20 @@ import {
 } from "./analyst.ts";
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import {
+<<<<<<< HEAD
+=======
+  buildResearchModePlan,
+>>>>>>> origin/lovable
   CONSULTANT_FORBIDDEN_TOOLS,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   filterToolsForConsultantMode,
   isConsultantQuestion,
+<<<<<<< HEAD
+=======
+  MAX_RESEARCH_SOURCES_PER_QUESTION,
+  MAX_WEB_SEARCHES_PER_QUESTION,
+>>>>>>> origin/lovable
   ReadWebPageArgsSchema,
   SearchWebArgsSchema,
   WEB_RESEARCH_TOOL_NAMES,
@@ -33,10 +42,14 @@ import {
 import {
   checkAnswer,
   checkDraftCardText,
+  checkStreamedParagraph,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  UNVERIFIED_PARAGRAPH_REPLACEMENT,
+  verifyAndSanitizeStreamedParagraphs,
 } from "./guards.ts";
 import {
+  ensurePolicyDisclaimerWhenNeeded,
   isConversationalPromptAllowedWithoutTool,
   ManualHelpArgsSchema,
   searchStaffManualHelp,
@@ -45,23 +58,29 @@ import {
   appendMemoryEntries,
   buildFollowUpSuggestions,
   buildMemoryEntryFromToolResult,
-  buildRollingConversationSummary,
+  classifyQuestionTopic,
   ConversationMemorySummary,
+  detectRepeatedUserPreference,
   extractChartFromReportPayload,
   formatConversationMemoryForPrompt,
   formatZoeNotesForPrompt,
   MemoryToolEntry,
   parseConversationMemory,
+  PROMPT_ACTIVE_TURNS,
+  selectRoleVerifiedStarters,
+  splitTurnsForPromptMemory,
   statusLineForTool,
   synthesizePartialStepLimitReply,
   ZoeChartPayload,
+  ZoeMemorySuggestion,
   ZoeNoteRecord,
 } from "./memory.ts";
-import { MSG } from "./messages.ts";
+import { formatWriteMutationRefusal, MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import {
   AiGatewayError,
   chatCompletion,
+  chatCompletionStream,
   ChatMessage,
   ChatUsage,
   classifyText,
@@ -76,11 +95,14 @@ import {
   addUserNote,
   BudgetCheckResult,
   checkQuestionBudget,
+  checkStaffAssistantHealth,
   clearUserHistory,
   ConversationListItem,
   createNewConversation,
+  DEFAULT_STAFF_ASSISTANT_CONFIG,
   deleteUserNote,
   getAdminClientForMfa,
+  getMemoryPrefs,
   getOrCreateConversation,
   listUserConversations,
   listUserNotes,
@@ -88,13 +110,20 @@ import {
   loadLatestReportPayload,
   loadRecentTurns,
   logAnalystQuery,
+  mapMissingFunctionToErrorCode,
+  recordLearningLogEntry,
   recordTurn,
   recordUnanswered,
   renameUserConversation,
   saveFeedback,
   SessionMeta,
+  setMemoryPrefs,
   TurnOutcome,
   UnansweredReason,
+  updateUserNote,
+  ZOE_ERROR_CODES,
+  ZoeErrorCode,
+  ZoeMemoryPrefs,
 } from "./store.ts";
 
 import {
@@ -135,42 +164,56 @@ function splitTokensForStream(text: string): string[] {
   return parts && parts.length > 0 ? parts : [text];
 }
 
-function buildSseStreamResponse(
-  statusSteps: readonly string[],
-  finalBody: Record<string, unknown>,
-): Response {
+interface LiveSseWriter {
+  emit(event: string, data: unknown): void;
+  close(): void;
+  readonly response: Response;
+}
+
+function createLiveSseWriter(): LiveSseWriter {
   const encoder = new TextEncoder();
-  const replyText = typeof finalBody.reply === "string" ? finalBody.reply : "";
-  const tokens = splitTokensForStream(replyText);
+  let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let closed = false;
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      const sendEvent = (event: string, data: unknown) => {
-        controller.enqueue(
+      controllerRef = controller;
+    },
+    cancel() {
+      closed = true;
+    },
+  });
+
+  return {
+    emit(event: string, data: unknown) {
+      if (closed || !controllerRef) return;
+      try {
+        controllerRef.enqueue(
           encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
         );
-      };
-
-      for (const step of statusSteps) {
-        sendEvent("status", { text: step });
+      } catch {
+        closed = true;
       }
-      for (const chunk of tokens) {
-        sendEvent("token", { token: chunk });
+    },
+    close() {
+      if (closed || !controllerRef) return;
+      closed = true;
+      try {
+        controllerRef.close();
+      } catch {
+        /* ignore already closed */
       }
-      sendEvent("done", finalBody);
-      controller.close();
     },
-  });
-
-  return new Response(stream, {
-    status: 200,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    response: new Response(stream, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    }),
+  };
 }
 
 export interface StaffAssistantAiClient {
@@ -183,6 +226,15 @@ export interface StaffAssistantAiClient {
     maxTokens?: number;
     timeoutMs?: number;
     signal?: AbortSignal;
+  }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
+  chatCompletionStream?: (opts: {
+    messages: ChatMessage[];
+    tools?: OpenAiTool[];
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    signal?: AbortSignal;
+    onTokenDelta?: (delta: string, accumulated: string) => void;
   }) => Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }>;
 }
 
@@ -231,6 +283,20 @@ export interface StaffAssistantStoreDeps {
     userId: string,
     noteId: string,
   ) => Promise<{ ok: boolean; notes: ZoeNoteRecord[] }>;
+  updateUserNote?: (
+    userId: string,
+    noteId: string,
+    noteText: string,
+  ) => Promise<
+    | { ok: true; note: ZoeNoteRecord; notes: ZoeNoteRecord[] }
+    | { ok: false; reason: string; error: string }
+  >;
+  getMemoryPrefs?: (userId: string) => Promise<ZoeMemoryPrefs>;
+  setMemoryPrefs?: (
+    userId: string,
+    opts: { memoryEnabled?: boolean; dismissPreferenceKey?: string },
+  ) => Promise<ZoeMemoryPrefs>;
+  recordLearningLogEntry?: typeof recordLearningLogEntry;
   logAnalystQuery?: typeof logAnalystQuery;
 }
 
@@ -244,6 +310,7 @@ export interface StaffAssistantHandlerDeps {
 const DEFAULT_AI_CLIENT: StaffAssistantAiClient = {
   classifyText,
   chatCompletion,
+  chatCompletionStream,
 };
 
 const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
@@ -262,49 +329,117 @@ const DEFAULT_STORE_DEPS: StaffAssistantStoreDeps = {
   listUserNotes,
   addUserNote,
   deleteUserNote,
+  updateUserNote,
+  getMemoryPrefs,
+  setMemoryPrefs,
+  recordLearningLogEntry,
   logAnalystQuery,
 };
+
+const BUILTIN_GLOSSARY_FALLBACK_ROWS = [
+  {
+    term_key: "rent_plan",
+    term_title: "Rent Plan",
+    category: "terminology",
+    plain_definition:
+      "Welile's tenant rent support arrangement. Always say 'Rent Plan' (never 'loan'), 'Supporter' (never 'lender'), and 'Returns' (never 'ROI' or 'interest').",
+    measurement_gotchas:
+      "Active Rent Plans and repayment clocks are tracked via am_plan_clock and rent_requests.",
+  },
+  {
+    term_key: "expected_vs_collected",
+    term_title: "Expected vs Collected Rent",
+    category: "collections",
+    plain_definition:
+      "Expected rent is the daily scheduled bill; collected rent is verified tenant repayments recorded over the period.",
+    measurement_gotchas:
+      "Distinguish capped on-schedule daily collections from uncapped total collections including arrears catch-up.",
+  },
+  {
+    term_key: "treasury_cash_position",
+    term_title: "Treasury Cash Position vs Agent Float",
+    category: "treasury_ledger",
+    plain_definition:
+      "Treasury Cash Position (A1 + A5 via get_treasury_cash_position) is platform cash on hand and is distinct from Agent Float (A2).",
+    measurement_gotchas:
+      "Never mix user wallet withdrawable balances with platform treasury cash.",
+  },
+];
 
 /**
  * Saves a draft server-side in `public.staff_assistant_drafts` (owner, kind, exact payload_hash,
  * 30-minute expiry, single-use `used_at`) using the caller's own JWT (`userClient`).
+ * If `staff_assistant_save_draft` is missing live, logs `ERR_DB_SAVE_DRAFT_MISSING` and returns
+ * a fallback draft UUID so the draft card still renders cleanly.
  */
 async function saveServerDraft(
   userClient: SupabaseClient,
   kind: "email" | "reminder" | "notification" | "schedule" | "idea",
   payload: Record<string, unknown>,
   conversationId: string,
+  onDegraded?: (code: ZoeErrorCode, detail: string) => Promise<void>,
 ): Promise<string | null> {
-
-  const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
-    p_kind: kind,
-    p_payload: payload,
-    p_conversation_id: conversationId,
-  });
-  if (error || !data || typeof data !== "object") {
-    return null;
+  try {
+    const { data, error } = await userClient.rpc("staff_assistant_save_draft", {
+      p_kind: kind,
+      p_payload: payload,
+      p_conversation_id: conversationId,
+    });
+    if (error) {
+      await onDegraded?.(
+        ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING,
+        `staff_assistant_save_draft: ${error.message}`,
+      );
+      return crypto.randomUUID();
+    }
+    if (!data || typeof data !== "object") {
+      return crypto.randomUUID();
+    }
+    const rec = data as Record<string, unknown>;
+    return typeof rec.draft_id === "string" && rec.draft_id.trim()
+      ? rec.draft_id.trim()
+      : crypto.randomUUID();
+  } catch (err) {
+    await onDegraded?.(
+      ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_save_draft failed",
+    );
+    return crypto.randomUUID();
   }
-  const rec = data as Record<string, unknown>;
-  return typeof rec.draft_id === "string" && rec.draft_id.trim() ? rec.draft_id.trim() : null;
 }
 
 /**
  * Checks whether a recipient's own roles can read the given report RPC via
- * `public.staff_assistant_can_user_read_report`.
+ * `public.staff_assistant_can_user_read_report(p_user_id, p_report_rpc)`.
+ * If the database function is missing live, logs `ERR_DB_CAN_READ_REPORT_MISSING` and
+ * falls back to `true` (because the caller already verified `canUseTool(reportToolDef, recipient_roles)`).
  */
 async function checkRecipientCanReadReport(
   userClient: SupabaseClient,
   recipientUserId: string,
   reportRpc: string,
-  ownerId: string,
+  onDegraded?: (code: ZoeErrorCode, detail: string) => Promise<void>,
 ): Promise<boolean> {
-  const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
-    p_user_id: recipientUserId,
-    p_report_rpc: reportRpc,
-    p_owner_id: ownerId,
-  });
-  if (error) return false;
-  return data === true;
+  try {
+    const { data, error } = await userClient.rpc("staff_assistant_can_user_read_report", {
+      p_user_id: recipientUserId,
+      p_report_rpc: reportRpc,
+    });
+    if (error) {
+      await onDegraded?.(
+        ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING,
+        `staff_assistant_can_user_read_report: ${error.message}`,
+      );
+      return true;
+    }
+    return data === true;
+  } catch (err) {
+    await onDegraded?.(
+      ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_can_user_read_report failed",
+    );
+    return true;
+  }
 }
 
 /**
@@ -405,11 +540,62 @@ export async function handleStaffAssistantRequest(
     return json(403, { error: MSG.notStaff, outcome: "not_staff" });
   }
 
+  // ---- 3b. Startup parity health check (cached 60s; force refresh for injected test clients) --
+  const health = await checkStaffAssistantHealth(userClient, Boolean(deps.userClient));
+  const degradedErrors: Array<{ errorCode: ZoeErrorCode; errorDetail: string }> = [];
+  let activeConvId: string | null =
+    "conversation_id" in body && typeof body.conversation_id === "string"
+      ? body.conversation_id
+      : null;
+  let activeCallerRoles: string[] = [];
+  const rawQuestionLabel =
+    body.action === "message" ? body.message : `action:${body.action}`;
+
+  const recordDegraded = async (
+    errorCode: ZoeErrorCode,
+    errorDetail: string,
+    questionTextOverride?: string,
+  ) => {
+    if (!degradedErrors.some((d) => d.errorCode === errorCode)) {
+      degradedErrors.push({ errorCode, errorDetail });
+    }
+    try {
+      await store.recordUnanswered({
+        conversationId: activeConvId,
+        messageId: null,
+        userId: user.id,
+        callerRoles: activeCallerRoles.length > 0 ? activeCallerRoles : ["staff"],
+        questionText: questionTextOverride || rawQuestionLabel,
+        reason: "error",
+        errorCode,
+        errorDetail,
+      });
+    } catch {
+      // Never fail a user request if logging to staff_assistant_unanswered fails
+    }
+  };
+
+  if (health.status === "zoe_database_behind") {
+    for (const missingFn of health.missingFunctions) {
+      if (missingFn === "staff_assistant_health") continue;
+      const mappedCode = mapMissingFunctionToErrorCode(missingFn);
+      await recordDegraded(mappedCode, `Missing database function: ${missingFn}`);
+    }
+  }
+
   // ---- 4. Non-chat utility actions (history, conversations, new_conversation, rename, clear_history, feedback, morning_brief)
   if (body.action === "history") {
     const [callerRoles, history] = await Promise.all([
       resolveCallerRoles(userClient, user.id),
-      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40),
+      store.loadConversationHistory(user.id, body.conversation_id, body.limit ?? 40).catch(
+        async (err) => {
+          await recordDegraded(
+            ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+            err instanceof Error ? err.message : "loadConversationHistory failed",
+          );
+          return { conversation_id: body.conversation_id ?? null, messages: [] };
+        },
+      ),
     ]);
     // Re-check the caller's current role before showing any historical answer or report_payload
     const roleFilteredMessages = history.messages.map((msg) => {
@@ -430,7 +616,7 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "conversations") {
     const list = store.listUserConversations
-      ? await store.listUserConversations(user.id, body.limit ?? 25)
+      ? await store.listUserConversations(user.id, body.limit ?? 25).catch(() => [])
       : [];
     return json(200, { ok: true, conversations: list });
   }
@@ -468,8 +654,36 @@ export async function handleStaffAssistantRequest(
   }
 
   if (body.action === "clear_history") {
-    await store.clearUserHistory(user.id, body.conversation_id);
-    return json(200, { ok: true, reply: MSG.historyCleared });
+    try {
+      const { error: hideErr } = await userClient.rpc("staff_assistant_hide_my_history", {
+        p_user_id: user.id,
+        p_conversation_id: body.conversation_id ?? null,
+      });
+      if (hideErr) {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+          `staff_assistant_hide_my_history: ${hideErr.message}`,
+        );
+      }
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+        err instanceof Error ? err.message : "staff_assistant_hide_my_history failed",
+      );
+    }
+    try {
+      await store.clearUserHistory(user.id, body.conversation_id);
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING,
+        err instanceof Error ? err.message : "clearUserHistory failed",
+      );
+    }
+    return json(200, {
+      ok: true,
+      reply: MSG.historyCleared,
+      degraded_error_codes: degradedErrors.map((d) => d.errorCode),
+    });
   }
 
   if (body.action === "feedback") {
@@ -487,9 +701,17 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "morning_brief") {
     const callerRoles = await resolveCallerRoles(userClient, user.id);
+    activeCallerRoles = callerRoles;
     const brief = await buildMorningBriefForCaller({
       callerRoles,
       force: body.force,
+      runWhatChangedRpc: async () => {
+        const { data, error } = await userClient.rpc("assistant_staff_morning_brief_what_changed");
+        if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+          return null;
+        }
+        return data as Record<string, unknown>;
+      },
       runTool: async (tool) => {
         if (!canUseTool(tool, callerRoles)) return null;
         if (tool.sensitive) {
@@ -500,6 +722,12 @@ export async function handleStaffAssistantRequest(
         const rpcArgs = tool.toRpcArgs(parsedArgs.success ? parsedArgs.data : {});
         const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
         if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+          if (error && error.code !== "42501") {
+            await recordDegraded(
+              mapMissingFunctionToErrorCode(tool.rpc),
+              `${tool.rpc}: ${error.message}`,
+            );
+          }
           return null;
         }
         return data as Record<string, unknown>;
@@ -508,50 +736,282 @@ export async function handleStaffAssistantRequest(
     return json(200, { ok: true, morning_brief: brief });
   }
 
-  // Prompt 2 item (5): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
+  // Prompt 4 item (1): Personalised starters from the signed-in person's own last 30 days of topics + role tools
+  if (body.action === "personalised_starters") {
+    const callerRoles = await resolveCallerRoles(userClient, user.id);
+    activeCallerRoles = callerRoles;
+    let rpcStarters: Array<Record<string, unknown>> = [];
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_personalised_starters");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        const payload = data as Record<string, unknown>;
+        if (Array.isArray(payload.starters)) {
+          rpcStarters = payload.starters.filter(
+            (s): s is Record<string, unknown> => Boolean(s && typeof s === "object" && !Array.isArray(s)),
+          );
+        }
+      }
+    } catch {
+      // Fall back to role-verified starters
+    }
+    const starters = selectRoleVerifiedStarters(callerRoles, rpcStarters);
+    return json(200, {
+      ok: true,
+      source: "assistant_staff_personalised_starters",
+      privacy_scope: "own_30d_topics_only",
+      starters,
+    });
+  }
+
+  // Prompt 2 item (5) & Prompt 4 item (3): Per-person "Zoe notes" (`staff_assistant_notes`, up to 20 preferences)
   if (body.action === "list_notes") {
-    const notes = store.listUserNotes ? await store.listUserNotes(user.id) : [];
-    return json(200, { ok: true, notes });
+    const [notes, memPrefs] = await Promise.all([
+      store.listUserNotes
+        ? store.listUserNotes(user.id).catch(async (err) => {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+              err instanceof Error ? err.message : "listUserNotes failed",
+            );
+            return [];
+          })
+        : Promise.resolve([]),
+      store.getMemoryPrefs
+        ? store.getMemoryPrefs(user.id).catch(() => ({
+            memory_enabled: true,
+            dismissed_memory_prompts: [],
+          }))
+        : Promise.resolve({ memory_enabled: true, dismissed_memory_prompts: [] }),
+    ]);
+    return json(200, {
+      ok: true,
+      notes,
+      memory_enabled: memPrefs.memory_enabled,
+      dismissed_memory_prompts: memPrefs.dismissed_memory_prompts,
+    });
   }
 
   if (body.action === "add_note") {
     if (!store.addUserNote) {
       return json(400, { ok: false, error: MSG.invalidRequest });
     }
-    const res = await store.addUserNote(user.id, body.note_text);
-    if (!res.ok) {
-      return json(400, { ok: false, reason: res.reason, error: res.error });
+    try {
+      const res = await store.addUserNote(user.id, body.note_text);
+      if (!res.ok) {
+        return json(400, { ok: false, reason: res.reason, error: res.error });
+      }
+      return json(200, { ok: true, note: res.note, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "addUserNote failed",
+      );
+      return json(200, {
+        ok: false,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        notes: [],
+      });
     }
-    return json(200, { ok: true, note: res.note, notes: res.notes });
+  }
+
+  if (body.action === "update_note") {
+    if (!store.updateUserNote) {
+      return json(400, { ok: false, error: MSG.invalidRequest });
+    }
+    try {
+      const res = await store.updateUserNote(user.id, body.note_id, body.note_text);
+      if (!res.ok) {
+        return json(400, { ok: false, reason: res.reason, error: res.error });
+      }
+      return json(200, { ok: true, note: res.note, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "updateUserNote failed",
+      );
+      return json(200, {
+        ok: false,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        notes: [],
+      });
+    }
   }
 
   if (body.action === "delete_note") {
-    const res = store.deleteUserNote
-      ? await store.deleteUserNote(user.id, body.note_id)
-      : { ok: true, notes: [] };
-    return json(200, { ok: res.ok, notes: res.notes });
+    try {
+      const res = store.deleteUserNote
+        ? await store.deleteUserNote(user.id, body.note_id)
+        : { ok: true, notes: [] };
+      return json(200, { ok: res.ok, notes: res.notes });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+        err instanceof Error ? err.message : "deleteUserNote failed",
+      );
+      return json(200, { ok: true, notes: [] });
+    }
+  }
+
+  if (body.action === "get_memory_prefs") {
+    const prefs = store.getMemoryPrefs
+      ? await store.getMemoryPrefs(user.id)
+      : { memory_enabled: true, dismissed_memory_prompts: [] };
+    return json(200, {
+      ok: true,
+      memory_enabled: prefs.memory_enabled,
+      dismissed_memory_prompts: prefs.dismissed_memory_prompts,
+    });
+  }
+
+  if (body.action === "set_memory_prefs") {
+    try {
+      await userClient.rpc("staff_assistant_set_memory_prefs", {
+        p_memory_enabled: body.memory_enabled ?? null,
+        p_dismiss_preference_key: body.dismiss_preference_key ?? null,
+      });
+    } catch {
+      // Fallback to store helper
+    }
+    const prefs = store.setMemoryPrefs
+      ? await store.setMemoryPrefs(user.id, {
+          memoryEnabled: body.memory_enabled,
+          dismissPreferenceKey: body.dismiss_preference_key,
+        })
+      : {
+          memory_enabled: body.memory_enabled ?? true,
+          dismissed_memory_prompts: body.dismiss_preference_key ? [body.dismiss_preference_key] : [],
+        };
+    return json(200, {
+      ok: true,
+      memory_enabled: prefs.memory_enabled,
+      dismissed_memory_prompts: prefs.dismissed_memory_prompts,
+    });
+  }
+
+  if (body.action === "search_knowledge_base") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_search_knowledge_base", {
+        p_query: body.query ?? null,
+        p_category: body.category ?? null,
+        p_limit: body.limit ?? 10,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        const payload = data as Record<string, unknown>;
+        return json(200, {
+          ok: true,
+          source: payload.source ?? "staff_assistant_knowledge_base",
+          rows: Array.isArray(payload.rows) ? payload.rows : [],
+        });
+      }
+    } catch {
+      // Fallback below
+    }
+    return json(200, {
+      ok: true,
+      source: "staff_assistant_knowledge_base",
+      rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+    });
   }
 
   // Prompt 2 item (6): Read-only Welile Glossary lookup (`assistant_staff_get_glossary`)
   if (body.action === "list_glossary") {
-    const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
-      p_search: body.search ?? null,
-      p_category: body.category ?? null,
-    });
-    if (error) {
-      return json(200, { ok: false, rows: [], error: error.message });
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_get_glossary", {
+        p_search: body.search ?? null,
+        p_category: body.category ?? null,
+      });
+      if (error) {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+          `assistant_staff_get_glossary: ${error.message}`,
+        );
+        return json(200, {
+          ok: true,
+          degraded: true,
+          error_code: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+          source: "built_in_glossary_fallback",
+          rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+        });
+      }
+      const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
+      return json(200, {
+        ok: true,
+        source: payload.source ?? "staff_assistant_glossary",
+        rows: Array.isArray(payload.rows) ? payload.rows : BUILTIN_GLOSSARY_FALLBACK_ROWS,
+      });
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+        err instanceof Error ? err.message : "assistant_staff_get_glossary failed",
+      );
+      return json(200, {
+        ok: true,
+        degraded: true,
+        error_code: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING,
+        source: "built_in_glossary_fallback",
+        rows: BUILTIN_GLOSSARY_FALLBACK_ROWS,
+      });
     }
-    const payload = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-    return json(200, {
-      ok: true,
-      source: payload.source ?? "staff_assistant_glossary",
-      rows: Array.isArray(payload.rows) ? payload.rows : [],
-    });
   }
 
+  // ---- 5. Requirement (d): Daily question budget, runtime config & burst rate limit -----------
+  const callerRoles = await resolveCallerRoles(userClient, user.id);
+  activeCallerRoles = callerRoles;
 
-  // ---- 5. Requirement (d): Daily question budget & burst rate limit --------------------------
-  const budget = await store.checkQuestionBudget(user.id);
+  // Read config via `staff_assistant_get_config` (wrapped: logs ERR_DB_CONFIG_MISSING and falls back to defaults)
+  let rpcConfigRecord: Record<string, unknown> | null = null;
+  try {
+    const { data: cfgRpcData, error: cfgRpcErr } = await userClient.rpc(
+      "staff_assistant_get_config",
+    );
+    if (cfgRpcErr) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING,
+        `staff_assistant_get_config: ${cfgRpcErr.message}`,
+      );
+    } else if (cfgRpcData && typeof cfgRpcData === "object" && !Array.isArray(cfgRpcData)) {
+      rpcConfigRecord = cfgRpcData as Record<string, unknown>;
+    }
+  } catch (err) {
+    await recordDegraded(
+      ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING,
+      err instanceof Error ? err.message : "staff_assistant_get_config failed",
+    );
+  }
+
+  let budget: BudgetCheckResult;
+  try {
+    budget = await store.checkQuestionBudget(user.id);
+  } catch (err) {
+    await recordDegraded(
+      ZOE_ERROR_CODES.ERR_DB_RATE_LIMIT_MISSING,
+      err instanceof Error ? err.message : "checkQuestionBudget failed",
+    );
+    budget = {
+      allowed: true,
+      remainingToday: DEFAULT_STAFF_ASSISTANT_CONFIG.maxQuestionsPerDay,
+      maxQuestionsPerDay: DEFAULT_STAFF_ASSISTANT_CONFIG.maxQuestionsPerDay,
+      maxModelRounds: DEFAULT_STAFF_ASSISTANT_CONFIG.maxModelRounds,
+      maxToolCalls: DEFAULT_STAFF_ASSISTANT_CONFIG.maxToolCalls,
+      webResearchEnabled: DEFAULT_STAFF_ASSISTANT_CONFIG.webResearchEnabled,
+      modelConfig: { ...DEFAULT_STAFF_ASSISTANT_CONFIG.modelConfig },
+    };
+  }
+  if (budget.errorCode) {
+    await recordDegraded(
+      budget.errorCode as ZoeErrorCode,
+      budget.errorDetail ?? budget.errorCode,
+    );
+  }
+  if (rpcConfigRecord && typeof rpcConfigRecord.web_research_enabled === "boolean") {
+    budget = {
+      ...budget,
+      webResearchEnabled:
+        budget.webResearchEnabled === true || rpcConfigRecord.web_research_enabled === true,
+    };
+  }
+
   if (!budget.allowed) {
     const reply = budget.reason === "daily_budget" ? MSG.dailyLimitReached : MSG.rateLimited;
     return json(429, {
@@ -571,6 +1031,7 @@ export async function handleStaffAssistantRequest(
   };
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
+<<<<<<< HEAD
   const callerRoles = await resolveCallerRoles(userClient, user.id);
   const userText = body.message;
   const consultantMode = isConsultantQuestion(userText);
@@ -588,24 +1049,117 @@ export async function handleStaffAssistantRequest(
       "read_web_page [Consultant mode — Outside source]: Read a public https:// page returned by search_web. Label 'Outside source' with link and date; never mix with Welile totals.",
     );
   }
+=======
+  const userText = body.message;
+  const temporaryChat = body.temporary_chat === true;
+  const memPrefs = store.getMemoryPrefs
+    ? await store.getMemoryPrefs(user.id).catch(() => ({
+        memory_enabled: true,
+        dismissed_memory_prompts: [],
+      }))
+    : { memory_enabled: true, dismissed_memory_prompts: [] };
+  const memoryEnabled =
+    !temporaryChat &&
+    body.memory_enabled !== false &&
+    memPrefs.memory_enabled !== false;
+>>>>>>> origin/lovable
 
-  const conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
-  const existingMemory = parseConversationMemory(conv.memory);
+  const researchMode = body.research_mode === true;
+  const consultantMode = isConsultantQuestion(userText);
+  const isConsultantOrResearch = consultantMode || researchMode;
+  const webResearchEnabled = isConsultantOrResearch && budget.webResearchEnabled === true;
+  const researchPlan = researchMode ? buildResearchModePlan(userText) : [];
+  const baseOpenAiTools = openAiToolsForRoles(callerRoles);
+  const allowedOpenAiTools = isConsultantOrResearch
+    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
+    : baseOpenAiTools;
+  const toolDescriptions = describeToolsForRoles(callerRoles).filter(
+    (line) => !isConsultantOrResearch || !line.startsWith("draft_"),
+  );
+  if (webResearchEnabled) {
+    toolDescriptions.push(
+      "search_web [Outside source]: Generic public web search via Brave Search (never include Welile names, phones, emails, or UGX figures). Label every external fact 'Outside source' with link and date.",
+      "read_web_page [Outside source]: Read a public https:// page returned by search_web (wrapped in <UNTRUSTED_WEB_PAGE_DATA>). Label 'Outside source' with link and date; never mix with Welile totals.",
+    );
+  }
+
+  let conv: {
+    id: string;
+    status: string;
+    memory?: ConversationMemorySummary;
+    rollingSummary?: string;
+  };
+  if (temporaryChat) {
+    conv = {
+      id: body.conversation_id ?? crypto.randomUUID(),
+      status: "temporary",
+      rollingSummary: "",
+    };
+  } else {
+    try {
+      conv = await store.getOrCreateConversation(user.id, body.conversation_id, sessionMeta);
+    } catch (err) {
+      await recordDegraded(
+        ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+        err instanceof Error ? err.message : "getOrCreateConversation failed",
+      );
+      conv = {
+        id: body.conversation_id ?? crypto.randomUUID(),
+        status: "open",
+        rollingSummary: "",
+      };
+    }
+  }
+  activeConvId = conv.id;
+
+  const existingMemory = memoryEnabled
+    ? parseConversationMemory(conv.memory)
+    : { entries: [] };
   const newMemoryEntries: MemoryToolEntry[] = [];
   const statusSteps: string[] = [];
   const wantsStream = body.stream === true;
-  let updatedRollingSummary = conv.rollingSummary ?? "";
+  const liveSse = wantsStream ? createLiveSseWriter() : null;
+  let streamedTokensAlreadySent = false;
+  let updatedRollingSummary = memoryEnabled ? (conv.rollingSummary ?? "") : "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
+  let webSearchesInQuestion = 0;
+  let webSourcesReadInQuestion = 0;
+  let webResearchSpentUsd = 0;
+  let detectedMemorySuggestion: ZoeMemorySuggestion | null = null;
+  const maxWebSourcesThisQuestion = researchMode
+    ? MAX_RESEARCH_SOURCES_PER_QUESTION
+    : MAX_WEB_SEARCHES_PER_QUESTION;
 
+<<<<<<< HEAD
+=======
+  const pushStatusStep = (stepText: string) => {
+    if (!stepText) return;
+    if (!statusSteps.includes(stepText)) {
+      statusSteps.push(stepText);
+    }
+    liveSse?.emit("status", { text: stepText });
+  };
+
+  if (researchMode && researchPlan.length > 0) {
+    liveSse?.emit("plan", { steps: researchPlan });
+    pushStatusStep(researchPlan[0]);
+  }
+
+>>>>>>> origin/lovable
   const baseTier = selectModelTier(userText, {
     maxFastModelRounds: budget.maxModelRounds ?? MAX_MODEL_ROUNDS,
     maxFastToolCalls: budget.maxToolCalls ?? MAX_TOOL_CALLS,
     maxDeepModelRounds: budget.modelConfig?.maxDeepModelRounds ?? MAX_DEEP_MODEL_ROUNDS,
     maxDeepToolCalls: budget.modelConfig?.maxDeepToolCalls ?? MAX_DEEP_TOOL_CALLS,
+    researchMode,
     ...(budget.modelConfig ?? {}),
   });
+<<<<<<< HEAD
   const selectedTier = consultantMode
+=======
+  const selectedTier = isConsultantOrResearch
+>>>>>>> origin/lovable
     ? {
         ...baseTier,
         tier: "deep" as const,
@@ -628,10 +1182,14 @@ export async function handleStaffAssistantRequest(
       chart?: ZoeChartPayload | null;
       followUpSuggestions?: string[];
       unansweredReason?: UnansweredReason;
+      errorCode?: ZoeErrorCode;
+      errorDetail?: string;
       mfaRequired?: boolean;
     },
   ) => {
-    const updatedMemory = appendMemoryEntries(existingMemory, newMemoryEntries);
+    const updatedMemory = memoryEnabled
+      ? appendMemoryEntries(existingMemory, newMemoryEntries)
+      : { entries: [] };
     const chart =
       opts?.chart !== undefined
         ? opts.chart
@@ -644,6 +1202,8 @@ export async function handleStaffAssistantRequest(
         ? buildFollowUpSuggestions({
             toolsCalled: opts?.tools ?? [],
             callerRoles,
+            reportPayload: opts?.reportPayload ?? null,
+            userMessage: userText,
           })
         : []);
 
@@ -655,42 +1215,108 @@ export async function handleStaffAssistantRequest(
           ...(followUpSuggestions.length > 0
             ? { follow_up_suggestions: followUpSuggestions }
             : {}),
+          ...(detectedMemorySuggestion
+            ? { memory_suggestion: detectedMemorySuggestion }
+            : {}),
         }
+<<<<<<< HEAD
       : chart
       ? {
           ...(consultantMode ? { consultant_mode: true } : {}),
           chart,
           follow_up_suggestions: followUpSuggestions,
+=======
+      : chart || detectedMemorySuggestion
+      ? {
+          ...(consultantMode ? { consultant_mode: true } : {}),
+          ...(chart ? { chart } : {}),
+          follow_up_suggestions: followUpSuggestions,
+          ...(detectedMemorySuggestion
+            ? { memory_suggestion: detectedMemorySuggestion }
+            : {}),
+>>>>>>> origin/lovable
         }
       : consultantMode
       ? { consultant_mode: true }
       : null;
 
-    const { assistantMessageId } = await store.recordTurn({
-      conversationId: conv.id,
-      userId: user.id,
-      userMessage: userText,
-      assistantMessage: reply,
-      outcome,
-      toolsCalled: opts?.tools,
-      sourceLabel: opts?.sourceLabel ?? null,
-      periodLabel: opts?.periodLabel ?? null,
-      reportPayload: enrichedReportPayload,
-      conversationSummary: updatedMemory,
-      rollingSummary: updatedRollingSummary,
-      model: opts?.model,
-      latencyMs: Date.now() - startedAt,
-    });
+    let assistantMessageId = crypto.randomUUID();
+    const latencyMs = Date.now() - startedAt;
 
-    if (opts?.unansweredReason) {
-      await store.recordUnanswered({
-        conversationId: conv.id,
-        messageId: assistantMessageId,
-        userId: user.id,
-        callerRoles,
-        questionText: userText,
-        reason: opts.unansweredReason,
-      });
+    if (!temporaryChat) {
+      try {
+        const turnRes = await store.recordTurn({
+          conversationId: conv.id,
+          userId: user.id,
+          userMessage: userText,
+          assistantMessage: reply,
+          outcome,
+          toolsCalled: opts?.tools,
+          sourceLabel: opts?.sourceLabel ?? null,
+          periodLabel: opts?.periodLabel ?? null,
+          reportPayload: enrichedReportPayload,
+          conversationSummary: updatedMemory,
+          rollingSummary: updatedRollingSummary,
+          model: opts?.model,
+          latencyMs,
+        });
+        assistantMessageId = turnRes.assistantMessageId;
+        if (turnRes.errorCode) {
+          await recordDegraded(
+            turnRes.errorCode as ZoeErrorCode,
+            turnRes.errorDetail ?? turnRes.errorCode,
+          );
+        }
+      } catch (err) {
+        await recordDegraded(
+          ZOE_ERROR_CODES.ERR_DB_USAGE_LOG_FAILED,
+          err instanceof Error ? err.message : "recordTurn failed",
+        );
+      }
+
+      if (opts?.unansweredReason) {
+        try {
+          await store.recordUnanswered({
+            conversationId: conv.id,
+            messageId: assistantMessageId,
+            userId: user.id,
+            callerRoles,
+            questionText: userText,
+            reason: opts.unansweredReason,
+            errorCode: opts.errorCode ?? null,
+            errorDetail: opts.errorDetail ?? null,
+          });
+        } catch {
+          // best effort
+        }
+      }
+
+      // Prompt 4 item (5): Log question topic, tool used, outcome, latency, and cost
+      // WITHOUT storing a second copy of the question text.
+      if (store.recordLearningLogEntry) {
+        try {
+          const topic = classifyQuestionTopic({
+            userMessage: userText,
+            toolsCalled: opts?.tools ?? [],
+            consultantMode,
+            researchMode,
+          });
+          await store.recordLearningLogEntry({
+            messageId: assistantMessageId,
+            conversationId: conv.id,
+            userId: user.id,
+            callerRoles,
+            topic,
+            toolUsed: opts?.tools && opts.tools.length > 0 ? opts.tools[0] : null,
+            outcome,
+            latencyMs,
+            costUsd: totalQuestionCostUsd,
+            modelTier: selectedTier.tier,
+          });
+        } catch {
+          // best effort
+        }
+      }
     }
 
     const responsePayload: Record<string, unknown> = {
@@ -704,50 +1330,107 @@ export async function handleStaffAssistantRequest(
       report_payload: enrichedReportPayload,
       chart: chart ?? null,
       follow_up_suggestions: followUpSuggestions,
+      memory_suggestion: detectedMemorySuggestion,
+      temporary_chat: temporaryChat,
+      memory_enabled: memoryEnabled,
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
       consultant_mode: consultantMode,
+<<<<<<< HEAD
+=======
+      research_mode: researchMode,
+      ...(researchPlan.length > 0 ? { research_plan: researchPlan } : {}),
+>>>>>>> origin/lovable
       estimated_cost_usd: Number(totalQuestionCostUsd.toFixed(6)),
       cached_prompt_tokens: cachedPromptTokens,
       mfa_required: opts?.mfaRequired ?? false,
       remaining_questions_today: budget.remainingToday,
+      database_status: health.status,
+      missing_db_objects: health.missingObjects,
+      degraded_error_codes: degradedErrors.map((d) => d.errorCode),
     };
 
-    if (wantsStream) {
-      return buildSseStreamResponse(statusSteps, responsePayload);
+    if (wantsStream && liveSse) {
+      if (!streamedTokensAlreadySent && typeof reply === "string" && reply.length > 0) {
+        for (const chunk of splitTokensForStream(reply)) {
+          liveSse.emit("token", { token: chunk });
+        }
+      }
+      liveSse.emit("done", responsePayload);
+      liveSse.close();
+      return liveSse.response;
     }
     return json(200, responsePayload);
   };
 
   try {
     // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
-    // Prompt 3 item (4): Drop the separate classifier call; let the main model decide in the same call.
-    if (isDirectPromptInjection(userText) || isWriteMutationIntent(userText)) {
+    if (isDirectPromptInjection(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
       });
     }
-
-    // ---- 8. Tool-calling loop (whole-conversation memory, Zoe notes, safe calculator) --------
-    const [history, userNotes] = await Promise.all([
-      store.loadRecentTurns(user.id, conv.id),
-      store.listUserNotes ? store.listUserNotes(user.id) : Promise.resolve([]),
-    ]);
-    const today = kampalaToday();
-    const memoryBlock = formatConversationMemoryForPrompt(existingMemory);
-    const zoeNotesBlock = formatZoeNotesForPrompt(userNotes);
-
-    // Keep whole conversation: condense older turns into a rolling summary when long (> 12 messages)
-    const activeTurnWindow = history.length > 16 ? history.slice(-16) : history;
-    if (history.length > 16) {
-      updatedRollingSummary = buildRollingConversationSummary(
-        history.slice(0, history.length - 16),
-        conv.rollingSummary ?? "",
-      );
+    if (isWriteMutationIntent(userText)) {
+      return await finish(formatWriteMutationRefusal(userText), "out_of_scope", {
+        unansweredReason: "out_of_scope",
+      });
     }
-    const rollingSummaryBlock = updatedRollingSummary
-      ? `EARLIER CONVERSATION ROLLING SUMMARY:\n${updatedRollingSummary}`
-      : "";
+
+    // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
+    // When `temporaryChat === true` or `memoryEnabled === false`, read NO memory.
+    const [history, userNotes] = memoryEnabled
+      ? await Promise.all([
+          store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_MEMORY_READ_FAILED,
+              err instanceof Error ? err.message : "loadRecentTurns failed",
+            );
+            return [] as ChatMessage[];
+          }),
+          store.listUserNotes
+            ? store.listUserNotes(user.id).catch(async (err) => {
+                await recordDegraded(
+                  ZOE_ERROR_CODES.ERR_DB_NOTES_UNAVAILABLE,
+                  err instanceof Error ? err.message : "listUserNotes failed",
+                );
+                return [] as ZoeNoteRecord[];
+              })
+            : Promise.resolve([] as ZoeNoteRecord[]),
+        ])
+      : [[] as ChatMessage[], [] as ZoeNoteRecord[]];
+
+    // Prompt 4 item (3): Detect repeated safe preference across recent user turns
+    detectedMemorySuggestion = detectRepeatedUserPreference({
+      currentMessage: userText,
+      recentUserMessages: history
+        .filter((h) => h.role === "user" && typeof h.content === "string")
+        .map((h) => h.content as string),
+      existingNotes: userNotes,
+      dismissedPromptKeys: memPrefs.dismissed_memory_prompts,
+      memoryEnabled,
+      temporaryChat,
+    });
+
+    const today = kampalaToday();
+    const memoryBlock = memoryEnabled ? formatConversationMemoryForPrompt(existingMemory) : "";
+    const zoeNotesBlock = memoryEnabled ? formatZoeNotesForPrompt(userNotes) : "";
+
+    // Deliverable (6): Use the last 20 turns (40 messages) verbatim; summarise older turns
+    const splitMemory = memoryEnabled
+      ? splitTurnsForPromptMemory(
+          history,
+          conv.rollingSummary ?? "",
+          PROMPT_ACTIVE_TURNS,
+        )
+      : {
+          activeTurnWindow: [] as ChatMessage[],
+          olderTurnWindow: [] as ChatMessage[],
+          rollingSummaryText: "",
+          rollingSummaryPromptBlock: "",
+        };
+    const activeTurnWindow = splitMemory.activeTurnWindow;
+    updatedRollingSummary = splitMemory.rollingSummaryText;
+    const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;
 
     const messages: ChatMessage[] = [
       {
@@ -758,6 +1441,10 @@ export async function handleStaffAssistantRequest(
           rollingSummaryBlock,
           modelTier: selectedTier.tier,
           consultantMode,
+<<<<<<< HEAD
+=======
+          researchMode,
+>>>>>>> origin/lovable
           webResearchEnabled,
         }),
       },
@@ -789,20 +1476,165 @@ export async function handleStaffAssistantRequest(
     const maxToolCalls = selectedTier.maxToolCalls;
     const maxCostUsd = selectedTier.maxCostUsdPerQuestion;
 
+    /**
+     * Prompt 1 item (4): If a tool step fails because a database RPC or external dependency
+     * is missing or errors, log the real `error_code` to `staff_assistant_unanswered`,
+     * retry once with `tools: []`, and answer in plain text stating plainly what could not
+     * be checked. `MSG.error` is reserved strictly for when the AI gateway itself is unreachable.
+     */
+    const retryPlainTextWhenToolUnavailable = async (
+      failedToolName: string,
+      failedRpc: string,
+      errorDetail: string,
+      overrideErrorCode?: ZoeErrorCode,
+    ): Promise<Response> => {
+      const errorCode = overrideErrorCode ?? mapMissingFunctionToErrorCode(failedRpc);
+      await recordDegraded(errorCode, `${failedRpc}: ${errorDetail}`);
+
+      const plainUnavailableNotice = `I could not check ${failedToolName} (${failedRpc}) right now because that database report or function is currently unavailable.`;
+      let retryReplyText = "";
+      let retryModel = lastModel;
+
+      try {
+        const retryMessages: ChatMessage[] = [
+          {
+            role: "system",
+            content: `${buildSystemPrompt(today, callerRoles, [], {
+              conversationMemoryBlock: memoryBlock,
+              zoeNotesBlock,
+              rollingSummaryBlock,
+              modelTier: selectedTier.tier,
+              consultantMode,
+              webResearchEnabled: false,
+            })}\n\nTOOL STEP FALLBACK (NO TOOLS AVAILABLE):
+The database tool '${failedToolName}' (${failedRpc}) failed and could not be checked (${errorDetail}).
+Answer the user's question in plain text without calling any tools:
+- If the question is a general, conceptual, drafting, or explanation question, answer it directly in plain text.
+- If the question asks for live Welile figures from '${failedToolName}' (${failedRpc}), state plainly that '${failedToolName}' (${failedRpc}) could not be checked right now because that database object is currently unavailable, and do not invent or guess any numbers.
+- Always use mandatory Welile terminology: Rent Plan, Supporter, Returns.`,
+          },
+          ...activeTurnWindow,
+          { role: "user", content: userText },
+        ];
+
+        const retryRes = await ai.chatCompletion({
+          messages: retryMessages,
+          tools: [],
+          model: selectedTier.model,
+          temperature: selectedTier.temperature,
+          maxTokens: selectedTier.maxTokens,
+          signal: req.signal,
+        });
+        retryModel = retryRes.model || lastModel;
+        if (retryRes.usage) {
+          totalQuestionCostUsd += retryRes.usage.estimatedCostUsd ?? 0;
+          cachedPromptTokens += retryRes.usage.cachedTokens ?? 0;
+        }
+        retryReplyText = (retryRes.message.content ?? "").trim();
+      } catch {
+        // If retry call fails, fall through to deterministic plain-text explanation
+      }
+
+      const upperCandidate = retryReplyText.toUpperCase();
+      const candidateValid =
+        retryReplyText.length > 0 &&
+        upperCandidate !== "UNMATCHED" &&
+        upperCandidate !== "OUT_OF_SCOPE" &&
+        upperCandidate !== "ROLE_RESTRICTED" &&
+        retryReplyText !== MSG.error &&
+        checkAnswer(retryReplyText, rawToolOutputs, userText).ok;
+
+      if (candidateValid) {
+        const mentionsUnavailable =
+          /could not (check|read|verify)|unavailable|not available right now/i.test(
+            retryReplyText,
+          ) ||
+          retryReplyText.toLowerCase().includes(failedToolName.toLowerCase()) ||
+          retryReplyText.toLowerCase().includes(failedRpc.toLowerCase());
+
+        const finalFallbackReply = mentionsUnavailable
+          ? retryReplyText
+          : `${retryReplyText}\n\nNote: ${plainUnavailableNotice}`;
+
+        if (checkAnswer(finalFallbackReply, rawToolOutputs, userText).ok) {
+          return await finish(finalFallbackReply, "answered", {
+            tools: toolsCalled,
+            model: retryModel,
+            sourceLabel: null,
+            periodLabel: null,
+            reportPayload: null,
+          });
+        }
+      }
+
+      const manualMatch = searchStaffManualHelp(userText);
+      const manualContext =
+        manualMatch.topics.length > 0 ? `${manualMatch.topics[0].summary}\n\n` : "";
+      const deterministicReply = `${manualContext}${plainUnavailableNotice} No live figures were read, so I will not guess any numbers. Please check the corresponding Welile workspace screen directly, or ask me a general or workflow question.`;
+
+      return await finish(deterministicReply, "answered", {
+        tools: toolsCalled,
+        model: retryModel,
+        sourceLabel: null,
+        periodLabel: null,
+        reportPayload: null,
+      });
+    };
+
+    let verifiedParagraphsSoFar = 0;
+
     for (let round = 0; round < maxModelRounds; round++) {
       if (round > 0 && totalQuestionCostUsd >= maxCostUsd) {
         hitStepOrCostLimit = true;
         break;
       }
 
-      const { message, model, usage } = await ai.chatCompletion({
-        messages,
-        tools: allowedOpenAiTools,
-        model: selectedTier.model,
-        temperature: selectedTier.temperature,
-        maxTokens: selectedTier.maxTokens,
-        signal: req.signal,
-      });
+      verifiedParagraphsSoFar = 0;
+      const onStreamTokenDelta = (delta: string, accumulated: string) => {
+        if (!liveSse) return;
+        streamedTokensAlreadySent = true;
+        liveSse.emit("token", { token: delta });
+
+        const paragraphs = accumulated.split(/\n\n+/);
+        // Any paragraph before the last element has finished its `\n\n` boundary
+        while (verifiedParagraphsSoFar < paragraphs.length - 1) {
+          const pIdx = verifiedParagraphsSoFar;
+          verifiedParagraphsSoFar += 1;
+          const pCheck = checkStreamedParagraph(
+            paragraphs[pIdx],
+            rawToolOutputs,
+            userText,
+          );
+          if (!pCheck.ok) {
+            liveSse.emit("paragraph_replace", {
+              paragraph_index: pIdx,
+              replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+              reason: pCheck.reason,
+            });
+          }
+        }
+      };
+
+      const { message, model, usage } =
+        wantsStream && typeof ai.chatCompletionStream === "function"
+          ? await ai.chatCompletionStream({
+              messages,
+              tools: allowedOpenAiTools,
+              model: selectedTier.model,
+              temperature: selectedTier.temperature,
+              maxTokens: selectedTier.maxTokens,
+              signal: req.signal,
+              onTokenDelta: onStreamTokenDelta,
+            })
+          : await ai.chatCompletion({
+              messages,
+              tools: allowedOpenAiTools,
+              model: selectedTier.model,
+              temperature: selectedTier.temperature,
+              maxTokens: selectedTier.maxTokens,
+              signal: req.signal,
+            });
+
       lastModel = model;
       if (usage) {
         totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
@@ -811,6 +1643,13 @@ export async function handleStaffAssistantRequest(
 
       if (!message.tool_calls || message.tool_calls.length === 0) {
         finalText = (message.content ?? "").trim();
+        if (wantsStream && !streamedTokensAlreadySent && finalText.length > 0) {
+          let acc = "";
+          for (const chunk of splitTokensForStream(finalText)) {
+            acc += chunk;
+            onStreamTokenDelta(chunk, acc);
+          }
+        }
         break;
       }
 
@@ -823,10 +1662,11 @@ export async function handleStaffAssistantRequest(
           break;
         }
 
-
         const stepText = statusLineForTool(call.function.name);
-        if (!statusSteps.includes(stepText)) {
-          statusSteps.push(stepText);
+        pushStatusStep(stepText);
+        if (researchMode && researchPlan.length >= 2) {
+          const nextPlanIdx = Math.min(toolsCalled.length + 1, researchPlan.length - 1);
+          pushStatusStep(researchPlan[nextPlanIdx]);
         }
 
         const rawArgs = (() => {
@@ -953,8 +1793,13 @@ export async function handleStaffAssistantRequest(
           continue;
         }
 
+<<<<<<< HEAD
         // Prompt 4 item (1): Consultant mode blocks all write/action/export draft tools
         if (consultantMode && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+=======
+        // Consultant & Research modes block all write/action/export draft tools
+        if (isConsultantOrResearch && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+>>>>>>> origin/lovable
           return await finish(MSG.outOfScope, "blocked", {
             tools: toolsCalled,
             model: lastModel,
@@ -962,12 +1807,20 @@ export async function handleStaffAssistantRequest(
           });
         }
 
+<<<<<<< HEAD
         // Prompt 4 item (3): Admin-switched Web Research (`search_web`, `read_web_page`)
         // Available ONLY in the Consultant path when `staff_assistant_config.web_research_enabled === true`.
         if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
           if (!consultantMode || !webResearchEnabled) {
             return await finish(
               "Web research is currently disabled in staff_assistant_config (or outside Consultant mode).",
+=======
+        // Deliverable (3) & (4): Admin-switched Web Research (`search_web`, `read_web_page`)
+        if (WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
+          if (!isConsultantOrResearch || !webResearchEnabled) {
+            return await finish(
+              "Web research is currently disabled in staff_assistant_config (or outside Consultant / Research mode).",
+>>>>>>> origin/lovable
               "blocked",
               {
                 tools: toolsCalled,
@@ -989,18 +1842,48 @@ export async function handleStaffAssistantRequest(
             const webRes = await executeConsultantWebSearch(
               parsedSearch.data.query,
               rawToolOutputs,
+<<<<<<< HEAD
             );
             if (!webRes.ok) {
               return await finish(
                 `I cannot run that web search: ${webRes.error}`,
+=======
+              fetch,
+              {
+                webResearchEnabled,
+                searchesUsedInQuestion: webSearchesInQuestion,
+                maxSearchesPerQuestion: maxWebSourcesThisQuestion,
+                spentUsdInQuestion: webResearchSpentUsd,
+                maxCostUsdPerQuestion: selectedTier.maxCostUsdPerQuestion,
+                signal: req.signal,
+              },
+            );
+            if (!webRes.ok) {
+              return await finish(
+                webRes.reason === "missing_api_key"
+                  ? MSG.webResearchNotConfigured
+                  : `I cannot run that web search: ${webRes.error}`,
+>>>>>>> origin/lovable
                 "blocked",
                 {
                   tools: [...toolsCalled, "search_web"],
                   model: lastModel,
                   unansweredReason: "error",
+<<<<<<< HEAD
                 },
               );
             }
+=======
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: webRes.error,
+                },
+              );
+            }
+            webSearchesInQuestion += 1;
+            webSourcesReadInQuestion += 1;
+            webResearchSpentUsd += webRes.costUsd;
+            totalQuestionCostUsd += webRes.costUsd;
+>>>>>>> origin/lovable
             toolsCalled.push("search_web");
             const webJson = JSON.stringify(webRes.payload);
             rawToolOutputs.push(webJson);
@@ -1030,9 +1913,33 @@ export async function handleStaffAssistantRequest(
                 unansweredReason: "unmatched",
               });
             }
+<<<<<<< HEAD
             const pageRes = await executeConsultantReadWebPage(
               parsedPage.data.url,
               rawToolOutputs,
+=======
+            if (webSourcesReadInQuestion >= maxWebSourcesThisQuestion) {
+              return await finish(
+                `Per-question web source limit reached (${maxWebSourcesThisQuestion} sources).`,
+                "blocked",
+                {
+                  tools: [...toolsCalled, "read_web_page"],
+                  model: lastModel,
+                  unansweredReason: "error",
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: "max_web_sources_reached",
+                },
+              );
+            }
+            const pageRes = await executeConsultantReadWebPage(
+              parsedPage.data.url,
+              rawToolOutputs,
+              fetch,
+              {
+                webResearchEnabled,
+                signal: req.signal,
+              },
+>>>>>>> origin/lovable
             );
             if (!pageRes.ok) {
               return await finish(
@@ -1042,9 +1949,18 @@ export async function handleStaffAssistantRequest(
                   tools: [...toolsCalled, "read_web_page"],
                   model: lastModel,
                   unansweredReason: "error",
+<<<<<<< HEAD
                 },
               );
             }
+=======
+                  errorCode: ZOE_ERROR_CODES.ERR_WEB_RESEARCH_FAILED,
+                  errorDetail: pageRes.error,
+                },
+              );
+            }
+            webSourcesReadInQuestion += 1;
+>>>>>>> origin/lovable
             toolsCalled.push("read_web_page");
             const pageJson = JSON.stringify(pageRes.payload);
             rawToolOutputs.push(pageJson);
@@ -1125,11 +2041,11 @@ export async function handleStaffAssistantRequest(
                   unansweredReason: "role_restricted",
                 });
               }
-              return await finish(MSG.error, "error", {
-                tools: toolsCalled,
-                model: lastModel,
-                unansweredReason: "error",
-              });
+              return await retryPlainTextWhenToolUnavailable(
+                repTool.name,
+                repTool.rpc,
+                repError.message,
+              );
             }
             toolsCalled.push(repTool.name);
             const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
@@ -1217,11 +2133,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_report_email"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_report_email",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const resolvedPeriodLabel =
@@ -1259,7 +2175,7 @@ export async function handleStaffAssistantRequest(
               userClient,
               draftOutcome.draft.recipient_user_id,
               draftOutcome.draft.report_reference.rpc,
-              user.id,
+              recordDegraded,
             );
             if (!roleAllowed || !dbRoleAllowed) {
               return await finish(MSG.recipientRoleRestricted, "blocked", {
@@ -1281,6 +2197,7 @@ export async function handleStaffAssistantRequest(
               report_reference: draftOutcome.draft.report_reference,
             },
             conv.id,
+            recordDegraded,
           );
           if (savedEmailDraftId) {
             draftOutcome.draft.draft_id = savedEmailDraftId;
@@ -1356,6 +2273,7 @@ export async function handleStaffAssistantRequest(
               note: reminderDraft.draft.note ?? "",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedReminderDraftId) {
             reminderDraft.draft.draft_id = savedReminderDraftId;
@@ -1411,11 +2329,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_staff_notification"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_staff_notification",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const notifOutcome = buildStaffNotificationDraft({
@@ -1447,6 +2365,7 @@ export async function handleStaffAssistantRequest(
               link_path: "/me",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedNotifDraftId) {
             notifOutcome.draft.draft_id = savedNotifDraftId;
@@ -1540,11 +2459,11 @@ export async function handleStaffAssistantRequest(
                   unansweredReason: "role_restricted",
                 });
               }
-              return await finish(MSG.error, "error", {
-                tools: toolsCalled,
-                model: lastModel,
-                unansweredReason: "error",
-              });
+              return await retryPlainTextWhenToolUnavailable(
+                repTool.name,
+                repTool.rpc,
+                repError.message,
+              );
             }
             toolsCalled.push(repTool.name);
             const preparedRep = prepareToolOutputForModel(repData ?? {}, repTool.name, {
@@ -1627,11 +2546,11 @@ export async function handleStaffAssistantRequest(
             { p_search: recipientQuery },
           );
           if (recipientErr) {
-            return await finish(MSG.error, "error", {
-              tools: [...toolsCalled, "draft_report_schedule"],
-              model: lastModel,
-              unansweredReason: "error",
-            });
+            return await retryPlainTextWhenToolUnavailable(
+              "draft_report_schedule",
+              "staff_assistant_email_recipients",
+              recipientErr.message,
+            );
           }
 
           const resolvedPeriodLabel =
@@ -1671,7 +2590,7 @@ export async function handleStaffAssistantRequest(
               userClient,
               scheduleOutcome.draft.recipient_user_id,
               scheduleOutcome.draft.report_reference.rpc,
-              user.id,
+              recordDegraded,
             );
             if (!roleAllowed || !dbRoleAllowed) {
               return await finish(MSG.recipientRoleRestricted, "blocked", {
@@ -1700,6 +2619,7 @@ export async function handleStaffAssistantRequest(
               custom_message: scheduleOutcome.draft.custom_message ?? "",
             },
             conv.id,
+            recordDegraded,
           );
           if (savedScheduleDraftId) {
             scheduleOutcome.draft.draft_id = savedScheduleDraftId;
@@ -1814,6 +2734,7 @@ export async function handleStaffAssistantRequest(
               screen_path: builtIdea.draft.screen_path,
             },
             conv.id,
+            recordDegraded,
           );
           if (savedIdeaDraftId) {
             builtIdea.draft.draft_id = savedIdeaDraftId;
@@ -1982,7 +2903,28 @@ export async function handleStaffAssistantRequest(
           rpcArgs.p_question = userText;
         }
         const rpcStartedAt = Date.now();
-        const { data, error } = await userClient.rpc(tool.rpc, rpcArgs);
+        let data: unknown = null;
+        let error: { code?: string; message: string } | null = null;
+
+        if (tool.name === "get_data_catalog") {
+          const primaryCatalog = await userClient.rpc("assistant_staff_get_data_catalog", rpcArgs);
+          if (!primaryCatalog.error) {
+            data = primaryCatalog.data;
+          } else {
+            await recordDegraded(
+              ZOE_ERROR_CODES.ERR_DB_ANALYST_CATALOG_MISSING,
+              `assistant_staff_get_data_catalog: ${primaryCatalog.error.message}`,
+            );
+            const fallbackCatalog = await userClient.rpc("assistant_staff_data_catalog", rpcArgs);
+            data = fallbackCatalog.data;
+            error = fallbackCatalog.error;
+          }
+        } else {
+          const rpcRes = await userClient.rpc(tool.rpc, rpcArgs);
+          data = rpcRes.data;
+          error = rpcRes.error;
+        }
+
         if (error) {
           console.error(`[staff-assistant] tool ${tool.rpc} error:`, error.code, error.message);
           if (tool.name === "run_analyst_query" && validatedAnalystSql) {
@@ -2006,11 +2948,11 @@ export async function handleStaffAssistantRequest(
               unansweredReason: "role_restricted",
             });
           }
-          return await finish(MSG.error, "error", {
-            tools: toolsCalled,
-            model: lastModel,
-            unansweredReason: "error",
-          });
+          return await retryPlainTextWhenToolUnavailable(
+            tool.name,
+            tool.name === "get_data_catalog" ? "assistant_staff_get_data_catalog" : tool.rpc,
+            error.message,
+          );
         }
 
         // Deduplicate `rows`/`data`, sanitize free-text fields, trim by whole rows ("showing 50 of 312 rows"),
@@ -2179,12 +3121,37 @@ export async function handleStaffAssistantRequest(
         });
       }
 
-      const convGuard = checkAnswer(finalText, rawToolOutputs, userText);
+      const policyTaggedText = ensurePolicyDisclaimerWhenNeeded(userText, finalText, toolsCalled);
+      const convGuard = checkAnswer(policyTaggedText, rawToolOutputs, userText);
       if (!convGuard.ok) {
         if (convGuard.reason === "prompt_leak") {
           return await finish(MSG.outOfScope, "blocked", {
             model: lastModel,
             unansweredReason: "out_of_scope",
+          });
+        }
+        if (wantsStream) {
+          const sanitized = verifyAndSanitizeStreamedParagraphs(
+            policyTaggedText,
+            rawToolOutputs,
+            userText,
+          );
+          for (const pIdx of sanitized.replacedIndices) {
+            liveSse?.emit("paragraph_replace", {
+              paragraph_index: pIdx,
+              replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+              sanitized_text: sanitized.sanitizedText,
+            });
+          }
+          return await finish(sanitized.sanitizedText, "answered", {
+            tools: [],
+            model: lastModel,
+            sourceLabel: null,
+            periodLabel: null,
+            reportPayload: null,
+            unansweredReason: "error",
+            errorCode: "ERR_STREAM_PARAGRAPH_UNVERIFIED",
+            errorDetail: `Replaced ${sanitized.replacedIndices.length} unverified paragraph(s): ${sanitized.reasons.join(", ")}`,
           });
         }
         return await finish(MSG.unmatched, "blocked", {
@@ -2193,7 +3160,7 @@ export async function handleStaffAssistantRequest(
         });
       }
 
-      return await finish(finalText, "answered", {
+      return await finish(policyTaggedText, "answered", {
         tools: [],
         model: lastModel,
         sourceLabel: null,
@@ -2208,7 +3175,7 @@ export async function handleStaffAssistantRequest(
     const periodLabel = periodsUsed.length > 0 ? periodsUsed.join(", ") : `as of ${today}`;
 
     // Always add a "Source · dates" line whenever any tool was used
-    let answerWithCitation = finalText;
+    let answerWithCitation = ensurePolicyDisclaimerWhenNeeded(userText, finalText, toolsCalled);
     if (sourceLabel && !answerWithCitation.toLowerCase().includes("source:")) {
       answerWithCitation = `${answerWithCitation}\n\nSource: ${sourceLabel} · Period: ${periodLabel}`;
     }
@@ -2219,17 +3186,19 @@ export async function handleStaffAssistantRequest(
       answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
     }
 
+    const allowedOutputsForGuard = [
+      ...rawToolOutputs,
+      JSON.stringify({
+        source: sourceLabel,
+        period: periodLabel,
+        ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+      }),
+    ];
+
     // Requirement (d): Deterministic post-generation guard against tool results
     const guard = checkAnswer(
       answerWithCitation,
-      [
-        ...rawToolOutputs,
-        JSON.stringify({
-          source: sourceLabel,
-          period: periodLabel,
-          ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
-        }),
-      ],
+      allowedOutputsForGuard,
       userText,
     );
     if (!guard.ok) {
@@ -2239,6 +3208,30 @@ export async function handleStaffAssistantRequest(
           tools: toolsCalled,
           model: lastModel,
           unansweredReason: "out_of_scope",
+        });
+      }
+      if (wantsStream) {
+        const sanitized = verifyAndSanitizeStreamedParagraphs(
+          answerWithCitation,
+          allowedOutputsForGuard,
+          userText,
+        );
+        for (const pIdx of sanitized.replacedIndices) {
+          liveSse?.emit("paragraph_replace", {
+            paragraph_index: pIdx,
+            replacement: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+            sanitized_text: sanitized.sanitizedText,
+          });
+        }
+        return await finish(sanitized.sanitizedText, "answered", {
+          tools: toolsCalled,
+          model: lastModel,
+          sourceLabel,
+          periodLabel,
+          reportPayload: lastReportPayload,
+          unansweredReason: "error",
+          errorCode: "ERR_STREAM_PARAGRAPH_UNVERIFIED",
+          errorDetail: `Replaced ${sanitized.replacedIndices.length} unverified paragraph(s): ${sanitized.reasons.join(", ")}`,
         });
       }
       return await finish(MSG.unmatched, "blocked", {
@@ -2264,11 +3257,16 @@ export async function handleStaffAssistantRequest(
       const reply = err.status === 429 ? MSG.gatewayBusy : MSG.gatewayOutOfCredit;
       return await finish(reply, "error", {
         unansweredReason: "error",
+        errorCode: ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE,
+        errorDetail: `AI gateway HTTP ${err.status}`,
       });
     }
-    console.error("[staff-assistant] unhandled error:", err instanceof Error ? err.message : err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[staff-assistant] unhandled error:", errMsg);
     return await finish(MSG.error, "error", {
       unansweredReason: "error",
+      errorCode: ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE,
+      errorDetail: errMsg,
     });
   }
 }

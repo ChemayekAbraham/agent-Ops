@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 export default function FinancialOpsPage() {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ export default function FinancialOpsPage() {
       </div>
 
       <div className="w-full px-3 sm:px-6 py-3 sm:py-8 space-y-4 sm:space-y-6 min-w-0">
+        <V360StaffPricingBanner />
         <FinancialOpsCommandCenter />
       </div>
     </div>

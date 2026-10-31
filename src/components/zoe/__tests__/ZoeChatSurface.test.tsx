@@ -2,8 +2,26 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+    },
+    functions: {
+      invoke: vi.fn(),
+    },
+    rpc: vi.fn(),
+    from: vi.fn(),
+  },
+}));
+
 import { ZoeChatSurface } from '../ZoeChatSurface';
-import type { ZoeMessage } from '../useZoeAssistant';
+import {
+  applyStreamParagraphReplacement,
+  parseSseEventsFromChunk,
+  type ZoeMessage,
+} from '../useZoeAssistant';
 
 function renderSurface(props: Partial<React.ComponentProps<typeof ZoeChatSurface>> = {}) {
   const defaultProps: React.ComponentProps<typeof ZoeChatSurface> = {
@@ -67,7 +85,7 @@ describe('ZoeChatSurface', () => {
     expect(screen.getByTestId('zoe-send-button')).toBeDisabled();
   });
 
-  it('renders error message banner with Retry button and triggers onRetry when clicked', () => {
+  it('renders soft inline error note with plain-language message and Try again link, triggering onRetry when clicked', () => {
     const onRetry = vi.fn();
     renderSurface({
       messages: [{ id: 'u-1', role: 'user', content: 'Show my payslips' }],
@@ -77,9 +95,11 @@ describe('ZoeChatSurface', () => {
 
     const banner = screen.getByTestId('zoe-error-banner');
     expect(banner).toBeInTheDocument();
-    expect(banner).toHaveTextContent("I'm having trouble reading that report right now.");
+    expect(banner).toHaveTextContent("Zoe's data service is being updated");
+    expect(banner.className).not.toContain('destructive');
 
     const retryBtn = screen.getByTestId('zoe-retry-button');
+    expect(retryBtn).toHaveTextContent('Try again');
     fireEvent.click(retryBtn);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -625,5 +645,351 @@ describe('ZoeChatSurface', () => {
       'SELECT * FROM (SELECT district, collected_on_schedule_ugx',
     );
     expect(screen.getByTestId('zoe-raw-data-table-a-analyst-1')).toBeInTheDocument();
+  });
+
+  it('implements Prompt 2 ChatGPT-grade layout: top-bar "..." menu & quota <= 10 rule, max 3 empty-chat starters, no-bubble assistant replies, sticky first column, 4 subtle action icons + "..." menu, composer Enter/Stop/disclaimer, and history rail delete', () => {
+    const onSendMessage = vi.fn();
+    const onStopGenerating = vi.fn();
+    const onDeleteConversation = vi.fn();
+
+    // 1. Empty chat with >10 remaining questions: quota is in menu, not top bar; max 3 starter prompts
+    const { unmount } = renderSurface({
+      messages: [],
+      roles: ['cfo', 'tenant_ops'],
+      remainingQuestionsToday: 48,
+      onSendMessage,
+    });
+
+    expect(screen.queryByTestId('zoe-low-quota-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('zoe-menu-quota')).toHaveTextContent('48 left today');
+
+    const topMoreBtn = screen.getByTestId('zoe-top-more-button');
+    expect(topMoreBtn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(topMoreBtn);
+    expect(topMoreBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('zoe-top-more-menu')).toHaveAttribute('data-state', 'open');
+
+    const starterButtons = screen
+      .getByTestId('zoe-suggestion-list')
+      .querySelectorAll('button');
+    expect(starterButtons.length).toBeLessThanOrEqual(3);
+
+    // Composer disclaimer line and desktop Enter-to-send
+    expect(screen.getByTestId('zoe-disclaimer-line')).toHaveTextContent(
+      'Zoe can make mistakes. Check important figures.',
+    );
+    const input = screen.getByTestId('zoe-input');
+    fireEvent.change(input, { target: { value: 'Show treasury cash position' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+    expect(onSendMessage).toHaveBeenCalledWith('Show treasury cash position');
+
+    // Shift+Enter does not submit
+    onSendMessage.mockClear();
+    fireEvent.change(input, { target: { value: 'Line 1' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(onSendMessage).not.toHaveBeenCalled();
+    unmount();
+
+    // 2. When <= 10 questions remain, badge appears in main top bar; while loading, circular Stop button replaces Send
+    renderSurface({
+      messages: [
+        { id: 'u-1', role: 'user', content: 'Show cash position' },
+        {
+          id: 'a-1',
+          role: 'assistant',
+          content: '| Account | Balance |\n| --- | --- |\n| Bank | UGX 12,000,000 |',
+          outcome: 'answered',
+          source: 'get_treasury_cash_position',
+          period: 'as of 2026-10-30',
+          followUpSuggestions: ['Question 1', 'Question 2', 'Question 3', 'Question 4'],
+        },
+      ],
+      roles: ['cfo'],
+      remainingQuestionsToday: 8,
+      isLoading: true,
+      onStopGenerating,
+      conversations: [
+        {
+          id: 'conv-del-1',
+          title: 'Treasury cash check',
+          message_count: 2,
+          last_active_at: '2026-10-30T08:00:00Z',
+          created_at: '2026-10-30T07:55:00Z',
+        },
+      ],
+      onDeleteConversation,
+    });
+
+    expect(screen.getByTestId('zoe-low-quota-badge')).toHaveTextContent('8 left today');
+
+    // Circular Stop button inside composer
+    const stopBtn = screen.getByTestId('zoe-stop-button');
+    expect(stopBtn.className).toContain('rounded-full');
+    fireEvent.click(stopBtn);
+    expect(onStopGenerating).toHaveBeenCalledTimes(1);
+
+    // Sticky first column on Markdown table
+    const firstHeader = screen.getByTestId('zoe-markdown-table').querySelector('th');
+    expect(firstHeader?.className).toContain('first:sticky');
+    expect(firstHeader?.className).toContain('first:left-0');
+
+    // Follow-up links capped at 3
+    const followUpLinks = screen
+      .getByTestId('zoe-follow-ups-a-1')
+      .querySelectorAll('button');
+    expect(followUpLinks.length).toBe(3);
+
+    // Message "..." menu opens and has aria-expanded
+    const msgMoreBtn = screen.getByTestId('zoe-message-more-a-1');
+    expect(msgMoreBtn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(msgMoreBtn);
+    expect(msgMoreBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('zoe-message-more-menu-a-1')).toHaveAttribute(
+      'data-state',
+      'open',
+    );
+
+    // Delete conversation in history rail/drawer
+    fireEvent.click(screen.getByTestId('zoe-conv-delete-btn-conv-del-1'));
+    expect(onDeleteConversation).toHaveBeenCalledWith('conv-del-1');
+  });
+
+  it('verifies keyboard behaviour on mobile/coarse pointer, focus order, 44px tap targets, and screen-reader ARIA labels', () => {
+    const onSendMessage = vi.fn();
+    renderSurface({
+      messages: [
+        { id: 'u-a11y', role: 'user', content: 'Show my tasks' },
+        {
+          id: 'a-a11y',
+          role: 'assistant',
+          content: 'You have 2 open tasks in My Space.',
+          outcome: 'answered',
+          source: 'hr_tasks',
+          period: 'as of 2026-10-30',
+        },
+      ],
+      roles: ['employee'],
+      errorMessage: 'NetworkError when attempting to fetch resource.',
+      onSendMessage,
+    });
+
+    // Screen-reader landmarks and ARIA labels
+    expect(screen.getByRole('log', { name: 'Zoe conversation messages' })).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
+    expect(screen.getByTestId('zoe-conversations-toggle')).toHaveAttribute(
+      'aria-label',
+      'Chat history',
+    );
+    expect(screen.getByTestId('zoe-top-more-button')).toHaveAttribute(
+      'aria-label',
+      'More options',
+    );
+    expect(screen.getByTestId('zoe-copy-a-a11y')).toHaveAttribute('aria-label', 'Copy answer');
+    expect(screen.getByTestId('zoe-feedback-up-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'Helpful answer',
+    );
+    expect(screen.getByTestId('zoe-feedback-down-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'Not helpful answer',
+    );
+    expect(screen.getByTestId('zoe-message-more-a-a11y')).toHaveAttribute(
+      'aria-label',
+      'More message actions',
+    );
+    expect(screen.getByTestId('zoe-send-button')).toHaveAttribute('aria-label', 'Send message');
+
+    // Verify 44px minimum tap area on all message action icon buttons and top bar buttons
+    for (const testId of [
+      'zoe-conversations-toggle',
+      'zoe-top-more-button',
+      'zoe-copy-a-a11y',
+      'zoe-feedback-up-a-a11y',
+      'zoe-feedback-down-a-a11y',
+      'zoe-message-more-a-a11y',
+      'zoe-send-button',
+    ]) {
+      const btn = screen.getByTestId(testId);
+      expect(btn.className).toContain('min-h-[44px]');
+      expect(btn.className).toContain('min-w-[44px]');
+    }
+
+    // Mobile viewport (< 768px): Enter inserts newline and does NOT submit
+    const origInnerWidth = window.innerWidth;
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 360 });
+    try {
+      const input = screen.getByTestId('zoe-input');
+      fireEvent.change(input, { target: { value: 'Mobile multi-line note' } });
+      fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
+      expect(onSendMessage).not.toHaveBeenCalled();
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: origInnerWidth,
+      });
+    }
+  });
+
+  it('Prompt 3: renders the Research toggle (off by default), displays research plan steps when active, and handles SSE token/paragraph replacement', () => {
+    const onToggleResearchMode = vi.fn();
+    const { rerender } = render(
+      <MemoryRouter>
+        <ZoeChatSurface
+          messages={[]}
+          roles={['cfo']}
+          isLoading={false}
+          isHistoryLoading={false}
+          errorMessage={null}
+          remainingQuestionsToday={45}
+          researchMode={false}
+          onToggleResearchMode={onToggleResearchMode}
+          onSendMessage={vi.fn()}
+          onRetry={vi.fn()}
+          onFeedback={vi.fn()}
+          onClearHistory={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    const toggle = screen.getByTestId('zoe-research-toggle');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(toggle.className).toContain('min-h-[44px]');
+    fireEvent.click(toggle);
+    expect(onToggleResearchMode).toHaveBeenCalledWith(true);
+
+    // Rerender with Research mode active and loading plan steps
+    rerender(
+      <MemoryRouter>
+        <ZoeChatSurface
+          messages={[{ id: 'u-r1', role: 'user', content: 'Research Uganda mobile money tax impact' }]}
+          roles={['cfo']}
+          isLoading={true}
+          isHistoryLoading={false}
+          errorMessage={null}
+          remainingQuestionsToday={44}
+          researchMode={true}
+          researchPlanSteps={[
+            'Step 1: Check Welile glossary & internal metrics',
+            'Step 2: Search public sources via Brave Search',
+            'Step 3: Read and verify top public sources',
+          ]}
+          onToggleResearchMode={onToggleResearchMode}
+          onSendMessage={vi.fn()}
+          onRetry={vi.fn()}
+          onFeedback={vi.fn()}
+          onClearHistory={vi.fn()}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('zoe-research-toggle')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('zoe-research-plan')).toBeInTheDocument();
+    expect(screen.getByTestId('zoe-research-plan')).toHaveTextContent(
+      'Search public sources via Brave Search',
+    );
+
+    // Verify SSE parser and per-paragraph figure replacement helper
+    const rawSse = [
+      'event: status\ndata: {"step":"Reading treasury cash..."}\n\n',
+      'event: token\ndata: {"token":"Paragraph 1 is verified.\\n\\n"}\n\n',
+      'event: token\ndata: {"token":"Paragraph 2 has UGX 999,999,999.\\n\\n"}\n\n',
+      'event: paragraph_replace\ndata: {"index":1,"replacement":"I could not verify that figure"}\n\n',
+    ].join('');
+
+    const statusSteps: string[] = [];
+    const tokens: string[] = [];
+    const replacements: Array<{ index: number; replacement: string }> = [];
+    const remainder = parseSseEventsFromChunk(rawSse, {
+      onStatus: (s) => statusSteps.push(s),
+      onToken: (t) => tokens.push(t),
+      onParagraphReplace: (index, replacement) => replacements.push({ index, replacement }),
+    });
+    expect(remainder).toBe('');
+    expect(statusSteps).toEqual(['Reading treasury cash...']);
+    expect(tokens).toHaveLength(2);
+    expect(replacements).toEqual([{ index: 1, replacement: 'I could not verify that figure' }]);
+
+    const replaced = applyStreamParagraphReplacement(
+      'Paragraph 1 is verified.\n\nParagraph 2 has UGX 999,999,999.',
+      1,
+      'I could not verify that figure',
+    );
+    expect(replaced).toBe('Paragraph 1 is verified.\n\nI could not verify that figure');
+  });
+
+  it('Prompt 4: renders personalised starters, "Remember this?" Save/No thanks card, Temporary chat badge, and editable Zoe notes with Memory off switch', async () => {
+    const onSendMessage = vi.fn();
+    const onAcceptMemorySuggestion = vi.fn().mockResolvedValue({ ok: true });
+    const onDismissMemorySuggestion = vi.fn().mockResolvedValue({ ok: true });
+    const onUpdateNote = vi.fn().mockResolvedValue({ ok: true });
+    const onToggleMemoryEnabled = vi.fn().mockResolvedValue({ ok: true });
+    const onToggleTemporaryChat = vi.fn();
+
+    renderSurface({
+      messages: [],
+      roles: ['cfo'],
+      onSendMessage,
+      personalisedStarters: [
+        {
+          id: 'ps-1',
+          topic: 'finance_cfo',
+          label: 'Treasury cash position (A1 + A5)',
+          prompt: 'What is our spendable Treasury Cash Position today?',
+          tool: 'get_cfo_treasury_cash_position',
+          reason: 'own_30d_topic_history',
+        },
+      ],
+      memorySuggestion: {
+        key: 'pref_in_millions',
+        note_text: 'Format large amounts in millions',
+        prompt: 'Remember this?',
+      },
+      onAcceptMemorySuggestion,
+      onDismissMemorySuggestion,
+      temporaryChat: true,
+      onToggleTemporaryChat,
+      memoryEnabled: true,
+      onToggleMemoryEnabled,
+      onUpdateNote,
+    });
+
+    // 1. Personalised starters render and trigger onSendMessage
+    expect(screen.getByTestId('zoe-suggestion-list')).toBeInTheDocument();
+    const starterChip = screen.getByTestId('zoe-suggestion-ps-1');
+    expect(starterChip).toHaveTextContent('Treasury cash position (A1 + A5)');
+    fireEvent.click(starterChip);
+    expect(onSendMessage).toHaveBeenCalledWith(
+      'What is our spendable Treasury Cash Position today?',
+    );
+
+    // 2. Temporary chat badge renders in top bar and suppresses memory suggestions
+    expect(screen.getByTestId('zoe-temporary-chat-badge')).toHaveTextContent('Temporary');
+    expect(screen.queryByTestId('zoe-memory-suggestion')).not.toBeInTheDocument();
+
+    // 3. When temporaryChat is false, "Remember this?" card renders with Save and No thanks buttons
+    renderSurface({
+      messages: [],
+      roles: ['cfo'],
+      onSendMessage,
+      memorySuggestion: {
+        key: 'pref_in_millions',
+        note_text: 'Format large amounts in millions',
+        prompt: 'Remember this?',
+      },
+      onAcceptMemorySuggestion,
+      onDismissMemorySuggestion,
+      temporaryChat: false,
+      memoryEnabled: true,
+    });
+    const memCard = screen.getByTestId('zoe-memory-suggestion');
+    expect(memCard).toHaveTextContent('Remember this?');
+    expect(memCard).toHaveTextContent('Format large amounts in millions');
+    fireEvent.click(screen.getByTestId('zoe-memory-suggestion-save'));
+    expect(onAcceptMemorySuggestion).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId('zoe-memory-suggestion-dismiss'));
+    expect(onDismissMemorySuggestion).toHaveBeenCalledTimes(1);
   });
 });

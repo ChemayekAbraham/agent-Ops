@@ -62,7 +62,7 @@ export default function AgentDashboardNew() {
       </main>
       {rentRequestOpen && (
         <Suspense fallback={null}>
-          <AgentRentRequestDialog open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+          <AgentRentRequestDialog presentation="chat" open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
         </Suspense>
       )}
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />

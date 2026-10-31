@@ -47,8 +47,10 @@ const ZoePage: React.FC = () => {
           </Link>
         </div>
       ) : (
-        <div className="space-y-4">
-          <ZoeWeeklyLookAtCard roles={roles} defaultExpanded={false} />
+        <div className="space-y-3">
+          <div className="mx-auto max-w-[720px] px-4 space-y-2">
+            <ZoeWeeklyLookAtCard roles={roles} defaultExpanded={false} />
+          </div>
           <ZoeChatSurface
             messages={assistant.messages}
             conversations={assistant.conversations}
@@ -58,24 +60,39 @@ const ZoePage: React.FC = () => {
             morningBrief={assistant.morningBrief}
             notes={assistant.notes}
             glossaryEntries={assistant.glossaryEntries}
+            knowledgeEntries={assistant.knowledgeEntries}
+            personalisedStarters={assistant.personalisedStarters}
+            memoryEnabled={assistant.memoryEnabled}
+            temporaryChat={assistant.temporaryChat}
+            memorySuggestion={assistant.memorySuggestion}
             isLoading={assistant.isLoading}
             isHistoryLoading={assistant.isHistoryLoading}
             streamingText={assistant.streamingText}
             statusLine={assistant.statusLine}
+            researchMode={assistant.researchMode}
+            researchPlanSteps={assistant.researchPlanSteps}
             errorMessage={assistant.errorMessage}
             remainingQuestionsToday={assistant.remainingQuestionsToday}
+            onToggleResearchMode={assistant.setResearchMode}
+            onToggleMemoryEnabled={assistant.setMemoryEnabled}
+            onToggleTemporaryChat={assistant.setTemporaryChat}
+            onAcceptMemorySuggestion={assistant.acceptMemorySuggestion}
+            onDismissMemorySuggestion={assistant.dismissMemorySuggestion}
             onSendMessage={assistant.sendMessage}
             onStopGenerating={assistant.stopGenerating}
             onRegenerate={assistant.regenerateLastAnswer}
             onSelectConversation={assistant.selectConversation}
             onStartNewChat={assistant.startNewChat}
             onRenameConversation={assistant.renameConversation}
+            onDeleteConversation={assistant.deleteConversation}
             onRetry={assistant.retryLastMessage}
             onFeedback={assistant.submitFeedback}
             onClearHistory={assistant.clearHistory}
             onAddNote={assistant.addNote}
+            onUpdateNote={assistant.updateNote}
             onDeleteNote={assistant.deleteNote}
             onSaveGlossaryEntry={assistant.saveGlossaryEntry}
+            onSaveKnowledgeEntry={assistant.saveKnowledgeEntry}
           />
         </div>
       )}

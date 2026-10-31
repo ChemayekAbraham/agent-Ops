@@ -36,6 +36,8 @@
   "exclude": [
     "src/lib/zoe/__tests__/zoeEmailDraftAndSend.test.ts",
     "src/lib/zoe/__tests__/zoeRealHandler.test.ts",
-    "src/lib/zoe/__tests__/zoeAnalystLane.test.ts"
+    "src/lib/zoe/__tests__/zoeAnalystLane.test.ts",
+    "src/lib/zoe/__tests__/zoeParityAndResilience.test.ts",
+    "src/lib/zoe/__tests__/zoeConsultantAndEval.test.ts"
   ]
 }

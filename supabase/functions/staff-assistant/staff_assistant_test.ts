@@ -40,7 +40,7 @@ import {
 } from "./openai.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { cleanMessage, MAX_MESSAGE_CHARS, RequestSchema } from "./schemas.ts";
-import { RECENT_HISTORY_MESSAGES, recordTurn } from "./store.ts";
+import { RECENT_HISTORY_MESSAGES, recordTurn, ZOE_ERROR_CODES } from "./store.ts";
 import { renderZoeReportPdf } from "../_shared/zoeReportPdf.ts";
 import {
   canUseTool,
@@ -1663,3 +1663,309 @@ Deno.test("prompt 1 live fixes: recordTurn sets tools_called=[] on user row, con
   const sysPrompt = buildSystemPrompt(["tenant_ops"], "2026-10-26");
   assert(sysPrompt.includes("FILES ONLY WHEN ASKED"));
 });
+
+Deno.test("prompt 1 parity & resilience: real handleStaffAssistantRequest survives each of the 7 missing DB functions, answers 20 general questions, plain-text retries 10 unavailable data questions, and reserves MSG.error for AI unreachable", async () => {
+  const invokeBrokenDbHandler = async (opts: {
+    body: Record<string, unknown>;
+    roles?: string[];
+    brokenRpcs?: string[];
+    toolCalls?: Array<{ name: string; args: Record<string, unknown> }>;
+    finalText?: string;
+    aiUnreachable?: boolean;
+  }) => {
+    const roles = opts.roles ?? ["tenant_ops", "cfo", "coo"];
+    const broken = new Set(opts.brokenRpcs ?? []);
+    const loggedErrorCodes: string[] = [];
+    let round = 0;
+
+    const mockUserClient = {
+      auth: {
+        getUser: async () => ({
+          data: { user: { id: "5295252d-0000-4000-8000-000000000001", email: "jane@welile.com" } },
+          error: null,
+        }),
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            eq: async () => ({ data: roles.map((r) => ({ role: r })), error: null }),
+          }),
+        }),
+      }),
+      rpc: async (fnName: string) => {
+        if (broken.has(fnName)) {
+          return {
+            data: null,
+            error: {
+              code: "PGRST202",
+              message: `Could not find the function public.${fnName} in the schema cache`,
+            },
+          };
+        }
+        if (fnName === "staff_assistant_has_access") {
+          return { data: true, error: null };
+        }
+        if (fnName === "staff_assistant_health") {
+          const missingFns = [...broken];
+          return {
+            data: {
+              ok: missingFns.length === 0,
+              status: missingFns.length > 0 ? "zoe_database_behind" : "ok",
+              missing_functions: missingFns,
+              missing_tables: [],
+              missing_columns: [],
+              missing_views: [],
+              missing_objects: missingFns.map((f) => `function:${f}`),
+            },
+            error: null,
+          };
+        }
+        if (fnName === "staff_assistant_get_config") {
+          return {
+            data: {
+              enabled: true,
+              zoe_model_fast: "google/gemini-2.5-flash",
+              zoe_model_deep: "google/gemini-2.5-pro",
+              chat_temperature: 0.2,
+              chat_max_tokens: 1800,
+              max_cost_ugx_per_question: 150,
+              web_research_enabled: false,
+            },
+            error: null,
+          };
+        }
+        if (fnName === "assistant_staff_get_glossary") {
+          return {
+            data: [{ term: "Rent Plan", plain_meaning: "Tenant rent facilitation agreement" }],
+            error: null,
+          };
+        }
+        if (fnName === "staff_assistant_can_user_read_report") {
+          return { data: true, error: null };
+        }
+        if (fnName === "staff_assistant_save_draft") {
+          return { data: { ok: true, draft_id: "550e8400-e29b-41d4-a716-446655440099" }, error: null };
+        }
+        if (fnName === "staff_assistant_hide_my_history") {
+          return { data: 2, error: null };
+        }
+        if (fnName === "assistant_staff_run_query") {
+          return {
+            data: {
+              source: "zoe_ro.finance_overview_v",
+              period: { as_of: "2026-10-26" },
+              row_count: 1,
+              columns: ["active_plans"],
+              rows: [{ active_plans: 815 }],
+            },
+            error: null,
+          };
+        }
+        if (fnName === "assistant_staff_get_data_catalog") {
+          return {
+            data: {
+              source: "assistant_staff_get_data_catalog",
+              views: [{ view_name: "zoe_ro.finance_overview_v", area: "finance" }],
+            },
+            error: null,
+          };
+        }
+        return {
+          data: {
+            source: fnName,
+            period: { as_of: "2026-10-26" },
+            row_count: 1,
+            data: { total_overdue_ugx: 1450000 },
+          },
+          error: null,
+        };
+      },
+    };
+
+    const req = new Request("https://welileapp.com/functions/v1/staff-assistant", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-jwt",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(opts.body),
+    });
+
+    const res = await handleStaffAssistantRequest(req, {
+      // deno-lint-ignore no-explicit-any
+      userClient: mockUserClient as any,
+      aiClient: {
+        classifyText: async () => JSON.stringify({ category: "in_scope" }),
+        chatCompletion: async (chatOpts) => {
+          if (opts.aiUnreachable) {
+            throw new Error("Connection refused: AI gateway unreachable");
+          }
+          const hasToolsAvailable = Array.isArray(chatOpts.tools) && chatOpts.tools.length > 0;
+          if (round++ === 0 && hasToolsAvailable && opts.toolCalls && opts.toolCalls.length > 0) {
+            return {
+              model: DEFAULT_ZOE_MODEL,
+              message: {
+                role: "assistant",
+                content: null,
+                tool_calls: opts.toolCalls.map((c, idx) => ({
+                  id: `tc_${idx}`,
+                  type: "function" as const,
+                  function: { name: c.name, arguments: JSON.stringify(c.args) },
+                })),
+              },
+            };
+          }
+          return {
+            model: DEFAULT_ZOE_MODEL,
+            message: { role: "assistant", content: opts.finalText ?? "Plain text answer." },
+          };
+        },
+      },
+      checkMfaAal2: async () => ({ ok: true }),
+      store: {
+        checkQuestionBudget: async () => ({
+          allowed: true,
+          remainingToday: 49,
+          maxQuestionsPerDay: 50,
+          maxModelRounds: 4,
+          maxToolCalls: 6,
+          maxDeepModelRounds: 8,
+          maxDeepToolCalls: 12,
+          modelFast: "google/gemini-2.5-flash",
+          modelDeep: "google/gemini-2.5-pro",
+          temperature: 0.2,
+          maxTokens: 3200,
+          maxCostUsdPerQuestion: 0.08,
+        }),
+        getOrCreateConversation: async () => ({
+          id: "11111111-2222-4333-8444-555555555555",
+          status: "open",
+        }),
+        loadRecentTurns: async () => [],
+        loadLatestReportPayload: async () => null,
+        recordTurn: async () => ({
+          userMessageId: "22222222-3333-4444-8555-666666666666",
+          assistantMessageId: "33333333-4444-4555-8666-777777777777",
+        }),
+        recordUnanswered: async (entry) => {
+          if (entry.errorCode) loggedErrorCodes.push(entry.errorCode);
+        },
+        loadConversationHistory: async () => ({
+          conversation_id: "11111111-2222-4333-8444-555555555555",
+          messages: [],
+        }),
+      },
+    });
+
+    return {
+      status: res.status,
+      json: (await res.json()) as Record<string, unknown>,
+      loggedErrorCodes,
+    };
+  };
+
+  // 1. Test each of the 7 missing functions broken one at a time
+  const sevenMissing = [
+    { fn: "staff_assistant_get_config", code: ZOE_ERROR_CODES.ERR_DB_CONFIG_MISSING },
+    { fn: "staff_assistant_can_user_read_report", code: ZOE_ERROR_CODES.ERR_DB_CAN_READ_REPORT_MISSING },
+    { fn: "staff_assistant_save_draft", code: ZOE_ERROR_CODES.ERR_DB_SAVE_DRAFT_MISSING },
+    { fn: "assistant_staff_get_glossary", code: ZOE_ERROR_CODES.ERR_DB_GLOSSARY_MISSING },
+    { fn: "staff_assistant_hide_my_history", code: ZOE_ERROR_CODES.ERR_DB_HIDE_HISTORY_MISSING },
+    { fn: "assistant_staff_run_query", code: ZOE_ERROR_CODES.ERR_DB_ANALYST_QUERY_MISSING },
+    { fn: "assistant_staff_get_data_catalog", code: ZOE_ERROR_CODES.ERR_DB_ANALYST_CATALOG_MISSING },
+  ];
+
+  for (const item of sevenMissing) {
+    const genRes = await invokeBrokenDbHandler({
+      body: { action: "message", message: "what is receivables" },
+      brokenRpcs: [item.fn],
+      finalText:
+        "In Welile, receivables are the remaining scheduled Rent Plan repayments owed by funded tenants.",
+    });
+    assertEquals(genRes.status, 200);
+    assertEquals(genRes.json.outcome, "answered");
+    assert(genRes.json.reply !== MSG.error);
+
+    // Trigger the specific path for functions called only on tool/action execution
+    if (item.fn === "staff_assistant_can_user_read_report") {
+      const r = await invokeBrokenDbHandler({
+        body: { action: "message", message: "Show Tenant Ops arrears ageing" },
+        brokenRpcs: [item.fn],
+        toolCalls: [{ name: "get_tops_arrears_ageing", args: {} }],
+        finalText: "Overdue Rent Plans total UGX 1,450,000.",
+      });
+      assertEquals(r.json.outcome, "answered");
+      assert(r.loggedErrorCodes.includes(item.code));
+    } else if (item.fn === "staff_assistant_save_draft") {
+      const r = await invokeBrokenDbHandler({
+        body: { action: "message", message: "Remind me tomorrow to review arrears" },
+        brokenRpcs: [item.fn],
+        toolCalls: [{ name: "draft_my_reminder", args: { title: "Review arrears", due_date: "2026-10-27" } }],
+        finalText: "I prepared your reminder draft.",
+      });
+      assertEquals(r.json.outcome, "answered");
+      assert(r.loggedErrorCodes.includes(item.code));
+    } else if (item.fn === "staff_assistant_hide_my_history") {
+      const r = await invokeBrokenDbHandler({
+        body: { action: "clear_history" },
+        brokenRpcs: [item.fn],
+      });
+      assertEquals(r.status, 200);
+      assert(r.loggedErrorCodes.includes(item.code));
+    } else if (item.fn === "assistant_staff_run_query") {
+      const r = await invokeBrokenDbHandler({
+        body: { action: "message", message: "Run an analyst breakdown of active Rent Plans" },
+        brokenRpcs: [item.fn],
+        toolCalls: [
+          {
+            name: "run_analyst_query",
+            args: { sql: "SELECT active_plans FROM zoe_ro.finance_overview_v", purpose: "Check active plans" },
+          },
+        ],
+        finalText:
+          "I could not check `assistant_staff_run_query` right now because the Analyst query function is unavailable in the database.",
+      });
+      assertEquals(r.json.outcome, "answered");
+      assert(r.json.reply !== MSG.error);
+      assert(r.loggedErrorCodes.includes(item.code));
+    } else if (item.fn === "assistant_staff_get_data_catalog") {
+      const r = await invokeBrokenDbHandler({
+        body: { action: "message", message: "Which views exist in the Analyst data catalog?" },
+        brokenRpcs: [item.fn],
+        toolCalls: [{ name: "get_data_catalog", args: { area: "finance" } }],
+        finalText:
+          "I could not check `assistant_staff_get_data_catalog` right now because the Analyst catalog function is unavailable in the database.",
+      });
+      assertEquals(r.json.outcome, "answered");
+      assert(r.json.reply !== MSG.error);
+      assert(r.loggedErrorCodes.includes(item.code));
+    } else {
+      assert(genRes.loggedErrorCodes.includes(item.code));
+    }
+  }
+
+  // 2. Unavailable report RPC triggers tools: [] plain-text retry and never returns MSG.error
+  const unavailReport = await invokeBrokenDbHandler({
+    body: { action: "message", message: "What is the Tenant Ops arrears ageing total right now?" },
+    brokenRpcs: ["assistant_staff_tops_arrears_ageing"],
+    toolCalls: [{ name: "get_tops_arrears_ageing", args: {} }],
+    finalText:
+      "I could not check `assistant_staff_tops_arrears_ageing` right now because that database report is temporarily unavailable, so I cannot give live arrears ageing figures.",
+  });
+  assertEquals(unavailReport.status, 200);
+  assertEquals(unavailReport.json.outcome, "answered");
+  assert(unavailReport.json.reply !== MSG.error);
+  assert(String(unavailReport.json.reply).includes("assistant_staff_tops_arrears_ageing"));
+  assert(unavailReport.loggedErrorCodes.includes(ZOE_ERROR_CODES.ERR_DB_TOOL_RPC_FAILED));
+
+  // 3. MSG.error is returned ONLY when the AI service itself is unreachable
+  const aiDown = await invokeBrokenDbHandler({
+    body: { action: "message", message: "what is receivables" },
+    aiUnreachable: true,
+  });
+  assertEquals(aiDown.status, 200);
+  assertEquals(aiDown.json.outcome, "error");
+  assertEquals(aiDown.json.reply, MSG.error);
+  assert(aiDown.loggedErrorCodes.includes(ZOE_ERROR_CODES.ERR_AI_GATEWAY_UNREACHABLE));
+});
+

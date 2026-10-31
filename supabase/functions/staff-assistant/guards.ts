@@ -24,10 +24,13 @@ export const SYSTEM_PROMPT_LEAK_RE =
   /You are Zoe, Welile's read-only staff assistant|You are Zoe, the Welile My Space Staff Assistant|NON-NEGOTIABLE RULES \(enforced by server|SCOPE_CHECK_PROMPT|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|SECURITY DEFINER|<UNTRUSTED_TOOL_DATA/i;
 
 export const DIRECT_PROMPT_INJECTION_RE =
-  /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer mode|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
+  /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer (?:write )?mode|system override|drop table staff_assistant|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
 
 export const WRITE_MUTATION_INTENT_RE =
-  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset)\b.*\b(requisition|wallet|balance|ledger|payslip|salary|advance|rent plan|landlord|payout)\b/i;
+  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset|post|grant|revoke)\b.*\b(requisition|wallet|balance|float|ledger|journal|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket|role)\b/i;
+
+const POLICY_QUESTION_PREFIX_RE =
+  /^\s*(?:can\s+support\s+capacity|how\s+does|what\s+is|when\s+does|why\s+do|explain\b|where\s+do\s+i)\b/i;
 
 export function containsPromptOrSecretLeak(text: string): boolean {
   return SYSTEM_PROMPT_LEAK_RE.test(text);
@@ -38,6 +41,7 @@ export function isDirectPromptInjection(text: string): boolean {
 }
 
 export function isWriteMutationIntent(text: string): boolean {
+  if (POLICY_QUESTION_PREFIX_RE.test(text)) return false;
   return WRITE_MUTATION_INTENT_RE.test(text);
 }
 
@@ -227,11 +231,38 @@ function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: st
       exactNumbers.add(Math.round(diff));
       exactNumbers.add(Number(diff.toFixed(1)));
       exactNumbers.add(Number(diff.toFixed(2)));
+<<<<<<< HEAD
       if (a <= b && b > 0) {
+=======
+      if (b > 0 && a <= b) {
+>>>>>>> origin/lovable
         const pct = (a / b) * 100;
         exactNumbers.add(Math.round(pct));
         exactNumbers.add(Number(pct.toFixed(1)));
         exactNumbers.add(Number(pct.toFixed(2)));
+      }
+      // For pure general-knowledge / maths questions (no tool outputs), allow basic pairwise arithmetic
+      // on the numbers provided in the user's question.
+      if (toolOutputs.length === 0) {
+        const sum = a + b;
+        const prod = a * b;
+        const pctOf = (a / 100) * b;
+        for (const candidate of [sum, prod, pctOf]) {
+          if (Number.isFinite(candidate)) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
+        if (b > 0) {
+          const div = a / b;
+          const pctDiff = (diff / b) * 100;
+          for (const candidate of [div, pctDiff]) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
       }
     }
   }
@@ -407,6 +438,75 @@ export function checkAnswer(
   return { ok: true };
 }
 
+export const UNVERIFIED_PARAGRAPH_REPLACEMENT = "I could not verify that figure";
+
+/**
+ * Deliverable (2): Runs `checkAnswer` on a single finished paragraph (`\n\n`).
+ * If the paragraph fails the figure check, replaces that paragraph with
+ * `"I could not verify that figure"` and returns the failure reason for logging.
+ */
+export function checkStreamedParagraph(
+  paragraph: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  ok: boolean;
+  paragraph: string;
+  reason?: GuardResult extends { ok: false; reason: infer R } ? R : string;
+} {
+  const trimmed = (paragraph ?? "").trim();
+  if (!trimmed) {
+    return { ok: true, paragraph };
+  }
+  // Trailing citation line ("Source: ... · Period: ...") is structural metadata
+  if (/^Source:\s*[^\n]+$/i.test(trimmed)) {
+    return { ok: true, paragraph };
+  }
+  const check = checkAnswer(paragraph, toolOutputs, userMessage);
+  if (check.ok) {
+    return { ok: true, paragraph };
+  }
+  return {
+    ok: false,
+    paragraph: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+    reason: check.reason,
+  };
+}
+
+/**
+ * Verifies every finished paragraph separated by `\n\n` in `fullText`.
+ * Replaces any paragraph that fails `checkAnswer` with `"I could not verify that figure"`.
+ */
+export function verifyAndSanitizeStreamedParagraphs(
+  fullText: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  sanitizedText: string;
+  replacedIndices: number[];
+  reasons: string[];
+} {
+  const paragraphs = (fullText ?? "").split(/\n\n+/);
+  const outParagraphs: string[] = [];
+  const replacedIndices: number[] = [];
+  const reasons: string[] = [];
+
+  for (let i = 0; i < paragraphs.length; i++) {
+    const res = checkStreamedParagraph(paragraphs[i], toolOutputs, userMessage);
+    outParagraphs.push(res.paragraph);
+    if (!res.ok) {
+      replacedIndices.push(i);
+      if (res.reason) reasons.push(res.reason);
+    }
+  }
+
+  return {
+    sanitizedText: outParagraphs.join("\n\n"),
+    replacedIndices,
+    reasons,
+  };
+}
+
 /**
  * Run the exact same terminology, leak, UUID, phone, date, and number checks
  * on AI-written draft card text (`subject`, `message`, `title`, `note`, `custom_message`).
@@ -436,20 +536,25 @@ export type ZoeNoteValidationResult =
         | "pii_email"
         | "pii_uuid"
         | "pii_nin"
+        | "pii_other_person"
         | "terminology";
     };
 
 const EMAIL_IN_NOTE_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
 const UG_NIN_RE = /\bC[MF][A-Z0-9]{12}\b/i;
+const STAFF_OR_RECORD_ID_IN_NOTE_RE = /\b(?:WEL-[A-Z0-9-]+|TSK-\d+|TCK-\d+|REQ-\d{4}-\d+|staff\s+id|national\s+id|nin\s*:)\b/i;
+const OTHER_PERSON_DETAIL_IN_NOTE_RE =
+  /\b(?:tenant|landlord|supporter|colleague|agent|customer|client|manager|caller)\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b/;
 const GENERIC_PHONE_IN_NOTE_RE = /(?:\+?\d[\d\s()-]{7,15}\d)/;
-const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\b/i;
+const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\s*\d|\b\d[\d,]*\s*(?:UGX|USh|shillings?)\b/i;
 
 /**
  * Deterministic validator for per-person `staff_assistant_notes` ("Zoe notes").
- * Enforces Prompt 2 item (5):
+ * Enforces Prompt 2 item (5) & Prompt 4 item (3):
  *   - Up to 240 characters per note
  *   - Never contains business figures (UGX amounts, percentages, shorthand 1.2M/500k, or numbers >= 100)
- *   - Never contains personal data about others (phone numbers, email addresses, UUIDs, NINs)
+ *   - Never contains personal data or IDs (phone numbers, email addresses, UUIDs, NINs, staff/record IDs)
+ *   - Never contains details about other people (named tenants, landlords, Supporters, colleagues, agents)
  *   - Never contains banned regulatory terms (loan, lender, ROI, interest)
  */
 export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
@@ -465,7 +570,7 @@ export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
     return { ok: false, reason: "terminology" };
   }
   UUID_RE.lastIndex = 0;
-  if (UUID_RE.test(cleaned)) {
+  if (UUID_RE.test(cleaned) || STAFF_OR_RECORD_ID_IN_NOTE_RE.test(cleaned)) {
     return { ok: false, reason: "pii_uuid" };
   }
   if (EMAIL_IN_NOTE_RE.test(cleaned)) {
@@ -477,6 +582,9 @@ export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
   PHONE_RE.lastIndex = 0;
   if (PHONE_RE.test(cleaned) || GENERIC_PHONE_IN_NOTE_RE.test(cleaned)) {
     return { ok: false, reason: "pii_phone" };
+  }
+  if (OTHER_PERSON_DETAIL_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_other_person" };
   }
   SHORTHAND_RE.lastIndex = 0;
   PERCENT_RE.lastIndex = 0;
