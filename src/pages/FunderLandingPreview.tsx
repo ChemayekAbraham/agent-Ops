@@ -460,11 +460,6 @@ export default function FunderLandingPreview() {
           </motion.section>
 
           <div className="space-y-0.5">
-            <h1 className="text-xl font-bold tracking-tight">
-              {cellQuery.data
-                ? `${housesInView.toLocaleString()} ${housesInView === 1 ? 'house' : 'houses'} in this view`
-                : 'Houses to fund'}
-            </h1>
             <p className="text-sm text-muted-foreground">
               {cellQuery.data && neededInView > 0
                 ? `${formatDynamicCompact(neededInView)} needed in this area · move the map to explore`
