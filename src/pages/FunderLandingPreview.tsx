@@ -39,7 +39,6 @@ import { FunderPreviewMap } from '@/components/funder-preview/FunderPreviewMap';
 
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
-const COUNT_UP_MS = 900;
 
 type CategoryFilter = 'all' | FunderNewCategory;
 
@@ -48,30 +47,6 @@ interface FeedEntry {
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
 }
 
-/** Eases a number from 0 to `target` once, on first real value. Skipped under reduced motion. */
-function useCountUp(target: number | null, disabled: boolean): number | null {
-  const [value, setValue] = useState<number | null>(disabled ? target : null);
-  const playedRef = useRef(false);
-  useEffect(() => {
-    if (target === null) return;
-    if (disabled || playedRef.current) {
-      setValue(target);
-      return;
-    }
-    playedRef.current = true;
-    let frame = 0;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / COUNT_UP_MS);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setValue(Math.round(target * eased));
-      if (t < 1) frame = window.requestAnimationFrame(tick);
-    };
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
-  }, [target, disabled]);
-  return value;
-}
 
 /**
  * Preview of the map-first funder landing (design direction B).
@@ -284,12 +259,11 @@ export default function FunderLandingPreview() {
 
   // ── Pending total ───────────────────────────────────────────────────────
   const total = summary.data ? summary.data.totalRentNeeded : null;
-  const animatedTotal = useCountUp(total, reduceMotion);
   const prefix = getDynamicCurrencySymbol();
   const totalFigure =
-    animatedTotal === null
+    total === null
       ? ''
-      : formatDynamic(animatedTotal).replace(prefix, '').replace(/^[^\d.,-]+/, '').trim();
+      : formatDynamic(total).replace(prefix, '').replace(/^[^\d.,-]+/, '').trim();
 
   const locate = () => {
     if (location.coords) {
