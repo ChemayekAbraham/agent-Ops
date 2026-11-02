@@ -63907,6 +63907,7 @@ export type Database = {
           amount_collected: number
           amount_due: number
           collection_status: string
+          commission_paid: number
           created_at: string
           due_month_index: number
           id: string
@@ -63928,6 +63929,7 @@ export type Database = {
           amount_collected?: number
           amount_due?: number
           collection_status?: string
+          commission_paid?: number
           created_at?: string
           due_month_index: number
           id?: string
@@ -63949,6 +63951,7 @@ export type Database = {
           amount_collected?: number
           amount_due?: number
           collection_status?: string
+          commission_paid?: number
           created_at?: string
           due_month_index?: number
           id?: string
