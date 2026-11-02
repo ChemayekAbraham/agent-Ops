@@ -22661,6 +22661,39 @@ export type Database = {
           },
         ]
       }
+      help_center_articles: {
+        Row: {
+          body: string
+          changed_at: string
+          content_hash: string
+          fetched_at: string
+          path: string
+          title: string
+          tsv: unknown
+          url: string
+        }
+        Insert: {
+          body: string
+          changed_at?: string
+          content_hash: string
+          fetched_at?: string
+          path: string
+          title: string
+          tsv?: unknown
+          url: string
+        }
+        Update: {
+          body?: string
+          changed_at?: string
+          content_hash?: string
+          fetched_at?: string
+          path?: string
+          title?: string
+          tsv?: unknown
+          url?: string
+        }
+        Relationships: []
+      }
       house_assignment_audit: {
         Row: {
           assigned_at: string
@@ -73797,6 +73830,10 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_help_search: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json
+      }
       assistant_agent_houses: {
         Args: { p_limit?: number; p_search?: string; p_status?: string }
         Returns: Json
@@ -73852,6 +73889,7 @@ export type Database = {
         Returns: Json
       }
       assistant_clean_phone: { Args: { p_phone: string }; Returns: string }
+      assistant_clean_terms: { Args: { p_text: string }; Returns: string }
       assistant_clean_text: {
         Args: { p_address?: boolean; p_max?: number; p_text: string }
         Returns: string
