@@ -73797,13 +73797,29 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_houses: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
+      assistant_agent_landlord_float: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
       assistant_agent_landlords: {
         Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_agent_leaderboard: {
+        Args: { p_week_start?: string }
         Returns: Json
       }
       assistant_agent_my_profile: { Args: never; Returns: Json }
       assistant_agent_subagent_detail: {
         Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_subagent_tenants: {
+        Args: { p_limit?: number; p_plan?: string; p_search: string }
         Returns: Json
       }
       assistant_agent_subagents: {
@@ -73814,6 +73830,10 @@ export type Database = {
           p_search?: string
           p_to?: string
         }
+        Returns: Json
+      }
+      assistant_agent_team_summary: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
       }
       assistant_agent_tenant_detail: {
