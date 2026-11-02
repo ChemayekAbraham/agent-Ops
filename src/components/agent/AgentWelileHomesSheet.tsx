@@ -2776,6 +2776,7 @@ function EnrollDialog({
       const newSubRecord: WHSubscription = {
         id: res.subscription_id,
         tenant_id: tenantId,
+        next_due_date: null,
         agent_id: agentId,
         landlord_id: selectedLandlordRecord?.id || null,
         landlord_name: landlordName || null,
