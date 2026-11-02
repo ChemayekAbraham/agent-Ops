@@ -22661,6 +22661,39 @@ export type Database = {
           },
         ]
       }
+      help_center_articles: {
+        Row: {
+          body: string
+          changed_at: string
+          content_hash: string
+          fetched_at: string
+          path: string
+          title: string
+          tsv: unknown
+          url: string
+        }
+        Insert: {
+          body: string
+          changed_at?: string
+          content_hash: string
+          fetched_at?: string
+          path: string
+          title: string
+          tsv?: unknown
+          url: string
+        }
+        Update: {
+          body?: string
+          changed_at?: string
+          content_hash?: string
+          fetched_at?: string
+          path?: string
+          title?: string
+          tsv?: unknown
+          url?: string
+        }
+        Relationships: []
+      }
       house_assignment_audit: {
         Row: {
           assigned_at: string
@@ -73797,13 +73830,33 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_help_search: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json
+      }
+      assistant_agent_houses: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
+      assistant_agent_landlord_float: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
       assistant_agent_landlords: {
         Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_agent_leaderboard: {
+        Args: { p_week_start?: string }
         Returns: Json
       }
       assistant_agent_my_profile: { Args: never; Returns: Json }
       assistant_agent_subagent_detail: {
         Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_subagent_tenants: {
+        Args: { p_limit?: number; p_plan?: string; p_search: string }
         Returns: Json
       }
       assistant_agent_subagents: {
@@ -73814,6 +73867,10 @@ export type Database = {
           p_search?: string
           p_to?: string
         }
+        Returns: Json
+      }
+      assistant_agent_team_summary: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
       }
       assistant_agent_tenant_detail: {
@@ -73832,6 +73889,7 @@ export type Database = {
         Returns: Json
       }
       assistant_clean_phone: { Args: { p_phone: string }; Returns: string }
+      assistant_clean_terms: { Args: { p_text: string }; Returns: string }
       assistant_clean_text: {
         Args: { p_address?: boolean; p_max?: number; p_text: string }
         Returns: string
