@@ -491,38 +491,89 @@ import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z3 } from "npm:zod@^4.4.3";
 
 // src/lib/contractEngine360.ts
-var PARTNER_MONTHLY_RATE = 0.15;
 var CONTRACT_DAYS = 360;
 var CONTRACT_MONTHS = 12;
-function railFee(principal, months = 1) {
-  return Math.max(3500 * months, 0.025 * months * principal);
+function wholeShillings(principal) {
+  if (!(principal > 0) || !Number.isFinite(principal)) throw new Error("Rent amount must be above zero");
+  return Math.round(principal);
 }
-function grossForMonths(principal, months = 1) {
-  if (!(principal > 0)) throw new Error("Rent amount must be above zero");
-  if (!(months >= 1 && months <= 12)) throw new Error("Months must be between 1 and 12");
-  const denom = 0.9 - 0.07 * months;
-  if (denom <= 0) throw new Error("Months too long for this pricing");
-  return Math.ceil((principal * Math.pow(1.15, months) + railFee(principal, months)) / denom);
+function roundHalfEven(numerator, denominator) {
+  const q = Math.floor(numerator / denominator);
+  const rem = numerator % denominator;
+  if (rem * 2 < denominator) return q;
+  if (rem * 2 > denominator) return q + 1;
+  return q % 2 === 0 ? q : q + 1;
 }
-function dailyRate(principal, months = 1) {
-  return Math.ceil(grossForMonths(principal, months) / (30 * months));
+function ceilDiv(numerator, denominator) {
+  return Math.floor((numerator + denominator - 1) / denominator);
 }
-function quoteV360(principal) {
-  const gross = grossForMonths(principal, 1);
-  const daily = dailyRate(principal, 1);
-  const partner = Math.round(principal * PARTNER_MONTHLY_RATE);
-  const agentSub = Math.floor(gross * 0.06);
-  const agentGeneral = Math.floor(gross * 0.02);
-  const rail = Math.round(railFee(principal, 1));
-  const welile = Math.floor(gross * 0.07);
+function v360CycleWaterfall(principal, cycle = 1) {
+  const P = wholeShillings(principal);
+  if (!(cycle >= 1 && cycle <= CONTRACT_MONTHS)) throw new Error("Cycle must be between 1 and 12");
+  const rail = Math.max(3500, ceilDiv(P, 40));
+  const gross = ceilDiv(115 * P + 100 * rail, 83);
+  const daily = ceilDiv(gross, 30);
+  const collected = daily * 30;
+  const agentSub = Math.floor(gross * 6 / 100);
+  const agentGeneral = Math.floor(gross * 2 / 100);
+  const coverPoolPercent = Math.floor(gross * 2 / 100);
+  const welile = Math.floor(gross * 7 / 100);
+  const tithe = Math.floor(welile / 10);
+  const welileNet = welile - tithe;
+  const landlord = P;
+  const partnerMargin = roundHalfEven(P * 15, 100);
+  const residual = gross - (agentSub + agentGeneral + coverPoolPercent + welile + rail + landlord + partnerMargin);
+  const surplus = collected - gross;
+  const coverPool = coverPoolPercent + residual + surplus;
+  const proxy = cycle === 1 ? roundHalfEven(P * 2, 100) : 0;
+  if (proxy > coverPool) throw new Error("Proxy Agent fee exceeds the cycle 1 Cover Pool");
+  const coverPoolRetained = coverPool - proxy;
   return {
-    principal,
+    principal: P,
+    cycle,
+    rail,
     gross,
     daily,
-    buckets: { landlord: principal, partner, agent: agentSub + agentGeneral, agentSub, agentGeneral, rail, welile },
-    partnerMonthly: partner,
-    partnerTwelveMonths: partner * CONTRACT_MONTHS,
-    receivable360: CONTRACT_DAYS * daily
+    collected,
+    surplus,
+    residual,
+    agentSub,
+    agentGeneral,
+    coverPoolPercent,
+    coverPool,
+    proxy,
+    coverPoolRetained,
+    welile,
+    tithe,
+    welileNet,
+    landlord,
+    partnerMargin
+  };
+}
+function quoteV360(principal) {
+  const wf = v360CycleWaterfall(principal, 1);
+  return {
+    principal: wf.principal,
+    gross: wf.gross,
+    daily: wf.daily,
+    buckets: {
+      landlord: wf.landlord,
+      partner: wf.partnerMargin,
+      agent: wf.agentSub + wf.agentGeneral,
+      agentSub: wf.agentSub,
+      agentGeneral: wf.agentGeneral,
+      rail: wf.rail,
+      welile: wf.welile,
+      coverPool: wf.coverPool,
+      proxy: wf.proxy,
+      coverPoolRetained: wf.coverPoolRetained,
+      tithe: wf.tithe,
+      welileNet: wf.welileNet
+    },
+    partnerMonthly: wf.partnerMargin,
+    partnerTwelveMonths: wf.partnerMargin * CONTRACT_MONTHS,
+    receivable360: CONTRACT_DAYS * wf.daily,
+    waterfall: wf
   };
 }
 var _modelA = quoteV360(1e5);
@@ -530,8 +581,19 @@ var V360_MODEL_A_EXAMPLE = {
   principal: 1e5,
   gross: _modelA.gross,
   daily: _modelA.daily,
+  collected: _modelA.waterfall.collected,
   partnerMonthly: _modelA.partnerMonthly,
-  partnerTwelveMonths: _modelA.partnerTwelveMonths
+  partnerTwelveMonths: _modelA.partnerTwelveMonths,
+  agentSub: _modelA.buckets.agentSub,
+  agentGeneral: _modelA.buckets.agentGeneral,
+  rail: _modelA.buckets.rail,
+  landlord: _modelA.buckets.landlord,
+  coverPool: _modelA.buckets.coverPool,
+  proxy: _modelA.buckets.proxy,
+  coverPoolRetained: _modelA.buckets.coverPoolRetained,
+  welile: _modelA.buckets.welile,
+  tithe: _modelA.buckets.tithe,
+  welileNet: _modelA.buckets.welileNet
 };
 
 // src/lib/mcp-public/tools/estimate-rent-access.ts
