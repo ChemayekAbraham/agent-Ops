@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import DashboardHeader from '@/components/DashboardHeader';
+import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
+import { NotificationBell } from '@/components/supporter/NotificationBell';
+import { roleToSlug } from '@/lib/roleRoutes';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
@@ -60,12 +66,25 @@ interface FeedEntry {
  */
 export default function FunderLandingPreview() {
   const reduceMotion = useReducedMotion() ?? false;
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, roles, signOut, switchRole } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
   const { saved, toggleSave } = useFunderSavedItems();
+
+  // Same role-switch behavior as /dashboard/funder: switch, then let the
+  // persona URL render the matching dashboard.
+  const handleRoleSwitch = useCallback(
+    (newRole: AppRole) => {
+      if (!roles.includes(newRole)) return;
+      switchRole(newRole);
+      const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+      navigate(targetRoute, { replace: true });
+    },
+    [roles, switchRole, navigate],
+  );
 
   const displayName =
     profile?.full_name?.trim() ||
@@ -113,6 +132,20 @@ export default function FunderLandingPreview() {
     };
   }, [avatarUrl]);
 
+  // The app top bar is sticky, so the map and the floating search bar have to
+  // sit below it. Measure its real height (safe-area + content) once mounted.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [headerH, setHeaderH] = useState(0);
+  useEffect(() => {
+    const el = rootRef.current?.querySelector('header');
+    if (!el) return;
+    const measure = () => setHeaderH(el.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Frosted top bar: once the houses sheet scrolls up under the fixed top
   // bar, the bar gets a glass background so the list reads through it.
   const [barFrosted, setBarFrosted] = useState(false);
@@ -123,12 +156,12 @@ export default function FunderLandingPreview() {
     const observer = new IntersectionObserver(
       ([entry]) => setBarFrosted(!entry.isIntersecting),
       // Trigger when the sheet top reaches the bottom edge of the top bar
-      // (safe-area padding + 48px bar + a small margin).
-      { rootMargin: '-84px 0px 0px 0px', threshold: 0 },
+      // (app header + 48px bar + a small margin).
+      { rootMargin: `-${headerH + 60}px 0px 0px 0px`, threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, []);
+  }, [headerH]);
 
 
 
