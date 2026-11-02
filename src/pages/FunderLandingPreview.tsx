@@ -338,46 +338,6 @@ export default function FunderLandingPreview() {
           onOpenHouse={openHouseFromMap}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)]">
-          <motion.section
-            aria-label="Amount needed to fund houses"
-            aria-busy={summary.isLoading}
-            className="pointer-events-auto rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-[0_14px_30px_-12px_hsl(var(--primary)/0.6)]"
-            {...enter(0.08)}
-          >
-            {summary.isError ? (
-              <>
-                <h2 className="text-[15px] font-semibold">Amount needed to fund houses</h2>
-                <p className="mt-1.5 text-sm text-primary-foreground/90">
-                  The live total is unavailable right now. Houses below still load.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 className="text-[15px] font-semibold">Amount needed to fund houses:</h2>
-                {total === null ? (
-                  <div className="mt-2.5 space-y-2">
-                    <Skeleton className="h-10 w-64 bg-primary-foreground/20" />
-                    <Skeleton className="h-4 w-32 bg-primary-foreground/20" />
-                  </div>
-                ) : (
-                  <>
-                    <p className="mt-2 flex items-baseline gap-2 leading-none">
-                      <span className="text-[17px] font-medium text-primary-foreground/80">{prefix}</span>
-                      <span className="text-[clamp(28px,9.6vw,42px)] font-bold tabular-nums tracking-tight">
-                        {totalFigure}
-                      </span>
-                      <span className="sr-only">{formatDynamic(total)}</span>
-                    </p>
-                    <p className="mt-2.5 text-sm font-medium">
-                      over {(summary.data?.houseCount ?? 0).toLocaleString()}+ homes
-                    </p>
-                  </>
-                )}
-              </>
-            )}
-          </motion.section>
-        </div>
 
       </div>
 
@@ -437,6 +397,45 @@ export default function FunderLandingPreview() {
       >
         <div className="mx-auto max-w-3xl space-y-4 px-4 pb-36 pt-2.5">
           <div aria-hidden className="mx-auto h-1.5 w-11 rounded-full bg-border" />
+
+          <motion.section
+            aria-label="Amount needed to fund houses"
+            aria-busy={summary.isLoading}
+            className="rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-[0_14px_30px_-12px_hsl(var(--primary)/0.6)]"
+            {...enter(0.08)}
+          >
+            {summary.isError ? (
+              <>
+                <h2 className="text-[15px] font-semibold">Amount needed to fund houses</h2>
+                <p className="mt-1.5 text-sm text-primary-foreground/90">
+                  The live total is unavailable right now. Houses below still load.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-[15px] font-semibold">Amount needed to fund houses:</h2>
+                {total === null ? (
+                  <div className="mt-2.5 space-y-2">
+                    <Skeleton className="h-10 w-64 bg-primary-foreground/20" />
+                    <Skeleton className="h-4 w-32 bg-primary-foreground/20" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-2 flex items-baseline gap-2 leading-none">
+                      <span className="text-[17px] font-medium text-primary-foreground/80">{prefix}</span>
+                      <span className="text-[clamp(28px,9.6vw,42px)] font-bold tabular-nums tracking-tight">
+                        {totalFigure}
+                      </span>
+                      <span className="sr-only">{formatDynamic(total)}</span>
+                    </p>
+                    <p className="mt-2.5 text-sm font-medium">
+                      over {(summary.data?.houseCount ?? 0).toLocaleString()}+ homes
+                    </p>
+                  </>
+                )}
+              </>
+            )}
+          </motion.section>
 
           <div className="space-y-0.5">
             <h1 className="text-xl font-bold tracking-tight">
