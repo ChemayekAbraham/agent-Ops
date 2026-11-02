@@ -105,6 +105,15 @@ export default function FunderLandingPreview() {
       .join('') || 'W';
   const welileId = user ? generateWelileAiId(user.id) : '';
 
+  // The profile picture, if the user has one. A broken/stale URL falls back to
+  // the initials rather than leaving an empty circle.
+  const avatarUrl = profile?.avatar_url ?? null;
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
+
+
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<FunderNewFilters>({
@@ -339,10 +348,20 @@ export default function FunderLandingPreview() {
             <Link
               to={welileId ? `/profile/${welileId}` : '/profile'}
               aria-label="Your profile"
-              className="flex h-12 w-12 flex-none items-center justify-center rounded-full border-[3px] border-white bg-primary text-[15px] font-bold text-primary-foreground shadow-lg"
+              className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-primary text-[15px] font-bold text-primary-foreground shadow-lg"
             >
-              {initials}
+              {avatarUrl && !avatarFailed ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  onError={() => setAvatarFailed(true)}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                initials
+              )}
             </Link>
+
             <label className="relative flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-card px-4 text-muted-foreground shadow-lg">
               <Search className="h-[18px] w-[18px] flex-none" aria-hidden />
               <span className="sr-only">Search an area</span>
