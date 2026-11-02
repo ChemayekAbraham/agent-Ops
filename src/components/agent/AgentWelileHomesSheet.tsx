@@ -4135,8 +4135,13 @@ function AllocateDialog({ sub, onClose, onDone }: {
     return opts;
   })();
 
+  // One key per collection attempt: a retry or double tap reuses it, so the server returns the
+  // original confirmation instead of charging twice. A new key is issued only after success.
+  const collectKeyRef = useRef<string>('');
+
   useEffect(() => {
     if (sub) {
+      collectKeyRef.current = crypto.randomUUID();
       setAmount(String(Math.min(sub.monthly_rent, sub.outstanding_balance)));
       const now = new Date();
       setPeriod(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
@@ -4151,15 +4156,18 @@ function AllocateDialog({ sub, onClose, onDone }: {
     const periodLabel = monthOptions.find((m) => m.value === period)?.label || period;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('welile_home_record_collection', {
+      if (!collectKeyRef.current) collectKeyRef.current = crypto.randomUUID();
+      const { data, error } = await (supabase.rpc as any)('welile_home_record_collection', {
         p_subscription_id: sub.id,
         p_amount: amt,
         p_source: 'agent_allocation',
+        p_idempotency_key: collectKeyRef.current,
         p_notes: `Agent collection — rent for ${periodLabel}`,
       });
       if (error) throw error;
       const res = data as any;
       if (!res?.success) throw new Error(res?.error || 'Collection recording failed');
+      collectKeyRef.current = crypto.randomUUID();
       toast({ title: 'Rent payment recorded', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
       // Fire-and-forget: send the tenant an SMS receipt for this collection.
       supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => { });
