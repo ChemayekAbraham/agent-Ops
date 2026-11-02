@@ -845,6 +845,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "send_custom" || action === "custom") {
+      // Free-text SMS from the WELILE sender. verify_jwt is off for this
+      // function, so anyone could call it; only server-side callers holding the
+      // service-role key (e.g. fraud-cutoff-account) may send arbitrary text.
+      const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+      if (!bearer || bearer !== supabaseServiceKey) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const message = (body.message as string || "").trim();
       if (!message) {
         return new Response(JSON.stringify({ error: "Message required" }), {
