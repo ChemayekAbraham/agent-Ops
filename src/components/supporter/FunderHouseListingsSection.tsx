@@ -53,10 +53,13 @@ export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' 
 export function FunderHouseListingsSection({
   searchOnMap = false,
   onFiltersChange,
+  onResultsFocus,
 }: {
   searchOnMap?: boolean;
   /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
   onFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** With a search typed, reports where the matching empty houses are so the map can move to them. */
+  onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
 } = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -145,6 +148,29 @@ export function FunderHouseListingsSection({
     () => (readyQuery.data?.pages ?? []).flatMap((page) => page.items),
     [readyQuery.data],
   );
+
+  // Like a maps app, a search moves the map to what it found. Only the first
+  // page of matches is used, and only when the set of places actually changes.
+  const focusSignatureRef = useRef('');
+  useEffect(() => {
+    if (!onResultsFocus) return;
+    if (!filters.search.trim()) {
+      focusSignatureRef.current = '';
+      return;
+    }
+    if (emptyQuery.isFetching) return;
+    const points = emptyItems
+      .slice(0, 12)
+      .map((house) => {
+        const record = house as unknown as Record<string, unknown>;
+        return { lat: Number(record.latitude), lng: Number(record.longitude) };
+      })
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng) && (point.lat !== 0 || point.lng !== 0));
+    const signature = `${filters.search.trim()}|${points.map((point) => `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`).join(';')}`;
+    if (points.length === 0 || signature === focusSignatureRef.current) return;
+    focusSignatureRef.current = signature;
+    onResultsFocus(points);
+  }, [emptyItems, emptyQuery.isFetching, filters.search, onResultsFocus]);
 
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(

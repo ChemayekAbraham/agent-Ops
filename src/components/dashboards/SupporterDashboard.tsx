@@ -135,6 +135,10 @@ export default function SupporterDashboard({
   // page: the hero card opens them full screen, and they unmount again on close.
   const [mapRequested, setMapRequested] = useState(false);
   const mapWasExpandedRef = useRef(false);
+  const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
+  const handleListResultsFocus = useCallback((points: { lat: number; lng: number }[]) => {
+    setMapFocus((prev) => ({ points, token: (prev?.token ?? 0) + 1 }));
+  }, []);
   const openHousesMap = useCallback(() => {
     setMapRequested(true);
     setMapExpandRequest((n) => n + 1);
@@ -147,6 +151,7 @@ export default function SupporterDashboard({
       // Ignore the map's initial "not expanded" report on mount; only a real close unmounts it.
       mapWasExpandedRef.current = false;
       setMapRequested(false);
+      setMapFocus(null);
       // The list resets with its sheet, so the map starts unfiltered next time too.
       setMapFilters((prev) => (prev.search || prev.location || prev.amount !== 'all' ? { ...prev, search: '', location: '', amount: 'all' } : prev));
     }
@@ -686,6 +691,7 @@ export default function SupporterDashboard({
               onExpandedChange={handleMapExpandedChange}
               expandRequest={mapExpandRequest}
               reserveTopForSearch
+              focus={mapFocus}
             />
           )}
 
@@ -727,6 +733,7 @@ export default function SupporterDashboard({
                       <FunderCapitalOpportunities
                         searchOnMap
                         onListFiltersChange={handleListFiltersChange}
+                        onListResultsFocus={handleListResultsFocus}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}

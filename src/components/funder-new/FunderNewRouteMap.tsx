@@ -222,6 +222,7 @@ export function FunderNewRouteMap({
   onExpandedChange,
   expandRequest,
   reserveTopForSearch = false,
+  focus,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -244,6 +245,8 @@ export function FunderNewRouteMap({
   expandRequest?: number;
   /** Full screen only: leave room under a search bar floated at the top by the page. */
   reserveTopForSearch?: boolean;
+  /** Bumped by the page (new token) to move the map to a set of points, e.g. search results. */
+  focus?: { points: { lat: number; lng: number }[]; token: number } | null;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -321,6 +324,26 @@ export function FunderNewRouteMap({
       mapRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!focus || focus.points.length === 0 || !map || !window.google?.maps) return;
+    if (focus.points.length === 1) {
+      map.panTo(focus.points[0]);
+      map.setZoom(15);
+      return;
+    }
+    const bounds = new google.maps.LatLngBounds();
+    focus.points.forEach((point) => bounds.extend(point));
+    // Keep the matches clear of the floating search bar and the sheet below.
+    map.fitBounds(bounds, {
+      top: reserveTopForSearch ? 96 : 48,
+      bottom: fullscreen ? Math.round(window.innerHeight * 0.5) : 48,
+      left: 40,
+      right: 40,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.token]);
 
   useEffect(() => {
     const map = mapRef.current;

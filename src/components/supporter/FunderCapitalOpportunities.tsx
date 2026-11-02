@@ -480,6 +480,7 @@ export function FunderCapitalOpportunities({
   embedded = false,
   searchOnMap = false,
   onListFiltersChange,
+  onListResultsFocus,
 }: {
   initialView?: ViewState;
   /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
@@ -489,6 +490,8 @@ export function FunderCapitalOpportunities({
   searchOnMap?: boolean;
   /** Mirrors the houses list's search, district and amount to a map on the same screen. */
   onListFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** Where the list's search results are, so a map on the same screen can move there. */
+  onListResultsFocus?: (points: { lat: number; lng: number }[]) => void;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
@@ -802,7 +805,7 @@ export function FunderCapitalOpportunities({
         {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <FunderHouseListingsSection searchOnMap={searchOnMap} onFiltersChange={onListFiltersChange} />
+            ? <FunderHouseListingsSection searchOnMap={searchOnMap} onFiltersChange={onListFiltersChange} onResultsFocus={onListResultsFocus} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 
