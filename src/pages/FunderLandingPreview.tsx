@@ -114,6 +114,7 @@ export default function FunderLandingPreview() {
   }, [avatarUrl]);
 
 
+
   // ── Filters ──────────────────────────────────────────────────────────────
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<FunderNewFilters>({
