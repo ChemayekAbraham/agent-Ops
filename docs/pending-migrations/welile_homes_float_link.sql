@@ -1,5 +1,5 @@
 -- Welile Homes float: real link, server-only stages, atomic CFO disbursement.
--- PROPOSAL — not applied. Apply through the approved migration workflow only after
+-- APPLIED 2026-11-02 via the migration workflow (with amounts derived from dues rows and tenant verification).
 -- the live-schema check (float_requests, welile_homes_subscriptions columns and
 -- whether an edge function `send-operational-float` is deployed) comes back.
 -- Ship together with the Phase 2 browser changes: after this runs, the old
