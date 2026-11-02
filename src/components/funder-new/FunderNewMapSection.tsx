@@ -1,3 +1,4 @@
+import { coarsenMapCells } from './coarsenMapCells';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Crosshair, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -83,18 +84,18 @@ export function FunderNewMapSection({
     maxRent: range.max,
   });
 
-  const cells = useMemo<FunderNewMapCell[]>(
-    () =>
-      (cellQuery.data?.cells ?? []).map((cell) => ({
-        key: cell.key,
-        count: cell.count,
-        lat: cell.latitude,
-        lng: cell.longitude,
-        amount: cell.minRent,
-        house: (cell.house as unknown as FunderNewEmptyHouse | null) ?? null,
-      })),
-    [cellQuery.data],
-  );
+  const cells = useMemo<FunderNewMapCell[]>(() => {
+    const raw = (cellQuery.data?.cells ?? []).map((cell) => ({
+      key: cell.key,
+      count: cell.count,
+      lat: cell.latitude,
+      lng: cell.longitude,
+      amount: cell.minRent,
+      house: (cell.house as unknown as FunderNewEmptyHouse | null) ?? null,
+    }));
+    // Fewer, clearer pins at city zoom; street level keeps every house.
+    return viewport ? coarsenMapCells(raw, viewport.zoom) : raw;
+  }, [cellQuery.data, viewport]);
 
   const housesInView = cellQuery.data?.housesInView ?? 0;
 
