@@ -63945,6 +63945,7 @@ export type Database = {
           landlord_id: string | null
           landlord_name: string | null
           landlord_phone: string | null
+          landlord_ref_id: string | null
           landlord_registered: boolean
           landlord_uses_wallet: boolean
           last_interest_applied_at: string | null
@@ -63974,6 +63975,7 @@ export type Database = {
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -64003,6 +64005,7 @@ export type Database = {
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -64021,7 +64024,43 @@ export type Database = {
           total_savings?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
       }
       welile_medical_facilities: {
         Row: {
@@ -71929,6 +71968,10 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_resolve_landlord_ref: {
+        Args: { p_agent: string; p_landlord_id: string; p_phone: string }
+        Returns: string
+      }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -76987,6 +77030,10 @@ export type Database = {
       delete_welile_home_subscription: {
         Args: { p_subscription_id: string }
         Returns: boolean
+      }
+      delete_welile_homes_landlord: {
+        Args: { p_landlord_id: string }
+        Returns: Json
       }
       deposit_bridge_ledger_present: {
         Args: {
@@ -94195,6 +94242,10 @@ export type Database = {
           p_note?: string
           p_request_id: string
         }
+        Returns: Json
+      }
+      wh_landlord_delete_blockers: {
+        Args: { p_landlord_id: string }
         Returns: Json
       }
       wh_request_float: {
