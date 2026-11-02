@@ -23,6 +23,9 @@ only and the internal helpers are closed; the private `special-advance-proofs` b
 | D5 | Staff MFA for money-moving actions | Approval, payout and repayment need an authenticator-verified session (aal2) | **Decided 2026-10-27: accepted** |
 | D6 | Balance-sheet heading for A24 | Reported under "Other Assets" | **Implemented, open to change** |
 
+Later decisions (D7 impairment rates, D14 proof files need aal2, both 2026-11-02) and the readiness work are in
+`docs/special-advances/phase-a-readiness.md`.
+
 Already decided by the CFO (2026-10-27) and implemented: payout to a Welile borrower goes to their withdrawable wallet;
 an external borrower is paid off-platform; repayments are recorded by the CFO only (no wallet sweeps); no late fee;
 an overpayment is refused; early settlement pays the full agreed total. Account A24 (not A20, which production already

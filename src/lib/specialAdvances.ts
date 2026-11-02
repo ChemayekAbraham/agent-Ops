@@ -118,6 +118,11 @@ export interface SpecialAdvance {
 export interface SpecialAdvancePosition {
   total_repayable: number;
   total_paid: number;
+  /** Paid out (disbursed or settled). Until then the advance is not a receivable and every outstanding figure is 0.
+   *  Optional: sent once migration 20261102200000 is applied. */
+  paid_out?: boolean;
+  /** The agreed schedule still unpaid, whether or not the advance has been paid out (shown before payout). */
+  scheduled_outstanding?: number;
   outstanding: number;
   outstanding_access_fee: number;
   outstanding_registration_fee: number;
