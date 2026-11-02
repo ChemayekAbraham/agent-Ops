@@ -567,6 +567,7 @@ export default function FunderLandingPreview() {
             districts={districtOptions}
             supportsSort
             compact
+            hideDistance
             afterSort={
               <FunderPreviewFilterDialog
                 filters={filters}
@@ -574,8 +575,11 @@ export default function FunderLandingPreview() {
                 availableBalance={availableBalance}
                 floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
                 resultCount={entries.length}
+                hasOrigin={!!origin}
+                onRequestLocation={location.request}
                 onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
               />
+
             }
             hasOrigin={!!origin}
             availableBalance={availableBalance}
