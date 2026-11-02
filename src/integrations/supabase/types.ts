@@ -63776,6 +63776,47 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_homes_collection_requests: {
+        Row: {
+          caller_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Insert: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Update: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          requested_amount?: number
+          response?: Json
+          source?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_collection_requests_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_enrollment_audit: {
         Row: {
           agent_id: string | null
@@ -93950,8 +93991,9 @@ export type Database = {
       welile_home_record_collection: {
         Args: {
           p_amount: number
+          p_idempotency_key: string
           p_notes?: string
-          p_source?: string
+          p_source: string
           p_subscription_id: string
         }
         Returns: Json
