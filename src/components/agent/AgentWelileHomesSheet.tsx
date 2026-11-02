@@ -2249,79 +2249,32 @@ function EnrollDialog({
     }
   };
 
+  // Fail closed: the confirmation opens only when the server says the landlord is deletable.
   const handleRequestDeleteLandlord = async (l: LandlordRecord) => {
+    if (!l.id) {
+      // Saved only on this device: no server record and no plans can be linked to it.
+      setDeleteLandlordTarget(l);
+      return;
+    }
     try {
-      // 1. Check if landlord has any approved Welile Homes subscriptions where tenants have started paying
-      let query = supabase
-        .from('welile_homes_subscriptions')
-        .select('id, funding_status, receivable_total, outstanding_balance, subscription_status');
-
-      if (l.id) {
-        query = query.or(`landlord_id.eq.${l.id},landlord_name.ilike.${l.name}`);
-      } else {
-        query = query.ilike('landlord_name', l.name);
+      const { data, error } = await (supabase.rpc as any)('wh_landlord_delete_blockers', { p_landlord_id: l.id });
+      if (error) throw error;
+      if (!data?.deletable) {
+        const reasons: string[] = Array.isArray(data?.reasons) ? data.reasons : [];
+        toast({
+          title: 'Cannot delete landlord',
+          description: reasons.length ? `${l.name}: ${reasons.join('; ')}.` : `${l.name} cannot be deleted.`,
+          variant: 'destructive',
+        });
+        return;
       }
-
-      const { data: subs } = await query;
-      const subList = subs || [];
-      const subIds = subList.map((s: any) => s.id).filter(Boolean);
-
-      if (subIds.length > 0) {
-        // Check if any dues have payments collected or payouts
-        const { data: dues } = await supabase
-          .from('welile_homes_monthly_dues')
-          .select('id, amount_collected, collection_status, payout_status')
-          .in('subscription_id', subIds);
-
-        const hasCollectedPayments = (dues || []).some(
-          (d: any) =>
-            Number(d.amount_collected) > 0 ||
-            d.collection_status === 'collected' ||
-            (d.payout_status && d.payout_status !== 'unpaid')
-        );
-
-        // Check if any subscription has balance already reduced (active repayment in progress)
-        const hasRepayments = subList.some(
-          (s: any) =>
-            Number(s.receivable_total) > 0 &&
-            Number(s.outstanding_balance) < Number(s.receivable_total)
-        );
-
-        // If approved and tenants have started paying, lock deletion
-        if (hasCollectedPayments || hasRepayments) {
-          toast({
-            title: 'Cannot delete landlord',
-            description: `${l.name} has approved tenant plans with payments already started and cannot be deleted.`,
-            variant: 'destructive',
-          });
-          return;
-        }
-      }
-
-      // 2. Check if conventional rent plans exist with recorded payments
-      if (l.id) {
-        const { data: plans } = await supabase
-          .from('rent_requests')
-          .select('id, status, amount_repaid')
-          .eq('landlord_id', l.id)
-          .in('status', ['disbursed', 'active', 'repaying'])
-          .limit(1);
-
-        if (plans && plans.length > 0 && Number(plans[0].amount_repaid) > 0) {
-          toast({
-            title: 'Cannot delete landlord',
-            description: `${l.name} has active rent plans with payments and cannot be deleted.`,
-            variant: 'destructive',
-          });
-          return;
-        }
-      }
-
-      // Eligible to delete
-      setDeleteLandlordTarget(l);
-    } catch (e) {
-      console.warn('Could not verify landlord payment records:', e);
-      setDeleteLandlordTarget(l);
+      setDeleteLandlordTarget({ ...l, count: Number(data?.draft_plans ?? l.count ?? 0) });
+    } catch (e: any) {
+      toast({
+        title: 'Cannot delete landlord',
+        description: `Could not check ${l.name}'s records${e?.message ? `: ${e.message}` : ''}. Nothing was deleted.`,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -2330,37 +2283,10 @@ function EnrollDialog({
     const target = deleteLandlordTarget;
     setDeletingLandlord(true);
     try {
-      // 1. Clean up any unapproved / non-paying draft subscriptions attached to this landlord
-      let subQuery = supabase
-        .from('welile_homes_subscriptions')
-        .select('id');
-
+      // One server step: removes the landlord and its draft plans together, or nothing at all.
       if (target.id) {
-        subQuery = subQuery.or(`landlord_id.eq.${target.id},landlord_name.ilike.${target.name}`);
-      } else {
-        subQuery = subQuery.ilike('landlord_name', target.name);
-      }
-
-      const { data: attachedSubs } = await subQuery;
-      if (attachedSubs && attachedSubs.length > 0) {
-        for (const s of attachedSubs) {
-          try {
-            await (supabase.rpc as any)('delete_welile_home_subscription', {
-              p_subscription_id: s.id,
-            });
-          } catch (e) {
-            console.warn('Could not delete unapproved subscription:', s.id, e);
-          }
-        }
-      }
-
-      // 2. Delete from landlords table if an id exists
-      if (target.id && agentId) {
-        await supabase
-          .from('landlords')
-          .delete()
-          .eq('id', target.id)
-          .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`);
+        const { error } = await (supabase.rpc as any)('delete_welile_homes_landlord', { p_landlord_id: target.id });
+        if (error) throw new Error(String(error.message || '').replace(/^LANDLORD_NOT_DELETABLE:\s*/, ''));
       }
 
       // 3. Remove from local storage
