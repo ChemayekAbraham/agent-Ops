@@ -139,6 +139,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 const FunderLandingPreview = lazy(() => import("./pages/FunderLandingPreview"));
+const CardOverflowHarness = lazy(() => import("./pages/CardOverflowHarness"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
 const DashboardRedirect = lazy(() => import("./pages/DashboardRedirect"));
@@ -608,6 +609,7 @@ function AppRoutes() {
           <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
           {/* Preview of the map-first funder landing (design B). Not linked anywhere yet. */}
           <Route path="/dashboard/funder-preview" element={<RoleGuard allowedRoles={['supporter']}><FunderLandingPreview /></RoleGuard>} />
+          <Route path="/dev/card-harness" element={<CardOverflowHarness />} />
           <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
           {/* Frozen backup of the funder dashboard. Not a persona slug, so it
               is invisible to slugToRole() and never fights the live router. */}
