@@ -100,22 +100,24 @@ export function SpecialAdvanceProvisionsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Impairment Minimums Guide Card */}
-      <section className="rounded-xl border border-border bg-card p-4 text-xs space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Impairment Guidelines Card — Flagged as Draft / Pending CFO Approval */}
+      <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs space-y-3" aria-label="Impairment Provision Guidelines">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <h4 className="font-semibold text-foreground">CFO Decision D7: Impairment Provision Policy</h4>
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <h4 className="font-semibold text-foreground">Proposed Impairment Assessment Guidelines</h4>
+            <Badge variant="outline" className="border-amber-600/30 text-amber-700 dark:text-amber-400 bg-amber-500/10 text-[10px]">
+              Draft — Requires CFO Policy Approval
+            </Badge>
           </div>
-          <span className="text-[11px] text-muted-foreground">Contra-asset A25 / Expense X4</span>
+          <span className="text-[11px] text-muted-foreground font-mono">Contra-asset A25 / Expense X4</span>
         </div>
         <p className="text-muted-foreground text-[11px]">
-          The server determines minimum required allowances according to days past due. A CFO may specify a higher
-          individual assessment rate per advance (never below minimum). All calculations are performed by the server.
+          The thresholds below are draft technical minimums subject to formal CFO executive approval. The server models required allowances according to days past due. A CFO may specify a higher individual assessment rate per advance (never below minimum). All figures and ledger entries are calculated by the server upon second-CFO approval.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
           {IMPAIRMENT_MINIMUMS.map((m) => (
-            <div key={m.label} className="rounded-lg border border-border/60 bg-muted/30 p-2 text-center">
+            <div key={m.label} className="rounded-lg border border-border/60 bg-card/80 p-2 text-center">
               <span className="block text-[10px] text-muted-foreground">{m.label}</span>
               <span className="text-xs font-bold text-foreground">{m.rate}%</span>
             </div>
