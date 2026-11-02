@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
-import { standingOrderErrorText } from '@/lib/standingOrderError';
+import { showStandingOrderWarning, standingOrderErrorText } from '@/lib/standingOrderError';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
 import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
@@ -415,7 +415,7 @@ export function StandingOrdersPanel() {
                             </DropdownMenu>
                           </td>
                         </tr>
-                        {(row.target_missing || row.health === 'stalled' || !!row.last_run_error) && (
+                        {showStandingOrderWarning(row) && (
                           <tr key={`${row.id}-note`} className="border-b border-border/60">
                             <td />
                             <td colSpan={7} className="px-3 pb-3">
