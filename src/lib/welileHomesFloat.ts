@@ -1,7 +1,7 @@
 /**
  * Welile Homes float request flow — the only browser entry points.
  *
- * Server functions (docs/pending-migrations/welile_homes_float_link.sql):
+ * Server functions (applied 2026-11-02; source docs/pending-migrations/welile_homes_float_link.sql):
  *   wh_request_float       agent requests float for specific subscriptions (links stored)
  *   wh_float_advance       Agent Ops / Tenant Ops / COO approve, reject or return
  *   wh_cfo_disburse_float  CFO: credit + ledger + status in one transaction (no fallback here)
