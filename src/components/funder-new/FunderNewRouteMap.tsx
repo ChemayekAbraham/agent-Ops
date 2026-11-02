@@ -33,9 +33,26 @@ async function resolveMapsKey(): Promise<string> {
   throw new Error('Google Maps is not connected.');
 }
 
+async function ensureMapsReady(): Promise<typeof google.maps> {
+  const maps = window.google?.maps as (typeof google.maps & { importLibrary?: (n: string) => Promise<unknown> }) | undefined;
+  if (!maps) throw new Error('Google Maps did not initialise.');
+  // With loading=async the namespace can exist before Map/Marker are attached.
+  if (typeof maps.Map !== 'function' && typeof maps.importLibrary === 'function') {
+    await maps.importLibrary('maps');
+    await maps.importLibrary('marker');
+  }
+  if (typeof window.google?.maps?.Map !== 'function') throw new Error('Google Maps did not initialise.');
+  return window.google.maps;
+}
+
 export function loadGoogleMaps(): Promise<typeof google.maps> {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
+  if (typeof window.google?.maps?.Map === 'function') return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
+  if (window.google?.maps) {
+    mapsPromise = ensureMapsReady();
+    mapsPromise.catch(() => { mapsPromise = null; });
+    return mapsPromise;
+  }
 
   const channel = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID'] as string | undefined;
 
