@@ -109,7 +109,6 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
           <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full items-center justify-center' : ''}`}>
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
-                <Avatar size="h-11 w-11" />
                 <p className="text-sm text-muted-foreground">Hi {firstName} 👋</p>
                 <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm {ASSISTANT_NAME}. Ask me about your collections, tenants, team or how Welile works.</p>
               </div>
