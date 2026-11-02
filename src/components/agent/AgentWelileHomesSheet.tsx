@@ -286,6 +286,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [earned, setEarned] = useState(0);
   const [pendingPayouts, setPendingPayouts] = useState(0);
   const [recentPayments, setRecentPayments] = useState<RecentRentPayment[]>([]);
+  // Welile Homes-only collections summary; never merged into capacity or collection registers.
+  const [whCollections, setWhCollections] = useState<
+    { total: number; paidMonths: number; partialMonths: number; commission: number; tenants: number } | null | undefined
+  >(undefined);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [enrollInitialMode, setEnrollInitialMode] = useState<'choose' | 'register'>('choose');
 
@@ -391,17 +395,31 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       }
 
       // Agent 2% earnings + pending landlord payouts
-      const { data: dues } = await supabase
+      const { data: dues, error: duesSummaryErr } = await supabase
         .from('welile_homes_monthly_dues')
-        .select('agent_commission, collection_status, payout_status, landlord_net')
-        .eq('agent_id', user.id);
+        .select('agent_commission, commission_paid, amount_collected, collection_status, payout_status, landlord_net, tenant_id')
+        .eq('agent_id', user.id)
+        .limit(5000);
       let e = 0, p = 0;
+      const summary = { total: 0, paidMonths: 0, partialMonths: 0, commission: 0, tenants: new Set<string>() };
       (dues ?? []).forEach((d: any) => {
         if (d.collection_status === 'collected') e += Number(d.agent_commission) || 0;
         if (d.collection_status === 'collected' && d.payout_status === 'unpaid') p += Number(d.landlord_net) || 0;
+        const got = Number(d.amount_collected) || 0;
+        if (got > 0) {
+          summary.total += got;
+          summary.commission += Number(d.commission_paid) || 0;
+          if (d.tenant_id) summary.tenants.add(d.tenant_id);
+          if (d.collection_status === 'collected') summary.paidMonths += 1;
+          else summary.partialMonths += 1;
+        }
       });
       setEarned(e);
       setPendingPayouts(p);
+      setWhCollections(duesSummaryErr ? null : {
+        total: summary.total, paidMonths: summary.paidMonths, partialMonths: summary.partialMonths,
+        commission: summary.commission, tenants: summary.tenants.size,
+      });
 
       // Recent rent payments (collected dues) with their month
       const { data: paid } = await supabase
