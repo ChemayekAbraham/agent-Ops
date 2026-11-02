@@ -496,12 +496,14 @@ export function FunderCapitalOpportunities({
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
-  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities();
+  // The houses list ('direct') shows none of the portfolio / market summary data, so
+  // it neither waits for it nor pays for it; the menu and Angel Pool views do need it.
+  const [view, setView] = useState<ViewState>(initialView);
+  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities({ enabled: view !== 'direct' });
   const { user } = useAuth();
   const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
 
-  const [view, setView] = useState<ViewState>(initialView);
   const [housePickerOpen, setHousePickerOpen] = useState(false);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);

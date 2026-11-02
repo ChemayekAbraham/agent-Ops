@@ -19,6 +19,7 @@ export function FunderNewHero({
   hasError,
   onHowItWorks,
   onOpen,
+  onIntent,
 }: {
   summary: FunderNewMarketSummary | undefined;
   isLoading: boolean;
@@ -26,6 +27,8 @@ export function FunderNewHero({
   onHowItWorks: () => void;
   /** When set, the whole card is a button (the dashboard opens the full screen map). */
   onOpen?: () => void;
+  /** Fired when a finger or pointer reaches the card, before the tap lands (to preload what it opens). */
+  onIntent?: () => void;
 }) {
   const shell =
     'relative overflow-hidden rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-md sm:px-7 sm:py-6';
@@ -82,6 +85,9 @@ export function FunderNewHero({
             tabIndex: 0,
             'aria-label': 'Open the map of houses to fund',
             onClick: onOpen,
+            onPointerEnter: onIntent,
+            onPointerDown: onIntent,
+            onTouchStart: onIntent,
             onKeyDown: (event: KeyboardEvent) => {
               if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
@@ -101,17 +107,18 @@ export function FunderNewHero({
         </span>
       )}
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="funder-hero-heading">
-            <span>Earn 15% of your</span>
-            <span>money monthly</span>
+            <span><span className="text-[1.15em] leading-none">Earn</span> monthly</span>
+            <span><span className="text-green-300">15%</span> of your</span>
+            <span>money</span>
             <span className="funder-hero-accent">when you pay a</span>
             <span className="funder-hero-accent">tenant&apos;s rent</span>
           </h1>
 
-          <div className="mt-5">
+          <div className="mt-5 text-right">
             <p className="funder-hero-subtle text-xs font-bold">Amount needed to fund houses:</p>
-            <p className="mt-0.5 break-words text-[28px] font-black leading-tight">
+            <p className="mt-0.5 break-words text-[22px] font-black leading-tight text-green-300">
               {prefix} {figure}
             </p>
             <p className="funder-hero-subtle mt-0.5 text-[11px] font-bold leading-snug">

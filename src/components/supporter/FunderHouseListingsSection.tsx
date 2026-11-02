@@ -1,11 +1,12 @@
 import { createPortal } from 'react-dom';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
-import DepositFlow from '@/components/payments/DepositFlow';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +49,9 @@ interface FeedEntry {
  * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
  * There are no tabs: one feed, one list.
  */
+// The top-up dialog is only needed after a tap; keep its (large) code out of opening the list.
+const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
+
 export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
 
 export function FunderHouseListingsSection({
@@ -88,6 +92,7 @@ export function FunderHouseListingsSection({
   // Top-up launched from the detail sheet's Fund button when the balance
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const mountDeposit = useMountedOnce(topUpAmount !== null);
 
   // Quick search bar next to the Filters button. Debounced so the listing
   // queries don't refetch on every keystroke. The same text feeds BOTH the
@@ -661,13 +666,17 @@ export function FunderHouseListingsSection({
         }}
         onReview={() => setReviewOpen(true)}
       />
-      <DepositFlow
-        open={topUpAmount !== null}
-        onOpenChange={(open) => {
-          if (!open) setTopUpAmount(null);
-        }}
-        defaultAmount={topUpAmount ?? undefined}
-      />
+      {mountDeposit && (
+        <Suspense fallback={null}>
+          <DepositFlow
+            open={topUpAmount !== null}
+            onOpenChange={(open) => {
+              if (!open) setTopUpAmount(null);
+            }}
+            defaultAmount={topUpAmount ?? undefined}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

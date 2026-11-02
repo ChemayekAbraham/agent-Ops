@@ -1,4 +1,11 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { coarsenMapCells } from './coarsenMapCells';
+import {
+  FunderNewLocationNotice,
+  locationNoticeState,
+  readLocationNoticeDismissed,
+  writeLocationNoticeDismissed,
+} from './FunderNewLocationNotice';
 import { Suspense, useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Crosshair, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -55,7 +62,6 @@ export function FunderNewMapSection({
   focus?: { points: { lat: number; lng: number }[]; token: number } | null;
 }) {
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
-  const [resetToken, setResetToken] = useState(0);
 
   const device = location.coords;
 
@@ -109,6 +115,15 @@ export function FunderNewMapSection({
 
   const awaitingDeviceFix = location.permission === 'granted' && !device && location.status !== 'error';
 
+  // First-time people get a short reason to allow location before the browser's
+  // own prompt (which only opens from their tap). "Not now" lasts this visit.
+  const [noticeDismissed, setNoticeDismissed] = useState(readLocationNoticeDismissed);
+  const dismissNotice = useCallback(() => {
+    writeLocationNoticeDismissed();
+    setNoticeDismissed(true);
+  }, []);
+  const noticeState = locationNoticeState(location, noticeDismissed);
+
   const heading = device ? 'Homes near you' : origin?.source === 'area' ? 'Homes in this area' : 'Explore homes by area';
 
   const loadedNote = useMemo(() => {
@@ -120,10 +135,15 @@ export function FunderNewMapSection({
     return `Showing ${housesInView.toLocaleString()} mapped ${housesInView === 1 ? 'home' : 'homes'} in this view.${suffix}`;
   }, [awaitingDeviceFix, cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView]);
 
+  // Reset refreshes the map in place: the map recentres itself (see the route map)
+  // and every cached pin read is marked stale so the view reloads fresh. It must
+  // not remount the map: a remount starts out not full screen, which the page
+  // would read as the person closing it.
+  const queryClient = useQueryClient();
   const handleReset = useCallback(() => {
-    setViewport(null);
-    setResetToken((value) => value + 1);
-  }, []);
+    void queryClient.invalidateQueries({ queryKey: ['empty-house-map-cells'] });
+    void queryClient.invalidateQueries({ queryKey: ['empty-house-map-cells-near'] });
+  }, [queryClient]);
 
   return (
     <section id="funder-new-map" className="scroll-mt-24 space-y-3">
@@ -164,7 +184,6 @@ export function FunderNewMapSection({
       >
 
         <FunderNewRouteMap
-          key={resetToken}
           cells={cells}
           selectedIds={selectedIds}
           savedIds={savedIds}
@@ -185,6 +204,16 @@ export function FunderNewMapSection({
           expandRequest={expandRequest}
           reserveTopForSearch={reserveTopForSearch}
           focus={focus}
+          notice={
+            noticeState ? (
+              <FunderNewLocationNotice
+                state={noticeState}
+                locating={location.status === 'locating'}
+                onAllow={location.request}
+                onDismiss={dismissNotice}
+              />
+            ) : null
+          }
         />
       </div>
 

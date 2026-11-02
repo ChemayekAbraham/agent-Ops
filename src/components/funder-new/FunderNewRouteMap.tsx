@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
+import { viewportFromCenter } from './viewportMath';
 
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
@@ -224,6 +225,7 @@ export function FunderNewRouteMap({
   expandRequest,
   reserveTopForSearch = false,
   focus,
+  notice,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -248,6 +250,8 @@ export function FunderNewRouteMap({
   reserveTopForSearch?: boolean;
   /** Bumped by the page (new token) to move the map to a set of points, e.g. search results. */
   focus?: { points: { lat: number; lng: number }[]; token: number } | null;
+  /** A note shown under the top of the full screen map (e.g. the location prompt). */
+  notice?: ReactNode;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -308,6 +312,19 @@ export function FunderNewRouteMap({
 
   useEffect(() => {
     let cancelled = false;
+    // Start the first pin request now, from where the map is about to open, rather
+    // than after Google Maps has loaded and fired its first 'idle' event (several
+    // seconds on a slow connection). The real bounds Google reports a moment later
+    // match this rectangle, so those reads are served from the same cache.
+    if (!holdingRef.current) {
+      const start = deviceRef.current ?? KAMPALA_CENTRE;
+      const startZoom = deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM;
+      const host = hostRef.current;
+      // A map opened from the dashboard card goes full screen straight away.
+      const width = expandRequest ? window.innerWidth : host?.clientWidth ?? 0;
+      const height = expandRequest ? window.innerHeight : host?.clientHeight ?? 0;
+      if (width > 0 && height > 0) onViewportChange(viewportFromCenter(start, startZoom, width, height));
+    }
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !hostRef.current) return;
@@ -557,6 +574,19 @@ export function FunderNewRouteMap({
     onExpandedChange?.(fullscreen);
   }, [fullscreen, onExpandedChange]);
 
+  // Reset: put the map back where it started (the person's position if known,
+  // otherwise Kampala) and ask the page to reload the pins fresh. In place, no remount.
+  const handleResetClick = useCallback(() => {
+    setMoved(null);
+    const map = mapRef.current;
+    if (map) {
+      const home = deviceRef.current;
+      map.panTo(home ?? KAMPALA_CENTRE);
+      map.setZoom(home ? LOCATED_ZOOM : KAMPALA_ZOOM);
+    }
+    onReset();
+  }, [onReset]);
+
   const controls = useMemo(
     () => (
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -586,13 +616,13 @@ export function FunderNewRouteMap({
           <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
             {fullscreen ? <X className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </Button>
-          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
+          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={handleResetClick} aria-label="Reset the map view">
             <RotateCcw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
     ),
-    [areaSearchValue, canUseLocation, device, fullscreen, locating, moved, onAreaSearchChange, onReset, onSearchThisArea, onUseMyLocation, reserveTopForSearch],
+    [areaSearchValue, canUseLocation, device, fullscreen, handleResetClick, locating, moved, onAreaSearchChange, onSearchThisArea, onUseMyLocation, reserveTopForSearch],
   );
 
   return (
@@ -600,9 +630,13 @@ export function FunderNewRouteMap({
       <div ref={hostRef} className="h-full w-full" aria-label="Google map of available homes" />
       {mapError ? <div className="absolute inset-0 grid place-items-center bg-muted p-6 text-center text-sm text-muted-foreground">{mapError}</div> : null}
       {controls}
+      {fullscreen && notice ? (
+        // Clear of the floating search bar above and the round buttons on the right.
+        <div className="pointer-events-none absolute left-3 right-[4.5rem] top-[4.75rem] z-20 pt-safe">{notice}</div>
+      ) : null}
       <p className={cn(
         "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
-        fullscreen ? (reserveTopForSearch ? "top-[4.75rem] left-3 pt-safe hidden sm:block" : "top-3 left-3 pt-safe hidden sm:block") : "bottom-6"
+        fullscreen ? (reserveTopForSearch ? (notice ? "top-[9.75rem] left-3 pt-safe hidden sm:block" : "top-[4.75rem] left-3 pt-safe hidden sm:block") : "top-3 left-3 pt-safe hidden sm:block") : "bottom-6"
       )}>{loadedNote}</p>
     </div>
   );
