@@ -1861,12 +1861,8 @@ function EnrollDialog({
         // 1. Landlords REGISTERED BY THIS AGENT ONLY in landlords table
         const myRegisteredDbIds = new Set<string>();
         try {
-          const { data: myDbLandlords } = await supabase
-            .from('landlords')
-            .select('id, name, phone, property_address, description, receipt_request_channel, district, county, sub_county, village, cell, ug_village_id, latitude, longitude, registered_by, location_captured_by')
-            .eq('registered_by', agentId)
-            .order('created_at', { ascending: false })
-            .limit(300);
+          // Server-scoped: returns only landlords registered by the signed-in agent.
+          const { data: myDbLandlords } = await (supabase.rpc as any)('get_my_welile_homes_landlords', { p_limit: 300 });
 
           (myDbLandlords || []).forEach((row: any) => {
             // Strict agent boundary: must be registered by THIS agent only

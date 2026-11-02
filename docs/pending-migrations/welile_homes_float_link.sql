@@ -181,6 +181,21 @@ begin
       using errcode = '42501';
   end if;
 
+  -- Landlord ownership: every linked landlord must be registered by the caller.
+  if exists (
+    select 1 from public.welile_homes_subscriptions s
+     where s.id = any(v_ids)
+       and (
+         (s.landlord_id is not null and not exists (
+            select 1 from public.landlords l where l.id = s.landlord_id and l.registered_by = v_uid))
+         or (s.landlord_id is null and nullif(trim(s.landlord_phone), '') is not null
+             and exists (select 1 from public.landlords l where l.phone = trim(s.landlord_phone) and l.registered_by is distinct from v_uid)
+             and not exists (select 1 from public.landlords l where l.phone = trim(s.landlord_phone) and l.registered_by = v_uid))
+       )
+  ) then
+    raise exception 'Float can only be requested for landlords you registered' using errcode = '42501';
+  end if;
+
   perform set_config('welile.wh_float_rpc', 'on', true);
 
   insert into public.float_requests (agent_id, requested_amount, reason, expected_recipient_phone, status, product)
