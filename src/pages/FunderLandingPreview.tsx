@@ -370,9 +370,9 @@ export default function FunderLandingPreview() {
             aria-label="Your profile"
             className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-primary text-[15px] font-bold text-primary-foreground shadow-lg"
           >
-            {avatarUrl && !avatarFailed ? (
+            {signedAvatarUrl && !avatarFailed ? (
               <img
-                src={avatarUrl}
+                src={signedAvatarUrl}
                 alt=""
                 onError={() => setAvatarFailed(true)}
                 className="h-full w-full object-cover"
