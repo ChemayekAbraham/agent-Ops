@@ -13,10 +13,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 import { type AiRole } from './roleLanding';
 import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips } from './assistantConfig';
+import claraAvatar from '@/assets/clara-avatar.png';
 
 const INITIAL = ASSISTANT_NAME.charAt(0).toUpperCase();
 function Avatar({ size = 'h-7 w-7' }: { size?: string }) {
-  return <span className={`flex ${size} shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground`} aria-hidden="true">{INITIAL}</span>;
+  return <span className={`relative flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-primary-foreground`} aria-hidden="true">
+    <span>{INITIAL}</span>
+    <img src={claraAvatar} alt="" loading="lazy" width={192} height={192} className="absolute inset-0 h-full w-full object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />
+  </span>;
 }
 
 export interface AssistantChatSurfaceProps {
