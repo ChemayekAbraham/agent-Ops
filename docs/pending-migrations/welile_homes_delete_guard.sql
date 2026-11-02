@@ -1,5 +1,5 @@
 -- Welile Homes: a repaying, funded or requested plan cannot be deleted.
--- PROPOSAL — not applied. Apply through the approved migration workflow only.
+-- APPLIED 2026-11-02 via the migration workflow (plus a delete guard trigger on welile_homes_monthly_dues).
 -- Rollback: docs/pending-migrations/welile_homes_delete_guard.rollback.sql
 --
 -- Why:
