@@ -9,11 +9,12 @@ import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
 
-const SERVICE_AREA_CENTRE = { lat: 1.3733, lng: 32.2903 };
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
 const KAMPALA_CENTRE = { lat: 0.3476, lng: 32.5825 };
 const KAMPALA_ZOOM = 12;
+/** How long the first data request waits for a location fix before loading Kampala instead. */
+const HOLD_FOR_LOCATION_MS = 4000;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
@@ -258,6 +259,20 @@ export function FunderNewRouteMap({
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const initialisedRef = useRef(false);
   const markerJobRef = useRef(0);
+  // Waiting for the user's location fix: hold the first data request so the map
+  // never loads a wide, wrong view only to throw it away when the fix lands. A
+  // short grace period stops the hold from lasting if the fix is slow.
+  const [graceExpired, setGraceExpired] = useState(false);
+  const holding = awaitingDeviceFix && !device && !graceExpired;
+  const holdingRef = useRef(holding);
+  holdingRef.current = holding;
+  const deviceRef = useRef(device);
+  deviceRef.current = device;
+  useEffect(() => {
+    if (!holding) return;
+    const timer = window.setTimeout(() => setGraceExpired(true), HOLD_FOR_LOCATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [holding]);
   const reportTimerRef = useRef<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -274,6 +289,7 @@ export function FunderNewRouteMap({
       if (!map) return;
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
       const doReport = () => {
+        if (holdingRef.current) return;
         const viewport = viewportOf(map);
         if (!viewport) return;
         onViewportChange(viewport);
@@ -295,8 +311,10 @@ export function FunderNewRouteMap({
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !hostRef.current) return;
-        const initialCenter = device ?? (awaitingDeviceFix ? SERVICE_AREA_CENTRE : KAMPALA_CENTRE);
-        const initialZoom = device ? LOCATED_ZOOM : awaitingDeviceFix ? SERVICE_AREA_ZOOM : KAMPALA_ZOOM;
+        // While a location fix is pending the map shows Kampala (no data is requested
+        // for it); it moves to the person the moment the fix lands.
+        const initialCenter = deviceRef.current ?? KAMPALA_CENTRE;
+        const initialZoom = deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM;
         const map = new google.maps.Map(hostRef.current, {
           center: initialCenter,
           zoom: initialZoom,
@@ -345,6 +363,16 @@ export function FunderNewRouteMap({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus?.token]);
+
+  useEffect(() => {
+    if (holding) return;
+    const map = mapRef.current;
+    if (!map || device || !initialisedRef.current) return;
+    // The wait ended with no fix (error or grace period): load Kampala. A fix that
+    // arrives later still moves the map through the [device] effect below.
+    google.maps.event.trigger(map, 'resize');
+    reportViewport(false, true);
+  }, [holding, device, reportViewport]);
 
   useEffect(() => {
     const map = mapRef.current;

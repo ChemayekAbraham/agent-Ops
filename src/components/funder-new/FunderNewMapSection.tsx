@@ -77,12 +77,20 @@ export function FunderNewMapSection({
   );
 
   const range = amountRange(filters.amount);
-  const cellQuery = useEmptyHouseMapCells(cellViewport, {
-    search: filters.search.trim() || undefined,
-    district: filters.location.trim() || undefined,
-    minRent: range.min,
-    maxRent: range.max,
-  });
+  // The person's position (when known) also drives a small, fast request for the
+  // houses right around them, so the closest ones show up first.
+  const nearPoint = useMemo(() => (device ? { lat: device.lat, lng: device.lng } : null), [device?.lat, device?.lng]);
+  const cellQuery = useEmptyHouseMapCells(
+    cellViewport,
+    {
+      search: filters.search.trim() || undefined,
+      district: filters.location.trim() || undefined,
+      minRent: range.min,
+      maxRent: range.max,
+    },
+    true,
+    nearPoint,
+  );
 
   const cells = useMemo<FunderNewMapCell[]>(() => {
     const raw = (cellQuery.data?.cells ?? []).map((cell) => ({
@@ -104,12 +112,13 @@ export function FunderNewMapSection({
   const heading = device ? 'Homes near you' : origin?.source === 'area' ? 'Homes in this area' : 'Explore homes by area';
 
   const loadedNote = useMemo(() => {
+    if (awaitingDeviceFix && !cellQuery.data) return 'Finding your location\u2026';
     if (!cellQuery.data && cellQuery.isFetching) return 'Loading homes in this view\u2026';
     if (cellQuery.isError) return 'Homes could not be loaded on the map.';
     if (housesInView === 0) return 'No mapped homes in this view.';
     const suffix = cellQuery.isFetching ? ' Still loading more\u2026' : ' Prices in UGX.';
     return `Showing ${housesInView.toLocaleString()} mapped ${housesInView === 1 ? 'home' : 'homes'} in this view.${suffix}`;
-  }, [cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView]);
+  }, [awaitingDeviceFix, cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView]);
 
   const handleReset = useCallback(() => {
     setViewport(null);
