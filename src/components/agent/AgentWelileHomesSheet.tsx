@@ -620,6 +620,28 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     [subs, selectedTenantIds]
   );
 
+  // Automatically prune any stale or deleted tenant IDs from selection when subs change
+  useEffect(() => {
+    setSelectedTenantIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(
+        subs
+          .filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified)
+          .map((s) => s.id)
+      );
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [subs]);
+
   const selectedLandlordNames = useMemo(
     () => Array.from(new Set(selectedTenants.map((s) => s.landlord_name || 'Landlord'))),
     [selectedTenants]
@@ -1294,7 +1316,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       )}
 
       {/* Sticky / Fixed Floating Action Bar for Total Float Request */}
-      {selectedTenantIds.size > 0 && (
+      {selectedTenants.length > 0 && (
         <div
           className={cn(
             isPage
@@ -1307,7 +1329,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium text-foreground">
-                  {selectedLandlordNames.length} {selectedLandlordNames.length === 1 ? 'landlord' : 'landlords'} · {selectedTenantIds.size} {selectedTenantIds.size === 1 ? 'tenant' : 'tenants'}
+                  {selectedLandlordNames.length} {selectedLandlordNames.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
                 </span>
               </div>
               <p className="text-sm sm:text-base font-bold text-foreground truncate">
@@ -1460,6 +1482,11 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                   });
                   if (error) throw error;
                   toast({ title: 'Enrollment deleted', description: `${deleteFor.tenant_name} has been removed.` });
+                  setSelectedTenantIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(deleteFor.id);
+                    return next;
+                  });
                   setDeleteFor(null);
                   load();
                 } catch (err: any) {
@@ -1621,7 +1648,7 @@ function RequestFloatDialog({
             <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Total Float Requested</p>
             <p className="text-2xl font-bold text-primary mt-1">{formatUGX(totalAmount)}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              For {landlordBreakdown.length} {landlordBreakdown.length === 1 ? 'landlord' : 'landlords'} · {selectedTenantIds.size} {selectedTenantIds.size === 1 ? 'tenant' : 'tenants'}
+              For {landlordBreakdown.length} {landlordBreakdown.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
             </p>
           </div>
 
