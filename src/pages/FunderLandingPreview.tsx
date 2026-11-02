@@ -387,7 +387,9 @@ export default function FunderLandingPreview() {
               )}
             </button>
           </motion.div>
+        </div>
 
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)]">
           <motion.section
             aria-label="Amount needed to fund houses"
             aria-busy={summary.isLoading}
