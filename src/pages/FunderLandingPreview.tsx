@@ -12,6 +12,7 @@ import { NotificationBell } from '@/components/supporter/NotificationBell';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { supabase } from '@/integrations/supabase/client';
+import { FunderPreviewFilterDialog } from '@/components/funder-preview/FunderPreviewFilterDialog';
 import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
 import { itemAmount } from '@/components/funder-new/utils';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
@@ -565,6 +566,17 @@ export default function FunderLandingPreview() {
             filters={filters}
             districts={districtOptions}
             supportsSort
+            compact
+            afterSort={
+              <FunderPreviewFilterDialog
+                filters={filters}
+                districts={districtOptions}
+                availableBalance={availableBalance}
+                floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+                resultCount={entries.length}
+                onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+              />
+            }
             hasOrigin={!!origin}
             availableBalance={availableBalance}
             floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}

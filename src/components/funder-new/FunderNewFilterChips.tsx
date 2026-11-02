@@ -33,6 +33,10 @@ interface Props {
   stacked?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
+  /** Show only Sort and Distance (other filters live elsewhere, e.g. a dialog). */
+  compact?: boolean;
+  /** Rendered right after the Sort control. */
+  afterSort?: ReactNode;
 }
 
 
@@ -53,6 +57,8 @@ export function FunderNewFilterChips({
   stacked = false,
   onChange,
   onSortChange,
+  compact = false,
+  afterSort = null,
 }: Props) {
   const districtTotal = districts.reduce((sum, item) => sum + item.count, 0);
   const dirty =
@@ -100,8 +106,9 @@ export function FunderNewFilterChips({
           </SelectContent>
         </Select>
       ) : null}
+      {afterSort}
 
-      {districts.length > 0 ? field('District',
+      {!compact && districts.length > 0 ? field('District',
         <Select
           value={filters.location.trim() === '' ? 'all' : filters.location}
           onValueChange={(value) => onChange({ location: value === 'all' ? '' : value })}
@@ -141,7 +148,7 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {field('Min amount',
+      {!compact && field('Min amount',
         <Input
           value={filters.rentMin === null ? '' : String(filters.rentMin)}
           onChange={(event) => onChange({ rentMin: parseAmount(event.target.value) })}
@@ -155,7 +162,7 @@ export function FunderNewFilterChips({
           }
         />
       )}
-      {field('Max amount',
+      {!compact && field('Max amount',
         <Input
           value={filters.rentMax === null ? '' : String(filters.rentMax)}
           onChange={(event) => onChange({ rentMax: parseAmount(event.target.value) })}
@@ -171,7 +178,7 @@ export function FunderNewFilterChips({
       )}
 
 
-      <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
+      {!compact && <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
           type="button"
           aria-pressed={filters.withinFloat}
@@ -189,7 +196,7 @@ export function FunderNewFilterChips({
             {' '}· {floatBalance === null ? '…' : formatDynamic(floatBalance)}
           </span>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
