@@ -1,17 +1,15 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Calculator, ChevronRight, MessageCircle, Search, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ChevronRight, MessageCircle, Search, Sparkles, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import WelileLogo from '@/components/WelileLogo';
-import { RentPlanCalculatorCard } from './RentPlanCalculatorCard';
 
 /** The assistant's display name — change it here only. */
 export const ASSISTANT_NAME = 'Mukwano';
 export const HELP_URL = 'https://help.welileapp.com';
 export const WHATSAPP_URL = 'https://wa.me/256777607640';
-const CALC_ID = 'assistant-home-calculator';
 
 function WhatsAppIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.7-.8-2-.9-.3-.1-.5-.1-.7.1-.2.3-.8.9-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.4s1 2.8 1.2 3c.1.2 2 3.1 4.9 4.3 2.4.9 2.9.8 3.4.7.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z" /></svg>;
@@ -29,7 +27,6 @@ export function AssistantHomeTab({ firstName, onAsk, onClose }: { firstName: str
     <div className="flex items-center justify-between">
       <WelileLogo size="sm" />
       <div className="flex gap-1">
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Rent Plan calculator" onClick={() => document.getElementById(CALC_ID)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}><Calculator /></Button>
         <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Close" onClick={onClose}><X /></Button>
       </div>
     </div>
@@ -39,7 +36,6 @@ export function AssistantHomeTab({ firstName, onAsk, onClose }: { firstName: str
     </div>
     <ActionCard title={`Ask ${ASSISTANT_NAME}`} sub="Instant answers, day or night" icon={<ChevronRight className="h-5 w-5" />} onClick={onAsk} />
     <ActionCard title="Talk to a person" sub="Chat with us on WhatsApp" icon={<WhatsAppIcon />} href={WHATSAPP_URL} />
-    <RentPlanCalculatorCard id={CALC_ID} />
     <form onSubmit={e => { e.preventDefault(); window.open(HELP_URL, '_blank', 'noopener'); }} className="relative">
       <Input value={q} onChange={e => setQ(e.target.value)} placeholder="Search for help" aria-label="Search for help" className="h-12 rounded-2xl pr-11" />
       <button type="submit" aria-label="Search" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"><Search className="h-5 w-5" /></button>
