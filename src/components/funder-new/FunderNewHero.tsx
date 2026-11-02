@@ -72,20 +72,25 @@ export function FunderNewHero({
       {decoration}
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
-          <h1 className="text-sm font-semibold tracking-tight text-primary-foreground/85 sm:text-base">
-            Amount needed to fund houses:
+          <h1 className="text-[1.75rem] font-black leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl">
+            <span className="block">Earn 15% of your</span>
+            <span className="block">money monthly</span>
+            <span className="block text-[hsl(var(--signature-rent-accent))]">when you pay a</span>
+            <span className="block text-[hsl(var(--signature-rent-accent))]">tenant&apos;s rent</span>
           </h1>
 
-          <p className="mt-1 flex flex-wrap items-baseline gap-x-2 leading-none">
-            <span className="text-base font-semibold text-primary-foreground/80 sm:text-lg">{prefix}</span>
-            <span className="break-words text-[1.75rem] font-bold tracking-tight sm:text-4xl lg:text-5xl">
-              {figure}
-            </span>
-          </p>
-
-          <p className="mt-2 text-sm font-medium text-primary-foreground/90 sm:text-base">
-            over {summary.houseCount.toLocaleString()}+ homes&nbsp;
-          </p>
+          <div className="mt-5">
+            <p className="text-xs font-bold text-[hsl(var(--signature-rent-subtle))]">
+              Amount needed to fund houses:
+            </p>
+            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 leading-tight">
+              <span className="text-sm font-bold text-[hsl(var(--signature-rent-subtle))]">{prefix}</span>
+              <span className="break-words text-xl font-black tracking-tight sm:text-2xl">{figure}</span>
+            </p>
+            <p className="mt-0.5 text-[11px] font-bold leading-snug text-[hsl(var(--signature-rent-subtle))]">
+              over {summary.houseCount.toLocaleString()}+ homes
+            </p>
+          </div>
         </div>
 
       </div>
