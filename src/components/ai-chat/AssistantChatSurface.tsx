@@ -109,7 +109,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
           <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full items-center justify-center' : ''}`}>
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
-                <p className="text-sm text-muted-foreground">Hi {firstName} 👋</p>
+                <p className="text-xl font-bold text-foreground">Hi {firstName} 👋</p>
                 <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. How can i help you!</p>
               </div>
               <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
