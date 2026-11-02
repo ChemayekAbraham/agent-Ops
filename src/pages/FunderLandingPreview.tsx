@@ -230,7 +230,7 @@ export default function FunderLandingPreview() {
     // look like they do nothing. Presentation only.
     const rec = (e: FeedEntry) => e.item as unknown as Record<string, unknown>;
     const place = filters.location.trim().toLowerCase();
-    const radius = filters.radiusKm === 'all' ? null : filters.radiusKm;
+    const radius = filters.radiusKm === 'all' || !origin ? null : filters.radiusKm;
     const filtered = [...empty, ...ready].filter((entry) => {
       const r = rec(entry);
       const amount = itemAmount(entry.category, entry.item);
@@ -269,7 +269,7 @@ export default function FunderLandingPreview() {
       default:
         return sortFunderFeedEntries(filtered);
     }
-  }, [category, emptyQuery.data, readyQuery.data, filters, availableBalance]);
+  }, [category, emptyQuery.data, readyQuery.data, filters, availableBalance, origin]);
 
   const districtOptions = useMemo(
     () => (summary.data?.districts ?? []).map((d) => ({ value: d.value, label: d.label, count: d.count })),
