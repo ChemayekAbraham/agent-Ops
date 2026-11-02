@@ -61,8 +61,7 @@ export function loadGoogleMaps(): Promise<typeof google.maps> {
       new Promise<typeof google.maps>((resolve, reject) => {
         const callbackName = '__initFunderNewGoogleMap';
         window[callbackName] = () => {
-          if (window.google?.maps) resolve(window.google.maps);
-          else reject(new Error('Google Maps did not initialise.'));
+          ensureMapsReady().then(resolve, reject);
           delete window[callbackName];
         };
 
