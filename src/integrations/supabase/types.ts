@@ -52036,6 +52036,101 @@ export type Database = {
           },
         ]
       }
+      special_advance_repayment_allocations: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          instalment_number: number
+          principal: number
+          registration_fee: number
+          repayment_id: string
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          instalment_number: number
+          principal: number
+          registration_fee: number
+          repayment_id: string
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          instalment_number?: number
+          principal?: number
+          registration_fee?: number
+          repayment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_repayment_allocations_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_repayment_allocations_repayment_id_fkey"
+            columns: ["repayment_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_repayments: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note: string | null
+          proof_path: string
+          received_date: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note?: string | null
+          proof_path: string
+          received_date: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          method?: string
+          note?: string | null
+          proof_path?: string
+          received_date?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_repayments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       special_advance_settings: {
         Row: {
           id: boolean
@@ -52082,6 +52177,10 @@ export type Database = {
           instalment_amount: number
           instalments: number
           payout_date: string | null
+          payout_ledger_group_id: string | null
+          payout_method: string | null
+          payout_proof_path: string | null
+          payout_reference: string | null
           planned_payout_date: string | null
           principal: number
           purpose: string
@@ -52118,6 +52217,10 @@ export type Database = {
           instalment_amount: number
           instalments: number
           payout_date?: string | null
+          payout_ledger_group_id?: string | null
+          payout_method?: string | null
+          payout_proof_path?: string | null
+          payout_reference?: string | null
           planned_payout_date?: string | null
           principal: number
           purpose: string
@@ -52154,6 +52257,10 @@ export type Database = {
           instalment_amount?: number
           instalments?: number
           payout_date?: string | null
+          payout_ledger_group_id?: string | null
+          payout_method?: string | null
+          payout_proof_path?: string | null
+          payout_reference?: string | null
           planned_payout_date?: string | null
           principal?: number
           purpose?: string
@@ -71729,6 +71836,10 @@ export type Database = {
         Args: { p_amount: number; p_due: Json }
         Returns: Json
       }
+      _special_advance_check_proof: {
+        Args: { p_advance: string; p_path: string }
+        Returns: string
+      }
       _special_advance_eligibility: {
         Args: {
           p_exclude: string
@@ -71766,6 +71877,10 @@ export type Database = {
           instalment_amount: number
           instalments: number
           payout_date: string | null
+          payout_ledger_group_id: string | null
+          payout_method: string | null
+          payout_proof_path: string | null
+          payout_reference: string | null
           planned_payout_date: string | null
           principal: number
           purpose: string
@@ -71794,11 +71909,13 @@ export type Database = {
         Args: { p: Json; p_start: string }
         Returns: Json
       }
+      _special_advance_position: { Args: { p_id: string }; Returns: Json }
       _special_advance_reason: {
         Args: { p: string; p_required: boolean }
         Returns: string
       }
       _special_advance_require_cfo: { Args: never; Returns: string }
+      _special_advance_require_mfa: { Args: never; Returns: undefined }
       _special_advance_schedule: {
         Args: {
           p_frequency: string
@@ -90621,16 +90738,26 @@ export type Database = {
       }
       special_advance_cfo_ok: { Args: never; Returns: boolean }
       special_advance_create: { Args: { p_request: Json }; Returns: Json }
+      special_advance_disburse: {
+        Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
+        Returns: Json
+      }
       special_advance_get: { Args: { p_id: string }; Returns: Json }
       special_advance_list: {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
       special_advance_quote: { Args: { p_request: Json }; Returns: Json }
+      special_advance_reconciliation: { Args: never; Returns: Json }
+      special_advance_record_repayment: {
+        Args: { p_id: string; p_repayment: Json }
+        Returns: Json
+      }
       special_advance_reject: {
         Args: { p_expected_updated_at: string; p_id: string; p_reason: string }
         Returns: Json
       }
+      special_advance_statement: { Args: { p_id: string }; Returns: Json }
       split_portfolio_principal: {
         Args: {
           p_portfolio_id: string
