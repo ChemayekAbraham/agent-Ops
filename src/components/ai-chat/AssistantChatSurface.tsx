@@ -127,7 +127,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
       </SheetHeader>
 
       {showHistory ? <HistoryList onBack={() => setShowHistory(false)} /> : <>
-        <Conversation initial={false} resize="instant" className="min-h-0 flex-1" aria-live="polite">
+        <Conversation initial={false} resize="instant" className="relative min-h-0 flex-1" aria-live="polite">
           <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full items-center justify-center' : ''}`}>
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
@@ -142,7 +142,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
               {message.role === 'user'
                 ? <MessageContent className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-[15px] leading-relaxed text-primary-foreground">{message.content}</MessageContent>
                 : <div className="flex w-full items-start gap-2.5"><Avatar /><div className="min-w-0 max-w-[85%]">
-                  <div className="rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-foreground">
+                  <div className="rounded-2xl rounded-tl-sm border border-primary/15 bg-primary/10 px-3.5 py-2.5 text-foreground">
                     <MessageResponse className="break-words text-[15px] leading-relaxed [&_a]:underline [&_a]:underline-offset-2" components={{ a: ({ href, children }) => <a href={actionHref(href)}>{children}</a> }}>{message.content}</MessageResponse>
                   </div>
                   <div className="mt-1 flex items-center gap-1 text-muted-foreground">
@@ -152,9 +152,9 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
                   {index === messages.length - 1 && message.quickReplies && <div className="mt-1 flex flex-wrap gap-2">{message.quickReplies.map(reply => <Button key={reply} variant="outline" size="sm" className="h-auto min-h-9 whitespace-normal rounded-full" disabled={isLoading} onClick={() => submit(reply)}>{reply}</Button>)}</div>}
                 </div></div>}
             </Message>)}
-            {isLoading && <div className="flex items-center gap-2.5" aria-label={`${ASSISTANT_NAME} is typing`}><Avatar /><span className="flex gap-1 rounded-2xl bg-muted px-3.5 py-3">{[0, 150, 300].map(d => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground motion-reduce:animate-none" style={{ animationDelay: `${d}ms` }} />)}</span></div>}
+            {isLoading && <div className="flex items-center gap-2.5" aria-label={`${ASSISTANT_NAME} is typing`}><Avatar /><span className="flex gap-1 rounded-2xl bg-primary/10 px-3.5 py-3">{[0, 150, 300].map(d => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground motion-reduce:animate-none" style={{ animationDelay: `${d}ms` }} />)}</span></div>}
           </ConversationContent>
-          {messages.length > 0 && <ConversationScrollButton aria-label="Scroll to latest" />}
+          {messages.length > 0 && <ConversationScrollButton aria-label="Scroll to latest" className="bottom-3 z-10 h-9 w-9 border-border bg-background shadow-md" />}
         </Conversation>
 
         <div className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-2">
