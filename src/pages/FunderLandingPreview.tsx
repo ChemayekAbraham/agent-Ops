@@ -129,7 +129,6 @@ export default function FunderLandingPreview() {
   });
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [sortTouched, setSortTouched] = useState(false);
-  const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -149,11 +148,8 @@ export default function FunderLandingPreview() {
         label: 'your location',
       };
     }
-    if (area) {
-      return { lat: area.lat, lng: area.lng, source: 'area', radiusKm: chosenRadius ?? area.radiusKm, label: 'this area' };
-    }
     return null;
-  }, [location.coords, area, filters.radiusKm]);
+  }, [location.coords, filters.radiusKm]);
 
   const deviceOrigin = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
 
