@@ -407,7 +407,7 @@ export function FunderNewRouteMap({
 
     // A new area can bring hundreds of pins at once. Creating them all in one
     // go blocks the main thread (a visible hitch on phones), so they are added a
-    // slice per frame. A newer sync cancels the unfinished slices; the cells it
+    // slice per tick (about one frame apart). A newer sync cancels the unfinished slices; the cells it
     // still lacks are simply picked up again by that sync.
     const job = ++markerJobRef.current;
     const SLICE = 50;
@@ -435,7 +435,9 @@ export function FunderNewRouteMap({
         });
         store.set(cell.key, entry);
       }
-      if (end < toCreate.length) window.requestAnimationFrame(() => createSlice(end));
+      // A timer, not requestAnimationFrame: frames stop in a backgrounded tab, and the
+      // pins should still finish arriving there.
+      if (end < toCreate.length) window.setTimeout(() => createSlice(end), 16);
     };
     createSlice(0);
   }, [cells, selectedIds, savedIds, activeId]);
