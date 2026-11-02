@@ -147,7 +147,18 @@ export default function SupporterDashboard({
       // Ignore the map's initial "not expanded" report on mount; only a real close unmounts it.
       mapWasExpandedRef.current = false;
       setMapRequested(false);
+      // The list resets with its sheet, so the map starts unfiltered next time too.
+      setMapFilters((prev) => (prev.search || prev.location || prev.amount !== 'all' ? { ...prev, search: '', location: '', amount: 'all' } : prev));
     }
+  }, []);
+  // The floating search and the filter drawer drive the houses list; mirror them
+  // onto the map so the pins match what the list shows.
+  const handleListFiltersChange = useCallback((next: { search: string; location: string; amount: FunderNewFilters['amount'] }) => {
+    setMapFilters((prev) =>
+      prev.search === next.search && prev.location === next.location && prev.amount === next.amount
+        ? prev
+        : { ...prev, search: next.search, location: next.location, amount: next.amount },
+    );
   }, []);
 
   useEffect(() => {
@@ -715,6 +726,7 @@ export default function SupporterDashboard({
                       <FunderApprovalBanner className="mb-3" />
                       <FunderCapitalOpportunities
                         searchOnMap
+                        onListFiltersChange={handleListFiltersChange}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}

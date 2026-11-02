@@ -26,7 +26,7 @@ import { FundRentDialog } from './FundRentDialog';
 import { InvestmentWithdrawButton } from './InvestmentWithdrawButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { FunderHouseListingsSection, type FunderListMapFilters } from '@/components/supporter/FunderHouseListingsSection';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
@@ -479,6 +479,7 @@ export function FunderCapitalOpportunities({
   initialView = 'menu',
   embedded = false,
   searchOnMap = false,
+  onListFiltersChange,
 }: {
   initialView?: ViewState;
   /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
@@ -486,6 +487,8 @@ export function FunderCapitalOpportunities({
   embedded?: boolean;
   /** Float the search bar at the top of the full screen map instead of inside the sheet. */
   searchOnMap?: boolean;
+  /** Mirrors the houses list's search, district and amount to a map on the same screen. */
+  onListFiltersChange?: (filters: FunderListMapFilters) => void;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
@@ -799,7 +802,7 @@ export function FunderCapitalOpportunities({
         {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <FunderHouseListingsSection searchOnMap={searchOnMap} />
+            ? <FunderHouseListingsSection searchOnMap={searchOnMap} onFiltersChange={onListFiltersChange} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 

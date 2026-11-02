@@ -48,7 +48,16 @@ interface FeedEntry {
  * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
  * There are no tabs: one feed, one list.
  */
-export function FunderHouseListingsSection({ searchOnMap = false }: { searchOnMap?: boolean } = {}) {
+export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
+
+export function FunderHouseListingsSection({
+  searchOnMap = false,
+  onFiltersChange,
+}: {
+  searchOnMap?: boolean;
+  /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
+  onFiltersChange?: (filters: FunderListMapFilters) => void;
+} = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
@@ -90,6 +99,10 @@ export function FunderHouseListingsSection({ searchOnMap = false }: { searchOnMa
       current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
     );
   }, [debouncedSearch]);
+
+  useEffect(() => {
+    onFiltersChange?.({ search: filters.search, location: filters.location, amount: filters.amount });
+  }, [filters.search, filters.location, filters.amount, onFiltersChange]);
 
   /**
    * Single origin for distance labels and the nearest-first sort: the device
