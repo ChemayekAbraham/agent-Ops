@@ -88914,6 +88914,7 @@ export type Database = {
         Args: { p_agent_id: string; p_label?: string; p_phone: string }
         Returns: Json
       }
+      register_otp_attempt: { Args: { p_otp_id: string }; Returns: number }
       register_tenant_document: {
         Args: {
           p_bucket: string
