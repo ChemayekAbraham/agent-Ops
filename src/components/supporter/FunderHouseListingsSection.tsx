@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
-import DepositFlow from '@/components/payments/DepositFlow';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +49,22 @@ interface FeedEntry {
  * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
  * There are no tabs: one feed, one list.
  */
-export function FunderHouseListingsSection() {
+// The top-up dialog is only needed after a tap; keep its (large) code out of opening the list.
+const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
+
+export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
+
+export function FunderHouseListingsSection({
+  searchOnMap = false,
+  onFiltersChange,
+  onResultsFocus,
+}: {
+  searchOnMap?: boolean;
+  /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
+  onFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** With a search typed, reports where the matching empty houses are so the map can move to them. */
+  onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
+} = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
@@ -75,6 +92,7 @@ export function FunderHouseListingsSection() {
   // Top-up launched from the detail sheet's Fund button when the balance
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const mountDeposit = useMountedOnce(topUpAmount !== null);
 
   // Quick search bar next to the Filters button. Debounced so the listing
   // queries don't refetch on every keystroke. The same text feeds BOTH the
@@ -89,6 +107,10 @@ export function FunderHouseListingsSection() {
       current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
     );
   }, [debouncedSearch]);
+
+  useEffect(() => {
+    onFiltersChange?.({ search: filters.search, location: filters.location, amount: filters.amount });
+  }, [filters.search, filters.location, filters.amount, onFiltersChange]);
 
   /**
    * Single origin for distance labels and the nearest-first sort: the device
@@ -131,6 +153,29 @@ export function FunderHouseListingsSection() {
     () => (readyQuery.data?.pages ?? []).flatMap((page) => page.items),
     [readyQuery.data],
   );
+
+  // Like a maps app, a search moves the map to what it found. Only the first
+  // page of matches is used, and only when the set of places actually changes.
+  const focusSignatureRef = useRef('');
+  useEffect(() => {
+    if (!onResultsFocus) return;
+    if (!filters.search.trim()) {
+      focusSignatureRef.current = '';
+      return;
+    }
+    if (emptyQuery.isFetching) return;
+    const points = emptyItems
+      .slice(0, 12)
+      .map((house) => {
+        const record = house as unknown as Record<string, unknown>;
+        return { lat: Number(record.latitude), lng: Number(record.longitude) };
+      })
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng) && (point.lat !== 0 || point.lng !== 0));
+    const signature = `${filters.search.trim()}|${points.map((point) => `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`).join(';')}`;
+    if (points.length === 0 || signature === focusSignatureRef.current) return;
+    focusSignatureRef.current = signature;
+    onResultsFocus(points);
+  }, [emptyItems, emptyQuery.isFetching, filters.search, onResultsFocus]);
 
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(
@@ -251,6 +296,59 @@ export function FunderHouseListingsSection() {
 
   return (
     <section className="space-y-3">
+      {/* On the full screen map the search floats at the top, like a maps app. */}
+      {searchOnMap && typeof document !== 'undefined' && createPortal(
+        <div
+          className="pointer-events-none fixed inset-x-0 top-0 z-[90] px-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
+          // This bar renders in a portal but is still a React child of the bottom
+          // sheet, so its presses would otherwise reach the sheet's drag handlers.
+          onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
+        >
+          <div className="pointer-events-auto mx-auto flex h-12 w-full max-w-lg items-center gap-2 rounded-full bg-card pl-4 pr-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.25)] ring-1 ring-black/5">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search house type or location…"
+              aria-label="Search houses and rent plans by type or location"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {searchInput ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchInput('')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              aria-label={filtersActive ? `Filters, ${activeFilterCount} applied` : 'Filters'}
+              onClick={() => setFiltersOpen(true)}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-muted ${filtersActive ? 'text-primary' : 'text-muted-foreground'}`}
+            >
+              <Filter className="h-5 w-5" aria-hidden />
+              {filtersActive ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground" aria-hidden>
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+      {!searchOnMap && (
+      <>
       {/* Search + compact filters row */}
       <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:p-3 sm:shadow-sm">
         <div className="relative min-w-0 flex-1">
@@ -308,6 +406,8 @@ export function FunderHouseListingsSection() {
           ) : null}
         </Button>
       </div>
+      </>
+      )}
 
       <FunderNewFilterDrawer
         open={filtersOpen}
@@ -566,13 +666,17 @@ export function FunderHouseListingsSection() {
         }}
         onReview={() => setReviewOpen(true)}
       />
-      <DepositFlow
-        open={topUpAmount !== null}
-        onOpenChange={(open) => {
-          if (!open) setTopUpAmount(null);
-        }}
-        defaultAmount={topUpAmount ?? undefined}
-      />
+      {mountDeposit && (
+        <Suspense fallback={null}>
+          <DepositFlow
+            open={topUpAmount !== null}
+            onOpenChange={(open) => {
+              if (!open) setTopUpAmount(null);
+            }}
+            defaultAmount={topUpAmount ?? undefined}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

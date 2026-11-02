@@ -35,11 +35,50 @@ function useSignedInEnabled(enabled = true): boolean {
   return useAuthenticatedAudience() && enabled;
 }
 
+const MARKET_SUMMARY_CACHE_KEY = 'welile.funder-new.market-summary.v1';
+
+/**
+ * Last market summary this browser saw. The hero shows it at once while the
+ * live figure loads, so a returning partner never waits on a blank card. The
+ * numbers are market-wide aggregates (no personal data). Storage can be blocked
+ * or corrupt, so every read and write is guarded and falls back to no cache.
+ */
+function readCachedMarketSummary(): FunderNewMarketSummary | undefined {
+  try {
+    const raw = window.localStorage.getItem(MARKET_SUMMARY_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = asRecord(JSON.parse(raw));
+    const houseCount = toNumber(parsed.houseCount);
+    const totalRentNeeded = toNumber(parsed.totalRentNeeded);
+    if (!(houseCount > 0) || !(totalRentNeeded > 0)) return undefined;
+    const districts = (Array.isArray(parsed.districts) ? parsed.districts : [])
+      .map((entry) => asRecord(entry))
+      .map((entry) => ({
+        value: String(entry.value ?? ''),
+        label: String(entry.label ?? ''),
+        count: toNumber(entry.count),
+      }))
+      .filter((entry) => entry.value.length > 0 && entry.count > 0);
+    return { houseCount, totalRentNeeded, avgMonthlyRent: toNumber(parsed.avgMonthlyRent), districts };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedMarketSummary(summary: FunderNewMarketSummary) {
+  try {
+    window.localStorage.setItem(MARKET_SUMMARY_CACHE_KEY, JSON.stringify(summary));
+  } catch {
+    /* quota or private mode: the next visit just loads live */
+  }
+}
+
 export function useFunderNewMarketSummary() {
   const signedIn = useSignedInEnabled();
   return useQuery<FunderNewMarketSummary>({
     queryKey: ['funder-new', 'empty-house-market-summary'],
     enabled: signedIn,
+    placeholderData: () => readCachedMarketSummary(),
     queryFn: async () => {
       await requireUserSession();
       const { data, error } = await supabase.rpc('empty_house_opportunity_summary');
@@ -55,7 +94,9 @@ export function useFunderNewMarketSummary() {
           return { value, label: placeCase(value) || value, count: toNumber(entry.house_count) };
         })
         .filter((entry) => entry.value.length > 0 && entry.count > 0);
-      return { houseCount, totalRentNeeded, avgMonthlyRent, districts };
+      const summary = { houseCount, totalRentNeeded, avgMonthlyRent, districts };
+      writeCachedMarketSummary(summary);
+      return summary;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,

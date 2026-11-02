@@ -51,7 +51,7 @@ function base64urlToBytes(input: string): Uint8Array {
   return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 }
 
-function concatBytes(...arrays: Uint8Array[]): Uint8Array {
+function concatBytes(...arrays: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = arrays.reduce((sum, a) => sum + a.length, 0);
   const out = new Uint8Array(total);
   let offset = 0;
@@ -83,7 +83,7 @@ async function encryptPayload(
   p256dh: string,
   auth: string,
   plaintext: Uint8Array,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const uaPublic = base64urlToBytes(p256dh); // recipient public key (65 bytes)
   const authSecret = base64urlToBytes(auth); // recipient auth secret (16 bytes)
   const salt = crypto.getRandomValues(new Uint8Array(16));

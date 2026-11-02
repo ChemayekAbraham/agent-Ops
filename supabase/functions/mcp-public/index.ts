@@ -511,10 +511,10 @@ function quoteV360(principal) {
   const gross = grossForMonths(principal, 1);
   const daily = dailyRate(principal, 1);
   const partner = Math.round(principal * PARTNER_MONTHLY_RATE);
-  const agentSub = Math.round(gross * 0.08);
-  const agentGeneral = Math.round(gross * 0.02);
+  const agentSub = Math.floor(gross * 0.06);
+  const agentGeneral = Math.floor(gross * 0.02);
   const rail = Math.round(railFee(principal, 1));
-  const welile = Math.round(gross * 0.07);
+  const welile = Math.floor(gross * 0.07);
   return {
     principal,
     gross,
@@ -658,7 +658,7 @@ var estimate_rent_access_default = defineTool3({
       assumptions: [
         `Access fee compounds at ${MONTHLY_RATE * 100}% a month over the plan length.`,
         `Service fee is ${ugx(1e4)} for rent up to ${ugx(2e5)}, otherwise ${ugx(2e4)}.`,
-        `Agent commission shown is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee \u2014 it is never added on top, so the total is unchanged.`,
+        `Agent commission on this current Rent Plan estimate is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee. It is never added on top, so the total is unchanged. A 360-day Rent Plan, only when that pricing is on, uses 8% of Gross (6% sub-agent and 2% general agent).`,
         plans.length > 1 ? `No plan length was given, so ${DEFAULT_DURATIONS.join("/")}-day options are compared.` : `Plan length of ${plans[0].durationDays} days as requested.`,
         "Daily payment is the total divided over the plan length, rounded up."
       ],
@@ -677,7 +677,7 @@ var estimate_rent_access_default = defineTool3({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
@@ -736,7 +736,7 @@ function project(amount, months) {
 var estimate_supporter_returns_default = defineTool4({
   name: "estimate_supporter_returns",
   title: "Estimate Supporter Returns (illustrative)",
-  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time (based on 15% monthly platform rewards), then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested) \u2014 it is an illustration only, not a guarantee; actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target 15%, not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
   inputSchema: {
     amount: z4.number().describe("Amount to support in UGX (e.g. 500000). Illustration only."),
     duration_months: z4.number().describe("Optional horizon in months (1-36). Omit to compare 3/6/12-month options.").optional(),
@@ -814,7 +814,7 @@ var estimate_supporter_returns_default = defineTool4({
       )} depending on horizon and whether Returns are paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Platform rewards of ${REWARD_RATE * 100}% a month on the supported amount.`,
+        `Partner Returns target 15%, not guaranteed. This illustration uses ${REWARD_RATE * 100}% a month on the supported amount.`,
         "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
         projections.length > 1 ? `No horizon was given, so ${DEFAULT_DURATIONS2.join("/")}-month options are compared.` : `Horizon of ${projections[0].durationMonths} month${projections[0].durationMonths === 1 ? "" : "s"} as requested.`,
         "Principal is assumed to stay in place for the whole horizon, with no withdrawal."
@@ -838,7 +838,7 @@ var estimate_supporter_returns_default = defineTool4({
         }))
       },
       disclaimers: [
-        "This is an illustration only \u2014 not a guarantee of Returns.",
+        "Partner Returns target 15%, not guaranteed. This is an illustration only.",
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period."
       ],

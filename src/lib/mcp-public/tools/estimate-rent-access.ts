@@ -186,7 +186,7 @@ export default defineTool({
       assumptions: [
         `Access fee compounds at ${MONTHLY_RATE * 100}% a month over the plan length.`,
         `Service fee is ${ugx(10_000)} for rent up to ${ugx(200_000)}, otherwise ${ugx(20_000)}.`,
-        `Agent commission shown is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee — it is never added on top, so the total is unchanged.`,
+        `Agent commission on this current Rent Plan estimate is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee. It is never added on top, so the total is unchanged. A 360-day Rent Plan, only when that pricing is on, uses 8% of Gross (6% sub-agent and 2% general agent).`,
         plans.length > 1
           ? `No plan length was given, so ${DEFAULT_DURATIONS.join("/")}-day options are compared.`
           : `Plan length of ${plans[0].durationDays} days as requested.`,
@@ -207,7 +207,7 @@ export default defineTool({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,

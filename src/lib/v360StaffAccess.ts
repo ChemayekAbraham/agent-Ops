@@ -27,7 +27,7 @@ const BANNER_ROLE_SET = new Set<string>(V360_STAFF_BANNER_ROLES);
 const CHANGE_ROLE_SET = new Set<string>(V360_CAN_CHANGE_ROLES);
 
 export const V360_STAFF_PRICING_MEANING =
-  'OFF = new Rent Plans use current pricing; ON = new Rent Plans get 360-day Model A. Existing plans are never repriced.';
+  'OFF = new Rent Plans use current pricing; ON = new Rent Plans get 360-day pricing. On a 360-day plan, tenant agent commission is 8% of Gross (6% sub-agent and 2% general agent), the Cover Pool is segregated, and Partner Returns target 15%, not guaranteed. Existing plans are never repriced.';
 
 export const V360_STAFF_PRICING_CONTROL =
   'CFO, COO and super admin control this switch from their dashboards. Other staff can see the status and cannot change it.';

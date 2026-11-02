@@ -38,7 +38,7 @@ const validateSignIn = (data: { phone: string; password: string }) => {
 };
 
 const benefits = [
-  { icon: TrendingUp, title: '15% Monthly Returns', description: 'Earn interest on your investments' },
+  { icon: TrendingUp, title: 'Partner Returns target 15%, not guaranteed', description: 'Illustrative Returns on support you provide' },
   { icon: Wallet, title: 'Flexible Withdrawals', description: 'Access your funds anytime' },
   { icon: Users, title: 'Help Tenants', description: 'Support people with rent payments' },
 ];

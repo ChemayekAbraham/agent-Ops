@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -338,9 +338,15 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const aiId = generateWelileAiId(tenantId);
   const navigate = useNavigate();
 
+  // The tenant whose profile is already on screen. A re-run caused only by the session re-resolving
+  // (user?.id flickering after a token refresh or returning from another app) must refresh quietly:
+  // the full-screen spinner unmounts every open dialog, e.g. the renewal confirmation-code box.
+  const loadedTenantRef = useRef<string | null>(null);
   useEffect(() => {
     // Header/identity first (single RPC), everything else streams in behind it.
-    loadFullProfile();
+    const alreadyShowing = loadedTenantRef.current === tenantId;
+    loadedTenantRef.current = tenantId;
+    loadFullProfile(alreadyShowing ? { silent: true } : undefined);
     refetchFloat();
   }, [tenantId, user?.id]);
 
@@ -892,7 +898,8 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       if (!newId) throw new Error('The rent request could not be posted. Please try again.');
       toast({ title: 'Rent request renewed ✅', description: `Posted for ${profile.full_name}` });
       sonnerToast.success(`Rent request renewed for ${profile.full_name}`);
-      loadFullProfile();
+      // Silent: a full-screen spinner here reads as the page reloading right after the agent taps Renew.
+      loadFullProfile({ silent: true });
     } catch (err: any) {
       console.error('Renew failed:', err);
       const raw = err?.message || err?.error_description || err?.details || err?.hint || '';

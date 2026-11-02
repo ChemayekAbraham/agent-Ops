@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { safeUUID } from '@/lib/safeUUID';
 import { useAuth } from '@/hooks/useAuth';
 import { captureSmartLocation } from '@/hooks/useSmartLocation';
-import { isPersonalAgentWorkQuery, acceptsPersonalAnswer } from '@/lib/assistantRouting';
+import { acceptsPersonalAnswer } from '@/lib/assistantRouting';
 import { requestAssistantPublicReply } from './assistantPublicReply';
 import { toAuthGatedUrl } from '@/lib/nexaSalesEngine';
 
@@ -81,6 +81,12 @@ function collectDevice() {
   };
 }
 
+/** Which screen the chat is on. A tone hint for the server only; it never widens what can be read. */
+function currentPage(): 'agent_dashboard' | 'other' {
+  if (typeof window === 'undefined') return 'other';
+  return window.location.pathname.startsWith('/dashboard/agent') ? 'agent_dashboard' : 'other';
+}
+
 /** supabase-js hides the JSON body of non-2xx replies inside `error.context`; recover it. */
 async function readResponse(data: unknown, error: unknown): Promise<AssistantResponse> {
   if (!error) return (data ?? {}) as AssistantResponse;
@@ -141,11 +147,15 @@ export function useAgentAssistant() {
       abortRef.current = controller;
 
       try {
-        if (user?.id && isPersonalAgentWorkQuery(message)) {
+        // Every signed-in message goes to the server first. The server decides what is in scope and
+        // which tools the person gets; the public bot is only the fallback for signed-out visitors
+        // and for server errors.
+        if (user?.id) {
         const { data, error } = await supabase.functions.invoke('agent-assistant', {
           body: {
             action: 'message',
             message,
+            page: currentPage(),
             ...(conversationIdRef.current ? { conversation_id: conversationIdRef.current } : {}),
             client_context: { device: collectDevice(), ...(geoRef.current ? { geo: geoRef.current } : {}) },
           },
