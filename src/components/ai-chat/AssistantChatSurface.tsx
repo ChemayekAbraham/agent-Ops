@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 import { type AiRole } from './roleLanding';
 import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips } from './assistantConfig';
+import claraAvatar from '@/assets/clara-avatar.png';
 
 const INITIAL = ASSISTANT_NAME.charAt(0).toUpperCase();
 function Avatar({ size = 'h-7 w-7' }: { size?: string }) {
