@@ -405,6 +405,16 @@ export function FunderNewRouteMap({
       }
     }
 
+    // Pins nearest the middle of the screen are created first, so what the person
+    // is looking at appears before the edges fill in.
+    const centre = map.getCenter();
+    if (centre && toCreate.length > 1) {
+      const centreLat = centre.lat();
+      const centreLng = centre.lng();
+      const distance = (cell: FunderNewMapCell) => (cell.lat - centreLat) ** 2 + (cell.lng - centreLng) ** 2;
+      toCreate.sort((a, b) => distance(a.cell) - distance(b.cell));
+    }
+
     // A new area can bring hundreds of pins at once. Creating them all in one
     // go blocks the main thread (a visible hitch on phones), so they are added a
     // slice per tick (about one frame apart). A newer sync cancels the unfinished slices; the cells it
