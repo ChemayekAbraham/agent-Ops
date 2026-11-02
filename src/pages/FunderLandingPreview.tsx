@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import DashboardHeader from '@/components/DashboardHeader';
+import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
+import { NotificationBell } from '@/components/supporter/NotificationBell';
+import { roleToSlug } from '@/lib/roleRoutes';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
@@ -60,12 +66,25 @@ interface FeedEntry {
  */
 export default function FunderLandingPreview() {
   const reduceMotion = useReducedMotion() ?? false;
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { user, roles, signOut, switchRole } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
   const { saved, toggleSave } = useFunderSavedItems();
+
+  // Same role-switch behavior as /dashboard/funder: switch, then let the
+  // persona URL render the matching dashboard.
+  const handleRoleSwitch = useCallback(
+    (newRole: AppRole) => {
+      if (!roles.includes(newRole)) return;
+      switchRole(newRole);
+      const targetRoute = roleDashboardRoutes[newRole] || roleToSlug(newRole);
+      navigate(targetRoute, { replace: true });
+    },
+    [roles, switchRole, navigate],
+  );
 
   const displayName =
     profile?.full_name?.trim() ||
@@ -113,6 +132,20 @@ export default function FunderLandingPreview() {
     };
   }, [avatarUrl]);
 
+  // The app top bar is sticky, so the map and the floating search bar have to
+  // sit below it. Measure its real height (safe-area + content) once mounted.
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [headerH, setHeaderH] = useState(0);
+  useEffect(() => {
+    const el = rootRef.current?.querySelector('header');
+    if (!el) return;
+    const measure = () => setHeaderH(el.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Frosted top bar: once the houses sheet scrolls up under the fixed top
   // bar, the bar gets a glass background so the list reads through it.
   const [barFrosted, setBarFrosted] = useState(false);
@@ -123,12 +156,12 @@ export default function FunderLandingPreview() {
     const observer = new IntersectionObserver(
       ([entry]) => setBarFrosted(!entry.isIntersecting),
       // Trigger when the sheet top reaches the bottom edge of the top bar
-      // (safe-area padding + 48px bar + a small margin).
-      { rootMargin: '-84px 0px 0px 0px', threshold: 0 },
+      // (app header + 48px bar + a small margin).
+      { rootMargin: `-${headerH + 60}px 0px 0px 0px`, threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, []);
+  }, [headerH]);
 
 
 
@@ -341,9 +374,19 @@ export default function FunderLandingPreview() {
         };
 
   return (
-    <div className="min-h-screen bg-background font-['Outfit'] text-foreground">
+    <div ref={rootRef} className="min-h-screen bg-background font-['Outfit'] text-foreground">
+      {/* ═══ APP CHROME: top bar with the logo, role switcher and notification bell ═══ */}
+      <DashboardHeader
+        currentRole="supporter"
+        availableRoles={roles}
+        onRoleChange={handleRoleSwitch}
+        onSignOut={signOut}
+        headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
+        compactInstallPrompt
+      />
+
       {/* ═══ MAP HERO ═══ */}
-      <div className="sticky top-0 h-[clamp(440px,66svh,620px)] w-full">
+      <div className="sticky h-[clamp(440px,66svh,620px)] w-full" style={{ top: headerH }}>
         <FunderPreviewMap
           cells={cells}
           device={location.coords}
@@ -360,9 +403,10 @@ export default function FunderLandingPreview() {
       {/* Floating top bar — fixed so it stays above the houses sheet while the sheet slides over the map. */}
       <div
         className={cn(
-          'pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))] transition-colors duration-300',
+          'pointer-events-none fixed inset-x-0 z-20 mx-auto max-w-3xl px-4 pt-3 transition-colors duration-300',
           barFrosted && 'bg-background/85 pb-3 shadow-[0_8px_24px_-12px_hsl(222_47%_11%/0.25)] backdrop-blur-2xl backdrop-saturate-150',
         )}
+        style={{ top: headerH }}
       >
         <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
           <Link
@@ -622,6 +666,9 @@ export default function FunderLandingPreview() {
         }}
         onReview={() => setReviewOpen(true)}
       />
+
+      {/* Bottom role pill — the same Tenant / Agent / Partner / Owner switcher as the rest of the app. */}
+      <BottomRoleSwitcher currentRole="supporter" onRoleChange={handleRoleSwitch} />
     </div>
   );
 }
