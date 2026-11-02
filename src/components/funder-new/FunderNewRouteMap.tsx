@@ -33,9 +33,26 @@ async function resolveMapsKey(): Promise<string> {
   throw new Error('Google Maps is not connected.');
 }
 
-function loadGoogleMaps(): Promise<typeof google.maps> {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
+async function ensureMapsReady(): Promise<typeof google.maps> {
+  const maps = window.google?.maps as (typeof google.maps & { importLibrary?: (n: string) => Promise<unknown> }) | undefined;
+  if (!maps) throw new Error('Google Maps did not initialise.');
+  // With loading=async the namespace can exist before Map/Marker are attached.
+  if (typeof maps.Map !== 'function' && typeof maps.importLibrary === 'function') {
+    await maps.importLibrary('maps');
+    await maps.importLibrary('marker');
+  }
+  if (typeof window.google?.maps?.Map !== 'function') throw new Error('Google Maps did not initialise.');
+  return window.google.maps;
+}
+
+export function loadGoogleMaps(): Promise<typeof google.maps> {
+  if (typeof window.google?.maps?.Map === 'function') return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
+  if (window.google?.maps) {
+    mapsPromise = ensureMapsReady();
+    mapsPromise.catch(() => { mapsPromise = null; });
+    return mapsPromise;
+  }
 
   const channel = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID'] as string | undefined;
 
@@ -44,8 +61,7 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
       new Promise<typeof google.maps>((resolve, reject) => {
         const callbackName = '__initFunderNewGoogleMap';
         window[callbackName] = () => {
-          if (window.google?.maps) resolve(window.google.maps);
-          else reject(new Error('Google Maps did not initialise.'));
+          ensureMapsReady().then(resolve, reject);
           delete window[callbackName];
         };
 
@@ -96,7 +112,7 @@ export interface FunderNewMapCell {
   house: FunderNewEmptyHouse | null;
 }
 
-function viewportOf(map: google.maps.Map): FunderNewViewport | null {
+export function viewportOf(map: google.maps.Map): FunderNewViewport | null {
   const bounds = map.getBounds();
   const centre = map.getCenter();
   if (!bounds || !centre) return null;
@@ -127,7 +143,7 @@ const pinIconCache = new Map<string, google.maps.Icon>();
  * Builds an SVG price-pill icon for Google Maps markers.
  * Displays only the formatted price tag with rent-tier styling.
  */
-function getPricePinIcon(
+export function getPricePinIcon(
   amount: number,
   active: boolean,
   saved: boolean,

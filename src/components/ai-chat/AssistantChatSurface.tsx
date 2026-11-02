@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ArrowUp, Calculator, Check, ChevronDown, Copy, LifeBuoy, MapPin, MoreHorizontal, Sparkles, SquarePen, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,16 @@ export const PUBLIC_STARTERS = [
 ];
 export const WORK_STARTERS = ['How much did I collect today?', 'What is remaining to collect today?', 'How many tenants am I collecting for?', 'Why is my collection low today?', 'What is my wallet balance?', 'Do I have any advances?'];
 const STARTERS = [...PUBLIC_STARTERS.map(([question]) => question), ...WORK_STARTERS];
+export const AGENT_DASHBOARD_STARTERS = [
+  'How much did I collect today?',
+  'How is my team doing this week?',
+  'Which of my tenants are overdue?',
+  'What is my wallet balance?',
+  'How do I renew a tenant who finished paying?',
+  'How do I earn more as an agent?',
+  'Work out a Rent Plan for UGX 500,000 over 30 days',
+];
+export const AGENT_GREETING = "Hi, I'm the Welile Assistant. Ask me about your tenants, your team, your wallet, or how things work in the app.";
 
 function Avatar() { return <span className="assistant-emblem flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Sparkles className="h-4 w-4" /></span>; }
 
@@ -49,7 +60,12 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
   const [starterIndex, setStarterIndex] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const visibleStarters = STARTERS.slice(starterIndex, starterIndex + 3);
+  const { pathname } = useLocation();
+  const onAgentDashboard = pathname.startsWith('/dashboard/agent');
+  const starters = onAgentDashboard ? AGENT_DASHBOARD_STARTERS : STARTERS;
+  const pageSize = onAgentDashboard && isMobile ? 4 : 3;
+  const start = starterIndex % starters.length;
+  const visibleStarters = [...starters, ...starters].slice(start, start + Math.min(pageSize, starters.length));
   useEffect(() => {
     if (!open || isLoading) return;
     const timer = setTimeout(() => {
@@ -74,7 +90,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
     <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(820px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[600px] rounded-2xl'}`}>
       <SheetHeader className="flex flex-row items-center gap-0.5 space-y-0 border-b border-border px-3 py-2 text-left [&>button:first-child]:hidden">
         <div className="min-w-0 flex-1">
-          <Button variant="ghost" className="h-auto min-h-0 justify-start gap-1 px-1 py-1 text-[15px]" onClick={() => setStarterIndex(index => (index + 3) % STARTERS.length)}>
+          <Button variant="ghost" className="h-auto min-h-0 justify-start gap-1 px-1 py-1 text-[15px]" onClick={() => setStarterIndex(index => (index + pageSize) % starters.length)}>
             <SheetTitle className="text-[15px] font-semibold">Welile Assistant</SheetTitle><ChevronDown className="h-3 w-3" />
           </Button>
           <SheetDescription className="sr-only">Welile Assistant</SheetDescription>
@@ -91,7 +107,7 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
       <Conversation initial={false} resize="instant" className="min-h-0 flex-1" aria-live="polite">
         <ConversationContent className={`gap-5 px-4 py-5 ${messages.length === 0 && !hubOpen ? 'min-h-full justify-center' : ''}`}>
           {messages.length === 0 && !hubOpen && <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
-            <h2 className="text-xl font-semibold">What can I help you with?</h2>
+            {onAgentDashboard ? <h2 className="max-w-md text-lg font-semibold">{AGENT_GREETING}</h2> : <h2 className="text-xl font-semibold">What can I help you with?</h2>}
             <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:flex-wrap sm:justify-center">
               {visibleStarters.map(starter => <Button key={starter} type="button" variant="outline" disabled={isLoading} onClick={() => submit(starter)} className="assistant-starter h-auto min-h-10 max-w-full whitespace-normal rounded-full border-border px-4 py-2 text-sm font-normal shadow-none">
                 {starter}

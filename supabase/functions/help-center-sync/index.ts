@@ -3,7 +3,11 @@
  * can search it without browsing the web while someone is chatting.
  *
  * Trust model:
- *   - Callable only with the project's service-role key (cron or an operator). Anyone else: 401.
+ *   - Callable only with a service-role key (cron or an operator). Anyone else: 401.
+ *     The caller's token is accepted if it equals this function's SUPABASE_SERVICE_ROLE_KEY, or if it
+ *     passes an admin-only Auth call (only a real service-role key can). That second path keeps the
+ *     function working when the runtime's copy of the key differs from the dashboard's (rotation,
+ *     legacy vs new key format). An anon/authenticated token fails the admin call: 401.
  *   - Fetches ONE fixed host. The sitemap decides which pages, but a URL on any other host, any
  *     non-https URL, /search and /tags/ pages are skipped, and redirects off-host are refused.
  *   - Page text is stored as plain text (scripts, styles and markup removed). Nothing from a page
@@ -29,6 +33,22 @@ function timingSafeEqual(a: string, b: string): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** True only for a genuine service-role credential. */
+async function isServiceRole(token: string, envKey: string): Promise<boolean> {
+  if (!token) return false;
+  if (envKey && timingSafeEqual(token, envKey)) return true;
+  try {
+    const probe = createClient(Deno.env.get("SUPABASE_URL")!, token, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    // The Auth admin API rejects every key that is not service-role.
+    const { error } = await probe.auth.admin.listUsers({ page: 1, perPage: 1 });
+    return !error;
+  } catch {
+    return false;
+  }
 }
 
 function allowedUrl(raw: string): URL | null {
@@ -94,11 +114,12 @@ async function sha256(text: string): Promise<string> {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const envKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!serviceKey || !token || !timingSafeEqual(token, serviceKey)) return json({ error: "unauthorized" }, 401);
+  if (!(await isServiceRole(token, envKey))) return json({ error: "unauthorized" }, 401);
 
-  const db = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  // Writes use the runtime's own key when present, otherwise the caller's verified service-role token.
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, envKey || token, { auth: { persistSession: false, autoRefreshToken: false } });
 
   const sitemap = await fetchText(SITEMAP).catch(() => null);
   const urls = [...new Set(
