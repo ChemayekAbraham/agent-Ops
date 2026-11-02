@@ -608,6 +608,7 @@ function AppRoutes() {
           <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
           {/* Preview of the map-first funder landing (design B). Not linked anywhere yet. */}
           <Route path="/dashboard/funder-preview" element={<RoleGuard allowedRoles={['supporter']}><FunderLandingPreview /></RoleGuard>} />
+          <Route path="/dev/card-harness" element={<CardOverflowHarness />} />
           <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
           {/* Frozen backup of the funder dashboard. Not a persona slug, so it
               is invisible to slugToRole() and never fights the live router. */}
