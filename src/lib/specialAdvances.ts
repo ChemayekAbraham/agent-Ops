@@ -8,7 +8,8 @@
  */
 import type { RateBasis, SpecialAdvanceFrequency } from '@/lib/specialAdvancePreview';
 
-export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reversed';
+export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reversed'
+  | 'written_off';
 
 export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   pending_approval: 'Pending approval',
@@ -19,6 +20,8 @@ export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   settled: 'Settled',
   // Phase B (migration 20261102210000): an external payout recorded in error, reversed by an approved correction
   reversed: 'Payout reversed',
+  // Phase C (migration 20261102220000): the whole balance written off with a second CFO's approval
+  written_off: 'Written off',
 };
 
 export type BorrowerRequest =
@@ -76,7 +79,9 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_requested' | 'correction_approved' | 'correction_rejected' | 'correction_withdrawn';
+    | 'correction_requested' | 'correction_approved' | 'correction_rejected' | 'correction_withdrawn'
+    | 'written_off' | 'write_off_requested' | 'write_off_approved' | 'write_off_rejected' | 'write_off_withdrawn'
+    | 'provision_posted' | 'recovery_recorded';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -145,6 +150,119 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
     reversed_by_correction?: string | null }>;
   /** Correction requests on this advance, oldest first (Phase B). */
   corrections?: SpecialAdvanceCorrection[];
+  /** Phase C: impairment allowance held now (A25 subledger), what a review would require now, and the history. */
+  allowance_held?: number;
+  provision?: ProvisionLine;
+  provision_history?: Array<ProvisionLine & { review: string; review_status: MakerCheckerStatus; decided_at: string | null }>;
+  write_offs?: SpecialAdvanceWriteOff[];
+  recoveries?: SpecialAdvanceRecovery[];
+}
+
+/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
+ * Provision reviews and write-offs: one CFO requests, a DIFFERENT CFO approves or rejects, the requester may withdraw
+ * (use `correctionActions` for the buttons). The server computes every figure; the browser never sends amounts. */
+export type MakerCheckerStatus = CorrectionStatus;
+
+/** D7 minimums, for explaining the server's figures only (the server applies them). */
+export const IMPAIRMENT_MINIMUMS: Array<{ label: string; rate: number }> = [
+  { label: 'Current', rate: 0 }, { label: '1-30 days past due', rate: 10 }, { label: '31-60 days past due', rate: 25 },
+  { label: '61-90 days past due', rate: 50 }, { label: 'Over 90 days past due', rate: 100 },
+];
+
+export interface ProvisionLine {
+  advance_id: string;
+  reference?: string;
+  gross_outstanding: number;
+  days_past_due: number;
+  minimum_rate: number;
+  individual_rate: number | null;
+  applied_rate: number;
+  required_allowance: number;
+  held_before: number;
+  /** Positive: raise (DR X4 / CR A25); negative: release (DR A25 / CR X4). */
+  delta: number;
+  ledger_group_id?: string | null;
+}
+
+export interface ProvisionPreview {
+  as_of_date: string;
+  lines: ProvisionLine[];
+  total_delta: number;
+  allowance_held: number;
+}
+
+export interface ProvisionReview {
+  id: string;
+  reference: string;
+  as_of_date: string;
+  note: string | null;
+  total_delta: number;
+  status: MakerCheckerStatus;
+  requested_by: string;
+  requested_by_name: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  lines: ProvisionLine[];
+  replayed?: boolean;
+}
+
+export interface SpecialAdvanceWriteOff {
+  id: string;
+  reference: string;
+  advance_id: string;
+  advance_reference: string;
+  gross_amount: number;
+  allowance_released: number;
+  /** gross_amount - allowance_released; negative when the allowance exceeded the balance (the excess is released). */
+  net_loss: number;
+  reason: string;
+  proof_path: string;
+  status: MakerCheckerStatus;
+  requested_by: string;
+  requested_by_name: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  ledger_group_id: string | null;
+  replayed?: boolean;
+}
+
+export interface SpecialAdvanceRecovery {
+  id: string;
+  advance_id: string;
+  amount: number;
+  received_date: string;
+  method: 'mobile_money' | 'bank_transfer';
+  reference: string;
+  proof_path: string;
+  note: string | null;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_at: string;
+  replayed?: boolean;
+}
+
+/** The body for `special_advance_request_provision_review` (and the preview): individual rates only, never amounts. */
+export function buildProvisionReviewRequest(input: {
+  individualRates?: Record<string, number>;
+  note?: string | null;
+  idempotencyKey: string;
+}): Record<string, unknown> {
+  return {
+    individual_rates: { ...(input.individualRates ?? {}) },
+    ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+    idempotency_key: input.idempotencyKey,
+  };
+}
+
+/** The body for `special_advance_request_write_off`: the server writes off the whole gross outstanding. */
+export function buildWriteOffRequest(input: { reason: string; proofPath: string; idempotencyKey: string }): Record<string, unknown> {
+  return { reason: input.reason.trim(), proof_path: input.proofPath, idempotency_key: input.idempotencyKey };
 }
 
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
@@ -225,6 +343,12 @@ export interface SpecialAdvanceReconciliation {
   difference: number;
   balanced: boolean;
   mismatched_advances: Array<{ reference: string; status: string; subledger_outstanding: number; ledger_balance: number }>;
+  /** Phase C: the allowance (A25, credit balance) against its subledger, and the net receivable (A24 - A25). */
+  a25_ledger_balance?: number;
+  allowance_subledger?: number;
+  allowance_difference?: number;
+  net_receivable?: number;
+  mismatched_allowances?: Array<{ reference: string; status: string; allowance_subledger: number; allowance_ledger: number }>;
 }
 
 /** The body for `special_advance_quote` / `special_advance_create`: terms only, no figures. */
@@ -261,6 +385,7 @@ export const PURPOSE_MAX = 1000;
 
 const ELIGIBILITY_TEXT: Record<string, string> = {
   OPEN_SPECIAL_ADVANCE: 'This borrower already has an open Special Advance.',
+  WRITTEN_OFF_SPECIAL_ADVANCE: 'This borrower has a Special Advance that was written off.',
   OVERDUE_AGENT_ADVANCE: 'This borrower has an overdue agent advance with a balance.',
   DEFAULTED_BUSINESS_ADVANCE: 'This borrower has a defaulted business advance with a balance.',
   ACCOUNT_DELETED: 'This account has been deleted.',
@@ -329,6 +454,26 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PAYOUT_REVERSAL_NOT_SUPPORTED')) return 'A payout to a Welile wallet cannot be reversed here; only an external payout recorded in error.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_CORRECTABLE')) return 'This advance cannot be corrected in its current state.';
   if (msg.includes('BORROWER_HAS_OPEN_ADVANCE')) return 'Reopening this advance would give the borrower two open Special Advances.';
+  // Impairment, write-off and recovery (Phase C)
+  if (msg.includes('INDIVIDUAL_RATE_BELOW_MINIMUM')) {
+    const min = (detail as { minimum_rate?: number } | null)?.minimum_rate;
+    return `An individual rate cannot be below the minimum for its days past due${min !== undefined ? ` (${min}%)` : ''}.`;
+  }
+  if (msg.includes('NOTHING_TO_PROVISION')) return 'Every allowance already matches what is required; there is nothing to post.';
+  if (msg.includes('PROVISION_REVIEW_ALREADY_PENDING')) return 'A provision review is already awaiting a second CFO.';
+  if (msg.includes('PROVISION_REVIEW_STALE')) return 'Balances changed since this review was requested. Reject or withdraw it and run a new review.';
+  if (msg.includes('PROVISION_REVIEW_ALREADY_DECIDED')) return 'This provision review has already been decided.';
+  if (msg.includes('PROVISION_REVIEW_NOT_FOUND')) return 'Provision review not found.';
+  if (msg.includes('WRITE_OFF_ALREADY_PENDING')) return 'A write-off for this advance is already awaiting a second CFO.';
+  if (msg.includes('WRITE_OFF_STALE')) return 'The balance or the allowance changed since this write-off was requested. Withdraw or reject it and request again.';
+  if (msg.includes('WRITE_OFF_ALREADY_DECIDED')) return 'This write-off has already been decided.';
+  if (msg.includes('WRITE_OFF_NOT_FOUND')) return 'Write-off not found.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_WRITABLE_OFF')) return 'Only a paid-out advance with a balance outstanding can be written off.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_WRITTEN_OFF')) return 'A recovery can only be recorded on a written-off advance.';
+  if (msg.includes('RECOVERY_EXCEEDS_WRITTEN_OFF')) {
+    const left = (detail as { recoverable?: number } | null)?.recoverable;
+    return `That is more than is left to recover${left !== undefined ? ` (UGX ${left.toLocaleString()})` : ''}.`;
+  }
   if (msg.includes('REASON_REQUIRED')) {
     return typeof detail === 'string' && detail.includes(String(CORRECTION_REASON_MIN))
       ? `Explain the error in at least ${CORRECTION_REASON_MIN} characters.`

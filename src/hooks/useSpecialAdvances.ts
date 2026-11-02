@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  CorrectionDecision, CorrectionStatus, SpecialAdvance, SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote,
-  SpecialAdvanceReconciliation, SpecialAdvanceStatement, SpecialAdvanceStatus,
+  CorrectionDecision, CorrectionStatus, MakerCheckerStatus, ProvisionPreview, ProvisionReview, SpecialAdvance,
+  SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceRecovery,
+  SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceWriteOff,
 } from '@/lib/specialAdvances';
 import { SPECIAL_ADVANCE_PROOF_BUCKET, specialAdvanceProofPath } from '@/lib/specialAdvances';
 
@@ -148,6 +149,88 @@ export function useDecideSpecialAdvanceCorrection() {
   return useMutation({
     mutationFn: ({ correctionId, decision, note }: { correctionId: string; decision: CorrectionDecision; note?: string | null }) =>
       call<SpecialAdvanceCorrection>('special_advance_decide_correction', { p_correction_id: correctionId, p_decision: decision, p_note: note ?? null }),
+    onSuccess: invalidate,
+  });
+}
+
+/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10; migration 20261102220000) ───── */
+
+/** What a provision review would post now (read-only). `request` may carry individual_rates. */
+export function useSpecialAdvanceProvisionPreview(request: Record<string, unknown> | null, enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'provision-preview', request],
+    enabled: enabled && !!request,
+    queryFn: () => call<ProvisionPreview>('special_advance_provision_preview', { p_request: request }),
+    staleTime: 30 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+export function useSpecialAdvanceProvisionReviews(status: MakerCheckerStatus | null = 'pending', enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'provision-reviews', status],
+    enabled,
+    queryFn: () => call<ProvisionReview[]>('special_advance_list_provision_reviews', { p_status: status, p_limit: 20 }),
+    staleTime: 30 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/** Records a pending provision review (see buildProvisionReviewRequest). Posts nothing until a second CFO approves. */
+export function useRequestProvisionReview() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (request: Record<string, unknown>) => call<ProvisionReview>('special_advance_request_provision_review', { p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDecideProvisionReview() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ reviewId, decision, note }: { reviewId: string; decision: CorrectionDecision; note?: string | null }) =>
+      call<ProvisionReview>('special_advance_decide_provision_review', { p_review_id: reviewId, p_decision: decision, p_note: note ?? null }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSpecialAdvanceWriteOffs(status: MakerCheckerStatus | null = 'pending', enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'write-offs', status],
+    enabled,
+    queryFn: () => call<SpecialAdvanceWriteOff[]>('special_advance_list_write_offs', { p_status: status, p_limit: 100 }),
+    staleTime: 30 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/** Records a pending write-off of the whole balance (see buildWriteOffRequest). Posts nothing until a second CFO approves. */
+export function useRequestSpecialAdvanceWriteOff() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
+      call<SpecialAdvanceWriteOff>('special_advance_request_write_off', { p_id: advanceId, p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDecideSpecialAdvanceWriteOff() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ writeOffId, decision, note }: { writeOffId: string; decision: CorrectionDecision; note?: string | null }) =>
+      call<SpecialAdvanceWriteOff>('special_advance_decide_write_off', { p_write_off_id: writeOffId, p_decision: decision, p_note: note ?? null }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Money recovered after a write-off (D10: DR A1 / CR X4); needs reference + proof, like a repayment. */
+export function useRecordSpecialAdvanceRecovery() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, recovery }: {
+      advanceId: string;
+      recovery: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string; proof_path: string };
+    }) => call<SpecialAdvanceRecovery>('special_advance_record_recovery', { p_id: advanceId, p_recovery: recovery }),
     onSuccess: invalidate,
   });
 }
