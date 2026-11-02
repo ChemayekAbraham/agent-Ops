@@ -1,6 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
+import './FunderNewHero.css';
 
 /**
  * Compact market-demand hero for /dashboard/funder-new.
@@ -68,26 +69,23 @@ export function FunderNewHero({
   const hasHouses = summary.houseCount > 0;
 
   return (
-    <section className={shell}>
+    <section className={`${shell} funder-hero-card`}>
       {decoration}
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
-          <h1 className="text-[1.75rem] font-black leading-[1.2] tracking-tight sm:text-4xl lg:text-5xl">
-            <span className="block">Earn 15% of your</span>
-            <span className="block">money monthly</span>
-            <span className="block text-[hsl(var(--signature-rent-accent))]">when you pay a</span>
-            <span className="block text-[hsl(var(--signature-rent-accent))]">tenant&apos;s rent</span>
+          <h1 className="funder-hero-heading">
+            <span>Earn 15% of your</span>
+            <span>money monthly</span>
+            <span className="funder-hero-accent">when you pay a</span>
+            <span className="funder-hero-accent">tenant&apos;s rent</span>
           </h1>
 
           <div className="mt-5">
-            <p className="text-xs font-bold text-[hsl(var(--signature-rent-subtle))]">
-              Amount needed to fund houses:
+            <p className="funder-hero-subtle text-xs font-bold">Amount needed to fund houses:</p>
+            <p className="mt-0.5 break-words text-[28px] font-black leading-tight">
+              {prefix} {figure}
             </p>
-            <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 leading-tight">
-              <span className="text-sm font-bold text-[hsl(var(--signature-rent-subtle))]">{prefix}</span>
-              <span className="break-words text-xl font-black tracking-tight sm:text-2xl">{figure}</span>
-            </p>
-            <p className="mt-0.5 text-[11px] font-bold leading-snug text-[hsl(var(--signature-rent-subtle))]">
+            <p className="funder-hero-subtle mt-0.5 text-[11px] font-bold leading-snug">
               over {summary.houseCount.toLocaleString()}+ homes
             </p>
           </div>
