@@ -42,15 +42,33 @@ function HistoryList({ onBack }: { onBack: () => void }) {
       .then(({ data, error }) => { if (!live) return; setFailed(!!error); setRows(error ? [] : data?.messages ?? []); });
     return () => { live = false; };
   }, []);
-  const groups: { id: string; last: PastMessage }[] = [];
-  for (const m of rows ?? []) if (!groups.some(g => g.id === m.conversation_id)) groups.push({ id: m.conversation_id, last: m });
+  const [openId, setOpenId] = useState<string | null>(null);
+  const map = new Map<string, PastMessage[]>();
+  for (const m of rows ?? []) { const list = map.get(m.conversation_id) ?? []; list.push(m); map.set(m.conversation_id, list); }
+  const groups = [...map.entries()].map(([id, msgs]) => {
+    const sorted = [...msgs].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const last = sorted[sorted.length - 1];
+    const title = sorted.find(m => m.role === 'user')?.content ?? 'Conversation';
+    return { id, msgs: sorted, last, title };
+  }).sort((a, b) => b.last.created_at.localeCompare(a.last.created_at));
+  if (openId) {
+    const g = groups.find(x => x.id === openId);
+    return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <button type="button" onClick={() => setOpenId(null)} className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-primary"><ArrowLeft className="h-3.5 w-3.5" />All chats</button>
+      <div className="flex flex-col gap-2">{g?.msgs.map(m => <div key={m.id} className={m.role === 'user' ? 'ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground' : 'mr-auto max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm text-foreground'}>
+        {m.content}
+        <div className={m.role === 'user' ? 'mt-1 text-[10px] text-primary-foreground/70' : 'mt-1 text-[10px] text-muted-foreground'}>{formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}</div>
+      </div>)}</div>
+    </div>;
+  }
   return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
     {rows === null ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
       : groups.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{failed ? "Couldn't load your chats right now." : 'No past chats yet.'}</p>
       : <ul className="divide-y divide-border">{groups.map(g => <li key={g.id}>
-        <button type="button" onClick={onBack} className="flex w-full flex-col items-start gap-0.5 py-3 text-left">
-          <span className="w-full truncate text-sm text-foreground">{g.last.content}</span>
-          <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(g.last.created_at), { addSuffix: true })}</span>
+        <button type="button" onClick={() => setOpenId(g.id)} className="flex w-full flex-col items-start gap-0.5 py-3 text-left">
+          <span className="w-full truncate text-sm font-medium text-foreground">{g.title}</span>
+          <span className="line-clamp-1 w-full text-xs text-muted-foreground">{g.last.content}</span>
+          <span className="text-[11px] text-muted-foreground">{g.msgs.length} messages · {formatDistanceToNow(new Date(g.last.created_at), { addSuffix: true })}</span>
         </button>
       </li>)}</ul>}
   </div>;
