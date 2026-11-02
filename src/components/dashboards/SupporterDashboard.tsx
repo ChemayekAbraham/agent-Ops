@@ -131,6 +131,24 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapExpandRequest, setMapExpandRequest] = useState(0);
+  // The houses map and its "Houses to fund" sheet are no longer repeated on the
+  // page: the hero card opens them full screen, and they unmount again on close.
+  const [mapRequested, setMapRequested] = useState(false);
+  const mapWasExpandedRef = useRef(false);
+  const openHousesMap = useCallback(() => {
+    setMapRequested(true);
+    setMapExpandRequest((n) => n + 1);
+  }, []);
+  const handleMapExpandedChange = useCallback((expanded: boolean) => {
+    setMapExpanded(expanded);
+    if (expanded) {
+      mapWasExpandedRef.current = true;
+    } else if (mapWasExpandedRef.current) {
+      // Ignore the map's initial "not expanded" report on mount; only a real close unmounts it.
+      mapWasExpandedRef.current = false;
+      setMapRequested(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (mapExpanded) {
@@ -330,12 +348,11 @@ export default function SupporterDashboard({
   // Scroll to opportunities
   useEffect(() => {
     if (location.hash === '#opportunities') {
-      setTimeout(() => {
-        const el = document.getElementById('opportunities');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      // Opportunities now live in the full screen map sheet, so open it.
+      const timer = setTimeout(openHousesMap, 100);
+      return () => clearTimeout(timer);
     }
-  }, [location.hash]);
+  }, [location.hash, openHousesMap]);
 
   // Listen for open-deposit event from OpportunitySummaryCard
   useEffect(() => {
@@ -544,7 +561,7 @@ export default function SupporterDashboard({
     { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
-    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); } },
+    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
     { icon: Calculator, label: 'Returns Calculator', onClick: () => setShowCalculator(true) },
     { icon: TrendingUp, label: 'Returns Analytics', onClick: () => navigate('/supporter-earnings') },
     { icon: History, label: 'History', onClick: () => navigate('/transactions') },
@@ -638,28 +655,30 @@ export default function SupporterDashboard({
             isLoading={marketSummary.isLoading}
             hasError={marketSummary.isError}
             onHowItWorks={() => {}}
-            onOpen={() => setMapExpandRequest((n) => n + 1)}
+            onOpen={openHousesMap}
           />
 
           {/* ═══ MAP SECTION (Google Maps as in /dashboard/funder-new) ═══ */}
-          <FunderNewMapSection
-            filters={mapFilters}
-            location={mapLocation}
-            origin={mapOrigin}
-            selectedIds={[]}
-            savedIds={[]}
-            activeId={null}
-            heading="Search for houses to fund"
-            headingClassName="text-base font-bold text-green-600 dark:text-green-400"
-            onOpenHouse={(house) => setMapDetailHouse(house)}
-            onApplyArea={applyMapArea}
-            onAreaSearchChange={handleMapSearchChange}
-            onExpandedChange={setMapExpanded}
-            expandRequest={mapExpandRequest}
-          />
+          {mapRequested && (
+            <FunderNewMapSection
+              filters={mapFilters}
+              location={mapLocation}
+              origin={mapOrigin}
+              selectedIds={[]}
+              savedIds={[]}
+              activeId={null}
+              heading="Search for houses to fund"
+              headingClassName="text-base font-bold text-green-600 dark:text-green-400"
+              onOpenHouse={(house) => setMapDetailHouse(house)}
+              onApplyArea={applyMapArea}
+              onAreaSearchChange={handleMapSearchChange}
+              onExpandedChange={handleMapExpandedChange}
+              expandRequest={mapExpandRequest}
+            />
+          )}
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          {mapExpanded ? (
+          {mapExpanded && (
             <MapBottomSheet
               defaultSnap="half"
               header={({ snap, setSnap }) => (
@@ -704,28 +723,6 @@ export default function SupporterDashboard({
                 </WidgetErrorBoundary>
               </div>
             </MapBottomSheet>
-          ) : (
-            <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-              {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-              <WidgetErrorBoundary label="Capital opportunities">
-                {loading && virtualHouses.length === 0 ? (
-                  <div className="space-y-3">
-                    <WidgetCardSkeleton />
-                    <WidgetCardSkeleton />
-                  </div>
-                ) : (
-                  <>
-                    <FunderApprovalBanner className="mb-3" />
-                    <FunderCapitalOpportunities
-                      key={`${capitalView}-${capitalFeedOrder}`}
-                      initialView={capitalView}
-                      initialFeedOrder={capitalFeedOrder}
-                      embedded
-                    />
-                  </>
-                )}
-              </WidgetErrorBoundary>
-            </div>
           )}
 
         </main>
