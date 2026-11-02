@@ -27,6 +27,7 @@ import {
   useSpecialAdvanceDecision,
   useSpecialAdvanceStatement,
   uploadSpecialAdvanceProof,
+  hasAuthenticatorSession,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from './SpecialAdvanceProofInput';
 import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
@@ -592,11 +593,7 @@ function DecisionForm({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (pendingAction) {
-            await runDecision(pendingAction);
-          }
-        }}
+        onSuccess={() => (pendingAction ? handleAction(pendingAction) : undefined)}
       />
     </>
   );
@@ -647,6 +644,10 @@ function PayoutForm({
     let path = uploadedPath;
     try {
       if (external && !path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -742,9 +743,7 @@ function PayoutForm({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          await executeDisburse(uploadedPath);
-        }}
+        onSuccess={() => handleRun()}
       />
     </>
   );
@@ -812,6 +811,10 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -903,11 +906,7 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRepayment(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleRun()}
       />
     </>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShieldCheck, Loader2, LogOut, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,11 +20,14 @@ export function AuthenticatorSetupScreen({ onSuccess, isDialog = false }: Authen
   const [copied, setCopied] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
+  // Start set-up once on open. A failure shows Retry instead of trying again by itself: re-running on every
+  // busy/enrol change asked the auth server again and again, and after a successful code it began a new set-up.
+  const autoStarted = useRef(false);
   useEffect(() => {
-    if (!enrol && !busy) {
-      void startEnrol();
-    }
-  }, [enrol, busy, startEnrol]);
+    if (autoStarted.current) return;
+    autoStarted.current = true;
+    void startEnrol();
+  }, [startEnrol]);
 
   const copySecret = async () => {
     if (!enrol?.secret) return;

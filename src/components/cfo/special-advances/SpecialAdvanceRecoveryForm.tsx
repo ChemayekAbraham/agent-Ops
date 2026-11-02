@@ -15,6 +15,7 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
+  hasAuthenticatorSession,
   useRecordSpecialAdvanceRecovery,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
@@ -86,6 +87,10 @@ export function SpecialAdvanceRecoveryForm({
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -196,11 +201,7 @@ export function SpecialAdvanceRecoveryForm({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRecovery(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleSubmit()}
       />
     </div>
   );

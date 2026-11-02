@@ -255,9 +255,7 @@ export function SpecialAdvanceProvisionsTab() {
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          await executeSubmit();
-        }}
+        onSuccess={() => handleSubmit()}
       />
     </div>
   );

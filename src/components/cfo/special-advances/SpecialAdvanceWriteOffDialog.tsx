@@ -16,6 +16,7 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
+  hasAuthenticatorSession,
   useRequestSpecialAdvanceWriteOff,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
@@ -95,6 +96,10 @@ export function SpecialAdvanceWriteOffDialog({
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -209,11 +214,7 @@ export function SpecialAdvanceWriteOffDialog({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRequest(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleSubmit()}
       />
     </>
   );

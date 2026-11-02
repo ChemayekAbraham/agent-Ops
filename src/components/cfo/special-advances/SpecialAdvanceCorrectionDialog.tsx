@@ -18,6 +18,7 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
+  hasAuthenticatorSession,
   useRequestSpecialAdvanceCorrection,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
@@ -108,6 +109,10 @@ export function SpecialAdvanceCorrectionDialog({
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -225,11 +230,7 @@ export function SpecialAdvanceCorrectionDialog({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRequest(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleSubmit()}
       />
     </>
   );

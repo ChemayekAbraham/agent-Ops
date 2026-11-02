@@ -172,9 +172,7 @@ export function SpecialAdvanceDecideDialog({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          await executeDecision();
-        }}
+        onSuccess={() => handleConfirm()}
       />
     </>
   );

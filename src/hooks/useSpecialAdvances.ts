@@ -238,6 +238,20 @@ export function useRecordSpecialAdvanceRecovery() {
 }
 
 /**
+ * True when this session is already authenticator-verified (aal2). Check it BEFORE uploading a proof file: the
+ * proofs bucket refuses a password-only session (D14), and that refusal is a storage error, not MFA_REQUIRED, so
+ * the step-up prompt would never be offered. Any failure to read the level counts as not verified.
+ */
+export async function hasAuthenticatorSession(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    return data?.currentLevel === 'aal2';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Uploads a proof file (receipt or statement) for one advance to the private proofs bucket and returns its path, to be
  * sent as `proof_path` with the payout or repayment. Upload alone moves no money; the server then checks the file
  * exists, belongs to this advance and is not used elsewhere. Files are never overwritten (upsert off).
