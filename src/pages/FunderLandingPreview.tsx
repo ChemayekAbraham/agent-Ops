@@ -341,9 +341,19 @@ export default function FunderLandingPreview() {
         };
 
   return (
-    <div className="min-h-screen bg-background font-['Outfit'] text-foreground">
+    <div ref={rootRef} className="min-h-screen bg-background font-['Outfit'] text-foreground">
+      {/* ═══ APP CHROME: top bar with the logo, role switcher and notification bell ═══ */}
+      <DashboardHeader
+        currentRole="supporter"
+        availableRoles={roles}
+        onRoleChange={handleRoleSwitch}
+        onSignOut={signOut}
+        headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
+        compactInstallPrompt
+      />
+
       {/* ═══ MAP HERO ═══ */}
-      <div className="sticky top-0 h-[clamp(440px,66svh,620px)] w-full">
+      <div className="sticky h-[clamp(440px,66svh,620px)] w-full" style={{ top: headerH }}>
         <FunderPreviewMap
           cells={cells}
           device={location.coords}
@@ -360,9 +370,10 @@ export default function FunderLandingPreview() {
       {/* Floating top bar — fixed so it stays above the houses sheet while the sheet slides over the map. */}
       <div
         className={cn(
-          'pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))] transition-colors duration-300',
+          'pointer-events-none fixed inset-x-0 z-20 mx-auto max-w-3xl px-4 pt-3 transition-colors duration-300',
           barFrosted && 'bg-background/85 pb-3 shadow-[0_8px_24px_-12px_hsl(222_47%_11%/0.25)] backdrop-blur-2xl backdrop-saturate-150',
         )}
+        style={{ top: headerH }}
       >
         <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
           <Link
@@ -622,6 +633,9 @@ export default function FunderLandingPreview() {
         }}
         onReview={() => setReviewOpen(true)}
       />
+
+      {/* Bottom role pill — the same Tenant / Agent / Partner / Owner switcher as the rest of the app. */}
+      <BottomRoleSwitcher currentRole="supporter" onRoleChange={handleRoleSwitch} />
     </div>
   );
 }
