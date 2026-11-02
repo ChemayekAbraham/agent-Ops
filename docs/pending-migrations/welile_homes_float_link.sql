@@ -196,6 +196,17 @@ begin
     raise exception 'Float can only be requested for landlords you registered' using errcode = '42501';
   end if;
 
+  -- Tenant verification: every requested tenant's profile must be SMS-verified (profiles.verified = true).
+  -- A missing profile counts as unverified. The screen filter is not trusted.
+  if exists (
+    select 1 from public.welile_homes_subscriptions s
+      left join public.profiles p on p.id = s.tenant_id
+     where s.id = any(v_ids) and coalesce(p.verified, false) is not true
+  ) then
+    raise exception 'Every tenant must be verified by SMS code before float can be requested'
+      using errcode = '42501';
+  end if;
+
   perform set_config('welile.wh_float_rpc', 'on', true);
 
   insert into public.float_requests (agent_id, requested_amount, reason, expected_recipient_phone, status, product)
