@@ -20078,9 +20078,11 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          disbursed_ledger_txn: string | null
           expected_recipient_phone: string | null
           float_delivery_tid: string | null
           id: string
+          product: string
           reason: string | null
           rejection_reason: string | null
           requested_amount: number
@@ -20097,9 +20099,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount: number
@@ -20116,9 +20120,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount?: number
@@ -63770,6 +63776,47 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_homes_collection_requests: {
+        Row: {
+          caller_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Insert: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Update: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          requested_amount?: number
+          response?: Json
+          source?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_collection_requests_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_enrollment_audit: {
         Row: {
           agent_id: string | null
@@ -63811,6 +63858,48 @@ export type Database = {
           },
         ]
       }
+      welile_homes_float_request_items: {
+        Row: {
+          amount: number
+          created_at: string
+          float_request_id: string
+          id: string
+          released_at: string | null
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          float_request_id: string
+          id?: string
+          released_at?: string | null
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          float_request_id?: string
+          id?: string
+          released_at?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_float_request_items_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_float_request_items_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_monthly_dues: {
         Row: {
           agent_commission: number
@@ -63819,6 +63908,7 @@ export type Database = {
           amount_due: number
           collection_status: string
           created_at: string
+          due_month_index: number
           id: string
           landlord_fee: number
           landlord_id: string | null
@@ -63839,6 +63929,7 @@ export type Database = {
           amount_due?: number
           collection_status?: string
           created_at?: string
+          due_month_index: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
@@ -63859,6 +63950,7 @@ export type Database = {
           amount_due?: number
           collection_status?: string
           created_at?: string
+          due_month_index?: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
@@ -63888,11 +63980,13 @@ export type Database = {
           created_at: string
           email_statements_enabled: boolean | null
           enrolled_by: string | null
+          funding_status: string
           has_smartphone: boolean
           id: string
           landlord_id: string | null
           landlord_name: string | null
           landlord_phone: string | null
+          landlord_ref_id: string | null
           landlord_registered: boolean
           landlord_uses_wallet: boolean
           last_interest_applied_at: string | null
@@ -63916,11 +64010,13 @@ export type Database = {
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -63944,11 +64040,13 @@ export type Database = {
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -63967,7 +64065,43 @@ export type Database = {
           total_savings?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
       }
       welile_medical_facilities: {
         Row: {
@@ -71875,6 +72009,10 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_resolve_landlord_ref: {
+        Args: { p_agent: string; p_landlord_id: string; p_phone: string }
+        Returns: string
+      }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -76933,6 +77071,10 @@ export type Database = {
       delete_welile_home_subscription: {
         Args: { p_subscription_id: string }
         Returns: boolean
+      }
+      delete_welile_homes_landlord: {
+        Args: { p_landlord_id: string }
+        Returns: Json
       }
       deposit_bridge_ledger_present: {
         Args: {
@@ -86677,6 +86819,26 @@ export type Database = {
         Args: { p_edit_id: string }
         Returns: Json
       }
+      otp_check_code: {
+        Args: { p_code: string; p_phone: string }
+        Returns: Json
+      }
+      otp_reserve_send: {
+        Args: {
+          p_cooldown_seconds: number
+          p_ip: string
+          p_max_ip_day: number
+          p_max_ip_hour: number
+          p_max_phone_hour: number
+          p_max_user_day: number
+          p_max_user_hour: number
+          p_new_code: string
+          p_phone: string
+          p_ttl_seconds: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       partner_house_placement_status: {
         Args: { p_partner_id?: string }
         Returns: {
@@ -93849,8 +94011,9 @@ export type Database = {
       welile_home_record_collection: {
         Args: {
           p_amount: number
+          p_idempotency_key: string
           p_notes?: string
-          p_source?: string
+          p_source: string
           p_subscription_id: string
         }
         Returns: Json
@@ -94133,6 +94296,28 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_float_advance: {
+        Args: {
+          p_action: string
+          p_expected_status: string
+          p_note?: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      wh_landlord_delete_blockers: {
+        Args: { p_landlord_id: string }
+        Returns: Json
+      }
+      wh_request_float: {
+        Args: {
+          p_notes?: string
+          p_recipient_phone?: string
+          p_subscription_ids: string[]
+        }
+        Returns: Json
+      }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }
         Returns: Json
