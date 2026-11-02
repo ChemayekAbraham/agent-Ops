@@ -254,7 +254,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
   // Agent Ops approval (agent vetting), not the older profiles.verified flag.
-  const agentVerified = useAgentVerifiedState() === 'verified';
+  const agentVerifiedState = useAgentVerifiedState();
+  const agentVerified = agentVerifiedState === 'verified';
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
@@ -1187,6 +1188,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   email={(profile as any)?.email}
                   location={(profile as any)?.territory ?? (profile as any)?.location}
                   verified={agentVerified}
+                  agentVerifiedState={agentVerifiedState}
                   roleLabel="Welile Agent"
                   triggerSize="lg"
                   eliteTier={myEliteRank?.tier_name}
