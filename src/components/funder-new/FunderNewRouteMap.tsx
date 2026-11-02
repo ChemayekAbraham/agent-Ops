@@ -257,6 +257,7 @@ export function FunderNewRouteMap({
   const accuracyCircleRef = useRef<google.maps.Circle | null>(null);
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const initialisedRef = useRef(false);
+  const markerJobRef = useRef(0);
   const reportTimerRef = useRef<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
@@ -366,16 +367,22 @@ export function FunderNewRouteMap({
     // changed are touched; removed cells are detached, new cells are added.
     const store = markersRef.current;
     const seen = new Set<string>();
+    const selected = new Set(selectedIds);
+    const savedSet = new Set(savedIds);
+    const buildTitle = (cell: FunderNewMapCell, amount: number) =>
+      cell.house
+        ? `${emptyHouseTitle(cell.house)}. ${formatDynamic(amount)} to support.`
+        : `${cell.count} homes in this area from ${formatDynamic(amount)}.`;
+    const toCreate: Array<{ cell: FunderNewMapCell; amount: number; active: boolean; saved: boolean; sig: string }> = [];
     for (const cell of cells) {
       const house = cell.house;
       const id = house?.house_id ?? null;
-      const active = !!id && (selectedIds.includes(id) || activeId === id);
-      const saved = !!id && savedIds.includes(id);
+      const active = !!id && (selected.has(id) || activeId === id);
+      const saved = !!id && savedSet.has(id);
       const amount = cell.amount || (house ? itemAmount('empty', house) : 0);
-      const title = house
-        ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
-        : `${cell.count} homes in this area from ${formatDynamic(amount)}.`;
-      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${saved}|${title}`;
+      // Cheap signature from raw values. The tooltip text (which formats the
+      // amount) is only built for pins that are created or really changed.
+      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${saved}|${cell.count}|${id ?? ''}`;
       seen.add(cell.key);
       const existing = store.get(cell.key);
       if (existing) {
@@ -384,28 +391,11 @@ export function FunderNewRouteMap({
         existing.sig = sig;
         existing.marker.setPosition({ lat: cell.lat, lng: cell.lng });
         existing.marker.setIcon(getPricePinIcon(amount, active, saved));
-        existing.marker.setTitle(title);
+        existing.marker.setTitle(buildTitle(cell, amount));
         existing.marker.setZIndex(active ? 30 : saved ? 25 : 10);
         continue;
       }
-      const marker = new google.maps.Marker({
-        map,
-        position: { lat: cell.lat, lng: cell.lng },
-        title,
-        icon: getPricePinIcon(amount, active, saved),
-        zIndex: active ? 30 : saved ? 25 : 10,
-        optimized: true,
-      });
-      const entry = { marker, sig, cell };
-      marker.addListener('click', () => {
-        const current = entry.cell;
-        if (current.house) onOpenHouseRef.current(current.house);
-        else {
-          map.panTo({ lat: current.lat, lng: current.lng });
-          map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
-        }
-      });
-      store.set(cell.key, entry);
+      toCreate.push({ cell, amount, active, saved, sig });
     }
     for (const [key, entry] of store) {
       if (!seen.has(key)) {
@@ -414,10 +404,45 @@ export function FunderNewRouteMap({
         store.delete(key);
       }
     }
+
+    // A new area can bring hundreds of pins at once. Creating them all in one
+    // go blocks the main thread (a visible hitch on phones), so they are added a
+    // slice per frame. A newer sync cancels the unfinished slices; the cells it
+    // still lacks are simply picked up again by that sync.
+    const job = ++markerJobRef.current;
+    const SLICE = 50;
+    const createSlice = (start: number) => {
+      if (job !== markerJobRef.current || mapRef.current !== map) return;
+      const end = Math.min(start + SLICE, toCreate.length);
+      for (let index = start; index < end; index += 1) {
+        const { cell, amount, active, saved, sig } = toCreate[index];
+        const marker = new google.maps.Marker({
+          map,
+          position: { lat: cell.lat, lng: cell.lng },
+          title: buildTitle(cell, amount),
+          icon: getPricePinIcon(amount, active, saved),
+          zIndex: active ? 30 : saved ? 25 : 10,
+          optimized: true,
+        });
+        const entry = { marker, sig, cell };
+        marker.addListener('click', () => {
+          const current = entry.cell;
+          if (current.house) onOpenHouseRef.current(current.house);
+          else {
+            map.panTo({ lat: current.lat, lng: current.lng });
+            map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
+          }
+        });
+        store.set(cell.key, entry);
+      }
+      if (end < toCreate.length) window.requestAnimationFrame(() => createSlice(end));
+    };
+    createSlice(0);
   }, [cells, selectedIds, savedIds, activeId]);
 
   useEffect(
     () => () => {
+      markerJobRef.current += 1;
       markersRef.current.forEach((entry) => entry.marker.setMap(null));
       markersRef.current.clear();
     },
@@ -514,14 +539,14 @@ export function FunderNewRouteMap({
           fullscreen ? (reserveTopForSearch ? "absolute top-[4.75rem] right-3 z-30 pt-safe" : "absolute top-3 right-3 z-30 pt-safe") : "absolute bottom-7 right-2 sm:right-3"
         )}>
           {canUseLocation ? (
-            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
+            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
               {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Crosshair className={cn('h-4 w-4', device && 'text-primary')} aria-hidden />}
             </Button>
           ) : null}
-          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
+          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
             {fullscreen ? <X className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </Button>
-          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
+          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
             <RotateCcw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
