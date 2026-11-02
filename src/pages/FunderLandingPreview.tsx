@@ -88,6 +88,23 @@ export default function FunderLandingPreview() {
     setAvatarFailed(false);
   }, [avatarUrl]);
 
+  // Frosted top bar: once the houses sheet scrolls up under the fixed top
+  // bar, the bar gets a glass background so the list reads through it.
+  const [barFrosted, setBarFrosted] = useState(false);
+  const sheetTopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const sentinel = sheetTopRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setBarFrosted(!entry.isIntersecting),
+      // Trigger when the sheet top reaches the bottom edge of the top bar
+      // (safe-area padding + 48px bar + a small margin).
+      { rootMargin: '-84px 0px 0px 0px', threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
 
 
   // ── Filters ──────────────────────────────────────────────────────────────
