@@ -139,6 +139,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const AgentDashboardNew = lazy(() => import("./pages/AgentDashboardNew"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 const FunderLandingPreview = lazy(() => import("./pages/FunderLandingPreview"));
+const CardOverflowHarness = lazy(() => import("./pages/CardOverflowHarness"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
 const DashboardRedirect = lazy(() => import("./pages/DashboardRedirect"));
