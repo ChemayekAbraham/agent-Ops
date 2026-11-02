@@ -89,7 +89,7 @@ export function useDeviceStepUp(userId: string | undefined) {
       // Background checks return errors rather than logging them as page
       // crashes. An expired/rejected token gets one refresh, never a loop.
       let response = await invokeCheck(session.access_token);
-      if (response.error?.context?.status === 401 && stillCurrent()) {
+      if ((response.error?.context?.status === 401 || response.data?.signed_out === true) && stillCurrent()) {
         session = await sessionForCheck(true);
         if (!session) return;
         response = await invokeCheck(session.access_token);
