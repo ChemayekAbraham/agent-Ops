@@ -209,7 +209,6 @@ export default function FunderLandingPreview() {
 
   // ── Map ─────────────────────────────────────────────────────────────────
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
-  const [movedTo, setMovedTo] = useState<FunderNewViewport | null>(null);
   const [recentreToken, setRecentreToken] = useState(0);
 
   const cellViewport = useMemo<MapViewport | null>(
@@ -243,9 +242,8 @@ export default function FunderLandingPreview() {
     [cellQuery.data],
   );
 
-  const handleViewport = useCallback((next: FunderNewViewport, fromUser: boolean) => {
+  const handleViewport = useCallback((next: FunderNewViewport) => {
     setViewport(next);
-    if (fromUser) setMovedTo(next);
   }, []);
 
   // ── Selection, detail, review ───────────────────────────────────────────
@@ -385,22 +383,6 @@ export default function FunderLandingPreview() {
           </motion.section>
         </div>
 
-        {movedTo ? (
-          <div className="absolute inset-x-0 bottom-14 z-10 flex justify-center">
-            <motion.button
-              type="button"
-              onClick={() => {
-                setArea({ lat: movedTo.lat, lng: movedTo.lng, radiusKm: movedTo.radiusKm });
-                setMovedTo(null);
-              }}
-              className="flex h-11 items-center gap-2 rounded-full bg-foreground px-5 text-sm font-semibold text-background shadow-xl"
-              {...(reduceMotion ? {} : { initial: { opacity: 0, y: 10, scale: 0.96 }, animate: { opacity: 1, y: 0, scale: 1 } })}
-            >
-              <Search className="h-4 w-4" aria-hidden />
-              Search this area
-            </motion.button>
-          </div>
-        ) : null}
       </div>
 
       {/* Floating top bar — fixed so it stays above the houses sheet while the sheet slides over the map. */}
