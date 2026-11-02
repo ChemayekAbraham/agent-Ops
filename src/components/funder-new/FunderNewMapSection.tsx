@@ -33,6 +33,7 @@ export function FunderNewMapSection({
   onApplyArea,
   onAreaSearchChange,
   onExpandedChange,
+  expandRequest,
 }: {
   filters: FunderNewFilters;
   location: FunderNewLocationController;
@@ -46,6 +47,7 @@ export function FunderNewMapSection({
   onApplyArea: (viewport: FunderNewViewport) => void;
   onAreaSearchChange: (value: string) => void;
   onExpandedChange?: (expanded: boolean) => void;
+  expandRequest?: number;
 }) {
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
   const [resetToken, setResetToken] = useState(0);
@@ -166,6 +168,7 @@ export function FunderNewMapSection({
           onReset={handleReset}
           loadedNote={loadedNote}
           onExpandedChange={onExpandedChange}
+          expandRequest={expandRequest}
         />
       </div>
 

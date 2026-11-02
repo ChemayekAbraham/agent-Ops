@@ -220,6 +220,7 @@ export function FunderNewRouteMap({
   onReset,
   loadedNote,
   onExpandedChange,
+  expandRequest,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -238,6 +239,8 @@ export function FunderNewRouteMap({
   onReset: () => void;
   loadedNote: string;
   onExpandedChange?: (expanded: boolean) => void;
+  /** Bumped by the page to open the full screen map (e.g. from the hero card). */
+  expandRequest?: number;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -250,6 +253,9 @@ export function FunderNewRouteMap({
   const initialisedRef = useRef(false);
   const reportTimerRef = useRef<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (expandRequest) setFullscreen(true);
+  }, [expandRequest]);
   const [moved, setMoved] = useState<FunderNewViewport | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const expandRef = useRef<HTMLButtonElement | null>(null);

@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
@@ -16,11 +17,14 @@ export function FunderNewHero({
   isLoading,
   hasError,
   onHowItWorks,
+  onOpen,
 }: {
   summary: FunderNewMarketSummary | undefined;
   isLoading: boolean;
   hasError: boolean;
   onHowItWorks: () => void;
+  /** When set, the whole card is a button (the dashboard opens the full screen map). */
+  onOpen?: () => void;
 }) {
   const shell =
     'relative overflow-hidden rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-md sm:px-7 sm:py-6';
@@ -69,7 +73,23 @@ export function FunderNewHero({
   const hasHouses = summary.houseCount > 0;
 
   return (
-    <section className={`${shell} funder-hero-card`}>
+    <section
+      className={`${shell} funder-hero-card${onOpen ? ' cursor-pointer transition-transform active:scale-[0.99]' : ''}`}
+      {...(onOpen
+        ? {
+            role: 'button' as const,
+            tabIndex: 0,
+            'aria-label': 'Open the map of houses to fund',
+            onClick: onOpen,
+            onKeyDown: (event: KeyboardEvent) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                onOpen();
+              }
+            },
+          }
+        : {})}
+    >
       {decoration}
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">

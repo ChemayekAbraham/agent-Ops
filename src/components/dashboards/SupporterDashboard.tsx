@@ -130,6 +130,7 @@ export default function SupporterDashboard({
   const { count: savedCount } = useFunderSavedItems();
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapExpandRequest, setMapExpandRequest] = useState(0);
 
   useEffect(() => {
     if (mapExpanded) {
@@ -637,6 +638,7 @@ export default function SupporterDashboard({
             isLoading={marketSummary.isLoading}
             hasError={marketSummary.isError}
             onHowItWorks={() => {}}
+            onOpen={() => setMapExpandRequest((n) => n + 1)}
           />
 
           {/* ═══ MAP SECTION (Google Maps as in /dashboard/funder-new) ═══ */}
@@ -653,6 +655,7 @@ export default function SupporterDashboard({
             onApplyArea={applyMapArea}
             onAreaSearchChange={handleMapSearchChange}
             onExpandedChange={setMapExpanded}
+            expandRequest={mapExpandRequest}
           />
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
