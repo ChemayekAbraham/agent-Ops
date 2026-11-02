@@ -65,6 +65,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
   const agentFirst = role === 'agent' || pathname.startsWith('/dashboard/agent');
   const chips = orderedChips(agentFirst);
   const visibleChips = Array.from({ length: Math.min(VISIBLE_CHIPS, chips.length) }, (_, i) => chips[(rotation + i) % chips.length]);
+  const suggestedChips = visibleChips.slice(0, isMobile ? 4 : VISIBLE_CHIPS);
   const firstName = String(user?.user_metadata?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
 
   useEffect(() => {
@@ -105,8 +106,17 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
 
       {showHistory ? <HistoryList onBack={() => setShowHistory(false)} /> : <>
         <Conversation initial={false} resize="instant" className="min-h-0 flex-1" aria-live="polite">
-          <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full justify-end' : ''}`}>
-            {messages.length === 0 && <div className="flex items-start gap-2.5"><Avatar /><p className="rounded-2xl rounded-tl-sm bg-muted px-3.5 py-2.5 text-[15px] leading-relaxed text-foreground">Hi {firstName} 👋 I'm {ASSISTANT_NAME}. Ask me about your collections, tenants, team or how Welile works.</p></div>}
+          <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full items-center justify-center' : ''}`}>
+            {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
+              <div className="flex flex-col items-center gap-2.5">
+                <Avatar size="h-11 w-11" />
+                <p className="text-sm text-muted-foreground">Hi {firstName} 👋</p>
+                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm {ASSISTANT_NAME}. Ask me about your collections, tenants, team or how Welile works.</p>
+              </div>
+              <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
+                {suggestedChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="w-full rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}
+              </div>
+            </div>}
             {messages.map((message, index) => <Message key={message.id} from={message.role} className="max-w-full">
               {message.role === 'user'
                 ? <MessageContent className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-[15px] leading-relaxed text-primary-foreground">{message.content}</MessageContent>
@@ -127,7 +137,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
         </Conversation>
 
         <div className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-2">
-          {!isLoading && <div className="-mx-3 mb-2 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none]" aria-label="Suggestions">
+          {!isLoading && messages.length > 0 && <div className="-mx-3 mb-2 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none]" aria-label="Suggestions">
             {visibleChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}
           </div>}
           <form onSubmit={e => { e.preventDefault(); submit(text); }} className="flex items-end gap-2 rounded-3xl border border-border bg-card px-3 py-1.5">
