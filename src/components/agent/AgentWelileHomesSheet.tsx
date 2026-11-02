@@ -778,14 +778,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       </Button>
 
       {searchOpen && (
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative [&_input]:!pl-9 [&_input]:mb-0">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground z-10" />
           <Input
             autoFocus
             value={listQuery}
             onChange={(e) => setListQuery(e.target.value)}
             placeholder="Search by landlord, tenant or phone number"
-            className="h-9 pl-8 text-sm"
+            className="h-9 !pl-9 text-sm rounded-xl mb-0"
           />
         </div>
       )}
@@ -1584,7 +1584,7 @@ function RequestFloatDialog({
             <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Total Float Requested</p>
             <p className="text-2xl font-bold text-primary mt-1">{formatUGX(totalAmount)}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              For {landlordBreakdown.length} {landlordBreakdown.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
+              For {landlordBreakdown.length} {landlordBreakdown.length === 1 ? 'landlord' : 'landlords'} · {selectedTenantIds.size} {selectedTenantIds.size === 1 ? 'tenant' : 'tenants'}
             </p>
           </div>
 
@@ -1673,6 +1673,7 @@ interface LandlordRecord {
   housePhotos?: string[];
   gps?: LandlordGpsRecord | null;
   ugLocation?: UgLocationSelection | null;
+  registeredBy?: string;
 }
 
 function EnrollDialog({
@@ -1762,20 +1763,26 @@ function EnrollDialog({
       try {
         const map = new Map<string, LandlordRecord>();
 
-        // 1. Landlords registered or managed by THIS AGENT in landlords table
+        // 1. Landlords REGISTERED BY THIS AGENT ONLY in landlords table
+        const myRegisteredDbIds = new Set<string>();
         try {
           const { data: myDbLandlords } = await supabase
             .from('landlords')
-            .select('id, name, phone, property_address, description, receipt_request_channel, district, county, sub_county, village, cell, ug_village_id, latitude, longitude')
-            .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`)
+            .select('id, name, phone, property_address, description, receipt_request_channel, district, county, sub_county, village, cell, ug_village_id, latitude, longitude, registered_by, location_captured_by')
+            .eq('registered_by', agentId)
             .order('created_at', { ascending: false })
             .limit(300);
 
           (myDbLandlords || []).forEach((row: any) => {
+            // Strict agent boundary: must be registered by THIS agent only
+            if (!row.registered_by || row.registered_by !== agentId) return;
+
             const name = (row.name || '').trim();
             const p = (row.phone || '').trim();
             if (!name) return;
             const key = `${name.toLowerCase()}|${p}`;
+
+            if (row.id) myRegisteredDbIds.add(row.id);
 
             let passportUrl: string | null = null;
             let housePhotoUrls: string[] = [];
@@ -1819,13 +1826,39 @@ function EnrollDialog({
               housePhotos: housePhotoUrls,
               gps,
               ugLocation: ugLoc,
+              registeredBy: agentId,
             });
           });
         } catch (e) {
           console.warn('Could not query agent landlords from DB:', e);
         }
 
-        // 2. Include any landlords registered by THIS AGENT in local storage
+        // 2. Count active attached tenants ONLY for this agent's verified registered landlords
+        if (map.size > 0) {
+          try {
+            const { data: mySubs } = await supabase
+              .from('welile_homes_subscriptions')
+              .select('landlord_name, landlord_phone, landlord_id')
+              .or(`agent_id.eq.${agentId},enrolled_by.eq.${agentId}`);
+
+            (mySubs || []).forEach((s: any) => {
+              const sName = (s.landlord_name || '').trim().toLowerCase();
+              const sPhone = (s.landlord_phone || '').trim();
+              for (const [, item] of map.entries()) {
+                if (
+                  (s.landlord_id && item.id && s.landlord_id === item.id) ||
+                  (sName && item.name.toLowerCase() === sName && sPhone && item.phone === sPhone)
+                ) {
+                  item.count += 1;
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Could not count subscriptions:', e);
+          }
+        }
+
+        // 3. Include local storage metadata only for landlords registered by THIS AGENT
         try {
           const storedKey = `welile_homes_landlords_${agentId}`;
           const localSaved = localStorage.getItem(storedKey);
@@ -1836,18 +1869,26 @@ function EnrollDialog({
                 const name = (row.name || '').trim();
                 const p = (row.phone || '').trim();
                 if (!name) return;
+
+                // Never include landlords not belonging to this agent
+                if (row.registeredBy && row.registeredBy !== agentId) return;
+                if (row.registered_by && row.registered_by !== agentId) return;
+                if (row.id && !myRegisteredDbIds.has(row.id)) return;
+
                 const key = `${name.toLowerCase()}|${p}`;
                 const existing = map.get(key);
                 if (existing) {
+                  // Enrich existing registered landlord with local cached media if missing
                   if (row.id && !existing.id) existing.id = row.id;
                   if (row.address && !existing.address) existing.address = row.address;
                   if (row.passportUrl && !existing.passportUrl) existing.passportUrl = row.passportUrl;
                   if (row.housePhotos && (!existing.housePhotos || existing.housePhotos.length === 0)) existing.housePhotos = row.housePhotos;
                   if (row.gps && !existing.gps) existing.gps = row.gps;
                   if (row.ugLocation && !existing.ugLocation) existing.ugLocation = row.ugLocation;
-                } else {
+                } else if (!row.id && (row.registeredBy === agentId || row.registered_by === agentId)) {
+                  // Only allow genuinely unsynced local drafts tagged to this agent
                   map.set(key, {
-                    id: row.id,
+                    id: null,
                     name,
                     phone: p,
                     address: row.address || '',
@@ -1856,6 +1897,7 @@ function EnrollDialog({
                     housePhotos: row.housePhotos || [],
                     gps: row.gps || null,
                     ugLocation: row.ugLocation || null,
+                    registeredBy: agentId,
                   });
                 }
               });
@@ -1863,30 +1905,6 @@ function EnrollDialog({
           }
         } catch {
           // ignore
-        }
-
-        // 3. For this agent's landlords only, count attached active tenants from welile_homes_subscriptions
-        try {
-          const { data: mySubs } = await supabase
-            .from('welile_homes_subscriptions')
-            .select('landlord_name, landlord_phone, landlord_id')
-            .or(`agent_id.eq.${agentId},enrolled_by.eq.${agentId}`);
-
-          (mySubs || []).forEach((s: any) => {
-            const sName = (s.landlord_name || '').trim().toLowerCase();
-            const sPhone = (s.landlord_phone || '').trim();
-            for (const [, item] of map.entries()) {
-              if (
-                (s.landlord_id && item.id && s.landlord_id === item.id) ||
-                (sName && item.name.toLowerCase() === sName) ||
-                (sPhone && item.phone && item.phone === sPhone)
-              ) {
-                item.count += 1;
-              }
-            }
-          });
-        } catch (e) {
-          console.warn('Could not count subscriptions:', e);
         }
 
         if (cancelled) return;
@@ -2107,7 +2125,7 @@ function EnrollDialog({
         });
       }
       setHousePhotos((prev) => [...prev, ...newItems]);
-      toast({ title: `${newItems.length} house photo(s) added 🏠` });
+      toast({ title: `${newItems.length} house photo(s) added` });
     } catch (e: any) {
       toast({ title: 'Could not process photos', description: e.message, variant: 'destructive' });
     } finally {
@@ -2144,22 +2162,11 @@ function EnrollDialog({
   };
 
   const handleRequestDeleteLandlord = async (l: LandlordRecord) => {
-    // 1. Guard against landlords with attached tenants in memory
-    if (l.count > 0) {
-      toast({
-        title: 'Landlord is attached to tenant',
-        description: `${l.name} is attached to ${l.count} active ${l.count === 1 ? 'tenant' : 'tenants'}. Landlords attached to tenants cannot be deleted 🤣`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // 2. Guard against landlords attached to Welile Homes subscriptions in database
     try {
+      // 1. Check if landlord has any approved Welile Homes subscriptions where tenants have started paying
       let query = supabase
         .from('welile_homes_subscriptions')
-        .select('id')
-        .limit(1);
+        .select('id, funding_status, receivable_total, outstanding_balance, subscription_status');
 
       if (l.id) {
         query = query.or(`landlord_id.eq.${l.id},landlord_name.ilike.${l.name}`);
@@ -2167,71 +2174,67 @@ function EnrollDialog({
         query = query.ilike('landlord_name', l.name);
       }
 
-      const { data: activeSubs } = await query;
-      if (activeSubs && activeSubs.length > 0) {
-        toast({
-          title: 'Landlord is attached to tenant',
-          description: `${l.name} is attached to an enrolled tenant. Landlords with active tenants cannot be deleted 🤣`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    } catch (e) {
-      console.warn('Could not verify landlord subscriptions:', e);
-    }
+      const { data: subs } = await query;
+      const subList = subs || [];
+      const subIds = subList.map((s: any) => s.id).filter(Boolean);
 
-    // 3. Guard against landlords on payroll / monthly rent dues
-    try {
-      const { data: activeDues } = await supabase
-        .from('welile_homes_monthly_dues')
-        .select('id')
-        .ilike('landlord_name', l.name)
-        .limit(1);
+      if (subIds.length > 0) {
+        // Check if any dues have payments collected or payouts
+        const { data: dues } = await supabase
+          .from('welile_homes_monthly_dues')
+          .select('id, amount_collected, collection_status, payout_status')
+          .in('subscription_id', subIds);
 
-      if (activeDues && activeDues.length > 0) {
-        toast({
-          title: 'Landlord is attached to tenant',
-          description: `${l.name} is on payroll with monthly rent dues. Cannot be deleted 🤣`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    } catch (e) {
-      console.warn('Could not verify monthly dues:', e);
-    }
+        const hasCollectedPayments = (dues || []).some(
+          (d: any) =>
+            Number(d.amount_collected) > 0 ||
+            d.collection_status === 'collected' ||
+            (d.payout_status && d.payout_status !== 'unpaid')
+        );
 
-    // 4. Guard against rent plans or tenants if landlord has an id in landlords table
-    if (l.id) {
-      try {
-        const [{ data: plans }, { data: directTenants }, { data: allocs }] = await Promise.all([
-          supabase.from('rent_requests').select('id').eq('landlord_id', l.id).in('status', ACTIVE_RENT_STATUSES).limit(1),
-          supabase.from('landlords').select('tenant_id').eq('id', l.id).not('tenant_id', 'is', null).limit(1),
-          supabase.from('agent_landlord_float_allocations').select('id').eq('landlord_id', l.id).limit(1),
-        ]);
+        // Check if any subscription has balance already reduced (active repayment in progress)
+        const hasRepayments = subList.some(
+          (s: any) =>
+            Number(s.receivable_total) > 0 &&
+            Number(s.outstanding_balance) < Number(s.receivable_total)
+        );
 
-        if ((plans && plans.length > 0) || (directTenants && directTenants.length > 0)) {
+        // If approved and tenants have started paying, lock deletion
+        if (hasCollectedPayments || hasRepayments) {
           toast({
-            title: 'Landlord is attached to tenant',
-            description: `${l.name} is attached to active tenants or rent plans and cannot be deleted 🤣`,
+            title: 'Cannot delete landlord',
+            description: `${l.name} has approved tenant plans with payments already started and cannot be deleted.`,
             variant: 'destructive',
           });
           return;
         }
+      }
 
-        if (allocs && allocs.length > 0) {
+      // 2. Check if conventional rent plans exist with recorded payments
+      if (l.id) {
+        const { data: plans } = await supabase
+          .from('rent_requests')
+          .select('id, status, paid_amount')
+          .eq('landlord_id', l.id)
+          .in('status', ['disbursed', 'active', 'repaying'])
+          .limit(1);
+
+        if (plans && plans.length > 0 && Number(plans[0].paid_amount) > 0) {
           toast({
-            title: 'Landlord is attached to tenant',
-            description: `${l.name} has float allocations or payroll records and cannot be deleted 🤣`,
+            title: 'Cannot delete landlord',
+            description: `${l.name} has active rent plans with payments and cannot be deleted.`,
             variant: 'destructive',
           });
           return;
         }
-      } catch (e) {
-        console.warn('Could not verify related records:', e);
       }
-    }
 
-    setDeleteLandlordTarget(l);
+      // Eligible to delete
+      setDeleteLandlordTarget(l);
+    } catch (e) {
+      console.warn('Could not verify landlord payment records:', e);
+      setDeleteLandlordTarget(l);
+    }
   };
 
   const handleConfirmDeleteLandlord = async () => {
@@ -2239,7 +2242,31 @@ function EnrollDialog({
     const target = deleteLandlordTarget;
     setDeletingLandlord(true);
     try {
-      // Delete from landlords table if an id exists
+      // 1. Clean up any unapproved / non-paying draft subscriptions attached to this landlord
+      let subQuery = supabase
+        .from('welile_homes_subscriptions')
+        .select('id');
+
+      if (target.id) {
+        subQuery = subQuery.or(`landlord_id.eq.${target.id},landlord_name.ilike.${target.name}`);
+      } else {
+        subQuery = subQuery.ilike('landlord_name', target.name);
+      }
+
+      const { data: attachedSubs } = await subQuery;
+      if (attachedSubs && attachedSubs.length > 0) {
+        for (const s of attachedSubs) {
+          try {
+            await (supabase.rpc as any)('delete_welile_home_subscription', {
+              p_subscription_id: s.id,
+            });
+          } catch (e) {
+            console.warn('Could not delete unapproved subscription:', s.id, e);
+          }
+        }
+      }
+
+      // 2. Delete from landlords table if an id exists
       if (target.id && agentId) {
         await supabase
           .from('landlords')
@@ -2248,7 +2275,7 @@ function EnrollDialog({
           .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`);
       }
 
-      // Remove from local storage
+      // 3. Remove from local storage
       if (agentId) {
         try {
           const storedKey = `welile_homes_landlords_${agentId}`;
@@ -2269,7 +2296,7 @@ function EnrollDialog({
         }
       }
 
-      // Remove from state
+      // 4. Remove from state
       setLandlords((prev) =>
         prev.filter(
           (x) =>
@@ -2282,13 +2309,15 @@ function EnrollDialog({
       if (landlordName.trim().toLowerCase() === target.name.trim().toLowerCase()) {
         setLandlordName('');
         setLandlordPhone('');
+        setSelectedLandlordRecord(null);
       }
 
       toast({
-        title: 'Landlord deleted 🤣',
+        title: 'Landlord deleted',
         description: `${target.name} was removed from your landlords list.`,
       });
       setDeleteLandlordTarget(null);
+      onDone();
     } catch (err: any) {
       toast({
         title: 'Failed to delete landlord',
@@ -2458,6 +2487,7 @@ function EnrollDialog({
         housePhotos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
         gps: capturedGpsObj,
         ugLocation,
+        registeredBy: agentId,
       };
 
       // 4. Save locally
@@ -2485,7 +2515,7 @@ function EnrollDialog({
       setSelectedLandlordRecord(newRecord);
 
       toast({
-        title: 'Landlord registered successfully 🏡',
+        title: 'Landlord registered successfully',
         description: `${name} has been enrolled with house details. Now enter tenant details to proceed.`,
       });
       setStep('tenant');
@@ -2647,6 +2677,7 @@ function EnrollDialog({
       }
       const res = data as any;
       if (!res?.success) throw new Error(res?.error || 'Enrollment failed');
+
       toast({
         title: 'Tenant enrolled successfully. Pending verification.',
         description: `${formatUGX(rentNum)}/mo · you earn ${formatUGX(res.agent_commission_per_month)}/mo`,
@@ -2757,13 +2788,13 @@ function EnrollDialog({
 
               {/* CHOOSE EXISTING LANDLORD */}
               <TabsContent value="choose" className="space-y-3 pt-2">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative [&_input]:!pl-10 [&_input]:mb-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
                   <Input
                     value={landlordQuery}
                     onChange={(e) => setLandlordQuery(e.target.value)}
                     placeholder="Search landlord by name or phone..."
-                    className="h-9 sm:h-10 pl-9 pr-3 text-xs sm:text-sm rounded-xl"
+                    className="h-10 !pl-10 pr-3 text-xs sm:text-sm rounded-xl mb-0"
                   />
                 </div>
 
@@ -2776,7 +2807,7 @@ function EnrollDialog({
                     <div className="rounded-xl border border-dashed p-4 text-center">
                       <Building2 className="mx-auto h-7 w-7 text-muted-foreground/50 mb-1" />
                       <p className="text-xs font-medium text-foreground">
-                        {landlords.length === 0 ? 'No landlords registered by you yet 🤣' : `No match for "${landlordQuery}"`}
+                        {landlords.length === 0 ? 'No landlords registered by you yet' : `No match for "${landlordQuery}"`}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
                         {landlords.length === 0
@@ -2902,7 +2933,7 @@ function EnrollDialog({
                                 e.stopPropagation();
                                 handleRequestDeleteLandlord(l);
                               }}
-                              title={l.count > 0 ? 'Landlord is attached to tenant' : 'Delete landlord'}
+                              title="Delete landlord"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -3547,7 +3578,10 @@ function EnrollDialog({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {deleteLandlordTarget?.name}?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to remove this landlord from your Welile Homes list? This landlord has no tenants attached.
+                Are you sure you want to remove this landlord from your Welile Homes list?
+                {deleteLandlordTarget?.count && deleteLandlordTarget.count > 0
+                  ? ` Any unapproved tenant draft enrollments (${deleteLandlordTarget.count}) will also be cancelled.`
+                  : ''}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
