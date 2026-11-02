@@ -392,6 +392,7 @@ export default function FunderLandingPreview() {
           : { initial: { y: 40, opacity: 0 }, animate: { y: 0, opacity: 1 }, transition: { duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] } })}
       >
         <div className="mx-auto max-w-3xl space-y-4 px-4 pb-36 pt-2.5">
+          <div ref={sheetTopRef} aria-hidden className="h-px" />
           <div aria-hidden className="mx-auto h-1.5 w-11 rounded-full bg-border" />
 
           <motion.section
