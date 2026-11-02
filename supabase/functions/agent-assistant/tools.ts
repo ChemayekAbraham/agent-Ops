@@ -1,5 +1,6 @@
 import { z } from "https://esm.sh/zod@3.23.8";
 import { ISO_DATE, kampalaToday, type Period, PERIODS, resolvePeriod } from "./dates.ts";
+import { CALC_TOOL } from "./calc.ts";
 
 /**
  * Tool registry for the AGENT persona. This is the only thing that decides what the model can
@@ -303,6 +304,116 @@ export const AGENT_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "get_team_summary",
+    description:
+      "How the agent's own team of verified sub-agents is doing in a period (default last 7 days): how many are active vs quiet, " +
+      "team total collected, the agent's own collected for comparison, the top 5 collectors, and examples of quiet sub-agents with " +
+      "their last collection date. Use for 'how is my team doing', 'who hasn't collected', 'who is my top sub-agent'.",
+    parameters: { type: "object", properties: { ...rangeProps, limit: limitProp }, additionalProperties: false },
+    schema: z.object({ ...rangeShape, limit: z.number().int().min(1).max(25).optional() }).strict()
+      .refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_agent_team_summary",
+    toRpcArgs: (a) => {
+      const x = a as Range & { limit?: number };
+      return { ...rangeToRpc(x, "last_7_days"), p_limit: x.limit ?? 10 };
+    },
+  },
+  {
+    name: "get_subagent_tenants",
+    description:
+      "The tenants and Rent Plans of ONE of the agent's verified sub-agents, found by the sub-agent's name or phone digits: " +
+      "tenant names, plan stage, rent, daily repayment, plan total, recorded repaid, plan balance, dates. Never contacts. " +
+      "plan filter: all, active, in_review, completed. If match_count is more than 1, list the names and ask which one.",
+    parameters: {
+      type: "object",
+      properties: {
+        search: { ...searchProp, description: "The sub-agent's name or phone digits (required)." },
+        plan: { type: "string", enum: ["all", "active", "in_review", "completed"] },
+        limit: limitProp,
+      },
+      required: ["search"],
+      additionalProperties: false,
+    },
+    schema: z.object({
+      search,
+      plan: z.enum(["all", "active", "in_review", "completed"]).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
+    }).strict(),
+    rpc: "assistant_agent_subagent_tenants",
+    toRpcArgs: (a) => {
+      const x = a as { search: string; plan?: string; limit?: number };
+      return { p_search: x.search, p_plan: x.plan ?? "all", p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_league_standing",
+    description:
+      "The agent's team league standing for a week (default this week; weeks start Monday, up to 12 weeks back): the agent's team " +
+      "rank, performance percent, expected and collected for the agent's own team, active collectors, and the top 5 teams shown " +
+      "only as 'Team <first name>' with a performance percent. Other teams' amounts are never available.",
+    parameters: {
+      type: "object",
+      properties: { week_start: { type: "string", description: "Any date inside the week, YYYY-MM-DD. Omit for this week." } },
+      additionalProperties: false,
+    },
+    schema: z.object({ week_start: date.optional() }).strict(),
+    rpc: "assistant_agent_leaderboard",
+    toRpcArgs: (a) => ({ p_week_start: (a as { week_start?: string }).week_start ?? null }),
+  },
+  {
+    name: "get_my_houses",
+    description:
+      "The house listings this agent posted: title, category, rooms, rent, location, status (available / occupied / rejected), " +
+      "whether verified, dates, landlord name, whether the listing and verification bonuses were paid, and the rejection reason " +
+      "for rejected ones. Includes counts by status. Optional search over title and place.",
+    parameters: {
+      type: "object",
+      properties: {
+        search: { ...searchProp, description: "Part of the title, village, sub-county or district." },
+        status: { type: "string", enum: ["all", "available", "occupied", "rejected", "verified", "unverified"] },
+        limit: limitProp,
+      },
+      additionalProperties: false,
+    },
+    schema: z.object({
+      search: search.optional(),
+      status: z.enum(["all", "available", "occupied", "rejected", "verified", "unverified"]).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
+    }).strict(),
+    rpc: "assistant_agent_houses",
+    toRpcArgs: (a) => {
+      const x = a as { search?: string; status?: string; limit?: number };
+      return { p_search: x.search ?? null, p_status: x.status ?? "all", p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_landlord_float_status",
+    description:
+      "Landlord float status for this agent: each allocation with landlord, tenant, allocated / paid out / remaining and its state " +
+      "(open, paid, returned, cancelled) and the payout state (paid, awaiting_your_receipt, failed, being_processed). " +
+      "Use for 'was the landlord paid', 'which landlord payouts are waiting on me'. recorded_balance is a stored figure that can " +
+      "still count recalled allocations: for 'how much float can I spend' use get_wallet (landlord_float_available). No receipts.",
+    parameters: {
+      type: "object",
+      properties: {
+        search: { ...searchProp, description: "Part of the landlord's name." },
+        status: { type: "string", enum: ["all", "open", "paid", "returned", "cancelled"] },
+        limit: limitProp,
+      },
+      additionalProperties: false,
+    },
+    schema: z.object({
+      search: search.optional(),
+      status: z.enum(["all", "open", "paid", "returned", "cancelled"]).optional(),
+      limit: z.number().int().min(1).max(25).optional(),
+    }).strict(),
+    rpc: "assistant_agent_landlord_float",
+    toRpcArgs: (a) => {
+      const x = a as { search?: string; status?: string; limit?: number };
+      return { p_search: x.search ?? null, p_status: x.status ?? "all", p_limit: x.limit ?? 15 };
+    },
+  },
+  {
     name: "get_advances",
     description:
       "The agent's own advances: principal, outstanding balance, arrears, installment, dates, whether deductions are " +
@@ -345,13 +456,21 @@ export function findTool(name: string): ToolDef | undefined {
   return BY_NAME.get(name);
 }
 
-/** OpenAI-format tool list for the model. */
-export function openAiTools() {
+/**
+ * OpenAI-format tool list for the model. Someone with no agent footprint gets only the calculator
+ * and the clarification question: the data tools are simply not offered, so there is nothing to
+ * refuse and nothing to leak.
+ */
+export function openAiTools(isAgent: boolean) {
   return [
-    ...AGENT_TOOLS.map((t) => ({
+    ...(isAgent ? AGENT_TOOLS : []).map((t) => ({
       type: "function" as const,
       function: { name: t.name, description: t.description, parameters: t.parameters },
     })),
+    {
+      type: "function" as const,
+      function: { name: CALC_TOOL.name, description: CALC_TOOL.description, parameters: CALC_TOOL.parameters },
+    },
     {
       type: "function" as const,
       function: {
