@@ -96,6 +96,8 @@ interface WHSubscription {
   newly_created?: boolean;
   subscription_status?: string | null;
   notes?: string | null;
+  agent_id?: string | null;
+  landlord_id?: string | null;
 }
 
 type EnrollStatus = {
@@ -2307,12 +2309,12 @@ function EnrollDialog({
       if (l.id) {
         const { data: plans } = await supabase
           .from('rent_requests')
-          .select('id, status, paid_amount')
+          .select('id, status, amount_repaid')
           .eq('landlord_id', l.id)
           .in('status', ['disbursed', 'active', 'repaying'])
           .limit(1);
 
-        if (plans && plans.length > 0 && Number(plans[0].paid_amount) > 0) {
+        if (plans && plans.length > 0 && Number(plans[0].amount_repaid) > 0) {
           toast({
             title: 'Cannot delete landlord',
             description: `${l.name} has active rent plans with payments and cannot be deleted.`,
