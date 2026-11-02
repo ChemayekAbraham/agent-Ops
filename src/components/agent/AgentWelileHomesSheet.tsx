@@ -775,6 +775,28 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </CardContent></Card>
       </div>
 
+      {/* Welile Homes Collections summary (Welile Homes only) */}
+      <Card>
+        <CardContent className="p-3 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Receipt className="h-3.5 w-3.5" /> Welile Homes Collections
+          </div>
+          {whCollections === undefined ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : whCollections === null ? (
+            <p className="text-xs text-destructive">Collections summary is unavailable right now.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Total collected</span><br /><span className="text-sm font-semibold text-emerald-600">{formatUGX(whCollections.total)}</span></div>
+              <div><span className="text-muted-foreground">2% commission</span><br /><span className="text-sm font-semibold">{formatUGX(whCollections.commission)}</span></div>
+              <div><span className="text-muted-foreground">Months fully paid</span><br /><span className="text-sm font-semibold">{whCollections.paidMonths}</span></div>
+              <div><span className="text-muted-foreground">Part-paid months</span><br /><span className="text-sm font-semibold">{whCollections.partialMonths}</span></div>
+              <div className="col-span-2 text-[11px] text-muted-foreground">From {whCollections.tenants} {whCollections.tenants === 1 ? 'tenant' : 'tenants'}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent rent payments */}
       <Card>
         <CardContent className="p-3 space-y-2.5">
