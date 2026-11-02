@@ -20,15 +20,6 @@ export default function CardOverflowHarness() {
           <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground">MAP</div>
         </div>
 
-        {/* Top bar: avatar / search / GPS — stays above the sheet */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <div className="pointer-events-auto flex items-center gap-2.5">
-            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-primary text-[15px] font-bold text-primary-foreground shadow-lg">PL</div>
-            <div className="flex h-12 min-w-0 flex-1 items-center rounded-full bg-card px-4 text-muted-foreground shadow-lg">Where should we look?</div>
-            <div className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-card text-primary shadow-lg">◎</div>
-          </div>
-        </div>
-
         {/* Amount card — covered by the sheet on scroll */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)]">
           <div className="pointer-events-auto rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-lg">
