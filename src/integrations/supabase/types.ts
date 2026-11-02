@@ -63819,6 +63819,7 @@ export type Database = {
           amount_due: number
           collection_status: string
           created_at: string
+          due_month_index: number
           id: string
           landlord_fee: number
           landlord_id: string | null
@@ -63839,6 +63840,7 @@ export type Database = {
           amount_due?: number
           collection_status?: string
           created_at?: string
+          due_month_index: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
@@ -63859,6 +63861,7 @@ export type Database = {
           amount_due?: number
           collection_status?: string
           created_at?: string
+          due_month_index?: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
