@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, ArrowUp, Check, Copy, History, LifeBuoy, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, BookOpen, Check, Copy, History, LifeBuoy, MessageCircle, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Conversation, ConversationContent, ConversationScrollButton } from '@/components/ai-elements/conversation';
@@ -150,9 +150,9 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
               : <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-full" aria-label="Send message" disabled={!text.trim()}><ArrowUp /></Button>}
           </form>
           <div className="mt-1.5 flex justify-center gap-3 text-xs text-muted-foreground">
-            <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="hover:text-foreground hover:underline">Talk to a person</a>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground hover:underline"><MessageCircle className="h-3.5 w-3.5" />Talk to a person</a>
             <span aria-hidden="true">·</span>
-            <a href={HELP_URL} target="_blank" rel="noopener" className="hover:text-foreground hover:underline">Help centre</a>
+            <a href={HELP_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground hover:underline"><BookOpen className="h-3.5 w-3.5" />Help centre</a>
           </div>
         </div>
       </>}
