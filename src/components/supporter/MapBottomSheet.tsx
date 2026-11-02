@@ -111,7 +111,10 @@ export function MapBottomSheet({
     const rect = sheetRef.current?.getBoundingClientRect();
     if (!rect) return;
     const relY = e.clientY - rect.top;
-    if (relY > 40) return;
+    // Only the sheet's own handle area starts a drag. A press above the sheet
+    // (e.g. on the floating search bar, which is a React child of the sheet) must
+    // keep its default action, or the search box can never take focus.
+    if (relY < 0 || relY > 40) return;
     e.preventDefault();
     dragStartY.current = e.clientY;
     dragStartHeight.current = snapToHeight(snap);
