@@ -14,7 +14,7 @@ export const HOW_TO_CHIPS = [
   'How do I earn commission?',
   'How do I renew a tenant?',
   'How do I invite a sub-agent?',
-  'How do I reset my password?',
+  'What is league rank?',
 ];
 export const EXPLAINER_CHIPS = ['What is a Rent Plan?', 'How is a Rent Plan cost worked out?'];
 
