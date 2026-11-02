@@ -344,51 +344,6 @@ export default function FunderLandingPreview() {
           onOpenHouse={openHouseFromMap}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))]">
-          <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
-            <Link
-              to={welileId ? `/profile/${welileId}` : '/profile'}
-              aria-label="Your profile"
-              className="flex h-12 w-12 flex-none items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-primary text-[15px] font-bold text-primary-foreground shadow-lg"
-            >
-              {avatarUrl && !avatarFailed ? (
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  onError={() => setAvatarFailed(true)}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                initials
-              )}
-            </Link>
-
-            <label className="relative flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-full bg-card px-4 text-muted-foreground shadow-lg">
-              <Search className="h-[18px] w-[18px] flex-none" aria-hidden />
-              <span className="sr-only">Search an area</span>
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Where should we look?"
-                className="h-full w-full min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-muted-foreground"
-              />
-            </label>
-            <button
-              type="button"
-              onClick={locate}
-              aria-label={location.coords ? 'Recentre on my location' : 'Use my location'}
-              className="flex h-12 w-12 flex-none items-center justify-center rounded-full bg-card text-primary shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {location.status === 'locating' ? (
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
-              ) : (
-                <Crosshair className="h-5 w-5" aria-hidden />
-              )}
-            </button>
-          </motion.div>
-        </div>
-
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[calc(max(1rem,env(safe-area-inset-top))+3.75rem)]">
           <motion.section
             aria-label="Amount needed to fund houses"
