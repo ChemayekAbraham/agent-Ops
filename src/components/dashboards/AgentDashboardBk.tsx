@@ -1264,7 +1264,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <h1 className="font-bold text-xl leading-tight">
                     <span className="break-words">
                       {profile?.full_name || 'Agent'}
-                      {profile?.verified && (
+                      {agentVerifiedState === 'verified' && (
                         <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
                       )}
                     </span>
