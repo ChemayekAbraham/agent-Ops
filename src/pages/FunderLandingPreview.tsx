@@ -336,7 +336,7 @@ export default function FunderLandingPreview() {
       <div
         className={cn(
           'pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))] transition-colors duration-300',
-          barFrosted && 'bg-background/70 pb-3 backdrop-blur-xl',
+          barFrosted && 'bg-background/85 pb-3 shadow-[0_8px_24px_-12px_hsl(222_47%_11%/0.25)] backdrop-blur-2xl backdrop-saturate-150',
         )}
       >
         <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
