@@ -1582,10 +1582,7 @@ function RequestFloatDialog({
     try {
       // Sends the exact tenants (subscription IDs) this request covers; the server computes the amount.
       const result = await requestWelileHomesFloat({
-        agentId,
         subscriptionIds: selectedTenants.map((s) => s.id),
-        legacyAmount: totalAmount,
-        tenantCount: selectedTenants.length,
         recipientPhone: phone,
         notes,
       });
@@ -1597,7 +1594,7 @@ function RequestFloatDialog({
             record: {
               id: data.id,
               agent_id: agentId,
-              requested_amount: totalAmount,
+              requested_amount: result.amount,
               reason: notes.trim(),
               status: 'pending',
             },
