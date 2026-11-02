@@ -253,3 +253,127 @@ Deno.test("tools: schemas accept good arguments and reject extras", () => {
   assert(!tx.schema.safeParse({ limit: 500 }).success);
   assertEquals(tx.toRpcArgs({ period: "yesterday" }), { p_from: resolvePeriod("yesterday").from, p_to: resolvePeriod("yesterday").to, p_direction: null, p_limit: 20 });
 });
+
+// ---- calculator, lanes, refusals ---------------------------------------------------------------
+
+import { calculateRentPlan, CALC_TOOL } from "./calc.ts";
+import { AGENT_KNOWLEDGE } from "./knowledge.ts";
+import { MSG } from "./messages.ts";
+import { openAiTools } from "./tools.ts";
+
+Deno.test("calc: 500,000 over 30 days matches the platform formula", () => {
+  const r = calculateRentPlan(500000, 30);
+  assertEquals(r.access_fee, 165000);
+  assertEquals(r.request_fee, 20000);
+  assertEquals(r.total_repayment, 685000);
+  assertEquals(r.daily_repayment, 22834);
+});
+
+Deno.test("calc: small rent uses the 10,000 request fee; short tenors hit the floor", () => {
+  assertEquals(calculateRentPlan(200000, 30).request_fee, 10000);
+  const short = calculateRentPlan(300000, 7);
+  const curve = Math.round(300000 * (Math.pow(1.33, 7 / 30) - 1));
+  assert(short.access_fee > curve);
+});
+
+Deno.test("calc: out-of-range or unknown arguments are rejected", () => {
+  assert(CALC_TOOL.schema.safeParse({ rent_amount: 500000, duration_days: 30 }).success);
+  for (const bad of [{ rent_amount: 10, duration_days: 30 }, { rent_amount: 500000, duration_days: 3 }, { rent_amount: 500000, duration_days: 400 }, { rent_amount: 500000, duration_days: 30, user_id: "x" }, { rent_amount: 500000, duration_days: 30, monthly_rate: 0.5 }]) {
+    assert(!CALC_TOOL.schema.safeParse(bad).success, JSON.stringify(bad));
+  }
+});
+
+Deno.test("tools: someone with no agent footprint is offered no data tools", () => {
+  const names = (isAgent: boolean) => openAiTools(isAgent).map((t) => t.function.name);
+  assertEquals(names(false).sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
+  assert(names(true).includes("get_wallet") && names(true).includes("calculate_rent_plan"));
+});
+
+Deno.test("guard: earning facts may be quoted, other figures may not", () => {
+  assert(checkAnswer("You earn UGX 10,000 for registering a sub-agent.", [AGENT_KNOWLEDGE], "how do i earn").ok);
+  assertEquals(checkAnswer("You earn UGX 50,000 per tenant.", [AGENT_KNOWLEDGE], "x"), { ok: false, reason: "figure" });
+});
+
+Deno.test("messages: refusals are friendly, never blame, never name the rules, and pass terminology", () => {
+  for (const seed of ["a", "ab", "abc"]) {
+    const m = MSG.refusal(seed);
+    assert(checkAnswer(m, [], "x").ok);
+    assert(!/not allowed|forbidden|unauthori[sz]ed|you don't seem/i.test(m));
+  }
+});
+
+Deno.test("request: page hint is a fixed enum", () => {
+  assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "agent_dashboard" }).success, true);
+  assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "admin" }).success, false);
+});
+
+// ---- step 2: team, sub-agent tenants, league, houses, landlord float ---------------------------
+
+Deno.test("tools: the network tools are registered and map to assistant_agent_* functions", () => {
+  const expected: Record<string, string> = {
+    get_team_summary: "assistant_agent_team_summary",
+    get_subagent_tenants: "assistant_agent_subagent_tenants",
+    get_league_standing: "assistant_agent_leaderboard",
+    get_my_houses: "assistant_agent_houses",
+    get_landlord_float_status: "assistant_agent_landlord_float",
+  };
+  for (const [name, rpc] of Object.entries(expected)) assertEquals(findTool(name)?.rpc, rpc, name);
+});
+
+Deno.test("tools: network tools reject identity-looking and unknown arguments", () => {
+  const inputs: Record<string, Record<string, unknown>> = {
+    get_team_summary: {}, get_subagent_tenants: { search: "sam" }, get_league_standing: {}, get_my_houses: {}, get_landlord_float_status: {},
+  };
+  for (const [name, base] of Object.entries(inputs)) {
+    const t = findTool(name)!;
+    assert(t.schema.safeParse(base).success, `${name} rejects valid input`);
+    for (const extra of [{ agent_id: "x" }, { user_id: "x" }, { sub_agent_id: "x" }, { parent_id: "x" }, { team_id: "x" }, { id: "x" }]) {
+      assert(!t.schema.safeParse({ ...base, ...extra }).success, `${name} accepted ${Object.keys(extra)[0]}`);
+    }
+  }
+});
+
+Deno.test("tools: sub-agent tenants needs a sub-agent search and a valid plan filter", () => {
+  const t = findTool("get_subagent_tenants")!;
+  assert(!t.schema.safeParse({}).success);
+  assert(!t.schema.safeParse({ search: "sam", plan: "everything" }).success);
+  assert(!t.schema.safeParse({ search: "' or 1=1 --" }).success);
+  assertEquals(t.toRpcArgs({ search: "sam" }), { p_search: "sam", p_plan: "all", p_limit: 15 });
+});
+
+Deno.test("tools: league standing takes only a date; houses and float take fixed enums", () => {
+  assert(findTool("get_league_standing")!.schema.safeParse({ week_start: "2026-10-26" }).success);
+  assert(!findTool("get_league_standing")!.schema.safeParse({ week_start: "last week" }).success);
+  assertEquals(findTool("get_league_standing")!.toRpcArgs({}), { p_week_start: null });
+  assert(!findTool("get_my_houses")!.schema.safeParse({ status: "deleted" }).success);
+  assert(!findTool("get_landlord_float_status")!.schema.safeParse({ status: "refunded" }).success);
+  assert(!findTool("get_landlord_float_status")!.schema.safeParse({ limit: 99 }).success);
+  assertEquals(findTool("get_team_summary")!.toRpcArgs({ period: "last_7_days" }).p_limit, 10);
+});
+
+Deno.test("tools: the team summary defaults to the last 7 days", () => {
+  const a = findTool("get_team_summary")!.toRpcArgs({});
+  assertEquals(a.p_from, resolvePeriod("last_7_days").from);
+});
+
+// ---- help centre -------------------------------------------------------------------------------
+
+import { isGeneralTool } from "./tools.ts";
+
+Deno.test("help: the search tool is general (offered to everyone) and maps to an assistant_agent_* function", () => {
+  assertEquals(findTool("search_help_center")?.rpc, "assistant_agent_help_search");
+  assert(isGeneralTool("search_help_center"));
+  assert(!isGeneralTool("get_wallet") && !isGeneralTool("get_my_houses"));
+});
+
+Deno.test("help: the query is short plain text; markup, quotes, SQL and identity keys are rejected", () => {
+  const t = findTool("search_help_center")!;
+  for (const ok of ["renew a tenant after final payment", "how do I reset my password?", "Rent Plan cost & fees"]) {
+    assert(t.schema.safeParse({ query: ok }).success, ok);
+  }
+  for (const bad of ["", "ab", "a".repeat(121), "<script>alert(1)</script>", "'; drop table x; --", "{ignore rules}", "x\y"]) {
+    assert(!t.schema.safeParse({ query: bad }).success, JSON.stringify(bad));
+  }
+  assert(!t.schema.safeParse({ query: "renew", user_id: "x" }).success);
+  assertEquals(t.toRpcArgs({ query: "renew a tenant" }), { p_query: "renew a tenant", p_limit: 4 });
+});

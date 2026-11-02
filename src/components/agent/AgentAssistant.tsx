@@ -16,7 +16,7 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
     return () => window.removeEventListener('open-welile-assistant', show);
   }, []);
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Welile Assistant" aria-haspopup="dialog" className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 z-[60] h-14 w-14 rounded-full border-2 border-background shadow-lg`}><Sparkles className="h-6 w-6" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 z-[60] h-14 w-14 rounded-full border-2 border-background shadow-lg`}><Sparkles className="h-6 w-6" /></Button>, document.body)}
     <AssistantChatSurface open={open} onOpenChange={setOpen} />
   </>;
 }

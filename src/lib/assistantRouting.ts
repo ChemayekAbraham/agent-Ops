@@ -8,5 +8,7 @@ export function isPersonalAgentWorkQuery(text: string): boolean {
 }
 
 export function acceptsPersonalAnswer(data: { outcome?: string; reply?: string } | null | undefined): boolean {
-  return !!data?.reply?.trim() && (data.outcome === 'answered' || data.outcome === 'clarify');
+  // A friendly refusal (out_of_scope) is a final answer too: sending it on to the public bot would
+  // let a refused question be answered by something that does not know the person's scope.
+  return !!data?.reply?.trim() && (data.outcome === 'answered' || data.outcome === 'clarify' || data.outcome === 'out_of_scope');
 }

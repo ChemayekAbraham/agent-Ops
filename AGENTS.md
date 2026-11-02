@@ -32,12 +32,9 @@
 - CFO 7-day reports use Kampala days via `src/lib/kampalaDays.ts`.
 - Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.
 - Support capacity and its debit use operational float only, never withdrawable Returns.
-- `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
-- `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
 - CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side. Wallet totals read `wallet_balances_projection` (one row), and `user_wallet_strict_for` only when that row is missing — never `v_user_wallet_strict` (recomputes every wallet).
 - CFO TIN/NSSF list derives per paid payroll run (`cfo_statutory_consent_list`).
 - CFO correction/evidence tooling (Correction Center, `cfo_s12_save_evidence`, Stage 14 `fin_s14_*`, `cfo_s14b1r/b1w_execute`) is append-only, role-gated and scoped, so review never moves money or touches other users.
-- Fingerprinted CFO packages (`cfo_bucket_a_post`, `cfo_corr_5300000_post`) post only via their own function: approver allowlist, own fresh preflight (<30 min), frozen lines, atomic.
 - Business-line cost attribution lives in append-only `cfo_reporting_cost_tags`, never correcting journals.
 - Rent Plan landlord/LC1 verification (bonus release) fires only on the first Landlord Ops review transition.
 - Phone wallet collection runs only for `phone_collection_enabled` plans; late charge only when `smartphone_surcharge_enabled`.
@@ -64,3 +61,4 @@
 - Agent Verification screens use only the agent-vetting hooks and `src/lib/agentVetting.ts`; blocked creates go through `promptIfNotVetted` to one app-level dialog and the client never hides Add Tenant / Rent Plan buttons, because only the server decides verification.
 - Lunch allowance reclasses are append-only pairs logged once in `cfo_lunch_reclass_log`; Money Out counts the reclass, not the original, to avoid double counting.
 - CFO Money Out/Money In read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for`; the client never recomputes or re-labels, so each report has one server definition.
+- Welile Homes landlord ownership is server-decided (`get_my_welile_homes_landlords`, enroll/float RPCs check `registered_by`).

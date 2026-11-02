@@ -1,0 +1,1 @@
+No changes planned. The workspace already sits on ba1c3f9d63 with a clean working tree: the funder preview page, its map and the /dashboard/funder-preview route are present, and the three map helpers are exported. Nothing will be edited for this message.

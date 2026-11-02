@@ -611,185 +611,55 @@ Deno.serve(async (req) => {
       const ip = clientIpFrom(req);
       const authUserId = await userIdFromAuth(adminClient, req);
 
-      // Cross-phone caps: prevent bypassing the per-phone cooldown/hourly cap
-      // by rotating phone numbers in the request body from the same user or IP.
-      const hourAgoIso = new Date(now - HOUR_MS).toISOString();
-      const dayAgoIso = new Date(now - DAY_MS).toISOString();
+      const purpose = String(body.purpose ?? "").trim();
+      // Usage-by-category reporting (get_otp_usage_by_category): callers that
+      // don't need custom wording still pass `category` alone (e.g. 'login',
+      // 'signup') -- falls back to `purpose` so the two payout/NIN-link
+      // callers that only ever set `purpose` are tagged for free.
+      const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
+      const isTenantVerify = category === "welile_homes_tenant_verify" || purpose === "welile_homes_tenant_verify";
+      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : 60 * 60 * 1000;
 
-      const countEvents = async (
-        filter: (q: any) => any,
-        sinceIso: string,
-      ): Promise<number> => {
-        const query = filter(
-          adminClient
-            .from("otp_send_events")
-            .select("id", { count: "exact", head: true })
-            .gte("created_at", sinceIso),
-        );
-        const { count } = await query;
-        return count ?? 0;
-      };
-
-      if (authUserId) {
-        const [userHour, userDay] = await Promise.all([
-          countEvents((q) => q.eq("user_id", authUserId), hourAgoIso),
-          countEvents((q) => q.eq("user_id", authUserId), dayAgoIso),
-        ]);
-        if (userHour >= MAX_SENDS_PER_USER_HOUR) {
-          return new Response(
-            JSON.stringify({
-              error: `Too many code requests. Please try again in about an hour.`,
-              retry_after: 60 * 60,
-            }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-        if (userDay >= MAX_SENDS_PER_USER_DAY) {
-          return new Response(
-            JSON.stringify({
-              error: `Daily verification-code limit reached. Please try again tomorrow.`,
-              retry_after: 60 * 60 * 6,
-            }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-      }
-
-      if (ip) {
-        const [ipHour, ipDay] = await Promise.all([
-          countEvents((q) => q.eq("ip", ip), hourAgoIso),
-          countEvents((q) => q.eq("ip", ip), dayAgoIso),
-        ]);
-        if (ipHour >= MAX_SENDS_PER_IP_HOUR || ipDay >= MAX_SENDS_PER_IP_DAY) {
-          return new Response(
-            JSON.stringify({
-              error: `Too many verification requests from your network. Please try again later.`,
-              retry_after: 60 * 60,
-            }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-          );
-        }
-      }
-
-      // Load existing record to enforce durable, DB-backed rate limits AND to
-      // decide whether we can REUSE a still-valid code (see below).
+      // Every limit (per phone, per account, per network) is checked and counted in ONE locked
+      // database step, so simultaneous requests are serialized and cannot all slip under a cap.
+      // A still-valid unverified code is reused (late SMS keep working) without resetting its
+      // wrong-try count; only a brand-new code starts at zero tries.
+      // Previous send's provider, read only to choose the SMS route (not a limit check).
       const { data: existing } = await adminClient
         .from("otp_verifications")
-        .select("last_sent_at, send_count, send_window_start, otp_code, expires_at, verified, send_status, send_status_reason")
+        .select("send_status, send_status_reason")
         .eq("phone", phoneKey)
         .maybeSingle();
 
-      // Cooldown: minimum time between consecutive sends (survives reloads).
-      if (existing?.last_sent_at) {
-        const elapsed = now - new Date(existing.last_sent_at).getTime();
-        const remaining = Math.ceil((RESEND_COOLDOWN_SECONDS * 1000 - elapsed) / 1000);
-        if (remaining > 0) {
-          return new Response(
-            JSON.stringify({
-              error: `Please wait ${remaining}s before requesting another code.`,
-              retry_after: remaining,
-            }),
-            {
-              status: 429,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
-          );
-        }
-      }
-
-      // Hourly cap: limit total sends within a rolling 1-hour window.
-      let windowStart = existing?.send_window_start
-        ? new Date(existing.send_window_start).getTime()
-        : 0;
-      let sendCount = existing?.send_count ?? 0;
-
-      if (!windowStart || now - windowStart > HOUR_MS) {
-        // Window expired (or first send) — reset.
-        windowStart = now;
-        sendCount = 0;
-      }
-
-      if (sendCount >= MAX_SENDS_PER_HOUR) {
-        const resetInSeconds = Math.ceil((HOUR_MS - (now - windowStart)) / 1000);
-        const resetIn = Math.ceil(resetInSeconds / 60);
-        return new Response(
-          JSON.stringify({
-            error: `Too many code requests. Please try again in about ${resetIn} minute(s).`,
-            retry_after: resetInSeconds,
-          }),
-          {
-            status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      // ---------------------------------------------------------------------
-      // CRITICAL FIX (recurring "Invalid code" loop):
-      // SMS in our markets is often delivered late and out of order. If every
-      // resend generated a NEW code and overwrote the previous one, a user who
-      // finally receives an earlier SMS would type a code that no longer
-      // matches the single stored value — failing forever no matter how
-      // carefully they type. To make every SMS the user holds for this number
-      // contain the SAME working code, we REUSE the existing code whenever it
-      // is still valid (unverified and unexpired) and only mint a fresh code
-      // when none is usable. Expiry is preserved so a code cannot be extended
-      // indefinitely by repeated resends.
-      // ---------------------------------------------------------------------
-      const existingCodeUsable =
-        !!existing?.otp_code &&
-        existing?.verified === false &&
-        !!existing?.expires_at &&
-        new Date(existing.expires_at).getTime() > now;
-
-      const otp = existingCodeUsable ? existing!.otp_code as string : generateOTP();
-      const expiresAt = existingCodeUsable
-        ? existing!.expires_at as string
-        : new Date(now + 60 * 60 * 1000).toISOString(); // 1 hour expiry
-
-      if (existingCodeUsable) {
-        console.log(`[sms-otp] reusing still-valid code for ***${phoneKey.slice(-4)}`);
-      }
-
-      // Store OTP and updated rate-limit counters (upsert by phone)
-      const { error: upsertError } = await adminClient
-        .from("otp_verifications")
-        .upsert(
-          {
-            phone: phoneKey,
-            otp_code: otp,
-            expires_at: expiresAt,
-            attempts: 0,
-            verified: false,
-            last_sent_at: new Date(now).toISOString(),
-            send_count: sendCount + 1,
-            send_window_start: new Date(windowStart).toISOString(),
-            send_status: "pending",
-            send_status_reason: null,
-            send_status_at: new Date(now).toISOString(),
-          },
-          { onConflict: "phone" }
-        );
-
-      if (upsertError) {
-        console.error("[sms-otp] Upsert error:", upsertError);
+      const { data: reserve, error: reserveError } = await adminClient.rpc("otp_reserve_send", {
+        p_phone: phoneKey,
+        p_user_id: authUserId,
+        p_ip: ip,
+        p_new_code: generateOTP(),
+        p_ttl_seconds: Math.round(otpTtlMs / 1000),
+        p_cooldown_seconds: RESEND_COOLDOWN_SECONDS,
+        p_max_phone_hour: MAX_SENDS_PER_HOUR,
+        p_max_user_hour: MAX_SENDS_PER_USER_HOUR,
+        p_max_user_day: MAX_SENDS_PER_USER_DAY,
+        p_max_ip_hour: MAX_SENDS_PER_IP_HOUR,
+        p_max_ip_day: MAX_SENDS_PER_IP_DAY,
+      });
+      if (reserveError || !reserve) {
+        console.error("[sms-otp] reserve error:", reserveError);
         return new Response(JSON.stringify({ error: "Failed to generate OTP" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-
-      // Record this send in the cross-phone rate-limit ledger. Best-effort;
-      // never fail the send on a logging error.
-      try {
-        await adminClient.from("otp_send_events").insert({
-          user_id: authUserId,
-          phone: phoneKey,
-          ip,
-          outcome: existingCodeUsable ? "resent" : "sent",
-        });
-      } catch (e) {
-        console.warn("[sms-otp] otp_send_events insert failed:", e);
+      if (!reserve.ok) {
+        return new Response(
+          JSON.stringify({ error: reserve.error, retry_after: reserve.retry_after }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      const otp = String(reserve.otp);
+      if (reserve.reused) {
+        console.log(`[sms-otp] reusing still-valid code for ***${phoneKey.slice(-4)}`);
       }
 
       // The OTP is already persisted above. We now wait *briefly* for the
@@ -803,12 +673,6 @@ Deno.serve(async (req) => {
          person confirming a payout number reads one consistent sentence
          whichever route asked them. Any other purpose keeps the generic text.
          The OTP itself, its storage and its rate limits are unchanged. */
-      const purpose = String(body.purpose ?? "").trim();
-      // Usage-by-category reporting (get_otp_usage_by_category): callers that
-      // don't need custom wording still pass `category` alone (e.g. 'login',
-      // 'signup') -- falls back to `purpose` so the two payout/NIN-link
-      // callers that only ever set `purpose` are tagged for free.
-      const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
       const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
       const recipientName = String(body.recipient_name ?? "").trim().slice(0, 80);
       const last4 = phone.length >= 4 ? phone.slice(-4) : (String(body.phone_last4 ?? "").replace(/\D/g, "").slice(-4) || "????");
@@ -823,6 +687,8 @@ Deno.serve(async (req) => {
         ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
           `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
           `If you did NOT authorise this, ignore this message.`
+        : isTenantVerify
+        ? `Your Welile Homes tenant verification code is: ${otp}. It expires in 3 minutes. Do not share this code.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 
       // Max time we'll block the client on gateway acceptance.
@@ -944,66 +810,33 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Fetch stored OTP
-      const { data: otpRecord, error: fetchError } = await adminClient
-        .from("otp_verifications")
-        .select("*")
-        .eq("phone", phoneKey)
-        .maybeSingle();
-
-      if (fetchError || !otpRecord) {
-        return new Response(JSON.stringify({ error: "No OTP found. Please request a new code." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      // Locked check: the stored code is locked while it is compared and a wrong try is counted
+      // in the same step, so parallel guesses cannot get past the 5-try limit.
+      const { data: check, error: checkError } = await adminClient.rpc("otp_check_code", {
+        p_phone: phoneKey,
+        p_code: otpCode,
+      });
+      const json = (b: unknown, status: number) =>
+        new Response(JSON.stringify(b), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (checkError || !check) {
+        console.error("[sms-otp] check error:", checkError);
+        return json({ error: "Service temporarily unavailable" }, 500);
       }
-
-      // Check if already verified
-      if (otpRecord.verified) {
-        return new Response(JSON.stringify({ success: true, already_verified: true }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check expiration
-      if (new Date(otpRecord.expires_at) < new Date()) {
-        return new Response(JSON.stringify({ error: "OTP has expired. Please request a new code." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check max attempts (5)
-      if (otpRecord.attempts >= 5) {
-        return new Response(JSON.stringify({ error: "Too many failed attempts. Please request a new code." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Verify
-      if (otpCode !== otpRecord.otp_code) {
-        await adminClient
-          .from("otp_verifications")
-          .update({ attempts: otpRecord.attempts + 1 })
-          .eq("phone", phoneKey);
-        await logOtpUsage(adminClient, verifyCategory, "verify_failed", phoneKey, "sms-otp");
-
-        const remaining = 4 - otpRecord.attempts;
-        return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      switch (check.result) {
+        case "missing":
+          return json({ error: "No OTP found. Please request a new code." }, 400);
+        case "already_verified":
+          return json({ success: true, already_verified: true }, 200);
+        case "expired":
+          return json({ error: "OTP has expired. Please request a new code." }, 400);
+        case "locked":
+          return json({ error: "Too many failed attempts. Please request a new code." }, 429);
+        case "wrong":
+          await logOtpUsage(adminClient, verifyCategory, "verify_failed", phoneKey, "sms-otp");
+          return json({ error: `Invalid code. ${check.remaining} attempts remaining.` }, 400);
       }
 
       await logOtpUsage(adminClient, verifyCategory, "verify_success", phoneKey, "sms-otp");
-      // Mark as verified
-      await adminClient
-        .from("otp_verifications")
-        .update({ verified: true, verified_at: new Date().toISOString() })
-        .eq("phone", phoneKey);
-
       console.log(`[sms-otp] Phone ***${phoneKey.slice(-4)} verified`);
       return new Response(JSON.stringify({ success: true, message: "Phone verified successfully" }), {
         status: 200,

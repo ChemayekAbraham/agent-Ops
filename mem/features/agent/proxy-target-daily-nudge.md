@@ -1,6 +1,6 @@
 ---
 name: Proxy Target Mode daily nudge emails
-description: Accepted Target Mode proxy agents get 3 promissory-note nudge emails a day (9am/12pm/3pm Kampala) via proxy-target-daily-nudge; target resets each Kampala month
+description: PAUSED since 2026-11-02 (cron jobs deactivated) — accepted Target Mode proxy agents were getting 3 promissory-note nudge emails a day (9am/12pm/3pm Kampala) via proxy-target-daily-nudge; target resets each Kampala month
 type: feature
 ---
 Target Mode progress is always computed for the current Kampala month (`get_proxy_target_mode`
@@ -14,5 +14,10 @@ Daily nudges:
   `send-transactional-email` with idempotency key `proxy-nudge-<agent>-<date>-<slot>`.
 - Cron jobs `proxy-target-nudge-morning|midday|afternoon` at `0 6/9/12 * * *` UTC
   = 9am / 12pm / 3pm Kampala, each posting `{"slot": ...}`.
+- **PAUSED 2026-11-02 (doc: user request "pause proxy daily target mode reminders")**: all three
+  cron jobs set `active = false` with `cron.alter_job(job_id, active := false)`; job definitions,
+  schedules and enrolments left intact. Resume with the same call and `active := true`
+  (jobids were 574 morning / 575 midday / 576 afternoon). The separate
+  `proxy-promissory-note-reminders-0900-eat` job (Mon/Wed/Fri) was NOT paused.
 - Copy angle: find someone willing to support a tenant's rent; they earn 15% of the rent they
   contribute monthly; a promissory note is a commitment, not a payment.

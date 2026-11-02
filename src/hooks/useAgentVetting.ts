@@ -84,6 +84,18 @@ async function fnError(err: unknown, fallback: string): Promise<Error> {
 
 export const agentVettingKey = (userId: string | undefined) => ['agent-vetting', userId] as const;
 
+/**
+ * The signed-in agent's verification as a badge state: 'verified' once Agent Ops
+ * approved them, 'unverified' for every other status (not started, submitted,
+ * rejected), null while loading or for anyone who isn't a real agent (show no badge).
+ * Agent vetting is the only source; `profiles.verified` is an older, unrelated flag.
+ */
+export function useAgentVerifiedState(): 'verified' | 'unverified' | null {
+  const { vetting, applicability } = useAgentVetting();
+  if (applicability !== 'ready' || !vetting) return null;
+  return vetting.status === 'verified' ? 'verified' : 'unverified';
+}
+
 export function useAgentVetting() {
   const { user } = useAuth();
   // The RPC is granted to every signed-in user and then raises

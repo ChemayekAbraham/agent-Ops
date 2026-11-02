@@ -1,5 +1,5 @@
 -- Welile Homes float: real link, server-only stages, atomic CFO disbursement.
--- PROPOSAL — not applied. Apply through the approved migration workflow only after
+-- APPLIED 2026-11-02 via the migration workflow (with amounts derived from dues rows and tenant verification).
 -- the live-schema check (float_requests, welile_homes_subscriptions columns and
 -- whether an edge function `send-operational-float` is deployed) comes back.
 -- Ship together with the Phase 2 browser changes: after this runs, the old
@@ -167,19 +167,59 @@ begin
   -- Lock the rows; every one must be the caller's, active, unfunded and not already requested.
   perform 1 from public.welile_homes_subscriptions s where s.id = any(v_ids) for update;
 
-  select count(*), coalesce(sum(s.monthly_rent), 0) into v_found, v_total
+  select count(*) into v_found
     from public.welile_homes_subscriptions s
    where s.id = any(v_ids)
      and s.agent_id = v_uid
      and s.subscription_status = 'active'
      and s.mode = 'agent_collection'
-     and s.funding_status = 'unfunded'
-     and s.monthly_rent > 0;
+     and s.funding_status = 'unfunded';
 
   if v_found <> cardinality(v_ids) then
     raise exception 'Some tenants are not yours, not active, or already have a float request'
       using errcode = '42501';
   end if;
+
+  -- Landlord ownership: every linked landlord must be registered by the caller.
+  if exists (
+    select 1 from public.welile_homes_subscriptions s
+     where s.id = any(v_ids)
+       and (
+         (s.landlord_id is not null and not exists (
+            select 1 from public.landlords l where l.id = s.landlord_id and l.registered_by = v_uid))
+         or (s.landlord_id is null and nullif(trim(s.landlord_phone), '') is not null
+             and exists (select 1 from public.landlords l where l.phone = trim(s.landlord_phone) and l.registered_by is distinct from v_uid)
+             and not exists (select 1 from public.landlords l where l.phone = trim(s.landlord_phone) and l.registered_by = v_uid))
+       )
+  ) then
+    raise exception 'Float can only be requested for landlords you registered' using errcode = '42501';
+  end if;
+
+  -- Tenant verification: every requested tenant's profile must be SMS-verified (profiles.verified = true).
+  -- A missing profile counts as unverified. The screen filter is not trusted.
+  if exists (
+    select 1 from public.welile_homes_subscriptions s
+      left join public.profiles p on p.id = s.tenant_id
+     where s.id = any(v_ids) and coalesce(p.verified, false) is not true
+  ) then
+    raise exception 'Every tenant must be verified by SMS code before float can be requested'
+      using errcode = '42501';
+  end if;
+
+  -- Amount comes only from each tenant's dues rows: the earliest month still owing
+  -- (amount_due - amount_collected). Never from the caller.
+  create temp table if not exists _wh_req_items (subscription_id uuid, amount numeric) on commit drop;
+  delete from _wh_req_items;
+  insert into _wh_req_items (subscription_id, amount)
+  select s.id, (select d.amount_due - coalesce(d.amount_collected, 0)
+                  from public.welile_homes_monthly_dues d
+                 where d.subscription_id = s.id and d.collection_status <> 'collected'
+                 order by d.due_month_index limit 1)
+    from public.welile_homes_subscriptions s where s.id = any(v_ids);
+  if exists (select 1 from _wh_req_items where amount is null or amount <= 0) then
+    raise exception 'Some tenants have no unpaid monthly due to fund' using errcode = '22023';
+  end if;
+  select coalesce(sum(amount), 0) into v_total from _wh_req_items;
 
   perform set_config('welile.wh_float_rpc', 'on', true);
 
@@ -193,8 +233,7 @@ begin
   ) returning id into v_req;
 
   insert into public.welile_homes_float_request_items (float_request_id, subscription_id, amount)
-  select v_req, s.id, s.monthly_rent
-    from public.welile_homes_subscriptions s where s.id = any(v_ids);
+  select v_req, subscription_id, amount from _wh_req_items;
 
   update public.welile_homes_subscriptions
      set funding_status = 'requested', updated_at = now()
