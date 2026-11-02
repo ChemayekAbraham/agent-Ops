@@ -495,6 +495,16 @@ export function newIdempotencyKey(): string {
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * True when the error says the server function does not exist (yet): a Special Advances phase that is not applied in
+ * this database. Screens show "Not available yet" instead of an error. Same rule as CFOWelileHomesDisbursementDesk.
+ */
+export function isMissingServerFunction(err: unknown): boolean {
+  const e = (err ?? {}) as { code?: unknown; message?: unknown };
+  const code = String(e.code ?? '');
+  return code === 'PGRST202' || code === '42883' || /could not find the function/i.test(String(e.message ?? ''));
+}
+
 /* ── Proof files (CFO decision D1/D2) ─────────────────────────────────────────────────────────────── */
 
 /** Private bucket for Special Advances proof files (receipts / statements). */
@@ -514,3 +524,8 @@ export function specialAdvanceProofPath(advanceId: string, file: { type: string;
   if (file.size <= 0 || file.size > SPECIAL_ADVANCE_PROOF_MAX_BYTES) throw new Error('The proof file must be between 1 byte and 10 MB.');
   return `advances/${advanceId}/${fileId}.${ext}`;
 }
+
+/** The shape of every stored proof path (the bucket policy and the server accept nothing else). */
+export const SPECIAL_ADVANCE_PROOF_PATH_RE = /^advances\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$/;
+/** Seconds a proof link stays valid: long enough to open it, short enough not to be shared. */
+export const SPECIAL_ADVANCE_PROOF_LINK_SECONDS = 60;

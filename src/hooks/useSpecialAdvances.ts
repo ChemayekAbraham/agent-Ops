@@ -5,7 +5,9 @@ import type {
   SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceRecovery,
   SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceWriteOff,
 } from '@/lib/specialAdvances';
-import { SPECIAL_ADVANCE_PROOF_BUCKET, specialAdvanceProofPath } from '@/lib/specialAdvances';
+import {
+  SPECIAL_ADVANCE_PROOF_BUCKET, SPECIAL_ADVANCE_PROOF_LINK_SECONDS, SPECIAL_ADVANCE_PROOF_PATH_RE, specialAdvanceProofPath,
+} from '@/lib/specialAdvances';
 
 /**
  * Special Advances data access. Every call goes through the CFO-only `special_advance_*` SECURITY DEFINER functions
@@ -245,4 +247,16 @@ export async function uploadSpecialAdvanceProof(advanceId: string, file: File): 
   const { error } = await supabase.storage.from(SPECIAL_ADVANCE_PROOF_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
   if (error) throw new Error(error.message);
   return path;
+}
+
+/**
+ * A short-lived signed link to view one archived proof file (payout, repayment, correction, write-off or recovery).
+ * Ask for it when the CFO clicks "View proof", never in advance; the private bucket's policies (CFO + authenticator,
+ * D14) decide whether it is granted. Only a well-formed proof path is ever sent.
+ */
+export async function getSpecialAdvanceProofUrl(path: string): Promise<string> {
+  if (!SPECIAL_ADVANCE_PROOF_PATH_RE.test(path)) throw new Error('This proof file reference is not valid.');
+  const { data, error } = await supabase.storage.from(SPECIAL_ADVANCE_PROOF_BUCKET).createSignedUrl(path, SPECIAL_ADVANCE_PROOF_LINK_SECONDS);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? 'The proof file could not be opened.');
+  return data.signedUrl;
 }
