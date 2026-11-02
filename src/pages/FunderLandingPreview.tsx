@@ -225,13 +225,51 @@ export default function FunderLandingPreview() {
       category === 'empty'
         ? []
         : (readyQuery.data?.pages ?? []).flatMap((page) => page.items).map((item): FeedEntry => ({ category: 'ready', item }));
-    const all = sortFunderFeedEntries([...empty, ...ready]);
-    if (!filters.withinFloat || availableBalance === null) return all;
-    return all.filter((entry) => {
+    // Re-apply every chosen filter to the loaded rows: the Rent Plan read
+    // service ignores district/distance/sort, so without this those choices
+    // look like they do nothing. Presentation only.
+    const rec = (e: FeedEntry) => e.item as unknown as Record<string, unknown>;
+    const place = filters.location.trim().toLowerCase();
+    const radius = filters.radiusKm === 'all' || !origin ? null : filters.radiusKm;
+    const filtered = [...empty, ...ready].filter((entry) => {
+      const r = rec(entry);
       const amount = itemAmount(entry.category, entry.item);
-      return amount > 0 && amount <= availableBalance;
+      if (place) {
+        const where = ['district', 'city', 'area', 'location', 'region']
+          .map((k) => (typeof r[k] === 'string' ? (r[k] as string).toLowerCase() : ''))
+          .join(' ');
+        if (!where.includes(place)) return false;
+      }
+      if (filters.rentMin !== null && amount < filters.rentMin) return false;
+      if (filters.rentMax !== null && amount > filters.rentMax) return false;
+      if (radius !== null) {
+        const d = Number(r.distance_km);
+        if (!Number.isFinite(d) || r.distance_km === null || d > radius) return false;
+      }
+      if (filters.withinFloat && availableBalance !== null && !(amount > 0 && amount <= availableBalance)) return false;
+      return true;
     });
-  }, [category, emptyQuery.data, readyQuery.data, filters.withinFloat, availableBalance]);
+    const amt = (e: FeedEntry) => itemAmount(e.category, e.item);
+    switch (filters.sort) {
+      case 'rent_low':
+        return filtered.sort((a, b) => amt(a) - amt(b));
+      case 'rent_high':
+        return filtered.sort((a, b) => amt(b) - amt(a));
+      case 'nearest': {
+        const d = (e: FeedEntry) => {
+          const n = Number(rec(e).distance_km);
+          return rec(e).distance_km == null || !Number.isFinite(n) ? Infinity : n;
+        };
+        return filtered.sort((a, b) => d(a) - d(b));
+      }
+      case 'newest': {
+        const t = (e: FeedEntry) => Date.parse(String(rec(e).created_at ?? '')) || 0;
+        return filtered.sort((a, b) => t(b) - t(a));
+      }
+      default:
+        return sortFunderFeedEntries(filtered);
+    }
+  }, [category, emptyQuery.data, readyQuery.data, filters, availableBalance, origin]);
 
   const districtOptions = useMemo(
     () => (summary.data?.districts ?? []).map((d) => ({ value: d.value, label: d.label, count: d.count })),
