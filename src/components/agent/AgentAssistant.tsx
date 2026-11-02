@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Sparkles } from 'lucide-react';
+import claraAvatar from '@/assets/clara-avatar.png';
 import { Button } from '@/components/ui/button';
 import { AssistantChatSurface } from '@/components/ai-chat/AssistantChatSurface';
 
@@ -16,7 +16,7 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
     return () => window.removeEventListener('open-welile-assistant', show);
   }, []);
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 z-[60] h-14 w-14 rounded-full border-2 border-background shadow-lg`}><Sparkles className="h-6 w-6" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 z-[60] h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
     <AssistantChatSurface open={open} onOpenChange={setOpen} />
   </>;
 }
