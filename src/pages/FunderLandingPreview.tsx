@@ -5,6 +5,7 @@ import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
@@ -86,6 +87,30 @@ export default function FunderLandingPreview() {
   const [avatarFailed, setAvatarFailed] = useState(false);
   useEffect(() => {
     setAvatarFailed(false);
+  }, [avatarUrl]);
+
+  // The avatars bucket is private, so the stored public-style URL returns
+  // 404. Swap it for a short-lived signed URL that works in an <img> tag.
+  const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setSignedAvatarUrl(null);
+    if (!avatarUrl) return;
+    const match = avatarUrl.match(/\/object\/public\/avatars\/([^?]+)/);
+    if (!match) {
+      setSignedAvatarUrl(avatarUrl);
+      return;
+    }
+    let cancelled = false;
+    supabase.storage
+      .from('avatars')
+      .createSignedUrl(match[1], 60 * 60)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setSignedAvatarUrl(error || !data ? avatarUrl : data.signedUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [avatarUrl]);
 
   // Frosted top bar: once the houses sheet scrolls up under the fixed top
