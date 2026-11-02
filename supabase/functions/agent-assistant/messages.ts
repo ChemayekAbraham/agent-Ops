@@ -13,19 +13,19 @@ export const MSG = {
   refusal: (seed = "") =>
     pick(
       [
-        "That one is outside what I can see from your account, but I'd love to help with your own tenants, collections or team. What would you like to look at?",
-        "Hmm, I can't peek at that from here. I can show you your own numbers though. Want to start with today's collections?",
-        "That's not something I can open for you, but your own account is an open book. Try asking about your tenants or wallet.",
+        "That one is outside what I can see from your account 🙈 but I'd love to help with your own tenants, collections or team. What shall we look at?",
+        "Hmm, I can't peek at that from here 😉 Your own numbers though? Wide open. Want to start with today's collections?",
+        "That's not something I can open for you, but your own account is an open book 📖 Try asking about your tenants or wallet.",
       ],
       seed,
     ),
   unmatched:
-    "I couldn't quite catch that one. Could you say it a different way? For example: “How much did I collect today?” or “How do I earn more?”",
+    "I didn't quite catch that one 🤔 Could you say it a different way? For example: “How much did I collect today?” or “How do I earn more?”",
   wantsHuman: "I can pass this conversation to the support team so they can follow up with you.",
   escalated: "Done. I've sent this conversation to the support team and they will follow up with you.",
   alreadyEscalated: "This conversation is already with the support team. They will follow up with you.",
   rateLimited: "You're sending messages very quickly. Please wait a minute and try again.",
-  error: "I'm having trouble right now. Please try again in a moment.",
+  error: "Oops, I tripped over something on my end. Please try again in a moment 🙏",
   invalidRequest: "That request wasn't valid.",
   unauthorized: "Please sign in again.",
 } as const;
