@@ -727,6 +727,19 @@ Deno.serve(async (req) => {
       // ---------------------------------------------------------------------
       // CRITICAL FIX (recurring "Invalid code" loop):
       // SMS in our markets is often delivered late and out of order. If every
+      const purpose = String(body.purpose ?? "").trim();
+      // Usage-by-category reporting (get_otp_usage_by_category): callers that
+      // don't need custom wording still pass `category` alone (e.g. 'login',
+      // 'signup') -- falls back to `purpose` so the two payout/NIN-link
+      // callers that only ever set `purpose` are tagged for free.
+      const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
+      const isTenantVerify = category === "welile_homes_tenant_verify" || purpose === "welile_homes_tenant_verify";
+      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : 60 * 60 * 1000;
+
+      // ---------------------------------------------------------------------
+      // Idempotent code reuse across rapid resends:
+      //
+      // In Uganda, SMS delivery latency varies (5 seconds to 2 minutes). If a
       // resend generated a NEW code and overwrote the previous one, a user who
       // finally receives an earlier SMS would type a code that no longer
       // matches the single stored value — failing forever no matter how
@@ -745,7 +758,7 @@ Deno.serve(async (req) => {
       const otp = existingCodeUsable ? existing!.otp_code as string : generateOTP();
       const expiresAt = existingCodeUsable
         ? existing!.expires_at as string
-        : new Date(now + 60 * 60 * 1000).toISOString(); // 1 hour expiry
+        : new Date(now + otpTtlMs).toISOString();
 
       if (existingCodeUsable) {
         console.log(`[sms-otp] reusing still-valid code for ***${phoneKey.slice(-4)}`);
@@ -803,12 +816,6 @@ Deno.serve(async (req) => {
          person confirming a payout number reads one consistent sentence
          whichever route asked them. Any other purpose keeps the generic text.
          The OTP itself, its storage and its rate limits are unchanged. */
-      const purpose = String(body.purpose ?? "").trim();
-      // Usage-by-category reporting (get_otp_usage_by_category): callers that
-      // don't need custom wording still pass `category` alone (e.g. 'login',
-      // 'signup') -- falls back to `purpose` so the two payout/NIN-link
-      // callers that only ever set `purpose` are tagged for free.
-      const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
       const subjectName = String(body.subject_name ?? "").trim().slice(0, 80);
       const recipientName = String(body.recipient_name ?? "").trim().slice(0, 80);
       const last4 = phone.length >= 4 ? phone.slice(-4) : (String(body.phone_last4 ?? "").replace(/\D/g, "").slice(-4) || "????");
@@ -823,6 +830,8 @@ Deno.serve(async (req) => {
         ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
           `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
           `If you did NOT authorise this, ignore this message.`
+        : isTenantVerify
+        ? `Your Welile Homes tenant verification code is: ${otp}. It expires in 3 minutes. Do not share this code.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
 
       // Max time we'll block the client on gateway acceptance.
