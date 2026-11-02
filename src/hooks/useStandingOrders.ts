@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logStandingOrderAction } from '@/lib/standingOrderAudit';
+import { standingOrderErrorText } from '@/lib/standingOrderError';
 
 export type StandingOrderHealth = 'ok' | 'failing' | 'orphaned' | 'stalled';
 
@@ -109,7 +110,7 @@ export function useStandingOrders() {
           next_run_at: r.next_run_at,
           last_run_at: r.last_run_at,
           last_run_status: latest?.status ?? null,
-          last_run_error: latest?.error_message ?? null,
+          last_run_error: standingOrderErrorText(latest?.error_message ?? null),
           consecutive_failures: consecutiveFailures,
           health,
         };
