@@ -74013,6 +74013,7 @@ export type Database = {
       }
       assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_my_messages: { Args: { p_limit?: number }; Returns: Json }
       assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
       assistant_staff_aops_listing_quality_and_risk: {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ArrowUp, Calculator, Check, ChevronDown, Copy, LifeBuoy, MapPin, MoreHorizontal, Sparkles, SquarePen, X } from 'lucide-react';
+import type React from 'react';
+import { ArrowUp, Calculator, ChevronLeft, Home, MessageCircle, HelpCircle, Check, ChevronDown, Copy, LifeBuoy, MapPin, MoreHorizontal, Sparkles, SquarePen, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -15,6 +16,8 @@ import { NexaSalesHub } from './NexaSalesHub';
 import { NexaInquirySignupBar } from './NexaInquirySignupBar';
 import { NexaDeskCards } from './NexaDeskCards';
 import { type AiRole } from './roleLanding';
+import { RentPlanCalculatorCard } from './RentPlanCalculatorCard';
+import { AssistantHomeTab, AssistantMessagesTab, ASSISTANT_NAME, HELP_URL } from './AssistantPanelTabs';
 
 export const PUBLIC_STARTERS = [
   ['Requesting rent here', 'Rent facilitation & +UGX 10,000/day Access Limit growth up to UGX 30M'],
@@ -39,7 +42,7 @@ export const AGENT_DASHBOARD_STARTERS = [
   'How do I earn more as an agent?',
   'Work out a Rent Plan for UGX 500,000 over 30 days',
 ];
-export const AGENT_GREETING = "Hi, I'm the Welile Assistant. Ask me about your tenants, your team, your wallet, or how things work in the app.";
+export const AGENT_GREETING = "Hi, I'm Mukwano. Ask me about your tenants, your team, your wallet, or how things work in the app.";
 
 function Avatar() { return <span className="assistant-emblem flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Sparkles className="h-4 w-4" /></span>; }
 
@@ -58,6 +61,9 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
   const [text, setText] = useState('');
   const [hubOpen, setHubOpen] = useState(false);
   const [starterIndex, setStarterIndex] = useState(0);
+  const [view, setView] = useState<'home' | 'messages' | 'chat'>('home');
+  const [calcCards, setCalcCards] = useState<string[]>([]);
+  const firstName = String(user?.user_metadata?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
   const [copied, setCopied] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { pathname } = useLocation();
@@ -67,16 +73,16 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
   const start = starterIndex % starters.length;
   const visibleStarters = [...starters, ...starters].slice(start, start + Math.min(pageSize, starters.length));
   useEffect(() => {
-    if (!open || isLoading) return;
+    if (!open || isLoading || view !== 'chat') return;
     const timer = setTimeout(() => {
       const active = document.activeElement;
       if (active instanceof HTMLElement && (active.closest('[role="menu"], [role="combobox"]') || (active.matches('input,textarea') && active !== inputRef.current))) return;
       inputRef.current?.focus();
     }, 50);
     return () => clearTimeout(timer);
-  }, [open, isLoading]);
+  }, [open, isLoading, view]);
   const submit = (value: string) => { if (!value.trim() || isLoading) return; setText(''); void send(value); inputRef.current?.focus(); };
-  const resetConversation = () => { reset(); setText(''); inputRef.current?.focus(); };
+  const resetConversation = () => { reset(); setText(''); setCalcCards([]); inputRef.current?.focus(); };
   const actionHref = (href?: string) => {
     if (!href) return undefined;
     try {
@@ -87,16 +93,17 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
     } catch { return undefined; }
   };
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(820px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[600px] rounded-2xl'}`}>
+    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); if (view === 'chat') inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(820px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[600px] rounded-2xl'}`}>
+      {view === 'chat' ? <>
       <SheetHeader className="flex flex-row items-center gap-0.5 space-y-0 border-b border-border px-3 py-2 text-left [&>button:first-child]:hidden">
+        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Back" onClick={() => setView('home')}><ChevronLeft /></Button>
         <div className="min-w-0 flex-1">
           <Button variant="ghost" className="h-auto min-h-0 justify-start gap-1 px-1 py-1 text-[15px]" onClick={() => setStarterIndex(index => (index + pageSize) % starters.length)}>
-            <SheetTitle className="text-[15px] font-semibold">Welile Assistant</SheetTitle><ChevronDown className="h-3 w-3" />
+            <SheetTitle className="text-[15px] font-semibold">{ASSISTANT_NAME}</SheetTitle><ChevronDown className="h-3 w-3" />
           </Button>
-          <SheetDescription className="sr-only">Welile Assistant</SheetDescription>
+          <SheetDescription className="sr-only">{ASSISTANT_NAME} assistant</SheetDescription>
         </div>
         <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="New chat" title="New chat" onClick={resetConversation}><SquarePen /></Button>
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Calculators & Instant Sign-Up" title="Calculators & Instant Sign-Up" aria-pressed={hubOpen} onClick={() => setHubOpen(!hubOpen)}><Calculator /></Button>
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Assistant options"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
           <DropdownMenuItem onClick={resetConversation}><SquarePen />New conversation</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setHubOpen(!hubOpen)}><Calculator />Calculators & Sign-Up Hub</DropdownMenuItem>
@@ -123,12 +130,14 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
               {index === messages.length - 1 && message.quickReplies && <div className="mt-2 flex flex-wrap gap-2">{message.quickReplies.map(reply => <Button key={reply} variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal rounded-full" disabled={isLoading} onClick={() => submit(reply)}>{reply}</Button>)}</div>}
             </div></div>}
           </Message>)}
+          {calcCards.map(key => <RentPlanCalculatorCard key={key} />)}
           {isLoading && <div className="flex items-center gap-3" aria-label="Assistant is thinking"><Avatar /><span className="assistant-emblem h-3 w-3 animate-pulse rounded-full motion-reduce:animate-none" /></div>}
           {user && (messages.length > 0 || hubOpen) && <NexaDeskCards open={open} />}
         </ConversationContent>
         {messages.length > 0 && <ConversationScrollButton aria-label="Scroll to latest" />}
       </Conversation>
       <div className="shrink-0 px-3 pb-3 pt-2">
+        <div className="mb-2 flex"><Button type="button" variant="outline" size="sm" className="h-8 rounded-full text-xs" onClick={() => setCalcCards(cards => [...cards, `calc-${Date.now()}`])}><Calculator />Rent Plan calculator</Button></div>
         <PromptInput onSubmit={({ text: value }) => submit(value)} className="assistant-composer">
           <PromptInputTextarea ref={inputRef} value={text} onChange={event => { setText(event.target.value); event.target.style.height = 'auto'; event.target.style.height = `${Math.min(event.target.scrollHeight, 128)}px`; }} maxLength={500} rows={1} placeholder="Ask anything" aria-label="Message the assistant" className="min-h-12 px-12 py-3 text-base leading-6 md:text-[15px]" />
           <PromptInputFooter className="justify-between px-2 pb-2 pt-0">
@@ -138,6 +147,23 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
         </PromptInput>
         {(locationStatus === 'denied' || locationStatus === 'unavailable') && <p role="status" className="mt-1 text-center text-xs text-muted-foreground">Location not shared. You can still chat.</p>}
       </div>
+      </> : <>
+        <SheetTitle className="sr-only">{ASSISTANT_NAME}</SheetTitle>
+        <SheetDescription className="sr-only">{ASSISTANT_NAME} help panel</SheetDescription>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {view === 'home' && <AssistantHomeTab firstName={firstName} onAsk={() => setView('chat')} onClose={() => onOpenChange(false)} />}
+          {view === 'messages' && <AssistantMessagesTab active={open && view === 'messages'} onStart={() => { resetConversation(); setView('chat'); }} onClose={() => onOpenChange(false)} />}
+        </div>
+        <nav className="grid shrink-0 grid-cols-3 border-t border-border bg-background" aria-label="Assistant sections">
+          <TabButton icon={<Home />} label="Home" active={view === 'home'} onClick={() => setView('home')} />
+          <TabButton icon={<MessageCircle />} label="Messages" active={view === 'messages'} onClick={() => setView('messages')} />
+          <a href={HELP_URL} target="_blank" rel="noopener" className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs text-muted-foreground hover:text-foreground"><HelpCircle className="h-5 w-5" />Help</a>
+        </nav>
+      </>}
     </SheetContent>
   </Sheet>;
+}
+
+function TabButton({ icon, label, active, onClick }: { icon: React.ReactNode; label: string; active: boolean; onClick: () => void }) {
+  return <button type="button" onClick={onClick} aria-current={active ? 'page' : undefined} className={`flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs [&_svg]:h-5 [&_svg]:w-5 ${active ? 'font-semibold text-primary' : 'text-muted-foreground hover:text-foreground'}`}>{icon}{label}</button>;
 }
