@@ -1,36 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Calculator, Check, ChevronDown, Copy, LifeBuoy, MapPin, MoreHorizontal, Sparkles, SquarePen, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { formatDistanceToNow } from 'date-fns';
+import { ArrowLeft, ArrowUp, BookOpen, Check, Copy, History, LifeBuoy, MessageCircle, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Conversation, ConversationContent, ConversationScrollButton } from '@/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
-import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputSubmit } from '@/components/ai-elements/prompt-input';
 import { useAgentAssistant } from '@/hooks/useAgentAssistant';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { supabase } from '@/integrations/supabase/client';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
-import { NexaSalesHub } from './NexaSalesHub';
-import { NexaInquirySignupBar } from './NexaInquirySignupBar';
-import { NexaDeskCards } from './NexaDeskCards';
 import { type AiRole } from './roleLanding';
+import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips } from './assistantConfig';
+import claraAvatar from '@/assets/clara-avatar.png';
 
-export const PUBLIC_STARTERS = [
-  ['Requesting rent here', 'Rent facilitation & +UGX 10,000/day Access Limit growth up to UGX 30M'],
-  ['Supporting a tenant', '15% monthly Returns on verified houses + Promissory Notes'],
-  ['Anything about Welile', 'Mission, products & services, Wallet, BNPL & financial access'],
-  ['Access financial products & services', 'No-collateral credit up to UGX 30M, Wallet, BNPL & 15%/mo rewards'],
-  ['What is Welile & how does it work?', 'Mission, values, HQ in Entebbe, and our products & services'],
-  ['Support a tenant & earn 15%/mo', 'UGX 100,000 → UGX 15,000/month + Promissory Notes'],
-  ['Get rent help (up to UGX 30M)', 'Rent facilitation & +UGX 10,000/day Access Limit growth'],
-  ['How does the Welile Wallet work?', 'MTN (090777) & Airtel (4380664), transfers & receipts'],
-  ['Become a Field Agent', 'Field opportunities, verified cycles, commissions & bike eligibility'],
-  ['List property as a Landlord', 'Upfront rent support & GPS-verified houses'],
-];
-export const WORK_STARTERS = ['How much did I collect today?', 'What is remaining to collect today?', 'How many tenants am I collecting for?', 'Why is my collection low today?', 'What is my wallet balance?', 'Do I have any advances?'];
-const STARTERS = [...PUBLIC_STARTERS.map(([question]) => question), ...WORK_STARTERS];
-
-function Avatar() { return <span className="assistant-emblem flex h-7 w-7 shrink-0 items-center justify-center rounded-full" aria-hidden="true"><Sparkles className="h-4 w-4" /></span>; }
+const INITIAL = ASSISTANT_NAME.charAt(0).toUpperCase();
+function Avatar({ size = 'h-7 w-7' }: { size?: string }) {
+  return <span className={`relative flex ${size} shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-primary-foreground`} aria-hidden="true">
+    <span>{INITIAL}</span>
+    <img src={claraAvatar} alt="" loading="lazy" width={192} height={192} className="absolute inset-0 h-full w-full object-cover" onError={event => { event.currentTarget.style.display = 'none'; }} />
+  </span>;
+}
 
 export interface AssistantChatSurfaceProps {
   open: boolean;
@@ -40,27 +31,78 @@ export interface AssistantChatSurfaceProps {
   referralCode?: string | null;
 }
 
-export function AssistantChatSurface({ open, onOpenChange, initialRole }: AssistantChatSurfaceProps) {
-  const { user } = useAuth();
+interface PastMessage { id: string; conversation_id: string; role: 'user' | 'assistant'; content: string; created_at: string }
+
+function HistoryList({ onBack }: { onBack: () => void }) {
+  const [rows, setRows] = useState<PastMessage[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void (supabase.rpc as unknown as (fn: string, args: object) => Promise<{ data: { messages?: PastMessage[] } | null; error: unknown }>)('assistant_my_messages', { p_limit: 50 })
+      .then(({ data, error }) => { if (!live) return; setFailed(!!error); setRows(error ? [] : data?.messages ?? []); });
+    return () => { live = false; };
+  }, []);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const map = new Map<string, PastMessage[]>();
+  for (const m of rows ?? []) { const list = map.get(m.conversation_id) ?? []; list.push(m); map.set(m.conversation_id, list); }
+  const groups = [...map.entries()].map(([id, msgs]) => {
+    const sorted = [...msgs].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const last = sorted[sorted.length - 1];
+    const title = sorted.find(m => m.role === 'user')?.content ?? 'Conversation';
+    return { id, msgs: sorted, last, title };
+  }).sort((a, b) => b.last.created_at.localeCompare(a.last.created_at));
+  if (openId) {
+    const g = groups.find(x => x.id === openId);
+    return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+      <button type="button" onClick={() => setOpenId(null)} className="mb-3 inline-flex items-center gap-1 text-xs font-medium text-primary"><ArrowLeft className="h-3.5 w-3.5" />All chats</button>
+      <div className="flex flex-col gap-2">{g?.msgs.map(m => <div key={m.id} className={m.role === 'user' ? 'ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground' : 'mr-auto max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm text-foreground'}>
+        {m.content}
+        <div className={m.role === 'user' ? 'mt-1 text-[10px] text-primary-foreground/70' : 'mt-1 text-[10px] text-muted-foreground'}>{formatDistanceToNow(new Date(m.created_at), { addSuffix: true })}</div>
+      </div>)}</div>
+    </div>;
+  }
+  return <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+    {rows === null ? <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+      : groups.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{failed ? "Couldn't load your chats right now." : 'No past chats yet.'}</p>
+      : <ul className="divide-y divide-border">{groups.map(g => <li key={g.id}>
+        <button type="button" onClick={() => setOpenId(g.id)} className="flex w-full flex-col items-start gap-0.5 py-3 text-left">
+          <span className="w-full truncate text-sm font-medium text-foreground">{g.title}</span>
+          <span className="line-clamp-1 w-full text-xs text-muted-foreground">{g.last.content}</span>
+          <span className="text-[11px] text-muted-foreground">{g.msgs.length} messages · {formatDistanceToNow(new Date(g.last.created_at), { addSuffix: true })}</span>
+        </button>
+      </li>)}</ul>}
+  </div>;
+}
+
+export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfaceProps) {
+  const { user, role } = useAuth() as ReturnType<typeof useAuth> & { role?: string | null };
   const isMobile = useIsMobile();
-  const { messages, isLoading, send, reset, stop, escalate, escalated, locationStatus, requestLocation } = useAgentAssistant();
+  const { messages, isLoading, send, stop, escalate, escalated } = useAgentAssistant();
   const [text, setText] = useState('');
-  const [hubOpen, setHubOpen] = useState(false);
-  const [starterIndex, setStarterIndex] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
+  const [rotation, setRotation] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const visibleStarters = STARTERS.slice(starterIndex, starterIndex + 3);
+  const { pathname } = useLocation();
+  const agentFirst = role === 'agent' || pathname.startsWith('/dashboard/agent');
+  const chips = orderedChips(agentFirst);
+  const visibleChips = Array.from({ length: Math.min(VISIBLE_CHIPS, chips.length) }, (_, i) => chips[(rotation + i) % chips.length]);
+  const suggestedChips = visibleChips.slice(0, isMobile ? 4 : VISIBLE_CHIPS);
+  const firstName = String(user?.user_metadata?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
+
   useEffect(() => {
-    if (!open || isLoading) return;
-    const timer = setTimeout(() => {
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && (active.closest('[role="menu"], [role="combobox"]') || (active.matches('input,textarea') && active !== inputRef.current))) return;
-      inputRef.current?.focus();
-    }, 50);
+    if (!open || isLoading || showHistory) return;
+    const timer = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(timer);
-  }, [open, isLoading]);
-  const submit = (value: string) => { if (!value.trim() || isLoading) return; setText(''); void send(value); inputRef.current?.focus(); };
-  const resetConversation = () => { reset(); setText(''); inputRef.current?.focus(); };
+  }, [open, isLoading, showHistory]);
+
+  const resize = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 104)}px`; };
+  const submit = (value: string) => {
+    if (!value.trim() || isLoading) return;
+    setText(''); if (inputRef.current) inputRef.current.style.height = 'auto';
+    setRotation(r => (r + 1) % chips.length);
+    void send(value);
+  };
   const actionHref = (href?: string) => {
     if (!href) return undefined;
     try {
@@ -70,58 +112,71 @@ export function AssistantChatSurface({ open, onOpenChange, initialRole }: Assist
       return href;
     } catch { return undefined; }
   };
+
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(820px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[600px] rounded-2xl'}`}>
-      <SheetHeader className="flex flex-row items-center gap-0.5 space-y-0 border-b border-border px-3 py-2 text-left [&>button:first-child]:hidden">
-        <div className="min-w-0 flex-1">
-          <Button variant="ghost" className="h-auto min-h-0 justify-start gap-1 px-1 py-1 text-[15px]" onClick={() => setStarterIndex(index => (index + 3) % STARTERS.length)}>
-            <SheetTitle className="text-[15px] font-semibold">Welile Assistant</SheetTitle><ChevronDown className="h-3 w-3" />
-          </Button>
-          <SheetDescription className="sr-only">Welile Assistant</SheetDescription>
+    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden bg-background p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(720px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl border border-border'}`}>
+      <SheetHeader className="flex flex-row items-center gap-2 space-y-0 border-b border-border px-3 py-2.5 text-left [&>button:first-child]:hidden">
+        {showHistory ? <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Back to chat" onClick={() => setShowHistory(false)}><ArrowLeft /></Button> : <Avatar size="h-8 w-8" />}
+        <div className="min-w-0 flex-1 leading-tight">
+          <SheetTitle className="text-[15px] font-semibold">{showHistory ? 'Past chats' : ASSISTANT_NAME}</SheetTitle>
+          {!showHistory && <p className="flex items-center gap-1 text-xs text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-primary" />Online</p>}
+          <SheetDescription className="sr-only">Chat with {ASSISTANT_NAME}</SheetDescription>
         </div>
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="New chat" title="New chat" onClick={resetConversation}><SquarePen /></Button>
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Calculators & Instant Sign-Up" title="Calculators & Instant Sign-Up" aria-pressed={hubOpen} onClick={() => setHubOpen(!hubOpen)}><Calculator /></Button>
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Assistant options"><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={resetConversation}><SquarePen />New conversation</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setHubOpen(!hubOpen)}><Calculator />Calculators & Sign-Up Hub</DropdownMenuItem>
-          <DropdownMenuItem disabled={!messages.length || isLoading || escalated} onClick={() => void escalate()}><LifeBuoy />Send conversation to support</DropdownMenuItem>
-        </DropdownMenuContent></DropdownMenu>
-        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Close assistant" onClick={() => onOpenChange(false)}><X /></Button>
+        {!showHistory && user && <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Past chats" title="Past chats" onClick={() => setShowHistory(true)}><History /></Button>}
+        <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Close" onClick={() => onOpenChange(false)}><X /></Button>
       </SheetHeader>
-      <Conversation initial={false} resize="instant" className="min-h-0 flex-1" aria-live="polite">
-        <ConversationContent className={`gap-5 px-4 py-5 ${messages.length === 0 && !hubOpen ? 'min-h-full justify-center' : ''}`}>
-          {messages.length === 0 && !hubOpen && <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
-            <h2 className="text-xl font-semibold">What can I help you with?</h2>
-            <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:flex-wrap sm:justify-center">
-              {visibleStarters.map(starter => <Button key={starter} type="button" variant="outline" disabled={isLoading} onClick={() => submit(starter)} className="assistant-starter h-auto min-h-10 max-w-full whitespace-normal rounded-full border-border px-4 py-2 text-sm font-normal shadow-none">
-                {starter}
-              </Button>)}
-            </div>
+
+      {showHistory ? <HistoryList onBack={() => setShowHistory(false)} /> : <>
+        <Conversation initial={false} resize="instant" className="relative min-h-0 flex-1" aria-live="polite">
+          <ConversationContent className={`gap-4 px-4 py-4 ${messages.length === 0 ? 'min-h-full items-center justify-center' : ''}`}>
+            {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
+              <div className="flex flex-col items-center gap-2.5">
+                <p className="text-xl font-bold text-foreground">Hi {firstName} 👋</p>
+                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. How can i help you!</p>
+              </div>
+              <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
+                {suggestedChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="w-full rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}
+              </div>
+            </div>}
+            {messages.map((message, index) => <Message key={message.id} from={message.role} className="max-w-full">
+              {message.role === 'user'
+                ? <MessageContent className="max-w-[82%] whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2.5 text-[15px] leading-relaxed text-primary-foreground">{message.content}</MessageContent>
+                : <div className="flex w-full items-start gap-2.5"><Avatar /><div className="min-w-0 max-w-[85%]">
+                  <div className="rounded-2xl rounded-tl-sm border border-primary/15 bg-primary/10 px-3.5 py-2.5 text-foreground">
+                    <MessageResponse className="break-words text-[15px] leading-relaxed [&_a]:underline [&_a]:underline-offset-2" components={{ a: ({ href, children }) => <a href={actionHref(href)}>{children}</a> }}>{message.content}</MessageResponse>
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 text-muted-foreground">
+                    <Button variant="ghost" size="icon-sm" aria-label="Copy reply" onClick={async () => { try { await navigator.clipboard.writeText(message.content); setCopied(message.id); } catch { setCopied(null); } }}>{copied === message.id ? <Check /> : <Copy />}</Button>
+                    {message.escalationOffered && <Button variant="ghost" size="sm" disabled={isLoading || escalated} onClick={() => void escalate()}><LifeBuoy />{escalated ? 'Sent to support' : 'Send to support'}</Button>}
+                  </div>
+                  {index === messages.length - 1 && message.quickReplies && <div className="mt-1 flex flex-wrap gap-2">{message.quickReplies.map(reply => <Button key={reply} variant="outline" size="sm" className="h-auto min-h-9 whitespace-normal rounded-full" disabled={isLoading} onClick={() => submit(reply)}>{reply}</Button>)}</div>}
+                </div></div>}
+            </Message>)}
+            {isLoading && <div className="flex items-center gap-2.5" aria-label={`${ASSISTANT_NAME} is typing`}><Avatar /><span className="flex gap-1 rounded-2xl bg-primary/10 px-3.5 py-3">{[0, 150, 300].map(d => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground motion-reduce:animate-none" style={{ animationDelay: `${d}ms` }} />)}</span></div>}
+          </ConversationContent>
+          {messages.length > 0 && <ConversationScrollButton aria-label="Scroll to latest" className="bottom-3 z-10 h-9 w-9 border-border bg-background shadow-md" />}
+        </Conversation>
+
+        <div className="shrink-0 border-t border-border bg-background px-3 pb-2 pt-2">
+          {!isLoading && messages.length > 0 && <div className="-mx-3 mb-2 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none]" aria-label="Suggestions">
+            {visibleChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}
           </div>}
-          {hubOpen && <div><NexaSalesHub onAsk={submit} />{!user && <NexaInquirySignupBar result={null} initialRole={initialRole} />}</div>}
-          {messages.length > 0 && !hubOpen && !user && <details className="border-b border-border pb-2"><summary className="cursor-pointer py-2 text-sm font-medium">Free signup + Welile Wallet</summary><NexaInquirySignupBar result={null} initialRole={initialRole} /></details>}
-          {messages.map((message, index) => <Message key={message.id} from={message.role} className="max-w-full">
-            {message.role === 'user' ? <MessageContent className="assistant-user max-w-[82%] rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap">{message.content}</MessageContent> : <div className="flex w-full items-start gap-3"><Avatar /><div className="min-w-0 flex-1">
-              <MessageResponse className="break-words text-[15px] leading-relaxed [&_a]:underline [&_a]:underline-offset-2" components={{ a: ({ href, children }) => <a href={actionHref(href)}>{children}</a> }}>{message.content}</MessageResponse>
-              <div className="mt-2 flex items-center gap-1 text-muted-foreground"><Button variant="ghost" size="icon-sm" aria-label="Copy reply" title="Copy reply" onClick={async () => { try { await navigator.clipboard.writeText(message.content); setCopied(message.id); } catch { setCopied(null); } }}>{copied === message.id ? <Check /> : <Copy />}</Button>{message.escalationOffered && <Button variant="ghost" size="sm" disabled={isLoading || escalated} onClick={() => void escalate()}><LifeBuoy />{escalated ? 'Sent to support' : 'Send to support'}</Button>}</div>
-              {index === messages.length - 1 && message.quickReplies && <div className="mt-2 flex flex-wrap gap-2">{message.quickReplies.map(reply => <Button key={reply} variant="outline" size="sm" className="h-auto min-h-11 whitespace-normal rounded-full" disabled={isLoading} onClick={() => submit(reply)}>{reply}</Button>)}</div>}
-            </div></div>}
-          </Message>)}
-          {isLoading && <div className="flex items-center gap-3" aria-label="Assistant is thinking"><Avatar /><span className="assistant-emblem h-3 w-3 animate-pulse rounded-full motion-reduce:animate-none" /></div>}
-          {user && (messages.length > 0 || hubOpen) && <NexaDeskCards open={open} />}
-        </ConversationContent>
-        {messages.length > 0 && <ConversationScrollButton aria-label="Scroll to latest" />}
-      </Conversation>
-      <div className="shrink-0 px-3 pb-3 pt-2">
-        <PromptInput onSubmit={({ text: value }) => submit(value)} className="assistant-composer">
-          <PromptInputTextarea ref={inputRef} value={text} onChange={event => { setText(event.target.value); event.target.style.height = 'auto'; event.target.style.height = `${Math.min(event.target.scrollHeight, 128)}px`; }} maxLength={500} rows={1} placeholder="Ask anything" aria-label="Message the assistant" className="min-h-12 px-12 py-3 text-base leading-6 md:text-[15px]" />
-          <PromptInputFooter className="justify-between px-2 pb-2 pt-0">
-            <Button type="button" variant="ghost" size="icon-sm" className="rounded-full" aria-label="Share my location (optional)" title={locationStatus === 'granted' ? 'Location shared' : 'Share my location (optional)'} disabled={locationStatus === 'requesting'} onClick={() => void requestLocation()}>{locationStatus === 'granted' ? <Check className="text-success" /> : <MapPin />}</Button>
-            <PromptInputSubmit status={isLoading ? 'submitted' : 'ready'} onStop={stop} disabled={!isLoading && !text.trim()} className="assistant-send h-9 w-9 min-h-9 min-w-9 rounded-full p-0" aria-label={isLoading ? 'Stop response' : 'Send message'}>{!isLoading && <ArrowUp />}</PromptInputSubmit>
-          </PromptInputFooter>
-        </PromptInput>
-        {(locationStatus === 'denied' || locationStatus === 'unavailable') && <p role="status" className="mt-1 text-center text-xs text-muted-foreground">Location not shared. You can still chat.</p>}
-      </div>
+          <form onSubmit={e => { e.preventDefault(); submit(text); }} className="flex items-end gap-2 rounded-3xl border border-border bg-card px-3 py-1.5">
+            <textarea ref={inputRef} value={text} rows={1} maxLength={500} disabled={isLoading} aria-label={`Message ${ASSISTANT_NAME}`} placeholder={`Message ${ASSISTANT_NAME}…`}
+              onChange={e => { setText(e.target.value); resize(e.target); }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(text); } }}
+              className="max-h-[104px] min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60 md:text-[15px]" />
+            {isLoading
+              ? <Button type="button" size="icon" className="h-9 w-9 shrink-0 rounded-full" aria-label="Stop response" onClick={stop}><span className="h-3 w-3 rounded-sm bg-primary-foreground" /></Button>
+              : <Button type="submit" size="icon" className="h-9 w-9 shrink-0 rounded-full" aria-label="Send message" disabled={!text.trim()}><ArrowUp /></Button>}
+          </form>
+          <div className="mt-1.5 flex justify-center gap-3 text-xs text-muted-foreground">
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground hover:underline"><MessageCircle className="h-3.5 w-3.5" />Talk to a person</a>
+            <span aria-hidden="true">·</span>
+            <a href={HELP_URL} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:text-foreground hover:underline"><BookOpen className="h-3.5 w-3.5" />Help centre</a>
+          </div>
+        </div>
+      </>}
     </SheetContent>
   </Sheet>;
 }

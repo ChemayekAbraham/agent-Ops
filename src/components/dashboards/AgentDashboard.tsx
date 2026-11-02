@@ -80,6 +80,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
+import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
@@ -252,6 +253,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
+  // Agent Ops approval (agent vetting), not the older profiles.verified flag.
+  const agentVerifiedState = useAgentVerifiedState();
+  const agentVerified = agentVerifiedState === 'verified';
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
@@ -1183,7 +1187,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   phone={(profile as any)?.phone}
                   email={(profile as any)?.email}
                   location={(profile as any)?.territory ?? (profile as any)?.location}
-                  verified={profile?.verified}
+                  verified={agentVerified}
+                  agentVerifiedState={agentVerifiedState}
                   roleLabel="Welile Agent"
                   triggerSize="lg"
                   eliteTier={myEliteRank?.tier_name}
@@ -1192,7 +1197,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <h1 className="font-bold text-xl leading-tight">
                     <span className="break-words">
                       {profile?.full_name || 'Agent'}
-                      {profile?.verified && (
+                      {agentVerified && (
                         <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
                       )}
                     </span>

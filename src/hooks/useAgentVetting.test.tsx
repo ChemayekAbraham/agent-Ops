@@ -44,7 +44,7 @@ vi.mock('@/components/location/UgLocationPicker', () => ({ UgLocationPicker: () 
 vi.mock('@/components/wallet/IdentityPhotoCapture', () => ({ default: () => null }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { useAgentVetting } from '@/hooks/useAgentVetting';
+import { useAgentVetting, useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 import AgentVerification from '@/pages/agent/AgentVerification';
 
@@ -216,6 +216,26 @@ describe('useAgentVetting', () => {
     const submits = rpc.mock.calls.filter(([name]) => name === 'submit_agent_vetting');
     expect(submits).toHaveLength(1);
     expect(submits[0]?.[1]).toMatchObject({ p_lat: 0.35, p_lng: 32.58, p_accuracy_m: 12 });
+  });
+
+  it.each([
+    ['verified', 'verified'],
+    ['submitted', 'unverified'],
+    ['rejected', 'unverified'],
+    ['unverified', 'unverified'],
+  ] as const)('badge state for vetting status %s is %s', async (status, expected) => {
+    auth.enabledRoles = ['agent'];
+    rpc.mockImplementation((fn: string) =>
+      Promise.resolve({ data: fn === 'get_my_agent_vetting' ? { ...agentRecord, status } : { found: false }, error: null }));
+    const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current).toBe(expected);
+  });
+
+  it('gives no badge state to someone who is not a real agent', async () => {
+    const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current).toBeNull();
   });
 });
 

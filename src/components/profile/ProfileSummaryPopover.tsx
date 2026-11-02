@@ -9,6 +9,7 @@ import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import type { EliteTier } from '@/hooks/useEliteRanks';
 import { EliteRankBadge } from '@/components/agent/EliteRankBadge';
+import { VerifiedAvatarRing, type AgentVerifiedState } from '@/components/agent-vetting/VerifiedAvatarRing';
 
 interface ProfileSummaryPopoverProps {
   avatarUrl?: string | null;
@@ -26,6 +27,8 @@ interface ProfileSummaryPopoverProps {
   className?: string;
   align?: 'start' | 'center' | 'end';
   eliteTier?: EliteTier | null;
+  /** Agent Ops verification (useAgentVerifiedState). Absent/null: no ring, legacy text. */
+  agentVerifiedState?: AgentVerifiedState;
 }
 
 /**
@@ -46,9 +49,12 @@ export function ProfileSummaryPopover({
   className,
   align = 'start',
   eliteTier,
+  agentVerifiedState,
 }: ProfileSummaryPopoverProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const isAgentState = agentVerifiedState === 'verified' || agentVerifiedState === 'unverified';
+  const isVerified = isAgentState ? agentVerifiedState === 'verified' : !!verified;
 
   const go = (path: string) => {
     hapticTap();
@@ -76,7 +82,9 @@ export function ProfileSummaryPopover({
           )}
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >
-          <UserAvatar avatarUrl={avatarUrl} fullName={fullName ?? undefined} size={triggerSize} eliteTier={eliteTier} />
+          <VerifiedAvatarRing state={agentVerifiedState} size={triggerSize}>
+            <UserAvatar avatarUrl={avatarUrl} fullName={fullName ?? undefined} size={triggerSize} eliteTier={eliteTier} />
+          </VerifiedAvatarRing>
           <span className="sr-only">
             {fullName ? `${fullName} — profile summary` : 'Profile summary'}
           </span>
@@ -85,11 +93,13 @@ export function ProfileSummaryPopover({
 
       <PopoverContent align={align} className="w-[min(20rem,calc(100vw-2rem))] rounded-2xl p-0">
         <div className="flex items-start gap-3 p-4">
-          <UserAvatar avatarUrl={avatarUrl} fullName={fullName ?? undefined} size="md" eliteTier={eliteTier} />
+          <VerifiedAvatarRing state={agentVerifiedState} size="md">
+            <UserAvatar avatarUrl={avatarUrl} fullName={fullName ?? undefined} size="md" eliteTier={eliteTier} />
+          </VerifiedAvatarRing>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="truncate text-sm font-bold text-foreground">{fullName || 'Your profile'}</p>
-              {verified && <BadgeCheck className="h-4 w-4 shrink-0 fill-primary/20 text-primary" />}
+              {isVerified && <BadgeCheck className="h-4 w-4 shrink-0 fill-primary/20 text-primary" />}
             </div>
             {eliteTier && <EliteRankBadge tier={eliteTier} size="sm" className="mt-1 mr-1" />}
             {roleLabel && (
@@ -97,8 +107,19 @@ export function ProfileSummaryPopover({
                 {roleLabel}
               </Badge>
             )}
-            {!verified && (
-              <p className="mt-1 text-[11px] text-muted-foreground">Verification pending</p>
+            {isAgentState ? (
+              agentVerifiedState === 'verified' ? (
+                <p className="mt-1 text-[11px] font-medium text-primary">Verified by Welile</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Not verified yet ·{' '}
+                  <button type="button" onClick={() => go('/dashboard/agent/verification')} className="font-semibold text-destructive underline underline-offset-2">
+                    Verify my account
+                  </button>
+                </p>
+              )
+            ) : (
+              !verified && <p className="mt-1 text-[11px] text-muted-foreground">Verification pending</p>
             )}
           </div>
         </div>

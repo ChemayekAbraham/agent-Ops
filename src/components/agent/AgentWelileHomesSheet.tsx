@@ -96,6 +96,8 @@ interface WHSubscription {
   newly_created?: boolean;
   subscription_status?: string | null;
   notes?: string | null;
+  agent_id?: string | null;
+  landlord_id?: string | null;
 }
 
 type EnrollStatus = {
@@ -284,6 +286,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [earned, setEarned] = useState(0);
   const [pendingPayouts, setPendingPayouts] = useState(0);
   const [recentPayments, setRecentPayments] = useState<RecentRentPayment[]>([]);
+  // Welile Homes-only collections summary; never merged into capacity or collection registers.
+  const [whCollections, setWhCollections] = useState<
+    { total: number; paidMonths: number; partialMonths: number; commission: number; tenants: number } | null | undefined
+  >(undefined);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [enrollInitialMode, setEnrollInitialMode] = useState<'choose' | 'register'>('choose');
 
@@ -294,6 +300,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [allocFor, setAllocFor] = useState<WHSubscription | null>(null);
   const [editFor, setEditFor] = useState<WHSubscription | null>(null);
   const [verifyFor, setVerifyFor] = useState<WHSubscription | null>(null);
+  const [verifyAutoSend, setVerifyAutoSend] = useState(false);
   const [deleteFor, setDeleteFor] = useState<WHSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
@@ -388,17 +395,31 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       }
 
       // Agent 2% earnings + pending landlord payouts
-      const { data: dues } = await supabase
+      const { data: dues, error: duesSummaryErr } = await supabase
         .from('welile_homes_monthly_dues')
-        .select('agent_commission, collection_status, payout_status, landlord_net')
-        .eq('agent_id', user.id);
+        .select('agent_commission, commission_paid, amount_collected, collection_status, payout_status, landlord_net, tenant_id')
+        .eq('agent_id', user.id)
+        .limit(5000);
       let e = 0, p = 0;
+      const summary = { total: 0, paidMonths: 0, partialMonths: 0, commission: 0, tenants: new Set<string>() };
       (dues ?? []).forEach((d: any) => {
         if (d.collection_status === 'collected') e += Number(d.agent_commission) || 0;
         if (d.collection_status === 'collected' && d.payout_status === 'unpaid') p += Number(d.landlord_net) || 0;
+        const got = Number(d.amount_collected) || 0;
+        if (got > 0) {
+          summary.total += got;
+          summary.commission += Number(d.commission_paid) || 0;
+          if (d.tenant_id) summary.tenants.add(d.tenant_id);
+          if (d.collection_status === 'collected') summary.paidMonths += 1;
+          else summary.partialMonths += 1;
+        }
       });
       setEarned(e);
       setPendingPayouts(p);
+      setWhCollections(duesSummaryErr ? null : {
+        total: summary.total, paidMonths: summary.paidMonths, partialMonths: summary.partialMonths,
+        commission: summary.commission, tenants: summary.tenants.size,
+      });
 
       // Recent rent payments (collected dues) with their month
       const { data: paid } = await supabase
@@ -569,7 +590,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const toggleTenant = (tenantId: string) => {
     if (mainTab !== 'enrolled') return;
     const target = subs.find((s) => s.id === tenantId);
-    if (target?.subscription_status === 'cancelled') return;
+    if (target?.subscription_status === 'cancelled' || !target?.tenant_verified) return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
       if (next.has(tenantId)) next.delete(tenantId);
@@ -580,13 +601,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
   const isLandlordAllSelected = (group: { tenants: WHSubscription[] }) => {
     if (mainTab !== 'enrolled') return false;
-    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
     return active.length > 0 && active.every((t) => selectedTenantIds.has(t.id));
   };
 
   const isLandlordPartiallySelected = (group: { tenants: WHSubscription[] }) => {
     if (mainTab !== 'enrolled') return false;
-    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
     return active.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
   };
 
@@ -594,7 +615,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     if (mainTab !== 'enrolled') return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
-      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
       const allSelected = active.length > 0 && active.every((t) => next.has(t.id));
       if (allSelected) {
         active.forEach((t) => next.delete(t.id));
@@ -615,9 +636,31 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
 
   const selectedTenants = useMemo(
-    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled'),
+    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled' && s.tenant_verified),
     [subs, selectedTenantIds]
   );
+
+  // Automatically prune any stale or deleted tenant IDs from selection when subs change
+  useEffect(() => {
+    setSelectedTenantIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(
+        subs
+          .filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified)
+          .map((s) => s.id)
+      );
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [subs]);
 
   const selectedLandlordNames = useMemo(
     () => Array.from(new Set(selectedTenants.map((s) => s.landlord_name || 'Landlord'))),
@@ -631,7 +674,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
   const handleToggleSelectAll = () => {
     if (mainTab !== 'enrolled') return;
-    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled');
+    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified);
     if (selectedTenantIds.size === active.length && active.length > 0) {
       setSelectedTenantIds(new Set());
     } else {
@@ -732,6 +775,28 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </CardContent></Card>
       </div>
 
+      {/* Welile Homes Collections summary (Welile Homes only) */}
+      <Card>
+        <CardContent className="p-3 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Receipt className="h-3.5 w-3.5" /> Welile Homes Collections
+          </div>
+          {whCollections === undefined ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : whCollections === null ? (
+            <p className="text-xs text-destructive">Collections summary is unavailable right now.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Total collected</span><br /><span className="text-sm font-semibold text-emerald-600">{formatUGX(whCollections.total)}</span></div>
+              <div><span className="text-muted-foreground">2% commission</span><br /><span className="text-sm font-semibold">{formatUGX(whCollections.commission)}</span></div>
+              <div><span className="text-muted-foreground">Months fully paid</span><br /><span className="text-sm font-semibold">{whCollections.paidMonths}</span></div>
+              <div><span className="text-muted-foreground">Part-paid months</span><br /><span className="text-sm font-semibold">{whCollections.partialMonths}</span></div>
+              <div className="col-span-2 text-[11px] text-muted-foreground">From {whCollections.tenants} {whCollections.tenants === 1 ? 'tenant' : 'tenants'}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Recent rent payments */}
       <Card>
         <CardContent className="p-3 space-y-2.5">
@@ -778,14 +843,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       </Button>
 
       {searchOpen && (
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative [&_input]:!pl-9 [&_input]:mb-0">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground z-10" />
           <Input
             autoFocus
             value={listQuery}
             onChange={(e) => setListQuery(e.target.value)}
             placeholder="Search by landlord, tenant or phone number"
-            className="h-9 pl-8 text-sm"
+            className="h-9 !pl-9 text-sm rounded-xl mb-0"
           />
         </div>
       )}
@@ -938,13 +1003,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                 </span>
               )}
             </span>
-            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled') && (
+            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled' && s.tenant_verified) && (
               <button
                 type="button"
                 onClick={handleToggleSelectAll}
                 className="text-primary hover:underline font-medium"
               >
-                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
+                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified).length && selectedTenantIds.size > 0
                   ? 'Deselect all'
                   : 'Select all'}
               </button>
@@ -969,9 +1034,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                       <Checkbox
                         id={`group-${group.key}`}
                         checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
-                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
+                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled' || !t.tenant_verified)}
                         onCheckedChange={() => toggleLandlord(group)}
-                        aria-label={`Select all tenants for landlord ${group.name}`}
+                        aria-label={`Select all verified tenants for landlord ${group.name}`}
+                        title={group.tenants.every((t) => t.subscription_status === 'cancelled' || !t.tenant_verified) ? 'All tenants under this landlord must be verified first' : undefined}
                       />
                     ) : mainTab === 'in_progress' ? (
                       <div className="h-5 w-5 rounded-md flex items-center justify-center text-amber-500 bg-amber-500/10 shrink-0" title="Float in progress · At Agent Ops">
@@ -1060,9 +1126,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                   <Checkbox
                                     id={`tenant-${s.id}`}
                                     checked={isSelected}
-                                    disabled={s.subscription_status === 'cancelled'}
+                                    disabled={s.subscription_status === 'cancelled' || !s.tenant_verified}
                                     onCheckedChange={() => toggleTenant(s.id)}
                                     aria-label={`Select ${s.tenant_name}`}
+                                    title={!s.tenant_verified ? 'Tenant must be verified before requesting float' : undefined}
                                   />
                                 ) : mainTab === 'in_progress' ? (
                                   <div className="h-4 w-4 flex items-center justify-center text-amber-500 shrink-0 mt-0.5" title="Under review with Agent Ops">
@@ -1201,17 +1268,26 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                               </div>
                             ) : (
                               <>
-                                {!s.tenant_verified && s.subscription_status !== 'cancelled' && (
-                                  <Button size="sm" className="gap-1.5 col-span-2 h-8 text-xs"
-                                    onClick={() => setVerifyFor(s)}>
-                                    <ShieldCheck className="h-3.5 w-3.5" /> Verify
-                                  </Button>
-                                )}
                                 {(() => {
                                   if (s.subscription_status === 'cancelled') {
                                     return (
                                       <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
                                         <XCircle className="h-3.5 w-3.5" /> Declined
+                                      </Button>
+                                    );
+                                  }
+                                  if (!s.tenant_verified) {
+                                    return (
+                                      <Button
+                                        size="sm"
+                                        className="gap-1.5 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
+                                        onClick={() => {
+                                          setVerifyAutoSend(false);
+                                          setVerifyFor(s);
+                                        }}
+                                        title="Verify tenant with a 6-digit SMS code to unlock float request"
+                                      >
+                                        <ShieldCheck className="h-3.5 w-3.5" /> Verify Tenant
                                       </Button>
                                     );
                                   }
@@ -1282,7 +1358,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       )}
 
       {/* Sticky / Fixed Floating Action Bar for Total Float Request */}
-      {selectedTenantIds.size > 0 && (
+      {selectedTenants.length > 0 && (
         <div
           className={cn(
             isPage
@@ -1295,7 +1371,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium text-foreground">
-                  {selectedLandlordNames.length} {selectedLandlordNames.length === 1 ? 'landlord' : 'landlords'} · {selectedTenantIds.size} {selectedTenantIds.size === 1 ? 'tenant' : 'tenants'}
+                  {selectedLandlordNames.length} {selectedLandlordNames.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
                 </span>
               </div>
               <p className="text-sm sm:text-base font-bold text-foreground truncate">
@@ -1390,6 +1466,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         onOpenChange={setEnrollOpen}
         agentId={user?.id}
         onDone={load}
+        onTenantEnrolled={(sub) => {
+          setVerifyAutoSend(true);
+          setVerifyFor(sub);
+        }}
       />
       <RequestFloatDialog
         open={requestFloatOpen}
@@ -1402,7 +1482,15 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           load();
         }}
       />
-      <VerifyTenantDialog sub={verifyFor} onClose={() => setVerifyFor(null)} onDone={load} />
+      <VerifyTenantDialog
+        sub={verifyFor}
+        autoSend={verifyAutoSend}
+        onClose={() => {
+          setVerifyFor(null);
+          setVerifyAutoSend(false);
+        }}
+        onDone={load}
+      />
       <AllocateDialog sub={allocFor} onClose={() => setAllocFor(null)} onDone={load} />
       <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load} />
 
@@ -1436,6 +1524,11 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                   });
                   if (error) throw error;
                   toast({ title: 'Enrollment deleted', description: `${deleteFor.tenant_name} has been removed.` });
+                  setSelectedTenantIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(deleteFor.id);
+                    return next;
+                  });
                   setDeleteFor(null);
                   load();
                 } catch (err: any) {
@@ -1506,8 +1599,21 @@ function RequestFloatDialog({
     }
   }, [open, agentId, landlordBreakdown, selectedTenants.length]);
 
+  const unverifiedTenants = useMemo(
+    () => selectedTenants.filter((s) => !s.tenant_verified),
+    [selectedTenants]
+  );
+
   const handleSubmit = async () => {
     if (!agentId) return;
+    if (unverifiedTenants.length > 0) {
+      toast({
+        title: 'Tenant Verification Required',
+        description: `All enrolled tenants must be verified before float can be requested. Unverified: ${unverifiedTenants.map((t) => t.tenant_name).join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (totalAmount <= 0) {
       toast({ title: 'No float amount selected', variant: 'destructive' });
       return;
@@ -1516,10 +1622,7 @@ function RequestFloatDialog({
     try {
       // Sends the exact tenants (subscription IDs) this request covers; the server computes the amount.
       const result = await requestWelileHomesFloat({
-        agentId,
         subscriptionIds: selectedTenants.map((s) => s.id),
-        legacyAmount: totalAmount,
-        tenantCount: selectedTenants.length,
         recipientPhone: phone,
         notes,
       });
@@ -1531,7 +1634,7 @@ function RequestFloatDialog({
             record: {
               id: data.id,
               agent_id: agentId,
-              requested_amount: totalAmount,
+              requested_amount: result.amount,
               reason: notes.trim(),
               status: 'pending',
             },
@@ -1627,6 +1730,25 @@ function RequestFloatDialog({
             />
           </div>
 
+          {/* Unverified Tenants Warning */}
+          {unverifiedTenants.length > 0 && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="font-semibold">Tenant Verification Required</p>
+                <p className="text-[11px] text-destructive/90 mt-0.5">
+                  The following tenant(s) have not completed 6-digit phone verification:
+                </p>
+                <p className="font-semibold text-xs mt-1">
+                  {unverifiedTenants.map((u) => u.tenant_name).join(', ')}
+                </p>
+                <p className="text-[11px] text-destructive/80 mt-1">
+                  Float cannot be requested until all selected tenants are verified.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Notes */}
           <div>
             <Label className="text-xs font-semibold">Purpose / Reason</Label>
@@ -1643,9 +1765,17 @@ function RequestFloatDialog({
           <Button variant="outline" onClick={onClose} disabled={submitting} className="h-10 sm:h-11 rounded-xl">
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || totalAmount <= 0} className="gap-2 h-10 sm:h-11 rounded-xl flex-1 sm:flex-none">
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || totalAmount <= 0 || unverifiedTenants.length > 0}
+            className="gap-2 h-10 sm:h-11 rounded-xl flex-1 sm:flex-none"
+          >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Banknote className="h-4 w-4 shrink-0" />}
-            <span className="truncate">Confirm Float Request ({formatUGX(totalAmount)})</span>
+            <span className="truncate">
+              {unverifiedTenants.length > 0
+                ? 'Verification Required'
+                : `Confirm Float Request (${formatUGX(totalAmount)})`}
+            </span>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1673,6 +1803,7 @@ interface LandlordRecord {
   housePhotos?: string[];
   gps?: LandlordGpsRecord | null;
   ugLocation?: UgLocationSelection | null;
+  registeredBy?: string;
 }
 
 function EnrollDialog({
@@ -1680,12 +1811,14 @@ function EnrollDialog({
   onOpenChange,
   agentId,
   onDone,
+  onTenantEnrolled,
   initialMode = 'choose',
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   agentId?: string;
   onDone: () => void;
+  onTenantEnrolled?: (sub: WHSubscription) => void;
   initialMode?: 'choose' | 'register';
 }) {
   const { toast } = useToast();
@@ -1762,20 +1895,22 @@ function EnrollDialog({
       try {
         const map = new Map<string, LandlordRecord>();
 
-        // 1. Landlords registered or managed by THIS AGENT in landlords table
+        // 1. Landlords REGISTERED BY THIS AGENT ONLY in landlords table
+        const myRegisteredDbIds = new Set<string>();
         try {
-          const { data: myDbLandlords } = await supabase
-            .from('landlords')
-            .select('id, name, phone, property_address, description, receipt_request_channel, district, county, sub_county, village, cell, ug_village_id, latitude, longitude')
-            .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`)
-            .order('created_at', { ascending: false })
-            .limit(300);
+          // Server-scoped: returns only landlords registered by the signed-in agent.
+          const { data: myDbLandlords } = await (supabase.rpc as any)('get_my_welile_homes_landlords', { p_limit: 300 });
 
           (myDbLandlords || []).forEach((row: any) => {
+            // Strict agent boundary: must be registered by THIS agent only
+            if (!row.registered_by || row.registered_by !== agentId) return;
+
             const name = (row.name || '').trim();
             const p = (row.phone || '').trim();
             if (!name) return;
             const key = `${name.toLowerCase()}|${p}`;
+
+            if (row.id) myRegisteredDbIds.add(row.id);
 
             let passportUrl: string | null = null;
             let housePhotoUrls: string[] = [];
@@ -1819,13 +1954,39 @@ function EnrollDialog({
               housePhotos: housePhotoUrls,
               gps,
               ugLocation: ugLoc,
+              registeredBy: agentId,
             });
           });
         } catch (e) {
           console.warn('Could not query agent landlords from DB:', e);
         }
 
-        // 2. Include any landlords registered by THIS AGENT in local storage
+        // 2. Count active attached tenants ONLY for this agent's verified registered landlords
+        if (map.size > 0) {
+          try {
+            const { data: mySubs } = await supabase
+              .from('welile_homes_subscriptions')
+              .select('landlord_name, landlord_phone, landlord_id')
+              .or(`agent_id.eq.${agentId},enrolled_by.eq.${agentId}`);
+
+            (mySubs || []).forEach((s: any) => {
+              const sName = (s.landlord_name || '').trim().toLowerCase();
+              const sPhone = (s.landlord_phone || '').trim();
+              for (const [, item] of map.entries()) {
+                if (
+                  (s.landlord_id && item.id && s.landlord_id === item.id) ||
+                  (sName && item.name.toLowerCase() === sName && sPhone && item.phone === sPhone)
+                ) {
+                  item.count += 1;
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Could not count subscriptions:', e);
+          }
+        }
+
+        // 3. Include local storage metadata only for landlords registered by THIS AGENT
         try {
           const storedKey = `welile_homes_landlords_${agentId}`;
           const localSaved = localStorage.getItem(storedKey);
@@ -1836,18 +1997,26 @@ function EnrollDialog({
                 const name = (row.name || '').trim();
                 const p = (row.phone || '').trim();
                 if (!name) return;
+
+                // Never include landlords not belonging to this agent
+                if (row.registeredBy && row.registeredBy !== agentId) return;
+                if (row.registered_by && row.registered_by !== agentId) return;
+                if (row.id && !myRegisteredDbIds.has(row.id)) return;
+
                 const key = `${name.toLowerCase()}|${p}`;
                 const existing = map.get(key);
                 if (existing) {
+                  // Enrich existing registered landlord with local cached media if missing
                   if (row.id && !existing.id) existing.id = row.id;
                   if (row.address && !existing.address) existing.address = row.address;
                   if (row.passportUrl && !existing.passportUrl) existing.passportUrl = row.passportUrl;
                   if (row.housePhotos && (!existing.housePhotos || existing.housePhotos.length === 0)) existing.housePhotos = row.housePhotos;
                   if (row.gps && !existing.gps) existing.gps = row.gps;
                   if (row.ugLocation && !existing.ugLocation) existing.ugLocation = row.ugLocation;
-                } else {
+                } else if (!row.id && (row.registeredBy === agentId || row.registered_by === agentId)) {
+                  // Only allow genuinely unsynced local drafts tagged to this agent
                   map.set(key, {
-                    id: row.id,
+                    id: null,
                     name,
                     phone: p,
                     address: row.address || '',
@@ -1856,6 +2025,7 @@ function EnrollDialog({
                     housePhotos: row.housePhotos || [],
                     gps: row.gps || null,
                     ugLocation: row.ugLocation || null,
+                    registeredBy: agentId,
                   });
                 }
               });
@@ -1863,30 +2033,6 @@ function EnrollDialog({
           }
         } catch {
           // ignore
-        }
-
-        // 3. For this agent's landlords only, count attached active tenants from welile_homes_subscriptions
-        try {
-          const { data: mySubs } = await supabase
-            .from('welile_homes_subscriptions')
-            .select('landlord_name, landlord_phone, landlord_id')
-            .or(`agent_id.eq.${agentId},enrolled_by.eq.${agentId}`);
-
-          (mySubs || []).forEach((s: any) => {
-            const sName = (s.landlord_name || '').trim().toLowerCase();
-            const sPhone = (s.landlord_phone || '').trim();
-            for (const [, item] of map.entries()) {
-              if (
-                (s.landlord_id && item.id && s.landlord_id === item.id) ||
-                (sName && item.name.toLowerCase() === sName) ||
-                (sPhone && item.phone && item.phone === sPhone)
-              ) {
-                item.count += 1;
-              }
-            }
-          });
-        } catch (e) {
-          console.warn('Could not count subscriptions:', e);
         }
 
         if (cancelled) return;
@@ -2107,7 +2253,7 @@ function EnrollDialog({
         });
       }
       setHousePhotos((prev) => [...prev, ...newItems]);
-      toast({ title: `${newItems.length} house photo(s) added 🏠` });
+      toast({ title: `${newItems.length} house photo(s) added` });
     } catch (e: any) {
       toast({ title: 'Could not process photos', description: e.message, variant: 'destructive' });
     } finally {
@@ -2143,95 +2289,33 @@ function EnrollDialog({
     }
   };
 
+  // Fail closed: the confirmation opens only when the server says the landlord is deletable.
   const handleRequestDeleteLandlord = async (l: LandlordRecord) => {
-    // 1. Guard against landlords with attached tenants in memory
-    if (l.count > 0) {
-      toast({
-        title: 'Landlord is attached to tenant',
-        description: `${l.name} is attached to ${l.count} active ${l.count === 1 ? 'tenant' : 'tenants'}. Landlords attached to tenants cannot be deleted 🤣`,
-        variant: 'destructive',
-      });
+    if (!l.id) {
+      // Saved only on this device: no server record and no plans can be linked to it.
+      setDeleteLandlordTarget(l);
       return;
     }
-
-    // 2. Guard against landlords attached to Welile Homes subscriptions in database
     try {
-      let query = supabase
-        .from('welile_homes_subscriptions')
-        .select('id')
-        .limit(1);
-
-      if (l.id) {
-        query = query.or(`landlord_id.eq.${l.id},landlord_name.ilike.${l.name}`);
-      } else {
-        query = query.ilike('landlord_name', l.name);
-      }
-
-      const { data: activeSubs } = await query;
-      if (activeSubs && activeSubs.length > 0) {
+      const { data, error } = await (supabase.rpc as any)('wh_landlord_delete_blockers', { p_landlord_id: l.id });
+      if (error) throw error;
+      if (!data?.deletable) {
+        const reasons: string[] = Array.isArray(data?.reasons) ? data.reasons : [];
         toast({
-          title: 'Landlord is attached to tenant',
-          description: `${l.name} is attached to an enrolled tenant. Landlords with active tenants cannot be deleted 🤣`,
+          title: 'Cannot delete landlord',
+          description: reasons.length ? `${l.name}: ${reasons.join('; ')}.` : `${l.name} cannot be deleted.`,
           variant: 'destructive',
         });
         return;
       }
-    } catch (e) {
-      console.warn('Could not verify landlord subscriptions:', e);
+      setDeleteLandlordTarget({ ...l, count: Number(data?.draft_plans ?? l.count ?? 0) });
+    } catch (e: any) {
+      toast({
+        title: 'Cannot delete landlord',
+        description: `Could not check ${l.name}'s records${e?.message ? `: ${e.message}` : ''}. Nothing was deleted.`,
+        variant: 'destructive',
+      });
     }
-
-    // 3. Guard against landlords on payroll / monthly rent dues
-    try {
-      const { data: activeDues } = await supabase
-        .from('welile_homes_monthly_dues')
-        .select('id')
-        .ilike('landlord_name', l.name)
-        .limit(1);
-
-      if (activeDues && activeDues.length > 0) {
-        toast({
-          title: 'Landlord is attached to tenant',
-          description: `${l.name} is on payroll with monthly rent dues. Cannot be deleted 🤣`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    } catch (e) {
-      console.warn('Could not verify monthly dues:', e);
-    }
-
-    // 4. Guard against rent plans or tenants if landlord has an id in landlords table
-    if (l.id) {
-      try {
-        const [{ data: plans }, { data: directTenants }, { data: allocs }] = await Promise.all([
-          supabase.from('rent_requests').select('id').eq('landlord_id', l.id).in('status', ACTIVE_RENT_STATUSES).limit(1),
-          supabase.from('landlords').select('tenant_id').eq('id', l.id).not('tenant_id', 'is', null).limit(1),
-          supabase.from('agent_landlord_float_allocations').select('id').eq('landlord_id', l.id).limit(1),
-        ]);
-
-        if ((plans && plans.length > 0) || (directTenants && directTenants.length > 0)) {
-          toast({
-            title: 'Landlord is attached to tenant',
-            description: `${l.name} is attached to active tenants or rent plans and cannot be deleted 🤣`,
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (allocs && allocs.length > 0) {
-          toast({
-            title: 'Landlord is attached to tenant',
-            description: `${l.name} has float allocations or payroll records and cannot be deleted 🤣`,
-            variant: 'destructive',
-          });
-          return;
-        }
-      } catch (e) {
-        console.warn('Could not verify related records:', e);
-      }
-    }
-
-    setDeleteLandlordTarget(l);
   };
 
   const handleConfirmDeleteLandlord = async () => {
@@ -2239,16 +2323,13 @@ function EnrollDialog({
     const target = deleteLandlordTarget;
     setDeletingLandlord(true);
     try {
-      // Delete from landlords table if an id exists
-      if (target.id && agentId) {
-        await supabase
-          .from('landlords')
-          .delete()
-          .eq('id', target.id)
-          .or(`registered_by.eq.${agentId},managed_by_agent_id.eq.${agentId}`);
+      // One server step: removes the landlord and its draft plans together, or nothing at all.
+      if (target.id) {
+        const { error } = await (supabase.rpc as any)('delete_welile_homes_landlord', { p_landlord_id: target.id });
+        if (error) throw new Error(String(error.message || '').replace(/^LANDLORD_NOT_DELETABLE:\s*/, ''));
       }
 
-      // Remove from local storage
+      // 3. Remove from local storage
       if (agentId) {
         try {
           const storedKey = `welile_homes_landlords_${agentId}`;
@@ -2269,7 +2350,7 @@ function EnrollDialog({
         }
       }
 
-      // Remove from state
+      // 4. Remove from state
       setLandlords((prev) =>
         prev.filter(
           (x) =>
@@ -2282,13 +2363,15 @@ function EnrollDialog({
       if (landlordName.trim().toLowerCase() === target.name.trim().toLowerCase()) {
         setLandlordName('');
         setLandlordPhone('');
+        setSelectedLandlordRecord(null);
       }
 
       toast({
-        title: 'Landlord deleted 🤣',
+        title: 'Landlord deleted',
         description: `${target.name} was removed from your landlords list.`,
       });
       setDeleteLandlordTarget(null);
+      onDone();
     } catch (err: any) {
       toast({
         title: 'Failed to delete landlord',
@@ -2458,6 +2541,7 @@ function EnrollDialog({
         housePhotos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
         gps: capturedGpsObj,
         ugLocation,
+        registeredBy: agentId,
       };
 
       // 4. Save locally
@@ -2485,7 +2569,7 @@ function EnrollDialog({
       setSelectedLandlordRecord(newRecord);
 
       toast({
-        title: 'Landlord registered successfully 🏡',
+        title: 'Landlord registered successfully',
         description: `${name} has been enrolled with house details. Now enter tenant details to proceed.`,
       });
       setStep('tenant');
@@ -2647,13 +2731,38 @@ function EnrollDialog({
       }
       const res = data as any;
       if (!res?.success) throw new Error(res?.error || 'Enrollment failed');
+
+      const newSubRecord: WHSubscription = {
+        id: res.subscription_id,
+        tenant_id: tenantId,
+        next_due_date: null,
+        agent_id: agentId,
+        landlord_id: selectedLandlordRecord?.id || null,
+        landlord_name: landlordName || null,
+        landlord_phone: landlordPhone || null,
+        tenant_name: tenant?.full_name || newName.trim(),
+        tenant_phone: phone.trim(),
+        monthly_rent: rentNum,
+        receivable_total: Number(res.receivable_total) || rentNum * 12,
+        outstanding_balance: Number(res.receivable_total) || rentNum * 12,
+        payout_day: parseInt(payoutDay) || 5,
+        has_smartphone: hasPhone,
+        landlord_uses_wallet: landlordUsesWallet,
+        subscription_status: 'active',
+        created_at: new Date().toISOString(),
+        tenant_verified: false,
+      };
+
       toast({
-        title: 'Tenant enrolled successfully. Pending verification.',
-        description: `${formatUGX(rentNum)}/mo · you earn ${formatUGX(res.agent_commission_per_month)}/mo`,
+        title: 'Tenant enrolled successfully',
+        description: `Starting 6-digit SMS verification for ${newSubRecord.tenant_name}...`,
       });
       reset();
       onOpenChange(false);
       onDone();
+      if (onTenantEnrolled) {
+        onTenantEnrolled(newSubRecord);
+      }
     } catch (err: any) {
       if (promptIfNotVetted(err)) return;
       toast({ title: 'Enrollment failed', description: err.message, variant: 'destructive' });
@@ -2757,13 +2866,13 @@ function EnrollDialog({
 
               {/* CHOOSE EXISTING LANDLORD */}
               <TabsContent value="choose" className="space-y-3 pt-2">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <div className="relative [&_input]:!pl-10 [&_input]:mb-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
                   <Input
                     value={landlordQuery}
                     onChange={(e) => setLandlordQuery(e.target.value)}
                     placeholder="Search landlord by name or phone..."
-                    className="h-9 sm:h-10 pl-9 pr-3 text-xs sm:text-sm rounded-xl"
+                    className="h-10 !pl-10 pr-3 text-xs sm:text-sm rounded-xl mb-0"
                   />
                 </div>
 
@@ -2776,7 +2885,7 @@ function EnrollDialog({
                     <div className="rounded-xl border border-dashed p-4 text-center">
                       <Building2 className="mx-auto h-7 w-7 text-muted-foreground/50 mb-1" />
                       <p className="text-xs font-medium text-foreground">
-                        {landlords.length === 0 ? 'No landlords registered by you yet 🤣' : `No match for "${landlordQuery}"`}
+                        {landlords.length === 0 ? 'No landlords registered by you yet' : `No match for "${landlordQuery}"`}
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
                         {landlords.length === 0
@@ -2902,7 +3011,7 @@ function EnrollDialog({
                                 e.stopPropagation();
                                 handleRequestDeleteLandlord(l);
                               }}
-                              title={l.count > 0 ? 'Landlord is attached to tenant' : 'Delete landlord'}
+                              title="Delete landlord"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -3547,7 +3656,10 @@ function EnrollDialog({
             <AlertDialogHeader>
               <AlertDialogTitle>Delete {deleteLandlordTarget?.name}?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to remove this landlord from your Welile Homes list? This landlord has no tenants attached.
+                Are you sure you want to remove this landlord from your Welile Homes list?
+                {deleteLandlordTarget?.count && deleteLandlordTarget.count > 0
+                  ? ` Any unapproved tenant draft enrollments (${deleteLandlordTarget.count}) will also be cancelled.`
+                  : ''}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -3569,8 +3681,8 @@ function EnrollDialog({
 }
 
 // ---------------- Verify tenant dialog ----------------
-function VerifyTenantDialog({ sub, onClose, onDone }: {
-  sub: WHSubscription | null; onClose: () => void; onDone: () => void;
+function VerifyTenantDialog({ sub, onClose, onDone, autoSend = false }: {
+  sub: WHSubscription | null; onClose: () => void; onDone: () => void; autoSend?: boolean;
 }) {
   const { toast } = useToast();
   const [sending, setSending] = useState(false);
@@ -3579,6 +3691,9 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
   const [otpValue, setOtpValue] = useState('');
   const [otpError, setOtpError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(180);
+  const autoSentSubRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -3586,9 +3701,20 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
     return () => clearInterval(t);
   }, [cooldown]);
 
+  // 3-minute live countdown timer
   useEffect(() => {
-    if (sub) { setSent(false); setOtpValue(''); setOtpError(null); setCooldown(0); }
-  }, [sub?.id]);
+    if (!sent || !expiresAt) return;
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        setOtpError('Verification code has expired (3-minute limit). Please tap "Send a New Code" below.');
+      }
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [sent, expiresAt]);
 
   const phone = sub?.tenant_phone?.trim() || '';
 
@@ -3597,25 +3723,56 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
     setSending(true); setOtpError(null);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone, category: 'welile_homes_tenant_verify' },
+        body: { action: 'send', phone, category: 'welile_homes_tenant_verify', purpose: 'welile_homes_tenant_verify' },
       });
       if (error) throw new Error(error.message || 'Could not send the code');
       if ((data as any)?.error) throw new Error((data as any).error);
+      const exp = Date.now() + 180 * 1000;
+      setExpiresAt(exp);
+      setSecondsLeft(180);
       setSent(true);
       setOtpValue('');
       setCooldown(60);
-      toast({ title: 'Verification SMS sent to tenant', description: phone });
+      toast({ title: '6-digit verification code sent', description: `Sent to ${phone}. Valid for 3 minutes.` });
     } catch (err: any) {
       toast({ title: 'Could not send verification SMS', description: err.message, variant: 'destructive' });
     } finally { setSending(false); }
   };
 
+  useEffect(() => {
+    if (sub) {
+      setSent(false);
+      setOtpValue('');
+      setOtpError(null);
+      setCooldown(0);
+      setExpiresAt(null);
+      setSecondsLeft(180);
+
+      if (autoSend && sub.tenant_phone?.trim() && autoSentSubRef.current !== sub.id) {
+        autoSentSubRef.current = sub.id;
+        sendOtp();
+      }
+    } else {
+      autoSentSubRef.current = null;
+    }
+  }, [sub?.id, autoSend]);
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
   const verifyOtp = async (code: string) => {
     if (!sub) return;
+    if (secondsLeft <= 0 || (expiresAt && Date.now() > expiresAt)) {
+      setOtpError('Verification code has expired (3-minute limit). Please tap "Send a New Code".');
+      return;
+    }
     setVerifying(true); setOtpError(null);
     try {
       const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone, otp: code, category: 'welile_homes_tenant_verify' },
+        body: { action: 'verify', phone, otp: code, category: 'welile_homes_tenant_verify', purpose: 'welile_homes_tenant_verify' },
       });
       if (error) throw new Error('Invalid or expired code');
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -3627,7 +3784,7 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
       if (markErr) throw markErr;
       if (!(markRes as any)?.success) throw new Error((markRes as any)?.error || 'Could not mark tenant verified');
 
-      toast({ title: 'Tenant verified', description: sub.tenant_name });
+      toast({ title: 'Tenant verified', description: `${sub.tenant_name} is now verified and eligible for float requests.` });
       onClose();
       onDone();
     } catch (err: any) {
@@ -3641,22 +3798,47 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
       <DialogContent className="w-[calc(100vw-1.25rem)] max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader className="space-y-1">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <ShieldCheck className="h-5 w-5 text-primary shrink-0" /> Verify tenant
+            <ShieldCheck className="h-5 w-5 text-primary shrink-0" /> Verify Tenant Phone
           </DialogTitle>
           <DialogDescription className="text-xs sm:text-sm">
             {sent
-              ? `Enter the 6-digit code sent to ${phone}.`
-              : `Send a verification SMS to ${sub?.tenant_name || 'this tenant'} on ${phone || 'no phone on file'}.`}
+              ? `Enter the 6-digit code sent to ${phone}. Code expires in 3 minutes.`
+              : `Send a 6-digit SMS verification code to ${sub?.tenant_name || 'this tenant'} on ${phone || 'no phone on file'}.`}
           </DialogDescription>
         </DialogHeader>
 
         {sent ? (
           <div className="space-y-4">
+            {/* Expiration Timer Card */}
+            <div className="rounded-xl border bg-muted/30 p-3 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
+                  <Clock className={cn("h-3.5 w-3.5", secondsLeft > 0 ? "text-primary" : "text-destructive")} />
+                  Code Expiration:
+                </span>
+                <span className={cn(
+                  "font-mono font-bold px-2 py-0.5 rounded-md text-xs",
+                  secondsLeft > 60
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : secondsLeft > 0
+                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse"
+                    : "bg-destructive/15 text-destructive border border-destructive/30"
+                )}>
+                  {secondsLeft > 0 ? formatTimer(secondsLeft) : 'Expired (00:00)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {secondsLeft > 0
+                  ? `Sent to ${phone}. Code is valid for 3 minutes.`
+                  : `Code expired. Tap "Send a New 3-Minute Code" below to request a fresh code.`}
+              </p>
+            </div>
+
             <div className="flex justify-center">
               <InputOTP
                 maxLength={6}
                 value={otpValue}
-                disabled={verifying}
+                disabled={verifying || secondsLeft <= 0}
                 onChange={(v) => {
                   setOtpValue(v);
                   setOtpError(null);
@@ -3673,31 +3855,74 @@ function VerifyTenantDialog({ sub, onClose, onDone }: {
                 </InputOTPGroup>
               </InputOTP>
             </div>
+
             {verifying && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin shrink-0" /> Verifying…
+                <Loader2 className="h-4 w-4 animate-spin shrink-0" /> Verifying code…
               </div>
             )}
-            {otpError && <p className="text-sm text-destructive text-center">{otpError}</p>}
-            <div className="text-center">
-              <button
+            {otpError && (
+              <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive text-center">
+                {otpError}
+              </div>
+            )}
+
+            {secondsLeft <= 0 ? (
+              <Button
                 type="button"
-                onClick={() => { if (cooldown === 0 && !sending) sendOtp(); }}
-                disabled={cooldown > 0 || sending || verifying}
-                className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1"
+                variant="outline"
+                size="sm"
+                onClick={sendOtp}
+                disabled={sending}
+                className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10 h-10 rounded-xl text-xs font-semibold"
               >
-                <RefreshCw className="h-3 w-3" />
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : sending ? 'Sending…' : 'Resend code'}
-              </button>
-            </div>
+                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Send a New 3-Minute Code
+              </Button>
+            ) : (
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { if (cooldown === 0 && !sending) sendOtp(); }}
+                  disabled={cooldown > 0 || sending || verifying}
+                  className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  {cooldown > 0 ? `Resend code in ${cooldown}s` : sending ? 'Sending…' : 'Resend code'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
-          <DialogFooter className="pt-2">
-            <Button className="w-full gap-2 h-11 rounded-xl text-xs sm:text-sm font-semibold" onClick={sendOtp} disabled={sending || !phone}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
-              Send verification SMS
-            </Button>
-          </DialogFooter>
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-muted/20 p-3 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Tenant:</span>
+                <span className="font-semibold text-foreground">{sub?.tenant_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Phone:</span>
+                <span className="font-mono font-medium text-foreground">{phone || 'None'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Validity:</span>
+                <span className="font-medium text-foreground">6-digit code · 3 minutes expiry</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Tenant verification is required before float can be requested.
+            </p>
+            <DialogFooter className="pt-2">
+              <Button
+                className="w-full gap-2 h-11 rounded-xl text-xs sm:text-sm font-semibold"
+                onClick={sendOtp}
+                disabled={sending || !phone}
+              >
+                {sending ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
+                Send 6-Digit Verification SMS
+              </Button>
+            </DialogFooter>
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -3950,8 +4175,13 @@ function AllocateDialog({ sub, onClose, onDone }: {
     return opts;
   })();
 
+  // One key per collection attempt: a retry or double tap reuses it, so the server returns the
+  // original confirmation instead of charging twice. A new key is issued only after success.
+  const collectKeyRef = useRef<string>('');
+
   useEffect(() => {
     if (sub) {
+      collectKeyRef.current = crypto.randomUUID();
       setAmount(String(Math.min(sub.monthly_rent, sub.outstanding_balance)));
       const now = new Date();
       setPeriod(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
@@ -3966,15 +4196,18 @@ function AllocateDialog({ sub, onClose, onDone }: {
     const periodLabel = monthOptions.find((m) => m.value === period)?.label || period;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('welile_home_record_collection', {
+      if (!collectKeyRef.current) collectKeyRef.current = crypto.randomUUID();
+      const { data, error } = await (supabase.rpc as any)('welile_home_record_collection', {
         p_subscription_id: sub.id,
         p_amount: amt,
         p_source: 'agent_allocation',
+        p_idempotency_key: collectKeyRef.current,
         p_notes: `Agent collection — rent for ${periodLabel}`,
       });
       if (error) throw error;
       const res = data as any;
       if (!res?.success) throw new Error(res?.error || 'Collection recording failed');
+      collectKeyRef.current = crypto.randomUUID();
       toast({ title: 'Rent payment recorded', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
       // Fire-and-forget: send the tenant an SMS receipt for this collection.
       supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => { });
