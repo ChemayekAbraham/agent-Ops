@@ -81182,6 +81182,28 @@ export type Database = {
         Args: { p_agent_id?: string; p_weeks?: number }
         Returns: Json
       }
+      get_my_welile_homes_landlords: {
+        Args: { p_limit?: number }
+        Returns: {
+          cell: string
+          county: string
+          created_at: string
+          description: string
+          district: string
+          id: string
+          latitude: number
+          location_captured_by: string
+          longitude: number
+          name: string
+          phone: string
+          property_address: string
+          receipt_request_channel: string
+          registered_by: string
+          sub_county: string
+          ug_village_id: number
+          village: string
+        }[]
+      }
       get_nearby_cashout_agents: {
         Args: { _lat?: number; _lng?: number }
         Returns: {
