@@ -278,7 +278,9 @@ export function FunderNewRouteMap({
       if (immediate) {
         doReport();
       } else {
-        reportTimerRef.current = window.setTimeout(doReport, 300);
+        // 'idle' already waits for the pan or zoom animation to finish, so a short
+        // settle delay is enough; every ms here is added to the wait for new pins.
+        reportTimerRef.current = window.setTimeout(doReport, 120);
       }
     },
     [onViewportChange],
