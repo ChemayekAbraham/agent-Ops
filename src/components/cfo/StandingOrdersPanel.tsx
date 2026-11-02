@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
+import { standingOrderErrorText } from '@/lib/standingOrderError';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
 import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
@@ -424,7 +425,7 @@ export function StandingOrdersPanel() {
                                 <span className="flex-1">
                                   {row.target_missing ? 'Recipient account no longer exists — this order fails every cycle.'
                                     : row.health === 'stalled' ? 'Overdue by over 36 hours without a run or recorded failure.'
-                                    : row.last_run_error}
+                                    : standingOrderErrorText(row.last_run_error)}
                                 </span>
                                 {row.target_missing && row.enabled && (
                                   <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={setEnabled.isPending} onClick={() => handleToggle(row, false)}>Pause now</Button>
