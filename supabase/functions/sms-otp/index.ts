@@ -624,6 +624,13 @@ Deno.serve(async (req) => {
       // database step, so simultaneous requests are serialized and cannot all slip under a cap.
       // A still-valid unverified code is reused (late SMS keep working) without resetting its
       // wrong-try count; only a brand-new code starts at zero tries.
+      // Previous send's provider, read only to choose the SMS route (not a limit check).
+      const { data: existing } = await adminClient
+        .from("otp_verifications")
+        .select("send_status, send_status_reason")
+        .eq("phone", phoneKey)
+        .maybeSingle();
+
       const { data: reserve, error: reserveError } = await adminClient.rpc("otp_reserve_send", {
         p_phone: phoneKey,
         p_user_id: authUserId,
