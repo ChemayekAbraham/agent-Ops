@@ -41,3 +41,4 @@ client displays what that function returns and never recomputes it.
 - `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
 - Fingerprinted CFO packages (`cfo_bucket_a_post`, `cfo_corr_5300000_post`) post only via their own function: approver allowlist, own fresh preflight (<30 min), frozen lines, atomic.
+- Welile Homes dues are exactly 12 per tenant: `welile_homes_monthly_dues.due_month_index` (1-12, unique with `tenant_id`). `enroll_welile_home_tenant` inserts months only on first enrolment; re-enrolment revises only untouched dues (pending, nothing collected, unpaid, no ledger id) and recomputes `receivable_total` from the 12 rows, so a rent change can never add, duplicate or reprice paid months.
