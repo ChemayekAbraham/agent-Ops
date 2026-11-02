@@ -20078,9 +20078,11 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          disbursed_ledger_txn: string | null
           expected_recipient_phone: string | null
           float_delivery_tid: string | null
           id: string
+          product: string
           reason: string | null
           rejection_reason: string | null
           requested_amount: number
@@ -20097,9 +20099,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount: number
@@ -20116,9 +20120,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount?: number
@@ -63811,6 +63817,48 @@ export type Database = {
           },
         ]
       }
+      welile_homes_float_request_items: {
+        Row: {
+          amount: number
+          created_at: string
+          float_request_id: string
+          id: string
+          released_at: string | null
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          float_request_id: string
+          id?: string
+          released_at?: string | null
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          float_request_id?: string
+          id?: string
+          released_at?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_float_request_items_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_float_request_items_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_monthly_dues: {
         Row: {
           agent_commission: number
@@ -63891,6 +63939,7 @@ export type Database = {
           created_at: string
           email_statements_enabled: boolean | null
           enrolled_by: string | null
+          funding_status: string
           has_smartphone: boolean
           id: string
           landlord_id: string | null
@@ -63919,6 +63968,7 @@ export type Database = {
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
@@ -63947,6 +63997,7 @@ export type Database = {
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
@@ -94136,6 +94187,24 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_float_advance: {
+        Args: {
+          p_action: string
+          p_expected_status: string
+          p_note?: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      wh_request_float: {
+        Args: {
+          p_notes?: string
+          p_recipient_phone?: string
+          p_subscription_ids: string[]
+        }
+        Returns: Json
+      }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }
         Returns: Json
