@@ -88,6 +88,23 @@ export default function FunderLandingPreview() {
     setAvatarFailed(false);
   }, [avatarUrl]);
 
+  // Frosted top bar: once the houses sheet scrolls up under the fixed top
+  // bar, the bar gets a glass background so the list reads through it.
+  const [barFrosted, setBarFrosted] = useState(false);
+  const sheetTopRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const sentinel = sheetTopRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setBarFrosted(!entry.isIntersecting),
+      // Trigger when the sheet top reaches the bottom edge of the top bar
+      // (safe-area padding + 48px bar + a small margin).
+      { rootMargin: '-84px 0px 0px 0px', threshold: 0 },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
 
 
   // ── Filters ──────────────────────────────────────────────────────────────
@@ -316,7 +333,12 @@ export default function FunderLandingPreview() {
       </div>
 
       {/* Floating top bar — fixed so it stays above the houses sheet while the sheet slides over the map. */}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div
+        className={cn(
+          'pointer-events-none fixed inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))] transition-colors duration-300',
+          barFrosted && 'bg-background/70 pb-3 backdrop-blur-xl',
+        )}
+      >
         <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
           <Link
             to={welileId ? `/profile/${welileId}` : '/profile'}
@@ -370,6 +392,7 @@ export default function FunderLandingPreview() {
           : { initial: { y: 40, opacity: 0 }, animate: { y: 0, opacity: 1 }, transition: { duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] } })}
       >
         <div className="mx-auto max-w-3xl space-y-4 px-4 pb-36 pt-2.5">
+          <div ref={sheetTopRef} aria-hidden className="h-px" />
           <div aria-hidden className="mx-auto h-1.5 w-11 rounded-full bg-border" />
 
           <motion.section
