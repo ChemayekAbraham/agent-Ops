@@ -83,8 +83,13 @@ loan, lender, interest or ROI).
    "Repayable after payout: {scheduled_outstanding}" instead of "Outstanding". Treat a missing `paid_out` as the old
    server (show as today).
 
-## Before Phase B
+## Status and what follows
 
-Phase A is done when: the storage policies are applied and verified; TOTP is enabled and the CFOs who will act have
-enrolled; the step-up, proof upload and outstanding display are in the screens; `20261102200000` is applied with CFO
-approval and verified read-only. Issuance stays off until Phases A, B and E are complete (proposal D13, not approved).
+`20261102200000` was applied to production on 2026-11-02 with CFO approval (one transaction, recorded in
+`schema_migrations` with blob sha256 `71750d05530382d4`) and verified read-only.
+
+Phase A is done when, in addition: the storage policies are applied and verified; TOTP is enabled and the CFOs who
+will act have enrolled; the step-up, proof upload and outstanding display are in the screens. Issuance stays off until
+Phases A, B and E are complete (proposal D13, not approved).
+
+Phase B (corrections, CFO decisions D11): `docs/special-advances/phase-b-corrections.md`.

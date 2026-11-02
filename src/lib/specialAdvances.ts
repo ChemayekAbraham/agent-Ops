@@ -8,7 +8,7 @@
  */
 import type { RateBasis, SpecialAdvanceFrequency } from '@/lib/specialAdvancePreview';
 
-export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled';
+export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reversed';
 
 export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   pending_approval: 'Pending approval',
@@ -17,6 +17,8 @@ export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   cancelled: 'Cancelled',
   disbursed: 'Paid out',
   settled: 'Settled',
+  // Phase B (migration 20261102210000): an external payout recorded in error, reversed by an approved correction
+  reversed: 'Payout reversed',
 };
 
 export type BorrowerRequest =
@@ -73,7 +75,8 @@ export interface SpecialAdvanceQuote {
 }
 
 export interface SpecialAdvanceEvent {
-  event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled';
+  event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
+    | 'correction_requested' | 'correction_approved' | 'correction_rejected' | 'correction_withdrawn';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -137,7 +140,77 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   position: SpecialAdvancePosition;
   repayments: Array<{ id: string; amount: number; received_date: string; method: string; reference: string; note: string | null; recorded_at: string;
     /** Archived proof of the repayment (D2). */
-    proof_path?: string }>;
+    proof_path?: string;
+    /** Set when an approved correction reversed this repayment: it no longer counts (Phase B). */
+    reversed_by_correction?: string | null }>;
+  /** Correction requests on this advance, oldest first (Phase B). */
+  corrections?: SpecialAdvanceCorrection[];
+}
+
+/* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
+ * One CFO requests (reason + proof file); a DIFFERENT CFO approves or rejects; the requester may withdraw. Approval
+ * posts opposite legs on the original categories; nothing posted is ever edited. Both steps need aal2. */
+export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
+export type CorrectionStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
+export type CorrectionDecision = 'approve' | 'reject' | 'withdraw';
+
+export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
+  repayment_reversal: 'Reverse a repayment',
+  payout_reversal: 'Reverse an external payout',
+};
+export const CORRECTION_STATUS_LABEL: Record<CorrectionStatus, string> = {
+  pending: 'Awaiting a second CFO',
+  approved: 'Approved — posted',
+  rejected: 'Rejected',
+  withdrawn: 'Withdrawn',
+};
+export const CORRECTION_REASON_MIN = 20;
+export const CORRECTION_REASON_MAX = 1000;
+
+export interface SpecialAdvanceCorrection {
+  id: string;
+  reference: string;
+  advance_id: string;
+  advance_reference: string;
+  kind: CorrectionKind;
+  repayment_id: string | null;
+  repayment: { id: string; amount: number; received_date: string; method: string; reference: string } | null;
+  amount: number;
+  reason: string;
+  proof_path: string;
+  status: CorrectionStatus;
+  requested_by: string;
+  requested_by_name: string | null;
+  requested_at: string;
+  decided_by: string | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  ledger_group_id: string | null;
+  replayed?: boolean;
+}
+
+/** The body for `special_advance_request_correction`. */
+export function buildCorrectionRequest(input: {
+  kind: CorrectionKind;
+  repaymentId?: string | null;
+  reason: string;
+  proofPath: string;
+  idempotencyKey: string;
+}): Record<string, unknown> {
+  return {
+    kind: input.kind,
+    ...(input.kind === 'repayment_reversal' ? { repayment_id: input.repaymentId } : {}),
+    reason: input.reason.trim(),
+    proof_path: input.proofPath,
+    idempotency_key: input.idempotencyKey,
+  };
+}
+
+/** A correction can be decided by `actorId`: approve / reject only by a different CFO, withdraw only by the requester. */
+export function correctionActions(c: Pick<SpecialAdvanceCorrection, 'status' | 'requested_by'>, actorId: string | undefined): CorrectionDecision[] {
+  if (c.status !== 'pending' || !actorId) return [];
+  return c.requested_by === actorId ? ['withdraw'] : ['approve', 'reject'];
 }
 
 export interface SpecialAdvanceList {
@@ -244,7 +317,23 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PROOF_PATH_INVALID')) return 'The proof file does not belong to this advance. Upload it again.';
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
-  if (msg.includes('REASON_REQUIRED')) return 'A reason of at least 5 characters is required.';
+  // Corrections (Phase B, D11)
+  if (msg.includes('SECOND_CFO_REQUIRED')) return 'A different CFO must approve or reject a correction you requested.';
+  if (msg.includes('ONLY_REQUESTER_MAY_WITHDRAW')) return 'Only the CFO who requested this correction can withdraw it.';
+  if (msg.includes('CORRECTION_ALREADY_PENDING')) return 'This advance already has a correction awaiting a decision.';
+  if (msg.includes('CORRECTION_ALREADY_DECIDED')) return 'This correction has already been decided.';
+  if (msg.includes('CORRECTION_NOT_FOUND')) return 'Correction not found.';
+  if (msg.includes('REPAYMENT_NOT_FOUND')) return 'That repayment is not on this advance.';
+  if (msg.includes('REPAYMENT_ALREADY_REVERSED')) return 'This repayment has already been reversed.';
+  if (msg.includes('REPAYMENTS_MUST_BE_REVERSED_FIRST')) return 'Reverse every repayment on this advance before reversing its payout.';
+  if (msg.includes('PAYOUT_REVERSAL_NOT_SUPPORTED')) return 'A payout to a Welile wallet cannot be reversed here; only an external payout recorded in error.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_CORRECTABLE')) return 'This advance cannot be corrected in its current state.';
+  if (msg.includes('BORROWER_HAS_OPEN_ADVANCE')) return 'Reopening this advance would give the borrower two open Special Advances.';
+  if (msg.includes('REASON_REQUIRED')) {
+    return typeof detail === 'string' && detail.includes(String(CORRECTION_REASON_MIN))
+      ? `Explain the error in at least ${CORRECTION_REASON_MIN} characters.`
+      : 'A reason of at least 5 characters is required.';
+  }
   if (msg.includes('SPECIAL_ADVANCE_NOT_PENDING')) return 'Only an advance pending approval can be approved or rejected.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_CANCELLABLE')) return 'Only an advance that has not been paid out can be cancelled.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_APPROVED')) return 'Only an approved advance can be paid out.';

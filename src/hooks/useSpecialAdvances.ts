@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  SpecialAdvance, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceStatement,
-  SpecialAdvanceStatus,
+  CorrectionDecision, CorrectionStatus, SpecialAdvance, SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote,
+  SpecialAdvanceReconciliation, SpecialAdvanceStatement, SpecialAdvanceStatus,
 } from '@/lib/specialAdvances';
 import { SPECIAL_ADVANCE_PROOF_BUCKET, specialAdvanceProofPath } from '@/lib/specialAdvances';
 
@@ -115,6 +115,39 @@ export function useRecordSpecialAdvanceRepayment() {
       // proof_path: required by the server for every repayment (CFO decision D2); see uploadSpecialAdvanceProof
       repayment: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string; proof_path?: string | null };
     }) => call<SpecialAdvanceStatement>('special_advance_record_repayment', { p_id: advanceId, p_repayment: repayment }),
+    onSuccess: invalidate,
+  });
+}
+
+/* ── Corrections (Phase B, CFO decisions D11; migration 20261102210000) ─────────────────────────────── */
+
+/** The CFO correction queue (pending by default; null = every status). */
+export function useSpecialAdvanceCorrections(status: CorrectionStatus | null = 'pending', enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'corrections', status],
+    enabled,
+    queryFn: () => call<SpecialAdvanceCorrection[]>('special_advance_list_corrections', { p_status: status, p_limit: 100 }),
+    staleTime: 30 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/** Records a correction request (reason + proof, see buildCorrectionRequest). Posts nothing until a second CFO approves. */
+export function useRequestSpecialAdvanceCorrection() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
+      call<SpecialAdvanceCorrection>('special_advance_request_correction', { p_id: advanceId, p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+/** approve / reject (a different CFO; reject needs a note) or withdraw (the requester). Approval posts the correction. */
+export function useDecideSpecialAdvanceCorrection() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ correctionId, decision, note }: { correctionId: string; decision: CorrectionDecision; note?: string | null }) =>
+      call<SpecialAdvanceCorrection>('special_advance_decide_correction', { p_correction_id: correctionId, p_decision: decision, p_note: note ?? null }),
     onSuccess: invalidate,
   });
 }
