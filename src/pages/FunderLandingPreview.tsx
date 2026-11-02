@@ -536,7 +536,7 @@ export default function FunderLandingPreview() {
               <p className="text-sm text-muted-foreground">Try another area or clear a filter.</p>
             </div>
           ) : (
-            <div className="grid gap-0 sm:grid-cols-2 sm:gap-4 [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-size:auto_420px]">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-0 sm:grid-cols-2 sm:gap-4 [&>*]:min-w-0 [&>*]:[content-visibility:auto] [&>*]:[contain-intrinsic-block-size:auto_420px]">
               {entries.map((entry, index) => {
                 const id = itemId(entry.category, entry.item);
                 const coords = itemCoordinates(entry.item, entry.category);
