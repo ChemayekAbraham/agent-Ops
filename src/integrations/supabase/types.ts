@@ -85029,6 +85029,7 @@ export type Database = {
         }[]
       }
       lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
+      lunch_next_weekday_slot: { Args: { p_after: string }; Returns: string }
       manager_vendor_pin_flags: {
         Args: never
         Returns: {
