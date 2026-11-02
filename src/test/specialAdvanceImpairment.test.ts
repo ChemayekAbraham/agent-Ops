@@ -207,7 +207,7 @@ const legs = (group: string) => q<{ ledger_scope: string; direction: string; cat
 const CORRECTIONS = MIG('20261102210000_special_advances_corrections.sql');
 const IMPAIRMENT = MIG('20261102220000_special_advances_impairment_writeoff.sql');
 const IMPAIRMENT_RB = read('supabase/rollbacks/20261102220000_special_advances_impairment_writeoff.rollback.sql');
-const cfo2 = uuid(); // a second enabled CFO (maker-checker)
+const cfo2 = uuid(); // another enabled CFO: Welile has one, so `cfo` approves its own requests; cfo2 only checks withdraw rights
 const PHASE4_ALLOWLIST_MD5 = 'f61da259fbb92c484402bb3149abac37'; // production, read-only check 2026-11-02
 const C_CATEGORIES = ['special_advance_impairment_charge', 'special_advance_impairment_allowance', 'special_advance_write_off',
   'special_advance_write_off_loss', 'special_advance_recovery_received', 'special_advance_recovery_income'];
@@ -360,7 +360,7 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
     expect((await requestReview({}, cfo, uuid(), 'aal1')).err?.message).toBe('MFA_REQUIRED');
   });
 
-  it('a review posts nothing until a different CFO approves it; then DR X4 / CR A25 per advance', async () => {
+  it('a review posts nothing until a CFO (the requester may) approves it; then DR X4 / CR A25 per advance', async () => {
     const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
     const key = uuid();
     const r = (await requestReview({ [w1.id]: 60 }, cfo, key)).out!;
@@ -368,8 +368,7 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
     expect((await requestReview({ [w1.id]: 60 }, cfo, key)).out?.replayed).toBe(true);
     expect((await requestReview({}, cfo)).err?.message).toBe('PROVISION_REVIEW_ALREADY_PENDING');
     expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
-    expect((await decideReview(r.id, 'approve', cfo)).err?.message).toBe('SECOND_CFO_REQUIRED');
-    const ok = await decideReview(r.id, 'approve', cfo2, 'Agreed: W1 individually impaired');
+    const ok = await decideReview(r.id, 'approve', cfo, 'Agreed: W1 individually impaired');
     expect(ok.err).toBeUndefined();
     const l1 = ok.out!.lines.find((l) => l.advance_id === w1.id)!;
     expect(await mapped(l1.ledger_group_id!)).toEqual([{ account: 'A25', dr: 0, cr: 564_000 }, { account: 'X4', dr: 564_000, cr: 0 }]);
@@ -384,7 +383,7 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
     expect((await requestReview({})).err?.message).toBe('NOTHING_TO_PROVISION');
     const r = (await requestReview({ [w1.id]: 0 })).out!;
     expect(r.lines.map((l) => [l.advance_id, l.delta])).toEqual([[w1.id, 94_000 - 564_000]]);
-    const ok = (await decideReview(r.id, 'approve', cfo2)).out!;
+    const ok = (await decideReview(r.id, 'approve', cfo)).out!;
     expect(await mapped(ok.lines[0].ledger_group_id!)).toEqual([{ account: 'A25', dr: 470_000, cr: 0 }, { account: 'X4', dr: 0, cr: 470_000 }]);
     expect(await held(w1.id)).toBe(94_000);
   });
@@ -393,17 +392,17 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
     const r = (await requestReview({ [w2.id]: 30 })).out!;
     await repay(w2, { amount: 100_000, reference: 'MM-W2-STALE-1' });
     const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
-    expect((await decideReview(r.id, 'approve', cfo2)).err?.message).toBe('PROVISION_REVIEW_STALE');
+    expect((await decideReview(r.id, 'approve', cfo)).err?.message).toBe('PROVISION_REVIEW_STALE');
     expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
-    expect((await decideReview(r.id, 'reject', cfo2)).err?.message).toBe('REASON_REQUIRED');
-    expect((await decideReview(r.id, 'reject', cfo2, 'Stale: repayment received')).out?.status).toBe('rejected');
+    expect((await decideReview(r.id, 'reject', cfo)).err?.message).toBe('REASON_REQUIRED');
+    expect((await decideReview(r.id, 'reject', cfo, 'Stale: repayment received')).out?.status).toBe('rejected');
   });
 
   it('after a repayment the next review lowers the allowance to the new gross (release)', async () => {
     const r = (await requestReview({})).out!;
     expect(r.lines.map((l) => [l.advance_id, l.gross_outstanding, l.required_allowance, l.delta])).toEqual([[w2.id, 840_000, 84_000, -10_000]]);
     expect((await decideReview(r.id, 'withdraw', cfo2)).err?.message).toBe('ONLY_REQUESTER_MAY_WITHDRAW');
-    await decideReview(r.id, 'approve', cfo2);
+    await decideReview(r.id, 'approve', cfo);
     expect(await held(w2.id)).toBe(84_000);
     expect(await recon()).toMatchObject({ balanced: true, allowance_difference: 0 });
   });
@@ -428,9 +427,8 @@ describe('Write-off (D9) and recovery (D10)', () => {
     expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
   });
 
-  it('a different CFO approves: CR A24 gross, DR A25 allowance, DR X4 the rest; the advance is written off and stays on record', async () => {
-    expect((await decideWriteOff(wo.id, 'approve', cfo)).err?.message).toBe('SECOND_CFO_REQUIRED');
-    const r = await decideWriteOff(wo.id, 'approve', cfo2, 'Evidence reviewed');
+  it('the same CFO approves the write-off: CR A24 gross, DR A25 allowance, DR X4 the rest; the advance is written off and stays on record', async () => {
+    const r = await decideWriteOff(wo.id, 'approve', cfo, 'Evidence reviewed');
     expect(r.err).toBeUndefined();
     expect(await mapped(r.out!.ledger_group_id!)).toEqual([
       { account: 'A24', dr: 0, cr: 940_000 }, { account: 'A25', dr: 94_000, cr: 0 }, { account: 'X4', dr: 846_000, cr: 0 }]);
@@ -441,7 +439,7 @@ describe('Write-off (D9) and recovery (D10)', () => {
     expect(st.events.map((e) => e.event_type).slice(-3).sort()).toEqual(['write_off_approved', 'write_off_requested', 'written_off']);
     expect(await recon()).toMatchObject({ balanced: true, difference: 0, allowance_difference: 0 });
     expect((await repay({ id: w1 }, { amount: 1_000, reference: 'MM-AFTER-WO' })).err?.message).toBe('SPECIAL_ADVANCE_NOT_REPAYABLE');
-    expect((await decideWriteOff(wo.id, 'approve', cfo2)).out?.replayed).toBe(true);
+    expect((await decideWriteOff(wo.id, 'approve', cfo)).out?.replayed).toBe(true);
   });
 
   it('a written-off borrower cannot get a new Special Advance (safety default)', async () => {
@@ -468,16 +466,16 @@ describe('Write-off (D9) and recovery (D10)', () => {
     await shiftToday(40);
     try {
       const r = (await requestReview({ [id]: 100 })).out!;
-      await decideReview(r.id, 'approve', cfo2);
+      await decideReview(r.id, 'approve', cfo);
       expect(await held(id)).toBe(378_000);
       await repay({ id }, { amount: 78_000, reference: 'MM-OVERPROV-1' }); // gross 300,000 < allowance 378,000
       const stale = (await requestWriteOff(id)).out!;
       await repay({ id }, { amount: 1_000, reference: 'MM-OVERPROV-2' });
-      expect((await decideWriteOff(stale.id, 'approve', cfo2)).err?.message).toBe('WRITE_OFF_STALE');
+      expect((await decideWriteOff(stale.id, 'approve', cfo)).err?.message).toBe('WRITE_OFF_STALE');
       await decideWriteOff(stale.id, 'withdraw', cfo);
       const w = (await requestWriteOff(id)).out!;
       expect(w).toMatchObject({ gross_amount: 299_000, allowance_released: 378_000, net_loss: -79_000 });
-      const ok = (await decideWriteOff(w.id, 'approve', cfo2)).out!;
+      const ok = (await decideWriteOff(w.id, 'approve', cfo)).out!;
       expect(await mapped(ok.ledger_group_id!)).toEqual([
         { account: 'A24', dr: 0, cr: 299_000 }, { account: 'A25', dr: 378_000, cr: 0 }, { account: 'X4', dr: 0, cr: 79_000 }]);
       expect(await recon()).toMatchObject({ balanced: true, difference: 0, allowance_difference: 0 });

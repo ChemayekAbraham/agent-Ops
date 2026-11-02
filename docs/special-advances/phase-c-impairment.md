@@ -73,5 +73,5 @@ of approval; recoveries on the day received.
 
 ## Before applying
 
-Phase B applied first; the CFO approves the accounting-policy change; two CFOs enrolled (maker-checker). Issuance
+Phase B applied first; the CFO approves the accounting-policy change; the CFO enrolled with an authenticator (the same CFO approves their own requests, amended 2026-11-03). Issuance
 stays off.

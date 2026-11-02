@@ -207,7 +207,7 @@ const legs = (group: string) => q<{ ledger_scope: string; direction: string; cat
 // ───────────── Phase B: corrections ─────────────
 const CORRECTIONS = MIG('20261102210000_special_advances_corrections.sql');
 const CORRECTIONS_RB = read('supabase/rollbacks/20261102210000_special_advances_corrections.rollback.sql');
-const cfo2 = uuid(); // a second enabled CFO (maker-checker)
+const cfo2 = uuid(); // another enabled CFO: Welile has one, so `cfo` approves its own requests; cfo2 only checks withdraw rights
 const external = { kind: 'external', borrower_type: 'individual', full_name: 'John Mukasa', phone: '0772123456', national_id: 'CM900000000000' };
 
 type Correction = { id: string; reference: string; status: string; kind: string; amount: number; ledger_group_id: string | null;
@@ -330,22 +330,20 @@ describe('Repayment reversal (D11: maker-checker, reason + proof, opposite legs)
     expect((await statement(w.id)).position.outstanding).toBe(740_000);
   });
 
-  it('the requester cannot approve or reject it; a non-CFO cannot decide; aal2 is required', async () => {
-    expect((await decide(corr.id, 'approve', cfo)).err?.message).toBe('SECOND_CFO_REQUIRED');
-    expect((await decide(corr.id, 'reject', cfo, 'Changed my mind on this')).err?.message).toBe('SECOND_CFO_REQUIRED');
+  it('a non-CFO cannot decide; aal2 is required; only the requester withdraws', async () => {
     expect((await decide(corr.id, 'approve', coo)).err?.message).toBe('NOT_AUTHORIZED');
-    expect((await decide(corr.id, 'approve', cfo2, null, 'aal1')).err?.message).toBe('MFA_REQUIRED');
+    expect((await decide(corr.id, 'approve', cfo, null, 'aal1')).err?.message).toBe('MFA_REQUIRED');
     expect((await decide(corr.id, 'withdraw', cfo2)).err?.message).toBe('ONLY_REQUESTER_MAY_WITHDRAW');
-    expect((await decide(corr.id, 'cancel', cfo2)).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
+    expect((await decide(corr.id, 'cancel', cfo)).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
     expect((await q(`select status from public.special_advance_corrections where id = $1`, [corr.id]))).toEqual([{ status: 'pending' }]);
   });
 
-  it('a second CFO approves: posts DR A24 / CR A1 once, the repayment stops counting, the original entries are untouched', async () => {
+  it('the same CFO approves its own request (one CFO, decision 2026-11-03): posts DR A24 / CR A1 once, the repayment stops counting, the original entries are untouched', async () => {
     const rep = await repGroup('MM-WRONG-0001');
     const original = await q(`select * from public.general_ledger where transaction_group_id = $1 order by id`, [rep.g]);
-    const r = await decide(corr.id, 'approve', cfo2, 'Checked against the bank statement');
+    const r = await decide(corr.id, 'approve', cfo, 'Checked against the bank statement');
     expect(r.err).toBeUndefined();
-    expect(r.out).toMatchObject({ status: 'approved', decided_by: cfo2 });
+    expect(r.out).toMatchObject({ status: 'approved', decided_by: cfo });
     const g = r.out!.ledger_group_id!;
     expect(await mapped(g)).toEqual([{ account: 'A1', dr: 0, cr: 200_000 }, { account: 'A24', dr: 200_000, cr: 0 }]);
     expect(await q(`select source_table, count(*)::int n, sum(case when direction='cash_in' then amount else -amount end)::int net
@@ -360,8 +358,8 @@ describe('Repayment reversal (D11: maker-checker, reason + proof, opposite legs)
     expect(st.events.map((e) => e.event_type).slice(-2)).toEqual(['correction_requested', 'correction_approved']);
     expect(await recon()).toMatchObject({ balanced: true, difference: 0, mismatched_advances: [] });
     // deciding again: the same decision replays, another is refused; a reversed repayment cannot be reversed again
-    expect((await decide(corr.id, 'approve', cfo2)).out?.replayed).toBe(true);
-    expect((await decide(corr.id, 'reject', cfo2, 'Too late to reject')).err?.message).toBe('CORRECTION_ALREADY_DECIDED');
+    expect((await decide(corr.id, 'approve', cfo)).out?.replayed).toBe(true);
+    expect((await decide(corr.id, 'reject', cfo, 'Too late to reject')).err?.message).toBe('CORRECTION_ALREADY_DECIDED');
     expect((await request(w.id, { kind: 'repayment_reversal', repayment_id: rep.id })).err?.message).toBe('REPAYMENT_ALREADY_REVERSED');
   });
 
@@ -377,8 +375,8 @@ describe('Repayment reversal (D11: maker-checker, reason + proof, opposite legs)
     const rep = await repGroup('mm-wrong-0001');
     const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
     const a = (await request(w.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!;
-    expect((await decide(a.id, 'reject', cfo2)).err?.message).toBe('REASON_REQUIRED');
-    expect((await decide(a.id, 'reject', cfo2, 'The repayment is genuine')).out).toMatchObject({ status: 'rejected', ledger_group_id: null });
+    expect((await decide(a.id, 'reject', cfo)).err?.message).toBe('REASON_REQUIRED');
+    expect((await decide(a.id, 'reject', cfo, 'The repayment is genuine')).out).toMatchObject({ status: 'rejected', ledger_group_id: null });
     const b = (await request(w.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!;
     expect((await decide(b.id, 'withdraw', cfo)).out).toMatchObject({ status: 'withdrawn', decided_by: cfo });
     expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
@@ -390,7 +388,7 @@ describe('Repayment reversal (D11: maker-checker, reason + proof, opposite legs)
     expect((await repay(w, { amount: st.position.outstanding, reference: 'BANK-SETTLE-W1', method: 'bank_transfer' })).out?.status).toBe('settled');
     const rep = await repGroup('BANK-SETTLE-W1');
     const c = (await request(w.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!;
-    const r = await decide(c.id, 'approve', cfo2);
+    const r = await decide(c.id, 'approve', cfo);
     expect(r.err).toBeUndefined();
     const after = await statement(w.id);
     expect(after).toMatchObject({ status: 'disbursed', settled_at: null });
@@ -405,7 +403,7 @@ describe('Repayment reversal (D11: maker-checker, reason + proof, opposite legs)
     const other = await approved({ kind: 'welile_user', user_id: tenant }); // allowed: the first one is settled
     const rep = await repGroup('BANK-SETTLE-W1');
     const c = (await request(w.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!;
-    expect((await decide(c.id, 'approve', cfo2)).err?.message).toBe('BORROWER_HAS_OPEN_ADVANCE');
+    expect((await decide(c.id, 'approve', cfo)).err?.message).toBe('BORROWER_HAS_OPEN_ADVANCE');
     expect((await q(`select status from public.special_advance_corrections where id = $1`, [c.id]))).toEqual([{ status: 'pending' }]);
     await decide(c.id, 'withdraw', cfo);
     await call(cfo, `select public.special_advance_cancel($1, $2::timestamptz, $3) r`, [other.id, other.updated_at, 'Not needed after all']);
@@ -428,10 +426,10 @@ describe('External payout reversal', () => {
 
   it('after its repayments are reversed, a second CFO reverses the payout: DR A1, DR R1 fees, CR A24; the advance ends reversed at 0', async () => {
     const rep = await repGroup('MM-E-REP-1');
-    await decide((await request(e.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!.id, 'approve', cfo2);
+    await decide((await request(e.id, { kind: 'repayment_reversal', repayment_id: rep.id })).out!.id, 'approve', cfo);
     const c = (await request(e.id, { kind: 'payout_reversal', reason: 'Payout recorded twice; the provider shows one transfer only' })).out!;
     expect(c.amount).toBe(365_000);
-    const r = await decide(c.id, 'approve', cfo2);
+    const r = await decide(c.id, 'approve', cfo);
     expect(r.err).toBeUndefined();
     expect(await mapped(r.out!.ledger_group_id!)).toEqual([
       { account: 'A1', dr: 300_000, cr: 0 }, { account: 'A24', dr: 0, cr: 365_000 }, { account: 'R1', dr: 65_000, cr: 0 }]);
@@ -523,10 +521,10 @@ describe('Phase B rollback', () => {
 });
 
 describe('Client helpers (src/lib/specialAdvances.ts)', () => {
-  it('only a different CFO may approve or reject; only the requester may withdraw; nothing once decided', async () => {
+  it('the requester may approve or withdraw; another CFO may approve or reject; nothing once decided', async () => {
     const { correctionActions } = await import('@/lib/specialAdvances');
     expect(correctionActions({ status: 'pending', requested_by: cfo }, cfo2)).toEqual(['approve', 'reject']);
-    expect(correctionActions({ status: 'pending', requested_by: cfo }, cfo)).toEqual(['withdraw']);
+    expect(correctionActions({ status: 'pending', requested_by: cfo }, cfo)).toEqual(['approve', 'withdraw']);
     expect(correctionActions({ status: 'approved', requested_by: cfo }, cfo2)).toEqual([]);
     expect(correctionActions({ status: 'pending', requested_by: cfo }, undefined)).toEqual([]);
   });
@@ -537,7 +535,6 @@ describe('Client helpers (src/lib/specialAdvances.ts)', () => {
       .toEqual({ kind: 'payout_reversal', reason: 'Payout recorded twice in error', proof_path: 'p', idempotency_key: 'k' });
     expect(buildCorrectionRequest({ kind: 'repayment_reversal', repaymentId: 'r1', reason: 'r', proofPath: 'p', idempotencyKey: 'k' }))
       .toMatchObject({ kind: 'repayment_reversal', repayment_id: 'r1' });
-    expect(describeSpecialAdvanceError({ message: 'SECOND_CFO_REQUIRED' })).toMatch(/different CFO/);
     expect(describeSpecialAdvanceError({ message: 'REASON_REQUIRED', details: 'Explain the error in 20 to 1000 characters' })).toMatch(/at least 20/);
     expect(describeSpecialAdvanceError({ message: 'REASON_REQUIRED', details: 'A reason of 5 to 1000 characters is required' })).toMatch(/at least 5/);
     expect(describeSpecialAdvanceError({ message: 'PAYOUT_REVERSAL_NOT_SUPPORTED' })).toMatch(/Welile wallet/);

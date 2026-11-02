@@ -22,7 +22,7 @@ the last step below. Nothing in this phase changes production by itself.
 - **Read-only go-live check** (`supabase/tests/special_advances_golive_check.sql`): one SELECT, run inside a read-only
   transaction, returning `ready` and every item with ok / detail. It checks migrations recorded, function fingerprints
   (Phases 4, B, C, D), tables, accounts A24 / A25, the 12 mappings and allowlist entries, the storage policies (two,
-  both aal2, no update / delete), the proof bucket, at least two CFOs with a verified authenticator, A24 against the
+  both aal2, no update / delete), the proof bucket, the CFO with a verified authenticator (one CFO since 2026-11-03), A24 against the
   paid-out outstanding, every Special Advances ledger group netting to zero, empty approval queues, grants, and the
   issuance switch.
 

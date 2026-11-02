@@ -3,8 +3,9 @@
 --   D11a a correction posts NEW ledger legs: the same special_advance_* categories in the opposite direction, under
 --        source_table 'special_advance_corrections' and linked to the original. No new account, mapping or allowlist
 --        entry; nothing already posted is edited or deleted.
---   D11b maker-checker: one enabled CFO requests, a DIFFERENT enabled CFO approves or rejects (both with a session
---        verified by the authenticator app, aal2). Nothing posts until approval. The requester may withdraw.
+--   D11b two steps: an enabled CFO requests, then an enabled CFO approves or rejects (both with a session verified
+--        by the authenticator app, aal2). Nothing posts until approval. The requester may withdraw.
+--        CFO decision 2026-11-03: Welile has one CFO, so the same CFO may approve their own request (no second CFO).
 --   D11c scope: (1) reverse an erroneous repayment (any paid-out advance; a settled one reopens);
 --        (2) reverse an external payout recorded in error, once every repayment on it has been reversed (the advance
 --        ends 'reversed'). A payout to a Welile wallet cannot be reversed here (it would take money from a wallet).
@@ -117,8 +118,7 @@ CREATE TABLE public.special_advance_corrections (
   CONSTRAINT special_advance_corrections_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
   CONSTRAINT special_advance_corrections_posted CHECK ((status = 'approved') = (ledger_group_id IS NOT NULL)),
   CONSTRAINT special_advance_corrections_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  -- D11b: the approver / rejecter is never the requester; only the requester withdraws
-  CONSTRAINT special_advance_corrections_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
+  -- D11b (as amended 2026-11-03): the requester may also approve or reject; only the requester withdraws
   CONSTRAINT special_advance_corrections_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
 );
 -- one pending correction per advance at a time; a repayment is reversed at most once
@@ -697,13 +697,10 @@ BEGIN
     RAISE EXCEPTION 'CORRECTION_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = c.status;
   END IF;
 
-  IF p_decision = 'withdraw' THEN
-    IF c.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF c.requested_by = v_actor THEN  -- D11b maker-checker
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a correction you requested';
+  -- CFO decision 2026-11-03: Welile has one CFO, so the requesting CFO may approve or reject their own request
+  -- (two steps, same person). Withdrawal stays with the requester.
+  IF p_decision = 'withdraw' AND c.requested_by <> v_actor THEN
+    RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
   END IF;
 
   IF p_decision IN ('reject', 'withdraw') THEN

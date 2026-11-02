@@ -9,9 +9,9 @@
 --   D8  A24 stays the gross receivable. New contra-asset A25 'Special Advances — Impairment Allowance' (credit
 --       balance); the expense goes to the existing X4 'Credit Losses and Write-offs', identifiable by category.
 --   Provisions: a CFO runs a review (the server computes every paid-out advance's required allowance on its gross
---       outstanding and proposes the difference); a DIFFERENT CFO approves before anything posts. On approval the
+--       outstanding and proposes the difference); a CFO approves before anything posts (the same CFO may, decision 2026-11-03). On approval the
 --       figures are recomputed and the review is refused as stale if anything moved.
---   D9  write-off: reason (20-1000 characters) + archived evidence file; a different CFO approves. The whole gross
+--   D9  write-off: reason (20-1000 characters) + archived evidence file; a CFO approves (the same CFO may, 2026-11-03). The whole gross
 --       outstanding (principal + unpaid fees) is written off; past revenue (R1) is left as reported. The advance ends
 --       'written_off' (terminal); its history stays.
 --   D10 money recovered after a write-off: DR A1 / CR X4, recorded by a CFO with reference + proof; the advance stays
@@ -186,7 +186,6 @@ CREATE TABLE public.special_advance_provision_reviews (
   decision_note text CHECK (decision_note IS NULL OR length(btrim(decision_note)) BETWEEN 5 AND 1000),
   CONSTRAINT special_advance_provision_reviews_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
   CONSTRAINT special_advance_provision_reviews_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  CONSTRAINT special_advance_provision_reviews_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
   CONSTRAINT special_advance_provision_reviews_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
 );
 -- one review awaiting a decision at a time
@@ -233,7 +232,6 @@ CREATE TABLE public.special_advance_write_offs (
   CONSTRAINT special_advance_write_offs_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
   CONSTRAINT special_advance_write_offs_posted CHECK ((status = 'approved') = (ledger_group_id IS NOT NULL)),
   CONSTRAINT special_advance_write_offs_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  CONSTRAINT special_advance_write_offs_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
   CONSTRAINT special_advance_write_offs_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
 );
 CREATE UNIQUE INDEX special_advance_write_offs_one_open ON public.special_advance_write_offs (advance_id) WHERE status IN ('pending', 'approved');
@@ -729,13 +727,10 @@ BEGIN
     END IF;
     RAISE EXCEPTION 'PROVISION_REVIEW_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = v.status;
   END IF;
-  IF p_decision = 'withdraw' THEN
-    IF v.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF v.requested_by = v_actor THEN
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a provision review you requested';
+  -- CFO decision 2026-11-03: Welile has one CFO, so the requesting CFO may approve or reject their own request
+  -- (two steps, same person). Withdrawal stays with the requester.
+  IF p_decision = 'withdraw' AND v.requested_by <> v_actor THEN
+    RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
   END IF;
   IF p_decision IN ('reject', 'withdraw') THEN
     UPDATE public.special_advance_provision_reviews
@@ -887,13 +882,10 @@ BEGIN
     END IF;
     RAISE EXCEPTION 'WRITE_OFF_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = w.status;
   END IF;
-  IF p_decision = 'withdraw' THEN
-    IF w.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF w.requested_by = v_actor THEN  -- D9 maker-checker
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a write-off you requested';
+  -- CFO decision 2026-11-03: Welile has one CFO, so the requesting CFO may approve or reject their own request
+  -- (two steps, same person). Withdrawal stays with the requester.
+  IF p_decision = 'withdraw' AND w.requested_by <> v_actor THEN
+    RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
   END IF;
   IF p_decision IN ('reject', 'withdraw') THEN
     UPDATE public.special_advance_write_offs

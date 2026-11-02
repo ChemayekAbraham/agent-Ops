@@ -233,14 +233,14 @@ describe('Special Advances UI - Proof Inputs and Links', () => {
 });
 
 describe('Special Advances UI - Corrections & Maker-Checker', () => {
-  it('maker-checker actions: requester sees only withdraw, another CFO sees approve/reject', () => {
+  it('approval actions: the requester (Welile has one CFO) sees approve/withdraw, another CFO sees approve/reject', () => {
     const correction = {
       status: 'pending' as const,
       requested_by: 'cfo-user-1',
     };
 
     // Requester viewing
-    expect(correctionActions(correction, 'cfo-user-1')).toEqual(['withdraw']);
+    expect(correctionActions(correction, 'cfo-user-1')).toEqual(['approve', 'withdraw']);
 
     // Another CFO viewing
     expect(correctionActions(correction, 'cfo-user-2')).toEqual(['approve', 'reject']);

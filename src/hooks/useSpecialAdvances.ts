@@ -135,7 +135,7 @@ export function useSpecialAdvanceCorrections(status: CorrectionStatus | null = '
   });
 }
 
-/** Records a correction request (reason + proof, see buildCorrectionRequest). Posts nothing until a second CFO approves. */
+/** Records a correction request (reason + proof, see buildCorrectionRequest). Posts nothing until a CFO approves it (the requester may). */
 export function useRequestSpecialAdvanceCorrection() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -145,7 +145,7 @@ export function useRequestSpecialAdvanceCorrection() {
   });
 }
 
-/** approve / reject (a different CFO; reject needs a note) or withdraw (the requester). Approval posts the correction. */
+/** approve / reject (any CFO, the requester included; reject needs a note) or withdraw (the requester). Approval posts the correction. */
 export function useDecideSpecialAdvanceCorrection() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -178,7 +178,7 @@ export function useSpecialAdvanceProvisionReviews(status: MakerCheckerStatus | n
   });
 }
 
-/** Records a pending provision review (see buildProvisionReviewRequest). Posts nothing until a second CFO approves. */
+/** Records a pending provision review (see buildProvisionReviewRequest). Posts nothing until a CFO approves it (the requester may). */
 export function useRequestProvisionReview() {
   const invalidate = useInvalidate();
   return useMutation({
@@ -206,7 +206,7 @@ export function useSpecialAdvanceWriteOffs(status: MakerCheckerStatus | null = '
   });
 }
 
-/** Records a pending write-off of the whole balance (see buildWriteOffRequest). Posts nothing until a second CFO approves. */
+/** Records a pending write-off of the whole balance (see buildWriteOffRequest). Posts nothing until a CFO approves it (the requester may). */
 export function useRequestSpecialAdvanceWriteOff() {
   const invalidate = useInvalidate();
   return useMutation({

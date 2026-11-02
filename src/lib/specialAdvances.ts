@@ -20,7 +20,7 @@ export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   settled: 'Settled',
   // Phase B (migration 20261102210000): an external payout recorded in error, reversed by an approved correction
   reversed: 'Payout reversed',
-  // Phase C (migration 20261102220000): the whole balance written off with a second CFO's approval
+  // Phase C (migration 20261102220000): the whole balance written off once a CFO approves the request
   written_off: 'Written off',
 };
 
@@ -277,7 +277,7 @@ export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
   payout_reversal: 'Reverse an external payout',
 };
 export const CORRECTION_STATUS_LABEL: Record<CorrectionStatus, string> = {
-  pending: 'Awaiting a second CFO',
+  pending: 'Awaiting approval',
   approved: 'Approved — posted',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
@@ -325,10 +325,13 @@ export function buildCorrectionRequest(input: {
   };
 }
 
-/** A correction can be decided by `actorId`: approve / reject only by a different CFO, withdraw only by the requester. */
+/**
+ * What `actorId` can do with a pending correction, provision review or write-off. Welile has one CFO (decision
+ * 2026-11-03), so the requester approves their own request or withdraws it; anyone else approves or rejects.
+ */
 export function correctionActions(c: Pick<SpecialAdvanceCorrection, 'status' | 'requested_by'>, actorId: string | undefined): CorrectionDecision[] {
   if (c.status !== 'pending' || !actorId) return [];
-  return c.requested_by === actorId ? ['withdraw'] : ['approve', 'reject'];
+  return c.requested_by === actorId ? ['approve', 'withdraw'] : ['approve', 'reject'];
 }
 
 export interface SpecialAdvanceList {
@@ -443,7 +446,6 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
   // Corrections (Phase B, D11)
-  if (msg.includes('SECOND_CFO_REQUIRED')) return 'A different CFO must approve or reject a correction you requested.';
   if (msg.includes('ONLY_REQUESTER_MAY_WITHDRAW')) return 'Only the CFO who requested this correction can withdraw it.';
   if (msg.includes('CORRECTION_ALREADY_PENDING')) return 'This advance already has a correction awaiting a decision.';
   if (msg.includes('CORRECTION_ALREADY_DECIDED')) return 'This correction has already been decided.';
@@ -460,11 +462,11 @@ export function describeSpecialAdvanceError(err: unknown): string {
     return `An individual rate cannot be below the minimum for its days past due${min !== undefined ? ` (${min}%)` : ''}.`;
   }
   if (msg.includes('NOTHING_TO_PROVISION')) return 'Every allowance already matches what is required; there is nothing to post.';
-  if (msg.includes('PROVISION_REVIEW_ALREADY_PENDING')) return 'A provision review is already awaiting a second CFO.';
+  if (msg.includes('PROVISION_REVIEW_ALREADY_PENDING')) return 'A provision review is already awaiting approval.';
   if (msg.includes('PROVISION_REVIEW_STALE')) return 'Balances changed since this review was requested. Reject or withdraw it and run a new review.';
   if (msg.includes('PROVISION_REVIEW_ALREADY_DECIDED')) return 'This provision review has already been decided.';
   if (msg.includes('PROVISION_REVIEW_NOT_FOUND')) return 'Provision review not found.';
-  if (msg.includes('WRITE_OFF_ALREADY_PENDING')) return 'A write-off for this advance is already awaiting a second CFO.';
+  if (msg.includes('WRITE_OFF_ALREADY_PENDING')) return 'A write-off for this advance is already awaiting approval.';
   if (msg.includes('WRITE_OFF_STALE')) return 'The balance or the allowance changed since this write-off was requested. Withdraw or reject it and request again.';
   if (msg.includes('WRITE_OFF_ALREADY_DECIDED')) return 'This write-off has already been decided.';
   if (msg.includes('WRITE_OFF_NOT_FOUND')) return 'Write-off not found.';

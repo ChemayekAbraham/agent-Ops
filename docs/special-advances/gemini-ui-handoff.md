@@ -180,3 +180,21 @@ Acceptance: an approved-but-unpaid advance never shows money owed; tile figures 
 All sections built with their states and tests on `dev/special-advances-ui`; nothing outside UI files changed (except new
 UI test files); no new rpc / storage calls in components; terminology rules hold; screens checked at phone width in both
 themes. Hand back to Claude for review before any merge.
+
+## Amendment 2026-11-03: one CFO (wording to change)
+
+The CFO decided that Welile has one CFO who does every step. The server and `correctionActions` now let the requester
+approve their own correction, provision review or write-off (requester: Approve / Withdraw; anyone else: Approve /
+Reject). Remove every mention of a second CFO from the screens; suggested wording in brackets:
+
+- `SpecialAdvancesPanel.tsx`: tab "Awaiting second CFO" ("Awaiting approval"); comments at lines ~30, ~41, ~219.
+- `SpecialAdvanceMakerCheckerQueue.tsx`: "Nothing awaiting a second CFO" ("Nothing awaiting approval");
+  "Two-CFO maker-checker" ("Request, then approve").
+- `SpecialAdvanceCorrectionDialog.tsx`: "Two-CFO Maker-Checker Control"; toast "submitted for second CFO review"
+  ("submitted — approve it in Awaiting approval").
+- `SpecialAdvanceWriteOffDialog.tsx`: toast "submitted for second CFO review" (same).
+- `SpecialAdvanceProvisionsTab.tsx`: toast "sent to second CFO"; button "Request second-CFO provision review"
+  ("Request provision review").
+- `SpecialAdvanceDecideDialog.tsx`: "Confirm this second-CFO approval." ("Confirm this approval.")
+- `SpecialAdvanceDetailSheet.tsx`: "written off with second-CFO approval" ("written off with CFO approval");
+  fallback name "Second CFO" ("CFO").

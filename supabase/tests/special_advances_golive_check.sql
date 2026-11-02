@@ -65,10 +65,10 @@ a24 AS (
          EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'special-advance-proofs' AND NOT public AND file_size_limit = 10485760),
          (SELECT to_jsonb(b) - 'owner' - 'owner_id' FROM storage.buckets b WHERE id = 'special-advance-proofs')
   UNION ALL
-  SELECT 'people: at least two enabled CFOs with a verified authenticator (maker-checker)',
+  SELECT 'people: an enabled CFO with a verified authenticator (one CFO does every step, decision 2026-11-03)',
          (SELECT count(DISTINCT ur.user_id) FROM public.user_roles ur
             JOIN auth.mfa_factors f ON f.user_id = ur.user_id AND f.status = 'verified' AND f.factor_type = 'totp'
-           WHERE ur.role = 'cfo' AND coalesce(ur.enabled, true)) >= 2,
+           WHERE ur.role = 'cfo' AND coalesce(ur.enabled, true)) >= 1,
          jsonb_build_object('enabled_cfos', (SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)),
                             'cfos_with_verified_totp', (SELECT count(DISTINCT ur.user_id) FROM public.user_roles ur
                                JOIN auth.mfa_factors f ON f.user_id = ur.user_id AND f.status = 'verified' AND f.factor_type = 'totp'
@@ -82,7 +82,7 @@ a24 AS (
                       GROUP BY gl.transaction_group_id HAVING sum(CASE WHEN gl.direction = 'cash_in' THEN gl.amount ELSE -gl.amount END) <> 0),
          to_jsonb((SELECT count(DISTINCT transaction_group_id) FROM public.general_ledger WHERE category LIKE 'special\_advance%'))
   UNION ALL
-  SELECT 'queues: nothing awaiting a second CFO',
+  SELECT 'queues: nothing awaiting approval',
          NOT coalesce((xpath('/row/n/text()', query_to_xml(
            CASE WHEN to_regclass('public.special_advance_write_offs') IS NOT NULL THEN
              'select (select count(*) from public.special_advance_corrections where status = ''pending'')

@@ -10,7 +10,7 @@ approval. Migration `supabase/migrations/20261102210000_special_advances_correct
 | # | Decision |
 |---|---|
 | D11a | A correction posts **new** ledger legs: the same `special_advance_*` categories in the opposite direction, `source_table = 'special_advance_corrections'`, linked to the original. No new account, mapping or allowlist entry. Nothing posted is ever edited or deleted. |
-| D11b | Maker-checker: one enabled CFO requests; a **different** enabled CFO approves or rejects (rejection needs a note). Nothing posts until approval. The requester may withdraw. Both steps need an authenticator-verified session (aal2). |
+| D11b | **Amended 2026-11-03: the same CFO may approve their own request (Welile has one CFO).** Originally: one enabled CFO requests; a **different** enabled CFO approves or rejects (rejection needs a note). Nothing posts until approval. The requester may withdraw. Both steps need an authenticator-verified session (aal2). |
 | D11c | Scope: (1) reverse an erroneous repayment, on a paid-out or settled advance (a settled one reopens); (2) reverse an **external** payout recorded in error, once every repayment on it has been reversed (the advance ends `reversed`). A payout to a Welile wallet cannot be reversed here. |
 | D11d | Every request carries a reason (20-1000 characters) and an archived proof file in the private bucket (this advance's folder, must exist, used once across payouts, repayments and corrections). |
 
@@ -47,7 +47,7 @@ day of approval; the original entries keep their dates.
   `src/hooks/useSpecialAdvances.ts` (`useSpecialAdvanceCorrections`, `useRequestSpecialAdvanceCorrection`,
   `useDecideSpecialAdvanceCorrection`).
 
-Refusals: `SECOND_CFO_REQUIRED`, `ONLY_REQUESTER_MAY_WITHDRAW`, `CORRECTION_ALREADY_PENDING` (one pending per advance),
+Refusals: `ONLY_REQUESTER_MAY_WITHDRAW`, `CORRECTION_ALREADY_PENDING` (one pending per advance),
 `CORRECTION_ALREADY_DECIDED`, `REPAYMENT_ALREADY_REVERSED`, `REPAYMENTS_MUST_BE_REVERSED_FIRST`,
 `PAYOUT_REVERSAL_NOT_SUPPORTED` (wallet payout), `SPECIAL_ADVANCE_NOT_CORRECTABLE`, `BORROWER_HAS_OPEN_ADVANCE`
 (reopening would give a borrower two open advances), plus the proof, reason, MFA and role checks.
@@ -70,5 +70,5 @@ Logic is in place; these are screens only.
 
 ## Before applying
 
-Phase A storage policies applied (proof uploads), at least two CFOs enrolled with an authenticator (maker-checker
+Phase A storage policies applied (proof uploads), the CFO enrolled with an authenticator (originally two CFOs for maker-checker; amended 2026-11-03
 needs two), CFO approval to apply. Issuance stays off.
