@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react';
+import { ArrowUpRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
@@ -91,6 +92,14 @@ export function FunderNewHero({
         : {})}
     >
       {decoration}
+      {onOpen && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary-foreground/15 text-primary-foreground sm:right-5 sm:top-5"
+        >
+          <ArrowUpRight className="h-4 w-4" />
+        </span>
+      )}
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <h1 className="funder-hero-heading">
